@@ -1,5 +1,5 @@
 import { InputRef } from 'antd';
-import React, { forwardRef, useCallback, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { CommandK } from '@app/searchV2/CommandK';
@@ -70,7 +70,7 @@ interface Props {
     onSearch?: () => void;
     onFocus?: () => void;
     onBlur?: () => void;
-    onViewsClick?: (event: React.MouseEvent) => void;
+    onViewsClick?: () => void;
     isDropdownOpened?: boolean;
     placeholder?: string;
     showCommandK?: boolean;
@@ -94,6 +94,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
         ref,
     ) => {
         const [isFocused, setIsFocused] = useState<boolean>(false);
+        const [isViewsSelectOpened, setIsViewsSelectOpened] = useState<boolean>(false);
         const isShowNavBarRedesign = useShowNavBarRedesign();
 
         const onFocusHandler = useCallback(() => {
@@ -113,6 +114,20 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             }
         }, []);
 
+        const onViewSelectContainerClickHandler = (event: React.MouseEvent) => {
+            event.stopPropagation(); // do not open the autocomplete's dropdown by clicking on theviews button
+        };
+
+        const onViewsClickHandler = (isOpen: boolean) => {
+            setIsViewsSelectOpened(isOpen);
+            onViewsClick?.();
+        };
+
+        useEffect(() => {
+            // Automatically close the views select when the autocomplete's dropdown is opened event by keayboard shortcut
+            if (isDropdownOpened) setIsViewsSelectOpened(false);
+        }, [isDropdownOpened]);
+
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSearchBar
@@ -130,8 +145,8 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                         <SuffixWrapper>
                             {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
                             {viewsEnabled && (
-                                <ViewSelectContainer onClick={onViewsClick}>
-                                    <ViewSelect />
+                                <ViewSelectContainer onClick={onViewSelectContainerClickHandler}>
+                                    <ViewSelect isOpen={isViewsSelectOpened} onOpenChange={onViewsClickHandler} />
                                 </ViewSelectContainer>
                             )}
                         </SuffixWrapper>

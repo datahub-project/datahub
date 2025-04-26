@@ -132,8 +132,8 @@ export const SearchBarV2 = ({
         clearSelectedView();
     }, [clear, clearSelectedView]);
 
-    const onViewsClickHandler = useCallback((event: React.MouseEvent) => {
-        event.stopPropagation(); // do not open the autocomplete's dropdown by clicking on theviews button
+    const onViewsClickHandler = useCallback(() => {
+        // automatically close the dropdown by clicking on the views button
         setIsDropdownVisible(false);
     }, []);
 
