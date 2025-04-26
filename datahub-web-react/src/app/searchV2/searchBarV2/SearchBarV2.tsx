@@ -1,4 +1,3 @@
-import { Skeleton } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -7,6 +6,7 @@ import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters
 import AutocompletePlaceholder from '@app/searchV2/searchBarV2/components/AutocompletePlaceholder';
 import SearchBarDropdown from '@app/searchV2/searchBarV2/components/SearchBarDropdown';
 import SearchBarInput from '@app/searchV2/searchBarV2/components/SearchBarInput';
+import Skeleton from '@app/searchV2/searchBarV2/components/Skeleton';
 import {
     AUTOCOMPLETE_DROPDOWN_ALIGN,
     AUTOCOMPLETE_DROPDOWN_ALIGN_WITH_NEW_NAV_BAR,
