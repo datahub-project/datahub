@@ -285,9 +285,9 @@ export const SimpleSelect = ({
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
+                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         {...props}
                         position={position}
-                        data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                     >
                         <SelectLabelContainer>
                             {icon && <StyledIcon icon={icon} size="lg" />}

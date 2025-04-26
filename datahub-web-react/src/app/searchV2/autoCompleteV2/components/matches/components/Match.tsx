@@ -81,7 +81,8 @@ export default function Match({ query, entityType, entity, match, color, colorLe
     return (
         <TextWrapper data-testid={`matched-field-container-${field.name}`}>
             <Text color={color} colorLevel={colorLevel} size="sm" type="span">
-                {label}: <MatchText size="sm" type="span" text={value} highlight={query} data-testid="matched-field-value" />
+                {`${label}: `}
+                <MatchText size="sm" type="span" text={value} highlight={query} data-testid="matched-field-value" />
             </Text>
         </TextWrapper>
     );

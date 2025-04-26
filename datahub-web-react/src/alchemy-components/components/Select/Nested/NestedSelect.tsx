@@ -301,7 +301,6 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                         isOpen={isOpen}
                         onClick={handleSelectClick}
                         fontSize={size}
-                        // data-testid="nested-options-dropdown-container"
                         data-testid={dataTestId ? `${dataTestId}-base` : undefined}
                         width={props.width}
                         {...props}
