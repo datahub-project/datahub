@@ -12,6 +12,7 @@ from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
@@ -33,6 +34,11 @@ pytestmark = pytest.mark.random_order(disabled=True)
 
 
 class TestPipeline:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        yield
+        get_default_graph.cache_clear()
+
     @patch("confluent_kafka.Consumer", autospec=True)
     @patch(
         "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
@@ -57,20 +63,14 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
-        return_value={"noCode": True},
-    )
-    @patch(
-        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        "datahub.utilities.server_config_util.RestServiceConfig.load_config",
         return_value={"noCode": True},
     )
     @patch(
         "datahub.cli.config_utils.load_client_config",
         return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
     )
-    def test_configure_without_sink(
-        self, mock_emitter, mock_graph, mock_load_client_config
-    ):
+    def test_configure_without_sink(self, mock_load_config, mock_load_client_config):
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -86,23 +86,23 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
-        return_value={"noCode": True},
-    )
-    @patch(
-        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        "datahub.utilities.server_config_util.RestServiceConfig.load_config",
         return_value={"noCode": True},
     )
     @patch(
         "datahub.cli.config_utils.load_client_config",
-        return_value=DatahubClientConfig(server="http://fake-internal-server:8080"),
+        side_effect=lambda client_mode, datahub_component: DatahubClientConfig(
+            server="http://fake-internal-server:8080",
+            client_mode=client_mode,
+            datahub_component=datahub_component,
+        ),
     )
     @patch(
         "datahub.cli.config_utils.get_system_auth",
         return_value="Basic user:pass",
     )
     def test_configure_without_sink_use_system_auth(
-        self, mock_emitter, mock_graph, mock_load_client_config, mock_get_system_auth
+        self, mock_load_config, mock_load_client_config, mock_get_system_auth
     ):
         pipeline = Pipeline.create(
             {
@@ -122,16 +122,10 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
+        "datahub.utilities.server_config_util.RestServiceConfig.load_config",
         return_value={"noCode": True},
     )
-    @patch(
-        "datahub.ingestion.graph.client.DataHubGraph.get_config",
-        return_value={"noCode": True},
-    )
-    def test_configure_with_rest_sink_initializes_graph(
-        self, mock_source, mock_test_connection
-    ):
+    def test_configure_with_rest_sink_initializes_graph(self, mock_load_config):
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -162,15 +156,11 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
-        return_value={"noCode": True},
-    )
-    @patch(
-        "datahub.ingestion.graph.client.DataHubGraph.get_config",
+        "datahub.utilities.server_config_util.RestServiceConfig.load_config",
         return_value={"noCode": True},
     )
     def test_configure_with_rest_sink_with_additional_props_initializes_graph(
-        self, mock_source, mock_test_connection
+        self, mock_load_config
     ):
         pipeline = Pipeline.create(
             {

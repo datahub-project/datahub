@@ -31,6 +31,7 @@ from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
@@ -136,7 +137,7 @@ class CliReport(Report):
 
 
 def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.INGESTION)
     sink_config = graph._make_rest_sink_config()
 
     return DatahubRestSink(ctx, sink_config)

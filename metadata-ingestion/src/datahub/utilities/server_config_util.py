@@ -1,23 +1,446 @@
-from typing import Any, Dict, Optional
+import logging
+import re
+from enum import Enum
+from typing import (
+    Any,
+    Dict,
+    ItemsView,
+    KeysView,
+    Optional,
+    Tuple,
+    Union,
+)
 
+import requests
+
+from datahub.configuration.common import (
+    ConfigurationError,
+)
 from datahub.telemetry.telemetry import suppress_telemetry
+
+logger = logging.getLogger(__name__)
 
 # Only to be written to for logging server related information
 global_debug: Dict[str, Any] = {}
-
-
-def set_gms_config(config: Dict) -> Any:
-    global_debug["gms_config"] = config
-
-    cli_telemtry_enabled = is_cli_telemetry_enabled()
-    if cli_telemtry_enabled is not None and not cli_telemtry_enabled:
-        # server requires telemetry to be disabled on client
-        suppress_telemetry()
 
 
 def get_gms_config() -> Dict:
     return global_debug.get("gms_config", {})
 
 
-def is_cli_telemetry_enabled() -> Optional[bool]:
-    return get_gms_config().get("telemetry", {}).get("enabledCli", None)
+class ServiceFeature(Enum):
+    """
+    Enum representing supported features in the REST service.
+    """
+
+    OPEN_API_SDK = "openapi_sdk"
+    API_TRACING = "api_tracing"
+    NO_CODE = "no_code"
+    STATEFUL_INGESTION = "stateful_ingestion"
+    IMPACT_ANALYSIS = "impact_analysis"
+    PATCH_CAPABLE = "patch_capable"
+    CLI_TELEMETRY = "cli_telemetry"
+    # Add more features as needed
+
+
+_REQUIRED_VERSION_OPENAPI_TRACING = {
+    "acryl": (
+        0,
+        3,
+        11,
+        0,
+    ),  # Requires v0.3.11.0 or higher for acryl versions
+    "cloud": (0, 3, 11, 0),  # Special case for '-cloud' suffix
+    "any_suffix": (0, 3, 11, 0),  # Generic requirement for any other suffix
+    "none": (1, 0, 1, 0),  # Requirement for versions without suffix
+}
+
+
+class RestServiceConfig:
+    """
+    A class to represent REST service configuration with semantic version parsing capabilities.
+    """
+
+    def __init__(
+        self,
+        session: Optional[requests.Session] = None,
+        url: Optional[str] = None,
+        config: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Initialize with either a session and URL for lazy loading,
+        or a pre-loaded configuration dictionary.
+
+        Args:
+            session: HTTP session for making requests
+            url: URL endpoint for fetching configuration
+            config: Dictionary containing service configuration (optional)
+        """
+        self._session: Optional[requests.Session] = session
+        self._url: Optional[str] = url
+        self._config: Dict[str, Any] = config if config is not None else {}
+        self._version_cache: Optional[Tuple[int, int, int, int]] = None
+
+    def load_config(self) -> Dict[str, Any]:
+        """
+        Fetch configuration from the server if not already loaded.
+
+        Returns:
+            The configuration dictionary
+
+        Raises:
+            ConfigurationError: If there's an error fetching or validating the configuration
+        """
+        if not self._config:
+            if self._session is None or self._url is None:
+                raise ConfigurationError(
+                    "Session and URL are required to load configuration"
+                )
+
+            response = self._session.get(self._url)
+
+            if response.status_code == 200:
+                config = response.json()
+
+                # Validate that we're connected to the correct service
+                if config.get("noCode") == "true":
+                    self._config = config
+                else:
+                    raise ConfigurationError(
+                        "You seem to have connected to the frontend service instead of the GMS endpoint. "
+                        "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms). "
+                        "For Acryl users, the endpoint should be https://<name>.acryl.io/gms"
+                    )
+            else:
+                logger.debug(
+                    f"Unable to connect to {self._url} with status_code: {response.status_code}. Response: {response.text}"
+                )
+
+                if response.status_code == 401:
+                    message = f"Unable to connect to {self._url} - got an authentication error: {response.text}."
+                else:
+                    message = f"Unable to connect to {self._url} with status_code: {response.status_code}."
+
+                message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
+                raise ConfigurationError(message)
+
+        return self._config
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        """
+        Get the full configuration dictionary, loading it if necessary.
+
+        Returns:
+            The configuration dictionary
+        """
+        return self.load_config()
+
+    def get_commit_hash(self) -> Optional[str]:
+        """
+        Get the commit hash for the current version.
+
+        Returns:
+            The commit hash or None if not found
+        """
+        versions = self.config.get("versions", {})
+        datahub_info = versions.get("acryldata/datahub", {})
+        return datahub_info.get("commit")
+
+    def get_server_type(self) -> str:
+        """
+        Get the server type.
+
+        Returns:
+            The server type or "unknown" if not found
+        """
+        datahub = self.config.get("datahub", {})
+        return datahub.get("serverType", "unknown")
+
+    def get_service_version(self) -> str:
+        """
+        Get the raw service version string.
+
+        Returns:
+            The version string or None if not found
+        """
+        config = self.load_config()
+        versions = config.get("versions", {})
+        datahub_info = versions.get("acryldata/datahub", {})
+        return datahub_info.get("version")
+
+    def parse_version(
+        self, version_str: Optional[str] = None
+    ) -> Tuple[int, int, int, int]:
+        """
+        Parse a semantic version string into its components, ignoring rc and suffixes.
+        Supports standard three-part versions (1.0.0) and four-part versions (1.0.0.1).
+
+        Args:
+            version_str: Version string to parse. If None, uses the service version.
+
+        Returns:
+            Tuple of (major, minor, patch, build) version numbers where build is 0 for three-part versions
+
+        Raises:
+            ValueError: If the version string cannot be parsed
+        """
+        if version_str is None:
+            version_str = self.get_service_version()
+
+        if not version_str:
+            return (0, 0, 0, 0)
+
+        # Remove 'v' prefix if present
+        if version_str.startswith("v"):
+            version_str = version_str[1:]
+
+        # Extract the semantic version part (before any rc or suffix)
+        # This pattern will match both three-part (1.0.0) and four-part (1.0.0.1) versions
+        match = re.match(r"(\d+)\.(\d+)\.(\d+)(?:\.(\d+))?(?:rc\d+|-.*)?", version_str)
+        if not match:
+            raise ValueError(f"Invalid version format: {version_str}")
+
+        major = int(match.group(1))
+        minor = int(match.group(2))
+        patch = int(match.group(3))
+        build = (
+            int(match.group(4)) if match.group(4) else 0
+        )  # Default to 0 if not present
+
+        return (major, minor, patch, build)
+
+    def get_parsed_version(self) -> Optional[Tuple[int, int, int, int]]:
+        """
+        Get the parsed semantic version of the service.
+        Uses caching for efficiency.
+
+        Returns:
+            Tuple of (major, minor, patch) version numbers
+        """
+        if self._version_cache is None:
+            self._version_cache = self.parse_version()
+        return self._version_cache
+
+    def is_version_at_least(
+        self, major: int, minor: int = 0, patch: int = 0, build: int = 0
+    ) -> bool:
+        """
+        Check if the service version is at least the specified version.
+
+        Args:
+            major: Major version to check against
+            minor: Minor version to check against
+            patch: Patch version to check against
+            build: Build version to check against (for four-part versions)
+
+        Returns:
+            True if the service version is at least the specified version
+        """
+        current_major, current_minor, current_patch, current_build = (
+            self.get_parsed_version() or (0, 0, 0, 0)
+        )
+
+        if current_major > major:
+            return True
+        if current_major < major:
+            return False
+
+        if current_minor > minor:
+            return True
+        if current_minor < minor:
+            return False
+
+        if current_patch > patch:
+            return True
+        if current_patch < patch:
+            return False
+
+        return current_build >= build
+
+    @property
+    def is_no_code_enabled(self) -> bool:
+        """
+        Check if noCode is enabled.
+
+        Returns:
+            True if noCode is set to "true"
+        """
+        return self.config.get("noCode") == "true"
+
+    @property
+    def is_managed_ingestion_enabled(self) -> bool:
+        """
+        Check if managedIngestion is enabled.
+
+        Returns:
+            True if managedIngestion.enabled is True
+        """
+        managed_ingestion = self.config.get("managedIngestion", {})
+        return managed_ingestion.get("enabled", False)
+
+    def supports_feature(self, feature: ServiceFeature) -> bool:
+        """
+        Determines whether a specific feature is supported based on service version.
+
+        Version categorization follows these rules:
+        1. Has '-acryl' suffix (highest priority)
+        2. Has a specific known suffix (e.g. '-other')
+        3. Has some other suffix (catchall for any suffix)
+        4. No suffix
+
+        Args:
+            feature: Feature enum value to check
+
+        Returns:
+            Boolean indicating whether the feature is supported
+        """
+        version = self.get_service_version()
+        if not version:
+            return False
+
+        # Determine the suffix category
+        suffix_category = "none"  # Default: no suffix
+
+        if "-" in version:
+            suffix = version.split("-", 1)[1]
+
+            if suffix == "acryl":
+                suffix_category = "acryl"
+            elif suffix == "cloud":  # Example of a specific override
+                suffix_category = "cloud"
+            else:
+                suffix_category = "any_suffix"  # Catchall for any other suffix
+
+        # Define feature requirements based on version scheme
+        # This can be expanded to include more features
+        feature_requirements = {
+            ServiceFeature.OPEN_API_SDK: _REQUIRED_VERSION_OPENAPI_TRACING,
+            ServiceFeature.API_TRACING: _REQUIRED_VERSION_OPENAPI_TRACING,
+            # Additional features can be defined here
+        }
+
+        # Special handling for features that rely on config flags instead of version
+        config_based_features = {
+            ServiceFeature.NO_CODE: lambda: self.is_no_code_enabled,
+            ServiceFeature.STATEFUL_INGESTION: lambda: self.config.get(
+                "statefulIngestionCapable", False
+            )
+            is True,
+            ServiceFeature.IMPACT_ANALYSIS: lambda: self.config.get(
+                "supportsImpactAnalysis", False
+            )
+            is True,
+            ServiceFeature.PATCH_CAPABLE: lambda: self.config.get("patchCapable", False)
+            is True,
+            ServiceFeature.CLI_TELEMETRY: lambda: self.config.get("telemetry", {}).get(
+                "enabledCli", None
+            ),
+            # Add more config-based feature checks as needed
+        }
+
+        # Check if this is a config-based feature
+        if feature in config_based_features:
+            return config_based_features[feature]()
+
+        # Check if the feature exists in our requirements dictionary
+        if feature not in feature_requirements:
+            # Unknown feature, assume not supported
+            return False
+
+        # Get version requirements for this feature and version category
+        feature_reqs = feature_requirements[feature]
+        requirements = feature_reqs.get(suffix_category)
+
+        if not requirements:
+            # Fallback to the no-suffix requirements if specific requirements aren't defined
+            requirements = feature_reqs.get(
+                "none", (99, 99, 99, 99)
+            )  # Very high version if none defined
+
+        # Check if the current version meets the requirements
+        req_major, req_minor, req_patch, req_build = requirements
+        return self.is_version_at_least(req_major, req_minor, req_patch, req_build)
+
+    def __str__(self) -> str:
+        """
+        Return a string representation of the configuration as JSON.
+
+        Returns:
+            A string representation of the configuration dictionary
+        """
+        return str(self.config)
+
+    def __repr__(self) -> str:
+        """
+        Return a representation of the object that can be used to recreate it.
+
+        Returns:
+            A string representation that can be used with pprint
+        """
+        return str(self.config)
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Allow dictionary-like access to configuration values.
+
+        Args:
+            key: The key to look up in the configuration
+
+        Returns:
+            The value associated with the key
+        """
+        return self.config[key]
+
+    def keys(self) -> KeysView[str]:
+        """
+        Return the keys in the configuration dictionary.
+
+        Returns:
+            The keys in the configuration dictionary
+        """
+        return self.config.keys()
+
+    def items(self) -> ItemsView[str, Any]:
+        """
+        Return the items in the configuration dictionary.
+
+        Returns:
+            The items in the configuration dictionary
+        """
+        return self.config.items()
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get a value from the configuration dictionary.
+
+        Args:
+            key: The key to look up in the configuration
+            default: The value to return if the key is not found
+
+        Returns:
+            The value associated with the key, or the default if not found
+        """
+        try:
+            return self.config.get(key, default)
+        except Exception:
+            return default
+
+
+def set_gms_config(config: Union[Dict[str, Any], RestServiceConfig]) -> Any:
+    global_debug["gms_config"] = config
+
+    config_obj = (
+        config
+        if isinstance(config, RestServiceConfig)
+        else RestServiceConfig(config=config)
+    )
+
+    cli_telemetry_enabled = is_cli_telemetry_enabled(config_obj)
+    if cli_telemetry_enabled is not None and not cli_telemetry_enabled:
+        # server requires telemetry to be disabled on client
+        suppress_telemetry()
+
+
+def is_cli_telemetry_enabled(config: RestServiceConfig) -> bool:
+    return config.supports_feature(ServiceFeature.CLI_TELEMETRY)

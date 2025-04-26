@@ -34,7 +34,7 @@ from datahub.ingestion.api.sink import (
     WriteCallback,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import DatahubClientConfig
+from datahub.ingestion.graph.config import DEFAULT_CLIENT_MODE, DatahubClientConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -140,11 +140,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 f"💥 Failed to connect to DataHub with {repr(self.emitter)}"
             ) from exc
 
-        self.report.gms_version = (
-            gms_config.get("versions", {})
-            .get("acryldata/datahub", {})
-            .get("version", None)
-        )
+        self.report.gms_version = gms_config.get_service_version()
         self.report.mode = self.config.mode
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")
@@ -180,6 +176,9 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             disable_ssl_verification=config.disable_ssl_verification,
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
             default_trace_mode=config.default_trace_mode == RestTraceMode.ENABLED,
+            client_mode=config.client_mode
+            if config.client_mode
+            else DEFAULT_CLIENT_MODE,
         )
 
     @property

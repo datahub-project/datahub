@@ -30,13 +30,20 @@ public class RequestContext implements ContextInterface {
   public static final UserAgentAnalyzer UAA =
       UserAgentAnalyzer.newBuilder()
           .hideMatcherLoadStats()
-          .withField(UserAgent.AGENT_CLASS)
+          .addResources("datahub_user_agents.yaml")
+          .withFields(UserAgent.AGENT_CLASS, UserAgent.AGENT_NAME)
           .withCache(1000)
           .build();
 
   @Nonnull
   public static final RequestContext TEST =
-      RequestContext.builder().requestID("test").requestAPI(RequestAPI.TEST).build();
+      RequestContext.builder()
+          .actorUrn("")
+          .sourceIP("")
+          .userAgent("")
+          .requestID("test")
+          .requestAPI(RequestAPI.TEST)
+          .build();
 
   @Nonnull private final String actorUrn;
   @Nonnull private final String sourceIP;
@@ -50,6 +57,7 @@ public class RequestContext implements ContextInterface {
 
   @Nonnull private final String userAgent;
   @Nonnull private final String agentClass;
+  @Nonnull private final String agentName;
 
   public RequestContext(
       @Nonnull String actorUrn,
@@ -71,13 +79,19 @@ public class RequestContext implements ContextInterface {
      *         "Email Client",
      *         "Library",
      *         "Hacker",
-     *         "Unknown"
+     *         "Unknown",
+     *         // DataHub Specific below
+     *         "CLI",
+     *         "INGESTION",
+     *         "SDK"
      */
     if (this.userAgent != null && !this.userAgent.isEmpty()) {
       UserAgent ua = UAA.parse(this.userAgent);
       this.agentClass = ua.get(UserAgent.AGENT_CLASS).getValue();
+      this.agentName = ua.get(UserAgent.AGENT_NAME).getValue();
     } else {
       this.agentClass = "Unknown";
+      this.agentName = "Unknown";
     }
 
     // Uniform common logging of requests across APIs
@@ -219,13 +233,15 @@ public class RequestContext implements ContextInterface {
       userCategory = "regular";
     }
 
-    MetricUtils.counter(
-            String.format(
-                "requestContext_%s_%s_%s",
-                userCategory,
-                requestContext.getAgentClass().toLowerCase().replaceAll("\\s+", ""),
-                requestContext.getRequestAPI().toString().toLowerCase()))
-        .inc();
+    if (requestContext.getRequestAPI() != RequestAPI.TEST) {
+      MetricUtils.counter(
+              String.format(
+                  "requestContext_%s_%s_%s",
+                  userCategory,
+                  requestContext.getAgentClass().toLowerCase().replaceAll("\\s+", ""),
+                  requestContext.getRequestAPI().toString().toLowerCase()))
+          .inc();
+    }
   }
 
   @Override

@@ -34,14 +34,14 @@ from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import (
-    DEFAULT_REST_EMITTER_ENDPOINT,
     DEFAULT_REST_TRACE_MODE,
     DatahubRestEmitter,
-    RestSinkEndpoint,
     RestTraceMode,
 )
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
+    DEFAULT_CLIENT_MODE,
+    ClientMode,
     DatahubClientConfig as DatahubClientConfig,
 )
 from datahub.ingestion.graph.connections import (
@@ -158,13 +158,14 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
-            openapi_ingestion=self.config.openapi_ingestion
-            if self.config.openapi_ingestion is not None
-            else (DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI),
+            openapi_ingestion=self.config.openapi_ingestion,
             default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
+            client_mode=config.client_mode
+            if config.client_mode
+            else DEFAULT_CLIENT_MODE,
+            datahub_component=config.datahub_component,
         )
-
-        self.server_id = _MISSING_SERVER_ID
+        self.server_id: str = _MISSING_SERVER_ID
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -1954,8 +1955,12 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         super().close()
 
 
-def get_default_graph() -> DataHubGraph:
-    graph_config = config_utils.load_client_config()
+@functools.lru_cache(maxsize=None)
+def get_default_graph(
+    client_mode: ClientMode = DEFAULT_CLIENT_MODE,
+    datahub_component: Optional[str] = None,
+) -> DataHubGraph:
+    graph_config = config_utils.load_client_config(client_mode, datahub_component)
     graph = DataHubGraph(graph_config)
     graph.test_connection()
     telemetry_instance.set_context(server=graph)

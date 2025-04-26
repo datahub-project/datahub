@@ -1,6 +1,19 @@
+import os
+from enum import Enum, auto
 from typing import Dict, List, Optional
 
 from datahub.configuration.common import ConfigModel
+
+
+class ClientMode(Enum):
+    INGESTION = auto()
+    CLI = auto()
+    SDK = auto()
+
+
+DATAHUB_COMPONENT_ENV: str = os.getenv("DATAHUB_COMPONENT", "datahub").lower()
+
+DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
 
 
 class DatahubClientConfig(ConfigModel):
@@ -18,3 +31,5 @@ class DatahubClientConfig(ConfigModel):
     client_certificate_path: Optional[str] = None
     disable_ssl_verification: bool = False
     openapi_ingestion: Optional[bool] = None
+    client_mode: Optional[ClientMode] = None
+    datahub_component: Optional[str] = None

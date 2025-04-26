@@ -14,10 +14,11 @@ from tabulate import tabulate
 
 from datahub._version import nice_version_name
 from datahub.cli import cli_utils
-from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
+from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH, load_client_config
 from datahub.configuration.common import GraphError
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
@@ -269,7 +270,7 @@ def deploy(
     urn:li:dataHubIngestionSource:<name>
     """
 
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.CLI)
 
     variables = deploy_source_vars(
         name=name,
@@ -367,6 +368,7 @@ def mcps(path: str) -> None:
                 "path": path,
             },
         },
+        "datahub_api": load_client_config(ClientMode.CLI),
     }
 
     pipeline = Pipeline.create(recipe, report_to=None)
@@ -422,7 +424,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
         }
     }
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     session = client._session
     gms_host = client.config.server
 
@@ -508,7 +510,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     session = client._session
     gms_host = client.config.server
 
@@ -559,7 +561,7 @@ def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
     """Describe a provided ingestion run to datahub"""
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     session = client._session
     gms_host = client.config.server
 
@@ -609,7 +611,7 @@ def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
     """Rollback a provided ingestion run to datahub"""
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     if not force and not dry_run:
         click.confirm(

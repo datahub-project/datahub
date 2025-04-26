@@ -5,7 +5,6 @@ import json
 import logging
 import os
 import time
-import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta
@@ -50,13 +49,18 @@ from datahub.emitter.response_helper import (
     extract_trace_data_from_mcps,
 )
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.errors import APITracingWarning
 from datahub.ingestion.api.closeable import Closeable
+from datahub.ingestion.graph.config import (
+    DATAHUB_COMPONENT_ENV,
+    DEFAULT_CLIENT_MODE,
+    ClientMode,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
+from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
@@ -133,12 +137,22 @@ class RequestsSessionConfig(ConfigModel):
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
     disable_ssl_verification: bool = False
+    client_mode: ClientMode = DEFAULT_CLIENT_MODE
+    datahub_component: Optional[str] = None
 
     def build_session(self) -> requests.Session:
         session = requests.Session()
 
-        if self.extra_headers:
-            session.headers.update(self.extra_headers)
+        user_agent = self._get_user_agent_string(session)
+
+        base_headers = {
+            "User-Agent": user_agent,
+            "X-DataHub-Client-Mode": self.client_mode.name,
+            "X-DataHub-Py-Cli-Version": nice_version_name(),
+        }
+
+        headers = {**base_headers, **self.extra_headers}
+        session.headers.update(headers)
 
         if self.client_certificate_path:
             session.cert = self.client_certificate_path
@@ -186,6 +200,57 @@ class RequestsSessionConfig(ConfigModel):
 
         return session
 
+    @classmethod
+    def get_client_mode_from_session(
+        cls, session: requests.Session
+    ) -> Optional[ClientMode]:
+        """
+        Extract the ClientMode enum from a requests Session by checking the headers.
+
+        Args:
+            session: The requests.Session object to check
+
+        Returns:
+            The corresponding ClientMode enum value if found, None otherwise
+        """
+        # Check if the session has the X-DataHub-Client-Mode header
+        mode_str = session.headers.get("X-DataHub-Client-Mode")
+
+        if not mode_str:
+            return None
+
+        # Try to convert the string value to enum
+        try:
+            # First ensure we're working with a str value
+            if isinstance(mode_str, bytes):
+                mode_str = mode_str.decode("utf-8")
+
+            # Then find the matching enum value
+            for mode in ClientMode:
+                if mode.name == mode_str:
+                    return mode
+
+            # If we got here, no matching enum was found
+            return None
+        except Exception:
+            # Handle any other errors
+            return None
+
+    def _get_user_agent_string(self, session: requests.Session) -> str:
+        """Generate appropriate user agent string based on client mode"""
+        version = nice_version_name()
+        if "User-Agent" in session.headers:
+            user_agent = session.headers["User-Agent"]
+            if isinstance(user_agent, bytes):
+                requests_user_agent = " " + user_agent.decode("utf-8")
+            else:
+                requests_user_agent = " " + user_agent
+        else:
+            requests_user_agent = ""
+
+        # 1.0 refers to the user agent string version
+        return f"DataHub-Client/1.0 ({self.client_mode.name.lower()}; {self.datahub_component if self.datahub_component else DATAHUB_COMPONENT_ENV}; {version}){requests_user_agent}"
+
 
 @dataclass
 class _Chunk:
@@ -211,8 +276,9 @@ class DataHubRestEmitter(Closeable, Emitter):
     _gms_server: str
     _token: Optional[str]
     _session: requests.Session
-    _openapi_ingestion: bool
+    _openapi_ingestion: Optional[bool]
     _default_trace_mode: bool
+    server_config: RestServiceConfig
 
     def __init__(
         self,
@@ -228,10 +294,10 @@ class DataHubRestEmitter(Closeable, Emitter):
         ca_certificate_path: Optional[str] = None,
         client_certificate_path: Optional[str] = None,
         disable_ssl_verification: bool = False,
-        openapi_ingestion: bool = (
-            DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI
-        ),
+        openapi_ingestion: Optional[bool] = None,
         default_trace_mode: bool = False,
+        client_mode: ClientMode = DEFAULT_CLIENT_MODE,
+        datahub_component: Optional[str] = None,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -243,13 +309,10 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         self._gms_server = fixup_gms_url(gms_server)
         self._token = token
-        self.server_config: Dict[str, Any] = {}
-        self._openapi_ingestion = openapi_ingestion
         self._default_trace_mode = default_trace_mode
         self._session = requests.Session()
-
-        logger.debug(
-            f"Using {'OpenAPI' if self._openapi_ingestion else 'Restli'} for ingestion."
+        self._openapi_ingestion = (
+            openapi_ingestion  # Re-evaluated after test connection
         )
 
         if self._default_trace_mode:
@@ -257,7 +320,6 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         headers = {
             "X-RestLi-Protocol-Version": "2.0.0",
-            "X-DataHub-Py-Cli-Version": nice_version_name(),
             "Content-Type": "application/json",
         }
         if token:
@@ -303,37 +365,54 @@ class DataHubRestEmitter(Closeable, Emitter):
             ca_certificate_path=ca_certificate_path,
             client_certificate_path=client_certificate_path,
             disable_ssl_verification=disable_ssl_verification,
+            client_mode=client_mode,
+            datahub_component=datahub_component,
         )
 
         self._session = self._session_config.build_session()
 
     def test_connection(self) -> None:
         url = f"{self._gms_server}/config"
-        response = self._session.get(url)
-        if response.status_code == 200:
-            config: dict = response.json()
-            if config.get("noCode") == "true":
-                self.server_config = config
-                return
+        try:
+            # Create a config instance with session and URL
+            config = RestServiceConfig(session=self._session, url=url)
+            # Attempt to load config, which will throw ConfigurationError if there's an issue
+            config.load_config()
+            self.server_config = config
 
-            else:
-                raise ConfigurationError(
-                    "You seem to have connected to the frontend service instead of the GMS endpoint. "
-                    "The rest emitter should connect to DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms). "
-                    "For Acryl users, the endpoint should be https://<name>.acryl.io/gms"
-                )
-        else:
+            # Determine OpenAPI mode
+            if self._openapi_ingestion is None:
+                # No constructor parameter
+                if (
+                    not os.getenv("DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT")
+                    and self._session_config.client_mode == ClientMode.SDK
+                    and self.server_config.supports_feature(ServiceFeature.OPEN_API_SDK)
+                ):
+                    # Enable if SDK client and no environment variable specified
+                    self._openapi_ingestion = True
+                else:
+                    # The system env is specifying the value
+                    self._openapi_ingestion = (
+                        DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI
+                    )
+
             logger.debug(
-                f"Unable to connect to {url} with status_code: {response.status_code}. Response: {response.text}"
+                f"Using {'OpenAPI' if self._openapi_ingestion else 'Restli'} for ingestion."
             )
-            if response.status_code == 401:
-                message = f"Unable to connect to {url} - got an authentication error: {response.text}."
-            else:
-                message = f"Unable to connect to {url} with status_code: {response.status_code}."
-            message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
-            raise ConfigurationError(message)
 
-    def get_server_config(self) -> dict:
+            # Set default tracing for SDK
+            if (
+                self._session_config.client_mode == ClientMode.SDK
+                and self.server_config.supports_feature(ServiceFeature.API_TRACING)
+            ):
+                # Enable tracing if using SDK & server supported
+                self._default_trace_mode = True
+
+        except ConfigurationError as e:
+            # Just re-raise the exception
+            raise e
+
+    def get_server_config(self) -> RestServiceConfig:
         self.test_connection()
         return self.server_config
 
@@ -751,12 +830,6 @@ class DataHubRestEmitter(Closeable, Emitter):
             trace_flag if trace_flag is not None else self._default_trace_mode
         )
         resolved_async_flag = async_flag if async_flag is not None else async_default
-        if resolved_trace_flag and not resolved_async_flag:
-            warnings.warn(
-                "API tracing is only available with async ingestion. For sync mode, API errors will be surfaced as exceptions.",
-                APITracingWarning,
-                stacklevel=3,
-            )
         return resolved_trace_flag and resolved_async_flag
 
     def __repr__(self) -> str:
