@@ -132,6 +132,11 @@ export const SearchBarV2 = ({
         clearSelectedView();
     }, [clear, clearSelectedView]);
 
+    const onViewsClickHandler = useCallback((event: React.MouseEvent) => {
+        event.stopPropagation(); // do not open the autocomplete's dropdown by clicking on theviews button
+        setIsDropdownVisible(false);
+    }, []);
+
     const onClearHandler = useCallback(() => clearQueryAndFilters(), [clearQueryAndFilters]);
 
     if (isLoading) return <Skeleton />;
@@ -192,6 +197,7 @@ export const SearchBarV2 = ({
                     value={searchQuery}
                     onFocus={onFocus}
                     onBlur={onBlur}
+                    onViewsClick={onViewsClickHandler}
                     ref={searchInputRef}
                     showCommandK={showCommandK}
                     isDropdownOpened={isDropdownVisible}

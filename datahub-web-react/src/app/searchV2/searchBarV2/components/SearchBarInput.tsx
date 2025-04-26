@@ -70,6 +70,7 @@ interface Props {
     onSearch?: () => void;
     onFocus?: () => void;
     onBlur?: () => void;
+    onViewsClick?: (event: React.MouseEvent) => void;
     isDropdownOpened?: boolean;
     placeholder?: string;
     showCommandK?: boolean;
@@ -78,7 +79,18 @@ interface Props {
 
 const SearchBarInput = forwardRef<InputRef, Props>(
     (
-        { value, onChange, onSearch, onFocus, onBlur, isDropdownOpened, placeholder, showCommandK, viewsEnabled },
+        {
+            value,
+            onChange,
+            onSearch,
+            onFocus,
+            onBlur,
+            onViewsClick,
+            isDropdownOpened,
+            placeholder,
+            showCommandK,
+            viewsEnabled,
+        },
         ref,
     ) => {
         const [isFocused, setIsFocused] = useState<boolean>(false);
@@ -118,7 +130,7 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                         <SuffixWrapper>
                             {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
                             {viewsEnabled && (
-                                <ViewSelectContainer onClick={(e) => e.stopPropagation()}>
+                                <ViewSelectContainer onClick={onViewsClick}>
                                     <ViewSelect />
                                 </ViewSelectContainer>
                             )}
