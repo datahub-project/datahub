@@ -1436,6 +1436,9 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
+    env:
+      MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
+      MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
       - name: Free up disk space
         if: ${{ needs.determine_runner.outputs.runner_type == 'ubuntu-latest' }}
@@ -1514,7 +1517,6 @@ jobs:
       - name: Build datahub cli
         run: |
           ./gradlew :metadata-ingestion:install
-
       - name: Load secrets
         uses: 1password/load-secrets-action@v2
         with:

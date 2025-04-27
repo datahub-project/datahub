@@ -95,34 +95,41 @@ def process_app_chat_event_and_send_message(app: App, event: SlackMentionEvent) 
         event: The event containing message details (text, channel, user, thread_ts)
     """
     channel_id = event.channel_id
+    response_ts = None
 
-    # Send immediate placeholder response
-    placeholder_response = app.client.chat_postMessage(
-        channel=channel_id,
-        thread_ts=event.thread_ts,  # Reply in the thread
-        text=f"{DATAHUB_THINKING_MESSAGE_PREFIX} ⏳",
-        icon_url=ACRYL_SLACK_ICON_URL,
-        mrkdwn=True,
-    )
-    response_ts = placeholder_response["ts"]
-
-    def progress_callback(message: str) -> None:
-        """Update the placeholder message with progress updates"""
-        try:
-            app.client.chat_update(
-                channel=channel_id,
-                ts=response_ts,
-                text=f"{message} ⏳",
-                icon_url=ACRYL_SLACK_ICON_URL,
-                mrkdwn=True,
-            )
-        except Exception as e:
-            logger.error(f"Failed to update progress message: {str(e)}")
-
-    # Process the actual response
     try:
+        # Get user info
+        user_info = app.client.users_info(user=event.user_id).validate()["user"]
+        user_name = user_info["name"]
+
+        # Send a placeholder message to indicate we're processing
+        placeholder_response = app.client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=event.thread_ts,  # Reply in the thread
+            text=f"{DATAHUB_THINKING_MESSAGE_PREFIX} ⏳",
+            icon_url=ACRYL_SLACK_ICON_URL,
+            mrkdwn=True,
+        )
+        response_ts = placeholder_response["ts"]
+
+        def progress_callback(message: str) -> None:
+            """Update the placeholder message with progress updates"""
+            try:
+                if response_ts is not None:
+                    app.client.chat_update(
+                        channel=channel_id,
+                        ts=response_ts,
+                        text=f"{message} ⏳",
+                        icon_url=ACRYL_SLACK_ICON_URL,
+                        mrkdwn=True,
+                    )
+            except Exception as e:
+                logger.error(f"Failed to update progress message: {str(e)}")
+
+        # Process the actual response
         message, followup_questions = handle_mention(app, event, progress_callback)
 
+        # Build the response blocks
         blocks = build_response(
             event.user_id,
             event.thread_ts,
@@ -132,13 +139,14 @@ def process_app_chat_event_and_send_message(app: App, event: SlackMentionEvent) 
         )
 
         # Update the placeholder message with the actual response
-        app.client.chat_update(
-            channel=channel_id,
-            ts=response_ts,
-            blocks=blocks,
-            text=message,  # fallback text used by Slack for notifications
-            icon_url=ACRYL_SLACK_ICON_URL,
-        )
+        if response_ts is not None:
+            app.client.chat_update(
+                channel=channel_id,
+                ts=response_ts,
+                blocks=blocks,
+                text=message,  # fallback text used by Slack for notifications
+                icon_url=ACRYL_SLACK_ICON_URL,
+            )
 
         track_saas_event(
             ChatbotInteractionEvent(
@@ -148,6 +156,7 @@ def process_app_chat_event_and_send_message(app: App, event: SlackMentionEvent) 
                 slack_thread_id=event.thread_ts,
                 slack_message_id=event.message_ts,
                 slack_user_id=event.user_id,
+                slack_user_name=user_name,
                 message_contents=event.message_text,
                 response_contents=message,
             )
@@ -155,13 +164,14 @@ def process_app_chat_event_and_send_message(app: App, event: SlackMentionEvent) 
         logger.debug(f"Successfully sent Slack response to channel {channel_id}")
     except Exception as e:
         logger.exception(f"Failed to send slack response to channel: {channel_id}")
-        app.client.chat_update(
-            channel=channel_id,
-            ts=response_ts,
-            text=":x: Encountered an internal error",
-            icon_url=ACRYL_SLACK_ICON_URL,
-            mrkdwn=True,
-        )
+        if response_ts is not None:
+            app.client.chat_update(
+                channel=channel_id,
+                ts=response_ts,
+                text=":x: Encountered an internal error",
+                icon_url=ACRYL_SLACK_ICON_URL,
+                mrkdwn=True,
+            )
         track_saas_event(
             ChatbotInteractionEvent(
                 chat_id=slack_chat_id(channel_id, event.thread_ts),
@@ -170,6 +180,7 @@ def process_app_chat_event_and_send_message(app: App, event: SlackMentionEvent) 
                 slack_thread_id=event.thread_ts,
                 slack_message_id=event.message_ts,
                 slack_user_id=event.user_id,
+                slack_user_name=user_name,
                 message_contents=event.message_text,
                 response_contents=None,
                 response_error=f"{type(e).__name__}: {str(e)}",

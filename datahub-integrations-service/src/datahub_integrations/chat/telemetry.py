@@ -1,4 +1,6 @@
 import functools
+import logging
+import os
 
 from datahub.telemetry.telemetry import TIMEOUT, _default_telemetry_properties
 from mixpanel import Consumer, Mixpanel
@@ -7,15 +9,23 @@ from datahub_integrations import __version__
 from datahub_integrations.app import graph
 from datahub_integrations.chat.telemetry_models import BaseEvent
 
-# GMS does not expose APIs to write to the DataHub Usage Events API -
-# only datahub-frontend does. I don't want integrations-service
-# to depend on datahub-frontend, so I'm sending to Mixpanel directly.
-# This entire thing is a hack, and would be better solved by
-# proper APIs in GMS.
+logger = logging.getLogger(__name__)
 
 # Note that this is different from OSS Mixpanel's token. This one
 # corresponds to the SaaS Mixpanel project.
 MIXPANEL_TOKEN = "7cee38380de7a8469069c040a1fee320"
+
+# Environment variable to control whether to send events directly to Mixpanel
+# Default is False - integrations service should depend on GMS to write to Mixpanel
+SEND_MIXPANEL_EVENTS_ENV = "DATAHUB_INTEGRATIONS_SEND_MIXPANEL_EVENTS"
+
+# Check the environment variable once at module load time
+# Default is False - only send to Mixpanel if explicitly enabled
+SEND_MIXPANEL_EVENTS = os.environ.get(SEND_MIXPANEL_EVENTS_ENV, "").lower() in (
+    "true",
+    "1",
+    "yes",
+)
 
 telemetry_client = Mixpanel(
     MIXPANEL_TOKEN,
@@ -36,19 +46,58 @@ def _default_properties() -> dict:
     }
 
 
+def _send_to_api(event: BaseEvent) -> None:
+    """Send the event to the DataHub tracking API."""
+    try:
+        # Format the event data for the tracking API with a flat structure
+        tracking_event = {
+            "type": event.type,
+            "timestamp": event.timestamp.isoformat(),
+            "actorUrn": "urn:li:corpuser:admin",
+            **event.dict(
+                exclude={"timestamp", "type"}
+            ),  # Include all other fields from the event
+        }
+
+        # Get the server URL from the graph client's config and append the tracking endpoint path
+        server_url = graph.config.server.rstrip("/")
+        tracking_url = f"{server_url}/openapi/v1/tracking/track"
+
+        # Use the graph client's session to post the event
+        response = graph._session.post(tracking_url, json=tracking_event)
+        response.raise_for_status()
+        logger.info("Successfully sent telemetry event to tracking API")
+    except Exception as e:
+        logger.error(f"Failed to send telemetry event to tracking API: {str(e)}")
+
+
 def track_saas_event(
     event: BaseEvent,
 ) -> None:
-    """Track a SaaS event using Mixpanel.
+    """Track a SaaS event using Mixpanel and DataHub API.
 
     Args:
-        event: The event to track.
+        event: The event to track. Must be a subclass of BaseEvent.
     """
-    telemetry_client.track(
-        _get_server_id(),
-        event.type,
-        {
-            **_default_properties(),
-            **event.dict(),
-        },
-    )
+    # Include the timestamp in ISO format in the properties
+    # The TrackingService will handle the conversion to the appropriate format
+    # for each destination (Mixpanel and Kafka)
+    properties = {
+        **_default_properties(),
+        **event.dict(exclude={"timestamp"}),  # Exclude timestamp from event.dict()
+        "timestamp": event.timestamp.isoformat(),  # Include ISO formatted timestamp
+    }
+
+    # Send to Mixpanel only if the environment variable is set
+    if SEND_MIXPANEL_EVENTS:
+        telemetry_client.track(
+            _get_server_id(),
+            event.type,
+            properties,
+        )
+        logger.debug("Sent telemetry event to Mixpanel")
+    else:
+        logger.debug("Skipping Mixpanel telemetry as environment variable is not set")
+
+    # Send to DataHub API
+    _send_to_api(event)

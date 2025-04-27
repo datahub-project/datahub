@@ -110,6 +110,11 @@ public class Config extends HttpServlet {
           {
             put("enabledCli", configProvider.getTelemetry().enabledCli);
             put("enabledIngestion", configProvider.getTelemetry().enabledIngestion);
+            put(
+                "enabledMixpanel",
+                configProvider.getTelemetry().mixpanel != null
+                    && configProvider.getTelemetry().mixpanel.isEnabled());
+            put("enabledServer", configProvider.getTelemetry().isEnabledServer());
           }
         };
     config.put("telemetry", telemetryConfig);

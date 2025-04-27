@@ -74,6 +74,7 @@ This is over and above updating-datahub.md file
 - [datahub-gms] `SHOW_DEFAULT_EXTERNAL_LINKS`: Flag to disable showing the external links we produce by default like "View in snowflake." This was requested by Rokos when they start populating their custom external links they may want to choose to hide the default ones and we can do that with this flag. This is default true.
 - [datahub-gms] `SHOW_TASK_CENTER_REDESIGN`: Flag to enable the new proposals redesign in the app, mostly in the task center. This should be off for most folks for 0.3.10 but we may turn on depending what gets into the release.
 - [integrations-service] `DATAHUB_SLACK_AT_MENTION_ENABLED` (default: false) - Whether to enable the Slackbot, which replies to the @datahub mentions.
+- [integrations-service] `DATAHUB_INTEGRATIONS_SEND_MIXPANEL_EVENTS` (default: false): Controls whether telemetry events are sent directly to Mixpanel. When set to "true", "1", or "yes" (case-insensitive), events will be sent to both Mixpanel and the DataHub API. When not set or set to any other value (default), events will only be sent to the DataHub API. By default, the integrations service depends on GMS to write to Mixpanel.
 
 ## v0.3.9
 

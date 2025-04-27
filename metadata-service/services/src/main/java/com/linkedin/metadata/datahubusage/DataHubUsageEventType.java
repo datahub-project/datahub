@@ -150,7 +150,9 @@ public enum DataHubUsageEventType {
   DECLINE_INFERRED_DOCS_EVENT("DeclineInferredDocsEvent"),
   CLICK_VIEW_DOCUMENTATION_EVENT("ClickViewDocumentationEvent"),
   SSO_CONFIGURATION_EVENT("SSOConfigurationEvent"),
-  HOME_PAGE_CLICK_EVENT("HomePageClickEvent");
+  HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
+  CHATBOT_INTERACTION_EVENT("ChatbotInteractionEvent"),
+  CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedbackEvent");
 
   private final String type;
 

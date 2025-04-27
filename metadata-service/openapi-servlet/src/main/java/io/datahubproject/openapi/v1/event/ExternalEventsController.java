@@ -1,12 +1,11 @@
 package io.datahubproject.openapi.v1.event;
 
-import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME;
-
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.mxe.Topics;
 import io.datahubproject.event.ExternalEventsService;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
@@ -118,7 +117,7 @@ public class ExternalEventsController {
 
   private boolean isAuthorizedToGetEvents(
       @Nonnull final OperationContext opContext, @Nonnull final String topic) {
-    if (PLATFORM_EVENT_TOPIC_NAME.equals(topic)) {
+    if (Topics.PLATFORM_EVENT.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_PLATFORM_EVENTS_PRIVILEGE);
     }
     return false;

@@ -3,7 +3,7 @@ package com.linkedin.metadata.kafka.boot;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.boot.BootstrapManager;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
-import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
+import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -18,35 +18,35 @@ import org.springframework.web.context.WebApplicationContext;
 /** Responsible for coordinating starting steps that happen before the application starts up. */
 @Slf4j
 @Component
-@Conditional(MetadataChangeLogProcessorCondition.class)
-public class ApplicationStartupListener implements ApplicationListener<ContextRefreshedEvent> {
+@Conditional(MetadataChangeProposalProcessorCondition.class)
+public class MCPApplicationStartupListener implements ApplicationListener<ContextRefreshedEvent> {
 
   private static final String ROOT_WEB_APPLICATION_CONTEXT_ID =
       String.format("%s:", WebApplicationContext.class.getName());
 
   private final DataHubUpgradeKafkaListener _dataHubUpgradeKafkaListener;
   private final ConfigurationProvider _configurationProvider;
-  private final BootstrapManager _mclBootstrapManager;
+  private final BootstrapManager _mcpBootstrapManager;
 
   @Autowired
   @Qualifier("systemOperationContext")
   OperationContext systemOperationContext;
 
-  public ApplicationStartupListener(
+  public MCPApplicationStartupListener(
       @Qualifier("dataHubUpgradeKafkaListener")
           DataHubUpgradeKafkaListener dataHubUpgradeKafkaListener,
       ConfigurationProvider configurationProvider,
-      @Qualifier("mclBootstrapManager") BootstrapManager bootstrapManager) {
+      @Qualifier("mcpBootstrapManager") BootstrapManager bootstrapManager) {
     _dataHubUpgradeKafkaListener = dataHubUpgradeKafkaListener;
     _configurationProvider = configurationProvider;
-    _mclBootstrapManager = bootstrapManager;
+    _mcpBootstrapManager = bootstrapManager;
   }
 
   @Override
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())
         && _configurationProvider.getSystemUpdate().isWaitForSystemUpdate()) {
-      _mclBootstrapManager.start(systemOperationContext);
+      _mcpBootstrapManager.start(systemOperationContext);
     }
   }
 }

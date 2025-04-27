@@ -55,7 +55,7 @@ INCIDENT_STATUS_ACTIVE = "ACTIVE"
 ACTIVE_INCIDENT_COLOR = "#F5222D"  # RED
 RESOLVED_INCIDENT_COLOR = "#52C41A"  # GREEN
 
-# TODO: Whether we have enabled sharing and updating message ids for incidents on Slack
+# Whether we have enabled sharing and updating message ids for incidents on Slack
 STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED = os.environ.get(
     "STATEFUL_SLACK_INCIDENT_MESSAGES_ENABLED", "false"
 )

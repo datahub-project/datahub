@@ -56,8 +56,8 @@ class ChatbotInteractionEvent(BaseEvent):
     slack_thread_id: str
     slack_message_id: str
     slack_user_id: str
-    # TODO: Add email + resolved actor URN
-
+    slack_user_name: str
+    slack_email: Optional[str] = None
     message_contents: str
     response_contents: Optional[str] = None
     response_error: Optional[str] = None
