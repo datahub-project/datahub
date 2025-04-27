@@ -2,36 +2,42 @@ package com.datahub.telemetry;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.plugins.auth.authentication.Authenticator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.telemetry.MixpanelConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.version.GitVersion;
+import com.linkedin.mxe.Topics;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
-import java.io.IOException;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.producer.Producer;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 @Slf4j
-@RequiredArgsConstructor
 public class TrackingService {
   private static final String APP_VERSION_FIELD = "appVersion";
   private static final String EVENT_TYPE_FIELD = "type";
@@ -105,38 +111,348 @@ public class TrackingService {
               USER_URNS_FIELD,
               PARENT_NODE_URN_FIELD));
 
-  private final MixpanelAPI _mixpanelAPI;
-  private final MessageBuilder _mixpanelMessageBuilder;
-  private final SecretService _secretService;
+  private final MixpanelConfiguration mixpanelConfiguration;
+  private final SecretService secretService;
+  private final MessageBuilder messageBuilder;
+  private final MixpanelAPI mixpanelAPI;
+  private final boolean disableObfuscation;
   private final EntityService _entityService;
   private final GitVersion _gitVersion;
   private final ObjectMapper _objectMapper = new ObjectMapper();
   private final ObjectWriter _objectWriter = _objectMapper.writerWithDefaultPrettyPrinter();
   private String _clientId;
+  private final Producer<String, String> dataHubUsageProducer;
 
-  public void emitAnalyticsEvent(
-      @Nonnull OperationContext opContext, @Nonnull final JsonNode event) {
-    final JSONObject sanitizedEvent = sanitizeEvent(event);
-    if (sanitizedEvent == null) {
+  public TrackingService(
+      final MixpanelConfiguration mixpanelConfiguration,
+      final SecretService secretService,
+      final MessageBuilder messageBuilder,
+      final MixpanelAPI mixpanelAPI,
+      @Nonnull EntityService<?> entityService,
+      @Nonnull GitVersion gitVersion,
+      @Nullable Producer<String, String> dataHubUsageProducer) {
+    this.mixpanelConfiguration = mixpanelConfiguration;
+    this.secretService = secretService;
+    this.messageBuilder = messageBuilder;
+    this.mixpanelAPI = mixpanelAPI;
+    this.disableObfuscation =
+        mixpanelConfiguration != null && mixpanelConfiguration.isDisableObfuscation();
+    this._entityService = entityService;
+    this._gitVersion = gitVersion;
+    this.dataHubUsageProducer = dataHubUsageProducer;
+
+    // Log Mixpanel configuration
+    if (mixpanelAPI != null && messageBuilder != null) {
+      log.info("TrackingService initialized with Mixpanel client and message builder");
+      log.info("Mixpanel client is configured and ready to send events");
+    } else {
+      log.info("TrackingService initialized without Mixpanel client or message builder");
+    }
+
+    // Log Kafka configuration
+    if (dataHubUsageProducer != null) {
+      log.info("TrackingService initialized with Kafka producer for DataHubUsageEvent");
+    } else {
+      log.info("TrackingService initialized without Kafka producer for DataHubUsageEvent");
+    }
+  }
+
+  public void track(
+      @Nonnull final String eventName,
+      @Nonnull final OperationContext opContext,
+      @Nullable final Authenticator authenticator,
+      @Nullable final EntityClient entityClient) {
+    if (mixpanelAPI == null || messageBuilder == null) {
+      log.warn("Mixpanel tracking is not enabled. Skipping event: {}", eventName);
       return;
     }
 
-    final String eventType;
     try {
-      eventType = sanitizedEvent.getString(EVENT_TYPE_FIELD);
-    } catch (JSONException e) {
-      log.error("Failed to parse event type from event", e);
-      return;
+      final String actorId = opContext.getActorContext().getActorUrn().toString();
+
+      // Create the event message using MessageBuilder
+      JSONObject message = messageBuilder.event(actorId, eventName, new JSONObject());
+
+      // Create properties object if it doesn't exist
+      JSONObject properties;
+      if (message.has("properties")) {
+        properties = message.getJSONObject("properties");
+      } else {
+        properties = new JSONObject();
+        message.put("properties", properties);
+      }
+
+      // Add properties to the event
+      properties.put("distinct_id", actorId);
+      properties.put("actor", actorId);
+      properties.put("version", _gitVersion.getVersion());
+      properties.put("time", System.currentTimeMillis() / 1000L);
+
+      // Sanitize the properties
+      JSONObject sanitizedProperties = sanitizeEvent(properties);
+      if (sanitizedProperties != null) {
+        message.put("properties", sanitizedProperties);
+      }
+
+      // log the message
+      log.info("Sending event {} to Mixpanel: {}", eventName, message.toString());
+      mixpanelAPI.sendMessage(message);
+      log.debug("Successfully sent event {} to Mixpanel", eventName);
+    } catch (Exception e) {
+      log.warn("Failed to track event: {}", eventName, e);
+    }
+  }
+
+  /**
+   * Parse a timestamp from various formats (numeric or string) and convert it to epoch milliseconds
+   *
+   * @param timestamp The timestamp to parse
+   * @return The timestamp in epoch milliseconds
+   */
+  private long parseTimestamp(Object timestamp) {
+    if (timestamp == null) {
+      return System.currentTimeMillis();
     }
 
     try {
-      _mixpanelAPI.sendMessage(
-          _mixpanelMessageBuilder.event(getClientId(opContext), eventType, sanitizedEvent));
-    } catch (IOException e) {
-      log.info(
-          "Failed to send event to Mixpanel; this does not affect the functionality of the application");
-      log.debug("Failed to send event to Mixpanel", e);
+      if (timestamp instanceof Number) {
+        // If it's already a number, assume it's in milliseconds if > 1e12, otherwise seconds
+        long value = ((Number) timestamp).longValue();
+        if (value > 1e12) {
+          return value; // Already in milliseconds
+        } else {
+          return value * 1000; // Convert seconds to milliseconds
+        }
+      } else if (timestamp instanceof String) {
+        String timestampStr = (String) timestamp;
+        try {
+          // Try parsing as ISO 8601
+          return java.time.Instant.parse(timestampStr).toEpochMilli();
+        } catch (Exception e) {
+          // If not ISO format, try parsing as a number
+          try {
+            long value = Long.parseLong(timestampStr);
+            if (value > 1e12) {
+              return value; // Already in milliseconds
+            } else {
+              return value * 1000; // Convert seconds to milliseconds
+            }
+          } catch (NumberFormatException nfe) {
+            log.warn("Failed to parse timestamp: {}", timestampStr, nfe);
+            return System.currentTimeMillis();
+          }
+        }
+      } else {
+        log.warn("Unsupported timestamp type: {}", timestamp.getClass().getName());
+        return System.currentTimeMillis();
+      }
+    } catch (Exception e) {
+      log.warn("Error parsing timestamp: {}", timestamp, e);
+      return System.currentTimeMillis();
     }
+  }
+
+  /**
+   * Format a timestamp in epoch milliseconds to ISO 8601 format
+   *
+   * @param timestampMillis The timestamp in epoch milliseconds
+   * @return The timestamp in ISO 8601 format
+   */
+  private String formatTimestampToISO(long timestampMillis) {
+    return java.time.Instant.ofEpochMilli(timestampMillis).toString();
+  }
+
+  /**
+   * Track an event with additional properties from a JsonNode This will route the event to all the
+   * configured tracking destinations If you want to send to a specific tracking destination use the
+   * {@link #track(String, OperationContext, Authenticator, EntityClient, JsonNode, Set)} method
+   *
+   * @param eventName The name of the event
+   * @param opContext The operation context
+   * @param authenticator The authenticator
+   * @param entityClient The entity client
+   * @param eventData The event data as a JsonNode
+   */
+  public void track(
+      @Nonnull final String eventName,
+      @Nonnull final OperationContext opContext,
+      @Nullable final Authenticator authenticator,
+      @Nullable final EntityClient entityClient,
+      @Nonnull final JsonNode eventData) {
+    // Call the track method with all destinations
+    track(
+        eventName,
+        opContext,
+        authenticator,
+        entityClient,
+        eventData,
+        java.util.EnumSet.allOf(TrackingDestination.class));
+  }
+
+  /**
+   * Track an event with additional properties from a JsonNode and specify which destinations to use
+   *
+   * @param eventName The name of the event
+   * @param opContext The operation context
+   * @param authenticator The authenticator
+   * @param entityClient The entity client
+   * @param eventData The event data as a JsonNode
+   * @param destinations The set of destinations to send the event to
+   * @return the number of destinations that were sent to
+   */
+  public int track(
+      @Nonnull final String eventName,
+      @Nonnull final OperationContext opContext,
+      @Nullable final Authenticator authenticator,
+      @Nullable final EntityClient entityClient,
+      @Nonnull final JsonNode eventData,
+      @Nonnull final java.util.Set<TrackingDestination> destinations) {
+
+    int numDestinationsSent = 0;
+
+    // Send to Mixpanel if requested and available
+    if (destinations.contains(TrackingDestination.MIXPANEL)
+        && mixpanelAPI != null
+        && messageBuilder != null) {
+      try {
+        log.debug("Mixpanel - Raw event data: {}", eventData.toPrettyString());
+
+        final String actorId = opContext.getActorContext().getActorUrn().toString();
+
+        // Create a new properties object
+        JSONObject properties = new JSONObject();
+
+        // Add standard properties
+        properties.put("distinct_id", actorId);
+        properties.put("actor", actorId);
+        properties.put("version", _gitVersion.getVersion());
+
+        // Parse and format timestamp for Mixpanel (ISO format)
+        long timestampMillis = System.currentTimeMillis();
+        if (eventData.has("timestamp")) {
+          JsonNode timestampNode = eventData.get("timestamp");
+          if (timestampNode.isNumber()) {
+            timestampMillis = parseTimestamp(timestampNode.numberValue());
+          } else if (timestampNode.isTextual()) {
+            timestampMillis = parseTimestamp(timestampNode.asText());
+          }
+        }
+
+        // Add ISO formatted timestamp to properties
+        properties.put("time", formatTimestampToISO(timestampMillis));
+
+        // Add the event type to the properties
+        properties.put(EVENT_TYPE_FIELD, eventName);
+        log.debug("Added standard properties: {}", properties.toString());
+
+        // Add all fields from the event data to the properties
+        Iterator<Map.Entry<String, JsonNode>> fields = eventData.fields();
+        while (fields.hasNext()) {
+          Map.Entry<String, JsonNode> field = fields.next();
+          String key = field.getKey();
+          JsonNode value = field.getValue();
+
+          // Skip the timestamp field as we've already handled it
+          if ("timestamp".equals(key)) {
+            continue;
+          }
+
+          if (value.isTextual()) {
+            properties.put(key, value.asText());
+          } else if (value.isNumber()) {
+            properties.put(key, value.numberValue());
+          } else if (value.isBoolean()) {
+            properties.put(key, value.booleanValue());
+          } else if (value.isNull()) {
+            properties.put(key, JSONObject.NULL);
+          } else if (value.isObject() || value.isArray()) {
+            properties.put(key, value.toString());
+          }
+        }
+
+        // Sanitize the properties
+        JSONObject sanitizedProperties = sanitizeEvent(properties);
+        if (sanitizedProperties != null) {
+          log.debug("Final sanitized properties: {}", sanitizedProperties);
+
+          // Create the event message using MessageBuilder with the sanitized properties
+          JSONObject message = messageBuilder.event(actorId, eventName, sanitizedProperties);
+          log.debug("Final message to be sent: {}", message);
+
+          // Send the message to Mixpanel
+          mixpanelAPI.sendMessage(message);
+          log.debug("Successfully sent event {} to Mixpanel with additional properties", eventName);
+          numDestinationsSent += 1;
+        } else {
+          log.warn("Sanitization returned null properties, skipping Mixpanel event");
+        }
+      } catch (Exception e) {
+        log.error(
+            "Failed to track event in Mixpanel: {} - Error: {}", eventName, e.getMessage(), e);
+      }
+    } else if (destinations.contains(TrackingDestination.MIXPANEL)) {
+      log.warn("Mixpanel tracking is not enabled or not requested. Skipping event: {}", eventName);
+    }
+
+    // Send to Kafka if requested and available
+    if (destinations.contains(TrackingDestination.KAFKA) && dataHubUsageProducer != null) {
+      try {
+        log.debug("Sending event to Kafka: {}", eventName);
+
+        // Create a copy of the event data with the timestamp in epoch milliseconds
+        ObjectNode kafkaEventData = _objectMapper.createObjectNode();
+        kafkaEventData.setAll((ObjectNode) eventData);
+
+        // Parse and format timestamp for Kafka (epoch milliseconds)
+        long timestampMillis = System.currentTimeMillis();
+        if (eventData.has("timestamp")) {
+          JsonNode timestampNode = eventData.get("timestamp");
+          if (timestampNode.isNumber()) {
+            timestampMillis = parseTimestamp(timestampNode.numberValue());
+          } else if (timestampNode.isTextual()) {
+            timestampMillis = parseTimestamp(timestampNode.asText());
+          }
+        }
+
+        // Add the timestamp in epoch milliseconds
+        kafkaEventData.put("timestamp", timestampMillis);
+
+        // Also update the timestamp in the nested event if it exists
+        if (kafkaEventData.has("event") && kafkaEventData.get("event").isObject()) {
+          ObjectNode eventNode = (ObjectNode) kafkaEventData.get("event");
+          if (eventNode.has("timestamp")) {
+            eventNode.put("timestamp", timestampMillis);
+          }
+        }
+
+        String eventJson = _objectWriter.writeValueAsString(kafkaEventData);
+        dataHubUsageProducer.send(
+            new ProducerRecord<>(Topics.DATAHUB_USAGE_EVENT, eventJson),
+            (metadata, exception) -> {
+              if (exception != null) {
+                log.error(
+                    "Failed to send event to Kafka: {} - Error: {}",
+                    eventName,
+                    exception.getMessage(),
+                    exception);
+              } else {
+                log.debug(
+                    "Successfully sent event to Kafka: {} - Topic: {}, Partition: {}, Offset: {}",
+                    eventName,
+                    metadata.topic(),
+                    metadata.partition(),
+                    metadata.offset());
+              }
+            });
+        numDestinationsSent += 1;
+      } catch (Exception e) {
+        log.error("Failed to send event to Kafka: {} - Error: {}", eventName, e.getMessage(), e);
+      }
+    } else if (destinations.contains(TrackingDestination.KAFKA)) {
+      log.warn(
+          "Kafka producer is not available or not requested. Skipping Kafka event: {}", eventName);
+    }
+    return numDestinationsSent;
   }
 
   @Nonnull
@@ -161,50 +477,46 @@ public class TrackingService {
   }
 
   @Nullable
-  JSONObject sanitizeEvent(@Nonnull final JsonNode event) {
-    final ObjectNode sanitizedEventObj = _objectMapper.createObjectNode();
-    sanitizedEventObj.put(APP_VERSION_FIELD, _gitVersion.getVersion());
+  public JSONObject sanitizeEvent(@Nonnull final JSONObject event) {
+    final JSONObject sanitizedEvent = new JSONObject();
 
-    final JSONObject unsanitizedEventObj;
-    try {
-      unsanitizedEventObj =
-          new JSONObject(_objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(event));
-    } catch (Exception e) {
-      log.warn("Failed to serialize event", e);
-      return createFailedEvent();
+    // Add app version to the sanitized event
+    sanitizedEvent.put(APP_VERSION_FIELD, _gitVersion.getVersion());
+
+    // Add event type to the sanitized event
+    if (event.has(EVENT_TYPE_FIELD)) {
+      sanitizedEvent.put(EVENT_TYPE_FIELD, event.get(EVENT_TYPE_FIELD));
+    } else {
+      sanitizedEvent.put(EVENT_TYPE_FIELD, FAILED_EVENT_NANE);
     }
 
-    if (!unsanitizedEventObj.has(EVENT_TYPE_FIELD) || !unsanitizedEventObj.has(ACTOR_URN_FIELD)) {
-      log.warn("Event is missing a required field");
-      return createFailedEvent();
+    final Iterator<String> keys = event.keys();
+
+    while (keys.hasNext()) {
+      final String key = keys.next();
+      try {
+        if (disableObfuscation) {
+          // copy all the fields over
+          sanitizedEvent.put(key, event.get(key));
+        } else {
+          // we only send an allowed list of fields
+          if (ALLOWED_EVENT_FIELDS.contains(key)) {
+            sanitizedEvent.put(key, event.get(key));
+          } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(key)) {
+            // we obfuscate fields that are sensitive
+            sanitizedEvent.put(key, secretService.hashString(event.getString(key)));
+          }
+        }
+      } catch (JSONException e) {
+        log.warn("Failed to sanitize field {}. Skipping this field.", key, e);
+      }
     }
-
-    unsanitizedEventObj
-        .keys()
-        .forEachRemaining(
-            key -> {
-              String keyString = (String) key;
-              try {
-                if (ALLOWED_EVENT_FIELDS.contains(keyString)) {
-                  sanitizedEventObj.put(keyString, unsanitizedEventObj.get(keyString).toString());
-                } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(keyString)) {
-                  sanitizedEventObj.put(
-                      keyString,
-                      _secretService.hashString(unsanitizedEventObj.get(keyString).toString()));
-                }
-              } catch (JSONException e) {
-                log.warn(
-                    String.format("Failed to sanitize field %s. Skipping this field.", keyString),
-                    e);
-              }
-            });
-
-    return transformObjectNodeToJSONObject(sanitizedEventObj);
+    return sanitizedEvent;
   }
 
   @Nullable
   JSONObject createFailedEvent() {
-    final ObjectNode failedEventObj = _objectMapper.createObjectNode();
+    final ObjectNode failedEventObj = JsonNodeFactory.instance.objectNode();
     failedEventObj.put(APP_VERSION_FIELD, _gitVersion.getVersion());
     failedEventObj.put(EVENT_TYPE_FIELD, FAILED_EVENT_NANE);
 

@@ -57,6 +57,10 @@ public interface TopicConvention {
   @Nonnull
   String getPlatformEventTopicName();
 
+  /** The name of the datahub usage event topic. */
+  @Nonnull
+  String getDataHubUsageEventTopicName();
+
   /**
    * Returns the name of the metadata change event (v5) kafka topic.
    *

@@ -35,10 +35,10 @@ import io.datahubproject.metadata.services.SecretService;
 import io.opentelemetry.api.common.Attributes;
 import io.opentelemetry.api.common.AttributesBuilder;
 import io.opentelemetry.api.trace.Span;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -108,7 +108,7 @@ public class AuthServiceController {
 
   @Autowired private InviteTokenService _inviteTokenService;
 
-  @Autowired @Nullable private TrackingService _trackingService;
+  @Autowired private TrackingService _trackingService;
 
   @Autowired private ObjectMapper mapper;
 
@@ -435,7 +435,9 @@ public class AuthServiceController {
   @PostMapping(value = "/track", produces = "application/json;charset=utf-8")
   CompletableFuture<ResponseEntity<String>> track(final HttpEntity<String> httpEntity) {
     String jsonStr = httpEntity.getBody();
-
+    if (jsonStr == null) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
+    }
     JsonNode bodyJson;
     try {
       bodyJson = mapper.readTree(jsonStr);
@@ -443,20 +445,38 @@ public class AuthServiceController {
       log.error("Failed to parse json while attempting to track analytics event", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
-    if (!bodyJson.has("type")) {
-      log.warn("Invalid tracking request: missing `type` field");
+    if ((bodyJson == null) && (!bodyJson.has("event") || !bodyJson.has("type"))) {
+      if (!bodyJson.has("event")) {
+        log.warn("Invalid tracking request: missing event field");
+      }
+      if (!bodyJson.has("type")) {
+        log.warn("Invalid tracking request: missing `type` field");
+      }
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            if (_trackingService != null) {
-              _trackingService.emitAnalyticsEvent(systemOperationContext, bodyJson);
+            // Don't send to any destinations. This list will be changed as we change frontend
+            // tracking
+            // behavior to re-route traffic via backend.
+            int numDestinations =
+                _trackingService.track(
+                    bodyJson.get("event").asText(),
+                    systemOperationContext,
+                    null,
+                    null,
+                    bodyJson,
+                    Collections.emptySet());
+            if (numDestinations > 0) {
+              log.debug("Successfully tracked event to {} destinations.", numDestinations);
+            } else {
+              log.debug("Tracked event to 0 destinations");
             }
             return new ResponseEntity<>(HttpStatus.OK);
           } catch (Exception e) {
-            log.error("Failed to track event", e);
+            log.error("Failed to track event: {}", e.getMessage(), e);
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
         });
