@@ -20,3 +20,9 @@ requests<=2.31.0
 # Missing numpy requirement in 8.0.0
 deepdiff!=8.0.0
 opensearch-py==2.6.0
+
+# TODO Chakru: Review if required
+# Additional dependencies for telemetry API test
+confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
+#Chakru pydantic>=1.10.0,!=1.10.3
+python-snappy>=0.6.1
