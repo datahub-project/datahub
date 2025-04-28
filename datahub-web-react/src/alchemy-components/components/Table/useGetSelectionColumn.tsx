@@ -11,31 +11,32 @@ export const useGetSelectionColumn = <T,>(
     rowKey?: string | ((record: T) => string),
     rowSelection?: RowSelectionProps<T>,
 ): Column<T>[] => {
-    const { isSelectAll, isIntermediate, handleSelectAll, handleRowSelect, selectedRowKeys } = useRowSelection(
-        data,
-        rowKey,
-        rowSelection,
-    );
+    const { isSelectAll, isDisabled, isIntermediate, handleSelectAll, handleRowSelect, selectedRowKeys } =
+        useRowSelection(data, rowKey, rowSelection);
 
     const selectionColumn = {
         title: (
             <Checkbox
                 isChecked={isSelectAll}
                 isIntermediate={isIntermediate}
+                isDisabled={isDisabled}
                 onCheckboxChange={handleSelectAll}
                 size="xs"
             />
         ),
         key: 'row-selection',
-        render: (record: T, index: number) => (
-            <CheckboxWrapper>
-                <Checkbox
-                    isChecked={selectedRowKeys.includes(getRowKey(record, index, rowKey))}
-                    onCheckboxChange={() => handleRowSelect(record, index)}
-                    size="xs"
-                />
-            </CheckboxWrapper>
-        ),
+        render: (record: T, index: number) => {
+            return (
+                <CheckboxWrapper>
+                    <Checkbox
+                        isChecked={selectedRowKeys.includes(getRowKey(record, index, rowKey))}
+                        isDisabled={!!rowSelection && rowSelection?.getCheckboxProps?.(record)?.disabled}
+                        onCheckboxChange={() => handleRowSelect(record, index)}
+                        size="xs"
+                    />
+                </CheckboxWrapper>
+            );
+        },
         width: '48px',
         maxWidth: '60px',
     };
