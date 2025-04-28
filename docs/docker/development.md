@@ -40,30 +40,45 @@ acryldata/datahub-elasticsearch-setup            debug              4d935be7c62c
 
 At this point it is possible to view the DataHub UI at `http://localhost:9002` as you normally would with quickstart.
 
+Like `quickStartDebug`, there are a few other tasks that bring up a different set of containers, for example
+`quickStartDebugConsumers` will also bring up mce-consumer and mae-consumer.
+
 ## Reloading
 
-Next, perform the desired modifications and rebuild the frontend and/or GMS components.
+Next, perform the desired modifications
 
-**Builds GMS**
-
-```shell
-./gradlew :metadata-service:war:build
-```
-
-**Builds the frontend**
-
-Including javascript components.
-
-```shell
-./gradlew :datahub-frontend:build
-```
-
-After building the artifacts only a restart of the container(s) is required to run with the updated code.
-The restart can be performed using a docker UI, the docker cli, or the following gradle task.
+To see these changes in the deployment, a rebuilt of modified artifacts and a restart of the container(s) is required to run with the updated code.
+The restart can be performed using following gradle task.
 
 ```shell
 ./gradlew :docker:debugReload
 ```
+
+This single task will build the artifacts that were modified and restart only those containers that were affected by the rebuilt artifacts.
+
+For each of the `quickStartDebug` variants, there is a corresponding `debugReload` task.
+For `quickStartDebugConsumers`, the reload task is `debugConsumersReload`
+
+`debugReload` is generally much faster than re-running `quickStartDebug` and is recommended after an initial bringup of all services via `quickStartDebug` followed
+by loading the incremental changes using `debugReload`.
+
+If there are significant changes to the code, for example due to pulling the latest code, it is recommended to start with a `quickStartDebug` and then iterate using `debugReload`
+
+# Setting environment variables via env files
+
+You can define different sets of environment variables for all the containers in an env file. The env files must be located in the `docker/profiles` folder.
+To use the env file, run
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickStartDebug
+```
+
+The `debugReload` process continues to work, but the restarted containers will use the same settings that were present at the time of running `./gradlew quickStartDebug`.
+
+If you need to reload the containers with a different env file or changes made to the env file, a task `debugReloadEnv` builds the artifacts that have code changes
+and recreates all the containers that refer to these the env file via the DATAHUB_LOCAL_COMMON_ENV environment variable.
+
+`debugReloadEnv` also has variants for all the `quickStartDebug` variants. For example, `quickStartDebugConsumers` has `debugConsumersReloadEnv`
 
 ## Start/Stop
 
