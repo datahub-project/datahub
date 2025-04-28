@@ -33,24 +33,35 @@ interface Props {
 export default function useGlossaryChildren({ entityUrn, skip }: Props) {
     const { nodeToNewEntity, setNodeToNewEntity, setNodeToDeletedUrn, nodeToDeletedUrn } = useGlossaryEntityData();
     const [scrollId, setScrollId] = useState<string | null>(null);
-    const [dataUrnsSet] = useState<Set<string>>(new Set());
+    const [dataUrnsSet, setDataUrnsSet] = useState<Set<string>>(new Set());
     const [data, setData] = useState<Entity[]>([]);
+
     const { data: scrollData, loading } = useScrollAcrossEntitiesQuery({
         variables: {
             ...getGlossaryChildrenScrollInput(entityUrn || '', scrollId),
         },
         skip: !entityUrn || skip,
         notifyOnNetworkStatusChange: true,
-        onCompleted: (d) => {
-            const newResults = d.scrollAcrossEntities?.searchResults
+    });
+
+    // Handle initial data and updates from scroll
+    useEffect(() => {
+        if (scrollData?.scrollAcrossEntities?.searchResults) {
+            const newResults = scrollData.scrollAcrossEntities.searchResults
                 .filter((r) => !dataUrnsSet.has(r.entity.urn))
                 .map((r) => r.entity);
-            if (newResults && newResults.length) {
+
+            if (newResults.length > 0) {
                 setData((currData) => [...currData, ...newResults]);
-                newResults.forEach((r) => dataUrnsSet.add(r.urn));
+                setDataUrnsSet((currSet) => {
+                    const newSet = new Set(currSet);
+                    newResults.forEach((r) => newSet.add(r.urn));
+                    return newSet;
+                });
             }
-        },
-    });
+        }
+    }, [scrollData, dataUrnsSet]);
+
     const nextScrollId = scrollData?.scrollAcrossEntities?.nextScrollId;
 
     // update when new entity is added
@@ -58,11 +69,11 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         if (entityUrn && nodeToNewEntity[entityUrn] && !dataUrnsSet.has(nodeToNewEntity[entityUrn].urn)) {
             const newEntity = nodeToNewEntity[entityUrn];
             setData((currData) => [newEntity, ...currData]);
-            dataUrnsSet.add(newEntity.urn);
-            setNodeToNewEntity((currData) => {
-                const currDataCopy = { ...currData };
-                delete currDataCopy[entityUrn];
-                return currDataCopy;
+            setDataUrnsSet((currSet) => new Set([...currSet, newEntity.urn]));
+            setNodeToNewEntity((prev) => {
+                const newState = { ...prev };
+                delete newState[entityUrn];
+                return newState;
             });
         }
     }, [entityUrn, nodeToNewEntity, setNodeToNewEntity, dataUrnsSet]);
@@ -72,10 +83,15 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         if (entityUrn && nodeToDeletedUrn[entityUrn]) {
             const deletedUrn = nodeToDeletedUrn[entityUrn];
             setData((currData) => currData.filter((e) => e.urn !== deletedUrn));
-            setNodeToDeletedUrn((currData) => {
-                const currDataCopy = { ...currData };
-                delete currDataCopy[entityUrn];
-                return currDataCopy;
+            setDataUrnsSet((currSet) => {
+                const newSet = new Set(currSet);
+                newSet.delete(deletedUrn);
+                return newSet;
+            });
+            setNodeToDeletedUrn((prev) => {
+                const newState = { ...prev };
+                delete newState[entityUrn];
+                return newState;
             });
         }
     }, [entityUrn, nodeToDeletedUrn, setNodeToDeletedUrn]);

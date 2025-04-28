@@ -51,7 +51,6 @@ public class EntityRelationshipsResultResolver
     final String urn = ((Entity) environment.getSource()).getUrn();
     final RelationshipsInput input =
         bindArgument(environment.getArgument("input"), RelationshipsInput.class);
-    // could adda  typesToReturn
 
     final Set<String> relationshipTypes = new HashSet<>(input.getTypes());
     final com.linkedin.datahub.graphql.generated.RelationshipDirection relationshipDirection =
@@ -119,7 +118,6 @@ public class EntityRelationshipsResultResolver
         entityRelationships.getTotal() - (entityRelationships.getCount() - viewable.size()));
     result.setRelationships(
         viewable.stream()
-            //            .filter(rel -> rel.getEntity().getEntityType().equals("glossaryNode"))
             .map(
                 entityRelationship ->
                     mapEntityRelationship(
