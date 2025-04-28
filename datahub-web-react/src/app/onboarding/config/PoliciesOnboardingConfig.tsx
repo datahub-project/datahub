@@ -27,7 +27,7 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/authorization/policies"
+                        href="https://docs.datahub.com/docs/authorization/policies"
                     >
                         {' '}
                         here.

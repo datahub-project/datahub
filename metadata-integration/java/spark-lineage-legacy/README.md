@@ -2,7 +2,7 @@
 
 :::note
 
-This is our legacy Spark Integration which is replaced by [Acryl Spark Lineage](https://datahubproject.io/docs/metadata-integration/java/acryl-spark-lineage)
+This is our legacy Spark Integration which is replaced by [DataHub Cloud Spark Lineage](https://docs.datahub.com/docs/metadata-integration/java/acryl-spark-lineage)
 
 :::
 
@@ -138,7 +138,7 @@ The Spark agent can be configured using Databricks Cluster [Spark configuration]
 | spark.datahub.rest.disable_ssl_verification      |          | false   | Disable SSL certificate validation. Caution: Only use this if you know what you are doing!                                                                                                |
 | spark.datahub.metadata.pipeline.platformInstance |          |         | Pipeline level platform instance                                                                                                                                                          |
 | spark.datahub.metadata.dataset.platformInstance  |          |         | dataset level platform instance                                                                                                                                                           |
-| spark.datahub.metadata.dataset.env               |          | PROD    | [Supported values](https://datahubproject.io/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD                                                                    |
+| spark.datahub.metadata.dataset.env               |          | PROD    | [Supported values](https://docs.datahub.com/docs/graphql/enums#fabrictype). In all other cases, will fallback to PROD                                                                     |
 | spark.datahub.metadata.table.hive_platform_alias |          | hive    | By default, datahub assigns Hive-like tables to the Hive platform. If you are using Glue as your Hive metastore, set this config flag to `glue`                                           |
 | spark.datahub.metadata.include_scheme            |          | true    | Include scheme from the path URI (e.g. hdfs://, s3://) in the dataset URN. We recommend setting this value to false, it is set to true for backwards compatibility with previous versions |
 | spark.datahub.metadata.remove_partition_pattern  |          |         | Remove partition pattern. (e.g. /partition=\d+) It change database/table/partition=123 to database/table                                                                                  |
