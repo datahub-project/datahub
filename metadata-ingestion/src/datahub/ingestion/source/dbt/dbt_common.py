@@ -829,11 +829,13 @@ def get_column_type(
     "Enabled by default, configure using `include_column_lineage`",
 )
 class DBTSourceBase(StatefulIngestionSourceBase):
-    def __init__(self, config: DBTCommonConfig, ctx: PipelineContext, platform: str):
+    def __init__(self, config: DBTCommonConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
+        self.platform: str = "dbt"
+
         self.config = config
-        self.platform: str = platform
         self.report: DBTSourceReport = DBTSourceReport()
+
         self.compiled_owner_extraction_pattern: Optional[Any] = None
         if self.config.owner_extraction_pattern:
             self.compiled_owner_extraction_pattern = re.compile(

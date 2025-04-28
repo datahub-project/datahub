@@ -61,7 +61,7 @@ def create_mocked_dbt_source() -> DBTCoreSource:
         ["non_dbt_existing", "dbt:existing"]
     )
     ctx.graph = graph
-    return DBTCoreSource(DBTCoreConfig(**create_base_dbt_config()), ctx, "dbt")
+    return DBTCoreSource(DBTCoreConfig(**create_base_dbt_config()), ctx)
 
 
 def create_base_dbt_config() -> Dict:
@@ -268,7 +268,7 @@ def test_dbt_prefer_sql_parser_lineage_no_self_reference():
             "prefer_sql_parser_lineage": True,
         }
     )
-    source: DBTCoreSource = DBTCoreSource(config, ctx, "dbt")
+    source: DBTCoreSource = DBTCoreSource(config, ctx)
     all_nodes_map = {
         "model1": DBTNode(
             name="model1",
@@ -526,8 +526,8 @@ def test_extract_dbt_entities():
         catalog_path="tests/unit/dbt/artifacts/catalog.json",
         target_platform="dummy",
     )
-    source = DBTCoreSource(config, ctx, "dbt")
+    source = DBTCoreSource(config, ctx)
     assert all(node.database is not None for node in source.loadManifestAndCatalog()[0])
     config.include_database_name = False
-    source = DBTCoreSource(config, ctx, "dbt")
+    source = DBTCoreSource(config, ctx)
     assert all(node.database is None for node in source.loadManifestAndCatalog()[0])
