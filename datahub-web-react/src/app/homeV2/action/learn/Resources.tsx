@@ -143,7 +143,7 @@ const ALL_GUIDES = [
     {
         id: 'blog',
         title: 'Subscribe to the Blog',
-        url: 'https://www.blog.datahub.com',
+        url: 'https://www.medium.com/datahub-project',
         icon: AutoStoriesOutlinedIcon,
         personas: [
             PersonaType.TECHNICAL_USER,

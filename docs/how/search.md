@@ -272,7 +272,7 @@ In order to complete scrolling through all of the results, continue to request d
 
 ### DataHub Blog
 
-- [Using DataHub for Search & Discovery](https://blog.datahub.com/using-datahub-for-search-discovery-fa309089be22)
+- [Using DataHub for Search & Discovery](https://medium.com/datahub-project/using-datahub-for-search-discovery-fa309089be22)
 
 ## Customizing Search
 
