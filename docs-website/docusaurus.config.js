@@ -413,6 +413,9 @@ module.exports = {
         googleTagManager: {
           containerId: 'GTM-WK28RLTG',
         },
+        gtag: {
+          trackingID: "G-2G54RXWD4D",
+        },
       },
     ],
   ],
