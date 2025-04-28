@@ -517,7 +517,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         )
 
         self.report.info(
-            title="Manifest metadata",
+            title="DBT metadata files",
             message="Manifest metadata",
             context=str(
                 dict(
@@ -535,7 +535,7 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
         )
 
         self.report.info(
-            title="Catalog metadata",
+            title="DBT metadata files",
             message="Catalog metadata",
             context=str(
                 dict(
