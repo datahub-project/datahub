@@ -236,7 +236,7 @@ trino = {
 }
 
 pyhive_common = {
-    # Acryl Data maintains a fork of PyHive
+    # DataHub maintains a fork of PyHive
     # - 0.6.11 adds support for table comments and column comments,
     #   and also releases HTTP and HTTPS transport schemes
     # - 0.6.12 adds support for Spark Thrift Server
@@ -317,7 +317,7 @@ delta_lake = {
     *s3_base,
     *abs_base,
     # Version 0.18.0 broken on ARM Macs: https://github.com/delta-io/delta-rs/issues/2577
-    "deltalake>=0.6.3, != 0.6.4, < 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
+    "deltalake>=0.6.3, != 0.6.4, != 0.18.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4; platform_system != 'Darwin' or platform_machine != 'arm64'",
 }
 
@@ -465,7 +465,11 @@ plugins: Dict[str, Set[str]] = {
     "lookml": looker_common,
     "metabase": {"requests"} | sqlglot_lib,
     "mlflow": {
-        "mlflow-skinny>=2.3.0",
+        "mlflow-skinny>=2.3.0,<2.21.0",
+        # Pinned to avoid the breaking change introduced in MLflow 2.21.0 where search_registered_models injects an implicit filter
+        # https://github.com/mlflow/mlflow/pull/14795
+        # Upper bound can be removed once the upstream issue is resolved,
+        # or we have a reliable and backward-compatible way to handle prompt filtering.
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
@@ -593,6 +597,7 @@ test_api_requirements = {
     "pytest-timeout",
     # Missing numpy requirement in 8.0.0
     "deepdiff!=8.0.0",
+    "orderly-set!=5.4.0",  # 5.4.0 uses invalid types on Python 3.8
     "PyYAML",
     "pytest-docker>=1.1.0",
 }
@@ -604,8 +609,8 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.9.7",
-    "mypy==1.10.1",
+    "ruff==0.11.6",
+    "mypy==1.12.1",
 }
 
 base_dev_requirements = {
@@ -868,9 +873,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
         "Releases": "https://github.com/acryldata/datahub/releases",
@@ -881,7 +886,7 @@ setuptools.setup(
 The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
 as well as an integration framework for pulling/pushing metadata from external systems.
 
-See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
+See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
 """,
     long_description_content_type="text/markdown",
     classifiers=[

@@ -1,52 +1,28 @@
-import { Button, Text } from '@components';
+import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
 import {
     ActionButtonsContainer,
     Container,
-    Dropdown,
-    FooterBase,
+    DropdownContainer,
     LabelContainer,
     OptionContainer,
     OptionLabel,
     OptionList,
-    SearchIcon,
-    SearchInput,
-    SearchInputContainer,
-    SelectAllOption,
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
-    StyledCancelButton,
     StyledCheckbox,
-    StyledClearButton,
     StyledIcon,
-} from './components';
-import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
-import { ActionButtonsProps, SelectOption, SelectProps } from './types';
-import { getFooterButtonSize } from './utils';
-
-const SelectActionButtons = ({
-    selectedValues,
-    isOpen,
-    isDisabled,
-    isReadOnly,
-    showClear,
-    handleClearSelection,
-}: ActionButtonsProps) => {
-    return (
-        <ActionButtonsContainer>
-            {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
-                    isCircle
-                    onClick={handleClearSelection}
-                />
-            )}
-            <StyledIcon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="lg" />
-        </ActionButtonsContainer>
-    );
-};
+} from '@components/components/Select/components';
+import DropdownFooterActions from '@components/components/Select/private/DropdownFooterActions';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import DropdownSelectAllOption from '@components/components/Select/private/DropdownSelectAllOption';
+import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
+import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
+import { SelectOption, SelectProps } from '@components/components/Select/types';
+import { getFooterButtonSize } from '@components/components/Select/utils';
 
 // Updated main component
 export const selectDefaults: SelectProps = {
@@ -65,10 +41,10 @@ export const selectDefaults: SelectProps = {
     showDescriptions: false,
 };
 
-export const BasicSelect = ({
-    options = selectDefaults.options,
+export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
+    options = [],
     label = selectDefaults.label,
-    values = [],
+    values,
     initialValues,
     onCancel,
     onUpdate,
@@ -85,17 +61,21 @@ export const BasicSelect = ({
     selectAllLabel = selectDefaults.selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     icon,
+    renderCustomOptionText,
+    selectLabelProps,
+    onSearchChange,
     ...props
-}: SelectProps) => {
+}: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values);
-    const [tempValues, setTempValues] = useState<string[]>(values);
+    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values || []);
+    const [tempValues, setTempValues] = useState<string[]>(values || []);
     const selectRef = useRef<HTMLDivElement>(null);
+    const dropdownRef = useRef<HTMLDivElement>(null);
     const [areAllSelected, setAreAllSelected] = useState(false);
 
     useEffect(() => {
-        if (values?.length > 0 && !isEqual(selectedValues, values)) {
+        if (values !== undefined && !isEqual(selectedValues, values)) {
             setSelectedValues(values);
         }
     }, [values, selectedValues]);
@@ -110,7 +90,10 @@ export const BasicSelect = ({
     );
 
     const handleDocumentClick = useCallback((e: MouseEvent) => {
-        if (selectRef.current && !selectRef.current.contains(e.target as Node)) {
+        const clickedOutsideOfSelect = selectRef.current && !selectRef.current.contains(e.target as Node);
+        const clickedOutsideOfDropdown = dropdownRef.current && !dropdownRef.current.contains(e.target as Node);
+
+        if (clickedOutsideOfSelect && clickedOutsideOfDropdown) {
             setIsOpen(false);
         }
     }, []);
@@ -186,122 +169,123 @@ export const BasicSelect = ({
         setAreAllSelected(!areAllSelected);
     };
 
+    const handleSearchChange = useCallback(
+        (value: string) => {
+            onSearchChange?.(value);
+            setSearchQuery(value);
+        },
+        [onSearchChange],
+    );
+
     return (
         <Container ref={selectRef} size={size || 'md'} width={props.width}>
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
-            <SelectBase
-                isDisabled={isDisabled}
-                isReadOnly={isReadOnly}
-                isRequired={isRequired}
-                isOpen={isOpen}
-                onClick={handleSelectClick}
-                fontSize={size}
-                {...props}
-            >
-                <SelectLabelContainer>
-                    {icon && <StyledIcon icon={icon} size="lg" />}
-                    <SelectLabelRenderer
-                        selectedValues={selectedValues}
-                        options={options}
-                        placeholder={placeholder || 'Select an option'}
-                        isMultiSelect={isMultiSelect}
-                        removeOption={removeOption}
-                        disabledValues={disabledValues}
-                        showDescriptions={showDescriptions}
-                    />
-                </SelectLabelContainer>
-                <SelectActionButtons
-                    selectedValues={selectedValues}
-                    isOpen={isOpen}
-                    isDisabled={!!isDisabled}
-                    isReadOnly={!!isReadOnly}
-                    handleClearSelection={handleClearSelection}
-                    showClear={!!showClear}
-                />
-            </SelectBase>
-            {isOpen && (
-                <Dropdown>
-                    {showSearch && (
-                        <SearchInputContainer>
-                            <SearchInput
-                                type="text"
+            <Dropdown
+                open={isOpen}
+                disabled={isDisabled}
+                placement="bottomRight"
+                dropdownRender={() => (
+                    <DropdownContainer ref={dropdownRef}>
+                        {showSearch && (
+                            <DropdownSearchBar
                                 placeholder="Search…"
                                 value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                style={{ fontSize: size || 'md' }}
+                                onChange={(value) => handleSearchChange(value)}
+                                size={size}
                             />
-                            <SearchIcon icon="Search" size={size} color="gray" />
-                        </SearchInputContainer>
-                    )}
-                    <OptionList>
-                        {showSelectAll && isMultiSelect && (
-                            <SelectAllOption
-                                isSelected={areAllSelected}
-                                onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
-                                isDisabled={disabledValues.length === options.length}
-                            >
-                                <LabelContainer>
-                                    <span>{selectAllLabel}</span>
-                                    <StyledCheckbox
-                                        checked={areAllSelected}
-                                        disabled={disabledValues.length === options.length}
-                                    />
-                                </LabelContainer>
-                            </SelectAllOption>
                         )}
-                        {filteredOptions.map((option) => (
-                            <OptionLabel
-                                key={option.value}
-                                onClick={() => !isMultiSelect && handleOptionChange(option)}
-                                isSelected={tempValues.includes(option.value)}
-                                isMultiSelect={isMultiSelect}
-                                isDisabled={disabledValues?.includes(option.value)}
-                            >
-                                {isMultiSelect ? (
-                                    <LabelContainer>
-                                        <span>{option.label}</span>
-                                        <StyledCheckbox
-                                            onClick={() => handleOptionChange(option)}
-                                            checked={tempValues.includes(option.value)}
-                                            disabled={disabledValues?.includes(option.value)}
-                                        />
-                                    </LabelContainer>
-                                ) : (
-                                    <OptionContainer>
-                                        <ActionButtonsContainer>
-                                            {option.icon}
-                                            <Text
-                                                color={selectedValues.includes(option.value) ? 'violet' : 'gray'}
-                                                weight="semiBold"
-                                                size="md"
-                                            >
-                                                {option.label}
-                                            </Text>
-                                        </ActionButtonsContainer>
-                                        {!!option.description && (
-                                            <Text color="gray" weight="normal" size="sm">
-                                                {option.description}
-                                            </Text>
-                                        )}
-                                    </OptionContainer>
-                                )}
-                            </OptionLabel>
-                        ))}
-                    </OptionList>
-                    <FooterBase>
-                        <StyledCancelButton
-                            onClick={handleCancelClick}
-                            variant="filled"
+                        <OptionList>
+                            {showSelectAll && isMultiSelect && (
+                                <DropdownSelectAllOption
+                                    label={selectAllLabel}
+                                    selected={areAllSelected}
+                                    disabled={disabledValues.length === options.length}
+                                    onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
+                                />
+                            )}
+                            {filteredOptions.map((option) => (
+                                <OptionLabel
+                                    key={option.value}
+                                    onClick={() => !isMultiSelect && handleOptionChange(option)}
+                                    isSelected={tempValues.includes(option.value)}
+                                    isMultiSelect={isMultiSelect}
+                                    isDisabled={disabledValues?.includes(option.value)}
+                                >
+                                    {isMultiSelect ? (
+                                        <LabelContainer>
+                                            {renderCustomOptionText ? (
+                                                renderCustomOptionText(option)
+                                            ) : (
+                                                <span>{option.label}</span>
+                                            )}
+                                            <StyledCheckbox
+                                                onClick={() => handleOptionChange(option)}
+                                                checked={tempValues.includes(option.value)}
+                                                disabled={disabledValues?.includes(option.value)}
+                                            />
+                                        </LabelContainer>
+                                    ) : (
+                                        <OptionContainer>
+                                            <ActionButtonsContainer>
+                                                {option.icon}
+                                                <Text
+                                                    color={selectedValues.includes(option.value) ? 'violet' : 'gray'}
+                                                    weight="semiBold"
+                                                    size="md"
+                                                >
+                                                    {option.label}
+                                                </Text>
+                                            </ActionButtonsContainer>
+                                            {!!option.description && (
+                                                <Text color="gray" weight="normal" size="sm">
+                                                    {option.description}
+                                                </Text>
+                                            )}
+                                        </OptionContainer>
+                                    )}
+                                </OptionLabel>
+                            ))}
+                        </OptionList>
+                        <DropdownFooterActions
+                            onCancel={handleCancelClick}
+                            onUpdate={handleUpdateClick}
                             size={getFooterButtonSize(size)}
-                        >
-                            Cancel
-                        </StyledCancelButton>
-                        <Button onClick={handleUpdateClick} size={getFooterButtonSize(size)}>
-                            Update
-                        </Button>
-                    </FooterBase>
-                </Dropdown>
-            )}
+                        />
+                    </DropdownContainer>
+                )}
+            >
+                <SelectBase
+                    isDisabled={isDisabled}
+                    isReadOnly={isReadOnly}
+                    isRequired={isRequired}
+                    isOpen={isOpen}
+                    onClick={handleSelectClick}
+                    fontSize={size}
+                    {...props}
+                >
+                    <SelectLabelContainer>
+                        {icon && <StyledIcon icon={icon} size="lg" />}
+                        <SelectLabelRenderer
+                            selectedValues={selectedValues}
+                            options={options}
+                            placeholder={placeholder || 'Select an option'}
+                            isMultiSelect={isMultiSelect}
+                            removeOption={removeOption}
+                            disabledValues={disabledValues}
+                            showDescriptions={showDescriptions}
+                            {...(selectLabelProps || {})}
+                        />
+                    </SelectLabelContainer>
+                    <SelectActionButtons
+                        hasSelectedValues={selectedValues.length > 0}
+                        isOpen={isOpen}
+                        isDisabled={!!isDisabled}
+                        isReadOnly={!!isReadOnly}
+                        handleClearSelection={handleClearSelection}
+                        showClear={!!showClear}
+                    />
+                </SelectBase>
+            </Dropdown>
         </Container>
     );
 };

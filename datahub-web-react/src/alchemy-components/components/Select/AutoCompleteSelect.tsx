@@ -1,24 +1,23 @@
-import { Text } from '@components';
+import { Dropdown, Text } from '@components';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
-import { Input } from '../Input';
+
 import {
-    ActionButtonsContainer,
     Container,
-    Dropdown,
+    DropdownContainer,
     LabelsWrapper,
     OptionContainer,
     OptionLabel,
     OptionList,
     Placeholder,
-    SearchInputContainer,
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
-    StyledClearButton,
     StyledIcon,
-} from './components';
-import { ActionButtonsProps, SelectProps } from './types';
+} from '@components/components/Select/components';
+import DropdownSearchBar from '@components/components/Select/private/DropdownSearchBar';
+import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
+import { SelectProps } from '@components/components/Select/types';
 
 const NoSuggestions = styled.div`
     padding: 8px;
@@ -141,90 +140,69 @@ export default function AutoCompleteSelect<T>({
             isSelected={selectedValue !== undefined}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
-            <SelectBase
-                isDisabled={isDisabled}
-                isReadOnly={isReadOnly}
-                isRequired={isRequired}
-                isOpen={isOpen}
-                onClick={handleSelectClick}
-                fontSize={size}
-                {...props}
-            >
-                <SelectLabelContainer>
-                    {icon && <StyledIcon icon={icon} size="lg" />}
-                    <LabelsWrapper>
-                        {!selectedValue && placeholder && <Placeholder>{placeholder}</Placeholder>}
-                        {selectedValue && render(selectedValue.data)}
-                    </LabelsWrapper>
-                </SelectLabelContainer>
-                <SelectActionButtons
-                    selectedValues={selectedValue ? [selectedValue.value] : []}
-                    isOpen={isOpen}
-                    isDisabled={!!isDisabled}
-                    isReadOnly={!!isReadOnly}
-                    handleClearSelection={handleClearSelection}
-                    showClear
-                />
-            </SelectBase>
-            <input type="hidden" name={name} value={selectedValue?.value || ''} readOnly />
-            {isOpen && (
-                <Dropdown>
-                    <SearchInputContainer>
-                        <Input
-                            label=""
-                            type="text"
-                            icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
+            <Dropdown
+                open={isOpen}
+                disabled={isDisabled}
+                placement="bottomRight"
+                dropdownRender={() => (
+                    <DropdownContainer>
+                        <DropdownSearchBar
                             placeholder={searchPlaceholder || ''}
                             value={query}
-                            onChange={(e) => {
-                                setQuery(e.target.value);
-                                onSearch(e.target.value);
+                            onChange={(value) => {
+                                setQuery(value);
+                                onSearch(value);
                             }}
                         />
-                    </SearchInputContainer>
-                    <OptionList data-testid={optionListTestId}>
-                        {!displayedSuggestions.length && (
-                            <NoSuggestions>
-                                <Text type="span" color="gray" weight="semiBold">
-                                    No results found
-                                </Text>
-                            </NoSuggestions>
-                        )}
-                        {displayedSuggestions?.map((option) => (
-                            <OptionLabel
-                                key={option.value}
-                                onClick={() => handleOptionChange(option)}
-                                isSelected={selectedValue?.value === option.value}
-                                isDisabled={disabledValues?.includes(option.value)}
-                            >
-                                <OptionContainer>{render(option.data)}</OptionContainer>
-                            </OptionLabel>
-                        ))}
-                    </OptionList>
-                </Dropdown>
-            )}
+                        <OptionList data-testid={optionListTestId}>
+                            {!displayedSuggestions.length && (
+                                <NoSuggestions>
+                                    <Text type="span" color="gray" weight="semiBold">
+                                        No results found
+                                    </Text>
+                                </NoSuggestions>
+                            )}
+                            {displayedSuggestions?.map((option) => (
+                                <OptionLabel
+                                    key={option.value}
+                                    onClick={() => handleOptionChange(option)}
+                                    isSelected={selectedValue?.value === option.value}
+                                    isDisabled={disabledValues?.includes(option.value)}
+                                >
+                                    <OptionContainer>{render(option.data)}</OptionContainer>
+                                </OptionLabel>
+                            ))}
+                        </OptionList>
+                    </DropdownContainer>
+                )}
+            >
+                <SelectBase
+                    isDisabled={isDisabled}
+                    isReadOnly={isReadOnly}
+                    isRequired={isRequired}
+                    isOpen={isOpen}
+                    onClick={handleSelectClick}
+                    fontSize={size}
+                    {...props}
+                >
+                    <SelectLabelContainer>
+                        {icon && <StyledIcon icon={icon} size="lg" />}
+                        <LabelsWrapper>
+                            {!selectedValue && placeholder && <Placeholder>{placeholder}</Placeholder>}
+                            {selectedValue && render(selectedValue.data)}
+                        </LabelsWrapper>
+                    </SelectLabelContainer>
+                    <SelectActionButtons
+                        hasSelectedValues={!!selectedValue}
+                        isOpen={isOpen}
+                        isDisabled={!!isDisabled}
+                        isReadOnly={!!isReadOnly}
+                        handleClearSelection={handleClearSelection}
+                        showClear
+                    />
+                </SelectBase>
+                <input type="hidden" name={name} value={selectedValue?.value || ''} readOnly />
+            </Dropdown>
         </Container>
-    );
-}
-
-function SelectActionButtons({
-    selectedValues,
-    isOpen,
-    isDisabled,
-    isReadOnly,
-    showClear,
-    handleClearSelection,
-}: ActionButtonsProps) {
-    return (
-        <ActionButtonsContainer>
-            {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton
-                    icon={{ icon: 'Close', source: 'material', size: 'lg' }}
-                    isCircle
-                    onClick={handleClearSelection}
-                />
-            )}
-            <StyledIcon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="lg" />
-        </ActionButtonsContainer>
     );
 }

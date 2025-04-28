@@ -7,6 +7,7 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Unio
 from mlflow import MlflowClient
 from mlflow.entities import Dataset as MlflowDataset, Experiment, Run
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
+from mlflow.exceptions import MlflowException
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
 
@@ -36,6 +37,7 @@ from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
@@ -118,6 +120,8 @@ class MLflowConfig(StatefulIngestionConfigBase, EnvConfigMixin):
     password: Optional[str] = Field(
         default=None, description="Password for MLflow authentication"
     )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
 
 @dataclass
@@ -586,8 +590,8 @@ class MLflowSource(StatefulIngestionSourceBase):
         )
         return runs
 
-    @staticmethod
     def _traverse_mlflow_search_func(
+        self,
         search_func: Callable[..., PagedList[T]],
         **kwargs: Any,
     ) -> Iterable[T]:
@@ -595,12 +599,24 @@ class MLflowSource(StatefulIngestionSourceBase):
         Utility to traverse an MLflow search_* functions which return PagedList.
         """
         next_page_token = None
-        while True:
-            paged_list = search_func(page_token=next_page_token, **kwargs)
-            yield from paged_list.to_list()
-            next_page_token = paged_list.token
-            if not next_page_token:
+        try:
+            while True:
+                paged_list = search_func(page_token=next_page_token, **kwargs)
+                yield from paged_list.to_list()
+                next_page_token = paged_list.token
+                if not next_page_token:
+                    return
+        except MlflowException as e:
+            if e.error_code == "ENDPOINT_NOT_FOUND":
+                self.report.warning(
+                    title="MLflow API Endpoint Not Found for Experiments.",
+                    message="Please upgrade to version 1.28.0 or higher to ensure compatibility. Skipping ingestion for experiments and runs.",
+                    context=None,
+                    exc=e,
+                )
                 return
+            else:
+                raise  # Only re-raise other exceptions
 
     def _get_latest_version(self, registered_model: RegisteredModel) -> Optional[str]:
         return (

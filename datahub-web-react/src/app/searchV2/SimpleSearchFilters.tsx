@@ -1,18 +1,20 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { FacetFilterInput, FacetMetadata } from '../../types.generated';
-import { FilterScenarioType } from './filters/render/types';
-import { useFilterRendererRegistry } from './filters/render/useFilterRenderer';
-import { SimpleSearchFilter } from './SimpleSearchFilter';
+
+import { SCHEMA_FIELD_ALIASES_FILTER_NAME } from '@app/search/utils/constants';
+import { SimpleSearchFilter } from '@app/searchV2/SimpleSearchFilter';
+import { FilterScenarioType } from '@app/searchV2/filters/render/types';
+import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
 import {
+    DEGREE_FILTER_NAME,
     ENTITY_FILTER_NAME,
     ENTITY_INDEX_FILTER_NAME,
-    LEGACY_ENTITY_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
-    DEGREE_FILTER_NAME,
-} from './utils/constants';
-import { useAppConfig } from '../useAppConfig';
-import { SCHEMA_FIELD_ALIASES_FILTER_NAME } from '../search/utils/constants';
+    LEGACY_ENTITY_FILTER_NAME,
+} from '@app/searchV2/utils/constants';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 

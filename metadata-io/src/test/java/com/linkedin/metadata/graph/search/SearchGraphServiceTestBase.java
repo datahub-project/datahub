@@ -159,7 +159,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testFindRelatedEntitiesSourceEntityFilter(
       Filter sourceEntityFilter,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -175,7 +175,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testFindRelatedEntitiesDestinationEntityFilter(
       Filter destinationEntityFilter,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -191,7 +191,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testFindRelatedEntitiesSourceType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -211,7 +211,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testFindRelatedEntitiesDestinationType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -239,7 +239,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   public void testRemoveEdgesFromNode(
       @Nonnull Urn nodeToRemoveFrom,
-      @Nonnull List<String> relationTypes,
+      @Nonnull Set<String> relationTypes,
       @Nonnull RelationshipFilter relationshipFilter,
       List<RelatedEntity> expectedOutgoingRelatedUrnsBeforeRemove,
       List<RelatedEntity> expectedIncomingRelatedUrnsBeforeRemove,
@@ -282,11 +282,11 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         getGraphService()
             .findRelatedEntities(
                 operationContext,
-                Collections.singletonList(datasetType),
+                Set.of(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
-                Collections.singletonList("tag"),
+                Set.of("tag"),
                 EMPTY_FILTER,
-                Collections.singletonList(TAG_RELATIONSHIP),
+                Set.of(TAG_RELATIONSHIP),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 0,
                 100);
@@ -297,11 +297,11 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
         getGraphService()
             .findRelatedEntities(
                 operationContext,
-                Collections.singletonList(datasetType),
+                Set.of(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
-                Collections.singletonList("tag"),
+                Set.of("tag"),
                 EMPTY_FILTER,
-                Collections.singletonList(TAG_RELATIONSHIP),
+                Set.of(TAG_RELATIONSHIP),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 0,
                 100);

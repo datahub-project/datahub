@@ -5,6 +5,7 @@
 **/.tox/
 **/.mypy_cache/
 **/.pytest_cache/
+**/.ruff_cache/
 **/__pycache__/
 out
 **/*.class
@@ -16,3 +17,6 @@ out
 .git/COMMIT_*
 .git/index
 .gradle
+
+/metadata-ingestion/tests
+/metadata-ingestion/examples

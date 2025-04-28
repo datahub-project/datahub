@@ -1,13 +1,15 @@
+import { ReadOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { ReadOutlined } from '@ant-design/icons';
-import { Message } from '../../shared/Message';
-import { ResultWrapper } from '../../search/SearchResultList';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { EntityType } from '../../../types.generated';
-import useListDomains from '../useListDomains';
-import EmptyDomainsSection from '../EmptyDomainsSection';
-import EmptyDomainDescription from '../EmptyDomainDescription';
+
+import EmptyDomainDescription from '@app/domain/EmptyDomainDescription';
+import EmptyDomainsSection from '@app/domain/EmptyDomainsSection';
+import useListDomains from '@app/domain/useListDomains';
+import { ResultWrapper } from '@app/search/SearchResultList';
+import { Message } from '@app/shared/Message';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const DomainsWrapper = styled.div`
     overflow: auto;

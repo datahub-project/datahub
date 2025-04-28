@@ -6,15 +6,14 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
 
 :::
-
 
 ## Introduction
 
 Snowflake Tag Propagation is an automation that allows you to sync DataHub Glossary Terms and Tags on
-both columns and tables back to Snowflake. This automation is available in DataHub Cloud (Acryl) only.
+both columns and tables back to Snowflake. This automation is available in DataHub Cloud only.
 
 ## Capabilities
 
@@ -27,10 +26,9 @@ both columns and tables back to Snowflake. This automation is available in DataH
 ### Permissions Required for Tag Management
 
 - `CREATE TAG`: Required to create new tags in Snowflake.
-Ensure the user or role has this privilege on the specific schema or database where tags will be created.
+  Ensure the user or role has this privilege on the specific schema or database where tags will be created.
 - `APPLY TAG`: Required to assign tags to Snowflake objects such as tables, columns, or other database objects.
-This permission must be granted at the database, schema, or object level depending on the scope.
-
+  This permission must be granted at the database, schema, or object level depending on the scope.
 
 ### Permissions Required for Object Access
 
@@ -55,7 +53,6 @@ GRANT SELECT ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_A
 GRANT SELECT ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 GRANT APPLY TAG ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
 ```
-
 
 ## Enabling Snowflake Tag Sync
 

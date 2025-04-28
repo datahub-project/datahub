@@ -13,7 +13,6 @@ import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.mxe.MetadataChangeProposal;
-import java.util.Objects;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -68,11 +67,15 @@ public class ValidationApiUtils {
   @Nonnull
   public static EntitySpec validateEntity(
       @Nonnull EntityRegistry entityRegistry, String entityType) {
-    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
-    if (entitySpec == null) {
-      throw new ValidationException("Unknown entity: " + entityType);
+    try {
+      EntitySpec entitySpec = entityRegistry.getEntitySpec(entityType);
+      if (entitySpec == null) {
+        throw new ValidationException("Unknown entity: " + entityType);
+      }
+      return entitySpec;
+    } catch (IllegalArgumentException e) {
+      throw new ValidationException(e.getMessage());
     }
-    return entitySpec;
   }
 
   @Nonnull
@@ -142,7 +145,9 @@ public class ValidationApiUtils {
       mcp.setEntityUrn(urn);
     }
 
-    if (!Objects.equals(mcp.getEntityType(), urn.getEntityType())) {
+    if (mcp.getEntityType().equalsIgnoreCase(urn.getEntityType())) {
+      mcp.setEntityType(urn.getEntityType());
+    } else {
       throw new ValidationException(
           String.format(
               "URN entity type does not match MCP entity type. %s != %s",

@@ -1,12 +1,13 @@
+import * as Muicon from '@mui/icons-material';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import * as Muicon from '@mui/icons-material';
 
-import { EntityType, GlossaryTerm } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
+import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, GlossaryTerm } from '@types';
 
 const GlossaryTermMiniPreviewContainer = styled.div<{ color: string }>`
     display: inline-flex;
