@@ -200,7 +200,7 @@ information like tokens.
 | spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
 | spark.datahub.log.mcps                                 |          | true                  | Set this to true to log MCPS to the log. By default, it is enabled.                                                                                                                       |
 | spark.datahub.legacyLineageCleanup.enabled             |          | false                 | Set this to true to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob. By default, it is disabled.          |
-| spark.datahub.capture_spark_plan                        |          | false                 | Set this to true to capture the Spark plan. By default, it is disabled.                                                                                                                   |
+| spark.datahub.capture_spark_plan                       |          | false                 | Set this to true to capture the Spark plan. By default, it is disabled.                                                                                                                   |
 
 ## What to Expect: The Metadata Model
 
