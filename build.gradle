@@ -61,7 +61,7 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.25.0'
+  ext.openLineageVersion = '1.31.0'
   ext.logbackClassicJava8 = '1.2.12'
   ext.awsSdk2Version = '2.30.33'
 

@@ -24,7 +24,7 @@ When running jobs using spark-submit, the agent needs to be configured in the co
 
 ```text
 #Configuring DataHub spark agent jar
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.17
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.18
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    http://localhost:8080
 ```
@@ -32,7 +32,7 @@ spark.datahub.rest.server                    http://localhost:8080
 ## spark-submit command line
 
 ```sh
-spark-submit --packages io.acryl:acryl-spark-lineage:0.2.17 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
+spark-submit --packages io.acryl:acryl-spark-lineage:0.2.18 --conf "spark.extraListeners=datahub.spark.DatahubSparkListener" my_spark_job_to_run.py
 ```
 
 ### Configuration Instructions: Amazon EMR
@@ -41,7 +41,7 @@ Set the following spark-defaults configuration properties as it
 stated [here](https://docs.aws.amazon.com/emr/latest/ReleaseGuide/emr-spark-configure.html)
 
 ```text
-spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.17
+spark.jars.packages                          io.acryl:acryl-spark-lineage:0.2.18
 spark.extraListeners                         datahub.spark.DatahubSparkListener
 spark.datahub.rest.server                    https://your_datahub_host/gms
 #If you have authentication set up then you also need to specify the Datahub access token
@@ -56,7 +56,7 @@ When running interactive jobs from a notebook, the listener can be configured wh
 spark = SparkSession.builder
 .master("spark://spark-master:7077")
 .appName("test-application")
-.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.17")
+.config("spark.jars.packages", "io.acryl:acryl-spark-lineage:0.2.18")
 .config("spark.extraListeners", "datahub.spark.DatahubSparkListener")
 .config("spark.datahub.rest.server", "http://localhost:8080")
 .enableHiveSupport()
@@ -79,7 +79,7 @@ appName("test-application")
 config("spark.master","spark://spark-master:7077")
         .
 
-config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.17")
+config("spark.jars.packages","io.acryl:acryl-spark-lineage:0.2.18")
         .
 
 config("spark.extraListeners","datahub.spark.DatahubSparkListener")
@@ -200,6 +200,7 @@ information like tokens.
 | spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
 | spark.datahub.log.mcps                                 |          | true                  | Set this to true to log MCPS to the log. By default, it is enabled.                                                                                                                       |
 | spark.datahub.legacyLineageCleanup.enabled             |          | false                 | Set this to true to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob. By default, it is disabled.          |
+| spark.datahub.capture_spark_plan                        |          | false                 | Set this to true to capture the Spark plan. By default, it is disabled.                                                                                                                   |
 
 ## What to Expect: The Metadata Model
 
@@ -363,6 +364,12 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 -
 
 ## Changelog
+
+### Version 0.2.18
+
+- _Changes_:
+  - OpenLineage 1.31.0 upgrade
+  - Add `spark.datahub.capture_spark_plan` option to capture the Spark plan. By default, it is disabled.
 
 ### Version 0.2.17
 
