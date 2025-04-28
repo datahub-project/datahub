@@ -26,9 +26,6 @@ fragment glossaryNodeFields on GlossaryNode {
     privileges {
         ...entityPrivileges
     }
-    share {
-        ...shareFields
-    }
     autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
         ...autoRenderAspectFields
     }

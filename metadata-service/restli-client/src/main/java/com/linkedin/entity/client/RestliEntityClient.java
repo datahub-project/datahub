@@ -741,10 +741,6 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       requestBuilder.sortParam(sortCriteria.get(0));
       requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
     }
-    if (sortCriteria != null && !CollectionUtils.isEmpty(sortCriteria)) {
-      requestBuilder.sortParam(sortCriteria.get(0));
-      requestBuilder.sortCriteriaParam(new SortCriterionArray(sortCriteria));
-    }
 
     return sendClientRequest(requestBuilder, opContext.getAuthentication()).getEntity();
   }

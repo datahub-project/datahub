@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Entity, EntityType, SortOrder } from '@src/types.generated';
+import { useInView } from 'react-intersection-observer';
 import { useDebounce } from 'react-use';
-import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
+
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { ENTITY_INDEX_FILTER_NAME } from '@src/app/search/utils/constants';
 import { ENTITY_NAME_FIELD } from '@src/app/searchV2/context/constants';
-import { useInView } from 'react-intersection-observer';
-import { useGlossaryEntityData } from '../shared/GlossaryEntityContext';
+import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
+import { Entity, EntityType, SortOrder } from '@src/types.generated';
 
 function getGlossaryChildrenScrollInput(urn: string, scrollId: string | null) {
     return {
