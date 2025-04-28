@@ -125,6 +125,7 @@ _DEFAULT_ACTOR = mce_builder.make_user_urn("unknown")
 @dataclass
 class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_parser_skipped_missing_code: LossyList[str] = field(default_factory=LossyList)
+    sql_parser_skipped_non_sql_model: LossyList[str] = field(default_factory=LossyList)
     sql_parser_parse_failures: int = 0
     sql_parser_detach_ctes_failures: int = 0
     sql_parser_table_errors: int = 0
@@ -1179,6 +1180,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 logger.debug(
                     f"Not generating CLL for {node.dbt_name} because we don't need it."
                 )
+            elif node.language != "sql":
+                logger.debug(
+                    f"Not generating CLL for {node.dbt_name} because it is not a SQL model."
+                )
+                self.report.sql_parser_skipped_non_sql_model.append(node.dbt_name)
             elif node.compiled_code:
                 # Add CTE stops based on the upstreams list.
                 cte_mapping = {
