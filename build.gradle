@@ -69,7 +69,7 @@ buildscript {
 
   ext.sentry = '8.8.0'
 
-  ext.docker_registry = '795586375822.dkr.ecr.us-west-2.amazonaws.com'
+  ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", '795586375822.dkr.ecr.us-west-2.amazonaws.com')
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)

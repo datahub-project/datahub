@@ -63,7 +63,7 @@ FROM base AS dev-install
 
 FROM ${APP_ENV}-install AS final
 
-RUN mkdir -p /etc/datahub/plugins/auth/resources
+RUN mkdir -p /etc/datahub/plugins/auth/resources /datahub
 
 RUN addgroup -S datahub && adduser -S datahub -G datahub && chmod g-s /home/datahub
 RUN chown -R datahub:datahub /etc/datahub /datahub

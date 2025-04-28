@@ -86,6 +86,16 @@ ext {
             'quickstartStorage': [
                     profile: 'quickstart-storage',
                     preserveVolumes: true
+            ],
+            'allImages': [ //This is a special task just to include all images as dependencies - and is useful when CI needs to publish all images
+                    profile: 'quickstart-consumers',
+                    modules: python_services_modules + backend_profile_modules + [
+                        ':datahub-frontend',
+                        ':metadata-jobs:mce-consumer-job',
+                        ':metadata-jobs:mae-consumer-job',
+                        ':datahub-actions',
+                        ':docker:datahub-ingestion'
+                    ]
             ]
     ]
 
@@ -197,6 +207,9 @@ quickstart_configs.each { taskName, config ->
             buildCmd << "depot"
             buildCmd += bakeCmdArgs
             buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
+            if (project.properties.getOrDefault("dockerPush", false)){
+                buildCmd << "--push"
+            }
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
@@ -223,7 +236,6 @@ quickstart_configs.each { taskName, config ->
         }
     }
 }
-
 
 // Configure dependencies for ComposeUp tasks
 quickstart_configs.each { taskName, config ->
