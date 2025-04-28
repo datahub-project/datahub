@@ -36,7 +36,7 @@ lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
     "ruff==0.11.6",
-    "mypy==1.10.1",
+    "mypy==1.12.1",
 }
 
 base_requirements = {
@@ -190,9 +190,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/actions",
+        "Documentation": "https://docs.datahub.com/docs/actions",
         "Source": "https://github.com/acryldata/datahub-actions",
         "Changelog": "https://github.com/acryldata/datahub-actions/releases",
     },

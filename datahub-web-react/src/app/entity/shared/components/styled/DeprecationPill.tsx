@@ -1,6 +1,7 @@
 import { blue } from '@ant-design/colors';
 import { InfoCircleOutlined } from '@ant-design/icons';
-import { Divider, Modal, Popover, Tooltip, Typography, message } from 'antd';
+import { Popover, Tooltip, colors } from '@components';
+import { Divider, Modal, Typography, message } from 'antd';
 import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -15,12 +16,12 @@ import { Deprecation } from '@types';
 
 const DeprecatedContainer = styled.div`
     height: 18px;
-    border: 1px solid #cd0d24;
+    border: 1px solid ${colors.red[500]};
     border-radius: 15px;
     display: flex;
     justify-content: center;
     align-items: center;
-    color: #cd0d24;
+    color: ${colors.red[500]};
     padding-top: 8px;
     padding-bottom: 8px;
     padding-right: 4px;

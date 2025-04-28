@@ -6,7 +6,8 @@ module.exports = {
     tabWidth: 4,
     plugins: ['@trivago/prettier-plugin-sort-imports'],
     importOrder: [
-        // Third party imports are first automatically, in their own group
+        '.*\.less$',
+        '<THIRD_PARTY_MODULES>',
         '^@components/(.*)$',
         // Have to specify all aliases otherwise they're considered third party
         '^(@app|@conf|@providers|@utils|@src)/(.*)$',

@@ -29,7 +29,7 @@ const tableauConfig: SourceConfig = {
     type: TABLEAU,
     placeholderRecipe,
     displayName: 'Tableau',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/tableau/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/tableau/',
     logoUrl: tableauLogo,
 };
 
