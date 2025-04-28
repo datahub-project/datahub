@@ -74,6 +74,7 @@ export const FieldColumnBuilder = ({ value, onChange, disabled }: Props) => {
                 fields={columnOptions}
                 onChange={updateColumnSpec}
                 disabled={disabled}
+                showSearch
             />
         </Section>
     );

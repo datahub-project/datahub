@@ -1,7 +1,8 @@
-import { Divider, Form, Select } from 'antd';
-import Typography from 'antd/lib/typography';
+import { Form } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { SimpleSelect } from '@src/alchemy-components';
 
 const StyledFormItem = styled(Form.Item)<{ width: string }>`
     width: ${(props) => props.width};
@@ -17,6 +18,7 @@ type Props = {
     placeholder?: string;
     required?: boolean;
     disabled?: boolean;
+    showSearch?: boolean;
 };
 
 export const AssertionDatasetFieldBuilder = ({
@@ -28,7 +30,12 @@ export const AssertionDatasetFieldBuilder = ({
     placeholder = 'Select a column...',
     required = true,
     disabled = false,
+    showSearch = false,
 }: Props) => {
+    const columnOptions = fields.map((f) => ({
+        label: f.path,
+        value: f.path,
+    }));
     return (
         <StyledFormItem
             initialValue={selectedPath}
@@ -36,21 +43,15 @@ export const AssertionDatasetFieldBuilder = ({
             rules={[{ required, message: 'Required' }]}
             width={width}
         >
-            <Select
-                value={selectedPath}
+            <SimpleSelect
                 placeholder={placeholder}
-                onChange={(newFieldPath) => onChange(newFieldPath as string)}
-                optionLabelProp="label"
-                disabled={disabled}
-            >
-                {fields.map((field) => (
-                    <Select.Option key={field.path} value={field.path}>
-                        <Typography.Text>{field.path}</Typography.Text>
-                        <Divider type="vertical" />
-                        <Typography.Text type="secondary">{field.nativeType}</Typography.Text>
-                    </Select.Option>
-                ))}
-            </Select>
+                options={columnOptions ?? []}
+                onUpdate={(values) => onChange(values[0])}
+                initialValues={selectedPath ? [selectedPath] : undefined}
+                width="full"
+                showSearch={showSearch}
+                isDisabled={disabled}
+            />
         </StyledFormItem>
     );
 };
