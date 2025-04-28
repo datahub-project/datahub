@@ -267,7 +267,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              to: "https://demo.datahubproject.io/",
+              to: "https://demo.datahub.com/",
             },
             {
               label: "Roadmap",
