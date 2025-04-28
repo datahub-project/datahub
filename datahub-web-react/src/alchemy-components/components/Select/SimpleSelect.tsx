@@ -1,3 +1,4 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -21,6 +22,8 @@ import DropdownSelectAllOption from '@components/components/Select/private/Dropd
 import SelectActionButtons from '@components/components/Select/private/SelectActionButtons';
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
+
+import { LoadingWrapper } from '@src/app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 
 export const selectDefaults: SelectProps = {
     options: [],
@@ -74,6 +77,7 @@ export const SimpleSelect = ({
     position,
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
+    isLoading = false,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -200,6 +204,11 @@ export const SimpleSelect = ({
                                     disabled={disabledValues.length === options.length}
                                     onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
                                 />
+                            )}
+                            {isLoading && (
+                                <LoadingWrapper>
+                                    <LoadingOutlined />
+                                </LoadingWrapper>
                             )}
                             {filteredOptions.map((option) => (
                                 <OptionLabel
