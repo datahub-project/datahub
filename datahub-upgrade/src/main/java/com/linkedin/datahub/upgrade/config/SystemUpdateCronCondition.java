@@ -18,16 +18,4 @@ public class SystemUpdateCronCondition implements Condition {
         .filter(Objects::nonNull)
         .anyMatch(SYSTEM_UPDATE_CRON_ARG::equalsIgnoreCase);
   }
-
-  public static class TweakReplicasStepCondition implements Condition {
-    @Override
-    public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
-      return context
-          .getBeanFactory()
-          .getBean(ApplicationArguments.class)
-          .getNonOptionArgs()
-          .stream()
-          .anyMatch(arg -> SYSTEM_UPDATE_STEP_TWEAKREPLICAS.equals(arg));
-    }
-  }
 }

@@ -355,9 +355,9 @@ public class SendMAEStepTest {
     map.put("key1", Optional.of("value1"));
     map.put("key2", Optional.empty());
 
-    assertTrue(SendMAEStep.containsKey(map, "key1"));
-    assertFalse(SendMAEStep.containsKey(map, "key2"));
-    assertFalse(SendMAEStep.containsKey(map, "nonExistentKey"));
+    assertTrue(sendMAEStep.containsKey(map, "key1"));
+    assertFalse(sendMAEStep.containsKey(map, "key2"));
+    assertFalse(sendMAEStep.containsKey(map, "nonExistentKey"));
   }
 
   @Test
@@ -407,7 +407,7 @@ public class SendMAEStepTest {
     assertEquals(result.stepId(), sendMAEStep.id());
     assertEquals(result.action(), UpgradeStepResult.Action.CONTINUE);
 
-    // Verify createDefaultAspects parameter
+    // Verify dryRun parameter
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
     verify(mockEntityService).restoreIndices(eq(mockOpContext), argsCaptor.capture(), any());
