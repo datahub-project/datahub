@@ -1,3 +1,4 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -145,6 +146,7 @@ export const LeftSidebar = () => {
             <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <UserHeader />
                 <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
+                    {finalSections.length > 0 && <Divider style={{ margin: '0 0 16px 0' }} />}
                     {finalSections.map((section) => (
                         <section.component key={section.id} hideIfEmpty={section.hideIfEmpty} />
                     ))}
