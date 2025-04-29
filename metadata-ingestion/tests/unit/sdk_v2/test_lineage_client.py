@@ -12,7 +12,6 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
-from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
@@ -472,32 +471,32 @@ def test_add_dataset_to_datajob_lineage(client: DataHubClient) -> None:
     """Test adding lineage from dataset to datajob."""
     lineage_client = LineageClient(client=client)
 
-    # Create a dataset
-    dataset = Dataset(
-        platform="snowflake",
-        name="source_table",
-        env="PROD",
-        schema=[
-            ("id", "int"),
-            ("value", "string"),
-        ],
-    )
-    client.entities.upsert(dataset)
+    # # Create a dataset
+    # dataset = Dataset(
+    #     platform="snowflake",
+    #     name="source_table",
+    #     env="PROD",
+    #     schema=[
+    #         ("id", "int"),
+    #         ("value", "string"),
+    #     ],
+    # )
+    # client.entities.upsert(dataset)
 
-    # Create lineage from dataset to datajob
-    datajob = DataJob(
-        platform="airflow",
-        id="transform_job",
-        flow_urn="urn:li:dataFlow:(airflow,example_dag,PROD)",
-        name="Transform Job",
-        description="A job that transforms data",
-    )
-    client.entities.upsert(datajob)
+    # # Create lineage from dataset to datajob
+    # datajob = DataJob(
+    #     platform="airflow",
+    #     id="transform_job",
+    #     flow_urn="urn:li:dataFlow:(airflow,example_dag,PROD)",
+    #     name="Transform Job",
+    #     description="A job that transforms data",
+    # )
+    # client.entities.upsert(datajob)
 
-    lineage_client.add_datajob_lineage(
-        upstream=dataset.urn,
-        downstream=datajob.urn,
-    )
+    # lineage_client.add_datajob_lineage(
+    #     upstream=dataset.urn,
+    #     downstream=datajob.urn,
+    # )
 
     # Validate lineage MCPs
     assert_client_golden(

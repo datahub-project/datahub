@@ -7,6 +7,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    DataJobInputOutputClass,
     DatasetLineageTypeClass,
     MetadataChangeProposalClass,
     QueryLanguageClass,
@@ -327,8 +328,6 @@ class LineageClient:
             upstream: The upstream dataset or datajob (source)
             downstream: The downstream dataset or datajob (destination)
         """
-        from datahub.emitter.mcp import MetadataChangeProposalWrapper
-        from datahub.metadata.schema_classes import DataJobInputOutputClass
 
         upstream_str = str(upstream)
         downstream_str = str(downstream)
