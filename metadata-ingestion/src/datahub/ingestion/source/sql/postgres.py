@@ -2,12 +2,11 @@ import logging
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
+import boto3
+
 # This import verifies that the dependencies are available.
 import psycopg2  # noqa: F401
 import sqlalchemy.dialects.postgresql as custom_types
-from sqlalchemy.engine.url import make_url
-
-import boto3
 
 # GeoAlchemy adds support for PostGIS extensions in SQLAlchemy. In order to
 # activate it, we must import it so that it can hook into SQLAlchemy. While
@@ -19,6 +18,7 @@ from pydantic import BaseModel
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.engine.url import make_url
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter import mce_builder
@@ -170,21 +170,23 @@ class PostgresSource(SQLAlchemySource):
         # Create RDS client using default credential provider chain
         rds_client = boto3.client("rds", region_name=self.config.aws_region)
 
-        url_obj = make_url(self.config.get_sql_alchemy_url(
-            database=self.config.database or self.config.initial_database
-        )) 
-        
+        url_obj = make_url(
+            self.config.get_sql_alchemy_url(
+                database=self.config.database or self.config.initial_database
+            )
+        )
+
         host = url_obj.host
         port = url_obj.port
         user = url_obj.username
-        
+
         # Generate the authentication token
         token = rds_client.generate_db_auth_token(
             DBHostname=host,
             Port=port,
             DBUsername=user,
         )
-        
+
         return token
 
     def get_inspectors(self) -> Iterable[Inspector]:
