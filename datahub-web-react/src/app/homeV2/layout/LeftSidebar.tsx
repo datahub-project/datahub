@@ -2,6 +2,7 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { UserHeader } from '@app/homeV2/reference/header/UserHeader';
 import { AssetsYouOwn } from '@app/homeV2/reference/sections/assets/AssetsYouOwn';
@@ -131,6 +132,18 @@ export const sortSectionsByFirstInPersonalSidebar = (
     });
 };
 
+const trackClickInSection = (title: string) => {
+    return (urn?: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.PersonalSidebar,
+            section: title,
+            value: urn,
+        });
+    };
+};
+
+// TODO: Make section ordering dynamic based on populated data.
 export const LeftSidebar = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const currentUserPersona = useUserPersona();
@@ -148,7 +161,11 @@ export const LeftSidebar = () => {
                 <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                     {finalSections.length > 0 && <Divider style={{ margin: '0 0 16px 0' }} />}
                     {finalSections.map((section) => (
-                        <section.component key={section.id} hideIfEmpty={section.hideIfEmpty} />
+                        <section.component
+                            key={section.id}
+                            hideIfEmpty={section.hideIfEmpty}
+                            trackClickInSection={trackClickInSection(section.id)}
+                        />
                     ))}
                 </Body>
             </Content>
