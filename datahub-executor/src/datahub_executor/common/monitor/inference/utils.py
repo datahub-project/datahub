@@ -242,3 +242,26 @@ def try_extract_metrics_cube_bootstrap_status(
         return None
 
     return monitor.assertion_monitor.bootstrap_status.metrics_cube_bootstrap_status
+
+
+def coalesce_metrics(
+    metricsA: List[Metric],
+    metricsB: List[Metric],
+) -> List[Metric]:
+    """
+    Coalesce metrics from the metrics cube with the prefetched metrics.
+    Note: if a metric with a given timestamp is present in both lists, the metric from metricsA will be used.
+    """
+    if len(metricsA) == 0:
+        return metricsB
+    if len(metricsB) == 0:
+        return metricsA
+
+    # First filter out metricsA from metricsB
+    metricsA_timestamps = set([metric.timestamp_ms for metric in metricsA])
+    metricsBFiltered = [
+        metric for metric in metricsB if metric.timestamp_ms not in metricsA_timestamps
+    ]
+
+    # Then, merge the two lists, sort by timestamp_ms
+    return sorted(metricsA + metricsBFiltered, key=lambda x: x.timestamp_ms)

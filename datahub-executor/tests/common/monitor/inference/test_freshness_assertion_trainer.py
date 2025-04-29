@@ -297,6 +297,7 @@ def test_get_metric_data(
         cast(Monitor, mock_monitor),
         cast(Assertion, mock_assertion),
         None,
+        None,
     )
 
     # Assert
@@ -332,6 +333,7 @@ def test_get_metric_data_with_anomalies(
     result = trainer.get_metric_data(
         cast(Monitor, mock_monitor),
         cast(Assertion, mock_assertion),
+        None,
         None,
     )
 

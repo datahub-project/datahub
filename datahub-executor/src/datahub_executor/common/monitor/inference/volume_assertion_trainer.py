@@ -22,6 +22,7 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
 )
 from datahub_executor.common.monitor.inference.utils import (
     build_std_parameters,
+    coalesce_metrics,
     create_embedded_assertion,
     create_inference_source,
     is_metric_anomaly,
@@ -145,6 +146,7 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
         monitor: Monitor,
         assertion: Assertion,
         adjustment_settings: Optional[AssertionAdjustmentSettings],
+        prefetched_metrics_data: List[Metric],
     ) -> List[Metric]:
         """
         Fetch metric data for volume training.
@@ -175,6 +177,9 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
             limit=2000,
         )
 
+        # Coalesce metrics with prefetched metrics if available
+        coalesced_metrics = coalesce_metrics(metrics, prefetched_metrics_data)
+
         # Fetch anomalies
         anomalies = self.monitor_client.fetch_monitor_anomalies(
             urn=monitor.urn,
@@ -184,7 +189,9 @@ class VolumeAssertionTrainer(BaseAssertionTrainer[Metric]):
 
         # Filter out anomalies to avoid using in training
         metrics_without_anomalies = [
-            metric for metric in metrics if not is_metric_anomaly(metric, anomalies)
+            metric
+            for metric in coalesced_metrics
+            if not is_metric_anomaly(metric, anomalies)
         ]
 
         return metrics_without_anomalies

@@ -29,6 +29,7 @@ from datahub_executor.common.monitor.inference.metric_projection.metric_predicto
     MetricBoundary,
     MetricPredictor,
 )
+from datahub_executor.common.monitor.inference.utils import coalesce_metrics
 from datahub_executor.common.types import (
     Anomaly,
     Assertion,
@@ -147,14 +148,30 @@ def mock_metrics_data() -> List[Metric]:
 
 
 @pytest.fixture
+def mock_prefetched_metrics_data() -> List[Metric]:
+    """Create mock prefetched metrics data for testing."""
+    metrics: List[Metric] = []
+    for i in range(10):
+        metric = Mock(spec=Metric)
+        metric.timestamp_ms = i * 30 * 60 * 1000  # Each 30 min apart
+        metric.value = 0.8 + i * 0.01  # Values from 0.8 to 0.89
+        metrics.append(cast(Metric, metric))
+
+    return metrics
+
+
+@pytest.fixture
 def mock_anomalies_data() -> List[Anomaly]:
     """Create mock anomalies data for testing."""
     anomalies: List[Anomaly] = []
-    for i in range(5):
+    for i in range(10):
         anomaly = Mock(spec=Anomaly)
-        timestamp_ms = i * 3600 * 1000
+        timestamp_ms = i * 30 * 60 * 1000
         anomaly.timestamp_ms = timestamp_ms
-        anomaly.metric = Metric(value=0.8 + i * 0.01, timestamp_ms=timestamp_ms)
+        value_factor = i / 2 if i % 2 == 0 else i
+        anomaly.metric = Metric(
+            value=0.8 + value_factor * 0.01, timestamp_ms=timestamp_ms
+        )
         anomalies.append(cast(Anomaly, anomaly))
 
     return anomalies
@@ -394,6 +411,7 @@ def test_get_metric_data(
         cast(Monitor, mock_monitor),
         cast(Assertion, mock_field_assertion),
         None,
+        [],
     )
 
     # Assert
@@ -413,6 +431,7 @@ def test_get_metric_data_with_anomalies(
     mock_field_assertion: Mock,
     mock_metrics_data: List[Metric],
     mock_anomalies_data: List[Anomaly],
+    mock_prefetched_metrics_data: List[Metric],
 ) -> None:
     """Test that get_metric_data correctly filters out anomalies"""
     # Arrange
@@ -431,14 +450,50 @@ def test_get_metric_data_with_anomalies(
         cast(Monitor, mock_monitor),
         cast(Assertion, mock_field_assertion),
         None,
+        mock_prefetched_metrics_data,
     )
 
     # Assert
     mock_get_metric_cube_urn.assert_called_once_with(mock_monitor.urn)
     mock_dependencies["monitor_client"].fetch_monitor_anomalies.assert_called_once()
 
-    # The first 5 will be filtered as anomalies.
-    assert result == mock_metrics_data[5:]
+    # The first 10 will be filtered as anomalies.
+    expected = coalesce_metrics(mock_metrics_data, mock_prefetched_metrics_data)[10:]
+    assert result == expected
+
+
+@patch(
+    "datahub_executor.common.monitor.inference.base_assertion_trainer.BaseAssertionTrainer.get_metric_cube_urn"
+)
+def test_get_metric_data_with_prefetched_metrics(
+    mock_get_metric_cube_urn: MagicMock,
+    trainer: FieldAssertionTrainer,
+    mock_dependencies: Dict[str, Union[MagicMock, Mock]],
+    mock_monitor: Mock,
+    mock_field_assertion: Mock,
+    mock_metrics_data: List[Metric],
+    mock_prefetched_metrics_data: List[Metric],
+) -> None:
+    """Test that get_metric_data correctly coalesces metrics with prefetched metrics."""
+    # Arrange
+    mock_get_metric_cube_urn.return_value = (
+        "urn:li:dataHubMetricCube:encoded-monitor-urn"
+    )
+    mock_dependencies[
+        "metrics_client"
+    ].fetch_metric_values.return_value = mock_metrics_data
+
+    # Act
+    result = trainer.get_metric_data(
+        cast(Monitor, mock_monitor),
+        cast(Assertion, mock_field_assertion),
+        None,
+        mock_prefetched_metrics_data,
+    )
+
+    # Assert
+    expected = coalesce_metrics(mock_metrics_data, mock_prefetched_metrics_data)
+    assert result == expected
 
 
 def test_remove_inferred_assertion(

@@ -108,6 +108,7 @@ class FreshnessAssertionTrainer(BaseAssertionTrainer[Operation]):
         monitor: Monitor,
         assertion: Assertion,
         adjustment_settings: Optional[AssertionAdjustmentSettings],
+        prefetched_metrics_data: Optional[List[Metric]],
     ) -> List[Operation]:
         """
         Fetch operation data for freshness training.
