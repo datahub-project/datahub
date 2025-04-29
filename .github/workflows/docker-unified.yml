@@ -1,5 +1,4 @@
 name: Docker Build, Scan, Test
-<<<<<<< HEAD
 #### IMPORTANT ####
 #### THIS IS A CHANGE TO PREVENT OSS QUICKSTART INSTABILITY, DO NOT OVERWRITE THIS CHANGE IN MERGES ####
 #### IMPORTANT ####
@@ -7,40 +6,6 @@ on: workflow_dispatch
 #### IMPORTANT ####
 #### END CHANGES ####
 #### IMPORTANT ####
-||||||| 64829a32790
-on:
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - "**"
-    types:
-      - labeled
-      - opened
-      - synchronize
-      - reopened
-  release:
-    types: [published]
-=======
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *'  # Run at midnight UTC every day
-  push:
-    branches:
-      - master
-  pull_request:
-    branches:
-      - "**"
-    types:
-      - labeled
-      - opened
-      - synchronize
-      - reopened
-  release:
-    types: [published]
->>>>>>> upstream/master
 
 concurrency:
   # Using `github.run_id` (unique val) instead of `github.ref` here
@@ -50,39 +15,13 @@ concurrency:
   cancel-in-progress: true
 
 env:
-<<<<<<< HEAD
   #### IMPORTANT ####
   #### THIS IS A CHANGE TO PREVENT OSS QUICKSTART INSTABILITY, DO NOT OVERWRITE THIS CHANGE IN MERGES ####
   #### IMPORTANT ####
-  DATAHUB_GMS_IMAGE: "acryldata/acryl-datahub-gms"
-  DATAHUB_FRONTEND_IMAGE: "acryldata/acryl-datahub-frontend-react"
-  DATAHUB_MAE_CONSUMER_IMAGE: "acryldata/acryl-datahub-mae-consumer"
-  DATAHUB_MCE_CONSUMER_IMAGE: "acryldata/acryl-datahub-mce-consumer"
-  DATAHUB_KAFKA_SETUP_IMAGE: "acryldata/acryl-datahub-kafka-setup"
-  DATAHUB_ELASTIC_SETUP_IMAGE: "acryldata/acryl-datahub-elasticsearch-setup"
-  DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/acryl-datahub-mysql-setup"
-  DATAHUB_UPGRADE_IMAGE: "acryldata/acryl-datahub-upgrade"
-  DATAHUB_INGESTION_BASE_IMAGE: "acryldata/acryl-datahub-ingestion-base"
-  DATAHUB_INGESTION_IMAGE: "acryldata/acryl-datahub-ingestion"
-  DATAHUB_ACTIONS_IMAGE: "acryldata/acryl-datahub-actions"
+  DOCKER_REGISTRY: "acryldata-do-not-publish"
   #### IMPORTANT ####
   #### END CHANGES ####
   #### IMPORTANT ####
-||||||| 64829a32790
-  DATAHUB_GMS_IMAGE: "acryldata/datahub-gms"
-  DATAHUB_FRONTEND_IMAGE: "acryldata/datahub-frontend-react"
-  DATAHUB_MAE_CONSUMER_IMAGE: "acryldata/datahub-mae-consumer"
-  DATAHUB_MCE_CONSUMER_IMAGE: "acryldata/datahub-mce-consumer"
-  DATAHUB_KAFKA_SETUP_IMAGE: "acryldata/datahub-kafka-setup"
-  DATAHUB_ELASTIC_SETUP_IMAGE: "acryldata/datahub-elasticsearch-setup"
-  DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/datahub-mysql-setup"
-  DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"
-  DATAHUB_INGESTION_BASE_IMAGE: "acryldata/datahub-ingestion-base"
-  DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
-  DATAHUB_ACTIONS_IMAGE: "acryldata/datahub-actions"
-=======
-  DOCKER_REGISTRY: "acryldata"
->>>>>>> upstream/master
 
   DOCKER_CACHE: "DEPOT"
   DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
