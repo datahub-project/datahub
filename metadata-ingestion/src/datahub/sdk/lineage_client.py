@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import difflib
-import logging
 from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 
 import datahub.metadata.schema_classes as models
@@ -18,7 +17,6 @@ from datahub.utilities.ordered_set import OrderedSet
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
-logger = logging.getLogger(__name__)
 
 _empty_audit_stamp = models.AuditStampClass(
     time=0,
@@ -244,9 +242,7 @@ class LineageClient:
         default_schema: Optional[str] = None,
         schema_aware: bool = True,
     ) -> None:
-        """
-        Add lineage by parsing a SQL query.
-        """
+        """Add lineage by parsing a SQL query."""
         from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 
         # Parse the SQL query to extract lineage information
@@ -260,41 +256,36 @@ class LineageClient:
             graph=self._client._graph,
             schema_aware=schema_aware,
         )
-        print(f"Parsed SQL query: {parsed_result}")
 
-        if parsed_result is None:
+        # Validate parsing result
+        if not parsed_result:
             raise ValueError("Failed to parse SQL query: Unable to parse")
-
         if parsed_result.debug_info.error:
             raise ValueError(
                 f"Failed to parse SQL query: {parsed_result.debug_info.error}"
             )
-
-        # Validate that we have output tables
-        if not parsed_result.out_tables or len(parsed_result.out_tables) == 0:
+        if not parsed_result.out_tables:
             raise ValueError(
                 "No output tables found in the query. Cannot establish lineage."
             )
 
         # Use the first output table as the downstream
         downstream_urn = parsed_result.out_tables[0]
-        print(f"downstream_urn: {downstream_urn}")
 
         # Process all upstream tables found in the query
-        for upstream_table in parsed_result.in_tables:
-            print(f"upstream_table: {upstream_table}")
+        for i, upstream_table in enumerate(parsed_result.in_tables):
             # Skip self-lineage
             if upstream_table == downstream_urn:
                 continue
 
-            # Generate column-level lineage mapping from parsing result for this upstream
+            # Extract column-level lineage for this specific upstream table
             column_mapping = {}
             if parsed_result.column_lineage:
                 for col_lineage in parsed_result.column_lineage:
-                    if not col_lineage.downstream or not col_lineage.downstream.column:
+                    if not (col_lineage.downstream and col_lineage.downstream.column):
                         continue
 
-                    # Only consider lineage between this upstream and our downstream
+                    # Filter upstreams to only include columns from current upstream table
                     upstream_cols = [
                         ref.column
                         for ref in col_lineage.upstreams
@@ -303,22 +294,14 @@ class LineageClient:
 
                     if upstream_cols:
                         column_mapping[col_lineage.downstream.column] = upstream_cols
-                        print("column_mapping: ", column_mapping)
 
-            # Add lineage for this upstream table to the downstream
+            # Add lineage, including query text only for the first upstream
             self.add_dataset_transform_lineage(
                 upstream=upstream_table,
                 downstream=downstream_urn,
                 column_lineage=column_mapping or None,
-                query_text=query_text
-                if upstream_table == parsed_result.in_tables[0]
-                else None,
-                # Only include the query text for the first upstream to avoid duplication
+                query_text=query_text if i == 0 else None,
             )
-
-        logger.info(
-            f"Created lineage from {len(parsed_result.in_tables)} upstream tables to downstream {downstream_urn}"
-        )
 
     def add_datajob_lineage(
         self,
