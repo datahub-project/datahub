@@ -94,9 +94,7 @@ class DataHubDatabaseReader:
     ) -> str:
         """
         Query to get all available dates that have data in the specified time range.
-        Using named parameters (%(param)s) for compatibility with your database.
         """
-        # This approach will work with your database's parameter binding
         return f"""
             SELECT 
                 DISTINCT DATE(mav.createdon) as created_date 
@@ -127,7 +125,6 @@ class DataHubDatabaseReader:
     def query(self, set_structured_properties_filter: bool) -> str:
         """
         Main query that gets data for specified date range with appropriate filters.
-        Uses named parameters for compatibility with your original code.
         """
         structured_prop_filter = f" AND urn {'' if set_structured_properties_filter else 'NOT'} like 'urn:li:structuredProperty:%%'"
 
@@ -177,71 +174,47 @@ class DataHubDatabaseReader:
     ) -> List[Dict[str, Any]]:
         """Execute query with proper parameter binding that works with your database"""
         with self.engine.connect() as conn:
-            # Note: we're not using text() here to maintain compatibility with your original code
             result = conn.execute(query, params or {})
             return [dict(row) for row in result.fetchall()]
 
     def execute_server_cursor(
         self, query: str, params: Dict[str, Any]
     ) -> Iterable[Dict[str, Any]]:
-        """Execute a query with server-side cursor with retries and timeout protection"""
-        retries = 0
-        last_exception = None
+        """Execute a query with server-side cursor"""
+        with self.engine.connect() as conn:
+            if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
+                with (
+                    conn.begin()
+                ):  # Transaction required for PostgreSQL server-side cursor
+                    # Set query timeout at the connection level
+                    if self.config.query_timeout:
+                        if self.engine.dialect.name == "postgresql":
+                            conn.execute(
+                                text(
+                                    f"SET statement_timeout = {self.config.query_timeout * 1000}"
+                                )
+                            )  # milliseconds
+                        elif self.engine.dialect.name in ["mysql", "mariadb"]:
+                            conn.execute(
+                                text(
+                                    f"SET max_execution_time = {self.config.query_timeout * 1000}"
+                                )
+                            )  # milliseconds
 
-        while retries <= self.config.max_retries:
-            try:
-                with self.engine.connect() as conn:
-                    if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
-                        with (
-                            conn.begin()
-                        ):  # Transaction required for PostgreSQL server-side cursor
-                            # Set query timeout at the connection level
-                            if self.config.query_timeout:
-                                if self.engine.dialect.name == "postgresql":
-                                    conn.execute(
-                                        text(
-                                            f"SET statement_timeout = {self.config.query_timeout * 1000}"
-                                        )
-                                    )  # milliseconds
-                                elif self.engine.dialect.name in ["mysql", "mariadb"]:
-                                    conn.execute(
-                                        text(
-                                            f"SET max_execution_time = {self.config.query_timeout * 1000}"
-                                        )
-                                    )  # milliseconds
+                    # Stream results with batch size
+                    conn = conn.execution_options(
+                        stream_results=True,
+                        yield_per=self.config.database_query_batch_size,
+                    )
 
-                            # Stream results with batch size
-                            conn = conn.execution_options(
-                                stream_results=True,
-                                yield_per=self.config.database_query_batch_size,
-                            )
-
-                            # Execute query - using native parameterization without text()
-                            # to maintain compatibility with your original code
-                            result = conn.execute(query, params)
-                            for row in result:
-                                yield dict(row)
-                            return  # Success, exit the retry loop
-                    else:
-                        raise ValueError(
-                            f"Unsupported dialect: {self.engine.dialect.name}"
-                        )
-            except Exception as e:
-                last_exception = e
-                retries += 1
-                logger.warning(
-                    f"Query failed (attempt {retries}/{self.config.max_retries}): {str(e)}. Retrying..."
-                )
-                # Exponential backoff: wait 2^retries seconds before retrying (1, 2, 4, 8...)
-                if retries <= self.config.max_retries:
-                    time.sleep(min(2**retries, 30))  # Cap at 30 seconds
-
-        # If we get here, all retries failed
-        if last_exception:
-            logger.error(f"All query attempts failed: {str(last_exception)}")
-            raise last_exception
-        else:
-            raise Exception("Query failed with unknown error after all retries")
+                    # Execute query - using native parameterization without text()
+                    # to maintain compatibility with your original code
+                    result = conn.execute(query, params)
+                    for row in result:
+                        yield dict(row)
+                    return  # Success, exit the retry loop
+            else:
+                raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
 
     def get_available_dates(
         self, from_createdon: datetime, stop_time: datetime

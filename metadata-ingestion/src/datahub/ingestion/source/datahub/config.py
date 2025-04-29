@@ -128,14 +128,8 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     # This is configurable so users can tune it based on their data size and server capacity
     days_per_query: int = Field(
         hidden_from_docs=True,
-        default=2,
+        default=30,
         description="Number of days to process in a single query. ",
-    )
-
-    max_retries: int = Field(
-        hidden_from_docs=True,
-        default=3,
-        description="Maximum number of retries for each query. ",
     )
 
     query_timeout: Optional[int] = Field(
