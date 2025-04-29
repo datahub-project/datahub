@@ -4,10 +4,10 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entity/shared/constants';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { EntityTab, GenericEntityProperties } from '@app/entity/shared/types';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
 import {
     ENTITY_PROFILE_DOCUMENTATION_ID,

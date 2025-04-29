@@ -2,9 +2,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entity/shared/containers/profile/utils';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
