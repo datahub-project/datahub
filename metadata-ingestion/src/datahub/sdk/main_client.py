@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional, overload
+from typing import Any, Optional, overload
 
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
@@ -9,6 +9,11 @@ from datahub.sdk.entity_client import EntityClient
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.resolver_client import ResolverClient
 from datahub.sdk.search_client import SearchClient
+
+try:
+    from datahub.sdk.assertion_client import AssertionClient
+except ImportError:
+    AssertionClient = Any
 
 
 class DataHubClient:
@@ -103,3 +108,9 @@ class DataHubClient:
     @property
     def lineage(self) -> LineageClient:
         return LineageClient(self)
+
+    @property
+    def assertion(self) -> AssertionClient:  # type: ignore[return-value]  # Type is not available if assertion_client is not installed
+        if AssertionClient is Any:
+            raise SdkUsageError("AssertionClient is not installed")
+        return AssertionClient(self)
