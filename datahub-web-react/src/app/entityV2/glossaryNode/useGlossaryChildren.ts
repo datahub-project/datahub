@@ -3,10 +3,13 @@ import { useInView } from 'react-intersection-observer';
 import { useDebounce } from 'react-use';
 
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { ENTITY_INDEX_FILTER_NAME } from '@src/app/search/utils/constants';
 import { ENTITY_NAME_FIELD } from '@src/app/searchV2/context/constants';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType, SortOrder } from '@src/types.generated';
+
+export const GLOSSARY_CHILDREN_COUNT = 50;
 
 function getGlossaryChildrenScrollInput(urn: string, scrollId: string | null) {
     return {
@@ -15,7 +18,7 @@ function getGlossaryChildrenScrollInput(urn: string, scrollId: string | null) {
             query: '*',
             types: [EntityType.GlossaryNode, EntityType.GlossaryTerm],
             orFilters: [{ and: [{ field: 'parentNode', values: [urn || ''] }] }],
-            count: 50,
+            count: GLOSSARY_CHILDREN_COUNT,
             sortInput: {
                 sortCriteria: [
                     { field: ENTITY_INDEX_FILTER_NAME, sortOrder: SortOrder.Ascending },
@@ -32,6 +35,7 @@ interface Props {
 }
 
 export default function useGlossaryChildren({ entityUrn, skip }: Props) {
+    const entityRegistry = useEntityRegistryV2();
     const { nodeToNewEntity, setNodeToNewEntity, setNodeToDeletedUrn, nodeToDeletedUrn } = useGlossaryEntityData();
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [query, setQuery] = useState<string>(''); // query to use in auto-complete. gets debounced
@@ -46,6 +50,7 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         skip: !entityUrn || skip,
         notifyOnNetworkStatusChange: true,
     });
+    const shouldDoAutoComplete = data.length >= GLOSSARY_CHILDREN_COUNT;
 
     // Handle initial data and updates from scroll
     useEffect(() => {
@@ -78,7 +83,7 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
                 orFilters: [{ and: [{ field: 'parentNode', values: [entityUrn as string] }] }],
             },
         },
-        skip: !query || !entityUrn,
+        skip: !query || !entityUrn || !shouldDoAutoComplete,
         onCompleted: (d) => {
             const results = d.autoCompleteForMultiple?.suggestions.flatMap((s) => s.entities);
             if (results) {
@@ -122,10 +127,16 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         }
     }, [inView, nextScrollId, scrollId, loading, searchQuery]);
 
+    const filteredChildren = !shouldDoAutoComplete
+        ? data.filter((t) =>
+              entityRegistry.getDisplayName(t.type, t).toLocaleLowerCase().includes(searchQuery.toLocaleLowerCase()),
+          )
+        : searchData;
+
     return {
         scrollRef,
-        data: searchQuery ? searchData : data,
-        loading: loading || autoCompleteLoading,
+        data: searchQuery ? filteredChildren : data,
+        loading: loading || (shouldDoAutoComplete && autoCompleteLoading),
         searchQuery,
         setSearchQuery,
     };

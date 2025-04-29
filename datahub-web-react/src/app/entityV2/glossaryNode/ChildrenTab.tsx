@@ -8,8 +8,7 @@ import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
-import { SearchBar } from '@src/app/searchV2/SearchBar';
+import { SearchBar } from '@src/alchemy-components';
 import Loading from '@src/app/shared/Loading';
 
 import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
@@ -48,15 +47,12 @@ function ChildrenTab() {
         return (
             <ChildrenTabWrapper>
                 <SearchBar
-                    placeholderText="Search contents..."
-                    onQueryChange={setSearchQuery}
-                    onSearch={() => null}
-                    suggestions={[]}
-                    hideRecommendations
-                    entityRegistry={entityRegistry}
-                    textColor={colors.gray[800]}
-                    placeholderColor={colors.gray[300]}
-                    style={{ padding: 16, margin: 0 }}
+                    placeholder="Search contents..."
+                    onChange={setSearchQuery}
+                    value={searchQuery}
+                    allowClear
+                    width="300px"
+                    style={{ marginLeft: 16, marginTop: 6 }}
                 />
                 <GlossaryEntitiesList
                     nodes={(childNodes as GlossaryNode[]) || []}
