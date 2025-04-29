@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { AppConfig, SearchBarApi } from '@types';
+import { AppConfig, PersonalSidebarSection, SearchBarApi } from '@types';
 
 export const DEFAULT_APP_CONFIG = {
     analyticsConfig: {
@@ -46,6 +46,9 @@ export const DEFAULT_APP_CONFIG = {
     },
     searchBarConfig: {
         apiVariant: SearchBarApi.AutocompleteForMultiple,
+    },
+    homePageConfig: {
+        firstInPersonalSidebar: PersonalSidebarSection.YourAssets,
     },
     featureFlags: {
         readOnlyModeEnabled: false,

@@ -65,6 +65,9 @@ query appConfig {
         searchBarConfig {
             apiVariant
         }
+        homePageConfig {
+            firstInPersonalSidebar
+        }
         featureFlags {
             readOnlyModeEnabled
             showSearchFiltersV2

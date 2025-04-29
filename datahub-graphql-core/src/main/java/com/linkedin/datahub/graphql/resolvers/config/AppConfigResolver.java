@@ -12,9 +12,11 @@ import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfilesConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FeatureFlagsConfig;
+import com.linkedin.datahub.graphql.generated.HomePageConfig;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.LineageConfig;
 import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
+import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
@@ -29,6 +31,7 @@ import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.SearchBarConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -40,8 +43,10 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /** Resolver responsible for serving app configurations to the React UI. */
+@Slf4j
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
   private final GitVersion _gitVersion;
@@ -56,6 +61,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final DataHubConfiguration _datahubConfiguration;
   private final ViewsConfiguration _viewsConfiguration;
   private final SearchBarConfiguration _searchBarConfig;
+  private final HomePageConfiguration _homePageConfig;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
 
@@ -72,6 +78,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
       final SearchBarConfiguration searchBarConfig,
+      final HomePageConfiguration homePageConfig,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration) {
     _gitVersion = gitVersion;
@@ -86,6 +93,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _datahubConfiguration = datahubConfiguration;
     _viewsConfiguration = viewsConfiguration;
     _searchBarConfig = searchBarConfig;
+    _homePageConfig = homePageConfig;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
   }
@@ -200,6 +208,20 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       searchBarConfig.setApiVariant(SearchBarAPI.AUTOCOMPLETE_FOR_MULTIPLE);
     }
     appConfig.setSearchBarConfig(searchBarConfig);
+
+    final HomePageConfig homePageConfig = new HomePageConfig();
+    try {
+      homePageConfig.setFirstInPersonalSidebar(
+          PersonalSidebarSection.valueOf(_homePageConfig.getFirstInPersonalSidebar()));
+    } catch (Exception e) {
+      log.warn(
+          String.format(
+              "Unexpected value set for firstInPersonalSidebar: %s",
+              _homePageConfig.getFirstInPersonalSidebar()),
+          e);
+      homePageConfig.setFirstInPersonalSidebar(PersonalSidebarSection.YOUR_ASSETS);
+    }
+    appConfig.setHomePageConfig(homePageConfig);
 
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()

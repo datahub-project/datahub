@@ -193,6 +193,42 @@ type SearchBarConfig {
 }
 
 """
+Variants of APIs used in the Search bar to get data
+"""
+enum PersonalSidebarSection {
+  """
+  The section containing groups you are in
+  """
+  YOUR_GROUPS
+  """
+  The section containing assets you own
+  """
+  YOUR_ASSETS
+  """
+  The section containing domains you own
+  """
+  YOUR_DOMAINS
+  """
+  The section containing glossary nodes you own
+  """
+  YOUR_GLOSSARY_NODES
+  """
+  The section containing tags you own
+  """
+  YOUR_TAGS
+}
+
+"""
+Configurations related to the Search bar
+"""
+type HomePageConfig {
+  """
+  The section that comes first on the personal sidebar on the homepage
+  """
+  firstInPersonalSidebar: PersonalSidebarSection!
+}
+
+"""
 Config loaded at application boot time
 This configuration dictates the behavior of the UI, such as which features are enabled or disabled
 """
@@ -266,6 +302,11 @@ type AppConfig {
   Configuration related to the DataHub Chrome Extension
   """
   chromeExtensionConfig: ChromeExtensionConfig!
+
+  """
+  Configuration related to the home page
+  """
+  homePageConfig: HomePageConfig!
 }
 
 """
