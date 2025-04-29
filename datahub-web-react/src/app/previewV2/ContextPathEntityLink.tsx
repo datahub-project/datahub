@@ -3,8 +3,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
@@ -47,11 +45,11 @@ const StyledLink = styled(Link)<{ $disabled?: boolean; $color: string }>`
     }
 
     :hover {
-        color: ${({ $disabled, $color, theme }) => ($disabled ? $color : getColor('primary', 500, theme))};
+        color: ${({ $disabled, $color, theme }) => ($disabled ? $color : theme.styles['primary-color'])};
         cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
 
         && svg {
-            color: ${({ $disabled, $color, theme }) => ($disabled ? $color : getColor('primary', 500, theme))};
+            color: ${({ $disabled, $color, theme }) => ($disabled ? $color : theme.styles['primary-color'])};
         }
     }
 `;

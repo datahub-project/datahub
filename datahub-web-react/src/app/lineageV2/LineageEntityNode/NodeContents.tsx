@@ -32,7 +32,6 @@ import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 
@@ -56,7 +55,7 @@ const NodeWrapper = styled.div<{
             return LINEAGE_COLORS.NODE_BORDER;
         }};
     box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 4px 4px ${getColor('primary', 500, theme)}95` : 'none'};
+        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;

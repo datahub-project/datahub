@@ -2,8 +2,6 @@ import { Modal, Progress } from 'antd';
 import React, { useCallback, useContext, useEffect } from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 
@@ -27,7 +25,7 @@ const ProgressStyle = styled(Progress)`
 
     .ant-progress-bg {
         border-radius: 12px;
-        background-color: ${(props) => getColor('primary', 500, props.theme)};
+        background-color: ${(props) => props.theme.styles['primary-color']};
         height: 4px !important;
     }
 `;

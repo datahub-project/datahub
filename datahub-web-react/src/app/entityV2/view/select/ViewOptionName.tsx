@@ -6,8 +6,6 @@ import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
@@ -55,9 +53,9 @@ const DefaultViewIconContainer = styled.div<{ selected?: boolean; $isShowNavBarR
     border: 1px solid
         ${(props) => {
             if (props.$isShowNavBarRedesign) {
-                return props.selected ? getColor('primary', 500, props.theme) : 'transparent';
+                return props.selected ? props.theme.styles['primary-color'] : 'transparent';
             }
-            return props.selected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK;
+            return props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK;
         }};
     border-radius: 100%;
 `;
@@ -143,7 +141,7 @@ export const ViewOptionName = ({
                                 >
                                     <UserDefaultViewIcon
                                         title="Your default View."
-                                        color={getColor('primary', 500, theme)}
+                                        color={theme?.styles['primary-color']}
                                         size={5}
                                     />
                                 </DefaultViewIconContainer>

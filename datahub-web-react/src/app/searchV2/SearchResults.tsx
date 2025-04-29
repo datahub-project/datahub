@@ -30,7 +30,6 @@ import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import { SearchCfg } from '@src/conf';
 
 import { Entity, FacetFilterInput, FacetMetadata, MatchedField, SearchSuggestion } from '@types';
@@ -155,7 +154,7 @@ const IconContainer = styled.div<{ isActive?: boolean }>`
     ${(props) =>
         props.isActive &&
         `
-        background: ${getColor('primary', 500, props.theme)};
+        background: ${props.theme.styles['primary-color']};
         border-radius: 100%;
         color: white;
     `}

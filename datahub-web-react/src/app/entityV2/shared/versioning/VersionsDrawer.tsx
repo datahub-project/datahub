@@ -9,7 +9,6 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import { Tooltip2 } from '@components/components/Tooltip2';
-import { getColor } from '@components/theme/utils';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
@@ -81,7 +80,7 @@ const MenuIcon = styled(Icon)`
     }
 
     :hover {
-        border: ${(props) => getColor('primary', 500, props.theme)} 1px solid;
+        border: ${(props) => props.theme.styles['primary-color']} 1px solid;
     }
 `;
 

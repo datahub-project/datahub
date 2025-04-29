@@ -5,8 +5,6 @@ import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
@@ -31,7 +29,7 @@ const TermContainer = styled.div`
 
     :hover {
         .ant-tag.ant-tag {
-            border: 1px solid ${(props) => getColor('primary', 500, props.theme)};
+            border: 1px solid ${(props) => props.theme.styles['primary-color']};
         }
     }
 `;
@@ -77,7 +75,7 @@ const CloseButtonContainer = styled.div`
     position: absolute;
     top: -10px;
     right: -10px;
-    background-color: ${(props) => getColor('primary', 500, props.theme)};
+    background-color: ${(props) => props.theme.styles['primary-color']};
     align-items: center;
     border-radius: 100%;
     padding: 5px;

@@ -49,8 +49,13 @@ const Button = styled.div`
     width: fit-content;
 
     :hover {
-        background-color: ${(props) => applyOpacity(getColor('primary', 500, props.theme), REDESIGN_COLORS.WHITE, 10)};
-        color: ${(props) => getColor('primary', 500, props.theme)};
+        background-color: ${(props) =>
+            applyOpacity(
+                props.theme.styles['primary-color'] || getColor('primary', 500, props.theme),
+                REDESIGN_COLORS.WHITE,
+                10,
+            )};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

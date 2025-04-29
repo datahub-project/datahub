@@ -4,8 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
-import { getColor } from '@components/theme/utils';
-
 import analytics, { Event, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
@@ -66,9 +64,7 @@ const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBar
         border-radius: 8px;
         &:focus-within {
             border-color: ${
-                props.$isShowNavBarRedesign
-                    ? getColor('primary', 500, props.theme)
-                    : props.theme.styles['primary-color']
+                props.$isShowNavBarRedesign ? props.theme.styles['primary-color'] : props.theme.styles['primary-color']
             };
         }
     `}

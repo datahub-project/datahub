@@ -2,8 +2,6 @@ import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import {
     SEARCH_FILTER_CONDITION_TYPE_TO_INFO,
     getOperatorOptionsForPredicate,
@@ -26,8 +24,8 @@ const SelectedOperatorText = styled.div`
     border: 1.5px solid transparent;
     padding: 2px;
     :hover {
-        border: 1.5px solid ${(p) => getColor('primary', 500, p.theme)};
-        background-color: ${(p) => getColor('primary', 500, p.theme)};
+        border: 1.5px solid ${(p) => p.theme.styles['primary-color']};
+        background-color: ${(p) => p.theme.styles['primary-color']};
         color: #fff;
     }
 `;

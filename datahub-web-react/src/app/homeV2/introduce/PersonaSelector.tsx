@@ -25,7 +25,7 @@ const PersonaCard = styled.div<{ selected: boolean }>`
         ${(props) => !props.selected && `border: 1.5px ${getColor('primary', 200, props.theme)} solid;`}
     }
 
-    ${(props) => props.selected && `border: 1.5px ${getColor('primary', 500, props.theme)} solid;`}
+    ${(props) => props.selected && `border: 1.5px ${props.theme.styles['primary-color']} solid;`}
 `;
 const StyledIcon = styled.div`
     display: flex;

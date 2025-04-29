@@ -2,7 +2,6 @@ import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
 import { AlignItemsOptions, JustifyContentOptions } from '@components/components/Loader/types';
-import { getColor } from '@components/theme/utils';
 
 import { colors } from '@src/alchemy-components/theme';
 
@@ -25,7 +24,7 @@ export const StyledLoadingOutlined = styled(LoadingOutlined)<{ $height: number }
     position: absolute;
 
     svg {
-        fill: ${({ theme }) => getColor('primary', 500, theme)};
+        fill: ${({ theme }) => theme.styles['primary-color']};
     }
 `;
 

@@ -4,8 +4,6 @@ import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import useListDomains from '@app/domainV2/useListDomains';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
@@ -35,7 +33,7 @@ const Count = styled.div`
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
     padding: 2px;
-    ${(props) => props.$isSelected && `color: ${getColor('primary', 500, props.theme)};`}
+    ${(props) => props.$isSelected && `color: ${props.theme.styles['primary-color']};`}
     ${(props) => props.$addLeftPadding && 'padding-left: 20px;'}
 
     &:hover {
@@ -52,7 +50,7 @@ const DisplayName = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${(props) => (props.$isSelected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BODY_TEXT_GREY)};
+    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BODY_TEXT_GREY)};
 `;
 
 const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boolean }>`
@@ -62,7 +60,7 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     svg {
         font-size: 16px !important;
         color: ${(props) =>
-            props.$isSelected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BODY_TEXT_GREY} !important;
+            props.$isSelected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BODY_TEXT_GREY} !important;
     }
 
     .ant-btn {
@@ -83,11 +81,11 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean }>`
         background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
         ${ButtonWrapper} {
             svg {
-                color: ${(props) => getColor('primary', 500, props.theme)} !important;
+                color: ${(props) => props.theme.styles['primary-color']} !important;
             }
         }
         ${DisplayName} {
-            color: ${(props) => getColor('primary', 500, props.theme)};
+            color: ${(props) => props.theme.styles['primary-color']};
         }
     }
 `;

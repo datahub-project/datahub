@@ -2,8 +2,6 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { EntityCapabilityType, PreviewType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
@@ -58,7 +56,7 @@ const EntityLink = styled.div`
     .ant-btn-link {
         display: flex;
         align-items: center;
-        color: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => props.theme.styles['primary-color']};
         height: 100%;
 
         :hover {

@@ -15,7 +15,6 @@ import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearc
 import { PreviewSection } from '@app/shared/MatchesContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { SearchResult, SearchSuggestion } from '@types';
 
@@ -58,7 +57,7 @@ export const ResultWrapper = styled.div<{
         border-bottom: 1px solid ${ANTD_GRAY[5]};
         cursor: pointer;
         :hover {
-            ${!props.selected && `outline: 1px solid ${getColor('primary', 500, props.theme)}`};
+            ${!props.selected && `outline: 1px solid ${props.theme.styles['primary-color']}`};
         }
     `}
     position: relative;
@@ -66,8 +65,8 @@ export const ResultWrapper = styled.div<{
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${getColor('primary', 500, props.theme)};
-        border-left: 5px solid ${getColor('primary', 500, props.theme)};
+        outline: 1px solid ${props.theme.styles['primary-color']};
+        border-left: 5px solid ${props.theme.styles['primary-color']};
         left: -5px;
         width: calc(100% + 5px);
         position: relative;

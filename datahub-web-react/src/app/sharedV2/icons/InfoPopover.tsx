@@ -3,10 +3,8 @@ import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 const InfoWrapper = styled.div<{ $iconColor?: string }>`
-    color: ${({ theme, $iconColor }) => $iconColor || getColor('primary', 500, theme)};
+    color: ${({ theme, $iconColor }) => $iconColor || theme.styles['primary-color']};
 `;
 
 interface Props {

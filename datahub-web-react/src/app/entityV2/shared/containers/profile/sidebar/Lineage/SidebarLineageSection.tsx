@@ -18,7 +18,6 @@ import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSib
 import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLineageTimeParams';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 
 import { useGetSearchAcrossLineageCountsQuery } from '@graphql/lineage.generated';
@@ -68,7 +67,7 @@ const DirectionHeader = styled.div`
 `;
 
 const StyledPartitionOutlined = styled(PartitionOutlined)`
-    color: ${(p) => getColor('primary', 500, p.theme)};
+    color: ${(p) => p.theme.styles['primary-color']};
     &:hover {
         color: white;
     }

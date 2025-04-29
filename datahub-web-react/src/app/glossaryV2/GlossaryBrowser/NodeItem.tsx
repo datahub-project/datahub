@@ -4,8 +4,6 @@ import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { getColor } from '@components/theme/utils';
-
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
@@ -53,25 +51,25 @@ const NodeWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
 
 const StyledRightOutlined = styled(KeyboardArrowRightRounded)<{ isSelected: boolean }>`
     color: ${(props) =>
-        props.isSelected ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+        props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+            props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     }
 `;
 
 const StyledDownOutlined = styled(KeyboardArrowDownRounded)<{ isSelected: boolean }>`
     color: ${(props) =>
-        props.isSelected ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
+        props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
     cursor: pointer;
     margin-right: 6px;
     line-height: 0;
     :hover {
         stroke: ${(props) =>
-            props.isSelected ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
+            props.isSelected ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.HOVER_PURPLE_2}`};
     }
 `;
 

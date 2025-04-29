@@ -5,8 +5,6 @@ import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { LoadingWrapper } from '@app/lineageV2/LineageEntityNode/NodeContents';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
@@ -56,7 +54,7 @@ const NodeWrapper = styled.div<{
     border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
     border-radius: 50%;
     box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 3px 3px ${getColor('primary', 500, theme)}95` : 'none'};
+        isSearchedEntity ? `0 0 3px 3px ${theme.styles['primary-color']}95` : 'none'};
     opacity: ${({ opacity }) => opacity};
 
     align-items: center;

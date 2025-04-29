@@ -2,8 +2,6 @@ import { LoadingOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import StatsSidebarColumnTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarColumnTab';
 import { StatsSidebarContent } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarContent';
 import StatsSidebarHeader, {
@@ -36,7 +34,7 @@ const LoadingText = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${(props) => getColor('primary', 500, props.theme)};
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 export default function StatsSidebarView({

@@ -3,10 +3,8 @@ import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 const InfoWrapper = styled.div`
-    color: ${(props) => getColor('primary', 500, props.theme)};
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 interface Props {

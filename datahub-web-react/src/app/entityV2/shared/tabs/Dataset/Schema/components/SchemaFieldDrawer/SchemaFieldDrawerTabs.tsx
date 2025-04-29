@@ -3,8 +3,6 @@ import { Tabs } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { getColor } from '@components/theme/utils';
-
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
 
 export const TABS_WIDTH = 56;
@@ -27,7 +25,7 @@ const UnborderedTabs = styled(Tabs)`
         justify-content: center;
     }
     &&& .ant-tabs-tab-active {
-        background-color: ${(p) => getColor('primary', 500, p.theme)};
+        background-color: ${(p) => p.theme.styles['primary-color']};
     }
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
         color: #ffffff;

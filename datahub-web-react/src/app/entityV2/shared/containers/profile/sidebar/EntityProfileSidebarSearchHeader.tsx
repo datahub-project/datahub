@@ -2,8 +2,6 @@ import { Button } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -47,7 +45,7 @@ export default function EntityProfileSidebarSearchHeader({ showViewDetails = tru
                 <Button
                     size="small"
                     type="primary"
-                    color={getColor('primary', 500, theme)}
+                    color={theme?.styles['primary-color']}
                     href={entityRegistry.getEntityUrl(entityType, urn)}
                 >
                     View more

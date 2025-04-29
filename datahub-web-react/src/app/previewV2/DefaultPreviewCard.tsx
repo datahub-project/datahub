@@ -26,7 +26,6 @@ import { useRemoveDataProductAssets, useRemoveDomainAssets, useRemoveGlossaryTer
 import { useSearchContext } from '@app/search/context/SearchContext';
 import useContentTruncation from '@app/shared/useContentTruncation';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import DataProcessInstanceInfo from '@src/app/preview/DataProcessInstanceInfo';
 
 import {
@@ -48,7 +47,7 @@ import {
 } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${(p) => getColor('primary', 500, p.theme)};
+    color: ${(p) => p.theme.styles['primary-color']};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -63,7 +62,7 @@ const TransparentButton = styled(Button)`
         display: flex;
         align-items: center;
         opacity: 0.9;
-        color: ${(p) => getColor('primary', 500, p.theme)};
+        color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 

@@ -14,7 +14,6 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV2/common';
 import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -23,7 +22,7 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 const HomeNodeBubble = styled.div`
     align-items: center;
-    background-color: ${(p) => getColor('primary', 500, p.theme)};
+    background-color: ${(p) => p.theme.styles['primary-color']};
     border-radius: 10px;
     color: white;
     display: flex;

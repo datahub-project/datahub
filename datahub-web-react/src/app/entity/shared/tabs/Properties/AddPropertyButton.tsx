@@ -5,8 +5,6 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import { Icon, Input as InputComponent, Text, colors } from '@src/alchemy-components';
@@ -22,7 +20,7 @@ import { EntityType, Maybe, StructuredProperties, StructuredPropertyEntity } fro
 const AddButton = styled.div<{ isThemeV2: boolean; isV1Drawer?: boolean }>`
     border-radius: 200px;
     background-color: ${(props) =>
-        props.isThemeV2 ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.LINK_HOVER_BLUE};
+        props.isThemeV2 ? props.theme.styles['primary-color'] : REDESIGN_COLORS.LINK_HOVER_BLUE};
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;

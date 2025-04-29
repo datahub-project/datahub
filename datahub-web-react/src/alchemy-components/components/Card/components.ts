@@ -1,7 +1,5 @@
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { colors, radius, spacing, typography } from '@src/alchemy-components/theme';
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 
@@ -23,7 +21,7 @@ export const CardContainer = styled.div<{ hasButton?: boolean; width?: string; m
 
         '&:hover': hasButton
             ? {
-                  border: `1px solid ${({ theme }) => getColor('primary', 500, theme)}`,
+                  border: `1px solid ${({ theme }) => theme.styles['primary-color']}`,
                   cursor: 'pointer',
               }
             : {},

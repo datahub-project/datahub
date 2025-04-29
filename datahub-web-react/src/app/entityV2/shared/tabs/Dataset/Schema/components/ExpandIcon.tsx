@@ -4,8 +4,6 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 import RowIcon from '@images/row-icon.svg?react';
@@ -29,8 +27,8 @@ const Padding = styled.span<{ padding: number }>`
 
 const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
     :hover {
-        color: ${(props) => getColor('primary', 500, props.theme)};
-        stroke: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => props.theme.styles['primary-color']};
+        stroke: ${(props) => props.theme.styles['primary-color']};
         stroke-width: 140px;
     }
     color: ${REDESIGN_COLORS.DARK_GREY};
@@ -47,8 +45,8 @@ const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
 
 const Right = styled(RightOutlined)<{ isCompact?: boolean }>`
     :hover {
-        stroke: ${(props) => getColor('primary', 500, props.theme)};
-        color: ${(props) => getColor('primary', 500, props.theme)};
+        stroke: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.styles['primary-color']};
         stroke-width: 140px;
     }
     color: ${REDESIGN_COLORS.DARK_GREY};

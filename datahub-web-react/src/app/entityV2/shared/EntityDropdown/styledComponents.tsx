@@ -1,8 +1,6 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const MenuItem = styled.div`
@@ -28,8 +26,8 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     box-shadow: none;
     &&:hover {
         background-color: ${ANTD_GRAY[3]};
-        color: ${(props) => getColor('primary', 500, props.theme)};
-        border-color: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => props.theme.styles['primary-color']};
+        border-color: ${(props) => props.theme.styles['primary-color']};
     }
     ${(props) =>
         props.disabled

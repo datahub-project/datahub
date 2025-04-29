@@ -1,7 +1,5 @@
 import React from 'react';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
 import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
@@ -29,7 +27,7 @@ export const SetUserDefaultItem = ({ key, onClick }: Props) => {
             title="Make my default"
             icon={
                 <UserDefaultViewIcon
-                    color={isShowNavBarRedesign ? getColor('primary', 500, theme) : REDESIGN_COLORS.TERTIARY_GREEN}
+                    color={isShowNavBarRedesign ? theme?.styles['primary-color'] : REDESIGN_COLORS.TERTIARY_GREEN}
                 />
             }
         />

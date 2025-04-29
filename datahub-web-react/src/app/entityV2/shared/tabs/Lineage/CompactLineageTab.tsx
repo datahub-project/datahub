@@ -4,8 +4,6 @@ import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { getColor } from '@components/theme/utils';
-
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
@@ -27,12 +25,12 @@ const Container = styled.div`
 
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
-        background-color: ${(props) => (props.$isSelected ? getColor('primary', 500, props.theme) : 'none')};
+        background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'none')};
         color: ${(props) => (props.$isSelected ? '#ffffff' : ANTD_GRAY[7])};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
-        ${(props) => props.$isSelected && `border-color: ${getColor('primary', 500, props.theme)}`};
+        ${(props) => props.$isSelected && `border-color: ${props.theme.styles['primary-color']}`};
     }
 `;
 
@@ -67,8 +65,8 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? getColor('primary', 500, props.theme) : ANTD_GRAY[7])};
-    border: 1px solid ${(props) => (props.$isSelected ? getColor('primary', 500, props.theme) : ANTD_GRAY[7])};
+    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : ANTD_GRAY[7])};
+    border: 1px solid ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : ANTD_GRAY[7])};
     &:hover {
         opacity: 0.8;
         cursor: pointer;

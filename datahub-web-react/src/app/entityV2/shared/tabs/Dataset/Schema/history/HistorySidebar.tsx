@@ -3,8 +3,6 @@ import { Drawer } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ChangeTransactionView, {
@@ -38,7 +36,7 @@ const FieldHeaderWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: ${(p) => getColor('primary', 500, p.theme)};
+    background: ${(p) => p.theme.styles['primary-color']};
     color: #fff;
     font-size: 14px;
     font-weight: 700;

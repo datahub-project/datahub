@@ -16,7 +16,7 @@ import { EntityType } from '@types';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
-    color: ${(p) => getColor('primary', 500, p.theme)};
+    color: ${(p) => p.theme.styles['primary-color']};
     line-height: normal;
 
     ${(props) =>
@@ -38,7 +38,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
         margin-left: 2px;
 
         & svg {
-            fill: ${(p) => getColor('primary', 500, p.theme)};
+            fill: ${(p) => p.theme.styles['primary-color']};
         }
     }
 `;

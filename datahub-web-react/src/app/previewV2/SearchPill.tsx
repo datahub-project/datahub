@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { pluralize } from '@app/shared/textUtil';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 type Props = {
     icon: any;
@@ -32,7 +31,7 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
     height: 24px;
     padding-left: 8px;
     padding-right: ${({ isHighlightedTextPresent }) => (isHighlightedTextPresent ? '0px' : '8px')};
-    background-color: ${({ active, theme }) => (active ? `${getColor('primary', 500, theme)}` : '#f7f7f7')};
+    background-color: ${({ active, theme }) => (active ? `${theme.styles['primary-color']}` : '#f7f7f7')};
     cursor: pointer;
     border-radius: 20px;
     text-align: center;
@@ -53,7 +52,7 @@ export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; i
 
     :hover {
         color: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};
-        background-color: ${({ enabled, theme }) => (enabled ? `${getColor('primary', 500, theme)}` : '#f7f7f7')};
+        background-color: ${({ enabled, theme }) => (enabled ? `${theme.styles['primary-color']}` : '#f7f7f7')};
 
         svg {
             color: ${({ enabled }) => (enabled ? 'white' : '#b0a2c2')};

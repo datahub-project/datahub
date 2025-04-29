@@ -3,8 +3,6 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { getColor } from '@components/theme/utils';
-
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
@@ -13,7 +11,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
-    background-color: ${(p) => getColor('primary', 500, p.theme)};
+    background-color: ${(p) => p.theme.styles['primary-color']};
     color: white;
     border-radius: 0;
 `;

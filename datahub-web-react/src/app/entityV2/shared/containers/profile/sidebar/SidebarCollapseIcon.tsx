@@ -31,7 +31,7 @@ const CloseButton = styled.div<{ $isClosed: boolean }>`
     width: 40px;
     border-radius: 6px;
     justify-content: center;
-    color: ${(p) => getColor('primary', 500, p.theme)};
+    color: ${(p) => p.theme.styles['primary-color']};
     ${(props) =>
         props.$isClosed &&
         `

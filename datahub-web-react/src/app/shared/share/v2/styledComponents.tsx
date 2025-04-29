@@ -1,8 +1,6 @@
 import { Button, Checkbox, Form, Menu, Modal, Typography } from 'antd';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const StyledMenuItem = styled(Menu.Item)`
@@ -96,7 +94,7 @@ export const StyledModal = styled(Modal)`
     }
 
     .ant-modal-close-x {
-        color: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => props.theme.styles['primary-color']};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -104,7 +102,7 @@ export const StyledModal = styled(Modal)`
         padding-top: 20px;
 
         :hover {
-            stroke: ${(props) => getColor('primary', 500, props.theme)};
+            stroke: ${(props) => props.theme.styles['primary-color']};
         }
     }
 `;
@@ -130,12 +128,12 @@ export const StyledFormItem = styled(Form.Item)`
         &:hover,
         &:focus,
         &:active {
-            border-color: ${(props) => getColor('primary', 500, props.theme)};
+            border-color: ${(props) => props.theme.styles['primary-color']};
         }
 
         &:focus,
         &:active {
-            color: ${(props) => getColor('primary', 500, props.theme)};
+            color: ${(props) => props.theme.styles['primary-color']};
             box-shadow: 0px 0px 4px 0px rgba(83, 63, 209, 0.5);
         }
     }

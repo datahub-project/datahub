@@ -12,8 +12,6 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { AddImageButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/AddImageButton';
 import { AddLinkButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/AddLinkButton';
@@ -29,7 +27,7 @@ const Container = styled.div`
     background-color: ${REDESIGN_COLORS.LIGHT_GREY};
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
-    border-left: 2px solid ${(props) => getColor('primary', 500, props.theme)};
+    border-left: 2px solid ${(props) => props.theme.styles['primary-color']};
     padding: 8px 20px !important;
     margin: 2px 14px 2px 12px;
     & button {

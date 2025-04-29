@@ -4,8 +4,6 @@ import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 
@@ -31,7 +29,7 @@ const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
         width: 18px;
         height: 18px;
         color: ${(props) => {
-            return props.hasStats ? getColor('primary', 500, props.theme) : '#C6C0E0';
+            return props.hasStats ? props.theme.styles['primary-color'] : '#C6C0E0';
         }};
         opacity: ${(props) => (props.isFieldSelected && !props.hasStats ? '0.5' : '')};
     }

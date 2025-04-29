@@ -44,7 +44,7 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: 13px;
-    color: ${(p) => getColor('primary', 500, p.theme)};
+    color: ${(p) => p.theme.styles['primary-color']};
     height: 100%;
 `;
 

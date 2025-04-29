@@ -3,14 +3,13 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 export const ActionButton = styled.div<{ privilege: boolean }>`
     color: ${(props) =>
-        props.privilege ? `${getColor('primary', 500, props.theme)}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+        props.privilege ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     border: ${(props) =>
         props.privilege
-            ? `1px solid ${getColor('primary', 500, props.theme)}`
+            ? `1px solid ${props.theme.styles['primary-color']}`
             : `1px solid ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     ${(props) => (props.privilege ? 'cursor: pointer;' : 'pointer-events: none;')}
     height: 20px;
@@ -27,7 +26,7 @@ export const ActionButton = styled.div<{ privilege: boolean }>`
             props.privilege &&
             `
         color: ${REDESIGN_COLORS.WHITE};
-        background: ${getColor('primary', 500, props.theme)};
+        background: ${props.theme.styles['primary-color']};
         `}
     
 `;

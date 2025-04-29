@@ -4,7 +4,6 @@ import styled from 'styled-components/macro';
 
 import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EntityTab } from '@app/entityV2/shared/types';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 type Props = {
     tabs: EntityTab[];
@@ -44,7 +43,7 @@ const UnborderedTabs = styled(Tabs)`
     }
 
     &&& .ant-tabs-tab-active {
-        background-color: ${(p) => getColor('primary', 500, p.theme)};
+        background-color: ${(p) => p.theme.styles['primary-color']};
     }
 
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {

@@ -3,8 +3,6 @@ import { Button, Dropdown } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { LineageDisplayContext, onClickPreventSelect } from '@app/lineageV2/common';
 
 const DROPDOWN_Z_INDEX = 100;
@@ -16,7 +14,7 @@ const Wrapper = styled.div`
     top: 8px;
 
     :hover {
-        color: ${(p) => getColor('primary', 500, p.theme)};
+        color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 

@@ -4,15 +4,13 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@src/alchemy-components/theme/utils';
-
 const StyledButton = styled(Button)`
     height: 25px;
     width: 25px;
-    color: ${(p) => getColor('primary', 500, p.theme)};
+    color: ${(p) => p.theme.styles['primary-color']};
     padding: 0px;
     border-radius: 20px;
-    border: 1px solid ${(p) => getColor('primary', 500, p.theme)};
+    border: 1px solid ${(p) => p.theme.styles['primary-color']};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -21,8 +19,8 @@ const StyledButton = styled(Button)`
     margin-top: 2px;
 
     &:hover {
-        color: ${(p) => getColor('primary', 500, p.theme)};
-        border-color: ${(p) => getColor('primary', 500, p.theme)};
+        color: ${(p) => p.theme.styles['primary-color']};
+        border-color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 

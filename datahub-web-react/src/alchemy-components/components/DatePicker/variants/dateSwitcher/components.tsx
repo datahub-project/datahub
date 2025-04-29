@@ -7,8 +7,6 @@ import { ExtendedInputRenderProps } from '@components/components/DatePicker/type
 import { SwitcherDirection } from '@components/components/DatePicker/variants/dateSwitcher/types';
 import { Text } from '@components/components/Text/Text';
 
-import { getColor } from '@src/alchemy-components/theme/utils';
-
 const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     border: 1px solid ${(props) => (props.$opened || props.$disabled ? colors.gray[1800] : colors.gray[100])};
     ${(props) => props.$opened && !props.$disabled && `outline: 2px solid ${colors.violet[300]};`}
@@ -43,7 +41,7 @@ const Content = styled(Text)<{ $disabled?: boolean }>`
     cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
     :hover {
-        ${(props) => !props.$disabled && `color: ${getColor('primary', 500, props.theme)};`}
+        ${(props) => !props.$disabled && `color: ${props.theme.styles['primary-color']};`}
     }
 `;
 
@@ -55,7 +53,7 @@ const CaretWrapper = styled.div<{ $disabled?: boolean }>`
         cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
         :hover {
-            ${(props) => !props.$disabled && `color: ${getColor('primary', 500, props.theme)};`}
+            ${(props) => !props.$disabled && `color: ${props.theme.styles['primary-color']};`}
         }
     }
 `;

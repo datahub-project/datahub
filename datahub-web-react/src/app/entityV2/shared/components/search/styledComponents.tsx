@@ -1,7 +1,5 @@
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Input } from '@src/alchemy-components';
 
@@ -69,7 +67,7 @@ export const SearchContainer = styled.div`
 
     .ant-input-affix-wrapper:focus-within,
     .ant-input-affix-wrapper:not(.ant-input-affix-wrapper-disabled):hover {
-        border: 1px solid ${(props) => getColor('primary', 500, props.theme)};
+        border: 1px solid ${(props) => props.theme.styles['primary-color']};
     }
 
     .ant-input-affix-wrapper::selection {

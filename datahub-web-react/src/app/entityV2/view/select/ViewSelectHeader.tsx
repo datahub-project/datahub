@@ -8,8 +8,6 @@ import { Input } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -32,11 +30,11 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean }>`
         box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
 
         &&:hover {
-            border-color: ${getColor('primary', 500, props.theme)};
+            border-color: ${props.theme.styles['primary-color']};
         }
 
         &.ant-input-affix-wrapper-focused {
-            border-color: ${getColor('primary', 500, props.theme)};
+            border-color: ${props.theme.styles['primary-color']};
         }
         
         & .ant-input::placeholder {
@@ -81,7 +79,7 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
                 border-radius: 100px;
                 cursor: pointer;
                 &.active {
-                    background: ${(props) => getColor('primary', 500, props.theme)};
+                    background: ${(props) => props.theme.styles['primary-color']};
                     color: ${ANTD_GRAY[1]};
                 }
             }

@@ -9,8 +9,6 @@ import React, { useContext, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetDataPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetDataPlatforms';
@@ -100,7 +98,7 @@ const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
     ${(props) =>
         props.checked &&
         `
-        background: ${getColor('primary', 500, props.theme)};
+        background: ${props.theme.styles['primary-color']};
         border: none;
     `}
 

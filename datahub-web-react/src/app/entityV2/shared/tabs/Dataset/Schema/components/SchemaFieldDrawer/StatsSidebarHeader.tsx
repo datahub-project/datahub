@@ -2,8 +2,6 @@ import { ClockCircleOutlined, LineChartOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import LookbackWindowSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/LookbackWindowSelect';
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
@@ -23,7 +21,7 @@ const TabContainer = styled.div`
 `;
 
 const StatsTabViewSwitch = styled.div<{ isActive: boolean }>`
-    background: ${({ isActive, theme }) => (isActive ? `${getColor('primary', 500, theme)}` : 'transperent')};
+    background: ${({ isActive, theme }) => (isActive ? `${theme.styles['primary-color']}` : 'transperent')};
     border-radius: 4px;
     color: ${({ isActive }) => (isActive ? '#fff' : '#56668E')};
     cursor: pointer;

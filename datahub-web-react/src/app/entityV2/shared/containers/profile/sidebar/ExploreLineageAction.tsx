@@ -3,8 +3,6 @@ import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
@@ -14,10 +12,10 @@ import CompactContext from '@src/app/shared/CompactContext';
 const ActionButton = styled(Link)`
     height: 22px;
     width: 22px;
-    border: 1px solid ${(props) => getColor('primary', 500, props.theme)};
+    border: 1px solid ${(props) => props.theme.styles['primary-color']};
     border-radius: 50%;
     text-align: center;
-    color: ${(props) => getColor('primary', 500, props.theme)};
+    color: ${(props) => props.theme.styles['primary-color']};
 
     svg {
         height: 20px;
@@ -28,7 +26,7 @@ const ActionButton = styled(Link)`
     :hover {
         cursor: pointer;
         color: ${REDESIGN_COLORS.WHITE};
-        background: ${(props) => getColor('primary', 500, props.theme)};
+        background: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

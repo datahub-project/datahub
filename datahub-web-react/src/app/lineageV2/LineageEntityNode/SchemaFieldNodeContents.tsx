@@ -6,8 +6,6 @@ import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import { ContractLineageButton } from '@app/lineageV2/LineageEntityNode/ContractLineageButton';
@@ -46,7 +44,7 @@ const NodeWrapper = styled.div<{
             return LINEAGE_COLORS.NODE_BORDER;
         }};
     box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 4px 4px ${getColor('primary', 500, theme)}95` : 'none'};
+        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -195,7 +193,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

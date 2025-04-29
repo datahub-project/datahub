@@ -3,8 +3,6 @@ import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const ScrollButton = styled.button<{
@@ -39,7 +37,7 @@ const ScrollButton = styled.button<{
 
     &:hover {
         color: ${REDESIGN_COLORS.WHITE};
-        background-color: ${(props) => getColor('primary', 500, props.theme)};
+        background-color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

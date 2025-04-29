@@ -6,8 +6,6 @@ import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
@@ -100,7 +98,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

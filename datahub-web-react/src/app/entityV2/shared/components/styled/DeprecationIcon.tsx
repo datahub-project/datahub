@@ -5,8 +5,6 @@ import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
@@ -72,7 +70,7 @@ const IconGroup = styled.div`
     color: ${REDESIGN_COLORS.TEXT_HEADING};
 
     &:hover {
-        color: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => props.theme.styles['primary-color']};
         cursor: pointer;
     }
 `;

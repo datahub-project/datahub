@@ -3,8 +3,6 @@ import React, { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
 
-import { getColor } from '@components/theme/utils';
-
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
@@ -32,7 +30,7 @@ const Container = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${(props) => getColor('primary', 500, props.theme)};
+    color: ${(props) => props.theme.styles['primary-color']};
     display: flex;
     width: fit-content;
 

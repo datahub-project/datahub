@@ -2,8 +2,6 @@ import CloseIcon from '@mui/icons-material/Close';
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewOptionName } from '@app/entityV2/view/select/ViewOptionName';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -20,33 +18,33 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
     display: flex;
     align-items: center;
     position: relative;
-    background: ${(props) => (props.selected ? getColor('primary', 500, props.theme) : '')};
+    background: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '')};
     ${(props) => !props.$isShowNavBarRedesign && 'padding: 10px;'}
     border-radius: 16px;
     ${(props) =>
         !props.$isShowNavBarRedesign &&
         `
-        border: 1px solid ${props.selected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BORDER_1};
+        border: 1px solid ${props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BORDER_1};
     `}
 
     &:hover {
         ${(props) =>
             !props.$isShowNavBarRedesign &&
             `
-            border: ${`1px solid ${getColor('primary', 500, props.theme)}`};
+            border: ${`1px solid ${props.theme.styles['primary-color']}`};
             padding: 10px;
         `}
         border-radius: 16px;
         & .create-view-icon {
-            background: ${(props) => getColor('primary', 500, props.theme)} !important;
+            background: ${(props) => props.theme.styles['primary-color']} !important;
             border: ${(props) =>
-                !props.selected ? `1px solid ${getColor('primary', 500, props.theme)} !important` : ''};
+                !props.selected ? `1px solid ${props.theme.styles['primary-color']} !important` : ''};
         }
     }
     & .default-view-icon-container {
         border: 1px solid
             ${(props) =>
-                props.selected ? getColor('primary', 500, props.theme) : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
+                props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK};
         border-radius: 100%;
     }
     & .close-container {
@@ -64,7 +62,7 @@ const ViewDetailsContainer = styled.div<{ selected: boolean; $isShowNavBarRedesi
 
 const CloseIconStyle = styled(CloseIcon)`
     font-size: 14px !important;
-    color: ${(props) => getColor('primary', 500, props.theme)};
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 type Props = {

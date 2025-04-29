@@ -46,7 +46,6 @@ import { getEntityProfileDeleteRedirectPath } from '@app/shared/deleteUtils';
 import ShareButtonMenu from '@app/shared/share/v2/ShareButtonMenu';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { useUpdateDeprecationMutation } from '@graphql/mutations.generated';
 import { EntityType } from '@types';
@@ -76,7 +75,7 @@ const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
         padding: 2px;
 
         :hover {
-            color: ${(p) => getColor('primary', 500, p.theme)};
+            color: ${(p) => p.theme.styles['primary-color']};
         }
     }
 `;

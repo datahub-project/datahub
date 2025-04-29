@@ -1,8 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { SearchCardSlideoutContent } from '@app/searchV2/searchSlideout/SearchCardSlideoutContent';
 import { CombinedSearchResult } from '@app/searchV2/utils/combineSiblingsInSearchResults';
@@ -17,7 +15,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
     margin: 0 auto 12px auto;
     padding: 4px;
     :hover {
-        ${(props) => !props.selected && `outline: 1px solid ${getColor('primary', 500, props.theme)};}`};
+        ${(props) => !props.selected && `outline: 1px solid ${props.theme.styles['primary-color']};}`};
     }
 
     position: absolute;
@@ -34,7 +32,7 @@ const MatchesContainer = styled.div<{ expanded: boolean; selected: boolean; comp
     ${(props) =>
         props.selected &&
         `
-        outline: 1px solid ${getColor('primary', 500, props.theme)};
+        outline: 1px solid ${props.theme.styles['primary-color']};
         left: -5px;
         width: calc(100% + 5px);
     `}

@@ -3,8 +3,6 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { getColor } from '@components/theme/utils';
-
 import { PreviewType } from '@app/entityV2/Entity';
 import useRemoveRelatedTerms from '@app/entityV2/glossaryTerm/profile/useRemoveRelatedTerms';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -13,7 +11,7 @@ import { useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, TermRelationshipType } from '@types';
 
 const TransparentButton = styled(Button)`
-    color: ${(props) => getColor('primary', 500, props.theme)};
+    color: ${(props) => props.theme.styles['primary-color']};
     font-size: 12px;
     box-shadow: none;
     border: none;
@@ -26,7 +24,7 @@ const TransparentButton = styled(Button)`
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        color: ${(props) => getColor('primary', 500, props.theme)};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 
@@ -39,7 +37,7 @@ const ListItem = styled.div`
         display: inline-block;
     }
     &:hover {
-        border: 1px solid ${(props) => getColor('primary', 500, props.theme)};
+        border: 1px solid ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

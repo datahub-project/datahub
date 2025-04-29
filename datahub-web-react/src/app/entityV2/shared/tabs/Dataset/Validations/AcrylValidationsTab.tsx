@@ -3,8 +3,6 @@ import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { getColor } from '@components/theme/utils';
-
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';
@@ -20,7 +18,7 @@ const TabTitle = styled.span`
 const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     display: flex;
     background-color: ${(props) => (props.selected && '#f1f3fd') || 'none'};
-    color: ${(props) => (props.selected ? getColor('primary', 500, props.theme) : 'none')};
+    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'none')};
     align-items: center;
     justify-content: center;
     cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
