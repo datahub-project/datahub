@@ -1,89 +1,82 @@
-import { PlusOutlined } from '@ant-design/icons';
-import { Button, Pagination, message } from 'antd';
-import React, { useState } from 'react';
+import { message } from 'antd';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { OwnershipBuilderModal } from '@app/entityV2/ownership/OwnershipBuilderModal';
 import { OwnershipTable } from '@app/entityV2/ownership/table/OwnershipTable';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
-import { SearchBar } from '@app/search/SearchBar';
 import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { SearchBar } from '@src/alchemy-components';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import { OwnershipTypeEntity } from '@types';
 
-const PaginationContainer = styled.div`
+const ListContainer = styled.div`
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
 `;
 
-const StyledPagination = styled(Pagination)`
-    margin: 40px;
-`;
-
-const searchBarStyle = {
-    maxWidth: 220,
-    padding: 0,
-};
-
-const searchBarInputStyle = {
-    height: 32,
-    fontSize: 12,
-};
+const PAGE_SIZE = 20;
 
 /**
- * This component renders a paginated, searchable list of Ownership Types.
+ * This component renders a scrollable list of Ownership Types.
  */
 export const OwnershipList = () => {
-    /**
-     * Context
-     */
-    const entityRegistry = useEntityRegistry();
-
-    /**
-     * State
-     */
-    const [page, setPage] = useState(1);
-    const [showOwnershipBuilder, setShowOwnershipBuilder] = useState<boolean>(false);
-    const [ownershipType, setOwnershipType] = useState<undefined | OwnershipTypeEntity>(undefined);
     const [query, setQuery] = useState<undefined | string>(undefined);
+    const [page, setPage] = useState(0);
+    const [ownershipTypesList, setOwnershipTypesList] = useState<any[]>([]);
 
-    /**
-     * Queries
-     */
-    const pageSize = 10;
-    const start: number = (page - 1) * pageSize;
-    const { data, loading, error, refetch } = useListOwnershipTypesQuery({
+    const { data, loading, error, refetch, fetchMore } = useListOwnershipTypesQuery({
         variables: {
             input: {
-                start,
-                count: pageSize,
+                start: 0,
+                count: PAGE_SIZE,
                 query,
             },
         },
+        onCompleted: (result) => {
+            const filteredTypes =
+                result?.listOwnershipTypes?.ownershipTypes?.filter(
+                    (type) => type.urn !== 'urn:li:ownershipType:none',
+                ) || [];
+            setOwnershipTypesList(filteredTypes);
+            setPage(1);
+        },
     });
-    const totalOwnershipTypes = data?.listOwnershipTypes?.total || 0;
-    const ownershipTypes =
-        data?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') || [];
 
-    const onClickCreateOwnershipType = () => {
-        setShowOwnershipBuilder(true);
-    };
+    const hasMore = (data?.listOwnershipTypes?.total || 0) > ownershipTypesList.length;
 
-    const onCloseModal = () => {
-        setShowOwnershipBuilder(false);
-        setOwnershipType(undefined);
-    };
+    const handleLoadMore = useCallback(() => {
+        if (!hasMore || loading) return;
 
-    const onChangePage = (newPage: number) => {
-        scrollToTop();
-        setPage(newPage);
+        fetchMore({
+            variables: {
+                input: {
+                    start: page * PAGE_SIZE,
+                    count: PAGE_SIZE,
+                    query,
+                },
+            },
+        }).then((fetchMoreResult) => {
+            const newOwnershipTypes =
+                fetchMoreResult.data?.listOwnershipTypes?.ownershipTypes?.filter(
+                    (type) => type.urn !== 'urn:li:ownershipType:none',
+                ) || [];
+
+            setOwnershipTypesList([...ownershipTypesList, ...newOwnershipTypes]);
+            setPage(page + 1);
+        });
+    }, [fetchMore, hasMore, loading, ownershipTypesList, page, query]);
+
+    const handleSearch = (value: string) => {
+        setQuery(value.length > 0 ? value : undefined);
+        // Reset pagination when search changes
+        setPage(0);
+        setOwnershipTypesList([]);
     };
 
     return (
-        <>
+        <ListContainer>
             {!data && loading && <Message type="loading" content="Loading Ownership Types..." />}
             {error &&
                 message.error({
@@ -91,44 +84,17 @@ export const OwnershipList = () => {
                     duration: 3,
                 })}
             <TabToolbar>
-                <Button type="text" onClick={onClickCreateOwnershipType} data-testid="create-owner-type-v2">
-                    <PlusOutlined /> Create Ownership Type
-                </Button>
-                <SearchBar
-                    initialQuery=""
-                    placeholderText="Search by Name..."
-                    suggestions={[]}
-                    style={searchBarStyle}
-                    inputStyle={searchBarInputStyle}
-                    onSearch={() => null}
-                    onQueryChange={(q) => setQuery(q.length > 0 ? q : undefined)}
-                    entityRegistry={entityRegistry}
-                />
+                <SearchBar placeholder="Search..." value={query || ''} onChange={handleSearch} width="280px" />
             </TabToolbar>
             <OwnershipTable
-                ownershipTypes={ownershipTypes}
-                setIsOpen={setShowOwnershipBuilder}
-                setOwnershipType={setOwnershipType}
+                ownershipTypes={ownershipTypesList}
+                setIsOpen={() => {}}
+                setOwnershipType={() => {}}
                 refetch={refetch}
+                hasMore={hasMore}
+                isLoadingMore={loading && page > 0}
+                onLoadMore={handleLoadMore}
             />
-            {totalOwnershipTypes >= pageSize && (
-                <PaginationContainer>
-                    <StyledPagination
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalOwnershipTypes}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={false}
-                    />
-                </PaginationContainer>
-            )}
-            <OwnershipBuilderModal
-                isOpen={showOwnershipBuilder}
-                onClose={onCloseModal}
-                refetch={refetch}
-                ownershipType={ownershipType}
-            />
-        </>
+        </ListContainer>
     );
 };
