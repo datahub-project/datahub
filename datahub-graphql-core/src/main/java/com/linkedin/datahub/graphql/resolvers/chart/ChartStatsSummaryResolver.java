@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.chart;
 
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import graphql.schema.DataFetcher;
@@ -21,6 +22,8 @@ public class ChartStatsSummaryResolver
   public CompletableFuture<ChartStatsSummary> get(DataFetchingEnvironment environment)
       throws Exception {
     // Not yet implemented
-    return CompletableFuture.completedFuture(null);
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> null,
+        this.getClass().getSimpleName(), "get");
   }
 }
