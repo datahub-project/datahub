@@ -22,7 +22,6 @@ export interface ButtonPropsDefaults {
     isLoading: boolean;
     isDisabled: boolean;
     isActive: boolean;
-    theme?: Theme;
 }
 
 export interface ButtonProps
@@ -31,4 +30,4 @@ export interface ButtonProps
     icon?: IconProps;
 }
 
-export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'> & { hasChildren: boolean };
+export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'> & { hasChildren: boolean; theme?: Theme };
