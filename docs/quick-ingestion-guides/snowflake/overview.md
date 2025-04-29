@@ -24,7 +24,7 @@ The pipeline will also extract:
 - **Table-level profile statistics** to help you understand the shape of the data
 
 :::caution
-You will NOT have extracted Stages, Snowpipes, Streams, Tasks, Procedures from Snowflake, as the connector does not support ingesting these assets yet.
+You will NOT have extracted Stages, Snowpipes, Streams, or Tasks from Snowflake, as the connector does not support ingesting these assets yet.
 :::
 
 ### Caveats
@@ -33,7 +33,7 @@ By default, DataHub only profiles datasets that have changed in the past 1 day. 
 
 Additionally, DataHub only extracts usage and lineage information based on operations performed in the last 1 day. This can be changed by setting a custom value for `start_time` and `end_time` in the YAML editor.
 
-_To learn more about setting these advanced values, check out the [Snowflake Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/snowflake/#module-snowflake)._
+_To learn more about setting these advanced values, check out the [Snowflake Ingestion Source](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake/#module-snowflake)._
 
 ## Next Steps
 
@@ -44,4 +44,4 @@ If that all sounds like what you're looking for, navigate to the [next page](set
 If you want to ingest metadata from Snowflake using the DataHub CLI, check out the following resources:
 
 - Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
-- [Snowflake Ingestion Source](https://datahubproject.io/docs/generated/ingestion/sources/snowflake/#module-snowflake)
+- [Snowflake Ingestion Source](https://docs.datahub.com/docs/generated/ingestion/sources/snowflake/#module-snowflake)

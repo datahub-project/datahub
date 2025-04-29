@@ -8,7 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dataproduct.DataProductAssociation;
@@ -100,7 +100,7 @@ public class DataProductUnsetSideEffectTest {
             eq(QueryUtils.newFilter("urn", DATASET_URN_1.toString())),
             eq(null),
             eq(EMPTY_FILTER),
-            eq(ImmutableList.of("DataProductContains")),
+            eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Collections.emptyList()),
             eq(null),
@@ -127,7 +127,7 @@ public class DataProductUnsetSideEffectTest {
             eq(QueryUtils.newFilter("urn", DATASET_URN_2.toString())),
             eq(null),
             eq(EMPTY_FILTER),
-            eq(ImmutableList.of("DataProductContains")),
+            eq(ImmutableSet.of("DataProductContains")),
             eq(QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
             eq(Collections.emptyList()),
             eq(null),
@@ -282,7 +282,7 @@ public class DataProductUnsetSideEffectTest {
                   eq(QueryUtils.newFilter("urn", datasetUrn.toString())),
                   eq(null),
                   eq(EMPTY_FILTER),
-                  eq(ImmutableList.of("DataProductContains")),
+                  eq(ImmutableSet.of("DataProductContains")),
                   eq(
                       QueryUtils.newRelationshipFilter(
                           EMPTY_FILTER, RelationshipDirection.INCOMING)),

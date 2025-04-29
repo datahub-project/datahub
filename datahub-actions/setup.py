@@ -18,7 +18,7 @@ from typing import Dict, Set
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_actions/__init__.py") as fp:
+with open("./src/datahub_actions/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -35,8 +35,8 @@ acryl_datahub_min_version = os.environ.get("ACRYL_DATAHUB_MIN_VERSION") or "1.0.
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.9.7",
-    "mypy==1.10.1",
+    "ruff==0.11.6",
+    "mypy==1.12.1",
 }
 
 base_requirements = {
@@ -190,9 +190,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/actions",
+        "Documentation": "https://docs.datahub.com/docs/actions",
         "Source": "https://github.com/acryldata/datahub-actions",
         "Changelog": "https://github.com/acryldata/datahub-actions/releases",
     },

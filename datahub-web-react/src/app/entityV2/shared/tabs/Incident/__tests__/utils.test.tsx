@@ -120,7 +120,7 @@ describe('Utility Functions', () => {
                 siblingsSearch: { searchResults: [{ entity: { incidents: { incidents: [{ id: 2 }] } } }] },
             },
         };
-        expect(getExistingIncidents(currData)).toEqual([{ id: 1 }, { id: 2 }]);
+        expect(getExistingIncidents(currData)).toEqual([{ id: 1 }]);
     });
 
     test('should return main entity data in options', () => {

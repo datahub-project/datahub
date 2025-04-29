@@ -392,6 +392,7 @@ export const EditOwnersModal = ({
                                 label: owner.label,
                             }))}
                             optionLabelProp="label"
+                            data-testid="users-group-search"
                         >
                             {ownerSearchOptions}
                         </SelectInput>

@@ -92,6 +92,7 @@ def create_dataset_props_patch_builder(
     patch_builder.set_last_modified(dataset_properties.lastModified)
     patch_builder.set_qualified_name(dataset_properties.qualifiedName)
     patch_builder.add_custom_properties(dataset_properties.customProperties)
+    patch_builder.set_external_url(dataset_properties.externalUrl)
 
     return patch_builder
 
