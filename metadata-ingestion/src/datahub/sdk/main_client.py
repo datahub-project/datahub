@@ -11,7 +11,9 @@ from datahub.sdk.resolver_client import ResolverClient
 from datahub.sdk.search_client import SearchClient
 
 try:
-    from datahub.sdk.assertion_client import AssertionClient  # type: ignore[import-not-found]
+    from datahub.sdk.assertion_client import (  # type: ignore[import-not-found]
+        AssertionClient,
+    )
 except ImportError:
     AssertionClient = Any
 
