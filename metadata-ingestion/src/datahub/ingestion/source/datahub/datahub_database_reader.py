@@ -1,6 +1,7 @@
 import contextlib
 import json
 import logging
+import time
 from datetime import datetime
 from typing import Any, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar
 
@@ -100,14 +101,17 @@ class DataHubDatabaseReader:
             ORDER BY mav.urn
         """
 
-    @property
-    def query(self) -> str:
+    def query(self, set_structured_properties_filter: bool) -> str:
         # May repeat rows for the same date
         # Offset is generally 0, unless we repeat the same createdon twice
 
         # Ensures stable order, chronological per (urn, aspect)
         # Relies on createdon order to reflect version order
         # Ordering of entries with the same createdon is handled by VersionOrderer
+        # structured_prop_filter = f" AND urn {'' if set_structured_properties_filter else 'NOT'} like 'urn:li:structuredProperty:%%'"
+        # Substring is used to avoid using LIKE operator which theoretically could be slower
+        structured_prop_filter = f" AND SUBSTRING(urn, 1, 26) {'=' if set_structured_properties_filter else '!='} 'urn:li:structuredProperty:'"
+
         return f"""
         SELECT *
         FROM (
@@ -139,7 +143,8 @@ class DataHubDatabaseReader:
                 version
         ) as t
         WHERE 1=1
-            {"" if self.config.include_soft_deleted_entities else "AND (removed = false or removed is NULL)"}
+            {"" if self.config.include_soft_deleted_entities else " AND (removed = false or removed is NULL)"}
+            {structured_prop_filter}
         ORDER BY
             createdon,
             urn,
@@ -168,21 +173,58 @@ class DataHubDatabaseReader:
                 raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
 
     def _get_rows(
-        self, from_createdon: datetime, stop_time: datetime
+        self,
+        from_createdon: datetime,
+        stop_time: datetime,
+        set_structured_properties_filter: bool = False,
     ) -> Iterable[Dict[str, Any]]:
         params = {
             "exclude_aspects": list(self.config.exclude_aspects),
             "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
         }
-        yield from self.execute_server_cursor(self.query, params)
+        yield from self.execute_server_cursor(
+            self.query(set_structured_properties_filter), params
+        )
+
+    def get_all_aspects(
+        self, from_createdon: datetime, stop_time: datetime
+    ) -> Iterable[Tuple[MetadataChangeProposalWrapper, datetime]]:
+        logger.info("Fetching Structured properties aspects")
+        yield from self.get_aspects(
+            from_createdon=from_createdon,
+            stop_time=stop_time,
+            set_structured_properties_filter=True,
+        )
+
+        logger.info(
+            f"Waiting for {self.config.structured_properties_template_cache_invalidation_interval} seconds for structured properties cache to invalidate"
+        )
+
+        time.sleep(
+            self.config.structured_properties_template_cache_invalidation_interval
+        )
+
+        logger.info("Fetching aspects")
+        yield from self.get_aspects(
+            from_createdon=from_createdon,
+            stop_time=stop_time,
+            set_structured_properties_filter=False,
+        )
 
     def get_aspects(
-        self, from_createdon: datetime, stop_time: datetime
+        self,
+        from_createdon: datetime,
+        stop_time: datetime,
+        set_structured_properties_filter: bool = False,
     ) -> Iterable[Tuple[MetadataChangeProposalWrapper, datetime]]:
         orderer = VersionOrderer[Dict[str, Any]](
             enabled=self.config.include_all_versions
         )
-        rows = self._get_rows(from_createdon=from_createdon, stop_time=stop_time)
+        rows = self._get_rows(
+            from_createdon=from_createdon,
+            stop_time=stop_time,
+            set_structured_properties_filter=set_structured_properties_filter,
+        )
         for row in orderer(rows):
             mcp = self._parse_row(row)
             if mcp:
