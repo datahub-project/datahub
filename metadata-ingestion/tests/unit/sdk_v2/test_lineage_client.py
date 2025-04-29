@@ -5,12 +5,14 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
 )
+from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
@@ -53,6 +55,15 @@ def mock_graph() -> Mock:
     schema_resolver.includes_temp_tables.return_value = False
 
     graph._make_schema_resolver.return_value = schema_resolver
+
+    # Set up the get_aspect method to return a proper object instead of a Mock
+    def get_aspect_side_effect(urn, aspect_type):
+        if aspect_type == DataJobInputOutputClass:
+            return DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
+        return None
+
+    graph.get_aspect.side_effect = get_aspect_side_effect
+
     return graph
 
 
@@ -457,7 +468,70 @@ def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_from_sql_golden.json")
 
 
-def test_add_datajob_lineage():
-    """Test adding lineage between datasets and datajobs."""
-    # Create a minimal client just for testing the method
-    pass
+def test_add_dataset_to_datajob_lineage(client: DataHubClient) -> None:
+    """Test adding lineage from dataset to datajob."""
+    lineage_client = LineageClient(client=client)
+
+    # Create a dataset
+    dataset = Dataset(
+        platform="snowflake",
+        name="source_table",
+        env="PROD",
+        schema=[
+            ("id", "int"),
+            ("value", "string"),
+        ],
+    )
+    client.entities.upsert(dataset)
+
+    # Create lineage from dataset to datajob
+    datajob = DataJob(
+        platform="airflow",
+        id="transform_job",
+        flow_urn="urn:li:dataFlow:(airflow,example_dag,PROD)",
+        name="Transform Job",
+        description="A job that transforms data",
+    )
+    client.entities.upsert(datajob)
+
+    lineage_client.add_datajob_lineage(
+        upstream=dataset.urn,
+        downstream=datajob.urn,
+    )
+
+    # Validate lineage MCPs
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_dataset_to_datajob_lineage_golden.json"
+    )
+
+
+def test_add_datajob_to_dataset_lineage(client: DataHubClient) -> None:
+    """Test adding lineage from datajob to dataset."""
+    lineage_client = LineageClient(client=client)
+
+    # Create a dataset
+    dataset = Dataset(
+        platform="snowflake",
+        name="target_table",
+        env="PROD",
+    )
+    client.entities.upsert(dataset)
+
+    datajob = DataJob(
+        platform="airflow",
+        id="transform_job",
+        flow_urn="urn:li:dataFlow:(airflow,example_dag,PROD)",
+        name="Transform Job",
+        description="A job that transforms data",
+    )
+
+    # Create lineage from datajob to dataset with custom lineage type
+    lineage_client.add_datajob_lineage(
+        upstream=datajob.urn,
+        downstream=dataset.urn,
+    )
+
+    # Validate lineage MCPs
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_datajob_to_dataset_lineage_golden.json"
+    )

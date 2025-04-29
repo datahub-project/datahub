@@ -1,0 +1,24 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataJob:(urn:li:dataFlow:airflow,transform_job,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataJob:(urn:li:dataFlow:airflow,transform_job,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            }
+        ]
+    }
+}
+]

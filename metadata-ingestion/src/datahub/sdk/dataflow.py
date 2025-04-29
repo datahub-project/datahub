@@ -38,7 +38,7 @@ from datahub.sdk._shared import (
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
 
-class Dataflow(
+class DataFlow(
     HasPlatformInstance,
     HasSubtype,
     HasContainer,

@@ -1,7 +1,7 @@
 from typing import Dict, List, Type
 
 from datahub.sdk.container import Container
-from datahub.sdk.dataflow import Dataflow
+from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
 from datahub.sdk.mlmodel import MLModel
@@ -11,7 +11,7 @@ from datahub.sdk.mlmodelgroup import MLModelGroup
 ENTITY_CLASSES_LIST: List[Type[Entity]] = [
     Container,
     Dataset,
-    Dataflow,
+    DataFlow,
     MLModel,
     MLModelGroup,
 ]

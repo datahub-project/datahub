@@ -17,20 +17,20 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
-from datahub.sdk.dataflow import Dataflow
+from datahub.sdk.dataflow import DataFlow
 from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "dataflow_golden"
 
 
 def test_dataflow_basic(pytestconfig: pytest.Config) -> None:
-    d = Dataflow(
+    d = DataFlow(
         platform="airflow",  # TODO: shoudl be a full platform urn?
         id="example_dag",
     )
 
     # Check urn setup.
-    assert Dataflow.get_urn_type() == DataFlowUrn
+    assert DataFlow.get_urn_type() == DataFlowUrn
     assert isinstance(d.urn, DataFlowUrn)
     assert str(d.urn) == f"urn:li:dataFlow:(airflow,example_dag,{DEFAULT_ENV})"
     assert str(d.urn) in repr(d)
@@ -59,11 +59,11 @@ def test_dataflow_basic(pytestconfig: pytest.Config) -> None:
     assert_entity_golden(d, _GOLDEN_DIR / "test_dataflow_basic_golden.json")
 
 
-def _build_complex_dataflow() -> Dataflow:
+def _build_complex_dataflow() -> DataFlow:
     created = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     updated = datetime(2025, 1, 9, 3, 4, 6, tzinfo=timezone.utc)
 
-    d = Dataflow(
+    d = DataFlow(
         platform="airflow",
         platform_instance="my_instance",
         id="example_dag",
@@ -143,7 +143,7 @@ def _tag_names(tags: Optional[List[models.TagAssociationClass]]) -> List[str]:
 
 
 def test_tags_add_remove() -> None:
-    d = Dataflow(
+    d = DataFlow(
         platform="airflow",
         id="example_dag",
         tags=[TagUrn("tag1"), TagUrn("tag2")],
@@ -172,7 +172,7 @@ def _term_names(
 
 
 def test_terms_add_remove() -> None:
-    d = Dataflow(
+    d = DataFlow(
         platform="airflow",
         id="example_dag",
         terms=[GlossaryTermUrn("DataPipeline")],
@@ -204,7 +204,7 @@ def test_owners_add_remove() -> None:
     technical = models.OwnershipTypeClass.TECHNICAL_OWNER
     custom = OwnershipTypeUrn("urn:li:ownershipType:custom_1")
 
-    d = Dataflow(
+    d = DataFlow(
         platform="airflow",
         id="example_dag",
         owners=[
@@ -254,7 +254,7 @@ def test_owners_add_remove() -> None:
 
 
 def test_links_add_remove() -> None:
-    d = Dataflow(
+    d = DataFlow(
         platform="airflow",
         id="example_dag",
         links=[

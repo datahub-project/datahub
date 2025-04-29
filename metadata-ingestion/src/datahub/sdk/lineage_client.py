@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn
+from datahub.metadata.urns import DatasetUrn, QueryUrn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
@@ -217,13 +217,12 @@ class LineageClient:
             cl.query = query_urn
             updater.add_fine_grained_upstream_lineage(cl)
 
-        # Throw if the dataset does not exist.
-        # We need to manually call .build() instead of reusing client.update()
-        # so that we make just one emit_mcps call.
+        # Throw if the dataset does not exist. TODO: is this valid?
         if not self._client._graph.exists(updater.urn):
             raise SdkUsageError(
                 f"Dataset {updater.urn} does not exist, and hence cannot be updated."
             )
+
         mcps: List[
             Union[MetadataChangeProposalWrapper, models.MetadataChangeProposalClass]
         ] = list(updater.build())
@@ -301,7 +300,7 @@ class LineageClient:
                 downstream=downstream_urn,
                 column_lineage=column_mapping or None,
                 query_text=query_text if i == 0 else None,
-            )
+            )  # TODO: this throws error when table does not exist
 
     def add_datajob_lineage(
         self,
@@ -311,39 +310,59 @@ class LineageClient:
     ) -> None:
         """
         Add lineage between datasets and datajobs.
+
+        Args:
+            upstream: The upstream dataset or datajob (source)
+            downstream: The downstream dataset or datajob (destination)
         """
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import DataJobInputOutputClass
 
-        # Convert upstream and downstream to URNs
-        if isinstance(upstream, str):
-            if upstream.startswith("urn:li:dataset:"):
-                upstream = DatasetUrn.from_string(upstream)
-            elif upstream.startswith("urn:li:dataJob:"):
-                upstream = DataJobUrn.from_string(upstream)
+        upstream_str = str(upstream)
+        downstream_str = str(downstream)
 
-        if isinstance(downstream, str):
-            if downstream.startswith("urn:li:dataset:"):
-                downstream = DatasetUrn.from_string(downstream)
-            elif downstream.startswith("urn:li:dataJob:"):
-                downstream = DataJobUrn.from_string(downstream)
+        # Determine entity types
+        upstream_is_dataset = upstream_str.startswith("urn:li:dataset:")
+        downstream_is_dataset = downstream_str.startswith("urn:li:dataset:")
 
-        # Handle different combinations of dataset and datajob lineage
-        if isinstance(upstream, DatasetUrn) and isinstance(downstream, DataJobUrn):
-            updater = DatasetPatchBuilder(str(upstream))
-            # updater.add_downstream_lineage(
-            #     models.DownstreamClass(
-            #         datajob=str(downstream),
-            #         type=models.DatasetLineageTypeClass.COPY,
-            #     )
-            # )
-            self._client.entities.update(updater)
-        elif isinstance(upstream, DataJobUrn) and isinstance(downstream, DatasetUrn):
-            updater = DatasetPatchBuilder(str(downstream))
-            # updater.add_upstream_lineage(
-            #     models.UpstreamClass(
-            #         datajob=str(upstream),
-            #         type=models.DatasetLineageTypeClass.COPY,
-            #     )
-            # )
-            self._client.entities.update(updater)
+        # Only handle Dataset → DataJob and DataJob → Dataset cases
+        if upstream_is_dataset and not downstream_is_dataset:
+            # Dataset → DataJob: Add dataset as input to the job
+            datajob_io = self._client._graph.get_aspect(
+                downstream_str, DataJobInputOutputClass
+            ) or DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
+
+            # Add the dataset to inputs if not already present
+            if upstream_str not in datajob_io.inputDatasets:
+                datajob_io.inputDatasets.append(upstream_str)
+
+            # Create and emit MCP - create a new instance directly
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=downstream_str,
+                aspect=datajob_io,
+            )
+            self._client._graph.emit_mcp(mcp)
+
+        elif not upstream_is_dataset and downstream_is_dataset:
+            # DataJob → Dataset: Add dataset as output to the job
+            datajob_io = self._client._graph.get_aspect(
+                upstream_str, DataJobInputOutputClass
+            ) or DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
+
+            # Add the dataset to outputs if not already present
+            if downstream_str not in datajob_io.outputDatasets:
+                datajob_io.outputDatasets.append(downstream_str)
+
+            # Create and emit MCP - create a new instance directly
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=upstream_str,
+                aspect=datajob_io,
+            )
+            self._client._graph.emit_mcp(mcp)
+
         else:
-            raise ValueError("Invalid combination of upstream and downstream URNs")
+            # Only accept Dataset → DataJob or DataJob → Dataset connections
+            raise ValueError(
+                "Can only create lineage between a dataset and a datajob. "
+                "For dataset to dataset lineage, use add_dataset_transform_lineage instead."
+            )
