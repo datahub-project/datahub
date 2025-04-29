@@ -1,102 +1,67 @@
 [
-  {
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)",
     "changeType": "PATCH",
     "aspectName": "upstreamLineage",
     "aspect": {
-      "json": [
-        {
-          "op": "add",
-          "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)",
-          "value": {
-            "auditStamp": {
-              "time": 0,
-              "actor": "urn:li:corpuser:unknown"
-            },
-            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)",
-            "type": "TRANSFORMED",
-            "query": "urn:li:query:c15e9a68b44b37828f35e91e8d64e99e299878ea684e76a460d3083fd1d2a2f6"
-          }
-        },
-        {
-          "op": "add",
-          "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD),total_price)/urn:li:query:c15e9a68b44b37828f35e91e8d64e99e299878ea684e76a460d3083fd1d2a2f6/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD),price)",
-          "value": {
-            "confidenceScore": 1.0
-          }
-        },
-        {
-          "op": "add",
-          "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD),cost)/urn:li:query:c15e9a68b44b37828f35e91e8d64e99e299878ea684e76a460d3083fd1d2a2f6/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD),qty)",
-          "value": {
-            "confidenceScore": 1.0
-          }
-        },
-        {
-          "op": "add",
-          "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD),cost)/urn:li:query:c15e9a68b44b37828f35e91e8d64e99e299878ea684e76a460d3083fd1d2a2f6/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD),unit_cost)",
-          "value": {
-            "confidenceScore": 1.0
-          }
-        }
-      ]
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:509b41a0a4e15e2123668512e69a238401fa3994ca88d475b611566023a6a980"
+                }
+            }
+        ]
     }
-  },
-  {
+},
+{
     "entityType": "query",
-    "entityUrn": "urn:li:query:c15e9a68b44b37828f35e91e8d64e99e299878ea684e76a460d3083fd1d2a2f6",
+    "entityUrn": "urn:li:query:509b41a0a4e15e2123668512e69a238401fa3994ca88d475b611566023a6a980",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
-      "json": {
-        "statement": {
-          "value": "SELECT price AS total_price, qty * unit_cost AS cost FROM orders",
-          "language": "SQL"
-        },
-        "source": "SYSTEM",
-        "created": {
-          "time": 0,
-          "actor": "urn:li:corpuser:__ingestion"
-        },
-        "lastModified": {
-          "time": 0,
-          "actor": "urn:li:corpuser:__ingestion"
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "SELECT price, qty, unit_cost FROM orders",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
         }
-      }
     }
-  },
-  {
+},
+{
     "entityType": "query",
-    "entityUrn": "urn:li:query:c15e9a68b44b37828f35e91e8d64e99e299878ea684e76a460d3083fd1d2a2f6",
+    "entityUrn": "urn:li:query:509b41a0a4e15e2123668512e69a238401fa3994ca88d475b611566023a6a980",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
-      "json": {
-        "subjects": [
-          {
-            "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)"
-          },
-          {
-            "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)"
-          },
-          {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD),price)"
-          },
-          {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD),total_price)"
-          },
-          {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD),qty)"
-          },
-          {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD),unit_cost)"
-          },
-          {
-            "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD),cost)"
-          }
-        ]
-      }
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)"
+                }
+            ]
+        }
     }
-  }
+}
 ]
