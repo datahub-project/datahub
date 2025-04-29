@@ -521,7 +521,7 @@ def test_multiple_batches_with_empty_results(mock_get_rows_fetcher):
 
     # First batch has data, second is empty, third has data
     batch_1_rows = [{"id": 1}, {"id": 2}]
-    batch_2_rows = []
+    batch_2_rows: List[Dict] = []
     batch_3_rows = [{"id": 5}, {"id": 6}]
 
     mock_get_rows_fetcher._get_rows_for_date_range.side_effect = [
