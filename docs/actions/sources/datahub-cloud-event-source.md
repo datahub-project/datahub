@@ -10,11 +10,11 @@ The **DataHub Cloud Event Source** is only compatible with versions of DataHub C
 
 By default, users do not have access to the Events API of DataHub Cloud. In order to access the API, the user or service account
 associated with the access token used to configure this events source _must_ have the `Get Platform Events` platform privilege, which
-can be granted using an [Access Policy](https://datahubproject.io/docs/authorization/access-policies-guide/).
+can be granted using an [Access Policy](https://docs.datahub.com/docs/authorization/access-policies-guide/).
 
 ## Overview
 
-The DataHub Cloud Event Source allows you to use DataHub Actions with an instance of DataHub Cloud hosted by [Acryl](https://acryl.io).
+The DataHub Cloud Event Source allows you to use DataHub Actions with an instance of DataHub Cloud hosted by [DataHub](https://acryl.io).
 
 Under the hood, the DataHub Cloud Event Source communicates with DataHub Cloud to extract change events in realtime.
 The state of progress is automatically saved to DataHub Cloud after messages are processed, allowing you to seamlessly pause and restart the consumer, using the provided `name` to uniquely identify the consumer state.

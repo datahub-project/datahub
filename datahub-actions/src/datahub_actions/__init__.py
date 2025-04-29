@@ -12,16 +12,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Published at https://pypi.org/project/acryl-datahub-actions/.
-__package_name__ = "acryl-datahub-actions"
-__version__ = "1!0.0.0.dev0"
-
-
-def is_dev_mode() -> bool:
-    return __version__ == "1!0.0.0.dev0"
-
-
-def nice_version_name() -> str:
-    if is_dev_mode():
-        return "unavailable (installed editable via git)"
-    return __version__
+from datahub_actions._version import __package_name__, __version__

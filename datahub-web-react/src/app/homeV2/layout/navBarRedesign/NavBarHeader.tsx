@@ -4,7 +4,8 @@ import styled from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
 import NavBarToggler from '@app/homeV2/layout/navBarRedesign/NavBarToggler';
-import { Pill, colors } from '@src/alchemy-components';
+
+import DatahubCoreLogo from '@images/datahub_core.svg?react';
 
 const Container = styled.div`
     display: flex;
@@ -37,21 +38,6 @@ const Logotype = styled.div`
     }
 `;
 
-const Title = styled.div`
-    color: ${colors.gray[1700]};
-    font-style: normal;
-    font: 700 16px Mulish;
-    text-wrap: nowrap;
-    white-space: nowrap;
-    overflow: hidden;
-    max-width: calc(100% - 30px);
-    text-overflow: ellipsis;
-    height: 24px;
-    display: flex;
-    align-items: end;
-    margin-left: 12px;
-`;
-
 const StyledLink = styled(Link)`
     display: flex;
     height: 40px;
@@ -72,8 +58,7 @@ export default function NavBarHeader({ logotype }: Props) {
         <Container>
             <StyledLink to="/">
                 <Logotype>{logotype}</Logotype>
-                {!isCollapsed ? <Title>DataHub</Title> : null}
-                {!isCollapsed && <Pill label="Core" variant="filled" color="gray" size="sm" />}
+                {!isCollapsed && <DatahubCoreLogo />}
             </StyledLink>
             {!isCollapsed && <NavBarToggler />}
         </Container>

@@ -48,7 +48,7 @@ def delete() -> None:
 
     See `datahub delete by-filter` for the list of available filters.
 
-    See https://datahubproject.io/docs/how/delete-metadata for more detailed docs.
+    See https://docs.datahub.com/docs/how/delete-metadata for more detailed docs.
     """
     pass
 

@@ -23,7 +23,7 @@ const DeprecatedContainer = styled.div`
     justify-content: center;
     gap: 4px;
     align-items: center;
-    color: ${REDESIGN_COLORS.DEPRECATION_RED};
+    color: ${colors.red[500]};
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`

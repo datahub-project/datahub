@@ -3,8 +3,8 @@ import styled from 'styled-components';
 
 import { colors, typography } from '@src/alchemy-components/theme';
 
-export const StyledSearchBar = styled(Input)<{ $width?: string }>`
-    height: 40px;
+export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string }>`
+    height: ${(props) => props.$height};
     width: ${(props) => props.$width};
     display: flex;
     align-items: center;

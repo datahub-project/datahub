@@ -24,6 +24,10 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetProfile,
     DatasetProperties,
 )
+from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
+)
+from datahub.specific.dataset import DatasetPatchBuilder
 
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
@@ -115,6 +119,7 @@ def test_openapi_emitter_emit(openapi_emitter):
                     },
                 }
             ],
+            method="post",
         )
 
 
@@ -750,3 +755,132 @@ def test_await_status_logging(openapi_emitter):
         with pytest.raises(TraceValidationError):
             openapi_emitter._await_status([trace], timedelta(seconds=10))
         mock_error.assert_called_once()
+
+
+def test_openapi_emitter_same_url_different_methods(openapi_emitter):
+    """Test handling of requests with same URL but different HTTP methods"""
+    with patch(
+        "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+    ) as mock_emit:
+        items = [
+            # POST requests for updating
+            MetadataChangeProposalWrapper(
+                entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:mysql,UpdateMe{i},PROD)",
+                entityType="dataset",
+                aspectName="datasetProperties",
+                changeType=ChangeTypeClass.UPSERT,
+                aspect=DatasetProperties(name=f"Updated Dataset {i}"),
+            )
+            for i in range(2)
+        ] + [
+            # PATCH requests for fetching
+            next(
+                iter(
+                    DatasetPatchBuilder(
+                        f"urn:li:dataset:(urn:li:dataPlatform:mysql,PatchMe{i},PROD)"
+                    )
+                    .set_qualified_name(f"PatchMe{i}")
+                    .build()
+                )
+            )
+            for i in range(2)
+        ]
+
+        # Run the test
+        result = openapi_emitter.emit_mcps(items)
+
+        # Verify that we made 2 calls (one for each HTTP method)
+        assert result == 2
+        assert mock_emit.call_count == 2
+
+        # Check that calls were made with different methods but the same URL
+        calls = {}
+        for call in mock_emit.call_args_list:
+            method = call[1]["method"]
+            url = call[0][0]
+            calls[(method, url)] = call
+
+        assert (
+            "post",
+            f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true",
+        ) in calls
+        assert (
+            "patch",
+            f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true",
+        ) in calls
+
+
+def test_openapi_emitter_mixed_method_chunking(openapi_emitter):
+    """Test that chunking works correctly across different HTTP methods"""
+    with patch(
+        "datahub.emitter.rest_emitter.DataHubRestEmitter._emit_generic"
+    ) as mock_emit, patch(
+        "datahub.emitter.rest_emitter.BATCH_INGEST_MAX_PAYLOAD_LENGTH", 2
+    ):
+        # Create more items than the chunk size for each method
+        items = [
+            # POST items (4 items, should create 2 chunks)
+            MetadataChangeProposalWrapper(
+                entityUrn=f"urn:li:dataset:(urn:li:dataPlatform:mysql,Dataset{i},PROD)",
+                entityType="dataset",
+                aspectName="datasetProfile",
+                changeType=ChangeTypeClass.UPSERT,
+                aspect=DatasetProfile(rowCount=i, columnCount=15, timestampMillis=0),
+            )
+            for i in range(4)
+        ] + [
+            # PATCH items (3 items, should create 2 chunks)
+            next(
+                iter(
+                    DatasetPatchBuilder(
+                        f"urn:li:dataset:(urn:li:dataPlatform:mysql,PatchMe{i},PROD)"
+                    )
+                    .set_qualified_name(f"PatchMe{i}")
+                    .build()
+                )
+            )
+            for i in range(3)
+        ]
+
+        # Run the test with a smaller chunk size to force multiple chunks
+        result = openapi_emitter.emit_mcps(items)
+
+        # Should have 4 chunks total:
+        # - 2 chunks for POST (4 items with max 2 per chunk)
+        # - 2 chunks for PATCH (3 items with max 2 per chunk)
+        assert result == 4
+        assert mock_emit.call_count == 4
+
+        # Count the calls by method and verify chunking
+        post_calls = [
+            call for call in mock_emit.call_args_list if call[1]["method"] == "post"
+        ]
+        patch_calls = [
+            call for call in mock_emit.call_args_list if call[1]["method"] == "patch"
+        ]
+
+        assert len(post_calls) == 2  # 2 chunks for POST
+        assert len(patch_calls) == 2  # 2 chunks for PATCH
+
+        # Verify first chunks have max size and last chunks have remainders
+        post_payloads = [json.loads(call[1]["payload"]) for call in post_calls]
+        patch_payloads = [json.loads(call[1]["payload"]) for call in patch_calls]
+
+        assert len(post_payloads[0]) == 2
+        assert len(post_payloads[1]) == 2
+        assert len(patch_payloads[0]) == 2
+        assert len(patch_payloads[1]) == 1
+
+        # Verify all post calls are to the dataset endpoint
+        for call in post_calls:
+            assert (
+                call[0][0]
+                == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true"
+            )
+
+        # Verify all patch calls are to the dataset endpoint
+        for call in patch_calls:
+            assert (
+                call[0][0]
+                == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true"
+            )

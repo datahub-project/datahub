@@ -38,7 +38,13 @@ dependencies {
   implementation(externalDependency.springBootStarterWeb) {
     exclude module: "spring-boot-starter-tomcat"
   }
-  implementation externalDependency.springBootStarterJetty
+  implementation(externalDependency.springBootStarterJetty) {
+    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+  }
+  implementation(externalDependency.springBootStarterValidation) {
+    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+  }
+
   implementation externalDependency.jettyJmx
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBootAutoconfigure
@@ -114,6 +120,8 @@ docker {
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)
   }
+
+  debugBuildArgs = [APP_ENV:  'dev']
 }
 
 test {

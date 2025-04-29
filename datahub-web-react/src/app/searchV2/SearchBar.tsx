@@ -17,9 +17,7 @@ import AutoCompleteItem from '@app/searchV2/autoComplete/AutoCompleteItem';
 import RecommendedOption from '@app/searchV2/autoComplete/RecommendedOption';
 import SectionHeader, { EntityTypeLabel } from '@app/searchV2/autoComplete/SectionHeader';
 import QuickFilters from '@app/searchV2/autoComplete/quickFilters/QuickFilters';
-import { FiltersAppliedHandler } from '@app/searchV2/filtersV2/types';
 import useFocusElementByCommandK from '@app/searchV2/searchBarV2/hooks/useFocusSearchBarByCommandK';
-import { SearchResponse } from '@app/searchV2/useSearchBarData';
 import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { combineSiblingsInAutoComplete } from '@app/searchV2/utils/combineSiblingsInAutoComplete';
 import { EXACT_SEARCH_PREFIX } from '@app/searchV2/utils/constants';
@@ -176,12 +174,6 @@ export interface SearchBarProps {
     textColor?: string;
     placeholderColor?: string;
     isShowNavBarRedesign?: boolean;
-    // Used in SearchBarV2 (both components must have the same props)
-    // eslint-disable-next-line react/no-unused-prop-types
-    onFilter?: FiltersAppliedHandler;
-    // Used in SearchBarV2 (both components must have the same props)
-    // eslint-disable-next-line react/no-unused-prop-types
-    searchResponse?: SearchResponse;
 }
 
 const defaultProps = {
@@ -441,6 +433,7 @@ export const SearchBar = ({
                                 analytics.event({
                                     type: EventType.SelectAutoCompleteOption,
                                     optionType: option.type,
+                                    showSearchBarAutocompleteRedesign: false,
                                 } as Event);
                             } else {
                                 // Navigate directly to the entity profile.
@@ -451,6 +444,7 @@ export const SearchBar = ({
                                     optionType: option.type,
                                     entityType: option.type,
                                     entityUrn: value,
+                                    showSearchBarAutocompleteRedesign: false,
                                 } as Event);
                             }
                         }}

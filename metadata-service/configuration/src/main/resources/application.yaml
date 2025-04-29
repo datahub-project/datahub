@@ -374,7 +374,7 @@ springdoc:
   cache:
     disabled: false
   swagger-ui:
-    path: /openapi/swagger-ui/index.html
+    path: /openapi/swagger-ui
     urls-primary-name: DataHub v3 (OpenAPI)
   api-docs:
     path: /openapi/v3/api-docs
