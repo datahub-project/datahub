@@ -3,8 +3,8 @@ import { Redirect, Route, Switch } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { EntityPage } from '@app/entity/EntityPage';
-import { GlossaryEntityContext } from '@app/entity/shared/GlossaryEntityContext';
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
 import BusinessGlossaryPage from '@app/glossary/BusinessGlossaryPage';
 import GlossarySidebar from '@app/glossary/GlossarySidebar';
 import BusinessGlossaryPageV2 from '@app/glossaryV2/BusinessGlossaryPage';

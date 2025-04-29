@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Entity } from '@src/types.generated';

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { ProfileSidebarResizer } from '@app/entity/shared/containers/profile/sidebar/ProfileSidebarResizer';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import GlossarySearch from '@app/glossary/GlossarySearch';

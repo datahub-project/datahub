@@ -7,7 +7,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
 import CreateGlossaryEntityModal from '@app/entity/shared/EntityDropdown/CreateGlossaryEntityModal';
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import EmptyGlossarySection from '@app/glossary/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossary/GlossaryEntitiesList';

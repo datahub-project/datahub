@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGlossaryActiveTabPath } from '@app/entity/shared/containers/profile/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';

@@ -4,7 +4,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { BreadcrumbItem } from '@app/entity/shared/containers/profile/nav/ProfileNavBrowsePath';
 import { useEntityRegistry } from '@app/useEntityRegistry';

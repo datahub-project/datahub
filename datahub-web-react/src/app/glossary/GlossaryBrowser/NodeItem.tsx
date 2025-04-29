@@ -5,7 +5,7 @@ import styled from 'styled-components/macro';
 
 import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossary/GlossaryBrowser/TermItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';

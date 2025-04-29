@@ -8,7 +8,7 @@ import styled from 'styled-components/macro';
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
@@ -106,6 +106,7 @@ function CreateGlossaryEntityModal(props: Props) {
                             const dataKey =
                                 entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
                             const newEntityUrn = res.data[dataKey];
+                            console.log('HERE3', { res, newEntityUrn, selectedParentUrn });
                             setNodeToNewEntity((currData) => ({
                                 ...currData,
                                 [selectedParentUrn]: {
