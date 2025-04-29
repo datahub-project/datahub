@@ -124,6 +124,26 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
         description="Interval in seconds to invalidate the structured properties template cache.",
     )
 
+    # Days per query - how many days to process in a single query
+    # This is configurable so users can tune it based on their data size and server capacity
+    days_per_query: int = Field(
+        hidden_from_docs=True,
+        default=2,
+        description="Number of days to process in a single query. ",
+    )
+
+    max_retries: int = Field(
+        hidden_from_docs=True,
+        default=3,
+        description="Maximum number of retries for each query. ",
+    )
+
+    query_timeout: Optional[int] = Field(
+        hidden_from_docs=True,
+        default=None,
+        description="Timeout for each query in seconds. ",
+    )
+
     @root_validator(skip_on_failure=True)
     def check_ingesting_data(cls, values):
         if (

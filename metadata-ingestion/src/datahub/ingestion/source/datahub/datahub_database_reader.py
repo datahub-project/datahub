@@ -1,11 +1,10 @@
-import contextlib
 import json
 import logging
 import time
 from datetime import datetime
 from typing import Any, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -20,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 # Should work for at least mysql, mariadb, postgres
 DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+DATE_FORMAT = "%Y-%m-%d"
 
 ROW = TypeVar("ROW", bound=Dict[str, Any])
 
@@ -86,6 +86,28 @@ class DataHubDatabaseReader:
             **connection_config.options,
         )
 
+        # Cache for available dates to avoid redundant queries
+        self.available_dates_cache: Optional[List[datetime]] = None
+
+    def get_available_dates_query(
+        self, from_createdon: datetime, stop_time: datetime
+    ) -> str:
+        """
+        Query to get all available dates that have data in the specified time range.
+        Using named parameters (%(param)s) for compatibility with your database.
+        """
+        # This approach will work with your database's parameter binding
+        return f"""
+            SELECT 
+                DISTINCT DATE(mav.createdon) as created_date 
+            FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} as mav
+            WHERE 1 = 1
+                {"" if not self.config.exclude_aspects else "AND mav.aspect NOT IN %(exclude_aspects)s"}
+                AND mav.createdon >= %(since_createdon)s 
+                AND mav.createdon < %(end_createdon)s
+            ORDER BY created_date ASC
+        """
+
     @property
     def soft_deleted_urns_query(self) -> str:
         return f"""
@@ -99,18 +121,15 @@ class DataHubDatabaseReader:
             ) as sd ON sd.urn = mav.urn
             WHERE sd.removed = true
             ORDER BY mav.urn
+            LIMIT %(limit)s OFFSET %(offset)s
         """
 
     def query(self, set_structured_properties_filter: bool) -> str:
-        # May repeat rows for the same date
-        # Offset is generally 0, unless we repeat the same createdon twice
-
-        # Ensures stable order, chronological per (urn, aspect)
-        # Relies on createdon order to reflect version order
-        # Ordering of entries with the same createdon is handled by VersionOrderer
-        # structured_prop_filter = f" AND urn {'' if set_structured_properties_filter else 'NOT'} like 'urn:li:structuredProperty:%%'"
-        # Substring is used to avoid using LIKE operator which theoretically could be slower
-        structured_prop_filter = f" AND SUBSTRING(urn, 1, 26) {'=' if set_structured_properties_filter else '!='} 'urn:li:structuredProperty:'"
+        """
+        Main query that gets data for specified date range with appropriate filters.
+        Uses named parameters for compatibility with your original code.
+        """
+        structured_prop_filter = f" AND urn {'' if set_structured_properties_filter else 'NOT'} like 'urn:li:structuredProperty:%%'"
 
         return f"""
         SELECT *
@@ -136,6 +155,7 @@ class DataHubDatabaseReader:
                 {"" if self.config.include_all_versions else "AND mav.version = 0"}
                 {"" if not self.config.exclude_aspects else "AND mav.aspect NOT IN %(exclude_aspects)s"}
                 AND mav.createdon >= %(since_createdon)s
+                AND mav.createdon < %(end_createdon)s
             ORDER BY
                 createdon,
                 urn,
@@ -152,25 +172,193 @@ class DataHubDatabaseReader:
             version
         """
 
+    def execute_with_params(
+        self, query: str, params: Dict[str, Any]
+    ) -> List[Dict[str, Any]]:
+        """Execute query with proper parameter binding that works with your database"""
+        with self.engine.connect() as conn:
+            # Note: we're not using text() here to maintain compatibility with your original code
+            result = conn.execute(query, params or {})
+            return [dict(row) for row in result.fetchall()]
+
     def execute_server_cursor(
         self, query: str, params: Dict[str, Any]
     ) -> Iterable[Dict[str, Any]]:
-        with self.engine.connect() as conn:
-            if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
-                with (
-                    conn.begin()
-                ):  # Transaction required for PostgreSQL server-side cursor
-                    # Note that stream_results=True is mainly supported by PostgreSQL and MySQL-based dialects.
-                    # https://docs.sqlalchemy.org/en/14/core/connections.html#sqlalchemy.engine.Connection.execution_options.params.stream_results
-                    conn = conn.execution_options(
-                        stream_results=True,
-                        yield_per=self.config.database_query_batch_size,
-                    )
-                    result = conn.execute(query, params)
-                    for row in result:
-                        yield dict(row)
+        """Execute a query with server-side cursor with retries and timeout protection"""
+        retries = 0
+        last_exception = None
+
+        while retries <= self.config.max_retries:
+            try:
+                with self.engine.connect() as conn:
+                    if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
+                        with (
+                            conn.begin()
+                        ):  # Transaction required for PostgreSQL server-side cursor
+                            # Set query timeout at the connection level
+                            if self.config.query_timeout:
+                                if self.engine.dialect.name == "postgresql":
+                                    conn.execute(
+                                        text(
+                                            f"SET statement_timeout = {self.config.query_timeout * 1000}"
+                                        )
+                                    )  # milliseconds
+                                elif self.engine.dialect.name in ["mysql", "mariadb"]:
+                                    conn.execute(
+                                        text(
+                                            f"SET max_execution_time = {self.config.query_timeout * 1000}"
+                                        )
+                                    )  # milliseconds
+
+                            # Stream results with batch size
+                            conn = conn.execution_options(
+                                stream_results=True,
+                                yield_per=self.config.database_query_batch_size,
+                            )
+
+                            # Execute query - using native parameterization without text()
+                            # to maintain compatibility with your original code
+                            result = conn.execute(query, params)
+                            for row in result:
+                                yield dict(row)
+                            return  # Success, exit the retry loop
+                    else:
+                        raise ValueError(
+                            f"Unsupported dialect: {self.engine.dialect.name}"
+                        )
+            except Exception as e:
+                last_exception = e
+                retries += 1
+                logger.warning(
+                    f"Query failed (attempt {retries}/{self.config.max_retries}): {str(e)}. Retrying..."
+                )
+                # Exponential backoff: wait 2^retries seconds before retrying (1, 2, 4, 8...)
+                if retries <= self.config.max_retries:
+                    time.sleep(min(2**retries, 30))  # Cap at 30 seconds
+
+        # If we get here, all retries failed
+        if last_exception:
+            logger.error(f"All query attempts failed: {str(last_exception)}")
+            raise last_exception
+        else:
+            raise Exception("Query failed with unknown error after all retries")
+
+    def get_available_dates(
+        self, from_createdon: datetime, stop_time: datetime
+    ) -> List[datetime]:
+        """Get all dates that have data within the date range"""
+        if self.available_dates_cache:
+            return self.available_dates_cache
+        try:
+            logger.info(
+                f"Fetching available dates from {from_createdon} to {stop_time}"
+            )
+
+            # Prepare parameters using named parameters
+            params: Dict[str, Any] = {
+                "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
+                "end_createdon": stop_time.strftime(DATETIME_FORMAT),
+            }
+
+            if hasattr(self.config, "exclude_aspects") and self.config.exclude_aspects:
+                params["exclude_aspects"] = tuple(self.config.exclude_aspects)
+
+            # Execute the query using the appropriate method
+            result = self.execute_with_params(
+                self.get_available_dates_query(from_createdon, stop_time), params
+            )
+
+            # Extract dates from result
+            available_dates = []
+            for row in result:
+                if row.get("created_date"):
+                    # For MySQL, the result may be a date object
+                    if isinstance(row["created_date"], datetime):
+                        date_obj = (
+                            row["created_date"]
+                            if row["created_date"] > from_createdon
+                            else from_createdon
+                        )
+
+                    # Otherwise it might be a string
+                    else:
+                        date_str = str(row["created_date"])
+                        date_obj = datetime.strptime(date_str, DATE_FORMAT)
+
+                    available_dates.append(date_obj)
+
+            if available_dates:
+                available_dates.append(stop_time)
+
+            logger.info(f"Found {len(available_dates)} dates with data in the range")
+            self.available_dates_cache = available_dates
+            return available_dates
+
+        except Exception as e:
+            logger.error(f"Error getting available dates: {str(e)}")
+            # If the query fails, return an empty list
+            return []
+
+    def get_date_batches(
+        self, dates: List[datetime]
+    ) -> Iterable[Tuple[datetime, datetime]]:
+        """
+        Group consecutive dates into batches based on the days_per_query config.
+        Returns a list of (start_date, end_date) tuples, where end_date is exclusive.
+        """
+        i = 0
+
+        end_date: datetime = datetime.min
+
+        while i < len(dates):
+            end_idx = min(i + self.config.days_per_query, len(dates))
+            if end_idx - 1 > i:  # Ensure we have at least two items to create a range
+                start_date = dates[i]
+                end_date = dates[end_idx - 1]
+                yield (start_date, end_date)
             else:
-                raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
+                # If there's only one date left, yield it with itself
+                yield (end_date, dates[i])
+            i += self.config.days_per_query
+
+    def _get_rows_for_date_range(
+        self,
+        start_date: datetime,
+        end_date: datetime,
+        set_structured_properties_filter: bool,
+    ) -> Iterable[Dict[str, Any]]:
+        """Get rows for a specific date range"""
+        try:
+            # Set up query and parameters - using named parameters
+            query = self.query(set_structured_properties_filter)
+            params: Dict[str, Any] = {
+                "since_createdon": start_date.strftime(DATETIME_FORMAT),
+                "end_createdon": end_date.strftime(DATETIME_FORMAT),
+            }
+
+            # Add exclude_aspects if needed
+            if hasattr(self.config, "exclude_aspects") and self.config.exclude_aspects:
+                params["exclude_aspects"] = tuple(self.config.exclude_aspects)
+
+            logger.info(
+                f"Querying data from {start_date.strftime(DATETIME_FORMAT)} to {end_date.strftime(DATETIME_FORMAT)} "
+                f"(inclusive range)"
+            )
+
+            rows_processed = 0
+            # Execute query with server-side cursor
+            for row in self.execute_server_cursor(query, params):
+                rows_processed += 1
+                yield row
+
+            logger.info(f"Processed {rows_processed} rows for date range")
+
+        except Exception as e:
+            logger.error(
+                f"Error processing date range {start_date} to {end_date}: {str(e)}"
+            )
+            # Re-raise the exception after logging
+            raise
 
     def _get_rows(
         self,
@@ -178,13 +366,37 @@ class DataHubDatabaseReader:
         stop_time: datetime,
         set_structured_properties_filter: bool = False,
     ) -> Iterable[Dict[str, Any]]:
-        params = {
-            "exclude_aspects": list(self.config.exclude_aspects),
-            "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
-        }
-        yield from self.execute_server_cursor(
-            self.query(set_structured_properties_filter), params
+        """Get rows by first identifying dates with data, then querying those dates in batches"""
+        # Get all dates that have data
+        available_dates = self.get_available_dates(from_createdon, stop_time)
+
+        if not available_dates:
+            logger.info(f"No data available between {from_createdon} and {stop_time}")
+            return
+
+        # Group available dates into batches
+        if set_structured_properties_filter:
+            date_batches = [(from_createdon, stop_time)]
+        else:
+            date_batches = list(self.get_date_batches(available_dates))
+
+        logger.info(
+            f"Processing {len(date_batches)} date batches with {self.config.days_per_query} days per query"
         )
+
+        # Process each batch
+        for i, (batch_start, batch_end) in enumerate(date_batches):
+            logger.info(
+                f"Processing batch {i + 1}/{len(date_batches)}: "
+                f"{batch_start.strftime(DATETIME_FORMAT)} to {(batch_end).strftime(DATETIME_FORMAT)}"
+            )
+
+            # Query and yield rows for this date batch
+            yield from self._get_rows_for_date_range(
+                batch_start,
+                batch_end,
+                set_structured_properties_filter,
+            )
 
     def get_all_aspects(
         self, from_createdon: datetime, stop_time: datetime
@@ -232,23 +444,48 @@ class DataHubDatabaseReader:
 
     def get_soft_deleted_rows(self) -> Iterable[Dict[str, Any]]:
         """
-        Fetches all soft-deleted entities from the database.
+        Fetches all soft-deleted entities from the database using pagination.
 
         Yields:
             Row objects containing URNs of soft-deleted entities
         """
-        with self.engine.connect() as conn, contextlib.closing(
-            conn.connection.cursor()
-        ) as cursor:
-            logger.debug("Polling soft-deleted urns from database")
-            cursor.execute(self.soft_deleted_urns_query)
-            columns = [desc[0] for desc in cursor.description]
-            while True:
-                rows = cursor.fetchmany(self.config.database_query_batch_size)
-                if not rows:
-                    return
-                for row in rows:
-                    yield dict(zip(columns, row))
+        offset = 0
+        batch_size = self.config.database_query_batch_size
+
+        while True:
+            try:
+                # Use named parameters consistent with your original code
+                params = {"limit": batch_size, "offset": offset}
+
+                with self.engine.connect() as conn:
+                    # Execute without text() to maintain compatibility with your code
+                    result = conn.execute(self.soft_deleted_urns_query, params)
+                    rows = result.fetchall()
+
+                    if not rows:
+                        break  # No more rows to fetch
+
+                    column_names = result.keys()
+                    for row in rows:
+                        yield dict(zip(column_names, row))
+
+                    # Move to next batch
+                    offset += batch_size
+
+                    logger.debug(
+                        f"Fetched batch of soft-deleted URNs (offset: {offset - batch_size})"
+                    )
+
+            except Exception as e:
+                logger.error(
+                    f"Error fetching soft-deleted rows (offset {offset}): {str(e)}"
+                )
+                # Error handling with more details
+                if offset > 0:
+                    logger.info("Returning results collected so far...")
+                    break
+                else:
+                    raise
 
     def _parse_row(
         self, row: Dict[str, Any]
