@@ -3,8 +3,8 @@ import React from 'react';
 
 import { LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
 
-const LOOKML_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-lookml';
-const LOOKER_DOC_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/looker#module-looker';
+const LOOKML_DOC_LINK = 'https://docs.datahub.com/docs/generated/ingestion/sources/looker#module-lookml';
+const LOOKER_DOC_LINK = 'https://docs.datahub.com/docs/generated/ingestion/sources/looker#module-looker';
 
 interface Props {
     type: string;

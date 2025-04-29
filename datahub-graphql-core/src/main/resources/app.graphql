@@ -531,7 +531,7 @@ type FeatureFlagsConfig {
   lineageGraphV2: Boolean!
 
   """
-  Whether we should show CTAs in the UI related to moving to DataHub Cloud by Acryl.
+  Whether we should show CTAs in the UI related to moving to DataHub Cloud by DataHub.
   """
   showAcrylInfo: Boolean!
   """
