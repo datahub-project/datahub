@@ -1,10 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import useGlossaryChildren from '@app/entity/glossaryNode/useGlossaryChildren';
 import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import useGlossaryChildren from '@app/entityV2/glossaryNode/useGlossaryChildren';
 import EmptyGlossarySection from '@app/glossary/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossary/GlossaryEntitiesList';
 import { useEntityRegistry } from '@app/useEntityRegistry';

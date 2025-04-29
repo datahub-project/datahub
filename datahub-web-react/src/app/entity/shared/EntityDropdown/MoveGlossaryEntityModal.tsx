@@ -56,6 +56,7 @@ function MoveGlossaryEntityModal(props: Props) {
                     if (isInGlossaryContext) {
                         const oldParentToUpdate = getParentNodeToUpdate(entityData, entityType);
                         const newParentToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
+                        if (oldParentToUpdate === newParentToUpdate) return;
                         updateGlossarySidebar([oldParentToUpdate, newParentToUpdate], urnsToUpdate, setUrnsToUpdate);
                         setNodeToDeletedUrn((currData) => ({
                             ...currData,
