@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { UserHeader } from '@app/homeV2/reference/header/UserHeader';
 import { AssetsYouOwn } from '@app/homeV2/reference/sections/assets/AssetsYouOwn';
@@ -106,6 +107,17 @@ const ALL_SECTIONS: ReferenceSection[] = [
     },
 ];
 
+const trackClickInSection = (title: string) => {
+    return (urn?: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.PersonalSidebar,
+            section: title,
+            value: urn,
+        });
+    };
+};
+
 // TODO: Make section ordering dynamic based on populated data.
 export const LeftSidebar = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -119,7 +131,11 @@ export const LeftSidebar = () => {
                     {ALL_SECTIONS.filter(
                         (section) => !section.personas || section.personas.includes(currentUserPersona),
                     ).map((section) => (
-                        <section.component key={section.id} hideIfEmpty={section.hideIfEmpty} />
+                        <section.component
+                            key={section.id}
+                            hideIfEmpty={section.hideIfEmpty}
+                            trackClickInSection={trackClickInSection(section.id)}
+                        />
                     ))}
                 </Body>
             </Content>
