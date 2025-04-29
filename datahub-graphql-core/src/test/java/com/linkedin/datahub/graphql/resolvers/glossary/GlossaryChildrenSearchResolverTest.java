@@ -13,6 +13,8 @@ import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
@@ -50,6 +52,8 @@ public class GlossaryChildrenSearchResolverTest {
     mockScrollResult.setScrollId("test-scroll-id");
     mockScrollResult.setPageSize(2);
     mockScrollResult.setNumEntities(2);
+    mockScrollResult.setMetadata(new SearchResultMetadata());
+    mockScrollResult.setEntities(new SearchEntityArray());
 
     // Setup mock input
     ScrollAcrossEntitiesInput input = new ScrollAcrossEntitiesInput();
@@ -91,6 +95,8 @@ public class GlossaryChildrenSearchResolverTest {
     ScrollResult mockScrollResult = new ScrollResult();
     mockScrollResult.setPageSize(0);
     mockScrollResult.setNumEntities(0);
+    mockScrollResult.setMetadata(new SearchResultMetadata());
+    mockScrollResult.setEntities(new SearchEntityArray());
 
     // Setup mock input
     ScrollAcrossEntitiesInput input = new ScrollAcrossEntitiesInput();
