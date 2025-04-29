@@ -162,6 +162,11 @@ class PostgresSource(SQLAlchemySource):
     def get_platform(self):
         return "postgres"
 
+    @classmethod
+    def create(cls, config_dict, ctx):
+        config = PostgresConfig.parse_obj(config_dict)
+        return cls(config, ctx)
+
     def _get_aws_iam_token(self) -> str:
         """Get an AWS IAM authentication token for PostgreSQL."""
         if not self.config.aws_region:
