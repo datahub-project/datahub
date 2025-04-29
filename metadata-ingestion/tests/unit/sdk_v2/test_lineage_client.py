@@ -1,18 +1,23 @@
 import pathlib
 from typing import Dict, List, Set, cast
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 from datahub.metadata.schema_classes import (
+    DataJobInputOutputClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StringTypeClass,
 )
+from datahub.sdk.datajob import DataJob
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
+from datahub.sql_parsing.sql_parsing_common import QueryType
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 from tests.test_helpers import mce_helpers
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "lineage_client_golden"
@@ -22,6 +27,43 @@ _GOLDEN_DIR.mkdir(exist_ok=True)
 @pytest.fixture
 def mock_graph() -> Mock:
     graph = Mock()
+    schema_resolver = Mock()
+    schema_resolver.platform = "snowflake"
+
+    orders_schema = {
+        "price": "FLOAT",
+        "qty": "INTEGER",
+        "unit_cost": "FLOAT",
+    }
+
+    # When resolve_table is called with "orders", return the proper URN and schema
+    # The _TableName used in SQL parsing has database, db_schema, and table attributes
+    def resolve_table_side_effect(table_name):
+        if table_name.table == "ORDERS":
+            return (
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)",
+                orders_schema,
+            )
+        elif table_name.table == "sales_summary":
+            return (
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)",
+                {},
+            )
+        return None, None
+
+    schema_resolver.resolve_table.side_effect = resolve_table_side_effect
+    schema_resolver.includes_temp_tables.return_value = False
+
+    graph._make_schema_resolver.return_value = schema_resolver
+
+    # Set up the get_aspect method to return a proper object instead of a Mock
+    def get_aspect_side_effect(urn, aspect_type):
+        if aspect_type == DataJobInputOutputClass:
+            return DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
+        return None
+
+    graph.get_aspect.side_effect = get_aspect_side_effect
+
     return graph
 
 
@@ -379,3 +421,117 @@ def test_add_dataset_transform_lineage_complete(client: DataHubClient) -> None:
         column_lineage=column_lineage,
     )
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_complete_golden.json")
+
+
+def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
+    """Test adding lineage from SQL parsing with a golden file."""
+
+    lineage_client = LineageClient(client=client)
+
+    # Create upstream and downstream datasets
+    client.entities.upsert(
+        Dataset(
+            platform="snowflake",
+            name="orders",
+            env="PROD",
+            schema=[("price", "float"), ("qty", "int"), ("unit_cost", "float")],
+        )
+    )
+    client.entities.upsert(
+        Dataset(platform="snowflake", name="sales_summary", env="PROD")
+    )
+
+    # Create minimal mock result with necessary info
+    mock_result = SqlParsingResult(
+        in_tables=["urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)"],
+        out_tables=[
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)"
+        ],
+        column_lineage=[],  # Simplified - we only care about table-level lineage for this test
+        query_type=QueryType.SELECT,
+        debug_info=MagicMock(error=None, table_error=None),
+    )
+
+    # Simple SQL that would produce the expected lineage
+    query_text = "SELECT price, qty, unit_cost FROM orders"
+
+    # Patch SQL parser and execute lineage creation
+    with patch(
+        "datahub.sql_parsing.sqlglot_lineage.create_lineage_sql_parsed_result",
+        return_value=mock_result,
+    ):
+        lineage_client.add_dataset_lineage_from_sql(
+            query_text=query_text, platform="snowflake", env="PROD"
+        )
+
+    # Validate against golden file
+    assert_client_golden(client, _GOLDEN_DIR / "test_lineage_from_sql_golden.json")
+
+
+def test_add_dataset_to_datajob_lineage(client: DataHubClient) -> None:
+    """Test adding lineage from dataset to datajob."""
+    lineage_client = LineageClient(client=client)
+
+    # Create a dataset
+    dataset = Dataset(
+        platform="snowflake",
+        name="source_table",
+        env="PROD",
+        schema=[
+            ("id", "int"),
+            ("value", "string"),
+        ],
+    )
+    client.entities.upsert(dataset)
+
+    # Create lineage from dataset to datajob
+    datajob = DataJob(
+        platform="airflow",
+        id="transform_job",
+        flow_urn="urn:li:dataFlow:(airflow,example_dag,PROD)",
+        name="Transform Job",
+        description="A job that transforms data",
+    )
+    client.entities.upsert(datajob)
+
+    lineage_client.add_datajob_lineage(
+        upstream=dataset.urn,
+        downstream=datajob.urn,
+    )
+
+    # Validate lineage MCPs
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_dataset_to_datajob_lineage_golden.json"
+    )
+
+
+def test_add_datajob_to_dataset_lineage(client: DataHubClient) -> None:
+    """Test adding lineage from datajob to dataset."""
+    lineage_client = LineageClient(client=client)
+
+    # Create a dataset
+    dataset = Dataset(
+        platform="snowflake",
+        name="target_table",
+        env="PROD",
+    )
+    client.entities.upsert(dataset)
+
+    datajob = DataJob(
+        platform="airflow",
+        id="transform_job",
+        flow_urn="urn:li:dataFlow:(airflow,example_dag,PROD)",
+        name="Transform Job",
+        description="A job that transforms data",
+    )
+
+    # Create lineage from datajob to dataset with custom lineage type
+    lineage_client.add_datajob_lineage(
+        upstream=datajob.urn,
+        downstream=dataset.urn,
+    )
+
+    # Validate lineage MCPs
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_datajob_to_dataset_lineage_golden.json"
+    )
