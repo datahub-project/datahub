@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import { ContractLineageButton } from '@app/lineageV2/LineageEntityNode/ContractLineageButton';

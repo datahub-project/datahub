@@ -1,5 +1,7 @@
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Input } from '@src/alchemy-components';
 

@@ -12,6 +12,7 @@ import {
 import { formLabelTextStyles } from '@components/components/commonStyles';
 import { borders, colors, shadows, spacing, transition } from '@components/theme';
 import { ColorOptions, SizeOptions } from '@components/theme/config';
+import { getColor } from '@components/theme/utils';
 
 export const Label = styled.div({
     ...formLabelTextStyles,

@@ -9,6 +9,7 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import { Tooltip2 } from '@components/components/Tooltip2';
+import { getColor } from '@components/theme/utils';
 
 import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';

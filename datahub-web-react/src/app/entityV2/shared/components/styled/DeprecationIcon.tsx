@@ -5,6 +5,8 @@ import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import MarkAsDeprecatedButton from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';

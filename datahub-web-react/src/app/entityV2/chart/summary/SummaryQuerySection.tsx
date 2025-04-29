@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`

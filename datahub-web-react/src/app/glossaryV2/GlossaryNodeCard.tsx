@@ -4,6 +4,8 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { colors } from '@src/alchemy-components';

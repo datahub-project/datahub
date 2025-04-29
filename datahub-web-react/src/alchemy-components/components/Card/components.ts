@@ -1,5 +1,7 @@
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { colors, radius, spacing, typography } from '@src/alchemy-components/theme';
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 

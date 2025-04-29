@@ -3,6 +3,8 @@ import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';

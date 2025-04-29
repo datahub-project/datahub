@@ -3,6 +3,8 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';

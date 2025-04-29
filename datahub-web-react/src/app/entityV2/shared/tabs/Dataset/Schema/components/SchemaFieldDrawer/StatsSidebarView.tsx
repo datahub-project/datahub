@@ -2,6 +2,8 @@ import { LoadingOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import StatsSidebarColumnTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarColumnTab';
 import { StatsSidebarContent } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarContent';
 import StatsSidebarHeader, {

@@ -2,6 +2,8 @@ import { RightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { colors } from '@src/alchemy-components';
 

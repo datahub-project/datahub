@@ -12,6 +12,8 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { AddImageButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/AddImageButton';
 import { AddLinkButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/AddLinkButton';

@@ -4,6 +4,8 @@ import { KeyboardArrowDownRounded, KeyboardArrowRightRounded } from '@mui/icons-
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';

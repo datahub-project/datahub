@@ -3,6 +3,8 @@ import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';

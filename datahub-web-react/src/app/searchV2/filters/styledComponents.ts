@@ -1,6 +1,8 @@
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 

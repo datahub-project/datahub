@@ -3,6 +3,8 @@ import { Drawer } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { useGetSiblingPlatforms } from '@app/entity/shared/siblingUtils';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ChangeTransactionView, {

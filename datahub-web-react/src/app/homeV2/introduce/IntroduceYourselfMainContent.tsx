@@ -9,6 +9,8 @@ import React, { useContext, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetDataPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetDataPlatforms';

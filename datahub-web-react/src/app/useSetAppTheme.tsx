@@ -32,9 +32,9 @@ export function useSetAppTheme() {
         // here is where we can start adding new custom themes based on customThemeId
 
         if (isThemeV2) {
-            import('../conf/theme/theme_acryl_v2.config.json').then((theme) => updateTheme(theme));
+            import('../conf/theme/theme_v2.config.json').then((theme) => updateTheme(theme));
         } else {
-            import('../conf/theme/theme_acryl.config.json').then((theme) => updateTheme(theme));
+            import('../conf/theme/theme_light.config.json').then((theme) => updateTheme(theme));
         }
     }, [config, isThemeV2, updateTheme, customThemeId]);
 }

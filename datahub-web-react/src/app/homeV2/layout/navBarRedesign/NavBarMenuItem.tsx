@@ -3,6 +3,8 @@ import React from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { NavBarMenuBaseItem } from '@app/homeV2/layout/navBarRedesign/types';
 import { Badge, Text, colors } from '@src/alchemy-components';
 

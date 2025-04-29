@@ -2,6 +2,8 @@ import { Modal, Progress } from 'antd';
 import React, { useCallback, useContext, useEffect } from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 

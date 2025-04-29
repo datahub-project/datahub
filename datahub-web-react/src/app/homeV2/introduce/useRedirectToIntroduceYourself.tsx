@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useHistory } from 'react-router';
 
 import { useLoadUserPersona } from '@app/homeV2/persona/useLoadUserPersona';
+import { useShowIntroducePage } from '@app/useAppConfig';
 import { PageRoutes } from '@conf/Global';
 
 const SKIP_INTRODUCE_PAGE_KEY = 'skipAcrylIntroducePage';

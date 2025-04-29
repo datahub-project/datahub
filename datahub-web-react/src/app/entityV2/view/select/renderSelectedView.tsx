@@ -5,6 +5,8 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewLabel } from '@app/entityV2/view/select/styledComponents';
 import { colors } from '@src/alchemy-components';

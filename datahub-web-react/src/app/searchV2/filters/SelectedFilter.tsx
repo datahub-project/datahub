@@ -5,6 +5,8 @@ import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import OperatorSelector from '@app/searchV2/filters/OperatorSelector';
 import { operatorRequiresValues } from '@app/searchV2/filters/operator/operator';

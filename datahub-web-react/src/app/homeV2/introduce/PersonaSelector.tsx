@@ -1,6 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import {
     PERSONA_TYPES_TO_DISPLAY,
     PERSONA_TYPE_TO_DESCRIPTION,

@@ -3,6 +3,8 @@ import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const ScrollButton = styled.button<{

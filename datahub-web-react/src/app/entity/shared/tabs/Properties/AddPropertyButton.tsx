@@ -5,6 +5,8 @@ import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import { Icon, Input as InputComponent, Text, colors } from '@src/alchemy-components';

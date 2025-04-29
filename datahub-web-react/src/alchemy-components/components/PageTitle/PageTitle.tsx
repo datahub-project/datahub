@@ -1,4 +1,5 @@
 import React from 'react';
+import styled from 'styled-components';
 
 import { Container, SubTitle, Title } from '@components/components/PageTitle/components';
 import { PageTitleProps } from '@components/components/PageTitle/types';

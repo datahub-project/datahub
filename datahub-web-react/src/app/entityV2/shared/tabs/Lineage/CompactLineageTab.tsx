@@ -4,6 +4,8 @@ import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';

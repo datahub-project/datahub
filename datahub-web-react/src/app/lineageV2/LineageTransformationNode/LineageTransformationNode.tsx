@@ -5,6 +5,8 @@ import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { LoadingWrapper } from '@app/lineageV2/LineageEntityNode/NodeContents';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';

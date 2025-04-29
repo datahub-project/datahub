@@ -3,6 +3,8 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import { PreviewType } from '@app/entityV2/Entity';
 import useRemoveRelatedTerms from '@app/entityV2/glossaryTerm/profile/useRemoveRelatedTerms';
 import { useEntityRegistry } from '@app/useEntityRegistry';

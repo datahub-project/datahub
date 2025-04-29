@@ -3,6 +3,8 @@ import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 

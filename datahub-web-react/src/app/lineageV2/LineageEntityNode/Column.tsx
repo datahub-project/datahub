@@ -6,6 +6,8 @@ import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';

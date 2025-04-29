@@ -2,6 +2,8 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { EntityCapabilityType, PreviewType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';

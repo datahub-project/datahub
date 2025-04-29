@@ -4,6 +4,8 @@ import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
 import useListDomains from '@app/domainV2/useListDomains';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';

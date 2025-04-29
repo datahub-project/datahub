@@ -6,6 +6,8 @@ import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';

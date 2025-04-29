@@ -1,5 +1,7 @@
 import React from 'react';
 
+import { getColor } from '@components/theme/utils';
+
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewItem } from '@app/entityV2/view/menu/item/ViewItem';
 import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';

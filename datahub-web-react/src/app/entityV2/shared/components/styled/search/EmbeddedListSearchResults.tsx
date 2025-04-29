@@ -4,6 +4,8 @@ import { Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { EntityAndType } from '@app/entity/shared/types';
 import {
     EntityActionProps,

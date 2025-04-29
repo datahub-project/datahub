@@ -4,6 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
+import { getColor } from '@components/theme/utils';
+
 import analytics, { Event, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';

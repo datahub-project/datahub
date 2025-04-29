@@ -3,6 +3,8 @@ import React, { useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';

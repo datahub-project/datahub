@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 
 import { AlignItemsOptions, JustifyContentOptions } from '@components/components/Loader/types';
+import { getColor } from '@components/theme/utils';
 
 import { colors } from '@src/alchemy-components/theme';
 
