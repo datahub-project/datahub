@@ -58,11 +58,11 @@ class TestDataHubRestEmitter:
         # Create a basic emitter
         emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
 
-        # Mock RestServiceConfig.load_config to raise ConfigurationError
-        with patch.object(RestServiceConfig, "load_config") as mock_load_config:
+        # Mock RestServiceConfig.fetch_config to raise ConfigurationError
+        with patch.object(RestServiceConfig, "fetch_config") as mock_fetch_config:
             # Configure the mock to raise ConfigurationError
             mock_error = ConfigurationError("Connection failed")
-            mock_load_config.side_effect = mock_error
+            mock_fetch_config.side_effect = mock_error
 
             # Verify that the exception is re-raised
             with pytest.raises(ConfigurationError) as excinfo:

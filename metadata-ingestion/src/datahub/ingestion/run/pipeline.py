@@ -139,7 +139,6 @@ class CliReport(Report):
 def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
     graph = get_default_graph(ClientMode.INGESTION)
     sink_config = graph._make_rest_sink_config()
-
     return DatahubRestSink(ctx, sink_config)
 
 

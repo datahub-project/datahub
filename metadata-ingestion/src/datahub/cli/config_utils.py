@@ -12,7 +12,7 @@ import yaml
 from pydantic import BaseModel, ValidationError
 
 from datahub.cli.env_utils import get_boolean_env_variable
-from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
+from datahub.ingestion.graph.config import DatahubClientConfig
 
 logger = logging.getLogger(__name__)
 
@@ -91,15 +91,11 @@ def require_config_from_env() -> Tuple[str, Optional[str]]:
     return host, token
 
 
-def load_client_config(
-    client_mode: ClientMode, datahub_component: Optional[str] = None
-) -> DatahubClientConfig:
+def load_client_config() -> DatahubClientConfig:
     gms_host_env, gms_token_env = _get_config_from_env()
     if gms_host_env:
         # TODO We should also load system auth credentials here.
-        return DatahubClientConfig(
-            server=gms_host_env, token=gms_token_env, client_mode=client_mode
-        )
+        return DatahubClientConfig(server=gms_host_env, token=gms_token_env)
 
     if _should_skip_config():
         raise MissingConfigError(
@@ -112,8 +108,6 @@ def load_client_config(
         datahub_config: DatahubClientConfig = DatahubConfig.parse_obj(
             client_config_dict
         ).gms
-        datahub_config.client_mode = client_mode
-        datahub_config.datahub_component = datahub_component
 
         return datahub_config
     except ValidationError as e:

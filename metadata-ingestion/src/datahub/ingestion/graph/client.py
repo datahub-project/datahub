@@ -40,7 +40,6 @@ from datahub.emitter.rest_emitter import (
 )
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
-    DEFAULT_CLIENT_MODE,
     ClientMode,
     DatahubClientConfig as DatahubClientConfig,
 )
@@ -160,9 +159,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
             default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
-            client_mode=config.client_mode
-            if config.client_mode
-            else DEFAULT_CLIENT_MODE,
+            client_mode=config.client_mode,
             datahub_component=config.datahub_component,
         )
         self.server_id: str = _MISSING_SERVER_ID
@@ -196,7 +193,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         if not self.server_config:
             self.test_connection()
 
-        base_url = self.server_config.get("baseUrl")
+        base_url = self.server_config.raw_config.get("baseUrl")
         if not base_url:
             raise ValueError("baseUrl not found in server config")
         return base_url
@@ -204,6 +201,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
         session_config = emitter._session_config
+
         if isinstance(session_config.timeout, tuple):
             # TODO: This is slightly lossy. Eventually, we want to modify the emitter
             # to accept a tuple for timeout_sec, and then we'll be able to remove this.
@@ -221,6 +219,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 disable_ssl_verification=session_config.disable_ssl_verification,
                 ca_certificate_path=session_config.ca_certificate_path,
                 client_certificate_path=session_config.client_certificate_path,
+                client_mode=session_config.client_mode,
+                datahub_component=session_config.datahub_component,
             )
         )
 
@@ -1957,10 +1957,12 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
 
 @functools.lru_cache(maxsize=None)
 def get_default_graph(
-    client_mode: ClientMode = DEFAULT_CLIENT_MODE,
+    client_mode: Optional[ClientMode] = None,
     datahub_component: Optional[str] = None,
 ) -> DataHubGraph:
-    graph_config = config_utils.load_client_config(client_mode, datahub_component)
+    graph_config = config_utils.load_client_config()
+    graph_config.client_mode = client_mode
+    graph_config.datahub_component = datahub_component
     graph = DataHubGraph(graph_config)
     graph.test_connection()
     telemetry_instance.set_context(server=graph)

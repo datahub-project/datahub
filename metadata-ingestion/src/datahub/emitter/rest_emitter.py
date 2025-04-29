@@ -52,7 +52,6 @@ from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.graph.config import (
     DATAHUB_COMPONENT_ENV,
-    DEFAULT_CLIENT_MODE,
     ClientMode,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
@@ -82,6 +81,8 @@ _DEFAULT_RETRY_MAX_TIMES = int(
 )
 
 _DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
+
+_DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
 
 TRACE_PENDING_STATUS = "PENDING"
 TRACE_INITIAL_BACKOFF = 1.0  # Start with 1 second
@@ -137,7 +138,7 @@ class RequestsSessionConfig(ConfigModel):
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
     disable_ssl_verification: bool = False
-    client_mode: ClientMode = DEFAULT_CLIENT_MODE
+    client_mode: Optional[ClientMode] = _DEFAULT_CLIENT_MODE
     datahub_component: Optional[str] = None
 
     def build_session(self) -> requests.Session:
@@ -147,7 +148,9 @@ class RequestsSessionConfig(ConfigModel):
 
         base_headers = {
             "User-Agent": user_agent,
-            "X-DataHub-Client-Mode": self.client_mode.name,
+            "X-DataHub-Client-Mode": self.client_mode.name
+            if self.client_mode
+            else _DEFAULT_CLIENT_MODE.name,
             "X-DataHub-Py-Cli-Version": nice_version_name(),
         }
 
@@ -239,6 +242,8 @@ class RequestsSessionConfig(ConfigModel):
     def _get_user_agent_string(self, session: requests.Session) -> str:
         """Generate appropriate user agent string based on client mode"""
         version = nice_version_name()
+        client_mode = self.client_mode if self.client_mode else _DEFAULT_CLIENT_MODE
+
         if "User-Agent" in session.headers:
             user_agent = session.headers["User-Agent"]
             if isinstance(user_agent, bytes):
@@ -249,7 +254,7 @@ class RequestsSessionConfig(ConfigModel):
             requests_user_agent = ""
 
         # 1.0 refers to the user agent string version
-        return f"DataHub-Client/1.0 ({self.client_mode.name.lower()}; {self.datahub_component if self.datahub_component else DATAHUB_COMPONENT_ENV}; {version}){requests_user_agent}"
+        return f"DataHub-Client/1.0 ({client_mode.name.lower()}; {self.datahub_component if self.datahub_component else DATAHUB_COMPONENT_ENV}; {version}){requests_user_agent}"
 
 
 @dataclass
@@ -296,7 +301,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         disable_ssl_verification: bool = False,
         openapi_ingestion: Optional[bool] = None,
         default_trace_mode: bool = False,
-        client_mode: ClientMode = DEFAULT_CLIENT_MODE,
+        client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
     ):
         if not gms_server:
@@ -377,7 +382,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             # Create a config instance with session and URL
             config = RestServiceConfig(session=self._session, url=url)
             # Attempt to load config, which will throw ConfigurationError if there's an issue
-            config.load_config()
+            config.fetch_config()
             self.server_config = config
 
             # Determine OpenAPI mode

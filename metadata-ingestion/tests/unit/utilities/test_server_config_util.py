@@ -71,7 +71,7 @@ def test_load_config_success(mock_session, mock_response, sample_config):
     mock_session.get.return_value = mock_response
 
     config = RestServiceConfig(session=mock_session, url=url)
-    loaded_config = config.load_config()
+    loaded_config = config.fetch_config()
 
     mock_session.get.assert_called_once_with(url)
     assert loaded_config == sample_config
@@ -81,7 +81,7 @@ def test_load_config_failure_no_session_url():
     """Test failure when trying to load config without session and URL."""
     config = RestServiceConfig()
     with pytest.raises(ConfigurationError) as exc_info:
-        config.load_config()
+        config.fetch_config()
     assert "Session and URL are required" in str(exc_info.value)
 
 
@@ -95,7 +95,7 @@ def test_load_config_failure_wrong_service(mock_session, mock_response):
 
     config = RestServiceConfig(session=mock_session, url=url)
     with pytest.raises(ConfigurationError) as exc_info:
-        config.load_config()
+        config.fetch_config()
     assert "frontend service" in str(exc_info.value)
 
 
@@ -111,7 +111,7 @@ def test_load_config_failure_http_error(mock_session):
 
     config = RestServiceConfig(session=mock_session, url=url)
     with pytest.raises(ConfigurationError) as exc_info:
-        config.load_config()
+        config.fetch_config()
     assert "status_code: 404" in str(exc_info.value)
 
 
@@ -127,7 +127,7 @@ def test_load_config_failure_auth_error(mock_session):
 
     config = RestServiceConfig(session=mock_session, url=url)
     with pytest.raises(ConfigurationError) as exc_info:
-        config.load_config()
+        config.fetch_config()
     assert "authentication error" in str(exc_info.value)
 
 
@@ -175,6 +175,31 @@ def test_parse_version(sample_config, version_str, expected):
         result = config.parse_version()
 
     assert result == expected
+
+
+@pytest.mark.parametrize(
+    "version,expected",
+    [
+        ("v1.0.0", False),  # No suffix
+        ("v1.0.0rc3", False),  # Release candidate is not a suffix
+        ("v1.0.0-acryl", True),  # With acryl suffix
+        ("v1.0.0-cloud", True),  # With cloud suffix
+        ("v1.0.0-custom", True),  # With custom suffix
+        ("v0.3.11-test", True),  # Different version with suffix
+        (None, False),  # No version
+        ("", False),  # Empty version
+    ],
+)
+def test_is_datahub_cloud(sample_config, version, expected):
+    """Test checking if a version represents DataHub Cloud based on suffix presence."""
+    modified_config = sample_config.copy()
+    if version is not None:
+        modified_config["versions"]["acryldata/datahub"]["version"] = version
+    else:
+        modified_config["versions"]["acryldata/datahub"]["version"] = None
+
+    config = RestServiceConfig(config=modified_config)
+    assert config.is_datahub_cloud is expected
 
 
 def test_parse_version_invalid():
@@ -303,30 +328,6 @@ def test_supports_feature(sample_config, version, feature, expected):
     config = RestServiceConfig(config=modified_config)
     result = config.supports_feature(feature)
     assert result == expected
-
-
-def test_dictionary_interface(sample_config):
-    """Test dictionary-like access to the configuration."""
-    config = RestServiceConfig(config=sample_config)
-
-    # Test __getitem__
-    assert config["noCode"] == "true"
-
-    # Test keys
-    assert "noCode" in list(config.keys())
-    assert list(config.keys()) == list(sample_config.keys())
-
-    # Test items
-    assert list(config.items()) == list(sample_config.items())
-
-    # Test get with existing key
-    assert config.get("noCode") == "true"
-
-    # Test get with non-existing key
-    assert config.get("nonExistingKey") is None
-
-    # Test get with default value for non-existing key
-    assert config.get("nonExistingKey", "default") == "default"
 
 
 def test_str_and_repr(sample_config):

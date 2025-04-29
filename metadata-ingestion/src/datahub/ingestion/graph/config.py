@@ -13,8 +13,6 @@ class ClientMode(Enum):
 
 DATAHUB_COMPONENT_ENV: str = os.getenv("DATAHUB_COMPONENT", "datahub").lower()
 
-DEFAULT_CLIENT_MODE: ClientMode = ClientMode.SDK
-
 
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""

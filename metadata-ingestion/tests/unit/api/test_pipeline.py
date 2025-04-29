@@ -13,7 +13,7 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
@@ -63,14 +63,14 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.utilities.server_config_util.RestServiceConfig.load_config",
+        "datahub.utilities.server_config_util.RestServiceConfig.fetch_config",
         return_value={"noCode": True},
     )
     @patch(
         "datahub.cli.config_utils.load_client_config",
         return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
     )
-    def test_configure_without_sink(self, mock_load_config, mock_load_client_config):
+    def test_configure_without_sink(self, mock_fetch_config, mock_load_client_config):
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -86,23 +86,19 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.utilities.server_config_util.RestServiceConfig.load_config",
+        "datahub.utilities.server_config_util.RestServiceConfig.fetch_config",
         return_value={"noCode": True},
     )
     @patch(
         "datahub.cli.config_utils.load_client_config",
-        side_effect=lambda client_mode, datahub_component: DatahubClientConfig(
-            server="http://fake-internal-server:8080",
-            client_mode=client_mode,
-            datahub_component=datahub_component,
-        ),
+        return_value=DatahubClientConfig(server="http://fake-internal-server:8080"),
     )
     @patch(
         "datahub.cli.config_utils.get_system_auth",
         return_value="Basic user:pass",
     )
     def test_configure_without_sink_use_system_auth(
-        self, mock_load_config, mock_load_client_config, mock_get_system_auth
+        self, mock_fetch_config, mock_load_client_config, mock_get_system_auth
     ):
         pipeline = Pipeline.create(
             {
@@ -122,10 +118,10 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.utilities.server_config_util.RestServiceConfig.load_config",
+        "datahub.utilities.server_config_util.RestServiceConfig.fetch_config",
         return_value={"noCode": True},
     )
-    def test_configure_with_rest_sink_initializes_graph(self, mock_load_config):
+    def test_configure_with_rest_sink_initializes_graph(self, mock_fetch_config):
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -156,11 +152,11 @@ class TestPipeline:
 
     @freeze_time(FROZEN_TIME)
     @patch(
-        "datahub.utilities.server_config_util.RestServiceConfig.load_config",
+        "datahub.utilities.server_config_util.RestServiceConfig.fetch_config",
         return_value={"noCode": True},
     )
     def test_configure_with_rest_sink_with_additional_props_initializes_graph(
-        self, mock_load_config
+        self, mock_fetch_config
     ):
         pipeline = Pipeline.create(
             {
@@ -401,6 +397,41 @@ sink:
                 mock_commit.assert_called_once()
             else:
                 mock_commit.assert_not_called()
+
+    @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.utilities.server_config_util.RestServiceConfig.fetch_config",
+        return_value={"noCode": True},
+    )
+    def test_pipeline_graph_has_expected_client_mode_and_component(
+        self, mock_fetch_config
+    ):
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_events.json"},
+                },
+                "sink": {
+                    "type": "datahub-rest",
+                    "config": {
+                        "server": "http://somehost.someplace.some:8080",
+                        "token": "foo",
+                    },
+                },
+            }
+        )
+
+        # Assert that the DataHubGraph is initialized with expected properties
+        assert pipeline.ctx.graph is not None, "DataHubGraph should be initialized"
+
+        # Check that graph has the expected client mode and datahub_component
+        assert pipeline.ctx.graph.config.client_mode == ClientMode.INGESTION
+        assert pipeline.ctx.graph.config.datahub_component is None
+
+        # Check that the graph was configured with the expected server and token
+        assert pipeline.ctx.graph.config.server == "http://somehost.someplace.some:8080"
+        assert pipeline.ctx.graph.config.token == "foo"
 
 
 class AddStatusRemovedTransformer(Transformer):

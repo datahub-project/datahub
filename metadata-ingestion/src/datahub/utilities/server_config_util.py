@@ -4,8 +4,6 @@ from enum import Enum
 from typing import (
     Any,
     Dict,
-    ItemsView,
-    KeysView,
     Optional,
     Tuple,
     Union,
@@ -81,7 +79,7 @@ class RestServiceConfig:
         self._config: Dict[str, Any] = config if config is not None else {}
         self._version_cache: Optional[Tuple[int, int, int, int]] = None
 
-    def load_config(self) -> Dict[str, Any]:
+    def fetch_config(self) -> Dict[str, Any]:
         """
         Fetch configuration from the server if not already loaded.
 
@@ -134,7 +132,11 @@ class RestServiceConfig:
         Returns:
             The configuration dictionary
         """
-        return self.load_config()
+        return self.fetch_config()
+
+    @property
+    def raw_config(self) -> Dict[str, Any]:
+        return self._config
 
     def get_commit_hash(self) -> Optional[str]:
         """
@@ -164,7 +166,7 @@ class RestServiceConfig:
         Returns:
             The version string or None if not found
         """
-        config = self.load_config()
+        config = self.fetch_config()
         versions = config.get("versions", {})
         datahub_info = versions.get("acryldata/datahub", {})
         return datahub_info.get("version")
@@ -237,26 +239,10 @@ class RestServiceConfig:
         Returns:
             True if the service version is at least the specified version
         """
-        current_major, current_minor, current_patch, current_build = (
-            self.get_parsed_version() or (0, 0, 0, 0)
-        )
+        current_version = self.get_parsed_version() or (0, 0, 0, 0)
+        requested_version = (major, minor, patch, build)
 
-        if current_major > major:
-            return True
-        if current_major < major:
-            return False
-
-        if current_minor > minor:
-            return True
-        if current_minor < minor:
-            return False
-
-        if current_patch > patch:
-            return True
-        if current_patch < patch:
-            return False
-
-        return current_build >= build
+        return current_version >= requested_version
 
     @property
     def is_no_code_enabled(self) -> bool:
@@ -278,6 +264,21 @@ class RestServiceConfig:
         """
         managed_ingestion = self.config.get("managedIngestion", {})
         return managed_ingestion.get("enabled", False)
+
+    @property
+    def is_datahub_cloud(self) -> bool:
+        """
+        Check if DataHub Cloud is enabled.
+
+        Returns:
+            True if version matches DataHubCloud
+        """
+        version = self.get_service_version()
+        if not version:
+            return False
+
+        # If the version string contains a hyphen, it has a suffix
+        return "-" in version
 
     def supports_feature(self, feature: ServiceFeature) -> bool:
         """
@@ -379,52 +380,6 @@ class RestServiceConfig:
             A string representation that can be used with pprint
         """
         return str(self.config)
-
-    def __getitem__(self, key: str) -> Any:
-        """
-        Allow dictionary-like access to configuration values.
-
-        Args:
-            key: The key to look up in the configuration
-
-        Returns:
-            The value associated with the key
-        """
-        return self.config[key]
-
-    def keys(self) -> KeysView[str]:
-        """
-        Return the keys in the configuration dictionary.
-
-        Returns:
-            The keys in the configuration dictionary
-        """
-        return self.config.keys()
-
-    def items(self) -> ItemsView[str, Any]:
-        """
-        Return the items in the configuration dictionary.
-
-        Returns:
-            The items in the configuration dictionary
-        """
-        return self.config.items()
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """
-        Get a value from the configuration dictionary.
-
-        Args:
-            key: The key to look up in the configuration
-            default: The value to return if the key is not found
-
-        Returns:
-            The value associated with the key, or the default if not found
-        """
-        try:
-            return self.config.get(key, default)
-        except Exception:
-            return default
 
 
 def set_gms_config(config: Union[Dict[str, Any], RestServiceConfig]) -> Any:

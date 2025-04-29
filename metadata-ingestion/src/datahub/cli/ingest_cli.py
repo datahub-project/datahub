@@ -361,6 +361,8 @@ def mcps(path: str) -> None:
     """
 
     click.echo("Starting ingestion...")
+    datahub_config = load_client_config()
+    datahub_config.client_mode = ClientMode.CLI
     recipe: dict = {
         "source": {
             "type": "file",
@@ -368,7 +370,7 @@ def mcps(path: str) -> None:
                 "path": path,
             },
         },
-        "datahub_api": load_client_config(ClientMode.CLI),
+        "datahub_api": datahub_config,
     }
 
     pipeline = Pipeline.create(recipe, report_to=None)

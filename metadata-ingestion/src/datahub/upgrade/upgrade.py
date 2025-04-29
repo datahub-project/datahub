@@ -138,7 +138,8 @@ async def get_server_version_stats(
     if not server:
         try:
             # let's get the server from the cli config
-            client_config = load_client_config(ClientMode.CLI)
+            client_config = load_client_config()
+            client_config.client_mode = ClientMode.CLI
             host = client_config.server
             token = client_config.token
             server_config = await get_server_config(host, token)
