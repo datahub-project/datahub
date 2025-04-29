@@ -316,8 +316,10 @@ grpcio==1.68.1
     #   grpcio-status
 grpcio-status==1.62.3
     # via google-api-core
-h11==0.14.0
-    # via uvicorn
+h11==0.16.0
+    # via
+    #   acryl-datahub-executor
+    #   uvicorn
 holidays==0.68
     # via prophet
 httptools==0.6.4

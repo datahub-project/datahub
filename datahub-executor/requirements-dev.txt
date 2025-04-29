@@ -492,9 +492,11 @@ grpcio-status==1.62.3
     # via
     #   -r requirements.txt
     #   google-api-core
-h11==0.14.0
+h11==0.16.0
     # via
     #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
     #   uvicorn
 holidays==0.68
     # via
