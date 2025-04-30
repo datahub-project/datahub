@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { EntityType } from '@types';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 
-import { getEntityPath } from '../utils';
+import { EntityType } from '@types';
 
 // Mock the entity registry
 const mockEntityRegistry = {
