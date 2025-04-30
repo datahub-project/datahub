@@ -50,6 +50,8 @@ base_requirements = {
     "pydantic<2",
     "dictdiffer",
     "ratelimit",
+    "httpcore>=1.0.9",
+    "h11>=0.16"
 }
 
 framework_common = {
