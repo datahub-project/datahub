@@ -1,6 +1,5 @@
 package com.linkedin.metadata.datahubusage.event;
 
-import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.SSO_SCIM_SOURCE;
 
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -8,8 +7,7 @@ import lombok.Getter;
 public enum EventSource {
   RESTLI("RESTLI"),
   OPENAPI("OPENAPI"),
-  GRAPHQL("GRAPHQL"),
-  SSO_SCIM(SSO_SCIM_SOURCE);
+  GRAPHQL("GRAPHQL");
 
   @Getter private final String source;
 
