@@ -401,6 +401,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
     @serialized_lru_cache(maxsize=1)
     def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
+        logger.debug(f"Fetching views for {db_name}")
         page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
@@ -418,7 +419,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
             if logger.isEnabledFor(logging.DEBUG):
                 view_names = [view["name"] for view in cur]
-                logger.debug(f"Fetched views so far ({len(cur)}): {view_names}")
+                logger.debug(f"Fetched views so far: {view_names}")
 
             first_iteration = False
             view_pagination_marker = None
