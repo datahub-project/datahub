@@ -655,7 +655,7 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             "type": "record",
             "name": self._gen_name("__struct_"),
             "fields": field_results,
-            "native_data_type": str(struct),
+            "native_data_type": "struct",
             "_nullable": nullable,
         }
 
@@ -673,7 +673,7 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         return {
             "type": "array",
             "items": element_result,
-            "native_data_type": str(list_type),
+            "native_data_type": "list",
             "_nullable": not list_type.element_required,
         }
 
