@@ -26,7 +26,7 @@ export const RolesOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/authorization/roles"
+                        href="https://docs.datahub.com/docs/authorization/roles"
                     >
                         {' '}
                         here.

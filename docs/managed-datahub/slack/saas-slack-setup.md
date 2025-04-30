@@ -51,7 +51,7 @@ You may need approval from a workspace admin to do this step. Learn about [what 
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_7.png"/>
 </p>
 
-Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](saas-slack-app.md) to see how you can use DataHub's powerful capabilities directly within Slack.
+Now proceed to the [Subscriptions and Notifications page](https://docs.datahub.com/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](saas-slack-app.md) to see how you can use DataHub's powerful capabilities directly within Slack.
 
 ### DataHub Slack bot permissions
 
@@ -99,7 +99,7 @@ In some workspaces, you will find at step 6 above you will need approval from yo
 2. Once approved, you will get a notification from the **Slack bot** that your request has been approved. Follow the link it provides to complete the process.
    **If you do not get the message:** visit [api.slack.com/apps](https://api.slack.com/apps), open your DataHub app and complete the installation from there.
 3. Once it is done, you can visit `<your-datahub-instance-url>/settings/notifications`, and send a test notification to verify everything's working.
-4. **Making Slack commands work:** when running Slack commands such as `/datahub search my dataset` you may get a `dispatch_failed` error. To resolve this, see [the steps here](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-troubleshoot#slack-bot-issues).
+4. **Making Slack commands work:** when running Slack commands such as `/datahub search my dataset` you may get a `dispatch_failed` error. To resolve this, see [the steps here](https://docs.datahub.com/docs/managed-datahub/slack/saas-slack-troubleshoot#slack-bot-issues).
 
 <!-- NOTE: we are hiding this method for now. If a need arises, we can uncomment below docs.
 # Bot Token Method (Not recommended)

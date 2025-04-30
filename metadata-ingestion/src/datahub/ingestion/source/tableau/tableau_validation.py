@@ -24,7 +24,7 @@ def check_user_role(
     mitigation_message_prefix: str = (
         "Assign `Site Administrator Explorer` role to the user"
     )
-    mitigation_message_suffix: str = "Refer to the setup guide: https://datahubproject.io/docs/quick-ingestion-guides/tableau/setup"
+    mitigation_message_suffix: str = "Refer to the setup guide: https://docs.datahub.com/docs/quick-ingestion-guides/tableau/setup"
 
     try:
         # TODO: Add check for `Enable Derived Permissions`

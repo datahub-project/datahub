@@ -7,7 +7,7 @@ function SlackSurvey() {
 
     useEffect(() => {
         // Redirect to the Acryl Slack page
-        window.location.href = 'https://pages.acryl.io/slack';
+        window.location.href = 'https://datahub.com/slack';
     }, []);
 
     // Return minimal layout in case redirect takes a moment

@@ -5,4 +5,4 @@ source:
     filename: ./path/to/your/file.csv
 
 # Default sink is datahub-rest and doesn't need to be configured
-# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options
+# See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options
