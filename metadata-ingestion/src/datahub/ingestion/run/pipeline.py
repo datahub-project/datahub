@@ -175,6 +175,7 @@ class Pipeline:
             self.graph: Optional[DataHubGraph] = None
             with _add_init_error_context("connect to DataHub"):
                 if self.config.datahub_api:
+                    self.config.datahub_api.client_mode = ClientMode.INGESTION
                     self.graph = exit_stack.enter_context(
                         DataHubGraph(self.config.datahub_api)
                     )

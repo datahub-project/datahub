@@ -1,6 +1,6 @@
 import pathlib
 from typing import Iterable, List, cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from freezegun import freeze_time
@@ -432,6 +432,57 @@ sink:
         # Check that the graph was configured with the expected server and token
         assert pipeline.ctx.graph.config.server == "http://somehost.someplace.some:8080"
         assert pipeline.ctx.graph.config.token == "foo"
+
+    @freeze_time(FROZEN_TIME)
+    @patch(
+        "datahub.utilities.server_config_util.RestServiceConfig.fetch_config",
+        return_value={"noCode": True},
+    )
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_pipeline_graph_client_mode(
+        self, mock_fetch_config, mock_load_client_config
+    ):
+        """Test that the graph created in Pipeline has the correct client_mode."""
+        # Mock the DataHubGraph context manager and test_connection method
+        mock_graph = MagicMock()
+        mock_graph.__enter__.return_value = mock_graph
+
+        # Create a patch that replaces the DataHubGraph constructor
+        with patch(
+            "datahub.ingestion.run.pipeline.DataHubGraph", return_value=mock_graph
+        ) as mock_graph_class:
+            # Create a pipeline with datahub_api config
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "file",
+                        "config": {"path": "test_events.json"},
+                    },
+                    "datahub_api": {
+                        "server": "http://datahub-gms:8080",
+                        "token": "test_token",
+                    },
+                }
+            )
+
+            # Verify DataHubGraph was called with the correct parameters
+            assert mock_graph_class.call_count == 1
+
+            # Get the arguments passed to DataHubGraph
+            config_arg = mock_graph_class.call_args[0][0]
+
+            # Assert the config is a DatahubClientConfig with the expected values
+            assert isinstance(config_arg, DatahubClientConfig)
+            assert config_arg.server == "http://datahub-gms:8080"
+            assert config_arg.token == "test_token"
+            assert config_arg.client_mode == ClientMode.INGESTION
+            assert config_arg.datahub_component is None
+
+            # Verify the graph has been stored in the pipeline context
+            assert pipeline.ctx.graph is mock_graph
 
 
 class AddStatusRemovedTransformer(Transformer):
