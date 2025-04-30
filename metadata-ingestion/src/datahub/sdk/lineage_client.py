@@ -44,7 +44,7 @@ class LineageClient:
             str(dataset_urn), SchemaMetadataClass
         )
         if schema_metadata is None:
-            return Set()
+            return set()
 
         return {field.fieldPath for field in schema_metadata.fields}
 
