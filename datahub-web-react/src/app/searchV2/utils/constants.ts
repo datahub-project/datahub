@@ -189,3 +189,5 @@ export const ASSET_ENTITY_TYPES = [
 ];
 
 export const MIN_CHARACTER_COUNT_FOR_SEARCH = 3;
+
+export const SEARCH_BAR_CLASS_NAME = 'search-bar';

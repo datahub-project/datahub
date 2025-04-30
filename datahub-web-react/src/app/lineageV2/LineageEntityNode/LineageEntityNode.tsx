@@ -3,7 +3,6 @@ import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import styled from 'styled-components';
 
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import NodeContents from '@app/lineageV2/LineageEntityNode/NodeContents';
 import useDisplayedColumns from '@app/lineageV2/LineageEntityNode/useDisplayedColumns';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
@@ -23,7 +22,7 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 const HomeNodeBubble = styled.div`
     align-items: center;
-    background-color: ${LINEAGE_COLORS.PURPLE_3};
+    background-color: ${(p) => p.theme.styles['primary-color']};
     border-radius: 10px;
     color: white;
     display: flex;
