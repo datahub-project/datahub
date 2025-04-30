@@ -240,7 +240,7 @@ def test_policy_events(auth_exclude_filter):
                 "resources": {"type": "dataset", "allResources": True},
                 "privileges": ["EDIT_ENTITY_TAGS"],
                 "actors": {
-                    "users": ["urn:li:corpuser:admin"],
+                    "users": ["urn:li:corpuser:datahub"],
                     "resourceOwners": False,
                     "allUsers": False,
                     "allGroups": False,
@@ -299,7 +299,7 @@ def test_policy_events(auth_exclude_filter):
         user_session,
         2,
         ["CreatePolicyEvent", "UpdatePolicyEvent"],
-        ["urn:li:corpuser:admin"],
+        ["urn:li:corpuser:datahub"],
     )
     print(res_data)
     assert res_data
@@ -377,7 +377,7 @@ def test_ingestion_source_events(auth_exclude_filter):
         user_session,
         2,
         ["CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"],
-        ["urn:li:corpuser:admin"],
+        ["urn:li:corpuser:datahub"],
     )
     print(res_data)
     assert res_data
