@@ -416,6 +416,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
 
+            if logger.isEnabledFor(logging.DEBUG):
+                view_names = [view["name"] for view in cur]
+                logger.debug(f"Fetched views so far ({len(cur)}): {view_names}")
+
             first_iteration = False
             view_pagination_marker = None
 

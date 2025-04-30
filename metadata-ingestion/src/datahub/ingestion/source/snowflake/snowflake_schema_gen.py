@@ -613,6 +613,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 self.report.report_entity_scanned(view_name, "view")
 
                 if not self.filters.filter_config.view_pattern.allowed(view_name):
+                    logger.debug(
+                        f"Dropping view {view_name} in database {db_name} and schema {schema_name} due to view pattern filter"
+                    )
                     self.report.report_dropped(view_name)
                 else:
                     views.append(view)
@@ -1227,6 +1230,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         self, schema_name: str, db_name: str
     ) -> List[SnowflakeView]:
         views = self.data_dictionary.get_views_for_database(db_name)
+        logger.info(f"Number of views in database {db_name}: {len(views)}")
 
         # Some schema may not have any table
         return views.get(schema_name, [])
