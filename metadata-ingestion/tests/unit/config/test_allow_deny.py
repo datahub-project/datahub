@@ -1,4 +1,6 @@
-from datahub.configuration.common import AllowDenyPattern
+from unittest.mock import Mock
+
+from datahub.configuration.common import AllowDenyFilterReport, AllowDenyPattern
 
 
 def test_allow_all() -> None:
@@ -49,3 +51,49 @@ def test_case_sensitivity():
     pattern = AllowDenyPattern(allow=["Foo.myTable"], ignoreCase=False)
     assert not pattern.allowed("foo.mytable")
     assert pattern.allowed("Foo.myTable")
+
+
+def test_reporting_allowed():
+    pattern = AllowDenyPattern(allow=["test.*"], deny=["test.exclude"])
+    report = Mock(spec=AllowDenyFilterReport)
+    pattern.set_report(report)
+
+    # Test allowed pattern
+    assert pattern.allowed("test.allowed")
+    report.processed.assert_called_once_with("test.allowed")
+    report.dropped.assert_not_called()
+    report.reset_mock()
+
+    # Test denied pattern
+    assert not pattern.allowed("test.exclude")
+    report.processed.assert_not_called()
+    report.dropped.assert_called_once_with("test.exclude")
+    report.reset_mock()
+
+    # Test non-matching pattern
+    assert not pattern.allowed("other")
+    report.processed.assert_not_called()
+    report.dropped.assert_called_once_with("other")
+
+
+def test_reporting_denied():
+    pattern = AllowDenyPattern(allow=["test.*"], deny=["test.exclude"])
+    report = Mock(spec=AllowDenyFilterReport)
+    pattern.set_report(report)
+
+    # Test denied pattern
+    assert pattern.denied("test.exclude")
+    report.processed.assert_not_called()
+    report.dropped.assert_called_once_with("test.exclude")
+    report.reset_mock()
+
+    # Test allowed pattern
+    assert not pattern.denied("test.allowed")
+    report.processed.assert_called_once_with("test.allowed")
+    report.dropped.assert_not_called()
+    report.reset_mock()
+
+    # Test non-matching pattern
+    assert not pattern.denied("other")
+    report.processed.assert_called_once_with("other")
+    report.dropped.assert_not_called()

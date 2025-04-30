@@ -12,6 +12,7 @@ import pydantic
 from pydantic import BaseModel
 from typing_extensions import Literal, Protocol
 
+from datahub.configuration.common import AllowDenyFilterReport
 from datahub.ingestion.api.report_helpers import format_datetime_relative
 from datahub.utilities.lossy_collections import LossyList
 
@@ -108,7 +109,7 @@ class ReportAttribute(BaseModel):
         logger.log(level=self.logger_sev, msg=msg, stacklevel=3)
 
 
-class EntityFilterReport(ReportAttribute):
+class EntityFilterReport(ReportAttribute, AllowDenyFilterReport):
     type: str
 
     processed_entities: LossyList[str] = pydantic.Field(default_factory=LossyList)
