@@ -43,6 +43,7 @@ import lombok.AllArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.collections4.map.HashedMap;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -62,24 +63,25 @@ public class PolicyEngine {
 
     // If the privilege is not in scope, deny the request.
     if (!isPrivilegeMatch(privilege, policy.getPrivileges())) {
-      log.debug(
-          "Policy denied based on irrelevant privileges {} for {}",
-          policy.getPrivileges(),
-          privilege);
-      return PolicyEvaluationResult.DENIED;
+      return new PolicyEvaluationResult(
+          policy.getDisplayName(),
+          false,
+          String.format(
+              "Policy denied based on irrelevant privileges %s for %s",
+              policy.getPrivileges(), privilege));
     }
 
     // If policy is not applicable, deny the request
-    if (!isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context)) {
-      log.debug(
-          "Policy does not applicable for actor {} and resource {}",
-          resolvedActorSpec.getSpec().getEntity(),
-          resource);
-      return PolicyEvaluationResult.DENIED;
+    if (!isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context).isGranted()) {
+      return new PolicyEvaluationResult(
+          policy.getDisplayName(),
+          false,
+          String.format(
+              "Policy does not applicable for actor %s and resource %s",
+              resolvedActorSpec.getSpec().getEntity(), resource));
     }
 
-    // All portions of the Policy match. Grant the request.
-    return PolicyEvaluationResult.GRANTED;
+    return new PolicyEvaluationResult(policy.getDisplayName(), true, "Policy allowed");
   }
 
   public PolicyActors getMatchingActors(
@@ -122,7 +124,7 @@ public class PolicyEngine {
     return new PolicyActors(users, groups, roles, allUsers, allGroups);
   }
 
-  private boolean isPolicyApplicable(
+  private PolicyEvaluationResult isPolicyApplicable(
       @Nonnull OperationContext opContext,
       final DataHubPolicyInfo policy,
       final ResolvedEntitySpec resolvedActorSpec,
@@ -131,30 +133,42 @@ public class PolicyEngine {
 
     // If policy is inactive, simply return DENY.
     if (PoliciesConfig.INACTIVE_POLICY_STATE.equals(policy.getState())) {
-      return false;
+      return new PolicyEvaluationResult(policy.getDisplayName(), false, "Inactive Policy");
     }
 
     // If the resource is not in scope, deny the request.
     if (!isResourceMatch(policy.getType(), policy.getResources(), resource)) {
-      return false;
+      return new PolicyEvaluationResult(policy.getDisplayName(), false, "Resource does not match");
     }
 
     // If the actor does not match, deny the request.
-    return isActorMatch(opContext, resolvedActorSpec, policy.getActors(), resource, context);
+    boolean isActorMatched =
+        isActorMatch(opContext, resolvedActorSpec, policy.getActors(), resource, context);
+    if (isActorMatched) {
+      return new PolicyEvaluationResult(policy.getDisplayName(), true, "Policy is applicable");
+    } else {
+      return new PolicyEvaluationResult(policy.getDisplayName(), false, "Actor did not match");
+    }
   }
 
-  public List<String> getGrantedPrivileges(
+  public PolicyGrantedPrivileges getGrantedPrivileges(
       @Nonnull OperationContext opContext,
       final List<DataHubPolicyInfo> policies,
       final ResolvedEntitySpec resolvedActorSpec,
       final Optional<ResolvedEntitySpec> resource) {
+    Set<String> privileges = new HashSet<>();
+    Map<String, String> reasonsOfDeny = new HashedMap<>();
     PolicyEvaluationContext context = new PolicyEvaluationContext();
-    return policies.stream()
-        .filter(
-            policy -> isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context))
-        .flatMap(policy -> policy.getPrivileges().stream())
-        .distinct()
-        .collect(Collectors.toList());
+    for (DataHubPolicyInfo policy : policies) {
+      PolicyEvaluationResult result =
+          isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context);
+      if (result.isGranted()) {
+        privileges.addAll(policy.getPrivileges());
+      } else {
+        reasonsOfDeny.put(result.getPolicyName(), result.getReason());
+      }
+    }
+    return new PolicyGrantedPrivileges(new ArrayList<>(privileges), reasonsOfDeny);
   }
 
   /**
@@ -534,19 +548,47 @@ public class PolicyEngine {
     }
   }
 
+  /** Class used to represent granted privileges and reasons why * */
+  public static class PolicyGrantedPrivileges {
+    private final List<String> privileges;
+    private final Map<String, String> reasonOfDeny;
+
+    private PolicyGrantedPrivileges(List<String> privileges, Map<String, String> reasonOfDeny) {
+      this.privileges = privileges;
+      this.reasonOfDeny = reasonOfDeny;
+    }
+
+    public List<String> getPrivileges() {
+      return this.privileges;
+    }
+
+    public Map<String, String> getReasonOfDeny() {
+      return this.reasonOfDeny;
+    }
+  }
+
   /** Class used to represent the result of a Policy evaluation */
-  static class PolicyEvaluationResult {
-    public static final PolicyEvaluationResult GRANTED = new PolicyEvaluationResult(true);
-    public static final PolicyEvaluationResult DENIED = new PolicyEvaluationResult(false);
-
+  public static class PolicyEvaluationResult {
+    private final String policyName;
     private final boolean isGranted;
+    private final String reason;
 
-    private PolicyEvaluationResult(boolean isGranted) {
+    private PolicyEvaluationResult(String policyName, boolean isGranted, String reason) {
+      this.policyName = policyName;
       this.isGranted = isGranted;
+      this.reason = reason;
     }
 
     public boolean isGranted() {
       return this.isGranted;
+    }
+
+    public String getReason() {
+      return this.reason;
+    }
+
+    public String getPolicyName() {
+      return this.policyName;
     }
   }
 

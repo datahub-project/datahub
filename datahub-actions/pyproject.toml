@@ -2,12 +2,6 @@
 build-backend = "setuptools.build_meta"
 requires = ["setuptools>65.5.1", "wheel>0.38.1", "pip>=21.0.0"]
 
-# temporarily removing so in unblocks wheel builds
-#dependencies = [
-#        "httpcore >= 1.0.9",
-#        "h11 >= 0.16"
-#]
-
 [tool.ruff]
 line-length = 88
 target-version = "py38"
