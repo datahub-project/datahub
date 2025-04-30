@@ -2,6 +2,7 @@ import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
 import { Section } from '@app/homeV2/content/tabs/discovery/sections/Section';
@@ -26,6 +27,15 @@ export const Platforms = () => {
 
     useUpdateEducationStepsAllowList(!!platforms.length, HOME_PAGE_PLATFORMS_ID);
 
+    const handlePlatformClick = (platformUrn: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'Platforms',
+            value: platformUrn,
+        });
+    };
+
     const showSkeleton = isUserInitializing || !user || loading;
     return (
         <div id={HOME_PAGE_PLATFORMS_ID}>
@@ -34,11 +44,13 @@ export const Platforms = () => {
                 <Section title="Platforms">
                     <Carousel>
                         {platforms.map((platform) => (
-                            <PlatformCard
+                            // eslint-disable-next-line
+                            <span
                                 key={platform.platform.urn}
-                                platform={platform.platform}
-                                count={platform.count}
-                            />
+                                onClick={() => handlePlatformClick(platform.platform.urn)}
+                            >
+                                <PlatformCard platform={platform.platform} count={platform.count} />
+                            </span>
                         ))}
                     </Carousel>
                 </Section>

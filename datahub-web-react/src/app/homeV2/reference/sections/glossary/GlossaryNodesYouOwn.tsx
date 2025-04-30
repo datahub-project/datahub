@@ -14,7 +14,7 @@ import { EntityType, GlossaryTerm } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
-export const GlossaryNodesYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
+export const GlossaryNodesYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
     const userContext = useUserContext();
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
@@ -42,6 +42,7 @@ export const GlossaryNodesYouOwn = ({ hideIfEmpty }: ReferenceSectionProps) => {
                 onClickTitle={() => setShowModal(true)}
                 empty={<EmptyGlossaryNodesYouOwn />}
                 render={(entity) => <GlossaryTermMiniPreview glossaryTerm={entity as GlossaryTerm} />}
+                onClickEntity={trackClickInSection}
             />
             {showModal && (
                 <EmbeddedListSearchModal
