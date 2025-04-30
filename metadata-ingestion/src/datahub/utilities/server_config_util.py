@@ -382,7 +382,7 @@ class RestServiceConfig:
         return str(self.config)
 
 
-def set_gms_config(config: Union[Dict[str, Any], RestServiceConfig]) -> Any:
+def set_gms_config(config: Union[Dict[str, Any], RestServiceConfig]) -> None:
     global_debug["gms_config"] = config
 
     config_obj = (
