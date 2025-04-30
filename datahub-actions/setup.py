@@ -51,8 +51,7 @@ base_requirements = {
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic>2",
-    "dictdiffer",
+    "pydantic>=1.10.21",
     "ratelimit",
     # Lower bounds on httpcore and h11 due to CVE-2025-43859.
     "httpcore>=1.0.9",
@@ -166,6 +165,9 @@ full_test_dev_requirements = {
         ]
         for dependency in plugins[plugin]
     ),
+    # In our tests, we want to always test against pydantic v2.
+    # However, we maintain compatibility with pydantic v1 for now.
+    "pydantic>2",
 }
 
 entry_points = {
