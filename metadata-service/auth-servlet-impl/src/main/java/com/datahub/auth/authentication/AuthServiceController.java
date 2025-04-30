@@ -173,8 +173,6 @@ public class AuthServiceController {
                   "Successfully generated session token for user: {}, duration: {} ms",
                   userId.asText(),
                   sessionTokenDurationMs);
-              // TODO: Pass in login type (sso, password, etc) from http request header? Currently
-              // no OTEL in frontend
               return systemOperationContext.withSpan(
                   "loginSuccess",
                   () -> {
