@@ -6,7 +6,6 @@ import pytest
 
 from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
-    DataJobInputOutputClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -27,42 +26,6 @@ _GOLDEN_DIR.mkdir(exist_ok=True)
 @pytest.fixture
 def mock_graph() -> Mock:
     graph = Mock()
-    schema_resolver = Mock()
-    schema_resolver.platform = "snowflake"
-
-    orders_schema = {
-        "price": "FLOAT",
-        "qty": "INTEGER",
-        "unit_cost": "FLOAT",
-    }
-
-    # When resolve_table is called with "orders", return the proper URN and schema
-    # The _TableName used in SQL parsing has database, db_schema, and table attributes
-    def resolve_table_side_effect(table_name):
-        if table_name.table == "ORDERS":
-            return (
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)",
-                orders_schema,
-            )
-        elif table_name.table == "sales_summary":
-            return (
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)",
-                {},
-            )
-        return None, None
-
-    schema_resolver.resolve_table.side_effect = resolve_table_side_effect
-    schema_resolver.includes_temp_tables.return_value = False
-
-    graph._make_schema_resolver.return_value = schema_resolver
-
-    # Set up the get_aspect method to return a proper object instead of a Mock
-    def get_aspect_side_effect(urn, aspect_type):
-        if aspect_type == DataJobInputOutputClass:
-            return DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
-        return None
-
-    graph.get_aspect.side_effect = get_aspect_side_effect
 
     return graph
 
