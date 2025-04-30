@@ -16,7 +16,7 @@ class ColumnDict(TypedDict):
 
 @lru_cache
 def get_qualified_name_from_datahub(urn: str) -> Optional[str]:
-    with get_default_graph(ClientMode.INGESTION) as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         props: Optional[DatasetProperties] = graph.get_aspect(urn, DatasetProperties)
         if props is not None:
             return props.qualifiedName

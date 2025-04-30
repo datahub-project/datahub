@@ -126,7 +126,7 @@ async def get_server_config(gms_url: str, token: Optional[str]) -> RestServiceCo
         config_endpoint = f"{gms_url}/config"
         async with session.get(config_endpoint, headers=headers) as dh_response:
             dh_response_json = await dh_response.json()
-            return RestServiceConfig(config=dh_response_json)
+            return RestServiceConfig(raw_config=dh_response_json)
 
 
 async def get_server_version_stats(
@@ -153,9 +153,9 @@ async def get_server_version_stats(
     server_version: Optional[Version] = None
     current_server_release_date = None
     if server_config:
-        server_version_string = server_config.get_service_version()
-        commit_hash = server_config.get_commit_hash()
-        server_type = server_config.get_server_type()
+        server_version_string = server_config.service_version
+        commit_hash = server_config.commit_hash
+        server_type = server_config.server_type
 
         if server_type == "quickstart" and commit_hash:
             async with aiohttp.ClientSession(

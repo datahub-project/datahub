@@ -140,7 +140,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 f"💥 Failed to connect to DataHub with {repr(self.emitter)}"
             ) from exc
 
-        self.report.gms_version = gms_config.get_service_version()
+        self.report.gms_version = gms_config.service_version
         self.report.mode = self.config.mode
         self.report.max_threads = self.config.max_threads
         logger.debug("Setting env variables to override config")

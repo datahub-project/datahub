@@ -1,5 +1,6 @@
 import logging
 import re
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import (
     Any,
@@ -38,6 +39,7 @@ class ServiceFeature(Enum):
     IMPACT_ANALYSIS = "impact_analysis"
     PATCH_CAPABLE = "patch_capable"
     CLI_TELEMETRY = "cli_telemetry"
+    DATAHUB_CLOUD = "datahub_cloud"
     # Add more features as needed
 
 
@@ -54,30 +56,16 @@ _REQUIRED_VERSION_OPENAPI_TRACING = {
 }
 
 
+@dataclass
 class RestServiceConfig:
     """
     A class to represent REST service configuration with semantic version parsing capabilities.
     """
 
-    def __init__(
-        self,
-        session: Optional[requests.Session] = None,
-        url: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-    ):
-        """
-        Initialize with either a session and URL for lazy loading,
-        or a pre-loaded configuration dictionary.
-
-        Args:
-            session: HTTP session for making requests
-            url: URL endpoint for fetching configuration
-            config: Dictionary containing service configuration (optional)
-        """
-        self._session: Optional[requests.Session] = session
-        self._url: Optional[str] = url
-        self._config: Dict[str, Any] = config if config is not None else {}
-        self._version_cache: Optional[Tuple[int, int, int, int]] = None
+    session: Optional[requests.Session] = None
+    url: Optional[str] = None
+    raw_config: Dict[str, Any] = field(default_factory=dict)
+    _version_cache: Optional[Tuple[int, int, int, int]] = None
 
     def fetch_config(self) -> Dict[str, Any]:
         """
@@ -89,20 +77,20 @@ class RestServiceConfig:
         Raises:
             ConfigurationError: If there's an error fetching or validating the configuration
         """
-        if not self._config:
-            if self._session is None or self._url is None:
+        if not self.raw_config:
+            if self.session is None or self.url is None:
                 raise ConfigurationError(
                     "Session and URL are required to load configuration"
                 )
 
-            response = self._session.get(self._url)
+            response = self.session.get(self.url)
 
             if response.status_code == 200:
                 config = response.json()
 
                 # Validate that we're connected to the correct service
                 if config.get("noCode") == "true":
-                    self._config = config
+                    self.raw_config = config
                 else:
                     raise ConfigurationError(
                         "You seem to have connected to the frontend service instead of the GMS endpoint. "
@@ -111,18 +99,18 @@ class RestServiceConfig:
                     )
             else:
                 logger.debug(
-                    f"Unable to connect to {self._url} with status_code: {response.status_code}. Response: {response.text}"
+                    f"Unable to connect to {self.url} with status_code: {response.status_code}. Response: {response.text}"
                 )
 
                 if response.status_code == 401:
-                    message = f"Unable to connect to {self._url} - got an authentication error: {response.text}."
+                    message = f"Unable to connect to {self.url} - got an authentication error: {response.text}."
                 else:
-                    message = f"Unable to connect to {self._url} with status_code: {response.status_code}."
+                    message = f"Unable to connect to {self.url} with status_code: {response.status_code}."
 
                 message += "\nPlease check your configuration and make sure you are talking to the DataHub GMS (usually <datahub-gms-host>:8080) or Frontend GMS API (usually <frontend>:9002/api/gms)."
                 raise ConfigurationError(message)
 
-        return self._config
+        return self.raw_config
 
     @property
     def config(self) -> Dict[str, Any]:
@@ -135,31 +123,30 @@ class RestServiceConfig:
         return self.fetch_config()
 
     @property
-    def raw_config(self) -> Dict[str, Any]:
-        return self._config
-
-    def get_commit_hash(self) -> Optional[str]:
+    def commit_hash(self) -> Optional[str]:
         """
         Get the commit hash for the current version.
 
         Returns:
             The commit hash or None if not found
         """
-        versions = self.config.get("versions", {})
-        datahub_info = versions.get("acryldata/datahub", {})
+        versions = self.config.get("versions") or {}
+        datahub_info = versions.get("acryldata/datahub") or {}
         return datahub_info.get("commit")
 
-    def get_server_type(self) -> str:
+    @property
+    def server_type(self) -> str:
         """
         Get the server type.
 
         Returns:
             The server type or "unknown" if not found
         """
-        datahub = self.config.get("datahub", {})
+        datahub = self.config.get("datahub") or {}
         return datahub.get("serverType", "unknown")
 
-    def get_service_version(self) -> str:
+    @property
+    def service_version(self) -> Optional[str]:
         """
         Get the raw service version string.
 
@@ -167,11 +154,11 @@ class RestServiceConfig:
             The version string or None if not found
         """
         config = self.fetch_config()
-        versions = config.get("versions", {})
-        datahub_info = versions.get("acryldata/datahub", {})
+        versions = config.get("versions") or {}
+        datahub_info = versions.get("acryldata/datahub") or {}
         return datahub_info.get("version")
 
-    def parse_version(
+    def _parse_version(
         self, version_str: Optional[str] = None
     ) -> Tuple[int, int, int, int]:
         """
@@ -188,7 +175,7 @@ class RestServiceConfig:
             ValueError: If the version string cannot be parsed
         """
         if version_str is None:
-            version_str = self.get_service_version()
+            version_str = self.service_version
 
         if not version_str:
             return (0, 0, 0, 0)
@@ -212,7 +199,8 @@ class RestServiceConfig:
 
         return (major, minor, patch, build)
 
-    def get_parsed_version(self) -> Optional[Tuple[int, int, int, int]]:
+    @property
+    def parsed_version(self) -> Optional[Tuple[int, int, int, int]]:
         """
         Get the parsed semantic version of the service.
         Uses caching for efficiency.
@@ -221,7 +209,7 @@ class RestServiceConfig:
             Tuple of (major, minor, patch) version numbers
         """
         if self._version_cache is None:
-            self._version_cache = self.parse_version()
+            self._version_cache = self._parse_version()
         return self._version_cache
 
     def is_version_at_least(
@@ -239,7 +227,7 @@ class RestServiceConfig:
         Returns:
             True if the service version is at least the specified version
         """
-        current_version = self.get_parsed_version() or (0, 0, 0, 0)
+        current_version = self.parsed_version or (0, 0, 0, 0)
         requested_version = (major, minor, patch, build)
 
         return current_version >= requested_version
@@ -262,7 +250,7 @@ class RestServiceConfig:
         Returns:
             True if managedIngestion.enabled is True
         """
-        managed_ingestion = self.config.get("managedIngestion", {})
+        managed_ingestion = self.config.get("managedIngestion") or {}
         return managed_ingestion.get("enabled", False)
 
     @property
@@ -271,14 +259,16 @@ class RestServiceConfig:
         Check if DataHub Cloud is enabled.
 
         Returns:
-            True if version matches DataHubCloud
+            True if the server environment is not 'oss'
         """
-        version = self.get_service_version()
-        if not version:
+        datahub_config = self.config.get("datahub") or {}
+        server_env = datahub_config.get("serverEnv")
+
+        # Return False if serverEnv is None or empty string
+        if not server_env:
             return False
 
-        # If the version string contains a hyphen, it has a suffix
-        return "-" in version
+        return server_env != "oss"
 
     def supports_feature(self, feature: ServiceFeature) -> bool:
         """
@@ -296,7 +286,7 @@ class RestServiceConfig:
         Returns:
             Boolean indicating whether the feature is supported
         """
-        version = self.get_service_version()
+        version = self.service_version
         if not version:
             return False
 
@@ -334,9 +324,9 @@ class RestServiceConfig:
             is True,
             ServiceFeature.PATCH_CAPABLE: lambda: self.config.get("patchCapable", False)
             is True,
-            ServiceFeature.CLI_TELEMETRY: lambda: self.config.get("telemetry", {}).get(
-                "enabledCli", None
-            ),
+            ServiceFeature.CLI_TELEMETRY: lambda: (
+                self.config.get("telemetry") or {}
+            ).get("enabledCli", None),
             # Add more config-based feature checks as needed
         }
 
@@ -388,7 +378,7 @@ def set_gms_config(config: Union[Dict[str, Any], RestServiceConfig]) -> None:
     config_obj = (
         config
         if isinstance(config, RestServiceConfig)
-        else RestServiceConfig(config=config)
+        else RestServiceConfig(raw_config=config)
     )
 
     cli_telemetry_enabled = is_cli_telemetry_enabled(config_obj)

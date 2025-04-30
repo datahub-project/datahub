@@ -48,10 +48,10 @@ def mock_response(sample_config):
 
 def test_init_with_config(sample_config):
     """Test initialization with a config dictionary."""
-    config = RestServiceConfig(config=sample_config)
-    assert config._config == sample_config
-    assert config._session is None
-    assert config._url is None
+    config = RestServiceConfig(raw_config=sample_config)
+    assert config.config == sample_config
+    assert config.session is None
+    assert config.url is None
     assert config._version_cache is None
 
 
@@ -59,9 +59,9 @@ def test_init_with_session_and_url(mock_session):
     """Test initialization with session and URL."""
     url = "http://localhost:8080/config"
     config = RestServiceConfig(session=mock_session, url=url)
-    assert not config._config  # Should be empty
-    assert config._session == mock_session
-    assert config._url == url
+    assert not config.raw_config  # Should be empty
+    assert config.session == mock_session
+    assert config.url == url
     assert config._version_cache is None
 
 
@@ -131,22 +131,22 @@ def test_load_config_failure_auth_error(mock_session):
     assert "authentication error" in str(exc_info.value)
 
 
-def test_get_service_version(sample_config):
+def test_service_version(sample_config):
     """Test getting service version."""
-    config = RestServiceConfig(config=sample_config)
-    assert config.get_service_version() == "v1.0.0rc3"
+    config = RestServiceConfig(raw_config=sample_config)
+    assert config.service_version == "v1.0.0rc3"
 
 
-def test_get_commit_hash(sample_config):
+def test_commit_hash(sample_config):
     """Test getting commit hash."""
-    config = RestServiceConfig(config=sample_config)
-    assert config.get_commit_hash() == "dc127c5f031d579732899ccd81a53a3514dc4a6d"
+    config = RestServiceConfig(raw_config=sample_config)
+    assert config.commit_hash == "dc127c5f031d579732899ccd81a53a3514dc4a6d"
 
 
-def test_get_server_type(sample_config):
+def test_server_type(sample_config):
     """Test getting server type."""
-    config = RestServiceConfig(config=sample_config)
-    assert config.get_server_type() == "dev"
+    config = RestServiceConfig(raw_config=sample_config)
+    assert config.server_type == "dev"
 
 
 @pytest.mark.parametrize(
@@ -164,65 +164,66 @@ def test_get_server_type(sample_config):
 )
 def test_parse_version(sample_config, version_str, expected):
     """Test parsing different version formats."""
-    config = RestServiceConfig(config=sample_config)
+    config = RestServiceConfig(raw_config=sample_config)
     if version_str is not None:
-        result = config.parse_version(version_str)
+        result = config._parse_version(version_str)
     else:
         # Modify the config to not have a version
         modified_config = sample_config.copy()
         modified_config["versions"]["acryldata/datahub"]["version"] = None
-        config = RestServiceConfig(config=modified_config)
-        result = config.parse_version()
+        config = RestServiceConfig(raw_config=modified_config)
+        result = config._parse_version()
 
     assert result == expected
 
 
 @pytest.mark.parametrize(
-    "version,expected",
+    "server_env,expected",
     [
-        ("v1.0.0", False),  # No suffix
-        ("v1.0.0rc3", False),  # Release candidate is not a suffix
-        ("v1.0.0-acryl", True),  # With acryl suffix
-        ("v1.0.0-cloud", True),  # With cloud suffix
-        ("v1.0.0-custom", True),  # With custom suffix
-        ("v0.3.11-test", True),  # Different version with suffix
-        (None, False),  # No version
-        ("", False),  # Empty version
+        ("oss", False),  # Open source environment
+        ("cloud", True),  # Cloud environment
+        ("managed", True),  # Managed environment
+        ("enterprise", True),  # Enterprise environment
+        (None, False),  # No environment specified
+        ("", False),  # Empty string is not "oss"
     ],
 )
-def test_is_datahub_cloud(sample_config, version, expected):
-    """Test checking if a version represents DataHub Cloud based on suffix presence."""
+def test_is_datahub_cloud(sample_config, server_env, expected):
+    """Test checking if a configuration represents DataHub Cloud based on serverEnv."""
     modified_config = sample_config.copy()
-    if version is not None:
-        modified_config["versions"]["acryldata/datahub"]["version"] = version
-    else:
-        modified_config["versions"]["acryldata/datahub"]["version"] = None
 
-    config = RestServiceConfig(config=modified_config)
+    # Ensure datahub config exists
+    if "datahub" not in modified_config:
+        modified_config["datahub"] = {}
+
+    # Set the serverEnv value
+    modified_config["datahub"]["serverEnv"] = server_env
+
+    config = RestServiceConfig(raw_config=modified_config)
     assert config.is_datahub_cloud is expected
 
 
 def test_parse_version_invalid():
     """Test parsing invalid version string."""
-    config = RestServiceConfig(config={})
+    config = RestServiceConfig(raw_config={})
     with pytest.raises(ValueError) as exc_info:
-        config.parse_version("invalid_version")
+        config._parse_version("invalid_version")
     assert "Invalid version format" in str(exc_info.value)
 
 
-def test_get_parsed_version_caching(sample_config):
+def test_parsed_version_caching(sample_config):
     """Test that parsed version is cached."""
-    config = RestServiceConfig(config=sample_config)
+    config = RestServiceConfig(raw_config=sample_config)
 
     # First call should parse the version
-    result1 = config.get_parsed_version()
+    result1 = config.parsed_version
     assert result1 == (1, 0, 0, 0)
 
     # Change the version in the config
-    config._config["versions"]["acryldata/datahub"]["version"] = "v2.0.0"
+    config.config["versions"]["acryldata/datahub"]["version"] = "v2.0.0"
 
     # Second call should return cached result
-    result2 = config.get_parsed_version()
+    result2 = config.parsed_version
     assert result2 == (1, 0, 0, 0)  # Should be the same as before
 
 
@@ -242,22 +243,23 @@ def test_get_parsed_version_caching(sample_config):
 )
 def test_is_version_at_least(sample_config, current, required, expected):
     """Test version comparison for feature support."""
-    config = RestServiceConfig(config=sample_config)
+    config = RestServiceConfig(raw_config=sample_config)
 
-    # Use patch to mock the get_parsed_version method
-    with patch.object(config, "get_parsed_version", return_value=current):
-        result = config.is_version_at_least(
-            required[0], required[1], required[2], required[3]
-        )
-        assert result == expected
+    # Directly set the version cache
+    config._version_cache = current
+
+    result = config.is_version_at_least(
+        required[0], required[1], required[2], required[3]
+    )
+    assert result == expected
 
 
 def test_is_version_at_least_none(sample_config):
     """Test version comparison when version is None."""
-    config = RestServiceConfig(config=sample_config)
+    config = RestServiceConfig(raw_config=sample_config)
 
-    # Use patch to mock get_parsed_version to return None
-    with patch.object(config, "get_parsed_version", return_value=None):
+    # Use patch to mock parsed_version to return None
+    with patch.object(config, "_parse_version", return_value=None):
         # Should handle None by treating it as (0,0,0,0)
         assert not config.is_version_at_least(1, 0, 0, 0)
         assert config.is_version_at_least(0, 0, 0, 0)
@@ -265,25 +267,25 @@ def test_is_version_at_least_none(sample_config):
 
 def test_is_no_code_enabled(sample_config):
     """Test checking if noCode is enabled."""
-    config = RestServiceConfig(config=sample_config)
+    config = RestServiceConfig(raw_config=sample_config)
     assert config.is_no_code_enabled is True
 
     # Test with noCode disabled
     modified_config = sample_config.copy()
     modified_config["noCode"] = "false"
-    config = RestServiceConfig(config=modified_config)
+    config = RestServiceConfig(raw_config=modified_config)
     assert config.is_no_code_enabled is False
 
 
 def test_is_managed_ingestion_enabled(sample_config):
     """Test checking if managed ingestion is enabled."""
-    config = RestServiceConfig(config=sample_config)
+    config = RestServiceConfig(raw_config=sample_config)
     assert config.is_managed_ingestion_enabled is True
 
     # Test with managed ingestion disabled
     modified_config = sample_config.copy()
     modified_config["managedIngestion"]["enabled"] = False
-    config = RestServiceConfig(config=modified_config)
+    config = RestServiceConfig(raw_config=modified_config)
     assert config.is_managed_ingestion_enabled is False
 
 
@@ -325,14 +327,14 @@ def test_supports_feature(sample_config, version, feature, expected):
     modified_config = sample_config.copy()
     modified_config["versions"]["acryldata/datahub"]["version"] = version
 
-    config = RestServiceConfig(config=modified_config)
+    config = RestServiceConfig(raw_config=modified_config)
     result = config.supports_feature(feature)
     assert result == expected
 
 
 def test_str_and_repr(sample_config):
     """Test string representation of the config."""
-    config = RestServiceConfig(config=sample_config)
+    config = RestServiceConfig(raw_config=sample_config)
 
     # Test __str__
     assert str(config) == str(sample_config)
