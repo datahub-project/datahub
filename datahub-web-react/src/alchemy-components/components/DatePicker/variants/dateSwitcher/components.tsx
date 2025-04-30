@@ -41,7 +41,7 @@ const Content = styled(Text)<{ $disabled?: boolean }>`
     cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
     :hover {
-        ${(props) => !props.$disabled && `color: ${colors.violet[500]};`}
+        ${(props) => !props.$disabled && `color: ${props.theme.styles['primary-color']};`}
     }
 `;
 
@@ -53,7 +53,7 @@ const CaretWrapper = styled.div<{ $disabled?: boolean }>`
         cursor: ${(props) => (props.$disabled ? 'not-allowed' : 'pointer')};
 
         :hover {
-            ${(props) => !props.$disabled && `color: ${colors.violet[500]};`}
+            ${(props) => !props.$disabled && `color: ${props.theme.styles['primary-color']};`}
         }
     }
 `;

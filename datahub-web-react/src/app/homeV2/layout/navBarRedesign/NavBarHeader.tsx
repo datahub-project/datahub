@@ -28,6 +28,7 @@ const Logotype = styled.div`
     border-radius: 4px;
     position: relative;
     object-fit: contain;
+
     & svg,
     img {
         max-height: 24px;

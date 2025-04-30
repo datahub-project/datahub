@@ -16,7 +16,7 @@ class PlatformInstanceConfigMixin(ConfigModel):
         default=None,
         description="The instance of the platform that all assets produced by this recipe belong to. "
         "This should be unique within the platform. "
-        "See https://datahubproject.io/docs/platform-instances/ for more details.",
+        "See https://docs.datahub.com/docs/platform-instances/ for more details.",
     )
 
 

@@ -3,7 +3,7 @@
 You can do a HTTP POST request to `/gms/operations?action=truncateTimeseriesAspect` endpoint to manage the size of a time series index by removing entries older than a certain timestamp, thereby truncating the table to only the entries needed, to save space. The `getIndexSizes` endpoint can be used to identify the largest indices. The output includes the index parameters needed for this function.
 
 ```
-curl --location --request POST 'https://demo.datahubproject.io/api/gms/operations?action=truncateTimeseriesAspect' \
+curl --location --request POST 'https://demo.datahub.com/api/gms/operations?action=truncateTimeseriesAspect' \
 --header 'Authorization: Bearer TOKEN' \
 --header 'Content-Type: application/json' \
 --data-raw '{
@@ -12,7 +12,7 @@ curl --location --request POST 'https://demo.datahubproject.io/api/gms/operation
     "endTimeMillis": 1000000000000
 }'
 
-curl --location --request POST 'https://demo.datahubproject.io/api/gms/operations?action=truncateTimeseriesAspect' \
+curl --location --request POST 'https://demo.datahub.com/api/gms/operations?action=truncateTimeseriesAspect' \
 --header 'Authorization: Bearer TOKEN' \
 --header 'Content-Type: application/json' \
 --data-raw '{

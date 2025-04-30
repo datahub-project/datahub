@@ -9323,19 +9323,22 @@ The resources that a DataHub Access Policy applies to
 """
 type ResourceFilter {
   """
+  Deprecated, use filter instead
   The type of the resource the policy should apply to Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String
+  type: String @deprecated
 
   """
+  Deprecated, use filter instead
   A list of specific resource urns to apply the filter to
   """
-  resources: [String!]
+  resources: [String!] @deprecated
 
   """
+  Deprecated, use filter instead
   Whether of not to apply the filter to all resources of the type
   """
-  allResources: Boolean
+  allResources: Boolean @deprecated
 
   """
   Whether of not to apply the filter to all resources of the type
@@ -9469,17 +9472,20 @@ Input required when creating or updating an Access Policies Determines which res
 """
 input ResourceFilterInput {
   """
+  Deprecated, use filter field instead
   The type of the resource the policy should apply to
   Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String
+  type: String @deprecated
 
   """
+  Deprecated, use filter instead
   A list of specific resource urns to apply the filter to
   """
   resources: [String!]
 
   """
+  Deprecated, use empty filter instead
   Whether of not to apply the filter to all resources of the type
   """
   allResources: Boolean
@@ -9620,6 +9626,12 @@ input GetGrantedPrivilegesInput {
   Spec to identify resource. If empty, gets privileges granted to the actor
   """
   resourceSpec: ResourceSpec
+
+  """
+  Whether to include policy evaluation details.
+  This will only return result if user has Manage Policies Privilege.
+  """
+  includeEvaluationDetails: Boolean = false
 }
 
 """
@@ -9645,6 +9657,11 @@ type Privileges {
   Granted Privileges
   """
   privileges: [String!]!
+
+  """
+  Details about how each policy was evaluated
+  """
+  evaluationDetails: [PolicyEvaluationDetail]
 }
 
 """
@@ -13297,4 +13314,19 @@ extend type DataProcessInstance {
   The parent entity whose run instance it is
   """
   parentTemplate: Entity
+}
+
+"""
+Details about how a policy was evaluated for a given actor and resource
+"""
+type PolicyEvaluationDetail {
+  """
+  The policy that was evaluated
+  """
+  policyName: String!
+
+  """
+  The reason for deny for this policy
+  """
+  reason: String!
 }

@@ -99,9 +99,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
