@@ -206,7 +206,7 @@ class DataHubDatabaseReader:
         start_date: datetime,
         end_date: datetime,
         set_structured_properties_filter: bool,
-        limit: int = 50,
+        limit: int,
     ) -> Iterable[Dict[str, Any]]:
         """Get rows for a specific date range"""
         offset = 0
@@ -239,17 +239,14 @@ class DataHubDatabaseReader:
                 # Execute query with server-side cursor
                 rows = self.execute_server_cursor(query, params)
                 # Process and yield rows
-                row_num = 0
                 duplicate_found = False
                 first_row: Optional[Dict] = None
                 rows_processed = 0
                 for row in rows:
-                    if row_num == 0:
+                    if rows_processed == 0:
                         first_row = row
                         # Check for duplicate data
-                        if previous_first_row and previous_first_row.get(
-                            "metadata"
-                        ) == first_row.get("metadata"):
+                        if previous_first_row and previous_first_row == first_row:
                             logger.info(
                                 f"Skipping duplicate row for {first_row.get('urn')} with createdon {first_row.get('createdon')}."
                             )
