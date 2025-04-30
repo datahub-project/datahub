@@ -152,6 +152,11 @@ class LineageClient:
                 downstream=downstream,
                 cll_mapping=column_lineage,
             )
+        else:
+            raise SdkUsageError(
+                f"Invalid column lineage type: {type(column_lineage)}. "
+                "Expected None, dict, 'auto_fuzzy', or 'auto_strict'."
+            )
 
         updater = DatasetPatchBuilder(str(downstream))
         updater.add_upstream_lineage(
