@@ -25,6 +25,7 @@ function getGlossaryChildrenScrollInput(urn: string, scrollId: string | null) {
                     { field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending },
                 ],
             },
+            searchFlags: { skipCache: true },
         },
     };
 }
