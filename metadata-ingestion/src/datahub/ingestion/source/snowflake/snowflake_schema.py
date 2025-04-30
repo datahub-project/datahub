@@ -452,10 +452,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 view_pagination_marker = view_name
 
         if logger.isEnabledFor(logging.DEBUG):
-            for schema_name, schema_views in views.items():
-                logger.debug(
-                    f"Fetched views for {schema_name} [{len(schema_views)}]: {schema_views}"
-                )
+            num_views_per_schema = {
+                schema_name: len(schema_views)
+                for schema_name, schema_views in views.items()
+            }
+            logger.debug(f"Fetched views per schema: {num_views_per_schema}")
 
         return views
 
