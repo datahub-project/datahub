@@ -232,9 +232,8 @@ public class PolicyEngine {
               .setValues(
                   new StringArray(Collections.singletonList(policyResourceFilter.getType()))));
     }
-    if (policyResourceFilter.hasType()
-        && policyResourceFilter.hasResources()
-        && !policyResourceFilter.isAllResources()) {
+
+    if (policyResourceFilter.hasResources() && !policyResourceFilter.isAllResources()) {
       criteria.add(
           new PolicyMatchCriterion()
               .setField(EntityFieldType.URN.name())

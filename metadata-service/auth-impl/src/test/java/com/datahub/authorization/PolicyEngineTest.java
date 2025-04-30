@@ -956,6 +956,45 @@ public class PolicyEngineTest {
   }
 
   @Test
+  public void testEvaluatePolicyResourceFilterSpecificResourceMatchLegacyWithNoType()
+      throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setAllResources(false);
+
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN); // Filter applies to specific resource.
+    resourceFilter.setResources(resourceUrns);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertTrue(result.isGranted());
+
+    // Verify no network calls
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
   public void testEvaluatePolicyResourceFilterSpecificResourceMatch() throws Exception {
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
     dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
@@ -1019,6 +1058,44 @@ public class PolicyEngineTest {
                 Collections.singletonList("dataset"),
                 EntityFieldType.URN,
                 Collections.singletonList(RESOURCE_URN))));
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    ResolvedEntitySpec resourceSpec =
+        buildEntityResolvers(
+            "dataset", "urn:li:dataset:random"); // A resource not covered by the policy.
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertFalse(result.isGranted());
+
+    // Verify no network calls
+    verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
+  }
+
+  @Test
+  public void testEvaluatePolicyResourceFilterSpecificResourceNoMatchWithNoType() throws Exception {
+    final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
+    dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
+    dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
+    dataHubPolicyInfo.setPrivileges(new StringArray("EDIT_ENTITY_TAGS"));
+    dataHubPolicyInfo.setDisplayName("My Test Display");
+    dataHubPolicyInfo.setDescription("My test display!");
+    dataHubPolicyInfo.setEditable(true);
+
+    final DataHubActorFilter actorFilter = new DataHubActorFilter();
+    actorFilter.setResourceOwners(true);
+    actorFilter.setAllUsers(true);
+    actorFilter.setAllGroups(true);
+    dataHubPolicyInfo.setActors(actorFilter);
+
+    final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
+    resourceFilter.setFilter(
+        FilterUtils.newFilter(
+            ImmutableMap.of(EntityFieldType.URN, Collections.singletonList(RESOURCE_URN))));
     dataHubPolicyInfo.setResources(resourceFilter);
 
     ResolvedEntitySpec resourceSpec =
