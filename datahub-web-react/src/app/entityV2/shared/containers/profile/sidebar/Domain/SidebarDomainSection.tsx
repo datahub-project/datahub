@@ -42,6 +42,10 @@ const ProposedDomain = styled.div`
     border-radius: 12px;
     border: 1px dashed ${colors.gray[200]};
     color: ${colors.gray[500]};
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 interface PropertiesProps {

@@ -92,6 +92,11 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
     const { urn, entityType, entityData } = useEntityData();
     const refetch = useRefetch();
 
+    const handleModalClose = () => {
+        setShowProposalsModal(false);
+        refetch();
+    };
+
     return (
         <Controls isCollapsed={isClosed}>
             {!isClosed && currentTab && (
@@ -126,7 +131,7 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     </Top>
                     {showProposalsModal && (
                         // TODO: Add Proposals count Badge in the Modal title
-                        <Modal width="90%" title="Proposals" onCancel={() => setShowProposalsModal(false)}>
+                        <Modal width="90%" title="Proposals" onCancel={handleModalClose}>
                             <ProposalList resourceUrn={urn} height="700px" />
                         </Modal>
                     )}

@@ -31,6 +31,10 @@ const OwnerTag = styled(Tag)<{ $isProposedOwner?: boolean }>`
     padding: 2px 6px 2px 3px;
     max-width: inherit;
     border: ${(props) => props.$isProposedOwner && `1px dashed ${colors.gray[200]} !important`};
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 type Props = {

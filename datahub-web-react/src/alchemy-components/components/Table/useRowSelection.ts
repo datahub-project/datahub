@@ -15,9 +15,14 @@ export const useRowSelection = <T>(
     );
 
     const isSelectAll = useMemo(
-        () => data.length > 0 && selectedRowKeys.length === data.length - disabledRows.length,
+        () =>
+            data.length > 0 &&
+            selectedRowKeys.length !== 0 &&
+            selectedRowKeys.length === data.length - disabledRows.length,
         [selectedRowKeys, data, disabledRows],
     );
+
+    const isSelectAllDisabled = useMemo(() => data.length === disabledRows.length, [data, disabledRows]);
 
     const isIntermediate = useMemo(
         () => selectedRowKeys.length > 0 && selectedRowKeys.length < data.length - disabledRows.length,
@@ -48,6 +53,7 @@ export const useRowSelection = <T>(
 
     return {
         isSelectAll,
+        isSelectAllDisabled,
         isIntermediate,
         handleSelectAll,
         handleRowSelect,
