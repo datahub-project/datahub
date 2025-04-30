@@ -33,6 +33,7 @@ export default function SelectActionButtons({
     isDisabled,
     isReadOnly,
     showClear,
+    fontSize = 'md',
     handleClearSelection,
 }: ActionButtonsProps) {
     const onClearClickHandler = useCallback(
@@ -49,6 +50,7 @@ export default function SelectActionButtons({
                 <StyledClearButton
                     icon={{ icon: 'Close', source: 'material', size: 'lg' }}
                     isCircle
+                    size={fontSize}
                     onClick={onClearClickHandler}
                 />
             )}
