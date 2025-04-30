@@ -68,8 +68,8 @@ def import_path(path: str) -> Any:
 
 
 class ExecutorConfig(BaseModel):
-    executor_id: Optional[str]
-    task_configs: Optional[List[TaskConfig]]
+    executor_id: Optional[str] = None
+    task_configs: Optional[List[TaskConfig]] = None
 
 
 # Listens to new Execution Requests & dispatches them to the appropriate handler.
