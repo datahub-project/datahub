@@ -92,6 +92,8 @@ import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryTermResolve
 import com.linkedin.datahub.graphql.resolvers.glossary.DeleteGlossaryEntityResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.GetRootGlossaryNodesResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.GetRootGlossaryTermsResolver;
+import com.linkedin.datahub.graphql.resolvers.glossary.GlossaryChildrenSearchResolver;
+import com.linkedin.datahub.graphql.resolvers.glossary.GlossaryNodeChildrenCountResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.ParentNodesResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.RemoveRelatedTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
@@ -1819,6 +1821,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("childrenCount", new GlossaryNodeChildrenCountResolver(entityClient))
+                .dataFetcher(
+                    "glossaryChildrenSearch",
+                    new GlossaryChildrenSearchResolver(this.entityClient, this.viewService))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
   }
