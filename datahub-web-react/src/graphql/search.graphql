@@ -1222,6 +1222,37 @@ fragment searchResults on SearchResults {
     }
 }
 
+fragment scrollResults on ScrollResults {
+    count
+    total
+    nextScrollId
+    searchResults {
+        entity {
+            ...searchResultFields
+        }
+        matchedFields {
+            name
+            value
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+        insights {
+            text
+            icon
+        }
+        extraProperties {
+            name
+            value
+        }
+    }
+    facets {
+        ...facetFields
+    }
+}
+
 fragment entityField on SchemaFieldEntity {
     urn
     type
@@ -1330,6 +1361,7 @@ query getSearchResultsForMultipleTrimmed($input: SearchAcrossEntitiesInput!) {
                 entity {
                     urn
                     type
+                    ...entityDisplayNameFields
                 }
             }
         }
@@ -1417,5 +1449,11 @@ query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
 query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
     listDataProductAssets(urn: $urn, input: $input) {
         ...searchResults
+    }
+}
+
+query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
+    scrollAcrossEntities(input: $input) {
+        ...scrollResults
     }
 }
