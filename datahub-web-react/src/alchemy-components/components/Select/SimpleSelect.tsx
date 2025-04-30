@@ -1,3 +1,4 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import { Dropdown, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +23,9 @@ import SelectActionButtons from '@components/components/Select/private/SelectAct
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
+
+import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
+import { LoadingWrapper } from '@src/app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 
 export const selectDefaults: SelectProps = {
     options: [],
@@ -75,6 +79,7 @@ export const SimpleSelect = ({
     position,
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
+    isLoading = false,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -182,6 +187,13 @@ export const SimpleSelect = ({
                                     onChange={(value) => handleSearchChange(value)}
                                     size={size}
                                 />
+                            )}
+                            {isLoading ? (
+                                <LoadingWrapper>
+                                    <LoadingOutlined />
+                                </LoadingWrapper>
+                            ) : (
+                                !filteredOptions.length && <NoResultsFoundPlaceholder />
                             )}
                             <OptionList style={optionListStyle} data-testid={optionListTestId}>
                                 {showSelectAll && isMultiSelect && (

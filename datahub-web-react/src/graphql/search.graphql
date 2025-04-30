@@ -1148,6 +1148,11 @@ fragment facetFields on FacetMetadata {
                     ...parentDomainsFields
                 }
             }
+            ... on Dataset {
+                platform {
+                    ...platformFields
+                }
+            }
             ... on Container {
                 platform {
                     ...platformFields
