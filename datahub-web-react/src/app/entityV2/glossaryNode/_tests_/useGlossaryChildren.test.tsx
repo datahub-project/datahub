@@ -17,6 +17,21 @@ vi.mock('@src/graphql/search.generated', () => ({
     useGetAutoCompleteMultipleResultsQuery: vi.fn(),
 }));
 
+// Mock the entity registry
+vi.mock('@app/useEntityRegistry', () => ({
+    useEntityRegistryV2: () => ({
+        getDisplayName: (type: EntityType) => {
+            if (type === EntityType.GlossaryTerm) {
+                return 'Test Term';
+            }
+            if (type === EntityType.GlossaryNode) {
+                return 'Test Node';
+            }
+            return '';
+        },
+    }),
+}));
+
 describe('useGlossaryChildren', () => {
     const mockEntity: Entity = {
         urn: 'urn:li:glossaryTerm:test-term',
