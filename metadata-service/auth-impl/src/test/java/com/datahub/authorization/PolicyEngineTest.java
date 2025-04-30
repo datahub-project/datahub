@@ -973,15 +973,26 @@ public class PolicyEngineTest {
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    resourceFilter.setAllResources(false);
+    resourceFilter.setAllResources(true);
+
+    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    PolicyEngine.PolicyEvaluationResult result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertTrue(result.isGranted());
 
     StringArray resourceUrns = new StringArray();
     resourceUrns.add(RESOURCE_URN); // Filter applies to specific resource.
     resourceFilter.setResources(resourceUrns);
+    resourceFilter.setAllResources(false); // This time should match due to RESOURCE_URN
     dataHubPolicyInfo.setResources(resourceFilter);
 
-    ResolvedEntitySpec resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
-    PolicyEngine.PolicyEvaluationResult result =
+    resourceSpec = buildEntityResolvers("dataset", RESOURCE_URN);
+    result =
         _policyEngine.evaluatePolicy(
             systemOperationContext,
             dataHubPolicyInfo,
@@ -1077,7 +1088,8 @@ public class PolicyEngineTest {
   }
 
   @Test
-  public void testEvaluatePolicyResourceFilterSpecificResourceNoMatchWithNoType() throws Exception {
+  public void testEvaluatePolicyResourceFilterSpecificResourceLegacyNoMatchWithNoType()
+      throws Exception {
     final DataHubPolicyInfo dataHubPolicyInfo = new DataHubPolicyInfo();
     dataHubPolicyInfo.setType(METADATA_POLICY_TYPE);
     dataHubPolicyInfo.setState(ACTIVE_POLICY_STATE);
@@ -1093,9 +1105,9 @@ public class PolicyEngineTest {
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    resourceFilter.setFilter(
-        FilterUtils.newFilter(
-            ImmutableMap.of(EntityFieldType.URN, Collections.singletonList(RESOURCE_URN))));
+    StringArray resourceUrns = new StringArray();
+    resourceUrns.add(RESOURCE_URN); // Filter applies to specific resource.
+    resourceFilter.setResources(resourceUrns);
     dataHubPolicyInfo.setResources(resourceFilter);
 
     ResolvedEntitySpec resourceSpec =
@@ -1109,6 +1121,21 @@ public class PolicyEngineTest {
             "EDIT_ENTITY_TAGS",
             Optional.of(resourceSpec));
     assertFalse(result.isGranted());
+
+    resourceFilter.setAllResources(true);
+    dataHubPolicyInfo.setResources(resourceFilter);
+
+    resourceSpec =
+        buildEntityResolvers(
+            "dataset", "urn:li:dataset:random"); // A resource not covered by the policy.
+    result =
+        _policyEngine.evaluatePolicy(
+            systemOperationContext,
+            dataHubPolicyInfo,
+            resolvedAuthorizedUserSpec,
+            "EDIT_ENTITY_TAGS",
+            Optional.of(resourceSpec));
+    assertTrue(result.isGranted()); // Due to allResources set to true
 
     // Verify no network calls
     verify(_entityClient, times(0)).batchGetV2(any(), any(), any(), any());
