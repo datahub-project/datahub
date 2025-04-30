@@ -25,7 +25,9 @@ export default function useOptions(
     }, [searchQuery]);
 
     useEffect(() => {
-        if (!isDataLoading) setIsDataInitialized(true);
+        if (!isDataLoading && isSearching) {
+            setIsDataInitialized(true);
+        }
     }, [isDataLoading]);
 
     const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions();
@@ -49,7 +51,7 @@ export default function useOptions(
         if (!isSearching) return initialOptions;
 
         if (shouldShowAutoCompleteResults) {
-            if (!isDataLoading && !hasResults) return [];
+            if (!isDataLoading && !hasResults && isDataInitialized) return [];
             return [...viewAllResultsOptions, ...searchResultsOptions];
         }
 
