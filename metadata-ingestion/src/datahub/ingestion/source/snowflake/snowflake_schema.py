@@ -417,10 +417,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
 
-            if logger.isEnabledFor(logging.DEBUG):
-                view_names = [view["name"] for view in cur]
-                logger.debug(f"Fetched views so far: {view_names}")
-
             first_iteration = False
             view_pagination_marker = None
 
@@ -430,6 +426,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
                 view_name = view["name"]
                 schema_name = view["schema_name"]
+                logger.debug(f"Fetched view: {view_name} for {schema_name}")
                 if schema_name not in views:
                     views[schema_name] = []
                 views[schema_name].append(
@@ -453,6 +450,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     f"Fetching next page of views for {db_name} - after {view_name}"
                 )
                 view_pagination_marker = view_name
+
+        if logger.isEnabledFor(logging.DEBUG):
+            for schema_name, schema_views in views.items():
+                logger.debug(
+                    f"Fetched views for {schema_name} [{len(schema_views)}]: {schema_views}"
+                )
 
         return views
 
