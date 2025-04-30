@@ -193,23 +193,11 @@ class SnowflakeConnectionConfig(ConfigModel):
                 "but should be set when using use_certificate false for oauth_config"
             )
 
-    def get_sql_alchemy_url(
-        self,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[pydantic.SecretStr] = None,
-        role: Optional[str] = None,
-    ) -> str:
-        if username is None:
-            username = self.username
-        if password is None:
-            password = self.password
-        if role is None:
-            role = self.role
+    def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
         return make_sqlalchemy_uri(
             self.scheme,
-            username,
-            password.get_secret_value() if password else None,
+            self.username,
+            self.password.get_secret_value() if self.password else None,
             self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
@@ -218,7 +206,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 for (key, value) in {
                     "authenticator": _VALID_AUTH_TYPES.get(self.authentication_type),
                     "warehouse": self.warehouse,
-                    "role": role,
+                    "role": self.role,
                     "application": _APPLICATION_NAME,
                 }.items()
                 if value
