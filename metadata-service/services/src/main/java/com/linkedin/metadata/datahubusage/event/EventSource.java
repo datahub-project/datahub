@@ -1,6 +1,5 @@
 package com.linkedin.metadata.datahubusage.event;
 
-
 import javax.annotation.Nullable;
 import lombok.Getter;
 

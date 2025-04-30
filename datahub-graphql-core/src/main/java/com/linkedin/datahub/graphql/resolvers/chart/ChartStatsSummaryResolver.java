@@ -22,8 +22,6 @@ public class ChartStatsSummaryResolver
   public CompletableFuture<ChartStatsSummary> get(DataFetchingEnvironment environment)
       throws Exception {
     // Not yet implemented
-    return GraphQLConcurrencyUtils.supplyAsync(
-        () -> null,
-        this.getClass().getSimpleName(), "get");
+    return GraphQLConcurrencyUtils.supplyAsync(() -> null, this.getClass().getSimpleName(), "get");
   }
 }

@@ -52,8 +52,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @ComponentScan(
     basePackages = {"io.datahubproject.openapi.schema.registry.config", "com.linkedin.gms.servlet"})
 public class ServletConfig implements WebMvcConfigurer {
-  @Autowired
-  private TracingInterceptor tracingInterceptor;
+  @Autowired private TracingInterceptor tracingInterceptor;
 
   @Value("${datahub.gms.async.request-timeout-ms}")
   private long asyncTimeoutMilliseconds;
