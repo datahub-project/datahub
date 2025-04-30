@@ -32,25 +32,37 @@ export const DataContractProposalModal = ({ proposal, showActions = true, onClos
     const hasAssertions = proposal.freshness?.length || proposal.schema?.length || proposal.dataQuality?.length;
 
     return (
-        <Modal
-            visible
-            footer={null}
-            onCancel={onClose}
-            width={750}
-            bodyStyle={{ padding: 0 }}
-            title="Review Contract Proposal"
+        <div
+            onClick={(e) => e.stopPropagation()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation();
+                }
+            }}
         >
-            {!hasAssertions && <NoAssertions>Proposal to remove all assertions from Data Contract</NoAssertions>}
-            {(proposal.freshness?.length && <FreshnessContractSummary contracts={proposal.freshness} />) || undefined}
-            {(proposal.schema?.length && <SchemaContractSummary contracts={proposal.schema} />) || undefined}
-            {(proposal.dataQuality?.length && <DataQualityContractSummary contracts={proposal.dataQuality} />) ||
-                undefined}
-            {showActions && (
-                <>
-                    <ActionButton onClick={onApprove}>Approve</ActionButton>
-                    <ActionButton onClick={onDeny}>Deny</ActionButton>
-                </>
-            )}
-        </Modal>
+            <Modal
+                visible
+                footer={null}
+                onCancel={onClose}
+                width={750}
+                bodyStyle={{ padding: 0 }}
+                title="Review Contract Proposal"
+            >
+                {!hasAssertions && <NoAssertions>Proposal to remove all assertions from Data Contract</NoAssertions>}
+                {(proposal.freshness?.length && <FreshnessContractSummary contracts={proposal.freshness} />) ||
+                    undefined}
+                {(proposal.schema?.length && <SchemaContractSummary contracts={proposal.schema} />) || undefined}
+                {(proposal.dataQuality?.length && <DataQualityContractSummary contracts={proposal.dataQuality} />) ||
+                    undefined}
+                {showActions && (
+                    <>
+                        <ActionButton onClick={onApprove}>Approve</ActionButton>
+                        <ActionButton onClick={onDeny}>Deny</ActionButton>
+                    </>
+                )}
+            </Modal>
+        </div>
     );
 };

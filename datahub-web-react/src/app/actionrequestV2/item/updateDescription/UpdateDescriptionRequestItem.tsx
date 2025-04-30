@@ -54,29 +54,49 @@ function UpdateDescriptionRequestItem({ actionRequest }: Props) {
                 requests to update the description on {entityName}{' '}
             </Text>
             <RequestTargetEntityView actionRequest={actionRequest} />
-            <ViewDocumentationButton variant="text" onClick={handleClick}>
+            <ViewDocumentationButton
+                variant="text"
+                onClick={(e) => {
+                    handleClick();
+                    e.stopPropagation();
+                }}
+            >
                 <GitDiff size={16} color={colors.gray[500]} />
                 <Text color="gray">{isRequestPending ? 'View difference' : 'View description'}</Text>
             </ViewDocumentationButton>
-            {isDiffModalVisible && (
-                <DescriptionDifferenceModal
-                    oldDescription={oldDescription}
-                    newDescription={newDescription}
-                    closeModal={() => setIsDiffModalVisible(false)}
-                    actionRequest={actionRequest}
-                />
-            )}
-            {isDescriptionModalVisible && (
-                <Modal
-                    visible
-                    footer={null}
-                    onCancel={() => setIsDescriptionModalVisible(false)}
-                    width={750}
-                    title="Update Description Proposal"
-                >
-                    <MDEditor.Markdown style={{ fontWeight: 400, color: colors.gray[500] }} source={newDescription} />
-                </Modal>
-            )}
+            <div
+                onClick={(e) => e.stopPropagation()}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                    }
+                }}
+            >
+                {isDiffModalVisible && (
+                    <DescriptionDifferenceModal
+                        oldDescription={oldDescription}
+                        newDescription={newDescription}
+                        closeModal={() => setIsDiffModalVisible(false)}
+                        actionRequest={actionRequest}
+                    />
+                )}
+                {isDescriptionModalVisible && (
+                    <Modal
+                        visible
+                        footer={null}
+                        onCancel={() => setIsDescriptionModalVisible(false)}
+                        width={750}
+                        title="Update Description Proposal"
+                    >
+                        <MDEditor.Markdown
+                            style={{ fontWeight: 400, color: colors.gray[500] }}
+                            source={newDescription}
+                        />
+                    </Modal>
+                )}
+            </div>
         </ContentWrapper>
     );
 }

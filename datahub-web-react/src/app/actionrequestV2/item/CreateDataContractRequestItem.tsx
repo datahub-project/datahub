@@ -27,7 +27,14 @@ export default function CreateDataContractRequestItem({ actionRequest }: Props) 
             </Text>
             <RequestTargetEntityView actionRequest={actionRequest} />
             {'  '}
-            <ViewDocumentationButton variant="text" size="sm" onClick={() => setShowDetails(true)}>
+            <ViewDocumentationButton
+                variant="text"
+                size="sm"
+                onClick={(e) => {
+                    setShowDetails(true);
+                    e.stopPropagation();
+                }}
+            >
                 <Swap size={16} color={colors.gray[500]} />
                 <Text color="gray"> View details</Text>
             </ViewDocumentationButton>
