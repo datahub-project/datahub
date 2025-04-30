@@ -1,7 +1,7 @@
-import { GetEntityIncidentsDocument } from '../../../../../graphql/incident.generated';
+import { getExistingIncidents } from '@app/entityV2/shared/tabs/Incident/utils';
 
-import { IncidentType, IncidentState, Incident } from '../../../../../types.generated';
-import { getExistingIncidents } from './utils';
+import { GetEntityIncidentsDocument } from '@graphql/incident.generated';
+import { Incident, IncidentState, IncidentType } from '@types';
 
 export const PAGE_SIZE = 100;
 
@@ -109,7 +109,7 @@ export const updateListIncidentsCache = (client, urn, incident, pageSize) => {
                 },
                 // Add the missing 'siblings' field with the appropriate data
                 siblings: currData?.entity?.siblings || null,
-                siblingsSearch: null,
+                siblingsSearch: currData?.entity.siblingsSearch || null,
             },
         },
     });

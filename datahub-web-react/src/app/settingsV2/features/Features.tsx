@@ -1,9 +1,13 @@
 import React from 'react';
 import styled from 'styled-components';
-import { PageTitle } from '@src/alchemy-components';
 import { v4 as uuidv4 } from 'uuid';
-import { Feature, FeatureType } from './Feature';
-import { useGetDocPropagationSettings, useUpdateDocPropagationSettings } from './useDocPropagationSettings';
+
+import { Feature, FeatureType } from '@app/settingsV2/features/Feature';
+import {
+    useGetDocPropagationSettings,
+    useUpdateDocPropagationSettings,
+} from '@app/settingsV2/features/useDocPropagationSettings';
+import { PageTitle } from '@src/alchemy-components';
 
 const Page = styled.div`
     display: flex;
@@ -80,7 +84,7 @@ export const Features = () => {
             ],
             isNew: true,
             learnMoreLink:
-                'https://datahubproject.io/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=features',
+                'https://docs.datahub.com/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=features',
         },
     ];
 

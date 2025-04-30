@@ -372,7 +372,7 @@ springdoc:
   cache:
     disabled: false
   swagger-ui:
-    path: /openapi/swagger-ui/index.html
+    path: /openapi/swagger-ui
     urls-primary-name: DataHub v3 (OpenAPI)
   api-docs:
     path: /openapi/v3/api-docs
@@ -530,6 +530,9 @@ entityChangeEvents:
 
 views:
   enabled: ${VIEWS_ENABLED:true}
+
+searchBar:
+  apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
 
 entityClient:
   retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}

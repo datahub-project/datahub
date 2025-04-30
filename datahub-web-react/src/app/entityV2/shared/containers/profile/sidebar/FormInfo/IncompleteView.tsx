@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button } from '@src/alchemy-components';
-import ShieldExclamation from '../../../../../../../images/shield-exclamation.svg';
+
+import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
 import {
     CTAWrapper,
     Content,
@@ -12,9 +13,10 @@ import {
     StyledReadOutlined,
     Title,
     TitleWrapper,
-} from './components';
-import OptionalPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import RequiredPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
+} from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
+import { Button } from '@src/alchemy-components';
+
+import ShieldExclamation from '@images/shield-exclamation.svg';
 
 const Text = styled.div`
     text-wrap: wrap;

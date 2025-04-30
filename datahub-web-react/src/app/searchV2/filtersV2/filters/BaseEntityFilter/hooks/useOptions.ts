@@ -1,9 +1,10 @@
+import { useMemo } from 'react';
+
+import useAutocompleteResults from '@app/searchV2/filtersV2/filters/BaseEntityFilter/hooks/useAutocompleteResults';
+import useConvertEntitiesToOptions from '@app/searchV2/filtersV2/filters/BaseEntityFilter/hooks/useEntitiesToOptions';
+import { BaseEntitySelectOption } from '@app/searchV2/filtersV2/filters/BaseEntityFilter/types';
 import { FeildFacetState } from '@src/app/searchV2/filtersV2/types';
 import { Entity, EntityType } from '@src/types.generated';
-import { useMemo } from 'react';
-import { BaseEntitySelectOption } from '../types';
-import useConvertEntitiesToOptions from './useEntitiesToOptions';
-import useAutocompleteResults from './useAutocompleteResults';
 
 const mergeEntityArrays = (arrayA: Entity[], arrayB: Entity[]): Entity[] => {
     const urnsFromArrayB = arrayB.map((entity) => entity.urn);

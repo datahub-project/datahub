@@ -1,9 +1,10 @@
-import { useGetRecentQueriesQuery } from '../../../../../../graphql/dataset.generated';
+import { MAX_QUERIES_COUNT } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';
+import { filterQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
+import getTopNQueries from '@app/entityV2/shared/tabs/Dataset/Queries/utils/getTopNQueries';
 // import { useAppConfig } from '../../../../../useAppConfig';
-import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
-import { MAX_QUERIES_COUNT } from './utils/constants';
-import { filterQueries } from './utils/filterQueries';
-import getTopNQueries from './utils/getTopNQueries';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+
+import { useGetRecentQueriesQuery } from '@graphql/dataset.generated';
 
 interface Props {
     entityUrn?: string;

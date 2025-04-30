@@ -2,11 +2,18 @@ import { CaretUpOutlined } from '@ant-design/icons';
 import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { FilterOptionType } from './types';
-import { Entity, EntityType, Tag } from '../../../types.generated';
-import { generateColor } from '../../entity/shared/components/styled/StyledTag';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { generateColor } from '@app/entity/shared/components/styled/StyledTag';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import ParentEntities from '@app/search/filters/ParentEntities';
+import { IconSpacer, Label } from '@app/search/filters/styledComponents';
+import { FilterOptionType } from '@app/search/filters/types';
+import {
+    getFilterIconAndLabel,
+    getParentEntities,
+    isAnyOptionSelected,
+    isFilterOptionSelected,
+} from '@app/search/filters/utils';
 import {
     CONTAINER_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
@@ -14,12 +21,12 @@ import {
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
-} from '../utils/constants';
-import { IconSpacer, Label } from './styledComponents';
-import { isFilterOptionSelected, getFilterIconAndLabel, isAnyOptionSelected, getParentEntities } from './utils';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import ParentEntities from './ParentEntities';
-import { formatNumber } from '../../shared/formatNumber';
+} from '@app/search/utils/constants';
+import { formatNumber } from '@app/shared/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType, Tag } from '@types';
 
 const FilterOptionWrapper = styled.div<{ centerAlign?: boolean; addPadding?: boolean }>`
     display: flex;

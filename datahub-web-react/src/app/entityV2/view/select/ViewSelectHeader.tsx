@@ -1,15 +1,16 @@
-import React from 'react';
-import styled from 'styled-components';
+import { SearchOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import GridViewIcon from '@mui/icons-material/GridView';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
+import { MagnifyingGlass } from '@phosphor-icons/react';
 import { Input } from 'antd';
-import { Tooltip } from '@components';
-import { SearchOutlined } from '@ant-design/icons';
+import React from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { MagnifyingGlass } from '@phosphor-icons/react';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../shared/constants';
 
 const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}

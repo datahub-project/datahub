@@ -2,12 +2,14 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Entity } from '@types';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
-import ContextPathEntityIcon from './ContextPathEntityIcon';
-import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
+
+import { Entity } from '@types';
 
 const Path = styled.div`
     white-space: nowrap;
@@ -28,7 +30,7 @@ const ContainerText = styled.span`
     max-width: 150px; // TODO: Remove in favor of smart truncation
 `;
 
-const StyledLink = styled(Link)<{ $disabled?: boolean }>`
+const StyledLink = styled(Link)<{ $disabled?: boolean; $color: string }>`
     white-space: nowrap;
     border-radius: 4px;
     overflow: hidden;
@@ -37,17 +39,17 @@ const StyledLink = styled(Link)<{ $disabled?: boolean }>`
     gap: 4px;
     align-items: center;
     line-height: 22px;
-    color: ${REDESIGN_COLORS.LINK_GREY};
+    color: ${(props) => props.$color};
 
     && svg {
-        color: ${REDESIGN_COLORS.LINK_GREY};
+        color: ${(props) => props.$color};
     }
 
     :hover {
-        color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
+        color: ${({ $disabled, $color }) => ($disabled ? $color : colors.violet[500])};
         cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
         && svg {
-            color: ${({ $disabled }) => ($disabled ? REDESIGN_COLORS.LINK_GREY : colors.violet[500])};
+            color: ${({ $disabled, $color }) => ($disabled ? $color : colors.violet[500])};
         }
     }
 `;
@@ -56,10 +58,11 @@ interface Props {
     entity: Maybe<Entity>;
     linkDisabled?: boolean;
     style?: React.CSSProperties;
+    color?: string;
 }
 
 function ContextPathEntityLink(props: Props) {
-    const { entity, linkDisabled, style } = props;
+    const { entity, linkDisabled, style, color } = props;
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
 
@@ -74,6 +77,7 @@ function ContextPathEntityLink(props: Props) {
                 to={linkDisabled ? null : containerUrl}
                 data-testid="container"
                 $disabled={linkDisabled}
+                $color={color ?? REDESIGN_COLORS.LINK_GREY}
                 {...linkProps}
             >
                 <ContextPathEntityIcon entity={entity} />

@@ -236,7 +236,7 @@ trino = {
 }
 
 pyhive_common = {
-    # Acryl Data maintains a fork of PyHive
+    # DataHub maintains a fork of PyHive
     # - 0.6.11 adds support for table comments and column comments,
     #   and also releases HTTP and HTTPS transport schemes
     # - 0.6.12 adds support for Spark Thrift Server
@@ -609,8 +609,8 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.4",
-    "mypy==1.10.1",
+    "ruff==0.11.6",
+    "mypy==1.12.1",
 }
 
 base_dev_requirements = {
@@ -873,9 +873,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
         "Releases": "https://github.com/acryldata/datahub/releases",
@@ -886,7 +886,7 @@ setuptools.setup(
 The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
 as well as an integration framework for pulling/pushing metadata from external systems.
 
-See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
+See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
 """,
     long_description_content_type="text/markdown",
     classifiers=[

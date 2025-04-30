@@ -17,7 +17,8 @@ FROZEN_TIME = "2021-12-07 07:00:00"
 JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/verify": "verify.json",
     "https://app.mode.com/api/account": "user.json",
-    "https://app.mode.com/api/acryl/spaces?filter=all": "spaces.json",
+    "https://app.mode.com/api/acryl/spaces?filter=all&per_page=30&page=1": "spaces.json",
+    "https://app.mode.com/api/acryl/spaces?filter=all&per_page=30&page=2": "spaces_empty.json",
     "https://app.mode.com/api/acryl/spaces/157933cc1168/reports": "reports_157933cc1168.json",
     "https://app.mode.com/api/acryl/spaces/75737b70402e/reports": "reports_75737b70402e.json",
     "https://app.mode.com/api/modeuser": "user.json",
