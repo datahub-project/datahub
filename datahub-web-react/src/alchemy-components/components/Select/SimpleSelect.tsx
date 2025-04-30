@@ -23,6 +23,7 @@ import SelectActionButtons from '@components/components/Select/private/SelectAct
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
 
+import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
 import { LoadingWrapper } from '@src/app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 
 export const selectDefaults: SelectProps = {
@@ -205,10 +206,12 @@ export const SimpleSelect = ({
                                     onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
                                 />
                             )}
-                            {isLoading && (
+                            {isLoading ? (
                                 <LoadingWrapper>
                                     <LoadingOutlined />
                                 </LoadingWrapper>
+                            ) : (
+                                !filteredOptions.length && <NoResultsFoundPlaceholder />
                             )}
                             {filteredOptions.map((option) => (
                                 <OptionLabel
