@@ -203,7 +203,10 @@ class ExecutorAction(Action):
                 SecretStoreConfig(type="env", config=dict({})),
                 SecretStoreConfig(
                     type="datahub",
-                    config=DataHubSecretStoreConfig(graph_client=graph),
+                    # TODO: Once SecretStoreConfig is updated to accept arbitrary types
+                    # and not just dicts, we can just pass in the DataHubSecretStoreConfig
+                    # object directly.
+                    config=DataHubSecretStoreConfig(graph_client=graph).dict(),
                 ),
             ],
             graph_client=graph,
