@@ -431,10 +431,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     SnowflakeView(
                         name=view_name,
                         created=view["created_on"],
-                        # last_altered=table["last_altered"],
                         comment=view["comment"],
                         view_definition=view["text"],
-                        last_altered=view["created_on"],
+                        last_altered=None,
+                        # last_altered=view["created_on"],
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
                         ),
@@ -449,6 +449,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
                 view_pagination_marker = view_name
 
+        # Because this is in a cached function, this will only log once per database.
+        view_counts = {schema_name: len(views[schema_name]) for schema_name in views}
+        logger.info(
+            f"Finished fetching views in {db_name}; counts by schema {view_counts}"
+        )
         return views
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
