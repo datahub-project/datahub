@@ -270,29 +270,30 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             ):
                 return
 
-            with self.report.new_stage(f"*: {QUERIES_EXTRACTION}"):
-                with BigQueryQueriesExtractor(
-                    connection=self.config.get_bigquery_client(),
-                    schema_api=self.bq_schema_extractor.schema_api,
-                    config=BigQueryQueriesExtractorConfig(
-                        window=self.config,
-                        user_email_pattern=self.config.usage.user_email_pattern,
-                        include_lineage=self.config.include_table_lineage,
-                        include_usage_statistics=self.config.include_usage_statistics,
-                        include_operations=self.config.usage.include_operational_stats,
-                        include_queries=self.config.include_queries,
-                        include_query_usage_statistics=self.config.include_query_usage_statistics,
-                        top_n_queries=self.config.usage.top_n_queries,
-                        region_qualifiers=self.config.region_qualifiers,
-                    ),
-                    structured_report=self.report,
-                    filters=self.filters,
-                    identifiers=self.identifiers,
-                    schema_resolver=self.sql_parser_schema_resolver,
-                    discovered_tables=self.bq_schema_extractor.table_refs,
-                ) as queries_extractor:
-                    self.report.queries_extractor = queries_extractor.report
-                    yield from queries_extractor.get_workunits_internal()
+            with self.report.new_stage(
+                f"*: {QUERIES_EXTRACTION}"
+            ), BigQueryQueriesExtractor(
+                connection=self.config.get_bigquery_client(),
+                schema_api=self.bq_schema_extractor.schema_api,
+                config=BigQueryQueriesExtractorConfig(
+                    window=self.config,
+                    user_email_pattern=self.config.usage.user_email_pattern,
+                    include_lineage=self.config.include_table_lineage,
+                    include_usage_statistics=self.config.include_usage_statistics,
+                    include_operations=self.config.usage.include_operational_stats,
+                    include_queries=self.config.include_queries,
+                    include_query_usage_statistics=self.config.include_query_usage_statistics,
+                    top_n_queries=self.config.usage.top_n_queries,
+                    region_qualifiers=self.config.region_qualifiers,
+                ),
+                structured_report=self.report,
+                filters=self.filters,
+                identifiers=self.identifiers,
+                schema_resolver=self.sql_parser_schema_resolver,
+                discovered_tables=self.bq_schema_extractor.table_refs,
+            ) as queries_extractor:
+                self.report.queries_extractor = queries_extractor.report
+                yield from queries_extractor.get_workunits_internal()
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(

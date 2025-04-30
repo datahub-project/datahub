@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in closed beta. Reach out to your Acryl representative to get access.
+This feature is currently in closed beta. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
@@ -31,7 +31,7 @@ Generating good documentation requires a holistic understanding of the data. Inf
 - Lineage relationships to upstream and downstream assets
 - Metadata about other related assets
 
-Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedrock internally, which means all metadata remains within the Acryl AWS account. We do not fine-tune on customer data.
+Data privacy: Your metadata is not sent to any third-party LLMs. We use AWS Bedrock internally, which means all metadata remains within the DataHub Cloud AWS account. We do not fine-tune on customer data.
 
 ## Limitations
 
