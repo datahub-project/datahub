@@ -28,7 +28,16 @@ interface Props {
 
 const ResultNote = ({ resultNote, authorDisplayName }: Props) => {
     return (
-        <>
+        <span
+            onClick={(e) => e.stopPropagation()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation();
+                }
+            }}
+        >
             {resultNote && (
                 <Popover
                     content={
@@ -47,7 +56,7 @@ const ResultNote = ({ resultNote, authorDisplayName }: Props) => {
                     </IconContainer>
                 </Popover>
             )}
-        </>
+        </span>
     );
 };
 

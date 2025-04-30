@@ -178,8 +178,16 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
         <>
             {actionResultView}
             {!!modalType && (
-                // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-                <div onClick={(e) => e.stopPropagation()}>
+                <div
+                    onClick={(e) => e.stopPropagation()}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.stopPropagation();
+                        }
+                    }}
+                >
                     <Modal
                         buttons={[
                             {
