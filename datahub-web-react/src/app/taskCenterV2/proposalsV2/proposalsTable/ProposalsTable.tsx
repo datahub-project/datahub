@@ -15,6 +15,7 @@ const TableContainer = styled.div`
 interface Props {
     actionRequests: ActionRequest[];
     isLoading: boolean;
+    enableSelection?: boolean;
     isRowSelectionDisabled: (record: ActionRequest) => boolean;
     onActionRequestUpdate: () => void;
     selectedKeys: string[];
@@ -26,6 +27,7 @@ interface Props {
 const ProposalsTable = ({
     actionRequests,
     isLoading,
+    enableSelection = true,
     isRowSelectionDisabled,
     onActionRequestUpdate,
     selectedKeys,
@@ -46,13 +48,17 @@ const ProposalsTable = ({
                 data={actionRequests}
                 isLoading={isLoading}
                 rowKey={(record) => record.urn}
-                rowSelection={{
-                    selectedRowKeys: selectedKeys,
-                    onChange: (keys) => setSelectedKeys(keys),
-                    getCheckboxProps: (record) => ({
-                        disabled: isRowSelectionDisabled(record),
-                    }),
-                }}
+                rowSelection={
+                    enableSelection
+                        ? {
+                              selectedRowKeys: selectedKeys,
+                              onChange: (keys) => setSelectedKeys(keys),
+                              getCheckboxProps: (record) => ({
+                                  disabled: isRowSelectionDisabled(record),
+                              }),
+                          }
+                        : undefined
+                }
                 onRowClick={onRowClick}
                 style={{ tableLayout: 'auto' }}
                 isScrollable

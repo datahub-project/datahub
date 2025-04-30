@@ -66,6 +66,7 @@ type Props = {
     filterFacets?: Array<string>;
     getAllActionRequests?: boolean;
     showPendingView?: boolean;
+    enableSelection?: boolean;
 };
 
 export const ProposalList = ({
@@ -80,6 +81,7 @@ export const ProposalList = ({
     filterFacets,
     getAllActionRequests = false,
     showPendingView = false,
+    enableSelection,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
@@ -179,6 +181,7 @@ export const ProposalList = ({
                     onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
                     isLoading={loading}
+                    enableSelection={enableSelection}
                     isRowSelectionDisabled={(record: ActionRequest) => {
                         return record.status === 'COMPLETED';
                     }}
