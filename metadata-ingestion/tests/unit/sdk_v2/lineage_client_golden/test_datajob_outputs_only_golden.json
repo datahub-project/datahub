@@ -1,0 +1,19 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(airflow,transform_job,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)",
+                "value": {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
+                }
+            }
+        ]
+    }
+}
+]

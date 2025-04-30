@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
     OtherSchemaClass,
@@ -467,70 +468,101 @@ def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_from_sql_golden.json")
 
 
-def test_add_dataset_to_datajob_lineage(client: DataHubClient) -> None:
-    """Test adding lineage from dataset to datajob."""
+def test_add_datajob_lineage(client: DataHubClient) -> None:
+    """Test adding lineage for datajobs using DataJobPatchBuilder."""
     lineage_client = LineageClient(client=client)
 
-    # # Create a dataset
-    # dataset = Dataset(
-    #     platform="snowflake",
-    #     name="source_table",
-    #     env="PROD",
-    #     schema=[
-    #         ("id", "int"),
-    #         ("value", "string"),
-    #     ],
-    # )
-    # client.entities.upsert(dataset)
-
-    # # Create lineage from dataset to datajob
-    # datajob = DataJob(
-    #     platform="airflow",
-    #     id="transform_job",
-    #     flow_urn="urn:li:dataFlow:(airflow,example_dag,PROD)",
-    #     name="Transform Job",
-    #     description="A job that transforms data",
-    # )
-    # client.entities.upsert(datajob)
-
-    # lineage_client.add_datajob_lineage(
-    #     upstream=dataset.urn,
-    #     downstream=datajob.urn,
-    # )
-
-    # Validate lineage MCPs
-    assert_client_golden(
-        client, _GOLDEN_DIR / "test_dataset_to_datajob_lineage_golden.json"
+    # Define URNs for test with correct format
+    datajob_urn = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),transform_job)"
+    )
+    input_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+    )
+    input_datajob_urn = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),upstream_job)"
+    )
+    output_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
     )
 
-
-def test_add_datajob_to_dataset_lineage(client: DataHubClient) -> None:
-    """Test adding lineage from datajob to dataset."""
-    lineage_client = LineageClient(client=client)
-
-    # Create a dataset
-    dataset = Dataset(
-        platform="snowflake",
-        name="target_table",
-        env="PROD",
-    )
-    client.entities.upsert(dataset)
-
-    datajob = DataJob(
-        platform="airflow",
-        id="transform_job",
-        flow_urn="urn:li:dataFlow:(airflow,example_dag,PROD)",
-        name="Transform Job",
-        description="A job that transforms data",
-    )
-
-    # Create lineage from datajob to dataset with custom lineage type
+    # Test adding both upstream and downstream connections
     lineage_client.add_datajob_lineage(
-        upstream=datajob.urn,
-        downstream=dataset.urn,
+        datajob=datajob_urn,
+        upstreams=[input_dataset_urn, input_datajob_urn],
+        downstreams=[output_dataset_urn],
+    )
+
+    # Validate lineage MCPs against golden file
+    assert_client_golden(client, _GOLDEN_DIR / "test_datajob_lineage_golden.json")
+
+
+def test_add_datajob_inputs_only(client: DataHubClient) -> None:
+    """Test adding only inputs to a datajob."""
+    lineage_client = LineageClient(client=client)
+
+    # Define URNs for test
+    datajob_urn = "urn:li:dataJob:(airflow,process_job,PROD)"
+    input_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+    )
+
+    # Test adding just upstream connections
+    lineage_client.add_datajob_lineage(
+        datajob=datajob_urn,
+        upstreams=[input_dataset_urn],
     )
 
     # Validate lineage MCPs
-    assert_client_golden(
-        client, _GOLDEN_DIR / "test_datajob_to_dataset_lineage_golden.json"
+    assert_client_golden(client, _GOLDEN_DIR / "test_datajob_inputs_only_golden.json")
+
+
+def test_add_datajob_outputs_only(client: DataHubClient) -> None:
+    """Test adding only outputs to a datajob."""
+    lineage_client = LineageClient(client=client)
+
+    # Define URNs for test
+    datajob_urn = "urn:li:dataJob:(airflow,transform_job,PROD)"
+    output_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
     )
+
+    # Test adding just downstream connections
+    lineage_client.add_datajob_lineage(
+        datajob=datajob_urn, downstreams=[output_dataset_urn]
+    )
+
+    # Validate lineage MCPs
+    assert_client_golden(client, _GOLDEN_DIR / "test_datajob_outputs_only_golden.json")
+
+
+def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
+    """Test validation checks in add_datajob_lineage."""
+    lineage_client = LineageClient(client=client)
+
+    # Define URNs for test
+    datajob_urn = "urn:li:dataJob:(airflow,transform_job,PROD)"
+    invalid_urn = "urn:li:glossaryNode:something"
+
+    # Test with invalid datajob URN
+    with pytest.raises(
+        SdkUsageError, match=r"The datajob parameter must be a DataJob URN"
+    ):
+        lineage_client.add_datajob_lineage(
+            datajob=invalid_urn,
+            upstreams=[
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+            ],
+        )
+
+    # Test with invalid upstream URN
+    with pytest.raises(
+        SdkUsageError, match=r"Upstream URN .* must be either a dataset or datajob URN"
+    ):
+        lineage_client.add_datajob_lineage(datajob=datajob_urn, upstreams=[invalid_urn])
+
+    # Test with invalid downstream URN
+    with pytest.raises(SdkUsageError, match=r"Downstream URN .* must be a dataset URN"):
+        lineage_client.add_datajob_lineage(
+            datajob=datajob_urn, downstreams=[invalid_urn]
+        )

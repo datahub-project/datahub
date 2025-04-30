@@ -7,7 +7,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     AuditStampClass,
-    DataJobInputOutputClass,
     DatasetLineageTypeClass,
     MetadataChangeProposalClass,
     QueryLanguageClass,
@@ -21,6 +20,7 @@ from datahub.metadata.urns import DatasetUrn, QueryUrn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
+from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.utilities.ordered_set import OrderedSet
@@ -271,13 +271,13 @@ class LineageClient:
 
         # Validate parsing result
         if not parsed_result:
-            raise ValueError("Failed to parse SQL query: Unable to parse")
+            raise SdkUsageError("Failed to parse SQL query: Unable to parse")
         if parsed_result.debug_info.error:
-            raise ValueError(
+            raise SdkUsageError(
                 f"Failed to parse SQL query: {parsed_result.debug_info.error}"
             )
         if not parsed_result.out_tables:
-            raise ValueError(
+            raise SdkUsageError(
                 "No output tables found in the query. Cannot establish lineage."
             )
 
@@ -313,67 +313,62 @@ class LineageClient:
                 downstream=downstream_urn,
                 column_lineage=column_mapping or None,
                 query_text=query_text if i == 0 else None,
-            )  # TODO: this throws error when table does not exist
+            )
 
     def add_datajob_lineage(
         self,
         *,
-        upstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
-        downstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
+        datajob: DatajobUrnOrStr,
+        upstreams: Optional[List[Union[DatasetUrnOrStr, DatajobUrnOrStr]]] = None,
+        downstreams: Optional[List[DatasetUrnOrStr]] = None,
     ) -> None:
         """
-        Add lineage between datasets and datajobs.
+        Add lineage between a datajob and datasets/datajobs.
 
         Args:
-            upstream: The upstream dataset or datajob (source)
-            downstream: The downstream dataset or datajob (destination)
+            datajob: The datajob URN to connect lineage with
+            upstreams: List of upstream datasets or datajobs that serve as inputs to the datajob
+            downstreams: List of downstream datasets that are outputs of the datajob
         """
 
-        upstream_str = str(upstream)
-        downstream_str = str(downstream)
-
-        # Determine entity types
-        upstream_is_dataset = upstream_str.startswith("urn:li:dataset:")
-        downstream_is_dataset = downstream_str.startswith("urn:li:dataset:")
-
-        # Only handle Dataset → DataJob and DataJob → Dataset cases
-        if upstream_is_dataset and not downstream_is_dataset:
-            # Dataset → DataJob: Add dataset as input to the job
-            datajob_io = self._client._graph.get_aspect(
-                downstream_str, DataJobInputOutputClass
-            ) or DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
-
-            # Add the dataset to inputs if not already present
-            if upstream_str not in datajob_io.inputDatasets:
-                datajob_io.inputDatasets.append(upstream_str)
-
-            # Create and emit MCP - create a new instance directly
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=downstream_str,
-                aspect=datajob_io,
+        datajob_urn = str(datajob)
+        if not datajob_urn.startswith("urn:li:dataJob:"):
+            raise SdkUsageError(
+                f"The datajob parameter must be a DataJob URN, got {datajob_urn}"
             )
-            self._client._graph.emit_mcp(mcp)
 
-        elif not upstream_is_dataset and downstream_is_dataset:
-            # DataJob → Dataset: Add dataset as output to the job
-            datajob_io = self._client._graph.get_aspect(
-                upstream_str, DataJobInputOutputClass
-            ) or DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
+        # Initialize the patch builder for the datajob
+        patch_builder = DataJobPatchBuilder(datajob_urn)
 
-            # Add the dataset to outputs if not already present
-            if downstream_str not in datajob_io.outputDatasets:
-                datajob_io.outputDatasets.append(downstream_str)
+        # Process upstream connections (inputs to the datajob)
+        if upstreams:
+            for upstream in upstreams:
+                upstream_urn = str(upstream)
 
-            # Create and emit MCP - create a new instance directly
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=upstream_str,
-                aspect=datajob_io,
-            )
-            self._client._graph.emit_mcp(mcp)
+                if upstream_urn.startswith("urn:li:dataset:"):
+                    # Add dataset as input to the datajob
+                    patch_builder.add_input_dataset(upstream_urn)
+                elif upstream_urn.startswith("urn:li:dataJob:"):
+                    # Add datajob as input to the datajob
+                    patch_builder.add_input_datajob(upstream_urn)
+                else:
+                    raise SdkUsageError(
+                        f"Upstream URN {upstream_urn} must be either a dataset or datajob URN"
+                    )
 
-        else:
-            # Only accept Dataset → DataJob or DataJob → Dataset connections
-            raise ValueError(
-                "Can only create lineage between a dataset and a datajob. "
-                "For dataset to dataset lineage, use add_dataset_transform_lineage instead."
-            )
+        # Process downstream connections (outputs from the datajob)
+        if downstreams:
+            for downstream in downstreams:
+                downstream_urn = str(downstream)
+
+                if downstream_urn.startswith("urn:li:dataset:"):
+                    # Add dataset as output from the datajob
+                    patch_builder.add_output_dataset(downstream_urn)
+                else:
+                    raise SdkUsageError(
+                        f"Downstream URN {downstream_urn} must be a dataset URN"
+                    )
+
+        # Apply the changes to the entity
+        if upstreams or downstreams:  # Only update if there are actual changes
+            self._client.entities.update(patch_builder)
