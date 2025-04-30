@@ -1,11 +1,9 @@
-from datahub.sdk import DataHubClient, DatasetUrn
+from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.lineage_client import LineageClient
+from datahub.sdk.main_client import DataHubClient
 
 client = DataHubClient.from_env()
 lineage_client = LineageClient(client=client)
-
-source_dataset_urn = DatasetUrn(platform="snowflake", name="customers")
-target_dataset_urn = DatasetUrn(platform="snowflake", name="high_value_customers")
 
 sql_query = """
 SELECT 
@@ -21,5 +19,7 @@ WHERE
 """
 
 lineage_client.add_dataset_transform_lineage(
-    upstream=source_dataset_urn, downstream=target_dataset_urn, query_text=sql_query
+    upstream=DatasetUrn(platform="snowflake", name="customers"),
+    downstream=DatasetUrn(platform="snowflake", name="high_value_customers"),
+    query_text=sql_query,
 )

@@ -1,14 +1,12 @@
-from datahub.sdk import DataHubClient, DatasetUrn
+from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.lineage_client import LineageClient
+from datahub.sdk.main_client import DataHubClient
 
 client = DataHubClient.from_env()
 lineage_client = LineageClient(client=client)
 
-source_dataset_urn = DatasetUrn(platform="mysql", name="transactions")
-target_dataset_urn = DatasetUrn(platform="snowflake", name="transactions_replica")
-
 lineage_client.add_dataset_copy_lineage(
-    upstream=source_dataset_urn,
-    downstream=target_dataset_urn,
+    upstream=DatasetUrn(platform="mysql", name="transactions"),
+    downstream=DatasetUrn(platform="snowflake", name="transactions_replica"),
     column_lineage="auto_strict",
 )

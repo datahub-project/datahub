@@ -1,17 +1,13 @@
-from datahub.sdk import DataHubClient
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn
 from datahub.sdk.lineage_client import LineageClient
+from datahub.sdk.main_client import DataHubClient
 
 client = DataHubClient.from_env()
 lineage_client = LineageClient(client=client)
 
-transform_job_urn = (
-    "urn:li:dataJob:(urn:li:dataFlow:(airflow,data_pipeline,PROD),transform_job)"
-)
-upstream_job_urn = (
-    "urn:li:dataJob:(urn:li:dataFlow:(airflow,data_pipeline,PROD),extract_job)"
-)
+flow_urn = DataFlowUrn(orchestrator="airflow", flow_id="data_pipeline", cluster="PROD")
 
 lineage_client.add_datajob_lineage(
-    datajob=transform_job_urn,
-    upstreams=[upstream_job_urn],
+    datajob=DataJobUrn(flow=flow_urn, job_id="data_pipeline"),
+    upstreams=[DataJobUrn(flow=flow_urn, job_id="extract_job")],
 )

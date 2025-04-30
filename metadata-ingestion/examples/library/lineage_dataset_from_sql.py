@@ -1,5 +1,5 @@
-from datahub.sdk import DataHubClient
 from datahub.sdk.lineage_client import LineageClient
+from datahub.sdk.main_client import DataHubClient
 
 client = DataHubClient.from_env()
 lineage_client = LineageClient(client=client)
