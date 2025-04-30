@@ -89,23 +89,6 @@ class DataHubDatabaseReader:
         # Cache for available dates to avoid redundant queries
         self.available_dates_cache: Optional[List[datetime]] = None
 
-    def get_available_dates_query(
-        self, from_createdon: datetime, stop_time: datetime
-    ) -> str:
-        """
-        Query to get all available dates that have data in the specified time range.
-        """
-        return f"""
-            SELECT 
-                DISTINCT DATE(mav.createdon) as created_date 
-            FROM {self.engine.dialect.identifier_preparer.quote(self.config.database_table_name)} as mav
-            WHERE 1 = 1
-                {"" if not self.config.exclude_aspects else "AND mav.aspect NOT IN %(exclude_aspects)s"}
-                AND mav.createdon >= %(since_createdon)s 
-                AND mav.createdon < %(end_createdon)s
-            ORDER BY created_date ASC
-        """
-
     @property
     def soft_deleted_urns_query(self) -> str:
         return f"""
@@ -119,7 +102,6 @@ class DataHubDatabaseReader:
             ) as sd ON sd.urn = mav.urn
             WHERE sd.removed = true
             ORDER BY mav.urn
-            LIMIT %(limit)s OFFSET %(offset)s
         """
 
     def query(self, set_structured_properties_filter: bool) -> str:
@@ -167,6 +149,8 @@ class DataHubDatabaseReader:
             urn,
             aspect,
             version
+        LIMIT %(limit)s
+        OFFSET %(offset)s
         """
 
     def execute_with_params(
@@ -212,126 +196,97 @@ class DataHubDatabaseReader:
                     result = conn.execute(query, params)
                     for row in result:
                         yield dict(row)
-                    return  # Success, exit the retry loop
+
+                return  # Success, exit the retry loop
             else:
                 raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
-
-    def get_available_dates(
-        self, from_createdon: datetime, stop_time: datetime
-    ) -> List[datetime]:
-        """Get all dates that have data within the date range"""
-        if self.available_dates_cache:
-            return self.available_dates_cache
-        try:
-            logger.info(
-                f"Fetching available dates from {from_createdon} to {stop_time}"
-            )
-
-            # Prepare parameters using named parameters
-            params: Dict[str, Any] = {
-                "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
-                "end_createdon": stop_time.strftime(DATETIME_FORMAT),
-            }
-
-            if hasattr(self.config, "exclude_aspects") and self.config.exclude_aspects:
-                params["exclude_aspects"] = tuple(self.config.exclude_aspects)
-
-            # Execute the query using the appropriate method
-            result = self.execute_with_params(
-                self.get_available_dates_query(from_createdon, stop_time), params
-            )
-
-            # Extract dates from result
-            available_dates = []
-            for row in result:
-                if row.get("created_date"):
-                    # For MySQL, the result may be a date object
-                    if isinstance(row["created_date"], datetime):
-                        date_obj = (
-                            row["created_date"]
-                            if row["created_date"] > from_createdon
-                            else from_createdon
-                        )
-
-                    # Otherwise it might be a string
-                    else:
-                        date_str = str(row["created_date"])
-                        date_obj = datetime.strptime(date_str, DATE_FORMAT)
-
-                    available_dates.append(date_obj)
-
-            if available_dates:
-                available_dates.append(stop_time)
-
-            logger.info(f"Found {len(available_dates)} dates with data in the range")
-            self.available_dates_cache = available_dates
-            return available_dates
-
-        except Exception as e:
-            logger.error(f"Error getting available dates: {str(e)}")
-            # If the query fails, return an empty list
-            return []
-
-    def get_date_batches(
-        self, dates: List[datetime]
-    ) -> Iterable[Tuple[datetime, datetime]]:
-        """
-        Group consecutive dates into batches based on the days_per_query config.
-        Returns a list of (start_date, end_date) tuples, where end_date is exclusive.
-        """
-        i = 0
-
-        end_date: datetime = datetime.min
-
-        while i < len(dates):
-            end_idx = min(i + self.config.days_per_query, len(dates))
-            if end_idx - 1 > i:  # Ensure we have at least two items to create a range
-                start_date = dates[i]
-                end_date = dates[end_idx - 1]
-                yield (start_date, end_date)
-            else:
-                # If there's only one date left, yield it with itself
-                yield (end_date, dates[i])
-            i += self.config.days_per_query
 
     def _get_rows_for_date_range(
         self,
         start_date: datetime,
         end_date: datetime,
         set_structured_properties_filter: bool,
+        limit: int = 50,
     ) -> Iterable[Dict[str, Any]]:
         """Get rows for a specific date range"""
-        try:
-            # Set up query and parameters - using named parameters
-            query = self.query(set_structured_properties_filter)
-            params: Dict[str, Any] = {
-                "since_createdon": start_date.strftime(DATETIME_FORMAT),
-                "end_createdon": end_date.strftime(DATETIME_FORMAT),
-            }
+        offset = 0
+        last_createdon = None
+        previous_first_row = None
 
-            # Add exclude_aspects if needed
-            if hasattr(self.config, "exclude_aspects") and self.config.exclude_aspects:
-                params["exclude_aspects"] = tuple(self.config.exclude_aspects)
+        while True:
+            try:
+                # Set up query and parameters - using named parameters
+                query = self.query(set_structured_properties_filter)
+                params: Dict[str, Any] = {
+                    "since_createdon": start_date.strftime(DATETIME_FORMAT),
+                    "end_createdon": end_date.strftime(DATETIME_FORMAT),
+                    "limit": limit,
+                    "offset": offset,
+                }
 
-            logger.info(
-                f"Querying data from {start_date.strftime(DATETIME_FORMAT)} to {end_date.strftime(DATETIME_FORMAT)} "
-                f"(inclusive range)"
-            )
+                # Add exclude_aspects if needed
+                if (
+                    hasattr(self.config, "exclude_aspects")
+                    and self.config.exclude_aspects
+                ):
+                    params["exclude_aspects"] = tuple(self.config.exclude_aspects)
 
-            rows_processed = 0
-            # Execute query with server-side cursor
-            for row in self.execute_server_cursor(query, params):
-                rows_processed += 1
-                yield row
+                logger.info(
+                    f"Querying data from {start_date.strftime(DATETIME_FORMAT)} to {end_date.strftime(DATETIME_FORMAT)} "
+                    f"with limit {limit} and offset {offset} (inclusive range)"
+                )
 
-            logger.info(f"Processed {rows_processed} rows for date range")
+                # Execute query with server-side cursor
+                rows = self.execute_server_cursor(query, params)
+                # Process and yield rows
+                row_num = 0
+                duplicate_found = False
+                first_row: Optional[Dict] = None
+                rows_processed = 0
+                for row in rows:
+                    if row_num == 0:
+                        first_row = row
+                        # Check for duplicate data
+                        if previous_first_row and previous_first_row.get(
+                            "metadata"
+                        ) == first_row.get("metadata"):
+                            logger.info(
+                                f"Skipping duplicate row for {first_row.get('urn')} with createdon {first_row.get('createdon')}."
+                            )
+                            # Update parameters and continue to next iteration
+                            duplicate_found = True
+                            break
 
-        except Exception as e:
-            logger.error(
-                f"Error processing date range {start_date} to {end_date}: {str(e)}"
-            )
-            # Re-raise the exception after logging
-            raise
+                    last_createdon = row.get("createdon")
+                    rows_processed += 1
+                    yield row
+
+                if duplicate_found:
+                    # Skip to the next iteration if duplicate found
+                    offset += limit
+                    continue
+
+                previous_first_row = first_row
+
+                # If we processed fewer than the limit or no last_createdon, we're done
+                if rows_processed < limit or not last_createdon:
+                    break
+
+                # Update parameters for next iteration
+                if start_date != last_createdon:
+                    start_date = last_createdon
+                    offset = 0
+
+                logger.info(
+                    f"Processed {rows_processed} rows for date range {start_date} to {end_date}. Continuing to next batch."
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"Error processing date range {start_date} to {end_date}: {str(e)}"
+                )
+                # Re-raise the exception after logging
+                raise
 
     def _get_rows(
         self,
@@ -339,37 +294,13 @@ class DataHubDatabaseReader:
         stop_time: datetime,
         set_structured_properties_filter: bool = False,
     ) -> Iterable[Dict[str, Any]]:
-        """Get rows by first identifying dates with data, then querying those dates in batches"""
-        # Get all dates that have data
-        available_dates = self.get_available_dates(from_createdon, stop_time)
-
-        if not available_dates:
-            logger.info(f"No data available between {from_createdon} and {stop_time}")
-            return
-
-        # Group available dates into batches
-        if set_structured_properties_filter:
-            date_batches = [(from_createdon, stop_time)]
-        else:
-            date_batches = list(self.get_date_batches(available_dates))
-
-        logger.info(
-            f"Processing {len(date_batches)} date batches with {self.config.days_per_query} days per query"
+        # Query and yield rows for this date batch
+        yield from self._get_rows_for_date_range(
+            from_createdon,
+            stop_time,
+            set_structured_properties_filter,
+            limit=self.config.database_query_batch_size,
         )
-
-        # Process each batch
-        for i, (batch_start, batch_end) in enumerate(date_batches):
-            logger.info(
-                f"Processing batch {i + 1}/{len(date_batches)}: "
-                f"{batch_start.strftime(DATETIME_FORMAT)} to {(batch_end).strftime(DATETIME_FORMAT)}"
-            )
-
-            # Query and yield rows for this date batch
-            yield from self._get_rows_for_date_range(
-                batch_start,
-                batch_end,
-                set_structured_properties_filter,
-            )
 
     def get_all_aspects(
         self, from_createdon: datetime, stop_time: datetime
@@ -422,43 +353,24 @@ class DataHubDatabaseReader:
         Yields:
             Row objects containing URNs of soft-deleted entities
         """
-        offset = 0
-        batch_size = self.config.database_query_batch_size
+        try:
+            params: Dict = {}
 
-        while True:
-            try:
-                # Use named parameters consistent with your original code
-                params = {"limit": batch_size, "offset": offset}
+            logger.debug("Fetching soft-deleted URNs")
 
-                with self.engine.connect() as conn:
-                    # Execute without text() to maintain compatibility with your code
-                    result = conn.execute(self.soft_deleted_urns_query, params)
-                    rows = result.fetchall()
+            # Use server-side cursor implementation
+            rows = self.execute_server_cursor(self.soft_deleted_urns_query, params)
+            processed_rows = 0
+            # Process and yield rows
+            for row in rows:
+                processed_rows += 1
+                yield row
 
-                    if not rows:
-                        break  # No more rows to fetch
+            logger.debug(f"Fetched batch of {processed_rows} soft-deleted URNs")
 
-                    column_names = result.keys()
-                    for row in rows:
-                        yield dict(zip(column_names, row))
-
-                    # Move to next batch
-                    offset += batch_size
-
-                    logger.debug(
-                        f"Fetched batch of soft-deleted URNs (offset: {offset - batch_size})"
-                    )
-
-            except Exception as e:
-                logger.error(
-                    f"Error fetching soft-deleted rows (offset {offset}): {str(e)}"
-                )
-                # Error handling with more details
-                if offset > 0:
-                    logger.info("Returning results collected so far...")
-                    break
-                else:
-                    raise
+        except Exception:
+            logger.exception("Error fetching soft-deleted row", exc_info=True)
+            raise
 
     def _parse_row(
         self, row: Dict[str, Any]
