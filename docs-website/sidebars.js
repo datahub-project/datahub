@@ -24,12 +24,12 @@ module.exports = {
         {
           type: "link",
           label: "Demo",
-          href: "https://demo.datahubproject.io/",
+          href: "https://demo.datahub.com/",
         },
         {
           type: "link",
           label: "Adoption Stories",
-          href: "/adoption-stories",
+          href: "https://datahub.com/adoption-stories/",
         },
       ],
     },
@@ -1072,6 +1072,7 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
+    // "smoke-test/tests/cypress/README"
     // "docs/SECURITY_STANCE"
     // "metadata-integration/java/datahub-schematron/README"
     // ],

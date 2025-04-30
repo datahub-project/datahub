@@ -73,6 +73,7 @@ jobs:
 
       build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
+      test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
       use_depot_cache: ${{ steps.set-runner.outputs.use_depot_cache }}
     steps:
       - name: Check out the repo
@@ -105,7 +106,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-               github.event_name != 'pull_request'
+               (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') 
                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
@@ -139,31 +140,19 @@ jobs:
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
             echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
             echo "test_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type_small=depot-ubuntu-24.04-small" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=true" >> "$GITHUB_OUTPUT"
           else
             echo "build_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
             echo "test_runner_type=ubuntu-latest" >> "$GITHUB_OUTPUT"
+            echo "test_runner_type_small=ubuntu-latest" >> "$GITHUB_OUTPUT"
             echo "use_depot_cache=false" >> "$GITHUB_OUTPUT"
             # publishing is currently only supported via depot
           fi
-    
-      - name: Check whether to run publishing build
-        id: run-publish-images
-        run: | 
-          if [[ "${{ steps.set-runner.outputs.use_depot_cache }}" == 'true' &&
-                ( "${{ steps.publish.outputs.publish }}" == 'true' ||
-                  "${{ steps.pr-publish.outputs.pr-publish }}" == 'true' ||
-                  "${{ github.event_name }}" == 'workflow_dispatch' ||
-                  "${{ github.event_name }}" == 'schedule') ]]; then
-            echo "run_publish_images=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_publish_images=false" >> "$GITHUB_OUTPUT"
-          fi
-
 
   smoke_test_lint:
     name: Lint on smoke tests
-    runs-on: depot-ubuntu-24.04
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
     if: ${{ needs.setup.outputs.smoke_test_change == 'true' }}
     steps:
@@ -172,7 +161,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           cache: "pip"
 
       - uses: actions/cache@v4
@@ -233,7 +222,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           cache: "pip"
 
       - name: Login to DockerHub
@@ -244,13 +233,13 @@ jobs:
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
       - name: Build all Images (For Smoke tests)
-        if: ${{ needs.setup.outputs.run_publish_images == 'false' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
         run: |
           ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
 
       - name: Build all Images (Publish)
-        if: ${{ needs.setup.outputs.run_publish_images == 'true'}}
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         run: |
           ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
 
@@ -280,14 +269,20 @@ jobs:
 
 
   scan_images:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: Scan images for vulnerabilities
     runs-on: depot-ubuntu-24.04
     needs: [setup, base_build]
-    if: ${{ needs.setup.outputs.run_publish_images == 'true' }}
+    if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
     steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: acryldata/sane-checkout-action@v3
       - id: download_image
         name: Download images from depot
         if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
@@ -316,7 +311,7 @@ jobs:
           sarif_file: "trivy-results.sarif"
 
   smoke_test_matrix:
-    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
     if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') }}
     outputs:
@@ -413,7 +408,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.11"
           cache: "pip"
 
       - uses: gradle/actions/setup-gradle@v4

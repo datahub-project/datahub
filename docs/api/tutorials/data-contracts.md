@@ -164,7 +164,7 @@ query getTableContractStatus {
 }
 ```
 
-This will run any native Acryl assertions comprising the Data Contract. Be careful! This can take a while depending on how many native assertions are part of the contract.
+This will run any native DataHub Cloud assertions comprising the Data Contract. Be careful! This can take a while depending on how many native assertions are part of the contract.
 
 If you're successful, you'll get the latest status for the Table Contract:
 
