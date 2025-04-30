@@ -3,6 +3,7 @@ import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useRegisterInsight } from '@app/homeV2/content/tabs/discovery/sections/insight/InsightStatusProvider';
@@ -82,6 +83,27 @@ export const PopularGlossaryTerms = () => {
         [glossaryRecommendationModule],
     );
 
+    const title = 'Popular Glossary Terms';
+    const handleViewAll = () => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'For you',
+            subSection: title,
+            value: 'View all',
+        });
+    };
+
+    const handleClickEntity = (urn?: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'For you',
+            subSection: title,
+            value: urn,
+        });
+    };
+
     useEffect(() => {
         if (!loading && recommendationModules && !loaded) {
             setLoaded(true);
@@ -103,14 +125,17 @@ export const PopularGlossaryTerms = () => {
                 <InsightCard id={POPULAR_GLOSSARY_TERMS_ID} minWidth={340} maxWidth={500}>
                     <Header>
                         <Tooltip title="Commonly used glossary terms" showArrow={false} placement="top">
-                            <Title>Popular Glossary Terms</Title>
+                            <Title>{title}</Title>
                         </Tooltip>
-                        <ShowAll to={PageRoutes.GLOSSARY}>View all</ShowAll>
+                        <ShowAll to={PageRoutes.GLOSSARY} onClick={handleViewAll}>
+                            View all
+                        </ShowAll>
                     </Header>
                     <EntityLinkList
                         entities={recommendedGlossaryTerms}
                         loading={false}
                         empty={recommendedGlossaryTerms?.length === 0 || 'No assets found'}
+                        onClickEntity={handleClickEntity}
                     />
                 </InsightCard>
             )}
