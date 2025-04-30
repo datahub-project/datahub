@@ -55,6 +55,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     position?: OptionPosition;
     applyHoverWidth?: boolean;
     ignoreMaxHeight?: boolean;
+    isLoading?: boolean;
 }
 
 export interface SelectStyleProps {
