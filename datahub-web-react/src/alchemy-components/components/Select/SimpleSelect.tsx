@@ -188,6 +188,13 @@ export const SimpleSelect = ({
                                     size={size}
                                 />
                             )}
+                            {isLoading ? (
+                                <LoadingWrapper>
+                                    <LoadingOutlined />
+                                </LoadingWrapper>
+                            ) : (
+                                !filteredOptions.length && <NoResultsFoundPlaceholder />
+                            )}
                             <OptionList style={optionListStyle} data-testid={optionListTestId}>
                                 {showSelectAll && isMultiSelect && (
                                     <DropdownSelectAllOption
@@ -196,13 +203,6 @@ export const SimpleSelect = ({
                                         disabled={disabledValues.length === options.length}
                                         onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
                                     />
-                                )}
-                                {isLoading ? (
-                                    <LoadingWrapper>
-                                        <LoadingOutlined />
-                                    </LoadingWrapper>
-                                ) : (
-                                    !filteredOptions.length && <NoResultsFoundPlaceholder />
                                 )}
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
