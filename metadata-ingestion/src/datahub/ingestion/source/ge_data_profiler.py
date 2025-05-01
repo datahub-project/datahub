@@ -51,6 +51,7 @@ from typing_extensions import Concatenate, ParamSpec
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
@@ -1569,7 +1570,7 @@ def _get_columns_to_ignore_sampling(
         name=dataset_name, platform=platform, env=env
     )
 
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.INGESTION)
 
     dataset_tags = datahub_graph.get_tags(dataset_urn)
     if dataset_tags:

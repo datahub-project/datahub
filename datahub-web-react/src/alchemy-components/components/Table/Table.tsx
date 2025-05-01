@@ -92,6 +92,7 @@ export const Table = <T,>({
                                 <TableHeaderCell
                                     key={column.key} // Unique key for each header cell
                                     width={column.width}
+                                    minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
                                     shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
                                 >
@@ -188,7 +189,7 @@ export const Table = <T,>({
                                 <TableRow
                                     key={key}
                                     canExpand={canExpand}
-                                    onClick={() => {
+                                    onClick={(e) => {
                                         if (focusedRowIndex === index) {
                                             setFocusedRowIndex(null);
                                         } else {
@@ -196,7 +197,9 @@ export const Table = <T,>({
                                         }
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
+                                        e.stopPropagation();
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     className={rowClassName?.(row)} // Add row-specific class
                                     ref={(el) => {
                                         if (rowRefs && el) {
@@ -204,7 +207,6 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
-                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
                                     canHover

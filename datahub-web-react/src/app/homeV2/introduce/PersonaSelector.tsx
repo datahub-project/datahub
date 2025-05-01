@@ -1,6 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import {
     PERSONA_TYPES_TO_DISPLAY,
     PERSONA_TYPE_TO_DESCRIPTION,
@@ -8,7 +10,6 @@ import {
     PERSONA_TYPE_TO_VIEW_ICON,
 } from '@app/homeV2/shared/types';
 import { Heading } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const PersonaCard = styled.div<{ selected: boolean }>`
     border: 1px rgb(217, 217, 217) solid;
@@ -21,10 +22,10 @@ const PersonaCard = styled.div<{ selected: boolean }>`
 
     &:hover {
         cursor: pointer;
-        ${(props) => !props.selected && `border: 1.5px ${colors.violet[200]} solid;`}
+        ${(props) => !props.selected && `border: 1.5px ${getColor('primary', 200, props.theme)} solid;`}
     }
 
-    ${(props) => props.selected && `border: 1.5px ${colors.violet[500]} solid;`}
+    ${(props) => props.selected && `border: 1.5px ${props.theme.styles['primary-color']} solid;`}
 `;
 const StyledIcon = styled.div`
     display: flex;
