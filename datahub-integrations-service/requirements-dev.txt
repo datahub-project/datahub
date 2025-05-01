@@ -451,12 +451,14 @@ grpcio-status==1.62.3
     #   google-api-core
 gunicorn==23.0.0 ; sys_platform != 'win32'
     # via mlflow
-h11==0.14.0
+h11==0.16.0
     # via
     #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
     #   httpcore
     #   uvicorn
-httpcore==1.0.5
+httpcore==1.0.9
     # via
     #   -r requirements.txt
     #   httpx
