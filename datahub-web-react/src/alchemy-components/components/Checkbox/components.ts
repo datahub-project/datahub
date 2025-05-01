@@ -55,7 +55,7 @@ export const Checkmark = styled.div<{
     checked: boolean;
     disabled: boolean;
     size: SizeOptions;
-}>(({ intermediate, checked, error, disabled, size }) => ({
+}>(({ theme, intermediate, checked, error, disabled, size }) => ({
     ...getCheckboxSize(size),
     ...getCheckmarkPosition(size),
     position: 'absolute',
@@ -66,7 +66,7 @@ export const Checkmark = styled.div<{
     cursor: disabled ? 'normal' : 'pointer',
     ':hover': {
         ...(!disabled && {
-            borderColor: colors.violet[500],
+            borderColor: theme.styles['primary-color'],
         }),
     },
     '&:after': {

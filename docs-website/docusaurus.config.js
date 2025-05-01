@@ -411,10 +411,10 @@ module.exports = {
           mdxPageComponent: "@theme/MDXPage",
         },
         googleTagManager: {
-          containerId: 'GTM-WK28RLTG',
+          containerId: 'GTM-5M8T9HNN',
         },
         gtag: {
-          trackingID: "G-2G54RXWD4D",
+          trackingID: "G-PKGVLETT4C",
         },
       },
     ],

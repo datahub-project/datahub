@@ -2,13 +2,18 @@ import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
 import { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
+import { isChart } from '@app/entityV2/chart/utils';
+import { isDashboard } from '@app/entityV2/dashboard/utils';
+import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { matchedInputFieldParams } from '@app/search/matches/matchedInputFieldRenderer';
 import { MATCH_COLOR, MATCH_COLOR_LEVEL } from '@app/searchV2/autoCompleteV2/constants';
-import { getDescriptionSlice, isDescriptionField } from '@app/searchV2/matches/utils';
+import { getDescriptionSlice, isDescriptionField, isHighlightableEntityField } from '@app/searchV2/matches/utils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { MatchText, Text } from '@src/alchemy-components';
 import { MatchesGroupedByFieldName } from '@src/app/search/matches/constants';
 import { getMatchedFieldLabel } from '@src/app/search/matches/utils';
 import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
-import { EntityType } from '@src/types.generated';
+import { Entity, EntityType } from '@src/types.generated';
 
 const TextWrapper = styled.span`
     overflow: hidden;
@@ -19,14 +24,18 @@ const TextWrapper = styled.span`
 interface Props {
     query: string;
     entityType: EntityType;
+    entity: Entity;
     match: MatchesGroupedByFieldName;
 }
 
-export default function Match({ query, entityType, match }: Props) {
+export default function Match({ query, entityType, entity, match }: Props) {
+    const entityRegistry = useEntityRegistryV2();
+
     const label = useMemo(
         () => capitalizeFirstLetterOnly(getMatchedFieldLabel(entityType, match.fieldName)),
         [entityType, match.fieldName],
     );
+
     const value = useMemo(() => {
         // show only the first value
         const field = match.matchedFields?.[0];
@@ -44,10 +53,26 @@ export default function Match({ query, entityType, match }: Props) {
             return getDescriptionSlice(cleanedValue, query);
         }
 
-        return field.value;
-    }, [match, query]);
+        if (isHighlightableEntityField(field)) {
+            return field.entity ? entityRegistry.getDisplayName(field.entity.type, field.entity) : '';
+        }
 
-    if (value === undefined) return null;
+        if (entityType === EntityType.Dataset && field.name === 'fieldPaths') {
+            return downgradeV2FieldPath(field.value);
+        }
+
+        if (isChart(entity) || isDashboard(entity)) {
+            const { termType, term } = matchedInputFieldParams(field, entity);
+
+            if (termType && term) {
+                return `${termType} ${entityRegistry.getDisplayName(term.type, term)}`;
+            }
+        }
+
+        return field.value;
+    }, [match, query, entityRegistry, entity, entityType]);
+
+    if (!value) return null;
 
     return (
         <TextWrapper>

@@ -91,11 +91,11 @@ const ViewsContainer = styled.div`
 `;
 
 const Pill = styled.div<{ selected?: boolean }>`
-    border: 1px solid ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : `#797F98`)};
+    border: 1px solid ${(props) => (props.selected ? props.theme.styles['primary-color'] : `#797F98`)};
     white-space: nowrap;
     border-radius: 20px;
     padding: 5px 16px;
-    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#797F98')};
     cursor: pointer;
     display: flex;
     gap: 0.5rem;
@@ -104,7 +104,7 @@ const Pill = styled.div<{ selected?: boolean }>`
 `;
 
 const Count = styled.div<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected ? REDESIGN_COLORS.HOVER_PURPLE : '#A3A7B9')};
+    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#A3A7B9')};
     color: ${REDESIGN_COLORS.WHITE};
     border-radius: 20px;
     min-width: 25px;
@@ -119,7 +119,7 @@ const Count = styled.div<{ selected: boolean }>`
 
 const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
     font-size: 18px !important;
-    color: ${(props) => (props.selected ? REDESIGN_COLORS.TITLE_PURPLE : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#797F98')};
 `;
 
 const ViewLabel = styled.span`
