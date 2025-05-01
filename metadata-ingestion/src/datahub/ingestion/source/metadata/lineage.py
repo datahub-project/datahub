@@ -36,6 +36,7 @@ from datahub.ingestion.api.source_helpers import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
@@ -210,7 +211,7 @@ def _get_lineage_mcp(
 
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
-        client = get_default_graph()
+        client = get_default_graph(ClientMode.INGESTION)
 
         old_upstream_lineage = get_aspects_for_entity(
             client._session,
