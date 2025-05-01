@@ -17,6 +17,7 @@ import SelectActionButtons from '@components/components/Select/private/SelectAct
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { CustomOptionRenderer, SelectLabelProps, SelectSizeOptions } from '@components/components/Select/types';
+import { getFooterButtonSize } from '@components/components/Select/utils';
 
 const NO_PARENT_VALUE = 'no_parent_value';
 
@@ -278,7 +279,11 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
                                 })}
                             </OptionList>
                             {shouldDisplayConfirmationFooter && (
-                                <DropdownFooterActions onUpdate={onClickUpdateButton} onCancel={onClickCancelButton} />
+                                <DropdownFooterActions
+                                    onUpdate={onClickUpdateButton}
+                                    onCancel={onClickCancelButton}
+                                    size={getFooterButtonSize(size)}
+                                />
                             )}
                         </DropdownContainer>
                     )}
