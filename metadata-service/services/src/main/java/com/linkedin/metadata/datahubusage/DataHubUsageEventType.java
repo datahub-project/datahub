@@ -102,7 +102,8 @@ public enum DataHubUsageEventType {
   SHOW_ALL_VERSIONS_EVENT("ShowAllVersionsEvent"),
   LINK_ASSET_VERSION_EVENT("LinkAssetVersionEvent"),
   UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent"),
-  HOME_PAGE_CLICK_EVENT("HomePageClickEvent");
+  HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
+  SEARCH_BAR_FILTER("SearchBarFilterEvent");
 
   private final String type;
 

@@ -28,7 +28,7 @@ const FILTER_FIELDS = [
 ];
 
 const Container = styled.div`
-    padding: 16px 0;
+    padding: 16px 0 16px 1px; // 1px padding left for filter box shadow/select state
     margin: 0 8px;
     overflow-x: auto;
     /* Hide scrollbar for Chrome, Safari, and Opera */
