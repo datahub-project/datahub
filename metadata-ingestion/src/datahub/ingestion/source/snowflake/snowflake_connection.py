@@ -420,7 +420,7 @@ class SnowflakeConnection(Closeable):
             # We often run multiple queries in parallel across multiple threads,
             # so we need to number them to help with log readability.
             query_num = self.get_query_no()
-            logger.info(f"Query #{query_num}: {query}", stacklevel=2)
+            logger.info(f"Query #{query_num}: {query.rstrip()}", stacklevel=2)
             resp = self._connection.cursor(DictCursor).execute(query)
             if resp is not None and resp.rowcount is not None:
                 logger.info(

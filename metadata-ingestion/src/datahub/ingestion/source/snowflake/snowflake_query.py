@@ -263,6 +263,33 @@ LIMIT {limit} {from_clause};
 """
 
     @staticmethod
+    def get_views_for_database(db_name: str) -> str:
+        # We've seen some issues with the `SHOW VIEWS` query,
+        # particularly when it requires pagination.
+        # This is an experimental alternative query that might be more reliable.
+        return f"""\
+SELECT
+  TABLE_CATALOG as "VIEW_CATALOG",
+  TABLE_SCHEMA as "VIEW_SCHEMA",
+  TABLE_NAME as "VIEW_NAME",
+  COMMENT,
+  VIEW_DEFINITION,
+  CREATED,
+  LAST_ALTERED,
+  IS_SECURE
+FROM "{db_name}".information_schema.views
+WHERE TABLE_CATALOG = '{db_name}'
+  AND TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+"""
+
+    @staticmethod
+    def get_views_for_schema(db_name: str, schema_name: str) -> str:
+        return f"""\
+{SnowflakeQuery.get_views_for_database(db_name).rstrip()}
+  AND TABLE_SCHEMA = '{schema_name}'
+"""
+
+    @staticmethod
     def get_secure_view_definitions() -> str:
         # https://docs.snowflake.com/en/sql-reference/account-usage/views
         return """
