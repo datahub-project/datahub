@@ -151,7 +151,7 @@ public class DataHubUsageSpanExporter implements SpanExporter {
       usageEvent.put(ASPECT_NAME, aspectName);
     }
     String sourceIP = event.getAttributes().get(SOURCE_IP_KEY);
-    if (StringUtils.isNotBlank(eventSource)) {
+    if (StringUtils.isNotBlank(sourceIP)) {
       usageEvent.put(SOURCE_IP, sourceIP);
     }
 

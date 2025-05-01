@@ -32,7 +32,6 @@ import com.linkedin.settings.global.GlobalSettingsInfo;
 import com.linkedin.settings.global.OidcSettings;
 import com.linkedin.settings.global.SsoSettings;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.TraceContext;
 import io.datahubproject.metadata.services.SecretService;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanContext;
@@ -40,7 +39,6 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import java.io.IOException;
 import java.util.concurrent.CompletionException;
-import java.util.function.Supplier;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -50,7 +48,6 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
-import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.servlet.DispatcherServlet;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -100,9 +97,9 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     GlobalSettingsInfo mockGlobalSettingsInfo = new GlobalSettingsInfo().setSso(mockSsoSettings);
 
     when(mockEntityService.getLatestAspect(
-        any(OperationContext.class),
-        eq(GLOBAL_SETTINGS_URN),
-        eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+            any(OperationContext.class),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(mockGlobalSettingsInfo);
 
     ResponseEntity<String> httpResponse = authServiceController.getSsoSettings(null).join();
@@ -127,9 +124,9 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     GlobalSettingsInfo mockGlobalSettingsInfo = new GlobalSettingsInfo().setSso(mockSsoSettings);
 
     when(mockEntityService.getLatestAspect(
-        any(OperationContext.class),
-        eq(GLOBAL_SETTINGS_URN),
-        eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+            any(OperationContext.class),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(mockGlobalSettingsInfo);
 
     ResponseEntity<String> httpResponse = authServiceController.getSsoSettings(null).join();
@@ -153,10 +150,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     AuthenticationContext.setAuthentication(systemAuth);
 
     // Mock token service
-    when(mockTokenService.generateAccessToken(
-        eq(TokenType.SESSION),
-        any(Actor.class),
-        anyLong()))
+    when(mockTokenService.generateAccessToken(eq(TokenType.SESSION), any(Actor.class), anyLong()))
         .thenReturn(generatedToken);
 
     // Create request body
@@ -177,7 +171,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     when(mockTracer.spanBuilder(anyString())).thenReturn(mockSpanBuilder);
 
     // Execute
-    ResponseEntity<String> response = authServiceController.generateSessionTokenForUser(httpEntity).join();
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(httpEntity).join();
 
     // Verify
     assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -187,10 +182,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     // Verify token service was called with correct parameters
     ArgumentCaptor<Actor> actorCaptor = ArgumentCaptor.forClass(Actor.class);
-    verify(mockTokenService).generateAccessToken(
-        eq(TokenType.SESSION),
-        actorCaptor.capture(),
-        anyLong());
+    verify(mockTokenService)
+        .generateAccessToken(eq(TokenType.SESSION), actorCaptor.capture(), anyLong());
 
     Actor capturedActor = actorCaptor.getValue();
     assertEquals(userId, capturedActor.getId());
@@ -210,7 +203,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
 
     // Execute
-    ResponseEntity<String> response = authServiceController.generateSessionTokenForUser(httpEntity).join();
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(httpEntity).join();
   }
 
   @Test
@@ -226,7 +220,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
 
     // Execute
-    ResponseEntity<String> response = authServiceController.generateSessionTokenForUser(httpEntity).join();
+    ResponseEntity<String> response =
+        authServiceController.generateSessionTokenForUser(httpEntity).join();
 
     // Verify bad request status
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
@@ -272,13 +267,14 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertTrue(responseJson.get("isNativeUserCreated").asBoolean());
 
     // Verify native user service was called with correct parameters
-    verify(mockNativeUserService).createNativeUser(
-        eq(systemOperationContext),
-        eq(userUrn),
-        eq(fullName),
-        eq(email),
-        eq(title),
-        eq(password));
+    verify(mockNativeUserService)
+        .createNativeUser(
+            eq(systemOperationContext),
+            eq(userUrn),
+            eq(fullName),
+            eq(email),
+            eq(title),
+            eq(password));
   }
 
   @Test
@@ -326,7 +322,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     // Mock password verification
     when(mockNativeUserService.doesPasswordMatch(
-        eq(systemOperationContext), eq(userUrn), eq(password)))
+            eq(systemOperationContext), eq(userUrn), eq(password)))
         .thenReturn(true);
 
     // Create request body
@@ -336,7 +332,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
 
     // Execute
-    ResponseEntity<String> response = authServiceController.verifyNativeUserCredentials(httpEntity).join();
+    ResponseEntity<String> response =
+        authServiceController.verifyNativeUserCredentials(httpEntity).join();
 
     // Verify
     assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -353,7 +350,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     // Mock password verification
     when(mockNativeUserService.doesPasswordMatch(
-        eq(systemOperationContext), eq(userUrn), eq(password)))
+            eq(systemOperationContext), eq(userUrn), eq(password)))
         .thenReturn(false);
 
     // Create request body
@@ -375,7 +372,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     when(mockTracer.spanBuilder(anyString())).thenReturn(mockSpanBuilder);
 
     // Execute
-    ResponseEntity<String> response = authServiceController.verifyNativeUserCredentials(httpEntity).join();
+    ResponseEntity<String> response =
+        authServiceController.verifyNativeUserCredentials(httpEntity).join();
 
     // Verify
     assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -399,7 +397,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     HttpEntity<String> httpEntity = new HttpEntity<>(objectMapper.writeValueAsString(requestBody));
 
     // Execute
-    ResponseEntity<String> response = authServiceController.resetNativeUserCredentials(httpEntity).join();
+    ResponseEntity<String> response =
+        authServiceController.resetNativeUserCredentials(httpEntity).join();
 
     // Verify
     assertEquals(HttpStatus.OK, response.getStatusCode());
@@ -408,20 +407,18 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertTrue(responseJson.get("areNativeUserCredentialsReset").asBoolean());
 
     // Verify native user service was called with correct parameters
-    verify(mockNativeUserService).resetCorpUserCredentials(
-        eq(systemOperationContext),
-        eq(userUrn),
-        eq(password),
-        eq(resetToken));
+    verify(mockNativeUserService)
+        .resetCorpUserCredentials(
+            eq(systemOperationContext), eq(userUrn), eq(password), eq(resetToken));
   }
 
   @Test
   public void testGetSsoSettingsNotFound() throws Exception {
     // Mock entity service to return null (no SSO settings available)
     when(mockEntityService.getLatestAspect(
-        any(OperationContext.class),
-        eq(GLOBAL_SETTINGS_URN),
-        eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+            any(OperationContext.class),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(null);
 
     // Execute
@@ -438,9 +435,9 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     GlobalSettingsInfo mockGlobalSettingsInfo = new GlobalSettingsInfo().setSso(mockSsoSettings);
 
     when(mockEntityService.getLatestAspect(
-        any(OperationContext.class),
-        eq(GLOBAL_SETTINGS_URN),
-        eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+            any(OperationContext.class),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(mockGlobalSettingsInfo);
 
     when(mockSecretService.decrypt(any())).thenReturn("decrypted-secret");
@@ -459,36 +456,36 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   @Test
   public void testGetSsoSettingsWithFullOidcConfiguration() throws IOException {
     // Setup complete OIDC settings
-    OidcSettings mockOidcSettings = new OidcSettings()
-        .setEnabled(true)
-        .setClientId("client123")
-        .setClientSecret("encrypted-secret")
-        .setDiscoveryUri("http://auth.example.com")
-        .setUserNameClaim("preferred_username")
-        .setUserNameClaimRegex(".*")
-        .setScope("openid profile email")
-        .setClientAuthenticationMethod("client_secret_basic")
-        .setJitProvisioningEnabled(true)
-        .setPreProvisioningRequired(false)
-        .setExtractGroupsEnabled(true)
-        .setGroupsClaim("groups")
-        .setResponseType("code")
-        .setResponseMode("query")
-        .setUseNonce(true)
-        .setReadTimeout(30000)
-        .setExtractJwtAccessTokenClaims(true)
-        .setPreferredJwsAlgorithm2("RS256");
+    OidcSettings mockOidcSettings =
+        new OidcSettings()
+            .setEnabled(true)
+            .setClientId("client123")
+            .setClientSecret("encrypted-secret")
+            .setDiscoveryUri("http://auth.example.com")
+            .setUserNameClaim("preferred_username")
+            .setUserNameClaimRegex(".*")
+            .setScope("openid profile email")
+            .setClientAuthenticationMethod("client_secret_basic")
+            .setJitProvisioningEnabled(true)
+            .setPreProvisioningRequired(false)
+            .setExtractGroupsEnabled(true)
+            .setGroupsClaim("groups")
+            .setResponseType("code")
+            .setResponseMode("query")
+            .setUseNonce(true)
+            .setReadTimeout(30000)
+            .setExtractJwtAccessTokenClaims(true)
+            .setPreferredJwsAlgorithm2("RS256");
 
-    SsoSettings mockSsoSettings = new SsoSettings()
-        .setBaseUrl("http://localhost")
-        .setOidcSettings(mockOidcSettings);
+    SsoSettings mockSsoSettings =
+        new SsoSettings().setBaseUrl("http://localhost").setOidcSettings(mockOidcSettings);
 
     GlobalSettingsInfo mockGlobalSettingsInfo = new GlobalSettingsInfo().setSso(mockSsoSettings);
 
     when(mockEntityService.getLatestAspect(
-        any(OperationContext.class),
-        eq(GLOBAL_SETTINGS_URN),
-        eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
+            any(OperationContext.class),
+            eq(GLOBAL_SETTINGS_URN),
+            eq(GLOBAL_SETTINGS_INFO_ASPECT_NAME)))
         .thenReturn(mockGlobalSettingsInfo);
 
     when(mockSecretService.decrypt("encrypted-secret")).thenReturn("decrypted-secret");

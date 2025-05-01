@@ -58,6 +58,7 @@ public class AuthServiceTestConfiguration {
     return new Authentication(
         systemActor, String.format("Basic %s:%s", SYSTEM_CLIENT_ID, "systemSecret"));
   }
+
   @Bean
   public ObjectMapper objectMapper() {
     return new ObjectMapper();
