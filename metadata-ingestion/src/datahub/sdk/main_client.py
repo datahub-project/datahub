@@ -11,7 +11,7 @@ from datahub.sdk.resolver_client import ResolverClient
 from datahub.sdk.search_client import SearchClient
 
 try:
-    from datahub.sdk.assertion_client import (  # type: ignore[import-not-found]
+    from acryl_datahub_cloud._sdk_extras import (  # type: ignore[import-not-found]
         AssertionClient,
     )
 except ImportError:
