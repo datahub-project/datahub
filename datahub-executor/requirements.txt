@@ -65,6 +65,12 @@ avro==1.11.3
     #   confluent-kafka
 avro-gen3==0.7.16
     # via acryl-datahub
+aws-msk-iam-sasl-signer-python==1.0.2
+    # via acryl-datahub-executor
+azure-core==1.33.0
+    # via azure-identity
+azure-identity==1.21.0
+    # via acryl-datahub-executor
 beautifulsoup4==4.12.3
     # via
     #   nbconvert
@@ -79,6 +85,7 @@ boto3==1.35.76
     # via
     #   acryl-datahub
     #   acryl-executor
+    #   aws-msk-iam-sasl-signer-python
     #   celery
     #   dataflows-tabulator
     #   kombu
@@ -89,6 +96,7 @@ botocore==1.35.76
     # via
     #   acryl-datahub
     #   acryl-executor
+    #   aws-msk-iam-sasl-signer-python
     #   boto3
     #   moto
     #   redshift-connector
@@ -131,6 +139,7 @@ click==8.1.7
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   aws-msk-iam-sasl-signer-python
     #   celery
     #   click-default-group
     #   click-didyoumean
@@ -181,6 +190,7 @@ croniter==1.3.15
 cryptography==44.0.0
     # via
     #   acryl-datahub
+    #   azure-identity
     #   great-expectations
     #   moto
     #   msal
@@ -470,7 +480,12 @@ more-itertools==10.5.0
 moto==4.2.14
     # via acryl-datahub
 msal==1.31.1
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   azure-identity
+    #   msal-extensions
+msal-extensions==1.3.1
+    # via azure-identity
 multidict==6.1.0
     # via
     #   aiohttp
@@ -767,6 +782,7 @@ referencing==0.35.1
 requests==2.32.3
     # via
     #   acryl-datahub
+    #   azure-core
     #   confluent-kafka
     #   databricks-sdk
     #   databricks-sql-connector
@@ -841,6 +857,7 @@ six==1.17.0
     # via
     #   apscheduler
     #   avro-gen3
+    #   azure-core
     #   dataflows-tabulator
     #   linear-tsv
     #   mixpanel
@@ -974,6 +991,8 @@ typing-extensions==4.12.2
     #   acryl-executor
     #   alembic
     #   anyio
+    #   azure-core
+    #   azure-identity
     #   cloudpathlib
     #   great-expectations
     #   multidict

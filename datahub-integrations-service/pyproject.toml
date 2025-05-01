@@ -44,7 +44,10 @@ dependencies = [
 	"pygitops",
 	"PyGithub",
 	"GitPython",
-	"h11>=0.16"
+	"h11>=0.16",
+	"azure-identity==1.21.0",
+	"aws-msk-iam-sasl-signer-python==1.0.2",
+	"msal>=1.32.3"
 ]
 
 [project.optional-dependencies]

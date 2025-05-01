@@ -97,6 +97,20 @@ avro-gen3==0.7.16
     # via
     #   -r requirements.txt
     #   acryl-datahub
+aws-msk-iam-sasl-signer-python==1.0.2
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+azure-core==1.33.0
+    # via
+    #   -r requirements.txt
+    #   azure-identity
+azure-identity==1.21.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 beautifulsoup4==4.12.3
     # via
     #   -r requirements.txt
@@ -118,9 +132,11 @@ boto3==1.38.1
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+    #   aws-msk-iam-sasl-signer-python
 botocore==1.38.1
     # via
     #   -r requirements.txt
+    #   aws-msk-iam-sasl-signer-python
     #   boto3
     #   s3transfer
 bracex==2.5.post1
@@ -177,6 +193,7 @@ click==8.1.7
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   aws-msk-iam-sasl-signer-python
     #   click-default-group
     #   flask
     #   great-expectations
@@ -235,6 +252,7 @@ cryptography==42.0.5
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   azure-identity
     #   great-expectations
     #   msal
     #   pyjwt
@@ -694,10 +712,18 @@ more-itertools==10.2.0
     #   -r requirements.txt
     #   acryl-datahub
     #   inflect
-msal==1.28.0
+msal==1.32.3
     # via
     #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub
+    #   acryl-datahub-integrations
+    #   azure-identity
+    #   msal-extensions
+msal-extensions==1.3.1
+    # via
+    #   -r requirements.txt
+    #   azure-identity
 multidict==6.0.5
     # via
     #   -r requirements.txt
@@ -1120,6 +1146,7 @@ referencing==0.35.0
 requests==2.31.0
     # via
     #   -r requirements.txt
+    #   azure-core
     #   confluent-kafka
     #   databricks-sdk
     #   docker
@@ -1200,6 +1227,7 @@ six==1.16.0
     #   -r requirements.txt
     #   asttokens
     #   avro-gen3
+    #   azure-core
     #   bleach
     #   mixpanel
     #   python-dateutil
@@ -1406,6 +1434,8 @@ typing-extensions==4.11.0
     #   acryl-datahub
     #   alembic
     #   anyio
+    #   azure-core
+    #   azure-identity
     #   fastapi
     #   graphene
     #   great-expectations

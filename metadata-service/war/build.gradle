@@ -68,6 +68,8 @@ dependencies {
   runtimeOnly externalDependency.logbackJsonClassic
   runtimeOnly externalDependency.janino
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
   testRuntimeOnly externalDependency.logbackClassic
   testRuntimeOnly externalDependency.logbackJackson
   testRuntimeOnly externalDependency.logbackJsonClassic

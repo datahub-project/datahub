@@ -107,6 +107,20 @@ avro-gen3==0.7.16
     # via
     #   -r requirements.txt
     #   acryl-datahub
+aws-msk-iam-sasl-signer-python==1.0.2
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
+azure-core==1.33.0
+    # via
+    #   -r requirements.txt
+    #   azure-identity
+azure-identity==1.21.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-executor (pyproject.toml)
+    #   acryl-datahub-executor
 beautifulsoup4==4.12.3
     # via
     #   -r requirements.txt
@@ -131,6 +145,7 @@ boto3==1.35.76
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-executor
+    #   aws-msk-iam-sasl-signer-python
     #   celery
     #   dataflows-tabulator
     #   kombu
@@ -142,6 +157,7 @@ botocore==1.35.76
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-executor
+    #   aws-msk-iam-sasl-signer-python
     #   boto3
     #   moto
     #   redshift-connector
@@ -199,6 +215,7 @@ click==8.1.7
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   aws-msk-iam-sasl-signer-python
     #   celery
     #   click-default-group
     #   click-didyoumean
@@ -278,6 +295,7 @@ cryptography==44.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   azure-identity
     #   great-expectations
     #   moto
     #   msal
@@ -739,6 +757,12 @@ msal==1.31.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   azure-identity
+    #   msal-extensions
+msal-extensions==1.3.1
+    # via
+    #   -r requirements.txt
+    #   azure-identity
 multidict==6.1.0
     # via
     #   -r requirements.txt
@@ -1172,6 +1196,7 @@ requests==2.32.3
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   azure-core
     #   confluent-kafka
     #   databricks-sdk
     #   databricks-sql-connector
@@ -1279,6 +1304,7 @@ six==1.17.0
     #   -r requirements.txt
     #   apscheduler
     #   avro-gen3
+    #   azure-core
     #   dataflows-tabulator
     #   linear-tsv
     #   mixpanel
@@ -1507,6 +1533,8 @@ typing-extensions==4.12.2
     #   acryl-executor
     #   alembic
     #   anyio
+    #   azure-core
+    #   azure-identity
     #   cloudpathlib
     #   faker
     #   great-expectations

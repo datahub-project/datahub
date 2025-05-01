@@ -43,6 +43,9 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.mockito
     testImplementation externalDependency.mockitoInline
+
+    implementation externalDependency.azureIdentityExtensions
+    implementation externalDependency.azureIdentity
 }
 
 task avroSchemaSources(type: Copy) {
