@@ -20,7 +20,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/root-user-editable-info.yaml"
 
     - name: data-platforms
-      version: v2
+      version: v3
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
