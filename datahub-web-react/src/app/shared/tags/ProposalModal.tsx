@@ -1,10 +1,10 @@
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 import { ActionRequestListItem } from '@src/app/actionrequestV2/item/ActionRequestListItem';
 
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';

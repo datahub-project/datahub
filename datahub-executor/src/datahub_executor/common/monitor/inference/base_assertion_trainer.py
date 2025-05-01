@@ -88,6 +88,7 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         monitor: Monitor,
         assertion: Assertion,
         adjustment_settings: Optional[AssertionAdjustmentSettings],
+        prefetched_metrics_data: List[Metric],
     ) -> List[Event]:
         """Fetch metric or operation data for training."""
         pass
@@ -161,13 +162,13 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         )
 
         # Bootstrap historical data if needed
-        self.try_bootstrap_historical_data(
+        bootstrapped_metrics_data = self.try_bootstrap_historical_data(
             monitor, assertion, maybe_adjustment_settings
         )
 
         # Fetch historical metrics/operations
         historical_data = self.get_metric_data(
-            monitor, assertion, maybe_adjustment_settings
+            monitor, assertion, maybe_adjustment_settings, bootstrapped_metrics_data
         )
 
         logger.debug(
@@ -206,7 +207,7 @@ class BaseAssertionTrainer(Generic[Event], ABC):
         monitor: Monitor,
         assertion: Assertion,
         maybe_adjustment_settings: Optional[AssertionAdjustmentSettings],
-    ) -> None:
+    ) -> List[Metric]:
         """
         Bootstrap historical data for training.
         """
@@ -216,7 +217,7 @@ class BaseAssertionTrainer(Generic[Event], ABC):
             logger.debug(
                 f"Metrics cube for assertion {assertion.urn} has already been bootstrapped. Skipping bootstrap."
             )
-            return
+            return []
 
         # 2. Fetch the historical data
         metrics_data = self.try_get_historical_data_for_bootstrap(
@@ -226,10 +227,12 @@ class BaseAssertionTrainer(Generic[Event], ABC):
             logger.debug(
                 f"No historical data found for assertion {assertion.urn}. Skipping bootstrap."
             )
-            return
+            return []
 
         # 3. Bootstrap the metrics cube with the data
         self.bootstrap_metrics_cube_with_data(monitor, metrics_data)
+
+        return metrics_data
 
     def bootstrap_metrics_cube_with_data(
         self,

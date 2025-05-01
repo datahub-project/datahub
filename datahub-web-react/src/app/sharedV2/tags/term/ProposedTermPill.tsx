@@ -18,6 +18,10 @@ const TermContainer = styled.div<{ $isApproved?: boolean }>`
         border-radius: 5px;
         border: 1px ${(props) => (props.$isApproved ? 'solid' : 'dashed')} ${colors.gray[200]};
     }
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 export const Term = styled(Tag)`

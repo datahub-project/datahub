@@ -34,7 +34,7 @@ public class TopTagsSource extends EntitySearchAggregationSource
       EntityService<?> entityService,
       EntityRegistry entityRegistry,
       boolean fetchOffline) {
-    super(entitySearchService, entityRegistry);
+    super(entityService, entitySearchService, entityRegistry);
     _entityService = entityService;
     _fetchOffline = fetchOffline;
   }

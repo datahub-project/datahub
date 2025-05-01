@@ -122,6 +122,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
                         ? ['type', 'status']
                         : ACTION_REQUEST_DISPLAY_FACETS
                 }
+                enableSelection={activeActionRequestGroup.name !== MY_PROPOSALS_GROUP_NAME}
                 showPendingView={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
                 key={activeActionRequestGroup.name}
             />

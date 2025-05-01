@@ -88,6 +88,7 @@ class TestableAssertionTrainer(BaseAssertionTrainer[Metric]):
         monitor: Monitor,
         assertion: Assertion,
         adjustment_settings: Optional[AssertionAdjustmentSettings],
+        prefetched_metrics_data: List[Metric],
     ) -> List[Metric]:
         # For testing, return mock data set during test setup
         return self.mock_metric_data

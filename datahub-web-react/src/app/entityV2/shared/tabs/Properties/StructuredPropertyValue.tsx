@@ -17,7 +17,7 @@ import { Entity, EntityType } from '@src/types.generated';
 
 import ExternalLink from '@images/link-out.svg?react';
 
-const ValueText = styled(Typography.Text)<{ size: number }>`
+const ValueText = styled(Typography.Text)<{ size: number; $isProposed?: boolean }>`
     font-family: 'Manrope';
     font-weight: 400;
     font-size: ${(props) => props.size}px;
@@ -27,6 +27,14 @@ const ValueText = styled(Typography.Text)<{ size: number }>`
     .remirror-editor.ProseMirror {
         font-size: ${(props) => props.size}px;
     }
+
+    ${(props) =>
+        props.$isProposed &&
+        `
+            :hover {
+                cursor: pointer;
+        }
+        `}
 `;
 
 const StyledIcon = styled(Icon)`
@@ -158,7 +166,7 @@ export default function StructuredPropertyValue({
     }
 
     return (
-        <ValueText size={size}>
+        <ValueText size={size} $isProposed={isProposed}>
             {value.entity ? (
                 valueEntityRender
             ) : (

@@ -130,6 +130,7 @@ export const ProposalsEntitySelect = ({
                     flexWrap: 'nowrap',
                     overflow: 'auto',
                     scrollbarWidth: 'none',
+                    padding: '4px',
                 }}
                 onUpdate={handleUpdate}
                 values={selectedEntityList}

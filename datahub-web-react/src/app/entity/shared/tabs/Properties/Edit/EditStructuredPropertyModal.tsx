@@ -125,7 +125,6 @@ export default function EditStructuredPropertyModal({
                 message.destroy();
                 message.success(`Successfully ${isAddMode ? 'added' : 'updated'} structured property!`);
                 closeModal();
-                setShowProposeModal(false);
             })
             .catch((error) => {
                 handleGraphQLError({
@@ -180,6 +179,7 @@ export default function EditStructuredPropertyModal({
                 }, 3000);
                 message.destroy();
                 message.success('Successfully proposed structured property. It is pending approval.');
+                setShowProposeModal(false);
                 closeModal();
             })
             .catch((error) => {
@@ -191,6 +191,7 @@ export default function EditStructuredPropertyModal({
                     permissionMessage:
                         'Unauthorized to propose property. The "Propose Structured Properties" privilege is required for this asset.',
                 });
+                setShowProposeModal(false);
                 closeModal();
             });
     }

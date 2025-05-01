@@ -11,17 +11,15 @@ export const useGetSelectionColumn = <T,>(
     rowKey?: string | ((record: T) => string),
     rowSelection?: RowSelectionProps<T>,
 ): Column<T>[] => {
-    const { isSelectAll, isIntermediate, handleSelectAll, handleRowSelect, selectedRowKeys } = useRowSelection(
-        data,
-        rowKey,
-        rowSelection,
-    );
+    const { isSelectAll, isSelectAllDisabled, isIntermediate, handleSelectAll, handleRowSelect, selectedRowKeys } =
+        useRowSelection(data, rowKey, rowSelection);
 
     const selectionColumn = {
         title: (
             <Checkbox
                 isChecked={isSelectAll}
                 isIntermediate={isIntermediate}
+                isDisabled={isSelectAllDisabled}
                 onCheckboxChange={handleSelectAll}
                 size="xs"
             />

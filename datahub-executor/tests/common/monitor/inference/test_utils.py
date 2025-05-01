@@ -20,6 +20,7 @@ from datahub_executor.common.monitor.inference.utils import (
     annotate_operations_with_anomalies,
     build_evaluation_schedule_from_fixed_interval,
     build_std_parameters,
+    coalesce_metrics,
     convert_interval_to_minutes,
     create_embedded_assertion,
     create_inference_source,
@@ -399,3 +400,78 @@ def test_build_evaluation_schedule_from_fixed_interval() -> None:
     assert build_evaluation_schedule_from_fixed_interval(
         thirty_seconds_interval
     ) == CronSchedule(cron="0,5,10,15,20,25,30,35,40,45,50,55 * * * *", timezone="UTC")
+
+
+def test_coalesce_metrics() -> None:
+    """Test the coalesce_metrics utility function."""
+    from datahub_executor.common.metric.types import Metric
+
+    # Test case 1: Both lists are empty
+    assert coalesce_metrics([], []) == []
+
+    # Test case 2: One list is empty
+    metrics1 = [Metric(timestamp_ms=100, value=10.0)]
+    assert coalesce_metrics(metrics1, []) == metrics1
+    assert coalesce_metrics([], metrics1) == metrics1
+
+    # Test case 3: Non-overlapping metrics
+    metricsA = [
+        Metric(timestamp_ms=100, value=10.0),
+        Metric(timestamp_ms=300, value=30.0),
+    ]
+    metricsB = [
+        Metric(timestamp_ms=200, value=20.0),
+        Metric(timestamp_ms=400, value=40.0),
+    ]
+    expected = [
+        Metric(timestamp_ms=100, value=10.0),
+        Metric(timestamp_ms=200, value=20.0),
+        Metric(timestamp_ms=300, value=30.0),
+        Metric(timestamp_ms=400, value=40.0),
+    ]
+    result = coalesce_metrics(metricsA, metricsB)
+    assert len(result) == 4
+    assert all(
+        r.timestamp_ms == e.timestamp_ms and r.value == e.value
+        for r, e in zip(result, expected, strict=False)
+    )
+
+    # Test case 4: Overlapping metrics (metricsA should be prioritized)
+    metricsA = [
+        Metric(timestamp_ms=100, value=10.0),
+        Metric(timestamp_ms=200, value=20.0),
+    ]
+    metricsB = [
+        Metric(
+            timestamp_ms=200, value=25.0
+        ),  # Different value, same timestamp as in metricsA
+        Metric(timestamp_ms=300, value=30.0),
+    ]
+    expected = [
+        Metric(timestamp_ms=100, value=10.0),
+        Metric(timestamp_ms=200, value=20.0),  # Value from metricsA should be used
+        Metric(timestamp_ms=300, value=30.0),
+    ]
+    result = coalesce_metrics(metricsA, metricsB)
+    assert len(result) == 3
+    assert all(
+        r.timestamp_ms == e.timestamp_ms and r.value == e.value
+        for r, e in zip(result, expected, strict=False)
+    )
+
+    # Test case 5: Multiple metrics with same timestamp in metricsA
+    metricsA = [
+        Metric(timestamp_ms=100, value=10.0),
+        Metric(timestamp_ms=100, value=15.0),  # Same timestamp, different value
+    ]
+    metricsB = [
+        Metric(timestamp_ms=100, value=20.0),  # Same timestamp
+        Metric(timestamp_ms=200, value=25.0),
+    ]
+    result = coalesce_metrics(metricsA, metricsB)
+    assert len(result) == 3  # 2 from metricsA + 1 unique from metricsB
+    # Verify that both metrics from metricsA are present and the one from metricsB with the same timestamp is filtered out
+    assert sum(1 for m in result if m.timestamp_ms == 100) == 2
+    assert sum(1 for m in result if m.value == 10.0) == 1
+    assert sum(1 for m in result if m.value == 15.0) == 1
+    assert sum(1 for m in result if m.timestamp_ms == 200) == 1

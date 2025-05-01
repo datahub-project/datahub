@@ -1,5 +1,5 @@
 import { PlusOutlined } from '@ant-design/icons';
-import { Tag as AntTag, Typography } from 'antd';
+import { Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
@@ -74,20 +74,12 @@ const TagText = styled.span`
     line-height: 8px;
 `;
 
-export const ProposedTerm = styled(AntTag)`
-    margin: 0;
-    padding: 3px 8px;
-    font-size: 12px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
-    position: relative;
-    overflow: hidden;
-    border: 1px dashed ${colors.gray[200]};
-    display: flex;
-    align-items: center;
-`;
-
 export const ProposedTag = styled(StyledTag)`
     border: 1px dashed ${colors.gray[200]};
+
+    :hover {
+        cursor: pointer;
+    }
 `;
 
 export const ProposedTagContent = styled.span`

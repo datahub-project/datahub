@@ -43,6 +43,7 @@ dependencies = [
 	"pygitops",
 	"PyGithub",
 	"GitPython",
+	"h11>=0.16"
 ]
 
 [project.optional-dependencies]
