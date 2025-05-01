@@ -13,7 +13,6 @@ fragment globalTagsFields on GlobalTags {
       description
       properties {
         name
-        colorHex
         __typename
       }
       __typename
@@ -29,15 +28,11 @@ fragment ownershipFields on Ownership {
       ... on CorpUser {
         urn
         type
-        # username
         properties {
           active
           displayName
           title
           email
-          # firstName
-          # lastName
-          # fullName
           __typename
         }
         editableProperties {
@@ -62,15 +57,11 @@ fragment ownershipFields on Ownership {
           email
           admins {
             urn
-            # username
             info {
               active
               displayName
               title
               email
-              # firstName
-              # lastName
-              # fullName
               __typename
             }
             editableInfo {
@@ -82,15 +73,11 @@ fragment ownershipFields on Ownership {
           }
           members {
             urn
-            # username
             properties {
               active
               displayName
               title
               email
-              # firstName
-              # lastName
-              # fullName
               __typename
             }
             editableInfo {
@@ -152,10 +139,10 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     description
     __typename
   }
-  # documentation {
-  #  ...documentationFields
-  #  __typename
-  # }
+  #[CLOUD] documentation {
+  #[CLOUD]  ...documentationFields
+  #[CLOUD]  __typename
+  #[CLOUD] }
   ownership {
     ...ownershipFields
     __typename
@@ -232,14 +219,12 @@ fragment glossaryTerms on GlossaryTerms {
       urn
       __typename
     }
-    # context
-    # associatedUrn
+    #[CLOUD] context
     __typename
   }
   __typename
 }
 fragment displayPropertiesFields on DisplayProperties {
-  colorHex
   icon {
     name
     style
@@ -269,7 +254,6 @@ fragment entityDomain on DomainAssociation {
     }
     __typename
   }
-  # associatedUrn
   __typename
 }
 
@@ -325,7 +309,6 @@ fragment entityDisplayNameFields on Entity {
   urn
   type
   ... on Dataset {
-    # name
     properties {
       name
       qualifiedName
@@ -334,20 +317,15 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on CorpUser {
-    # username
     properties {
       displayName
       title
-      # firstName
-      # lastName
-      # fullName
       email
       __typename
     }
     __typename
   }
   ... on CorpGroup {
-    # name
     info {
       displayName
       __typename
@@ -355,7 +333,6 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on Dashboard {
-    # dashboardId
     properties {
       name
       __typename
@@ -363,7 +340,6 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on Chart {
-    # chartId
     properties {
       name
       __typename
@@ -378,7 +354,6 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on DataJob {
-    # jobId
     properties {
       name
       __typename
@@ -386,7 +361,6 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on GlossaryTerm {
-    # name
     hierarchicalName
     properties {
       name
@@ -437,7 +411,6 @@ fragment entityDisplayNameFields on Entity {
     __typename
   }
   ... on Tag {
-    # name
     properties {
       name
       __typename
@@ -593,48 +566,40 @@ fragment entityPreview on Entity {
     health {
       ...entityHealth
     }
-    statsSummary {
-      queryCountLast30Days
-      queryCountPercentileLast30Days
-      queryCountRankLast30Days
-      uniqueUserCountLast30Days
-      uniqueUserPercentileLast30Days
-      uniqueUserRankLast30Days
-      updateCountLast30Days
-      updateCountPercentileLast30Days
-      rowCount
-      rowCountPercentile
-      sizeInBytes
-      sizeInBytesPercentile
-      topUsersLast30Days {
-        urn
-        # username
-        properties {
-          active
-          displayName
-          email
-          title
-          # firstName
-          # lastName
-          # fullName
-        }
-        editableProperties {
-          displayName
-          title
-        }
-      }
-    }
+    #[CLOUD] statsSummary {
+    #[CLOUD]   queryCountLast30Days
+    #[CLOUD]   queryCountPercentileLast30Days
+    #[CLOUD]   queryCountRankLast30Days
+    #[CLOUD]   uniqueUserCountLast30Days
+    #[CLOUD]   uniqueUserPercentileLast30Days
+    #[CLOUD]   uniqueUserRankLast30Days
+    #[CLOUD]   updateCountLast30Days
+    #[CLOUD]   updateCountPercentileLast30Days
+    #[CLOUD]   rowCount
+    #[CLOUD]   rowCountPercentile
+    #[CLOUD]   sizeInBytes
+    #[CLOUD]   sizeInBytesPercentile
+    #[CLOUD]   topUsersLast30Days {
+    #[CLOUD]     urn
+    #[CLOUD]     properties {
+    #[CLOUD]       active
+    #[CLOUD]       displayName
+    #[CLOUD]       email
+    #[CLOUD]       title
+    #[CLOUD]     }
+    #[CLOUD]     editableProperties {
+    #[CLOUD]       displayName
+    #[CLOUD]       title
+    #[CLOUD]     }
+    #[CLOUD]   }
+    #[CLOUD] }
   }
   ... on CorpUser {
-    # username
     properties {
       active
       displayName
       email
       title
-      # firstName
-      # lastName
-      # fullName
     }
     editableProperties {
       displayName
@@ -912,7 +877,6 @@ fragment entityPreview on Entity {
     properties {
       name
       description
-      colorHex
     }
   }
   ... on DataPlatform {
@@ -1099,9 +1063,9 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
 }
 
 fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
-  #    deprecation {
-  #        ...deprecationFields
-  #    }
+  deprecation {
+    ...deprecationFields
+  }
   urn
   fieldPath
   type
@@ -1148,9 +1112,7 @@ fragment schemaMetadataFields on SchemaMetadata {
   datasetUrn
   name
   platformUrn
-  # version
   cluster
-  # hash
   platformSchema {
     ... on TableSchema {
       schema

@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+from datahub_integrations.gen_ai.mlflow_init import MLFLOW_INITIALIZED
+
 import dataclasses
 import inspect
 from typing import Any, Callable, Dict, List, TypeVar, get_type_hints
 
+import mlflow
+import mlflow.entities
 from pydantic import BaseModel, Field, create_model
+
+assert MLFLOW_INITIALIZED
 
 
 class ToolRunError(Exception):
@@ -57,13 +63,18 @@ class Tool:
 
     def run(self, arguments: dict) -> Any:
         """Run the tool with arguments."""
-        try:
-            # Validate arguments using the parameters model
-            validated_args = self.parameters()(**arguments)
-            result = self.fn(**validated_args.__dict__)
-            return result
-        except Exception as e:
-            raise ToolRunError(f"Error executing tool {self.name}: {e}") from e
+        with mlflow.start_span(
+            f"run_tool_{self.name}",
+            span_type=mlflow.entities.SpanType.TOOL,
+            attributes={"tool_name": self.name},
+        ):
+            try:
+                # Validate arguments using the parameters model
+                validated_args = self.parameters()(**arguments)
+                result = self.fn(**validated_args.__dict__)
+                return result
+            except Exception as e:
+                raise ToolRunError(f"Error executing tool {self.name}: {e}") from e
 
 
 _ToolFn = TypeVar("_ToolFn", bound=Callable)

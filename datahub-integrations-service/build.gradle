@@ -81,18 +81,20 @@ task lockfileCheck(type: Exec, dependsOn: environmentSetup) {
         "./scripts/lockfile-check.sh"
 }
 
+def dirs = "src/ tests/"
+
 task lint(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
-        "ruff check src/ tests/ && " +
-        "ruff format --check src/ tests/ && " +
-        "mypy src/ tests/"
+        "ruff check ${dirs} && " +
+        "ruff format --check ${dirs} && " +
+        "mypy ${dirs}"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
     commandLine 'bash', '-c',
         "set +x && source ${venv_name}/bin/activate && set -x && " +
-        "ruff check --fix src/ tests/ && " +
-        "ruff format src/ tests/ "
+        "ruff check --fix ${dirs} && " +
+        "ruff format ${dirs}"
 }
 
 task pytest(type: Exec, dependsOn: [installDev]) {

@@ -3,12 +3,13 @@ from typing import Callable, List, Optional, Tuple
 
 import slack_sdk
 import slack_sdk.errors
+from datahub.sdk.main_client import DataHubClient
 from loguru import logger
 from pydantic import BaseModel
 from slack_bolt import App
 from slack_sdk import WebClient
 
-from datahub_integrations.app import DATAHUB_FRONTEND_URL
+from datahub_integrations.app import DATAHUB_FRONTEND_URL, graph
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
     ChatHistory,
@@ -296,6 +297,7 @@ def handle_mention(
 
     chat_session = ChatSession(
         tools=mcp.get_all_tools(),
+        client=DataHubClient(graph=graph),
         history=ChatHistory(messages=thread_messages),
         progress_callback=progress_callback,
     )

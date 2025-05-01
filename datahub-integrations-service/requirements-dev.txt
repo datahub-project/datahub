@@ -113,12 +113,12 @@ blis==0.7.11
     # via
     #   -r requirements.txt
     #   thinc
-boto3==1.37.6
+boto3==1.38.1
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
-botocore==1.37.6
+botocore==1.38.1
     # via
     #   -r requirements.txt
     #   boto3
@@ -195,7 +195,9 @@ click-spinner==0.1.10
     #   -r requirements.txt
     #   acryl-datahub
 cloudpickle==3.1.1
-    # via mlflow-skinny
+    # via
+    #   -r requirements.txt
+    #   mlflow-skinny
 colorama==0.4.6
     # via
     #   -r requirements.txt
@@ -247,7 +249,9 @@ cymem==2.0.8
     #   spacy
     #   thinc
 databricks-sdk==0.50.0
-    # via mlflow-skinny
+    # via
+    #   -r requirements.txt
+    #   mlflow-skinny
 debugpy==1.8.1
     # via
     #   -r requirements.txt
@@ -273,6 +277,8 @@ dictdiffer==0.9.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-actions
+diskcache==5.6.3
+    # via acryl-datahub-integrations (pyproject.toml)
 docker==7.0.0
     # via
     #   -r requirements.txt
@@ -300,7 +306,7 @@ expandvars==0.12.0
     #   acryl-datahub
 faker==24.11.0
     # via acryl-datahub-integrations (pyproject.toml)
-fastapi==0.110.2
+fastapi==0.115.12
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
@@ -646,7 +652,7 @@ marisa-trie==1.2.1
     # via
     #   -r requirements.txt
     #   language-data
-markdown==3.8
+markdown==3.7
     # via mlflow
 markupsafe==2.1.5
     # via
@@ -675,10 +681,14 @@ mixpanel==4.10.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
-mlflow==2.21.3
+mlflow==2.22.0
     # via acryl-datahub-integrations (pyproject.toml)
-mlflow-skinny==2.21.3
-    # via mlflow
+mlflow-skinny==2.22.0
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
+    #   mlflow
 more-itertools==10.2.0
     # via
     #   -r requirements.txt
@@ -771,13 +781,18 @@ numpy==1.26.4
     #   thinc
 opentelemetry-api==1.32.1
     # via
+    #   -r requirements.txt
     #   mlflow-skinny
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
 opentelemetry-sdk==1.32.1
-    # via mlflow-skinny
+    # via
+    #   -r requirements.txt
+    #   mlflow-skinny
 opentelemetry-semantic-conventions==0.53b1
-    # via opentelemetry-sdk
+    # via
+    #   -r requirements.txt
+    #   opentelemetry-sdk
 orderly-set==5.3.0
     # via
     #   acryl-datahub
@@ -949,7 +964,7 @@ pycparser==2.22
     # via
     #   -r requirements.txt
     #   cffi
-pydantic==1.10.21
+pydantic==1.10.22
     # via
     #   -r requirements.txt
     #   acryl-datahub
@@ -1141,7 +1156,7 @@ ruamel-yaml==0.17.17
     #   great-expectations
 ruff==0.11.4
     # via acryl-datahub-integrations (pyproject.toml)
-s3transfer==0.11.4
+s3transfer==0.12.0
     # via
     #   -r requirements.txt
     #   boto3
@@ -1283,11 +1298,11 @@ starkbank-ecdsa==2.2.0
     # via
     #   -r requirements.txt
     #   sendgrid
-starlette==0.37.2
+starlette==0.46.2
     # via
     #   -r requirements.txt
     #   fastapi
-streamlit==1.43.2
+streamlit==1.44.1
     # via acryl-datahub-integrations (pyproject.toml)
 tabulate==0.9.0
     # via

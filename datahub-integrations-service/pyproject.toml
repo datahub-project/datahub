@@ -30,6 +30,7 @@ dependencies = [
 	# AI.
 	"tenacity",
 	"boto3",
+	"mlflow-skinny",
 	# Email notifications.
 	"sendgrid",
 	# Reporting.
@@ -61,12 +62,13 @@ dev = [
 	"faker",
 	"anyio",
 	"freezegun",
+	"types-requests>=2.28.11.6,<=2.31.0.3",
 	# Iteration
 	"papermill",
 	"json5",
 	"streamlit",
-	"types-requests>=2.28.11.6,<=2.31.0.3",
-	"mlflow"
+	"mlflow",
+	"diskcache",
 ]
 
 [project.entry-points."datahub_actions.source.plugins"]
@@ -88,7 +90,7 @@ exclude = [
 
 [tool.ruff.lint.isort]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]
-sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch"] }
+sections = { "patch" = ["datahub.utilities._markupsafe_compat", "datahub.sql_parsing._sqlglot_patch", "datahub_integrations.gen_ai.mlflow_init", "datahub_integrations.experimentation.ai_init"] }
 combine-as-imports = true
 
 [tool.ruff.lint]
@@ -109,8 +111,8 @@ extend-ignore = [
 ]
 exclude = [
 	'scripts/forms/*.py', 
-	'experiments/**.py', 
-	'experiments/**.ipynb'
+	'experiments/**/*.py',
+	'experiments/**/*.ipynb'
 ]
 
 [tool.pyright]

@@ -1,3 +1,9 @@
+import mlflow
+import mlflow.metrics
+import mlflow.bedrock
+
+mlflow.bedrock.autolog()
+
 import datetime
 from typing import Optional, List
 from pydantic import BaseModel
@@ -11,10 +17,6 @@ import dotenv
 import tenacity
 
 dotenv.load_dotenv()
-
-import mlflow
-import mlflow.metrics
-import mlflow.bedrock
 
 import numpy as np
 import typer
@@ -322,7 +324,7 @@ def custom_eval_fn_metric(metric, predictions, targets):
     scores = []
     justifications = []
     for prediction, target in zip(predictions, targets):
-        judged_metric = getattr(
+        judged_metric: Optional[MetricValue] = getattr(
             llm_judge_common_eval_fn(prediction, json.dumps(target)), metric
         )
         if judged_metric is not None:
@@ -425,8 +427,6 @@ def run_ai_annotations_experiment(run_name: str):
         experiment_id=run.info.experiment_id,
         run_name=ai_annotation_run_name,
     ):
-        mlflow.autolog()
-
         mlflow.set_tag("evaluation_type", "ai_judge")
 
         mlflow.evaluate(

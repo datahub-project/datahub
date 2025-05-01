@@ -1,12 +1,15 @@
 .tool-versions
 .envrc
 slack_details.json
+graph_credentials.json
 data-state/
 junit.*.xml
 generated/
 clients/java/src/
 /lockfiles/
 experiments/*-private/
+/mlflow-data/
+/judge_cache
 
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python

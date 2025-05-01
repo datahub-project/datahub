@@ -1,7 +1,8 @@
 import pathlib
 
-from datahub_integrations.slack.config import slack_config
 from loguru import logger
+
+from datahub_integrations.slack.config import slack_config
 
 slack_details = pathlib.Path("slack_details.json")
 

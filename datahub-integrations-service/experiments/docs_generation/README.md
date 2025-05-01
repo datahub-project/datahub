@@ -1,6 +1,6 @@
 # Docs generation Experimentation
 
-## Pre-requisites
+## Prerequisites
 
 1. Build and activate datahub-integrations-service python venv
 2. Create `.env` file in `docs_generation` folder containing bedrock credentials
@@ -24,14 +24,14 @@
 Modify <CURRENT_PROMPT> in `run_prompt_experiment.py` and run `python3 run_prompt_experiment.py` to generate descriptions.
 An mlflow experiment run will be logged.
 
-## Running AI evalulation on existing prompt engineering experiment run
+## Running AI evaluation on existing prompt engineering experiment run
 
 Run `python3 run_ai_annotations.py <RUN_NAME>` to generate ai evaluations a prompt experiment run with name `RUN_NAME`
 An mlflow experiment run will be logged with prefix 'ai_annotations\*' to referenced run's name.
 
 ## Adding human annotations on existing prompt engineering experiment run
 
-Run `streamlit run add_human_annotations_ui -- --run-name=<RUN_NAME>` and add annotations on UI on browser then click **'Submit and Finish`** to save human annotations.
+Run `streamlit run add_human_annotations_ui.py -- --run-name=<RUN_NAME>` and add annotations on UI on browser then click **'Submit and Finish`** to save human annotations.
 If referenced `RUN_NAME` has earlier human annotations then those will be prefilled in annotations UI OR
 If referenced `RUN_NAME` has ai annotations then those will be prefilled in annotations UI.
 An mlflow experiment run will be logged with prefix 'human_annotations\*' to referenced run's name.

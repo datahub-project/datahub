@@ -8,18 +8,7 @@ import typer
 mcp_replaces = {
     "from mcp.server.fastmcp import FastMCP": "from datahub_integrations.chat.tool import ToolRegistry",
     """\
-is_dev_mode = _version.is_dev_mode()
-datahub_package_dir = pathlib.Path(datahub.__file__).parent.parent.parent
-
-mcp = FastMCP(
-    name="datahub",
-    dependencies=[
-        (
-            # No spaces, since MCP doesn't escape their commands properly :(
-            f"acryl-datahub@{datahub_package_dir}" if is_dev_mode else "acryl-datahub"
-        ),
-    ],
-)
+mcp = FastMCP(name="datahub")
 """: """\
 mcp = ToolRegistry()
 """,

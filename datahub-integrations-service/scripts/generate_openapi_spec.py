@@ -13,7 +13,7 @@ with unittest.mock.patch("datahub.ingestion.graph.client.DataHubGraph") as mock:
 
     # The app module initializes a global graph object. We need to mock that object
     # here so that it doesn't fail when testing it's connection.
-    from datahub_integrations.server import app  # noqa: F401
+    from datahub_integrations.server import app
 
 
 def swizzle(input_dict: Any) -> Any:

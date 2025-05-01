@@ -1,5 +1,7 @@
+import contextlib
+import contextvars
 import pathlib
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterator, Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
@@ -12,8 +14,49 @@ from datahub_integrations.chat.tool import ToolRegistry
 mcp = ToolRegistry()
 
 
+_mcp_dh_client = contextvars.ContextVar[DataHubClient]("_mcp_dh_client")
+
+
 def get_client() -> DataHubClient:
-    return DataHubClient.from_env()
+    # Will raise a LookupError if no client is set.
+    return _mcp_dh_client.get()
+
+
+def set_client(client: DataHubClient) -> None:
+    _mcp_dh_client.set(client)
+
+
+@contextlib.contextmanager
+def with_client(client: DataHubClient) -> Iterator[None]:
+    token = _mcp_dh_client.set(client)
+    try:
+        yield
+    finally:
+        _mcp_dh_client.reset(token)
+
+
+def _enable_cloud_fields(query: str) -> str:
+    return query.replace("#[CLOUD]", "")
+
+
+def _execute_graphql(
+    graph: DataHubGraph,
+    *,
+    query: str,
+    operation_name: Optional[str] = None,
+    variables: Optional[Dict[str, Any]] = None,
+) -> Any:
+    try:
+        # Only DataHub Cloud has a frontend base url.
+        _ = graph.frontend_base_url
+    except ValueError:
+        pass
+    else:
+        query = _enable_cloud_fields(query)
+
+    return graph.execute_graphql(
+        query=query, variables=variables, operation_name=operation_name
+    )
 
 
 search_gql = (pathlib.Path(__file__).parent / "gql/search.gql").read_text()
@@ -46,7 +89,8 @@ def get_entity(urn: str) -> dict:
 
     # Execute the GraphQL query
     variables = {"urn": urn}
-    result = client._graph.execute_graphql(
+    result = _execute_graphql(
+        client._graph,
         query=entity_details_fragment_gql,
         variables=variables,
         operation_name="GetEntity",
@@ -85,7 +129,7 @@ Here are some example filters:
 {
   "and_":[
     {"entity_type": ["DATASET"]},
-    {"entity_type": "dataset", "entity_subtype": "Table"},
+    {"entity_subtype": "Table"},
     {"platform": ["snowflake"]}
   ]
 }
@@ -93,24 +137,26 @@ Here are some example filters:
 """
 )
 def search(
-    query: str = "*", filters: Optional[Filter] = None, num_results: int = 10
+    query: str = "*",
+    filters: Optional[Filter] = None,
+    num_results: int = 10,
 ) -> dict:
     client = get_client()
 
+    types, compiled_filters = compile_filters(filters)
     variables = {
         "query": query,
-        "orFilters": compile_filters(filters),
+        "types": types,
+        "orFilters": compiled_filters,
         "batchSize": num_results,
     }
 
-    response = client._graph.execute_graphql(
-        search_gql,
+    response = _execute_graphql(
+        client._graph,
+        query=search_gql,
         variables=variables,
         operation_name="search",
     )["scrollAcrossEntities"]
-
-    # TODO: post process
-    # e.g. strip all nulls?
 
     return _clean_gql_response(response)
 
@@ -123,8 +169,11 @@ def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> di
     variables = {"input": {"start": start, "count": count, "datasetUrn": dataset_urn}}
 
     # Execute the GraphQL query
-    result = client._graph.execute_graphql(
-        query=queries_gql, variables=variables, operation_name="listQueries"
+    result = _execute_graphql(
+        client._graph,
+        query=queries_gql,
+        variables=variables,
+        operation_name="listQueries",
     )
     return _clean_gql_response(result["listQueries"])
 
@@ -159,15 +208,18 @@ class AssetLineageAPI:
         result: Dict[str, Dict[str, Any]] = {asset_lineage_directive.urn: {}}
 
         degree_filter = self.get_degree_filter(asset_lineage_directive.num_hops)
+        types, compiled_filters = compile_filters(degree_filter)
         variables = {
             "urn": asset_lineage_directive.urn,
             "start": 0,
             "count": 30,
-            "orFilters": compile_filters(degree_filter) if degree_filter else None,
+            "types": types,
+            "orFilters": compiled_filters,
         }
         if asset_lineage_directive.upstream:
             result[asset_lineage_directive.urn]["upstreams"] = _clean_gql_response(
-                self.graph.execute_graphql(
+                _execute_graphql(
+                    self.graph,
                     query=entity_details_fragment_gql,
                     variables={
                         "input": {
@@ -180,7 +232,8 @@ class AssetLineageAPI:
             )
         if asset_lineage_directive.downstream:
             result[asset_lineage_directive.urn]["downstreams"] = _clean_gql_response(
-                self.graph.execute_graphql(
+                _execute_graphql(
+                    self.graph,
                     query=entity_details_fragment_gql,
                     variables={
                         "input": {
@@ -211,6 +264,8 @@ def get_lineage(urn: str, upstream: bool, num_hops: int = 1) -> dict:
 
 if __name__ == "__main__":
     import sys
+
+    set_client(DataHubClient.from_env())
 
     if len(sys.argv) > 1:
         urn_or_query = sys.argv[1]

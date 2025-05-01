@@ -1,5 +1,7 @@
+from datahub_integrations.gen_ai.mlflow_init import MLFLOW_INITIALIZED
+
 import contextlib
-import dataclasses
+import uuid
 from typing import (
     Callable,
     Dict,
@@ -9,7 +11,12 @@ from typing import (
     TypeGuard,
 )
 
+import mlflow
+import mlflow.entities
+import mlflow.tracing
+from datahub.sdk.main_client import DataHubClient
 from loguru import logger
+from pydantic import BaseModel
 
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
@@ -21,10 +28,11 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
     ToolResultError,
 )
-from datahub_integrations.chat.mcp_server import mcp
+from datahub_integrations.chat.mcp_server import mcp, with_client
 from datahub_integrations.chat.tool import Tool
 from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
 
+assert MLFLOW_INITIALIZED
 MAX_TOOL_CALLS = 12
 MESSAGE_LENGTH_SOFT_LIMIT = 2000
 
@@ -52,8 +60,7 @@ class ChatSessionError(Exception):
     pass
 
 
-@dataclasses.dataclass
-class NextMessage:
+class NextMessage(BaseModel):
     text: str
     suggestions: List[str]
 
@@ -81,11 +88,14 @@ class ChatSession:
     def __init__(
         self,
         tools: List[Tool],
+        client: DataHubClient,
         history: Optional[ChatHistory] = None,
         progress_callback: Optional[ProgressCallback] = None,
     ):
+        self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
         self.tools = tools + [_respond_to_user_tool]
-        self.history = history or ChatHistory()
+        self.client = client
+        self.history: ChatHistory = history or ChatHistory()
         self._progress_callback = progress_callback
         self._progress_messages: List[str] = []  # Store progress messages
 
@@ -93,7 +103,8 @@ class ChatSession:
     def tool_map(self) -> Dict[str, Tool]:
         return {tool.name: tool for tool in self.tools}
 
-    def is_respond_to_user(self, message: Message) -> TypeGuard[ToolResult]:
+    @classmethod
+    def is_respond_to_user(cls, message: Message) -> TypeGuard[ToolResult]:
         return (
             isinstance(message, ToolResult)
             and message.tool_request.tool_name == _respond_to_user_tool.name
@@ -206,7 +217,8 @@ class ChatSession:
                 self._add_message(tool_request)
 
                 try:
-                    result = tool.run(arguments=tool_request.tool_input)
+                    with with_client(self.client):
+                        result = tool.run(arguments=tool_request.tool_input)
                 except Exception as e:
                     self._add_message(
                         ToolResultError(
@@ -222,7 +234,10 @@ class ChatSession:
             else:
                 raise ChatSessionError(f"Unknown content block type {content_block}")
 
+    @mlflow.trace
     def generate_next_message(self) -> NextMessage:
+        mlflow.update_current_trace(tags={"session_id": self.session_id})
+
         for i in range(MAX_TOOL_CALLS):
             logger.info(f"Generating tool call {i}")
             self._generate_tool_call()
@@ -248,6 +263,7 @@ if __name__ == "__main__":
 
     chat = ChatSession(
         tools=mcp.get_all_tools(),
+        client=DataHubClient.from_env(),
         history=ChatHistory(
             messages=[
                 HumanMessage(text="What datasets should I look at for pet profiles?")

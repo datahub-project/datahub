@@ -1,4 +1,5 @@
 import json
+import pathlib
 from typing import (
     Any,
     Literal,
@@ -138,3 +139,6 @@ class ChatHistory(BaseModel):
 
     def add_message(self, message: Message) -> None:
         self.messages.append(message)
+
+    def save_file(self, path: pathlib.Path) -> None:
+        path.write_text(self.json(indent=2))

@@ -61,9 +61,9 @@ bleach==6.1.0
     # via nbconvert
 blis==0.7.11
     # via thinc
-boto3==1.37.6
+boto3==1.38.1
     # via acryl-datahub-integrations
-botocore==1.37.6
+botocore==1.38.1
     # via
     #   boto3
     #   s3transfer
@@ -78,6 +78,7 @@ cachetools==5.3.3
     #   acryl-datahub
     #   acryl-datahub-integrations
     #   google-auth
+    #   mlflow-skinny
 catalogue==2.0.10
     # via
     #   spacy
@@ -107,6 +108,7 @@ click==8.1.7
     #   acryl-datahub-actions
     #   click-default-group
     #   great-expectations
+    #   mlflow-skinny
     #   typer
     #   uvicorn
 click-default-group==1.2.4
@@ -115,6 +117,8 @@ click-default-group==1.2.4
     #   acryl-datahub-actions
 click-spinner==0.1.10
     # via acryl-datahub
+cloudpickle==3.1.1
+    # via mlflow-skinny
 colorama==0.4.6
     # via
     #   build
@@ -147,6 +151,8 @@ cymem==2.0.8
     #   preshed
     #   spacy
     #   thinc
+databricks-sdk==0.50.0
+    # via mlflow-skinny
 debugpy==1.8.1
     # via ipykernel
 decorator==5.1.1
@@ -156,6 +162,8 @@ defusedxml==0.7.1
 deprecated==1.2.14
     # via
     #   acryl-datahub
+    #   opentelemetry-api
+    #   opentelemetry-semantic-conventions
     #   pygithub
 dictdiffer==0.9.0
     # via acryl-datahub-actions
@@ -172,8 +180,10 @@ executing==2.0.1
     # via stack-data
 expandvars==0.12.0
     # via acryl-datahub
-fastapi==0.110.2
-    # via acryl-datahub-integrations
+fastapi==0.115.12
+    # via
+    #   acryl-datahub-integrations
+    #   mlflow-skinny
 fastavro==1.9.4
     # via
     #   acryl-datahub
@@ -195,6 +205,7 @@ gitdb==4.0.11
 gitpython==3.1.43
     # via
     #   acryl-datahub-integrations
+    #   mlflow-skinny
     #   pygitops
 google-api-core==2.20.0
     # via
@@ -208,6 +219,7 @@ google-api-core==2.20.0
     #   sqlalchemy-bigquery
 google-auth==2.35.0
     # via
+    #   databricks-sdk
     #   google-api-core
     #   google-cloud-appengine-logging
     #   google-cloud-bigquery
@@ -287,7 +299,10 @@ idna==3.7
 ijson==3.2.3
     # via acryl-datahub
 importlib-metadata==7.1.0
-    # via great-expectations
+    # via
+    #   great-expectations
+    #   mlflow-skinny
+    #   opentelemetry-api
 importlib-resources==6.4.0 ; python_full_version < '3.12'
     # via schwifty
 inflect==7.2.1
@@ -395,6 +410,8 @@ mistune==3.0.2
     #   nbconvert
 mixpanel==4.10.1
     # via acryl-datahub
+mlflow-skinny==2.22.0
+    # via acryl-datahub-integrations
 more-itertools==10.2.0
     # via
     #   acryl-datahub
@@ -454,6 +471,15 @@ numpy==1.26.4
     #   scipy
     #   spacy
     #   thinc
+opentelemetry-api==1.32.1
+    # via
+    #   mlflow-skinny
+    #   opentelemetry-sdk
+    #   opentelemetry-semantic-conventions
+opentelemetry-sdk==1.32.1
+    # via mlflow-skinny
+opentelemetry-semantic-conventions==0.53b1
+    # via opentelemetry-sdk
 packaging==24.0
     # via
     #   acryl-datahub
@@ -464,6 +490,7 @@ packaging==24.0
     #   ipykernel
     #   jupyter-server
     #   marshmallow
+    #   mlflow-skinny
     #   nbconvert
     #   snowflake-connector-python
     #   spacy
@@ -531,6 +558,7 @@ protobuf==4.25.5
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
+    #   mlflow-skinny
     #   proto-plus
 psutil==7.0.0
     # via
@@ -556,13 +584,14 @@ pycountry==23.12.11
     # via schwifty
 pycparser==2.22
     # via cffi
-pydantic==1.10.21
+pydantic==1.10.22
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
     #   confection
     #   fastapi
     #   great-expectations
+    #   mlflow-skinny
     #   spacy
     #   thinc
 pygithub==2.3.0
@@ -622,6 +651,7 @@ pyyaml==6.0.1
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   mlflow-skinny
     #   uvicorn
 pyzmq==24.0.1
     # via
@@ -645,11 +675,13 @@ referencing==0.35.0
 requests==2.31.0
     # via
     #   confluent-kafka
+    #   databricks-sdk
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
     #   great-expectations
     #   mixpanel
+    #   mlflow-skinny
     #   msal
     #   pygithub
     #   reactpy
@@ -668,7 +700,7 @@ ruamel-yaml==0.17.17
     # via
     #   acryl-datahub
     #   great-expectations
-s3transfer==0.11.4
+s3transfer==0.12.0
     # via boto3
 schwifty==2024.4.0
     # via
@@ -741,7 +773,9 @@ sqlglot==26.6.0
 sqlglotrs==0.3.14
     # via sqlglot
 sqlparse==0.5.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   mlflow-skinny
 srsly==2.4.8
     # via
     #   confection
@@ -753,7 +787,7 @@ stackprinter==0.2.12
     # via acryl-datahub-actions
 starkbank-ecdsa==2.2.0
     # via sendgrid
-starlette==0.37.2
+starlette==0.46.2
     # via fastapi
 tabulate==0.9.0
     # via acryl-datahub
@@ -819,6 +853,8 @@ typing-extensions==4.11.0
     #   fastapi
     #   great-expectations
     #   inflect
+    #   mlflow-skinny
+    #   opentelemetry-sdk
     #   pydantic
     #   pygithub
     #   python-utils
@@ -847,7 +883,9 @@ urllib3==1.26.18
     #   requests
     #   sentry-sdk
 uvicorn==0.29.0
-    # via acryl-datahub-integrations
+    # via
+    #   acryl-datahub-integrations
+    #   mlflow-skinny
 uvloop==0.19.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn
 vininfo==1.8.0

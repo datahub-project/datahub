@@ -23,7 +23,7 @@ def test_chat_history(tmp_path: Path) -> None:
 
     # Test that we can serialize out properly.
     output_file = tmp_path / "chat_history.json"
-    output_file.write_text(chat_history.json(indent=2))
+    chat_history.save_file(output_file)
 
     assert_metadata_files_equal(
         output_file,

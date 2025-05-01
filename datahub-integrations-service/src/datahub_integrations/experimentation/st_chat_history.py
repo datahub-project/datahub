@@ -12,45 +12,12 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
     ToolResultError,
 )
-from datahub_integrations.chat.chat_session import (
-    ChatSession,
-    NextMessage,
-)
+from datahub_integrations.chat.chat_session import ChatSession, NextMessage
 from datahub_integrations.chat.linkify import linkify_slack
-from datahub_integrations.chat.mcp_server import get_client, mcp
 
 
-def _make_empty_chat_session() -> ChatSession:
-    st.text("Resetting chat session")
-    return ChatSession(tools=mcp.get_all_tools())
-
-
-def _chat_session() -> ChatSession:
-    # Initialize chat session if it doesn't exist
-    if "chat_session" not in st.session_state:
-        st.session_state.chat_session = _make_empty_chat_session()
-    return st.session_state.chat_session
-
-
-# Add a clear chat button
-if st.button("Clear Chat"):
-    st.session_state.chat_session = _make_empty_chat_session()
-    st.rerun()
-
-_chat_session()
-
-show_thinking = st.toggle("Show internal thinking", value=True)
-
-st.divider()
-
-
-@st.cache_data
-def frontend_url() -> str:
-    return get_client()._graph.frontend_base_url
-
-
-def _format_slack_mrkdwn(text: str) -> str:
-    slack_text = linkify_slack(frontend_url(), text)
+def _format_slack_mrkdwn(text: str, frontend_url: str) -> str:
+    slack_text = linkify_slack(frontend_url, text)
 
     # Convert Slack-style links to markdown links.
     # Both <url> and <url|text> are supported.
@@ -60,7 +27,12 @@ def _format_slack_mrkdwn(text: str) -> str:
     return markdown_text
 
 
-def render_history(history: ChatHistory) -> None:
+def st_chat_history(
+    history: ChatHistory,
+    *,
+    show_thinking: bool = True,
+    frontend_url: str = "https://dummy.acryl.io",
+) -> None:
     for message in history.messages:
         if isinstance(message, ReasoningMessage):
             if show_thinking:
@@ -68,21 +40,31 @@ def render_history(history: ChatHistory) -> None:
                     st.markdown(f"<pre>{message.text}</pre>", unsafe_allow_html=True)
         elif isinstance(message, HumanMessage):
             with st.chat_message("user"):
-                st.markdown(_format_slack_mrkdwn(message.text))
+                st.markdown(_format_slack_mrkdwn(message.text, frontend_url))
         elif isinstance(message, AssistantMessage):
             with st.chat_message("assistant"):
-                st.markdown(_format_slack_mrkdwn(message.text))
-        elif _chat_session().is_respond_to_user(message):
+                st.markdown(_format_slack_mrkdwn(message.text, frontend_url))
+        elif ChatSession.is_respond_to_user(message):
             with st.chat_message("assistant"):
-                assert isinstance(message.result, NextMessage)
-                st.markdown(_format_slack_mrkdwn(message.result.text))
+                next_message = message.result
+                if not isinstance(next_message, NextMessage):
+                    # When restoring history from JSON, the message result loses its type.
+                    next_message = NextMessage.parse_obj(next_message)
 
-                st.markdown("**Next Message Suggestions**")
+                markdown_tab, raw_tab = st.tabs(["Markdown", "Raw"])
+                with markdown_tab:
+                    st.markdown(_format_slack_mrkdwn(next_message.text, frontend_url))
+                with raw_tab:
+                    st.code(next_message.text, language="json")
+
                 suggestions_list = "\n".join(
-                    [f"- {suggestion}" for suggestion in message.result.suggestions]
+                    [f"- {suggestion}" for suggestion in next_message.suggestions]
                 )
                 if suggestions_list:
+                    st.markdown("**Next Message Suggestions**")
                     st.markdown(suggestions_list)
+                else:
+                    st.markdown("**No Next Message Suggestions**")
         elif isinstance(message, ToolResult):
             if show_thinking:
                 with st.chat_message("tool", avatar="🔧"):
@@ -103,25 +85,3 @@ def render_history(history: ChatHistory) -> None:
         else:
             st.error(f"Unknown message type: {type(message)}")
             assert_never(message)
-
-
-# Chat UI.
-render_history(_chat_session().history)
-if prompt := st.chat_input("Type your message here..."):
-    # Add user message to chat session
-    user_message = HumanMessage(text=prompt)
-    _chat_session()._add_message(user_message)
-
-    # Generate bot response
-    with (
-        st.status("Generating response...", expanded=True) as status,
-        _chat_session().set_progress_callback(
-            lambda message: status.update(label=message)
-        ),
-    ):
-        try:
-            response = _chat_session().generate_next_message()
-            st.rerun()
-
-        except Exception as e:
-            st.error(f"Error generating response: {str(e)}")
