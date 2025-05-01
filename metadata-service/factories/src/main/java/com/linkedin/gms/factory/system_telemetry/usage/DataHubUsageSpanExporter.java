@@ -105,8 +105,8 @@ public class DataHubUsageSpanExporter implements SpanExporter {
   private boolean isConfiguredEvent(EventData eventData) {
     String eventType = eventData.getAttributes().get(EVENT_TYPE_KEY);
     return (this.eventTypes.contains(eventType)
-            || ((DataHubUsageEventType.UPDATE_ASPECT_EVENT.toString().equals(eventType)
-                    || DELETE_ENTITY_EVENT.toString().equals(eventType))
+            || ((DataHubUsageEventType.UPDATE_ASPECT_EVENT.getType().equals(eventType)
+                    || DELETE_ENTITY_EVENT.getType().equals(eventType))
                 && this.aspectTypes.contains(eventData.getAttributes().get(ASPECT_NAME_KEY))))
         && userFilters.stream()
             .noneMatch(user -> user.equals(eventData.getAttributes().get(USER_ID_KEY)));

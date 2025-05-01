@@ -4,6 +4,8 @@ import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.*;
 import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.EVENT_SOURCE;
 import static com.linkedin.metadata.datahubusage.DataHubUsageEventConstants.SOURCE_IP;
 import static com.linkedin.metadata.datahubusage.DataHubUsageEventType.DELETE_ENTITY_EVENT;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventType.LOG_IN_EVENT;
+import static com.linkedin.metadata.datahubusage.DataHubUsageEventType.UPDATE_POLICY_EVENT;
 import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -22,6 +24,7 @@ import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.data.EventData;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import java.util.*;
+import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.mockito.ArgumentCaptor;
@@ -40,7 +43,9 @@ public class DataHubUsageSpanExporterTest {
   public void setup() {
     mockProducer = mock(Producer.class);
     config = new UsageExportConfiguration();
-    config.setUsageEventTypes("LOG_IN_EVENT,SEARCH_RESULT_CLICK_EVENT");
+    config.setUsageEventTypes(
+        StringUtils.join(
+            new String[] {LOG_IN_EVENT.getType(), UPDATE_POLICY_EVENT.getType()}, ","));
     config.setAspectTypes("aspect1,aspect2");
     config.setUserFilters("urn:li:corpuser:blacklisted");
     exporter = new DataHubUsageSpanExporter(mockProducer, TEST_TOPIC, config);
@@ -157,11 +162,11 @@ public class DataHubUsageSpanExporterTest {
     String entityType = "dataset";
 
     // Create search click event (in config.usageEventTypes)
-    EventData searchClickEvent =
+    EventData updatePolicyEvent =
         createGenericEvent(
             UPDATE_ASPECT_EVENT,
             userId,
-            DataHubUsageEventType.SEARCH_RESULT_CLICK_EVENT.getType(),
+            UPDATE_POLICY_EVENT.getType(),
             entityUrn,
             entityType,
             null,
@@ -171,7 +176,7 @@ public class DataHubUsageSpanExporterTest {
 
     // Create a SpanData containing the event
     SpanData spanData = mock(SpanData.class);
-    when(spanData.getEvents()).thenReturn(Collections.singletonList(searchClickEvent));
+    when(spanData.getEvents()).thenReturn(Collections.singletonList(updatePolicyEvent));
 
     // Export the span
     CompletableResultCode result = exporter.export(Collections.singletonList(spanData));
