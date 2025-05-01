@@ -164,6 +164,7 @@ def test_audit_token_events(auth_exclude_filter):
             "RevokeAccessTokenEvent",
         ],
         ["urn:li:corpuser:user"],
+        [],
     )
     print(res_data)
     assert res_data
@@ -193,6 +194,7 @@ def test_login_events(auth_exclude_filter):
             "LogInEvent",
         ],
         ["urn:li:corpuser:user"],
+        [],
     )
     print(res_data)
     assert res_data
@@ -215,7 +217,11 @@ def test_failed_login_events(auth_exclude_filter):
 
     # Audit events for failed login should show, search for both to rule out any previous failures from any other tests
     res_data = searchForAuditEvents(
-        user_session, 1, ["FailedLogInEvent", "LogInEvent"], ["urn:li:corpuser:user"]
+        user_session,
+        1,
+        ["FailedLogInEvent", "LogInEvent"],
+        ["urn:li:corpuser:user"],
+        [],
     )
     print(res_data)
     assert res_data
@@ -300,6 +306,7 @@ def test_policy_events(auth_exclude_filter):
         2,
         ["CreatePolicyEvent", "UpdatePolicyEvent"],
         ["urn:li:corpuser:datahub"],
+        [],
     )
     print(res_data)
     assert res_data
@@ -378,6 +385,7 @@ def test_ingestion_source_events(auth_exclude_filter):
         2,
         ["CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"],
         ["urn:li:corpuser:datahub"],
+        [],
     )
     print(res_data)
     assert res_data
@@ -398,60 +406,17 @@ def test_user_events(auth_exclude_filter):
     #       requires a fairly significant refactor that's not in scope right now
     res_data = searchForAuditEvents(
         user_session,
-        # 5,
         4,
         ["CreateUserEvent", "UpdateUserEvent"],
         ["urn:li:corpuser:__datahub_system"],
+        ["corpUserKey", "corpUserInfo", "corpUserStatus", "corpUserCredentials"],
     )
     print(res_data)
-    # assert len(res_data["usageEvents"]) == 5
-    # assert res_data["usageEvents"][0]["eventType"] == "UpdateUserEvent"
-    # assert res_data["usageEvents"][0]["entityUrn"] == "urn:li:corpuser:user"
-    # # Credentials and settings are in random order due to async
-    # assert (
-    #     res_data["usageEvents"][0]["aspectName"] == "corpUserCredentials"
-    #     or res_data["usageEvents"][0]["aspectName"] == "corpUserSettings"
-    # )
-    #
-    # assert res_data["usageEvents"][1]["eventType"] == "UpdateUserEvent"
-    # assert res_data["usageEvents"][1]["entityUrn"] == "urn:li:corpuser:user"
-    # assert (
-    #     res_data["usageEvents"][1]["aspectName"] == "corpUserCredentials"
-    #     or res_data["usageEvents"][1]["aspectName"] == "corpUserSettings"
-    # )
-    #
-    # assert res_data["usageEvents"][2]["eventType"] == "UpdateUserEvent"
-    # assert res_data["usageEvents"][2]["entityUrn"] == "urn:li:corpuser:user"
-    # assert res_data["usageEvents"][2]["aspectName"] == "corpUserStatus"
-    #
-    # # These get created at the same time
-    # assert (
-    #     res_data["usageEvents"][3]["eventType"] == "UpdateUserEvent"
-    #     or res_data["usageEvents"][3]["eventType"] == "CreateUserEvent"
-    # )
-    # assert res_data["usageEvents"][3]["entityUrn"] == "urn:li:corpuser:user"
-    # assert (
-    #     res_data["usageEvents"][3]["aspectName"] == "corpUserInfo"
-    #     or res_data["usageEvents"][3]["aspectName"] == "corpUserKey"
-    # )
-    #
-    # assert (
-    #     res_data["usageEvents"][4]["eventType"] == "UpdateUserEvent"
-    #     or res_data["usageEvents"][4]["eventType"] == "CreateUserEvent"
-    # )
-    # assert res_data["usageEvents"][4]["entityUrn"] == "urn:li:corpuser:user"
-    # assert (
-    #     res_data["usageEvents"][4]["aspectName"] == "corpUserInfo"
-    #     or res_data["usageEvents"][4]["aspectName"] == "corpUserKey"
-    # )
     assert len(res_data["usageEvents"]) == 4
     assert res_data["usageEvents"][0]["eventType"] == "UpdateUserEvent"
     assert res_data["usageEvents"][0]["entityUrn"] == "urn:li:corpuser:user"
     # Credentials and settings are in random order due to async
-    assert (
-        res_data["usageEvents"][0]["aspectName"] == "corpUserCredentials"
-        or res_data["usageEvents"][0]["aspectName"] == "corpUserSettings"
-    )
+    assert res_data["usageEvents"][0]["aspectName"] == "corpUserCredentials"
 
     assert res_data["usageEvents"][1]["eventType"] == "UpdateUserEvent"
     assert res_data["usageEvents"][1]["entityUrn"] == "urn:li:corpuser:user"
@@ -556,10 +521,13 @@ def revokeAccessToken(session, tokenId):
     return response.json()
 
 
-def searchForAuditEvents(session, size, event_types: List, user_urns: List):
+def searchForAuditEvents(
+    session, size, event_types: List, user_urns: List, aspect_names: List
+):
     json = {
         "eventTypes": event_types,
         "actorUrns": user_urns,
+        "aspectNames": aspect_names,
     }
     response = session.post(
         f"{get_frontend_url()}/openapi/v1/events/audit/search?size={size}", json=json
