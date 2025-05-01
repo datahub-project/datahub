@@ -54,7 +54,7 @@ jobs:
           # We only need the timezone variation for frontend tests.
           - command: "frontend"
             timezone: "America/New_York"
-    runs-on: ${{ matrix.command == 'frontend' && 'depot-ubuntu-22.04-4' || 'depot-ubuntu-22.04' }}
+    runs-on: ${{ (matrix.command == 'frontend' || matrix.command == 'except_metadata_ingestion' ) && 'depot-ubuntu-22.04-4' || 'depot-ubuntu-22.04' }}
     timeout-minutes: 60
     needs: setup
     steps:
