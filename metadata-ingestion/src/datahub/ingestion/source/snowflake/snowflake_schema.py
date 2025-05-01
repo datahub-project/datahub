@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, MutableMapping, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Tuple
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.api.report import SupportsAsObj
@@ -234,7 +234,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             "DATAHUB_SNOWFLAKE_USE_INFORMATION_SCHEMA_FOR_VIEWS", default=False
         )
 
-    def as_obj(self) -> Dict[str, Dict[str, int]]:
+    def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
 
         # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
@@ -250,7 +250,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             self.get_fk_constraints_for_schema,
         ]
 
-        report = {
+        report: Dict[str, Any] = {
             "use_information_schema_for_views": self._use_information_schema_for_views,
         }
         for func in lru_cache_functions:
@@ -473,7 +473,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return views
 
     @classmethod
-    def _map_view(cls, row) -> Tuple[str, SnowflakeView]:
+    def _map_view(cls, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
         schema_name = row["VIEW_SCHEMA"]
         return schema_name, SnowflakeView(
             name=row["VIEW_NAME"],
