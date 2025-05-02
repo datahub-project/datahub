@@ -293,6 +293,12 @@ export function filterEmptyAggregations(aggregations: AggregationMetadata[], act
     });
 }
 
+// Filters out values from the secondary aggregations that are present in the base aggregations.
+export const deduplicateAggregations = (baseAggs: AggregationMetadata[], secondaryAggs: AggregationMetadata[]) => {
+    const baseValues = baseAggs.map((agg) => agg.value);
+    return secondaryAggs.filter((agg) => !baseValues.includes(agg.value));
+};
+
 export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedFacetFields: string[]) {
     if (sortedFacetFields.indexOf(facetA.field) === -1) return 1;
     if (sortedFacetFields.indexOf(facetB.field) === -1) return -1;

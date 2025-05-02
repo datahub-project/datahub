@@ -1,16 +1,22 @@
 import { useEffect, useMemo } from 'react';
 
-import { filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from '@app/searchV2/filters/utils';
+import {
+    deduplicateAggregations,
+    filterEmptyAggregations,
+    getNewFilters,
+    getNumActiveFiltersForFilter,
+} from '@app/searchV2/filters/utils';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
 
-import { FacetFilterInput, FacetMetadata } from '@types';
+import { EntityType, FacetFilterInput, FacetMetadata } from '@types';
 
 interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
+    aggregationsEntityTypes?: Array<EntityType>;
     shouldUseAggregationsFromFilter?: boolean;
 }
 
@@ -18,6 +24,7 @@ export default function useSearchFilterDropdown({
     filter,
     activeFilters,
     onChangeFilters,
+    aggregationsEntityTypes,
     shouldUseAggregationsFromFilter,
 }: Props) {
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
@@ -36,7 +43,7 @@ export default function useSearchFilterDropdown({
             aggregateAcrossEntities({
                 variables: {
                     input: {
-                        types: filter.field === ENTITY_FILTER_NAME ? null : entityFilters,
+                        types: aggregationsEntityTypes || (filter.field === ENTITY_FILTER_NAME ? null : entityFilters),
                         query,
                         orFilters,
                         viewUrn,
@@ -45,11 +52,27 @@ export default function useSearchFilterDropdown({
                 },
             });
         }
-    }, [aggregateAcrossEntities, entityFilters, filter.field, orFilters, query, viewUrn, shouldFetchAggregations]);
+    }, [
+        aggregateAcrossEntities,
+        entityFilters,
+        filter.field,
+        orFilters,
+        query,
+        viewUrn,
+        shouldFetchAggregations,
+        aggregationsEntityTypes,
+    ]);
+
+    const fetchedAggregations =
+        data?.aggregateAcrossEntities?.facets?.find((f) => f.field === filter.field)?.aggregations || [];
+    const searchAggregations = filter.aggregations;
+    const activeAggregations = searchAggregations.filter((agg) =>
+        activeFilters.find((f) => f.values?.includes(agg.value) || f.value === agg.value),
+    );
 
     const aggregations = shouldFetchAggregations
-        ? data?.aggregateAcrossEntities?.facets?.[0]?.aggregations
-        : filter.aggregations;
+        ? [...fetchedAggregations, ...deduplicateAggregations(fetchedAggregations, activeAggregations)]
+        : searchAggregations;
 
     const finalAggregations = filterEmptyAggregations(aggregations || [], activeFilters);
 

@@ -9,7 +9,7 @@ import { PreviewType } from '@app/entity/Entity';
 import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
 import { SearchResultList } from '@app/searchV2/SearchResultList';
@@ -154,7 +154,7 @@ const IconContainer = styled.div<{ isActive?: boolean }>`
     ${(props) =>
         props.isActive &&
         `
-        background: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background: ${props.theme.styles['primary-color']};
         border-radius: 100%;
         color: white;
     `}

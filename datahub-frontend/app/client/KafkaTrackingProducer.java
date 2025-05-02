@@ -70,7 +70,7 @@ public class KafkaTrackingProducer {
     producer.send(record);
   }
 
-  private static KafkaProducer createKafkaProducer(
+  private static KafkaProducer<String, String> createKafkaProducer(
       Config config, KafkaConfiguration kafkaConfiguration) {
     final ProducerConfiguration producerConfiguration = kafkaConfiguration.getProducer();
     final Properties props = new Properties();
@@ -154,7 +154,7 @@ public class KafkaTrackingProducer {
       }
     }
 
-    return new org.apache.kafka.clients.producer.KafkaProducer<String, String>(props);
+    return new org.apache.kafka.clients.producer.KafkaProducer<>(props);
   }
 
   private static void setConfig(Config config, Properties props, String key, String configKey) {

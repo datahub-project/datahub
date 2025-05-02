@@ -131,11 +131,14 @@ cachetools_lib = {
     "cachetools",
 }
 
+sql_common_slim = {
+    # Required for all SQL sources.
+    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
+    "sqlalchemy>=1.4.39, <2",
+}
 sql_common = (
     {
-        # Required for all SQL sources.
-        # This is temporary lower bound that we're open to loosening/tightening as requirements show up
-        "sqlalchemy>=1.4.39, <2",
+        *sql_common_slim,
         # Required for SQL profiling.
         "great-expectations>=0.15.12, <=0.15.50",
         *pydantic_no_v2,  # because of great-expectations
@@ -220,8 +223,6 @@ redshift_common = {
 }
 
 snowflake_common = {
-    # Snowflake plugin utilizes sql common
-    *sql_common,
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     "snowflake-sqlalchemy>=1.4.3",
     "snowflake-connector-python>=3.4.0",
@@ -229,7 +230,7 @@ snowflake_common = {
     "cryptography",
     "msal",
     *cachetools_lib,
-} | classification_lib
+}
 
 trino = {
     "trino[sqlalchemy]>=0.308",
@@ -253,7 +254,9 @@ pyhive_common = {
     # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
-microsoft_common = {"msal>=1.24.0"}
+microsoft_common = {
+    "msal>=1.31.1",
+}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -294,8 +297,8 @@ threading_timeout_common = {
 }
 
 abs_base = {
-    "azure-core==1.29.4",
-    "azure-identity>=1.17.1",
+    "azure-core>=1.31.0",
+    "azure-identity>=1.21.0",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
@@ -400,6 +403,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         "google-cloud-datacatalog-lineage==0.2.2",
     },
+    "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
@@ -502,9 +506,10 @@ plugins: Dict[str, Set[str]] = {
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce", *cachetools_lib},
-    "snowflake": snowflake_common | usage_common | sqlglot_lib,
-    "snowflake-summary": snowflake_common | usage_common | sqlglot_lib,
-    "snowflake-queries": snowflake_common | usage_common | sqlglot_lib,
+    "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowflake-slim": snowflake_common,
+    "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
@@ -935,6 +940,8 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
                         "sql-parser",
                         "iceberg",
                         "feast",
+                        "bigquery-slim",
+                        "snowflake-slim",
                     }
                     else set()
                 )

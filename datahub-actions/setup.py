@@ -21,6 +21,13 @@ package_metadata: dict = {}
 with open("./src/datahub_actions/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
+_version: str = package_metadata["__version__"]
+_self_pin = (
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
+)
+
 
 def get_long_description():
     root = os.path.dirname(__file__)
@@ -30,8 +37,6 @@ def get_long_description():
     return description
 
 
-acryl_datahub_min_version = os.environ.get("ACRYL_DATAHUB_MIN_VERSION") or "1.0.0"
-
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
@@ -40,18 +45,19 @@ lint_requirements = {
 }
 
 base_requirements = {
-    *lint_requirements,
-    f"acryl-datahub[datahub-kafka]>={acryl_datahub_min_version}",
+    f"acryl-datahub[datahub-kafka]{_self_pin}",
     # Compatibility.
     "typing_extensions>=3.7.4; python_version < '3.8'",
     "mypy_extensions>=0.4.3",
     # Actual dependencies.
     "typing-inspect",
-    "pydantic<2",
-    "dictdiffer",
+    "pydantic>=1.10.21",
     "ratelimit",
+    # Lower bounds on httpcore and h11 due to CVE-2025-43859.
     "httpcore>=1.0.9",
-    "h11>=0.16"
+    "azure-identity==1.21.0",
+    "aws-msk-iam-sasl-signer-python==1.0.2",
+    "h11>=0.16",
 }
 
 framework_common = {
@@ -65,14 +71,6 @@ framework_common = {
     "stackprinter",
     "progressbar2",
     "tenacity",
-}
-
-aws_common = {
-    # AWS Python SDK
-    "boto3",
-    # Deal with a version incompatibility between botocore (used by boto3) and urllib3.
-    # See https://github.com/boto/botocore/pull/2563.
-    "botocore!=1.23.0",
 }
 
 # Note: for all of these, framework_common will be added.
@@ -94,7 +92,7 @@ plugins: Dict[str, Set[str]] = {
     "tag_propagation": set(),
     "term_propagation": set(),
     "snowflake_tag_propagation": {
-        f"acryl-datahub[snowflake]>={acryl_datahub_min_version}"
+        f"acryl-datahub[snowflake-slim]{_self_pin}",
     },
     "doc_propagation": set(),
     # Transformer Plugins (None yet)
@@ -115,10 +113,10 @@ mypy_stubs = {
     "types-cachetools",
     # versions 0.1.13 and 0.1.14 seem to have issues
     "types-click==0.1.12",
-    "boto3-stubs[s3,glue,sagemaker]",
 }
 
 base_dev_requirements = {
+    *lint_requirements,
     *base_requirements,
     *framework_common,
     *mypy_stubs,
@@ -169,6 +167,9 @@ full_test_dev_requirements = {
         ]
         for dependency in plugins[plugin]
     ),
+    # In our tests, we want to always test against pydantic v2.
+    # However, we maintain compatibility with pydantic v1 for now.
+    "pydantic>2",
 }
 
 entry_points = {

@@ -8,6 +8,8 @@ import {
     SpacingOptions,
 } from '@components/theme/config';
 
+import { Theme } from '@conf/theme/types';
+
 export interface TextProps extends HTMLAttributes<HTMLElement> {
     type?: 'span' | 'p' | 'div' | 'pre';
     size?: FontSizeOptions;
@@ -15,4 +17,5 @@ export interface TextProps extends HTMLAttributes<HTMLElement> {
     colorLevel?: FontColorLevelOptions;
     weight?: FontWeightOptions;
     lineHeight?: SpacingOptions;
+    theme?: Theme;
 }

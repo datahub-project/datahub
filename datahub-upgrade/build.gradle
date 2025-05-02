@@ -81,6 +81,8 @@ dependencies {
   runtimeOnly externalDependency.postgresql
 
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
