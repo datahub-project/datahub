@@ -5,7 +5,11 @@ import pytest
 import requests
 
 from datahub.configuration.common import ConfigurationError
-from datahub.utilities.server_config_util import RestServiceConfig, ServiceFeature
+from datahub.utilities.server_config_util import (
+    _REQUIRED_VERSION_OPENAPI_TRACING,
+    RestServiceConfig,
+    ServiceFeature,
+)
 
 
 @pytest.fixture
@@ -177,32 +181,6 @@ def test_parse_version(sample_config, version_str, expected):
     assert result == expected
 
 
-@pytest.mark.parametrize(
-    "server_env,expected",
-    [
-        ("oss", False),  # Open source environment
-        ("cloud", True),  # Cloud environment
-        ("managed", True),  # Managed environment
-        ("enterprise", True),  # Enterprise environment
-        (None, False),  # No environment specified
-        ("", False),  # Empty string is not "oss"
-    ],
-)
-def test_is_datahub_cloud(sample_config, server_env, expected):
-    """Test checking if a configuration represents DataHub Cloud based on serverEnv."""
-    modified_config = sample_config.copy()
-
-    # Ensure datahub config exists
-    if "datahub" not in modified_config:
-        modified_config["datahub"] = {}
-
-    # Set the serverEnv value
-    modified_config["datahub"]["serverEnv"] = server_env
-
-    config = RestServiceConfig(raw_config=modified_config)
-    assert config.is_datahub_cloud is expected
-
-
 def test_parse_version_invalid():
     """Test parsing invalid version string."""
     config = RestServiceConfig(raw_config={})
@@ -290,46 +268,148 @@ def test_is_managed_ingestion_enabled(sample_config):
 
 
 @pytest.mark.parametrize(
-    "version,feature,expected",
+    "server_env,version,feature,expected",
     [
-        ("v1.0.0", ServiceFeature.IMPACT_ANALYSIS, True),  # Config-based feature
+        # Test cloud environments with different version requirements
         (
-            "v1.0.0-acryl",
+            "cloud",
+            "v0.3.11.0",
+            ServiceFeature.OPEN_API_SDK,
+            True,
+        ),  # Cloud meets requirement
+        (
+            "cloud",
+            "v0.3.10.0",
+            ServiceFeature.OPEN_API_SDK,
+            False,
+        ),  # Cloud below requirement
+        (
+            "cloud",
+            "v1.0.0.0",
+            ServiceFeature.OPEN_API_SDK,
+            True,
+        ),  # Cloud exceeds requirement
+        # Test core (non-cloud) environments with different version requirements
+        (
+            "core",
+            "v1.0.1.0",
+            ServiceFeature.OPEN_API_SDK,
+            True,
+        ),  # Core meets requirement
+        (
+            "core",
+            "v1.0.0.0",
+            ServiceFeature.OPEN_API_SDK,
+            False,
+        ),  # Core below requirement
+        (
+            "core",
+            "v2.0.0.0",
+            ServiceFeature.OPEN_API_SDK,
+            True,
+        ),  # Core exceeds requirement
+        # Test config-based features (should be independent of cloud/core status)
+        (
+            "cloud",
+            "v0.1.0.0",
             ServiceFeature.IMPACT_ANALYSIS,
             True,
-        ),  # Config-based with acryl suffix
+        ),  # Config-based feature
         (
-            "v0.3.11",
-            ServiceFeature.OPEN_API_SDK,
-            False,
-        ),  # Version-based (no suffix - not enough)
-        (
-            "v1.0.1",
-            ServiceFeature.OPEN_API_SDK,
+            "core",
+            "v0.1.0.0",
+            ServiceFeature.IMPACT_ANALYSIS,
             True,
-        ),  # Version-based (no suffix - enough)
+        ),  # Config-based feature
+        # Test with an unknown feature identifier (using a string instead of enum)
         (
-            "v0.3.11-acryl",
-            ServiceFeature.OPEN_API_SDK,
-            True,
-        ),  # Version-based (acryl suffix - enough)
-        (
-            "v0.3.10-acryl",
-            ServiceFeature.OPEN_API_SDK,
+            "core",
+            "v1.0.0.0",
+            "unknown_feature",
             False,
-        ),  # Version-based (acryl suffix - not enough)
-        ("v0.3.11-cloud", ServiceFeature.OPEN_API_SDK, True),  # Specific suffix
-        ("v0.3.11-custom", ServiceFeature.OPEN_API_SDK, True),  # Any other suffix
+        ),  # Unknown feature
     ],
 )
-def test_supports_feature(sample_config, version, feature, expected):
-    """Test feature support detection based on version and config."""
+def test_supports_feature_cloud_core(
+    sample_config, server_env, version, feature, expected
+):
+    """Test feature support detection based on cloud vs. core environment."""
     modified_config = sample_config.copy()
+
+    # Set the version
     modified_config["versions"]["acryldata/datahub"]["version"] = version
 
+    # Set the server environment
+    if "datahub" not in modified_config:
+        modified_config["datahub"] = {}
+    modified_config["datahub"]["serverEnv"] = server_env
+
     config = RestServiceConfig(raw_config=modified_config)
+
+    # For unknown feature test case
+    if isinstance(feature, str) and feature == "unknown_feature":
+        # Create a mock object instead of extending the enum
+        mock_feature = MagicMock()
+        mock_feature.value = "unknown_feature"
+        feature = mock_feature
+
     result = config.supports_feature(feature)
     assert result == expected
+
+
+def test_supports_feature_required_versions(sample_config):
+    """Test that the correct required versions are used for each feature."""
+    # Create a spy on the is_version_at_least method
+    with patch.object(
+        RestServiceConfig, "is_version_at_least", return_value=True
+    ) as mock_version_check:
+        # Test cloud environment
+        cloud_config = sample_config.copy()
+        if "datahub" not in cloud_config:
+            cloud_config["datahub"] = {}
+        cloud_config["datahub"]["serverEnv"] = "cloud"
+
+        config = RestServiceConfig(raw_config=cloud_config)
+        config.supports_feature(ServiceFeature.OPEN_API_SDK)
+
+        # Verify cloud requirements were used (0, 3, 11, 0)
+        mock_version_check.assert_called_with(0, 3, 11, 0)
+
+        # Reset mock
+        mock_version_check.reset_mock()
+
+        # Test core environment
+        core_config = sample_config.copy()
+        if "datahub" not in core_config:
+            core_config["datahub"] = {}
+        core_config["datahub"]["serverEnv"] = "core"
+
+        config = RestServiceConfig(raw_config=core_config)
+        config.supports_feature(ServiceFeature.OPEN_API_SDK)
+
+        # Verify core requirements were used (1, 0, 1, 0)
+        mock_version_check.assert_called_with(1, 0, 1, 0)
+
+
+def test_datahub_cloud_feature(sample_config):
+    """Test the DATAHUB_CLOUD feature detection."""
+    # Test with cloud environment
+    cloud_config = sample_config.copy()
+    if "datahub" not in cloud_config:
+        cloud_config["datahub"] = {}
+    cloud_config["datahub"]["serverEnv"] = "cloud"
+
+    config = RestServiceConfig(raw_config=cloud_config)
+    assert config.supports_feature(ServiceFeature.DATAHUB_CLOUD) is True
+
+    # Test with core environment
+    core_config = sample_config.copy()
+    if "datahub" not in core_config:
+        core_config["datahub"] = {}
+    core_config["datahub"]["serverEnv"] = "core"
+
+    config = RestServiceConfig(raw_config=core_config)
+    assert config.supports_feature(ServiceFeature.DATAHUB_CLOUD) is False
 
 
 def test_str_and_repr(sample_config):
@@ -355,3 +435,176 @@ def test_feature_enum():
     # Test enum equality works correctly
     assert ServiceFeature.OPEN_API_SDK == ServiceFeature.OPEN_API_SDK
     assert ServiceFeature.NO_CODE != ServiceFeature.OPEN_API_SDK
+
+
+def test_is_datahub_cloud_property():
+    """Test the is_datahub_cloud property with different server environments."""
+    # We need to patch the fetch_config method to avoid the need for session and URL
+    with patch.object(RestServiceConfig, "fetch_config") as mock_fetch_config:
+        # Test with no serverEnv
+        config = RestServiceConfig(raw_config={"datahub": {}})
+        mock_fetch_config.return_value = {"datahub": {}}
+        assert config.is_datahub_cloud is False
+
+        # Test with empty serverEnv
+        config = RestServiceConfig(raw_config={"datahub": {"serverEnv": ""}})
+        mock_fetch_config.return_value = {"datahub": {"serverEnv": ""}}
+        assert config.is_datahub_cloud is False
+
+        # Test with "core" serverEnv
+        config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "core"}})
+        mock_fetch_config.return_value = {"datahub": {"serverEnv": "core"}}
+        assert config.is_datahub_cloud is False
+
+        # Test with "cloud" serverEnv
+        config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "cloud"}})
+        mock_fetch_config.return_value = {"datahub": {"serverEnv": "cloud"}}
+        assert config.is_datahub_cloud is True
+
+        # Test with other serverEnv values
+        config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "prod"}})
+        mock_fetch_config.return_value = {"datahub": {"serverEnv": "prod"}}
+        assert config.is_datahub_cloud is True
+
+        # Test with no datahub entry
+        config = RestServiceConfig(raw_config={})
+        mock_fetch_config.return_value = {}
+        assert config.is_datahub_cloud is False
+
+
+def test_feature_requirements_dictionary():
+    """Test that the feature requirements dictionary is properly defined."""
+    # Verify the _REQUIRED_VERSION_OPENAPI_TRACING constant
+    assert "cloud" in _REQUIRED_VERSION_OPENAPI_TRACING
+    assert "core" in _REQUIRED_VERSION_OPENAPI_TRACING
+    assert _REQUIRED_VERSION_OPENAPI_TRACING["cloud"] == (0, 3, 11, 0)
+    assert _REQUIRED_VERSION_OPENAPI_TRACING["core"] == (1, 0, 1, 0)
+
+    # Mock the supports_feature method to inspect the feature_requirements dictionary
+    with patch.object(RestServiceConfig, "is_version_at_least", return_value=True):
+        config = RestServiceConfig(raw_config={})
+
+        # Use the __dict__ to access the feature_requirements dictionary directly during the call
+        with patch.object(RestServiceConfig, "supports_feature") as mock_method:
+            # Call the method to trigger dictionary creation
+            config.supports_feature(ServiceFeature.OPEN_API_SDK)
+
+            # Extract the call arguments to verify dictionary structure
+            # This is a bit of a hack but allows us to test the internal structure
+            mock_method.assert_called_once()
+
+            # Alternative approach: use a spy to inspect the internal dictionary
+            with patch.object(
+                RestServiceConfig, "supports_feature", wraps=config.supports_feature
+            ):
+                # Now we can manually check if both features use the same requirements dictionary
+                assert config.supports_feature(
+                    ServiceFeature.OPEN_API_SDK
+                ) == config.supports_feature(ServiceFeature.API_TRACING)
+
+
+def test_feature_requirements_shared_reference():
+    """Test that OPEN_API_SDK and API_TRACING share the same version requirements."""
+    # Create a mock config object with core environment
+    config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "core"}})
+
+    # Create a spy on is_version_at_least to track calls
+    with patch.object(RestServiceConfig, "is_version_at_least") as mock_version_check:
+        # First check OPEN_API_SDK
+        mock_version_check.return_value = True
+        config.supports_feature(ServiceFeature.OPEN_API_SDK)
+
+        # Store the first call's arguments
+        first_call_args = mock_version_check.call_args[0]
+
+        # Reset the mock to verify the call for API_TRACING
+        mock_version_check.reset_mock()
+        mock_version_check.return_value = True
+        config.supports_feature(ServiceFeature.API_TRACING)
+
+        # Store the second call's arguments
+        second_call_args = mock_version_check.call_args[0]
+
+        # Both features should check the same version requirements
+        assert mock_version_check.call_count > 0, (
+            "Version check should have been called"
+        )
+        assert first_call_args == second_call_args, (
+            "Both features should use the same version requirements"
+        )
+
+
+def test_get_deployment_requirements():
+    """Test requirements fetching for different deployment types."""
+
+    # Test cloud deployment
+    cloud_config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "cloud"}})
+
+    # Test core deployment
+    core_config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "core"}})
+
+    # Use a list to capture version requirements
+    cloud_calls = []
+    core_calls = []
+
+    # Mock implementation for cloud config
+    def cloud_mock_version_check(major, minor, patch, build):
+        cloud_calls.append((major, minor, patch, build))
+        return True
+
+    # Mock implementation for core config
+    def core_mock_version_check(major, minor, patch, build):
+        core_calls.append((major, minor, patch, build))
+        return True
+
+    # Test with cloud config
+    with patch.object(
+        cloud_config, "is_version_at_least", side_effect=cloud_mock_version_check
+    ):
+        cloud_config.supports_feature(ServiceFeature.OPEN_API_SDK)
+        assert cloud_calls[-1] == (0, 3, 11, 0)  # cloud requirement
+
+    # Test with core config
+    with patch.object(
+        core_config, "is_version_at_least", side_effect=core_mock_version_check
+    ):
+        core_config.supports_feature(ServiceFeature.OPEN_API_SDK)
+        assert core_calls[-1] == (1, 0, 1, 0)  # core requirement
+
+
+def test_missing_deployment_requirements():
+    """Test behavior when requirements are missing for a deployment type."""
+    # Use a mock for feature that doesn't have requirements for all deployment types
+    mock_feature = MagicMock()
+    mock_feature.value = "custom_feature"
+
+    # Create configs for testing
+    cloud_config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "cloud"}})
+
+    # Mock the feature_requirements dictionary to include only one deployment type
+    with patch(
+        "datahub.utilities.server_config_util._REQUIRED_VERSION_OPENAPI_TRACING",
+        {"core": (1, 0, 0, 0)},
+    ):  # Only core requirements, no cloud
+        # Test with cloud config - should return False because no requirements for cloud
+        assert not cloud_config.supports_feature(ServiceFeature.OPEN_API_SDK)
+
+    # Test with undefined feature
+    assert not cloud_config.supports_feature(mock_feature)
+
+
+def test_requirements_not_defined():
+    """Test behavior when a feature has no requirements defined."""
+    # Mock a feature with no requirements in the dictionary
+    config = RestServiceConfig(raw_config={})
+
+    # Create a mock feature not in the requirements dictionary
+    mock_feature = MagicMock()
+    mock_feature.value = "test_feature"
+
+    # Patch fetch_config to avoid the need for session and URL
+    with patch.object(RestServiceConfig, "fetch_config") as mock_fetch_config:
+        mock_fetch_config.return_value = {}
+
+        # Should return False as no requirements defined
+        assert not config.supports_feature(mock_feature)

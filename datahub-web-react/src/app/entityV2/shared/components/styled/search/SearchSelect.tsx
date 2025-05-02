@@ -62,7 +62,7 @@ type Props = {
  * when the selection is complete.
  */
 export const SearchSelect = ({
-    fixedEntityTypes,
+    fixedEntityTypes = [],
     placeholderText,
     selectedEntities,
     setSelectedEntities,
@@ -90,24 +90,27 @@ export const SearchSelect = ({
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
-    const finalEntityTypes = (entityFilters.length > 0 && entityFilters) || fixedEntityTypes || [];
+    const finalEntityTypes = [...entityFilters, ...(fixedEntityTypes || [])];
 
-    const finalEntityFilter: FacetFilterInput = {
-        field: ENTITY_FILTER_NAME,
-        condition: FilterOperator.Equal,
-        values: finalEntityTypes,
-        negated: false,
-    };
+    const finalEntityFilter = finalEntityTypes.length
+        ? {
+              field: ENTITY_FILTER_NAME,
+              condition: FilterOperator.Equal,
+              values: finalEntityTypes,
+              negated: false,
+          }
+        : undefined;
+    const finalFilters = finalEntityFilter ? [...filtersWithoutEntities, finalEntityFilter] : filtersWithoutEntities;
 
     // Execute search
     const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
-                types: finalEntityTypes,
+                types: finalEntityTypes.length ? finalEntityTypes : undefined,
                 query: searchQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: [...filtersWithoutEntities, finalEntityFilter],
+                filters: finalFilters,
                 sortInput,
             },
         },

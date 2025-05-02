@@ -44,15 +44,8 @@ class ServiceFeature(Enum):
 
 
 _REQUIRED_VERSION_OPENAPI_TRACING = {
-    "acryl": (
-        0,
-        3,
-        11,
-        0,
-    ),  # Requires v0.3.11.0 or higher for acryl versions
-    "cloud": (0, 3, 11, 0),  # Special case for '-cloud' suffix
-    "any_suffix": (0, 3, 11, 0),  # Generic requirement for any other suffix
-    "none": (1, 0, 1, 0),  # Requirement for versions without suffix
+    "cloud": (0, 3, 11, 0),
+    "core": (1, 0, 1, 0),
 }
 
 
@@ -259,7 +252,7 @@ class RestServiceConfig:
         Check if DataHub Cloud is enabled.
 
         Returns:
-            True if the server environment is not 'oss'
+            True if the server environment is not 'core'
         """
         datahub_config = self.config.get("datahub") or {}
         server_env = datahub_config.get("serverEnv")
@@ -268,17 +261,12 @@ class RestServiceConfig:
         if not server_env:
             return False
 
-        return server_env != "oss"
+        return server_env != "core"
 
     def supports_feature(self, feature: ServiceFeature) -> bool:
         """
-        Determines whether a specific feature is supported based on service version.
-
-        Version categorization follows these rules:
-        1. Has '-acryl' suffix (highest priority)
-        2. Has a specific known suffix (e.g. '-other')
-        3. Has some other suffix (catchall for any suffix)
-        4. No suffix
+        Determines whether a specific feature is supported based on service version
+        and whether this is a cloud deployment or not.
 
         Args:
             feature: Feature enum value to check
@@ -286,32 +274,7 @@ class RestServiceConfig:
         Returns:
             Boolean indicating whether the feature is supported
         """
-        version = self.service_version
-        if not version:
-            return False
-
-        # Determine the suffix category
-        suffix_category = "none"  # Default: no suffix
-
-        if "-" in version:
-            suffix = version.split("-", 1)[1]
-
-            if suffix == "acryl":
-                suffix_category = "acryl"
-            elif suffix == "cloud":  # Example of a specific override
-                suffix_category = "cloud"
-            else:
-                suffix_category = "any_suffix"  # Catchall for any other suffix
-
-        # Define feature requirements based on version scheme
-        # This can be expanded to include more features
-        feature_requirements = {
-            ServiceFeature.OPEN_API_SDK: _REQUIRED_VERSION_OPENAPI_TRACING,
-            ServiceFeature.API_TRACING: _REQUIRED_VERSION_OPENAPI_TRACING,
-            # Additional features can be defined here
-        }
-
-        # Special handling for features that rely on config flags instead of version
+        # Special handling for features that rely on config flags
         config_based_features = {
             ServiceFeature.NO_CODE: lambda: self.is_no_code_enabled,
             ServiceFeature.STATEFUL_INGESTION: lambda: self.config.get(
@@ -327,27 +290,36 @@ class RestServiceConfig:
             ServiceFeature.CLI_TELEMETRY: lambda: (
                 self.config.get("telemetry") or {}
             ).get("enabledCli", None),
-            # Add more config-based feature checks as needed
+            ServiceFeature.DATAHUB_CLOUD: lambda: self.is_datahub_cloud,
         }
 
         # Check if this is a config-based feature
         if feature in config_based_features:
             return config_based_features[feature]()
 
+        # For environment-based features, determine requirements based on cloud vs. non-cloud
+        deployment_type = "cloud" if self.is_datahub_cloud else "core"
+
+        # Define feature requirements
+        feature_requirements = {
+            ServiceFeature.OPEN_API_SDK: _REQUIRED_VERSION_OPENAPI_TRACING,
+            ServiceFeature.API_TRACING: _REQUIRED_VERSION_OPENAPI_TRACING,
+            # Additional features can be defined here
+        }
+
         # Check if the feature exists in our requirements dictionary
         if feature not in feature_requirements:
             # Unknown feature, assume not supported
             return False
 
-        # Get version requirements for this feature and version category
+        # Get version requirements for this feature and deployment type
         feature_reqs = feature_requirements[feature]
-        requirements = feature_reqs.get(suffix_category)
+        requirements = feature_reqs.get(deployment_type)
 
         if not requirements:
-            # Fallback to the no-suffix requirements if specific requirements aren't defined
-            requirements = feature_reqs.get(
-                "none", (99, 99, 99, 99)
-            )  # Very high version if none defined
+            # If no specific requirements defined for this deployment type,
+            # assume feature is not supported
+            return False
 
         # Check if the current version meets the requirements
         req_major, req_minor, req_patch, req_build = requirements

@@ -9,7 +9,7 @@ import { Text } from '@components/components/Text/Text';
 
 const StyledContainer = styled.div<{ $opened?: boolean; $disabled?: boolean }>`
     border: 1px solid ${(props) => (props.$opened || props.$disabled ? colors.gray[1800] : colors.gray[100])};
-    ${(props) => props.$opened && !props.$disabled && `outline: 2px solid ${colors.violet[300]};`}
+    ${(props) => props.$opened && !props.$disabled && `outline: 1px solid ${colors.violet[300]};`}
     border-radius: 8px;
     padding: 8px;
     display: flex;

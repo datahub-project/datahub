@@ -254,7 +254,9 @@ pyhive_common = {
     # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
-microsoft_common = {"msal>=1.24.0"}
+microsoft_common = {
+    "msal>=1.31.1",
+}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -295,8 +297,8 @@ threading_timeout_common = {
 }
 
 abs_base = {
-    "azure-core==1.29.4",
-    "azure-identity>=1.17.1",
+    "azure-core>=1.31.0",
+    "azure-identity>=1.21.0",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
@@ -612,8 +614,8 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.6",
-    "mypy==1.12.1",
+    "ruff==0.11.7",
+    "mypy==1.14.1",
 }
 
 base_dev_requirements = {

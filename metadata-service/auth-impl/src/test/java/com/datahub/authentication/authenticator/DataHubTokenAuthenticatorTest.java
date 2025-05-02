@@ -176,7 +176,12 @@ public class DataHubTokenAuthenticatorTest {
     final Actor datahub = new Actor(ActorType.USER, "datahub");
     final String validToken =
         authenticator._statefulTokenService.generateAccessToken(
-            TokenType.PERSONAL, datahub, "some token", "A token description", datahub.toUrnStr());
+            testOperationContext(),
+            TokenType.PERSONAL,
+            datahub,
+            "some token",
+            "A token description",
+            datahub.toUrnStr());
 
     final String authorizationHeaderValue = String.format("Bearer %s", validToken);
     final AuthenticationRequest context =
@@ -218,6 +223,7 @@ public class DataHubTokenAuthenticatorTest {
     final Actor actor = new Actor(ActorType.USER, "datahub");
     String token =
         authenticator._statefulTokenService.generateAccessToken(
+            testOperationContext(),
             TokenType.SESSION,
             actor,
             0L,

@@ -318,6 +318,19 @@ fragment autoCompleteFields on Entity {
             description
         }
     }
+    ... on SchemaFieldEntity {
+        fieldPath
+        parent {
+            ... on Dataset {
+                urn
+                type
+                ...entityDisplayNameFields
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
