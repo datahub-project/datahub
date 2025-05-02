@@ -86,7 +86,7 @@ export default function useGlossaryChildren({ entityUrn, skip }: Props) {
         },
         skip: !query || !entityUrn || !shouldDoAutoComplete,
         onCompleted: (d) => {
-            const results = d.autoCompleteForMultiple?.suggestions.flatMap((s) => s.entities);
+            const results = d.autoCompleteForMultiple?.suggestions?.flatMap((s) => s.entities);
             if (results) {
                 setSearchData(results);
             }
