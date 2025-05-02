@@ -55,6 +55,8 @@ base_requirements = {
     "ratelimit",
     # Lower bounds on httpcore and h11 due to CVE-2025-43859.
     "httpcore>=1.0.9",
+    "azure-identity==1.21.0",
+    "aws-msk-iam-sasl-signer-python==1.0.2",
     "h11>=0.16",
 }
 
