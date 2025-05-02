@@ -1588,8 +1588,11 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@alice",
-                                "type": "DATAOWNER"
+                                "owner": "urn:li:corpuser:alice",
+                                "type": "DATAOWNER",
+                                "source": {
+                                    "type": "SOURCE_CONTROL"
+                                }
                             }
                         ],
                         "ownerTypes": {},
@@ -2495,8 +2498,11 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@bob",
-                                "type": "DATAOWNER"
+                                "owner": "urn:li:corpuser:bob",
+                                "type": "DATAOWNER",
+                                "source": {
+                                    "type": "SOURCE_CONTROL"
+                                }
                             }
                         ],
                         "ownerTypes": {},
@@ -3287,8 +3293,11 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpuser:@charles",
-                                "type": "DATAOWNER"
+                                "owner": "urn:li:corpuser:charles",
+                                "type": "DATAOWNER",
+                                "source": {
+                                    "type": "SOURCE_CONTROL"
+                                }
                             }
                         ],
                         "ownerTypes": {},
