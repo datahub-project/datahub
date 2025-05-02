@@ -1,9 +1,9 @@
 {
     "styles": {
-        "primary-color": "#5280E2",
+        "primary-color": "#533FD1",
         "primary-color-dark": "#5C3FD1",
         "primary-color-light": "#ece9f8",
-        "link-color": "#5280E2",
+        "link-color": "#533FD1",
         "layout-header-background": "white",
         "layout-header-color": "#434343",
         "layout-body-background": "white",

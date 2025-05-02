@@ -80,6 +80,7 @@ secretService:
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
+  serverEnv: ${DATAHUB_SERVER_ENV:core}
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
@@ -144,12 +145,19 @@ configEntityRegistry:
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+  usageExport:
+    enabled: ${DATAHUB_ANALYTICS_TRACING_ENABLED:true} # Enables/Disables backend usage tracing
+    usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
+    aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
+    userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
 
 visualConfig:
   queriesTab:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
     # overhaul coming.
     queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
+  theme:
+    themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
@@ -275,6 +283,8 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
+  topics:
+    dataHubUsage: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
@@ -522,6 +532,7 @@ featureFlags:
   showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
   showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
+  showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -533,6 +544,9 @@ views:
 
 searchBar:
   apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
+
+homePage:
+  firstInPersonalSidebar: ${SEARCH_BAR_API_VARIANT:YOUR_ASSETS}
 
 entityClient:
   retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
