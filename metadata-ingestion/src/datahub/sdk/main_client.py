@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional, overload
+from typing import Optional, overload
 
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
@@ -113,6 +113,8 @@ class DataHubClient:
 
     @property
     def assertion(self) -> AssertionClient:  # type: ignore[return-value]  # Type is not available if assertion_client is not installed
-        if AssertionClient is Any:
-            raise SdkUsageError("AssertionClient is not installed")
+        if AssertionClient is None:
+            raise SdkUsageError(
+                "AssertionClient is not installed, please install it with `pip install acryl-datahub-cloud`"
+            )
         return AssertionClient(self)
