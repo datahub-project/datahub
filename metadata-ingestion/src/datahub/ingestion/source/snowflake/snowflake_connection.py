@@ -28,7 +28,7 @@ from datahub.ingestion.source.snowflake.oauth_config import (
     OAuthIdentityProvider,
 )
 from datahub.ingestion.source.snowflake.oauth_generator import OAuthTokenGenerator
-from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
     remove_suffix,
