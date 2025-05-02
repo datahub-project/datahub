@@ -27,7 +27,7 @@ function matchesTagsOrTermsOrDescription(
                 .includes(filterText),
         ) &&
             schemaFilterTypes.includes(SchemaFilterType.Terms)) ||
-        (field.description?.toLocaleLowerCase().includes(filterText) &&
+        (field.description?.toLocaleLowerCase()?.includes(filterText) &&
             schemaFilterTypes.includes(SchemaFilterType.Documentation))
     );
 }
