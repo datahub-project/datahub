@@ -77,7 +77,7 @@ dev_requirements = {
     "mypy==1.14.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10",
+    "pydantic>=1.10.16",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "tox",
