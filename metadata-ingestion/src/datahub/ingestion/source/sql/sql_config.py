@@ -3,7 +3,7 @@ from abc import abstractmethod
 from typing import Any, Dict, Optional
 
 import pydantic
-from pydantic import Field
+from pydantic import Field, root_validator
 from sqlalchemy.engine import URL
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -145,9 +145,8 @@ class SQLAlchemyConnectionConfig(ConfigModel):
     password: Optional[pydantic.SecretStr] = Field(
         default=None, exclude=True, description="password"
     )
-    host_port: str = Field(description="host URL")
+    host_port: Optional[str] = Field(default=None, description="host URL")
     database: Optional[str] = Field(default=None, description="database (catalog)")
-
     scheme: str = Field(description="scheme")
     sqlalchemy_uri: Optional[str] = Field(
         default=None,
@@ -166,14 +165,32 @@ class SQLAlchemyConnectionConfig(ConfigModel):
 
     _database_alias_removed = pydantic_removed_field("database_alias")
 
+    @root_validator(skip_on_failure=True)
+    def _check_host_port_and_scheme_or_uri_present(cls, values: Dict) -> Dict:
+        if not values.get("sqlalchemy_uri") and not (
+            values.get("host_port") and values.get("scheme")
+        ):
+            raise ValueError(
+                "Either sqlalchemy_uri or both host_port and scheme must be provided."
+            )
+        return values
+
     def get_sql_alchemy_url(
         self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
     ) -> str:
-        if not ((self.host_port and self.scheme) or self.sqlalchemy_uri):
-            raise ValueError("host_port and schema or connect_uri required.")
+        # The validator above ensures that either sqlalchemy_uri or (host_port and scheme) is present.
+        if self.sqlalchemy_uri:
+            # SQLAlchemy doesn't allow the scheme to be None, but defaults it to postgresql+psycopg2
+            # if it is not provided. However, if we pass None to make_sqlalchemy_uri, it fails.
+            # As such, we prefer the sqlalchemy_uri if present.
+            return self.sqlalchemy_uri
 
-        return self.sqlalchemy_uri or make_sqlalchemy_uri(
-            self.scheme,
+        # If sqlalchemy_uri is not present, host_port and scheme must be.
+        assert self.host_port is not None
+        assert self.scheme is not None
+
+        return make_sqlalchemy_uri(
+            self.scheme,  # type: ignore
             self.username,
             self.password.get_secret_value() if self.password is not None else None,
             self.host_port,
