@@ -136,7 +136,7 @@ meta:
 and you want attach term Finance_test in case of data_governance.team_owner is set to Finance, you can use the following meta_mapping section:
 
 ```yaml
-meta:
+meta_mapping:
   data_governance.team_owner:
     match: "Finance"
     operation: "add_term"
