@@ -191,6 +191,10 @@ class SupersetConfig(
         AllowDenyPattern.allow_all(),
         description="Patterns for selecting dashboard names that are to be included",
     )
+    database_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for databases to filter in ingestion.",
+    )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
     # Configuration for stateful ingestion
@@ -297,6 +301,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         self.session = self.login()
         self.owner_info = self.parse_owner_info()
+        self.filtered_dataset_to_database: Dict[int, str] = {}
+        self.filtered_chart_to_database: Dict[int, str] = {}
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -519,6 +525,75 @@ class SupersetSource(StatefulIngestionSourceBase):
                     f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by dashboard_pattern"
                 )
                 return
+
+            if self.config.database_pattern != AllowDenyPattern.allow_all():
+                raw_position_data = dashboard_data.get("position_json", "{}")
+                position_data = (
+                    json.loads(raw_position_data)
+                    if raw_position_data is not None
+                    else {}
+                )
+
+                chart_ids = []
+                for key, value in position_data.items():
+                    if not key.startswith("CHART-"):
+                        continue
+                    chart_id = value.get("meta", {}).get("chartId")
+                    if chart_id:
+                        chart_ids.append(chart_id)
+
+                for chart_id in chart_ids:
+                    if chart_id in self.filtered_chart_to_database:
+                        database_name = self.filtered_chart_to_database[chart_id]
+                        if database_name and not self.config.database_pattern.allowed(
+                            database_name
+                        ):
+                            self.report.report_dropped(
+                                f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by database_pattern because chart {chart_id} uses database '{database_name}'"
+                            )
+                            return
+                    else:
+                        chart_response = self.session.get(
+                            f"{self.config.connect_uri}/api/v1/chart/{chart_id}",
+                            timeout=self.config.timeout,
+                        )
+
+                        if chart_response.status_code == 200:
+                            chart_data = chart_response.json().get("result", {})
+                            datasource_id = chart_data.get("datasource_id")
+
+                            if datasource_id:
+                                if datasource_id in self.filtered_dataset_to_database:
+                                    database_name = self.filtered_dataset_to_database[
+                                        datasource_id
+                                    ]
+                                else:
+                                    dataset_response = self.get_dataset_info(
+                                        datasource_id
+                                    )
+                                    database_name = (
+                                        dataset_response.get("result", {})
+                                        .get("database", {})
+                                        .get("database_name", "")
+                                    )
+
+                                if (
+                                    database_name
+                                    and not self.config.database_pattern.allowed(
+                                        database_name
+                                    )
+                                ):
+                                    self.filtered_chart_to_database[chart_id] = (
+                                        database_name
+                                    )
+                                    self.filtered_dataset_to_database[datasource_id] = (
+                                        database_name
+                                    )
+                                    self.report.report_dropped(
+                                        f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by database_pattern because chart {chart_id} uses database '{database_name}'"
+                                    )
+                                    return
+
             dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
         except Exception as e:
             self.report.warning(
@@ -781,13 +856,43 @@ class SupersetSource(StatefulIngestionSourceBase):
     def _process_chart(self, chart_data: Any) -> Iterable[MetadataWorkUnit]:
         chart_name = ""
         try:
-            chart_id = str(chart_data.get("id"))
+            chart_id = chart_data.get("id")
             chart_name = chart_data.get("slice_name", "")
             if not self.config.chart_pattern.allowed(chart_name):
                 self.report.report_dropped(
                     f"Chart '{chart_name}' (id: {chart_id}) filtered by chart_pattern"
                 )
                 return
+
+            if self.config.database_pattern != AllowDenyPattern.allow_all():
+                datasource_id = chart_data.get("datasource_id")
+                database_name = None
+
+                if datasource_id:
+                    if datasource_id in self.filtered_dataset_to_database:
+                        database_name = self.filtered_dataset_to_database[datasource_id]
+                        self.filtered_chart_to_database[chart_id] = database_name
+                        self.report.report_dropped(
+                            f"Chart '{chart_name}' (id: {chart_id}) filtered by database_pattern with database as dataset in filtered database"
+                        )
+                        return
+                    else:
+                        dataset_response = self.get_dataset_info(datasource_id)
+                        database_name = (
+                            dataset_response.get("result", {})
+                            .get("database", {})
+                            .get("database_name", "")
+                        )
+
+                    if database_name and not self.config.database_pattern.allowed(
+                        database_name
+                    ):
+                        self.filtered_chart_to_database[chart_id] = database_name
+                        self.report.report_dropped(
+                            f"Chart '{chart_name}' (id: {chart_id}) filtered by database_pattern with database '{database_name}'"
+                        )
+                        return
+
             if self.config.dataset_pattern != AllowDenyPattern.allow_all():
                 datasource_id = chart_data.get("datasource_id")
                 if datasource_id:
@@ -1048,12 +1153,30 @@ class SupersetSource(StatefulIngestionSourceBase):
     def _process_dataset(self, dataset_data: Any) -> Iterable[MetadataWorkUnit]:
         dataset_name = ""
         try:
+            dataset_id = dataset_data.get("id")
             dataset_name = dataset_data.get("table_name", "")
             if not self.config.dataset_pattern.allowed(dataset_name):
                 self.report.report_dropped(
                     f"Dataset '{dataset_name}' filtered by dataset_pattern"
                 )
                 return
+            if self.config.database_pattern != AllowDenyPattern.allow_all():
+                dataset_response = self.get_dataset_info(dataset_id)
+                database_name = (
+                    dataset_response.get("result", {})
+                    .get("database", {})
+                    .get("database_name", "")
+                )
+
+                if database_name and not self.config.database_pattern.allowed(
+                    database_name
+                ):
+                    self.filtered_dataset_to_database[dataset_id] = database_name
+                    self.report.report_dropped(
+                        f"Dataset '{dataset_name}' filtered by database_pattern with database '{database_name}'"
+                    )
+                    return
+
             dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         except Exception as e:
@@ -1079,12 +1202,12 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        if self.config.ingest_dashboards:
-            yield from self.emit_dashboard_mces()
-        if self.config.ingest_charts:
-            yield from self.emit_chart_mces()
         if self.config.ingest_datasets:
             yield from self.emit_dataset_mces()
+        if self.config.ingest_charts:
+            yield from self.emit_chart_mces()
+        if self.config.ingest_dashboards:
+            yield from self.emit_dashboard_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
