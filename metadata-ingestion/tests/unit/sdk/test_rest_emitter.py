@@ -19,7 +19,6 @@ from datahub.emitter.rest_emitter import (
     INGEST_MAX_PAYLOAD_BYTES,
     DataHubRestEmitter,
     DatahubRestEmitter,
-    EmitMode,
     RequestsSessionConfig,
     RestSinkEndpoint,
     logger,
@@ -45,17 +44,7 @@ MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 class TestDataHubRestEmitter:
     @pytest.fixture
     def openapi_emitter(self) -> DataHubRestEmitter:
-        openapi_emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
-        openapi_emitter.server_config = RestServiceConfig(
-            raw_config={
-                "versions": {
-                    "acryldata/datahub": {
-                        "version": "v1.0.1rc0"  # Supports OpenApi & Tracing
-                    }
-                }
-            }
-        )
-        return openapi_emitter
+        return DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
 
     def test_datahub_rest_emitter_missing_gms_server(self):
         """Test that emitter raises ConfigurationError when gms_server is not provided."""
@@ -136,7 +125,7 @@ class TestDataHubRestEmitter:
             openapi_emitter.emit_mcp(item)
 
             mock_method.assert_called_once_with(
-                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true",
+                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false",
                 payload=[
                     {
                         "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
@@ -376,8 +365,9 @@ class TestDataHubRestEmitter:
             # Emit with tracing enabled
             openapi_emitter.emit_mcp(
                 item,
-                emit_mode=EmitMode.BLOCKING_QUEUE,
-                wait_timeout=timedelta(seconds=10),
+                async_flag=True,
+                trace_flag=True,
+                trace_timeout=timedelta(seconds=10),
             )
 
             # Verify initial emit call
@@ -462,8 +452,9 @@ class TestDataHubRestEmitter:
             # Emit with tracing enabled
             result = openapi_emitter.emit_mcps(
                 items,
-                emit_mode=EmitMode.BLOCKING_QUEUE,
-                wait_timeout=timedelta(seconds=10),
+                async_flag=True,
+                trace_flag=True,
+                trace_timeout=timedelta(seconds=10),
             )
 
             assert result == 1  # Should return number of unique entity URLs
@@ -534,8 +525,9 @@ class TestDataHubRestEmitter:
             with pytest.raises(TraceTimeoutError) as exc_info:
                 openapi_emitter.emit_mcp(
                     item,
-                    emit_mode=EmitMode.BLOCKING_QUEUE,
-                    wait_timeout=timedelta(milliseconds=1),
+                    async_flag=True,
+                    trace_flag=True,
+                    trace_timeout=timedelta(milliseconds=1),
                 )
 
             assert "Timeout waiting for async write completion" in str(exc_info.value)
@@ -566,8 +558,9 @@ class TestDataHubRestEmitter:
             with pytest.warns(APITracingWarning):
                 openapi_emitter.emit_mcp(
                     item,
-                    emit_mode=EmitMode.BLOCKING_QUEUE,
-                    wait_timeout=timedelta(seconds=10),
+                    async_flag=True,
+                    trace_flag=True,
+                    trace_timeout=timedelta(seconds=10),
                 )
 
     def test_openapi_emitter_invalid_status_code(self, openapi_emitter):
@@ -599,8 +592,9 @@ class TestDataHubRestEmitter:
             # Should not raise exception but log warning
             openapi_emitter.emit_mcp(
                 item,
-                emit_mode=EmitMode.BLOCKING_QUEUE,
-                wait_timeout=timedelta(seconds=10),
+                async_flag=True,
+                trace_flag=True,
+                trace_timeout=timedelta(seconds=10),
             )
 
     def test_openapi_emitter_trace_failure(self, openapi_emitter):
@@ -650,8 +644,9 @@ class TestDataHubRestEmitter:
             with pytest.raises(TraceValidationError) as exc_info:
                 openapi_emitter.emit_mcp(
                     item,
-                    emit_mode=EmitMode.BLOCKING_QUEUE,
-                    wait_timeout=timedelta(seconds=10),
+                    async_flag=True,
+                    trace_flag=True,
+                    trace_timeout=timedelta(seconds=10),
                 )
 
             assert "Unable to validate async write to DataHub GMS" in str(
@@ -1054,13 +1049,13 @@ class TestOpenApiModeSelection:
             # Test OpenAPI logging
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
             emitter.test_connection()
-            mock_logger.debug.assert_any_call("Using OpenAPI for ingestion.")
+            mock_logger.debug.assert_called_with("Using OpenAPI for ingestion.")
 
             # Test RestLi logging
             mock_logger.reset_mock()
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
             emitter.test_connection()
-            mock_logger.debug.assert_any_call("Using Restli for ingestion.")
+            mock_logger.debug.assert_called_with("Using Restli for ingestion.")
 
 
 class TestOpenApiIntegration:
