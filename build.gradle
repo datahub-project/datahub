@@ -130,6 +130,8 @@ project.ext.externalDependency = [
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.4',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
+    'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.2',
+    'azureIdentity': 'com.azure:azure-identity:1.15.4',
     'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
