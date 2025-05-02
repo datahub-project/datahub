@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     MetadataChangeLogClass,
     MetadataChangeProposalClass,
 )
@@ -127,6 +128,8 @@ class MetadataChangeSyncAction(Action):
         self, orig_event: MetadataChangeLogClass
     ) -> Union[MetadataChangeProposalClass, None]:
         try:
+            if orig_event.changeType == ChangeTypeClass.RESTATE or orig_event.changeType == "RESTATE":
+                changeType = ChangeTypeClass.UPSERT
             mcp = MetadataChangeProposalClass(
                 entityType=orig_event.get("entityType"),
                 changeType=orig_event.get("changeType"),
