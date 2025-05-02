@@ -1,12 +1,13 @@
 # LinkedIn Owners
 @linkedin/datahub-reviewers
 
+# NOTE: removing reviewers auto labeling to test out new manual review request workflow via slack #product-reviews channel
 # UI Reviewers
-/datahub-web-react/ @acryldata/ui-codeowners
-/datahub-frontend/ @chriscollins3456 @samblackk @acryldata/platform
+# /datahub-web-react/ @acryldata/ui-codeowners
+# /datahub-frontend/ @chriscollins3456 @samblackk @acryldata/platform
 
 # GraphQL Reviewers 
-/datahub-graphql-core/ @chriscollins3456 @samblackk @acryldata/platform
+# /datahub-graphql-core/ @chriscollins3456 @samblackk @acryldata/platform
 
 # Build Reviewers
 /.github/ @acryldata/devops
