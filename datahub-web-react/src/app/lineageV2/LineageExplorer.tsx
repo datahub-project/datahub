@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ReactFlowProvider } from 'reactflow';
 
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
@@ -16,7 +16,6 @@ import {
 import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
 import useShouldHideTransformations from '@app/lineageV2/useShouldHideTransformations';
 import useShouldShowDataProcessInstances from '@app/lineageV2/useShouldShowDataProcessInstances';
-import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -66,13 +65,6 @@ export default function LineageExplorer(props: Props) {
     };
 
     const initialized = useInitializeNodes(context, urn, type);
-
-    const { setTabFullsize } = useContext(TabFullsizedContext);
-    useEffect(() => {
-        return () => {
-            setTabFullsize?.(false);
-        };
-    }, [setTabFullsize]);
 
     return (
         <LineageNodesContext.Provider value={context}>
