@@ -162,6 +162,7 @@ public interface AspectDao {
       return Pair.of(inserted, updated);
     } else {
       // initial insert
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), false));
       Optional<EntityAspect> inserted = insertAspect(txContext, newAspect, ASPECT_LATEST_VERSION);
       return Pair.of(Optional.empty(), inserted);
     }

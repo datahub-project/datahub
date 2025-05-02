@@ -80,7 +80,7 @@ secretService:
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
-  serverEnv: ${DATAHUB_SERVER_ENV:oss}
+  serverEnv: ${DATAHUB_SERVER_ENV:core}
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
@@ -145,6 +145,11 @@ configEntityRegistry:
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+  usageExport:
+    enabled: ${DATAHUB_ANALYTICS_TRACING_ENABLED:true} # Enables/Disables backend usage tracing
+    usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
+    aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
+    userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
 
 visualConfig:
   queriesTab:
@@ -278,6 +283,8 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
+  topics:
+    dataHubUsage: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}

@@ -361,7 +361,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         )
 
     def get_config(self) -> Dict[str, Any]:
-        return self._get_generic(f"{self.config.server}/config")
+        return self.get_server_config().config
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)

@@ -139,7 +139,7 @@ export const useLoadSearchOptions = (field: EntityFilterField, query?: string, s
                 icon: field.icon,
             };
         });
-    const searchOptions = searchData?.searchAcrossEntities?.searchResults.map((result) => ({
+    const searchOptions = searchData?.searchAcrossEntities?.searchResults?.map((result) => ({
         value: result.entity.urn,
         entity: result.entity,
         icon: field.icon,

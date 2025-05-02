@@ -67,10 +67,10 @@ TableKey = namedtuple("TableKey", ["schema", "table"])
 
 
 class HiveMetastoreConfigMode(StrEnum):
-    hive: str = "hive"
-    presto: str = "presto"
-    presto_on_hive: str = "presto-on-hive"
-    trino: str = "trino"
+    hive = "hive"
+    presto = "presto"
+    presto_on_hive = "presto-on-hive"
+    trino = "trino"
 
 
 @dataclass

@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class HookUtils {
 
+  // TODO: Don't need this, just use from EntityKeyUtils
   /**
    * Extracts and returns an {@link Urn} from a {@link MetadataChangeLog}. Extracts from either an
    * entityUrn or entityKey field, depending on which is present.

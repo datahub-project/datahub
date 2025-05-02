@@ -2,6 +2,7 @@ import { InputRef } from 'antd';
 import React, { forwardRef, useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import { V2_SEARCH_BAR_VIEWS } from '@app/onboarding/configV2/HomePageOnboardingConfig';
 import { CommandK } from '@app/searchV2/CommandK';
 import { BOX_SHADOW } from '@app/searchV2/searchBarV2/constants';
 import { SearchBar, colors, radius, transition } from '@src/alchemy-components';
@@ -145,7 +146,10 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                         <SuffixWrapper>
                             {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
                             {viewsEnabled && (
-                                <ViewSelectContainer onClick={onViewSelectContainerClickHandler}>
+                                <ViewSelectContainer
+                                    onClick={onViewSelectContainerClickHandler}
+                                    id={V2_SEARCH_BAR_VIEWS}
+                                >
                                     <ViewSelect isOpen={isViewsSelectOpened} onOpenChange={onViewsClickHandler} />
                                 </ViewSelectContainer>
                             )}
