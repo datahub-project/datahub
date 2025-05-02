@@ -131,6 +131,22 @@ cachetools_lib = {
     "cachetools",
 }
 
+great_expectations_lib = {
+    # 1. Our original dep was this:
+    # "great-expectations>=0.15.12, <=0.15.50",
+    # 2. For hive, we had additional restrictions:
+    #    Due to https://github.com/great-expectations/great_expectations/issues/6146,
+    #    we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
+    #    https://github.com/great-expectations/great_expectations/pull/6149.
+    # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
+    # 3. Since then, we've ended up forking great-expectations in order to
+    #    add pydantic 2.x support. The fork is pretty simple
+    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...hsheth2:great_expectations:0.15.50-pydantic-2-patch?expand=1
+    #    This was derived from work done by @jskrzypek in
+    #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
+    "acryl-great-expectations==0.15.50.1",
+}
+
 sql_common_slim = {
     # Required for all SQL sources.
     # This is temporary lower bound that we're open to loosening/tightening as requirements show up
@@ -140,8 +156,8 @@ sql_common = (
     {
         *sql_common_slim,
         # Required for SQL profiling.
-        "great-expectations>=0.15.12, <=0.15.50",
-        *pydantic_no_v2,  # because of great-expectations
+        *great_expectations_lib,
+        "pydantic<2",  # keeping this for now, but can be removed eventually
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
@@ -450,10 +466,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {
         "databricks-dbapi",
-        # Due to https://github.com/great-expectations/great_expectations/issues/6146,
-        # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
-        # https://github.com/great-expectations/great_expectations/pull/6149.
-        "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
+        *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     "hive-metastore": sql_common
