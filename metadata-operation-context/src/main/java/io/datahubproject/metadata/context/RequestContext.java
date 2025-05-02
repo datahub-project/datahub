@@ -2,11 +2,15 @@ package io.datahubproject.metadata.context;
 
 import static com.linkedin.metadata.Constants.DATAHUB_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_API_ATTR;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.REQUEST_ID_ATTR;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.USER_ID_ATTR;
 
 import com.google.common.net.HttpHeaders;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.server.ResourceContext;
 import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.context.Context;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.Collection;
@@ -111,9 +115,13 @@ public class RequestContext implements ContextInterface {
 
       // Add context for tracing
       Span.current()
-          .setAttribute("user.id", this.actorUrn)
-          .setAttribute("request.api", this.requestAPI.toString())
-          .setAttribute("request.id", this.requestID);
+          .setAttribute(USER_ID_ATTR, this.actorUrn)
+          .setAttribute(REQUEST_API_ATTR, this.requestAPI.toString())
+          .setAttribute(REQUEST_ID_ATTR, this.requestID);
+      Optional.ofNullable(Context.current().get(TraceContext.EVENT_SOURCE_CONTEXT_KEY))
+          .ifPresent(eventSource -> eventSource.set(requestAPI.toString()));
+      Optional.ofNullable(Context.current().get(TraceContext.SOURCE_IP_CONTEXT_KEY))
+          .ifPresent(eventSource -> eventSource.set(sourceIP));
 
       return new RequestContext(
           this.actorUrn, this.sourceIP, this.requestAPI, this.requestID, this.userAgent);
