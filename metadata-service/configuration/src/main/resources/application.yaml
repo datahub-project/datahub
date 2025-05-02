@@ -80,7 +80,7 @@ secretService:
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
-  serverEnv: ${DATAHUB_SERVER_ENV:oss}
+  serverEnv: ${DATAHUB_SERVER_ENV:core}
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}

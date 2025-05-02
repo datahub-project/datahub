@@ -39,7 +39,7 @@ buildscript {
   ext.mavenVersion = '3.6.3'
   ext.versionGradle = '8.11.1'
   ext.springVersion = '6.2.5'
-  ext.springBootVersion = '3.4.4'
+  ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.4'
   ext.openTelemetryVersion = '1.49.0'
   ext.neo4jVersion = '5.20.0'
