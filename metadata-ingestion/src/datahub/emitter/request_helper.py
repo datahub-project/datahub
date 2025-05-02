@@ -65,8 +65,7 @@ class OpenApiRequest:
         cls,
         mcp: Union[MetadataChangeProposal, MetadataChangeProposalWrapper],
         gms_server: str,
-        async_flag: Optional[bool] = None,
-        async_default: bool = False,
+        async_flag: bool = False,
     ) -> Optional["OpenApiRequest"]:
         """Factory method to create an OpenApiRequest from a MetadataChangeProposal."""
         if not mcp.aspectName or (
@@ -74,10 +73,8 @@ class OpenApiRequest:
         ):
             return None
 
-        resolved_async_flag = async_flag if async_flag is not None else async_default
-
         method = "post"
-        url = f"{gms_server}/openapi/v3/entity/{mcp.entityType}?async={'true' if resolved_async_flag else 'false'}"
+        url = f"{gms_server}/openapi/v3/entity/{mcp.entityType}?async={'true' if async_flag else 'false'}"
         payload = []
 
         if mcp.changeType == ChangeTypeClass.DELETE:

@@ -191,7 +191,7 @@ def test_upsert_incompatible_content_type():
 
 
 def test_from_mcp_async_flag():
-    """Test creating an OpenApiRequest with async flag specified"""
+    """Test creating an OpenApiRequest with QUEUE"""
     mcp = MetadataChangeProposalWrapper(
         entityType="chart",
         entityUrn="urn:li:chart:(test,test)",
@@ -205,36 +205,7 @@ def test_from_mcp_async_flag():
     assert request is not None
     assert "async=true" in request.url
 
-
-def test_from_mcp_async_default():
-    """Test creating an OpenApiRequest with async_default=True"""
-    mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
-        entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
-        aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
-    )
-
-    request = OpenApiRequest.from_mcp(mcp, GMS_SERVER, async_default=True)
-
-    assert request is not None
-    assert "async=true" in request.url
-
-
-def test_from_mcp_async_flag_override():
-    """Test that async_flag overrides async_default"""
-    mcp = MetadataChangeProposalWrapper(
-        entityType="chart",
-        entityUrn="urn:li:chart:(test,test)",
-        aspectName="chartInfo",
-        aspect=CHART_INFO,
-        changeType=ChangeTypeClass.UPSERT,
-    )
-
-    request = OpenApiRequest.from_mcp(
-        mcp, GMS_SERVER, async_flag=False, async_default=True
-    )
+    request = OpenApiRequest.from_mcp(mcp, GMS_SERVER, async_flag=False)
 
     assert request is not None
     assert "async=false" in request.url

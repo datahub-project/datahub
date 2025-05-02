@@ -34,9 +34,7 @@ from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import (
-    DEFAULT_REST_TRACE_MODE,
     DatahubRestEmitter,
-    RestTraceMode,
 )
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
@@ -158,7 +156,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
-            default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
         )
