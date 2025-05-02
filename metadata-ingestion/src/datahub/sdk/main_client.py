@@ -15,7 +15,7 @@ try:
         AssertionClient,
     )
 except ImportError:
-    AssertionClient = Any
+    AssertionClient = None
 
 
 class DataHubClient:
