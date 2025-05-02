@@ -29,7 +29,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
-- OpenAPI v3 Patching Improvements
+- #13165 - OpenAPI v3 Patching Improvements
+- #13349 - Python SDK to use OpenAPI (sync & async) and API Tracing (async) writes by default.
 
 ## 1.0.0
 

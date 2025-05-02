@@ -152,8 +152,8 @@ export const CheckboxWrapper = styled.div`
 
 export const StyledCheckbox = styled(Checkbox)`
     .ant-checkbox-checked .ant-checkbox-inner {
-        background-color: ${colors.violet[500]};
-        border-color: ${colors.violet[500]} !important;
+        background-color: ${(props) => props.theme.styles['primary-color']};
+        border-color: ${(props) => props.theme.styles['primary-color']} !important;
     },
 `;
 
@@ -243,7 +243,7 @@ export const TogglesContainer = styled.div`
 
 export const StyledSpin = styled(Spin)`
     max-height: 100% !important;
-    color: ${colors.violet[500]};
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 export const CreatedByContainer = styled.div`

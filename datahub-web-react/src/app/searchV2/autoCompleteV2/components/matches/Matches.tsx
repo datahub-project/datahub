@@ -39,7 +39,7 @@ export default function Matches({ entity, query, displayName, matchedFields }: P
     const items = useMemo(() => {
         return groupedMatchedFields.map((match) => ({
             key: match.fieldName,
-            node: <Match query={query ?? ''} entityType={entity.type} match={match} />,
+            node: <Match query={query ?? ''} entityType={entity.type} entity={entity} match={match} />,
         }));
     }, [groupedMatchedFields, query, entity]);
 
