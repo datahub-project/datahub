@@ -90,8 +90,8 @@ export const RemoteExecutorPoolsList = ({ onSwitchTab, showCreatePoolModal, setS
         fetchPolicy: 'no-cache',
         pollInterval: 10000,
     });
-    const total = data?.listRemoteExecutorPools.total;
-    const remoteExecutorPools = (data?.listRemoteExecutorPools.remoteExecutorPools ?? []) as RemoteExecutorPool[];
+    const total = data?.listRemoteExecutorPools?.total;
+    const remoteExecutorPools = (data?.listRemoteExecutorPools?.remoteExecutorPools ?? []) as RemoteExecutorPool[];
 
     const [isRefreshing, setIsRefreshing] = useState(false);
     const onRefresh = () => {

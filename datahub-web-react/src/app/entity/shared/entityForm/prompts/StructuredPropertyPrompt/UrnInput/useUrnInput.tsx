@@ -65,7 +65,7 @@ export default function useUrnInput({
         ) ||
         [];
     if (!entityOptions.length && !searchValue) {
-        entityOptions = initialData?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
+        entityOptions = initialData?.searchAcrossEntities?.searchResults?.map((r) => r.entity) || [];
     }
     const entityTypeNames: string[] | undefined = allowedEntityTypes?.map(
         (entityType) => entityRegistry.getCollectionName(entityType) || '',

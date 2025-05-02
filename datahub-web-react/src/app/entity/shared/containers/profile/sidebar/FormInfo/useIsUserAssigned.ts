@@ -14,7 +14,7 @@ export default function useIsUserAssigned(formUrn?: string) {
     const { entityData } = useEntityData();
     const owners = entityData?.ownership?.owners;
     const { user: loggedInUser, userGroups } = useUserContext();
-    const userGroupUrns = userGroups?.relationships.map((rel) => rel.entity?.urn);
+    const userGroupUrns = userGroups?.relationships?.map((rel) => rel.entity?.urn);
     const isUserAnOwner = !!owners?.find((owner) => owner.owner.urn === loggedInUser?.urn);
     const isUserInOwnerGroup = !!owners?.find((owner) => userGroupUrns?.includes(owner.owner.urn));
     const isOwner = isUserAnOwner || isUserInOwnerGroup;

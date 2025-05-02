@@ -35,7 +35,7 @@ export default function useDocumentationPrompt({ prompt, submitResponse, field }
 
     const enableInferredDescriptions = useShouldShowInferDocumentationButton(entityType);
 
-    const editableFieldInfo = entityWithSchema?.editableSchemaMetadata?.editableSchemaFieldInfo.find(
+    const editableFieldInfo = entityWithSchema?.editableSchemaMetadata?.editableSchemaFieldInfo?.find(
         (info) => info.fieldPath === field?.fieldPath || undefined,
     ) as EditableSchemaFieldInfo | undefined;
 

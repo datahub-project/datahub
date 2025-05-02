@@ -37,7 +37,7 @@ const StructuredPropertyQuestion = () => {
     });
 
     useEffect(() => {
-        const properties = data?.searchAcrossEntities?.searchResults.map((prop) => {
+        const properties = data?.searchAcrossEntities?.searchResults?.map((prop) => {
             return {
                 label: entityRegistry.getDisplayName(prop.entity.type, prop.entity),
                 value: prop.entity.urn,

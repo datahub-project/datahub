@@ -65,7 +65,7 @@ export const useGlossaryOptionsBuilder = (
     const buildChildTermOptions = (nodeEntities: GlossaryNode[], alreadyAddedUrns: string[]) => {
         const childOptions: Option[] = [];
         nodeEntities.forEach((parentEntity: any) => {
-            parentEntity?.children?.relationships.forEach((relationship) => {
+            parentEntity?.children?.relationships?.forEach((relationship) => {
                 const { entity } = relationship;
                 const { urn } = entity;
 

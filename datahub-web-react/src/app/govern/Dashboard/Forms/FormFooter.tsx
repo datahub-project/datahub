@@ -236,7 +236,7 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                     <>
                         <Button
                             disabled={!canEditForms}
-                            onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}
+                            onClick={() => form?.validateFields()?.then(() => setShowConfirmationModal(true))}
                             data-testid={
                                 formValues.state === FormState.Published
                                     ? 'form-unpublish-button'

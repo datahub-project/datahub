@@ -83,7 +83,7 @@ const getDetailsLabelForAssertionTypeChange = (
     keysWithFilteringCleared?: Key[],
     isForAssertionSubscription?: boolean,
 ): string => {
-    const maybeAssertionSubscription = subscription?.entityChangeTypes.find(
+    const maybeAssertionSubscription = subscription?.entityChangeTypes?.find(
         (details) => details.entityChangeType === assertionChangeType,
     );
     const maybeAssertionFilters = maybeAssertionSubscription?.filter?.includeAssertions;
@@ -521,7 +521,7 @@ export const updateSubscriptionFunction = ({
 }) => {
     const entityChangeTypesAdded = _.difference(
         entityChangeTypes.map((details) => details.entityChangeType),
-        subscription?.entityChangeTypes.map((details) => details.entityChangeType) ?? [],
+        subscription?.entityChangeTypes?.map((details) => details.entityChangeType) ?? [],
     );
     const entityChangeTypesRemoved = _.difference(
         subscription?.entityChangeTypes.map((changeType) => changeType.entityChangeType) ?? [],

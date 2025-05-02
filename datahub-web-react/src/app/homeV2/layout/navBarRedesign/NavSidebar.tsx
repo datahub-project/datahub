@@ -104,10 +104,10 @@ export const NavSidebar = () => {
     /* SaaS Only */
     const { helpLinkState, globalSettings } = useGlobalSettingsContext();
     const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
-    const showActionRequests = config?.actionRequestsConfig.enabled || false;
-    const showTests = ((config?.testsConfig.enabled || false) && me?.platformPrivileges?.manageTests) || false;
+    const showActionRequests = config?.actionRequestsConfig?.enabled || false;
+    const showTests = ((config?.testsConfig?.enabled || false) && me?.platformPrivileges?.manageTests) || false;
     const showAddHelpLink = !helpLinkState.isEnabled && me.platformPrivileges?.manageGlobalSettings;
-    const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion;
+    const showAutomations = config?.classificationConfig?.enabled && me?.platformPrivileges?.manageIngestion;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled &&
         (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&

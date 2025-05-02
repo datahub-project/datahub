@@ -84,7 +84,7 @@ export default function GroupProfile() {
     });
 
     const canManageNotifications =
-        privilegesData?.getGrantedPrivileges?.privileges.some((v) => v === 'MANAGE_GROUP_NOTIFICATION_SETTINGS') ||
+        privilegesData?.getGrantedPrivileges?.privileges?.some((v) => v === 'MANAGE_GROUP_NOTIFICATION_SETTINGS') ||
         false;
 
     const getTabs = () => {

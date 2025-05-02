@@ -27,7 +27,7 @@ export const QualityTabContextProvider = ({ children }: Props): JSX.Element => {
 
     const statsEntity: any =
         baseEntity.dataset?.urn !== qualityEntityUrn
-            ? baseEntity.dataset?.siblingsSearch?.searchResults.find((res) => res.entity.urn === qualityEntityUrn)
+            ? baseEntity.dataset?.siblingsSearch?.searchResults?.find((res) => res.entity.urn === qualityEntityUrn)
                   ?.entity || baseEntity.dataset?.siblingsSearch?.searchResults[0]?.entity
             : baseEntity.dataset;
 

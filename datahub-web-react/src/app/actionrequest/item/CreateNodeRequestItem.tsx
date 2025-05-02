@@ -17,9 +17,9 @@ const REQUEST_TYPE_DISPLAY_NAME = 'Create Term Group Proposal';
 export default function CreateNodeRequestItem({ actionRequest, onUpdate, showActionsButtons }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const proposedName = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode.name || '';
-    const parentNode = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode.parentNode || null;
-    const description = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode.description || '';
+    const proposedName = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode?.name || '';
+    const parentNode = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode?.parentNode || null;
+    const description = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode?.description || '';
     const entityName = entityRegistry.getEntityName(EntityType.GlossaryNode);
     const contentView = (
         <CreateGlossaryEntityContentView

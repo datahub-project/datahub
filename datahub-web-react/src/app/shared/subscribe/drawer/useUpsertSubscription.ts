@@ -138,7 +138,7 @@ const getEntityChangeDetailsFromSubscriptionFormState = (
     subscription?: DataHubSubscription,
 ): EntityChangeDetails[] => {
     const selectedEntityChangeTypes: EntityChangeType[] = getEntityChangeTypesFromCheckedKeys(checkedKeys);
-    const existingEntityChangeDetails: EntityChangeDetails[] | undefined = subscription?.entityChangeTypes.map(
+    const existingEntityChangeDetails: EntityChangeDetails[] | undefined = subscription?.entityChangeTypes?.map(
         (details) =>
             // remove '__typename' so this object can be re-used in gql request
             removeNestedTypeNames(details),

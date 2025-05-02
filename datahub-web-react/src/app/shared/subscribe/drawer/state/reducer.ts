@@ -52,7 +52,7 @@ export const reducer = (state: State, action: Action): State => {
             } = action.payload;
 
             const relevantEntityChangeDetails = forSubResource?.assertion
-                ? subscription?.entityChangeTypes.filter(
+                ? subscription?.entityChangeTypes?.filter(
                       (details) =>
                           !details.filter?.includeAssertions ||
                           details.filter.includeAssertions.includes(forSubResource.assertion!.urn),

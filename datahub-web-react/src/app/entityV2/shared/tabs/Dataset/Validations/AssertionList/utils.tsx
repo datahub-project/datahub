@@ -149,7 +149,7 @@ export const useSiblingOptionsForAssertionBuilder = (
             urn: sibling.urn,
             title:
                 getPlatformName(sibling) ??
-                sibling?.dataPlatformInstance?.platform.name ??
+                sibling?.dataPlatformInstance?.platform?.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,
             disabled: !isEntityEligibleForAssertionMonitoring(sibling.platform?.urn),

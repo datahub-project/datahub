@@ -123,7 +123,7 @@ export const SnowflakeConnectionForm = ({
     });
 
     const secrets =
-        data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+        data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
 
     const updateFormValues = (changedValues: any, allValues: any) => setFormValues({ ...allValues, ...changedValues });
     const updateFormValue = (field, value) => form.setFieldsValue({ [field]: value });

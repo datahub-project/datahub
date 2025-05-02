@@ -63,7 +63,7 @@ export const Requests = () => {
     const requests = useMemo(
         () =>
             // client-side filter of forms unfinished
-            (data?.getFormsForActor.formsForActor || []).filter((form) => filterFormsForUser(form as FormForActor)) ||
+            (data?.getFormsForActor?.formsForActor || []).filter((form) => filterFormsForUser(form as FormForActor)) ||
             [],
         [data],
     );

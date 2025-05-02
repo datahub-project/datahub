@@ -135,7 +135,7 @@ export function NavLinksMenu(props: Props) {
         (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
         (showFormAnalytics || formCreationEnabled);
 
-    const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion; // TODO: Add a dedicated permission for automations.
+    const showAutomations = config?.classificationConfig?.enabled && me?.platformPrivileges?.manageIngestion; // TODO: Add a dedicated permission for automations.
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);

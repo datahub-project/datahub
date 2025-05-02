@@ -188,7 +188,7 @@ export function getSharedItemInfo({ shareResult, entityData, entityRegistry }: S
     const lastAttempt = shareResult.lastAttempt.time || 0;
     const hasSharedLineage =
         shareResult.shareConfig?.enableDownstreamLineage || shareResult.shareConfig?.enableUpstreamLineage;
-    const name = shareResult.destination?.details.name || shareResult.destination?.urn || 'Deleted connection';
+    const name = shareResult.destination?.details?.name || shareResult.destination?.urn || 'Deleted connection';
     const implicitShareEntity = (shareResult as any)?.implicitShareEntity;
     const linkedEntityName = implicitShareEntity
         ? entityRegistry.getDisplayName(implicitShareEntity?.type, implicitShareEntity)

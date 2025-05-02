@@ -65,7 +65,7 @@ export const getSiblingEntityWithStats = (baseEntity: GetDatasetQuery) => {
 };
 
 export const getIsSiblingsMode = (baseEntity: GetDatasetQuery, isSeparateSiblingsMode: boolean) => {
-    if ((baseEntity.dataset?.siblingsSearch?.searchResults.length || 0) > 0) {
+    if ((baseEntity.dataset?.siblingsSearch?.searchResults?.length || 0) > 0) {
         if (isSeparateSiblingsMode) return false;
         return true;
     }

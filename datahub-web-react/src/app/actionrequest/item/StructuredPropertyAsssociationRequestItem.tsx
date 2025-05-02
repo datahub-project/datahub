@@ -88,7 +88,7 @@ export default function StructuredPropertyAsssociationRequestItem({
 
     const propertyName = entityRegistry.getDisplayName(EntityType.StructuredProperty, property);
     const proposedPropertyValues =
-        actionRequest.params?.structuredPropertyProposal?.structuredProperties.flatMap((p) => {
+        actionRequest.params?.structuredPropertyProposal?.structuredProperties?.flatMap((p) => {
             return mapStructuredPropertyValues(p);
         }) || [];
 

@@ -75,7 +75,7 @@ export function useRemoveAssertionFromAssetLevelSubscription({
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
     });
-    const allAssetAssertionUrns: string[] | undefined = data?.dataset?.assertions?.assertions.map(
+    const allAssetAssertionUrns: string[] | undefined = data?.dataset?.assertions?.assertions?.map(
         (assertion) => assertion.urn,
     );
 

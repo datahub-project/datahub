@@ -11,9 +11,9 @@ interface Props {
 const CreateNodeRequestItem = ({ actionRequest }: Props) => {
     const entityRegistry = useEntityRegistryV2();
 
-    const proposedName = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode.name || '';
-    const parentNode = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode.parentNode || null;
-    const description = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode.description || '';
+    const proposedName = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode?.name || '';
+    const parentNode = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode?.parentNode || null;
+    const description = actionRequest.params?.createGlossaryNodeProposal?.glossaryNode?.description || '';
     const entityName = entityRegistry.getEntityName(EntityType.GlossaryNode);
     return (
         <CreateGlossaryEntityContentView

@@ -225,7 +225,7 @@ export const getAssertionsSummary = (assertions: AssertionWithMonitorDetails[]):
         // Skip inactive monitors
         // NOTE: we don't assert that the status is Active, because in cases of external assertions they won't have monitors
         const maybeInactiveMonitor = assertion.monitors?.find(
-            (item) => item.info?.status.mode === MonitorMode.Inactive,
+            (item) => item.info?.status?.mode === MonitorMode.Inactive,
         );
         if (maybeInactiveMonitor) {
             return;

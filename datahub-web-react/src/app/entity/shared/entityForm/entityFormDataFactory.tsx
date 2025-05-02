@@ -47,7 +47,7 @@ export const useEntityFormDataFactory = (
 
     // Form validator consts
     const form = formData?.form as Form;
-    const isVerificationType = form?.info.type === FormType.Verification;
+    const isVerificationType = form?.info?.type === FormType.Verification;
 
     // Form Filter
     const { formFilter, formResponsesFilters, setFormResponsesFilters } = useFormFilter({

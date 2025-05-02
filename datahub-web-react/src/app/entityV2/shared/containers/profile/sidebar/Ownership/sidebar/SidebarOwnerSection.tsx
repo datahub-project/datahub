@@ -54,7 +54,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     );
     const proposedOwners = proposedOwnerRequests.flatMap(
         (request) =>
-            request.params?.ownerProposal?.owners.map((owner) => ({
+            request.params?.ownerProposal?.owners?.map((owner) => ({
                 ...owner,
                 request,
             })) || [],

@@ -8,7 +8,7 @@ export default function useExtractFieldDescriptionInfo(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
 ) {
     return (record: SchemaField, description: string | null = null) => {
-        const editableFieldInfoB = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
+        const editableFieldInfoB = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const { displayedDescription, isPropagated, sourceDetail, propagatedDescription } = getFieldDescriptionDetails({

@@ -18,7 +18,7 @@ export const filterTests = (filterText, tests: Test[]) => {
         return (
             test.name?.toLocaleLowerCase().includes(lowerFilterText) ||
             test.description?.toLocaleLowerCase().includes(lowerFilterText) ||
-            test.category?.toLocaleLowerCase()?.includes(lowerFilterText)
+            test.category?.toLocaleLowerCase().includes(lowerFilterText)
         );
     });
 };

@@ -52,7 +52,7 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
                                 size="sm"
                                 checked={
                                     propEntity?.settings?.showInSearchFilters ||
-                                    propEntity?.definition.filterStatus === StructuredPropertyFilterStatus.Enabled
+                                    propEntity?.definition?.filterStatus === StructuredPropertyFilterStatus.Enabled
                                 }
                                 labelStyle={{ fontSize: 12, color: colors.gray[1700], fontWeight: 700 }}
                                 isDisabled

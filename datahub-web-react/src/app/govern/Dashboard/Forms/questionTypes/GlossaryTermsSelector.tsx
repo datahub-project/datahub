@@ -55,7 +55,7 @@ const GlossaryTermsSelector = ({
             const alreadyPresentOptionUrns = childOptions.map((option) => option.value);
             const nodeUrn = nodeData.glossaryNode?.urn || '';
             seenNodeUrns.add(nodeUrn);
-            nodeData.glossaryNode?.children?.relationships.forEach((relationship) => {
+            nodeData.glossaryNode?.children?.relationships?.forEach((relationship) => {
                 if (relationship.entity && !seenUrns.has(relationship.entity.urn)) {
                     const { entity } = relationship;
                     const { urn, type } = entity;

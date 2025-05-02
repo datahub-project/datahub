@@ -37,7 +37,7 @@ const DomainsSelector = () => {
     const [listDomains] = useListDomainsLazyQuery({
         onCompleted: (listDomainsData) => {
             const childOptionsToAdd: NestedSelectOption[] = [];
-            listDomainsData.listDomains?.domains.forEach((domain) => {
+            listDomainsData.listDomains?.domains?.forEach((domain) => {
                 const { urn, type } = domain;
                 childOptionsToAdd.push({
                     value: urn,
@@ -52,7 +52,7 @@ const DomainsSelector = () => {
     });
 
     const options =
-        data?.listDomains?.domains.map((domain) => ({
+        data?.listDomains?.domains?.map((domain) => ({
             value: domain.urn,
             label: entityRegistry.getDisplayName(domain.type, domain),
             id: domain.urn,
@@ -60,7 +60,7 @@ const DomainsSelector = () => {
             entity: domain,
         })) || [];
     const autoCompleteOptions =
-        autoCompleteData?.autoCompleteForMultiple?.suggestions.flatMap((s) =>
+        autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((s) =>
             s.entities.map((domain) => ({
                 value: domain.urn,
                 label: entityRegistry.getDisplayName(domain.type, domain),

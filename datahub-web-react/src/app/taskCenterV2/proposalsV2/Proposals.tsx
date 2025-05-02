@@ -86,7 +86,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
                     urn: authenticatedUser?.corpUser?.urn,
                 },
             },
-            ...(authenticatedUser?.corpUser.groups?.relationships?.map((rel) => {
+            ...(authenticatedUser?.corpUser?.groups?.relationships?.map((rel) => {
                 const group = rel.entity as CorpGroup;
                 return {
                     name: group.name,

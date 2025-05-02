@@ -82,7 +82,7 @@ export const StatsSectionsContextProvider = ({ children }: Props) => {
 
     const statsEntity: any =
         baseEntity.dataset?.urn !== statsEntityUrn
-            ? baseEntity.dataset?.siblingsSearch?.searchResults.find((res) => res.entity.urn === statsEntityUrn)
+            ? baseEntity.dataset?.siblingsSearch?.searchResults?.find((res) => res.entity.urn === statsEntityUrn)
                   ?.entity || baseEntity.dataset?.siblingsSearch?.searchResults[0]?.entity
             : baseEntity.dataset;
 

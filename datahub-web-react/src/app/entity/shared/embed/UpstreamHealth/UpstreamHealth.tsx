@@ -62,7 +62,7 @@ export default function UpstreamHealth() {
     );
 
     useEffect(() => {
-        if (incidentsData?.searchAcrossLineage?.searchResults.length && !datasetsWithActiveIncidents.length) {
+        if (incidentsData?.searchAcrossLineage?.searchResults?.length && !datasetsWithActiveIncidents.length) {
             setDatasetsWithActiveIncidents(
                 incidentsData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
             );
@@ -70,7 +70,7 @@ export default function UpstreamHealth() {
     }, [incidentsData?.searchAcrossLineage?.searchResults, datasetsWithActiveIncidents.length]);
 
     useEffect(() => {
-        if (assertionsData?.searchAcrossLineage?.searchResults.length && !datasetsWithFailingAssertions.length) {
+        if (assertionsData?.searchAcrossLineage?.searchResults?.length && !datasetsWithFailingAssertions.length) {
             setDatasetsWithFailingAssertions(
                 assertionsData.searchAcrossLineage.searchResults.map((result) => result.entity as Dataset),
             );

@@ -35,14 +35,14 @@ const OwnershipSelector = () => {
     });
 
     const options =
-        data?.searchAcrossEntities?.searchResults.map((result) => ({
+        data?.searchAcrossEntities?.searchResults?.map((result) => ({
             value: result.entity.urn,
             label: entityRegistry.getDisplayName(result.entity.type, result.entity),
             id: result.entity.urn,
             entity: result.entity,
         })) || [];
     const autoCompleteOptions =
-        autoCompleteData?.autoCompleteForMultiple?.suggestions.flatMap((s) =>
+        autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((s) =>
             s.entities.map((entity) => ({
                 value: entity.urn,
                 label: entityRegistry.getDisplayName(entity.type, entity),

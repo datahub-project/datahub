@@ -140,7 +140,7 @@ export const SelectStep = ({ state, updateState, goTo }: StepProps) => {
                                 }
                                 onChangePredicate={onChangePredicate}
                                 properties={getPropertiesForEntityTypes(selectedEntityTypes)}
-                                disabled={!testDefinition.on?.types || testDefinition.on?.types.length === 0}
+                                disabled={!testDefinition.on?.types || testDefinition.on?.types?.length === 0}
                                 options={{
                                     predicateDisplayName: 'filter',
                                 }}

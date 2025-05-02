@@ -151,7 +151,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
      */
     useEffect(() => {
         const unfinishedProposalCount = unfinishedProposals?.listActionRequests?.total || 0;
-        const unfinishedFormCount = (unfinishedForms?.getFormsForActor.formsForActor || []).filter((form) =>
+        const unfinishedFormCount = (unfinishedForms?.getFormsForActor?.formsForActor || []).filter((form) =>
             filterFormsForUser(form as FormForActor),
         ).length;
 
@@ -173,7 +173,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
                 loaded: !!meData,
                 urn: meData?.me?.corpUser?.urn,
                 user: meData?.me?.corpUser as CorpUser,
-                userGroups: meData?.me?.corpUser.groups as EntityRelationshipsResult,
+                userGroups: meData?.me?.corpUser?.groups as EntityRelationshipsResult,
                 platformPrivileges: meData?.me?.platformPrivileges as PlatformPrivileges,
                 state,
                 localState,

@@ -42,7 +42,7 @@ const StructuredPropValues = ({ schemaFieldEntity, propColumn }: Props) => {
         (prop) => prop.structuredProperty.urn === propColumn?.entity?.urn,
     );
     const propRow = property ? mapStructuredPropertyToPropertyRow(property) : undefined;
-    const propValues = propRow?.values.map((value) => ({
+    const propValues = propRow?.values?.map((value) => ({
         value,
         request: null,
     }));

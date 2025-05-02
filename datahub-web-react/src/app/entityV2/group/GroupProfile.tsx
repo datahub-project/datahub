@@ -108,8 +108,8 @@ export default function GroupProfile({ urn }: Props) {
     });
 
     const canManageNotifications =
-        privilegesData?.getGrantedPrivileges?.privileges.some((v) => v === 'MANAGE_GROUP_NOTIFICATION_SETTINGS') ||
-        privilegesData?.getGrantedPrivileges?.privileges.some((v) => v === 'EDIT_ENTITY') || // All edit permissions
+        privilegesData?.getGrantedPrivileges?.privileges?.some((v) => v === 'MANAGE_GROUP_NOTIFICATION_SETTINGS') ||
+        privilegesData?.getGrantedPrivileges?.privileges?.some((v) => v === 'EDIT_ENTITY') || // All edit permissions
         false;
 
     const finalTabs = [

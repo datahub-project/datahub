@@ -9,7 +9,7 @@ const useGroupRelationships = ({ count = 100 } = {}) => {
         variables: { urn: authenticatedUserUrn as string, start: 0, count },
     });
 
-    const relationships = groupsData?.corpUser?.relationships?.relationships.filter((relationship) => !!relationship);
+    const relationships = groupsData?.corpUser?.relationships?.relationships?.filter((relationship) => !!relationship);
 
     const hasGroupRelationships = relationships && relationships.length > 0;
 

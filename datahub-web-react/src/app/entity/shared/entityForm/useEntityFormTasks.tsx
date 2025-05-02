@@ -52,7 +52,7 @@ export function useEntityFormTasks(formUrn: string) {
 
     const [fetchTasks] = useGetResultsForOnDemandTestsLazyQuery({
         onCompleted: (data: GetResultsForOnDemandTestsQuery) => {
-            data.listTests?.tests.forEach((test) => handleFetchedTask(test as Test));
+            data.listTests?.tests?.forEach((test) => handleFetchedTask(test as Test));
         },
     });
 
@@ -116,5 +116,5 @@ export function getAssociatedPromptId(taskId: string): string | undefined {
 
 // We should only ever have one test result for on demand tests anyways
 export function getFirstTestResult(test: Test) {
-    return test.batchRunEvents?.batchRunEvents.sort((a, b) => a.timestampMillis - b.timestampMillis)[0];
+    return test.batchRunEvents?.batchRunEvents?.sort((a, b) => a.timestampMillis - b.timestampMillis)[0];
 }

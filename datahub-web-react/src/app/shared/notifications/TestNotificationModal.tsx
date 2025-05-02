@@ -83,11 +83,11 @@ export const TestNotificationModal = ({
     closeModal,
 }: Props) => {
     const isSendingFailed =
-        !isLoading && testNotificationResult?.status.toUpperCase() === TEST_NOTIFICATION_RESULT_STATUS.ERROR;
+        !isLoading && testNotificationResult?.status?.toUpperCase() === TEST_NOTIFICATION_RESULT_STATUS.ERROR;
 
     // There will only be 1 report since we're only sending to 1 channel/user at a time.
     // TODO: handle multiple channels being tested at once
-    const firstReportWithError = testNotificationResult?.report.find((report) => report.error);
+    const firstReportWithError = testNotificationResult?.report?.find((report) => report.error);
     const errorMessage =
         firstReportWithError?.error &&
         getErrorDisplayContentFromSlackErrorCode(firstReportWithError.error, {

@@ -182,7 +182,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
             })
                 .then(({ data, errors }) => {
                     message.destroy();
-                    const unshareResult = data?.unshareEntity.share.lastUnshareResults?.filter((result) =>
+                    const unshareResult = data?.unshareEntity?.share?.lastUnshareResults?.filter((result) =>
                         selectedInstances.includes(result.destination?.urn || ''),
                     )[0];
                     if (!errors && !(unshareResult?.status === ShareResultState.Failure)) {
@@ -233,7 +233,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
             })
                 .then(({ data, errors }) => {
                     message.destroy();
-                    const shareResult = data?.shareEntity.share.lastShareResults.filter((result) =>
+                    const shareResult = data?.shareEntity?.share?.lastShareResults?.filter((result) =>
                         instances.includes(result.destination?.urn || ''),
                     )[0];
                     if (!errors && !(shareResult?.status === ShareResultState.Failure)) {

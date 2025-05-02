@@ -36,7 +36,7 @@ export const ProposalsEntitySelect = ({
     const [autoComplete, { data: autoCompleteData, loading: autoCompleteLoading }] =
         useGetAutoCompleteMultipleResultsLazyQuery();
     const autoCompleteSuggestions: Array<Entity> =
-        autoCompleteData?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities) || [];
+        autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) || [];
 
     const [useSearch, setUseSearch] = useState(false);
     const suggestions = useSearch ? autoCompleteSuggestions : defaultSuggestions;

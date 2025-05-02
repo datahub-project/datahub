@@ -61,7 +61,7 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
     );
 
     const allValues =
-        actionRequest.params?.structuredPropertyProposal?.structuredProperties.flatMap((p) => {
+        actionRequest.params?.structuredPropertyProposal?.structuredProperties?.flatMap((p) => {
             return mapStructuredPropertyValues(p);
         }) || [];
 

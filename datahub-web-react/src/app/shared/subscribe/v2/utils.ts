@@ -63,7 +63,7 @@ export const useSiblingOptionsForSubscriptions = (
             urn: sibling.urn,
             title:
                 getPlatformName(sibling) ??
-                sibling?.dataPlatformInstance?.platform.name ??
+                sibling?.dataPlatformInstance?.platform?.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,
             platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,

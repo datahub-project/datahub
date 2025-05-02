@@ -755,7 +755,7 @@ export const getDefaultFreshnessSourceOption = (
     if (!monitorsConnectionForEntityExists) {
         return DatasetFreshnessSourceType.DatahubOperation;
     }
-    return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.defaultSourceType || DatasetFreshnessSourceType.AuditLog;
+    return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness?.defaultSourceType || DatasetFreshnessSourceType.AuditLog;
 };
 
 export const getDefaultDatasetFreshnessAssertionParametersState = (

@@ -69,7 +69,7 @@ export default function EntityFormContextProvider({ children, formUrn, defaultFo
     const previousFormUrn = usePrevious(formUrn);
 
     // Determine form type
-    const isVerificationType = form?.info.type === FormType.Verification;
+    const isVerificationType = form?.info?.type === FormType.Verification;
 
     // Find intitial prompt
     const initialPromptId =

@@ -270,8 +270,8 @@ const AcrylInstances = () => {
                             <HorizontalListSkeletons Component={SkeletonCard} showHeader={false} />
                         </SkeletonContainer>
                     ) : (
-                        <InstancesList isEmptyState={searchAcrossEntities?.searchResults.length === 0}>
-                            {searchAcrossEntities?.searchResults.map((result) => {
+                        <InstancesList isEmptyState={searchAcrossEntities?.searchResults?.length === 0}>
+                            {searchAcrossEntities?.searchResults?.map((result) => {
                                 const entity = result?.entity as DataHubConnection;
                                 return (
                                     <Instance onClick={() => openEditInstance(entity)}>
@@ -292,7 +292,7 @@ const AcrylInstances = () => {
                                     </Instance>
                                 );
                             })}
-                            {searchAcrossEntities?.searchResults.length === 0 && <InstancesListEmptyState />}
+                            {searchAcrossEntities?.searchResults?.length === 0 && <InstancesListEmptyState />}
                         </InstancesList>
                     )}
                 </>

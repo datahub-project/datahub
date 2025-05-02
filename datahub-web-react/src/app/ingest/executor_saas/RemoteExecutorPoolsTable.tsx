@@ -163,7 +163,7 @@ export const RemoteExecutorPoolsTable = ({
                     {record.remoteExecutors?.remoteExecutors?.reduce(
                         (total, exec) =>
                             total +
-                            (exec.recentExecutions?.executionRequests.filter((task) =>
+                            (exec.recentExecutions?.executionRequests?.filter((task) =>
                                 checkIsExecutionRequestRunning(task.result),
                             ).length || 0),
                         0,

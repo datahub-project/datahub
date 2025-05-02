@@ -44,11 +44,11 @@ export const ManageFormContextProvider = ({ children }: { children: React.ReactN
             const formData = data.form;
 
             const values: FormFields = {
-                formType: formData?.info.type as FormType,
-                formName: formData?.info.name as string,
-                formDescription: formData?.info.description as string | undefined,
-                questions: (formData?.info.prompts as FormPrompt[]) || [],
-                actors: formData?.info.actors as FormActors,
+                formType: formData?.info?.type as FormType,
+                formName: formData?.info?.name as string,
+                formDescription: formData?.info?.description as string | undefined,
+                questions: (formData?.info?.prompts as FormPrompt[]) || [],
+                actors: formData?.info?.actors as FormActors,
                 state: formData?.info?.status?.state,
                 assets: {
                     logicalPredicate:

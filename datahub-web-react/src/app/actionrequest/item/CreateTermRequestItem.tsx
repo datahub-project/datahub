@@ -17,9 +17,9 @@ const REQUEST_TYPE_DISPLAY_NAME = 'Create Glossary Term Proposal';
 export default function CreateTermRequestItem({ actionRequest, onUpdate, showActionsButtons }: Props) {
     const entityRegistry = useEntityRegistry();
 
-    const proposedName = actionRequest.params?.createGlossaryTermProposal?.glossaryTerm.name || '';
-    const parentNode = actionRequest.params?.createGlossaryTermProposal?.glossaryTerm.parentNode || null;
-    const description = actionRequest.params?.createGlossaryTermProposal?.glossaryTerm.description || '';
+    const proposedName = actionRequest.params?.createGlossaryTermProposal?.glossaryTerm?.name || '';
+    const parentNode = actionRequest.params?.createGlossaryTermProposal?.glossaryTerm?.parentNode || null;
+    const description = actionRequest.params?.createGlossaryTermProposal?.glossaryTerm?.description || '';
     const entityName = entityRegistry.getEntityName(EntityType.GlossaryTerm);
     const contentView = (
         <CreateGlossaryEntityContentView

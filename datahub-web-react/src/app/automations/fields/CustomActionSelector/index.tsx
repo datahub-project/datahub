@@ -46,8 +46,8 @@ const ActionSelector = ({ ...props }: any) => {
                     onChange={(value: any) => props.updateAction(value, props.id)}
                 />
             </div>
-            {selectedAction?.valueOptions.mode === SelectInputMode.NONE && <div>{selectedAction?.description}</div>}
-            {selectedAction?.valueOptions.mode !== SelectInputMode.NONE && (
+            {selectedAction?.valueOptions?.mode === SelectInputMode.NONE && <div>{selectedAction?.description}</div>}
+            {selectedAction?.valueOptions?.mode !== SelectInputMode.NONE && (
                 <div>
                     <EntityTypeSelector
                         state={props.values}

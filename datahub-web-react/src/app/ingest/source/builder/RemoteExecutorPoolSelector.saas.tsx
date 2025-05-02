@@ -19,7 +19,7 @@ type Props = {
 
 export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, placeholder = 'Select a pool' }: Props) {
     const { config } = useAppConfig();
-    const isExecutorPoolEnabled = config?.featureFlags.displayExecutorPools;
+    const isExecutorPoolEnabled = config?.featureFlags?.displayExecutorPools;
 
     const [searchText, setSearchText] = useState('');
 
@@ -33,9 +33,9 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
     });
     const { data: defaultPool } = useGetDefaultRemoteExecutorPoolQuery();
 
-    const pools = (data?.listRemoteExecutorPools.remoteExecutorPools || []) as RemoteExecutorPool[];
-    const total = data?.listRemoteExecutorPools.total;
-    const defaultPoolId = defaultPool?.defaultRemoteExecutorPool.pool?.executorPoolId || pools[0]?.executorPoolId;
+    const pools = (data?.listRemoteExecutorPools?.remoteExecutorPools || []) as RemoteExecutorPool[];
+    const total = data?.listRemoteExecutorPools?.total;
+    const defaultPoolId = defaultPool?.defaultRemoteExecutorPool?.pool?.executorPoolId || pools[0]?.executorPoolId;
 
     const handleChange = (newValue: string) => {
         onChange?.(newValue);

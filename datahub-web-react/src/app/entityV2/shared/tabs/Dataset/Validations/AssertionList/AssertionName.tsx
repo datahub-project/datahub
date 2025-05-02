@@ -66,7 +66,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
     const entityData = useEntityData();
 
     const { platform, monitor, assertion, lastEvaluation, lastEvaluationUrl } = record;
-    const monitorSchedule = monitor?.info?.assertionMonitor?.assertions.find(
+    const monitorSchedule = monitor?.info?.assertionMonitor?.assertions?.find(
         (assrn) => assrn.assertion.urn === assertion.urn,
     )?.schedule;
     const { primaryLabel } = useBuildAssertionDescriptionLabels(record?.assertion?.info, monitorSchedule, {
