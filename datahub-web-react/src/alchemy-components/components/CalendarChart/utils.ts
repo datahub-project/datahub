@@ -146,9 +146,9 @@ export function getColorAccessor<ValueType = any>(
         // Get key and value of item with max value
         const [key, value] = Object.entries(colorAccessors)
             .map(([accessorKey, colorAccessor]) => [accessorKey, colorAccessor.valueAccessor(datumValue)])
-            .reduce((max, current) => (current[1] > max[1] ? current : max));
+            .reduce((max, current) => (current[1] && max[1] && current[1] > max[1] ? current : max));
 
-        if ((value as number) <= 0) return defaultColor;
+        if ((value as number) <= 0 || key === undefined) return defaultColor;
 
         const scaledValue = scales[key](value);
         return colorInterpolators[key](scaledValue);

@@ -227,7 +227,7 @@ export const NestedSelect = <OptionType extends NestedSelectOption = NestedSelec
     filteredOptions.forEach((o) => {
         const parentValue = o.parentValue || NO_PARENT_VALUE;
         parentValueToOptions[parentValue] = parentValueToOptions[parentValue]
-            ? [...parentValueToOptions[parentValue], o]
+            ? [...(parentValueToOptions[parentValue] || []), o]
             : [o];
     });
 

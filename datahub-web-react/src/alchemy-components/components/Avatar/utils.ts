@@ -3,11 +3,18 @@ import { colors } from '@src/alchemy-components/theme';
 export const getNameInitials = (userName: string) => {
     if (!userName) return '';
     const names = userName.trim().split(/[\s']+/); // Split by spaces or apostrophes
-    if (names.length === 1) {
-        const firstName = names[0];
-        return firstName.length > 1 ? firstName[0]?.toUpperCase() + firstName[1]?.toUpperCase() : firstName[0];
+    const [firstName, ...rest] = names;
+    const lastName = rest.at(-1);
+    if (firstName && lastName && firstName[0] && lastName[0]) {
+        return firstName[0].toUpperCase() + lastName[0].toUpperCase();
     }
-    return names[0][0]?.toUpperCase() + names[names.length - 1][0]?.toUpperCase() || '';
+    if (firstName) {
+        const [firstLetter, secondLetter] = firstName;
+        if (firstLetter && secondLetter) return firstLetter.toUpperCase() + secondLetter.toUpperCase();
+        if (firstLetter && !secondLetter) return firstLetter.toUpperCase();
+        return '';
+    }
+    return '';
 };
 
 export function hashString(str: string) {
@@ -40,7 +47,7 @@ export const getAvatarColorStyles = (color) => {
 };
 
 export default function getAvatarColor(name: string) {
-    return avatarColors[hashString(name) % avatarColors.length];
+    return avatarColors[hashString(name) % avatarColors.length] || colors.violet[500];
 }
 
 export const getAvatarSizes = (size) => {

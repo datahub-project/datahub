@@ -70,7 +70,7 @@ export const MentionsDropdown = ({ suggestions }: Props) => {
     const onSubmit = useCallback(
         (item: Option) => {
             if (item.entity) {
-                createDataHubMention({
+                createDataHubMention?.({
                     name: entityRegistry.getDisplayName(item.type, item.entity),
                     urn: item.entity.urn,
                 });

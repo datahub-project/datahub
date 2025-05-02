@@ -41,7 +41,8 @@ export function useDataHubMentions<Item = any>(props: UseDataHubMentionsProps<It
 
             switch (action.kind) {
                 case ActionKind.enter:
-                    return onEnter?.(items[index]) || true;
+                    const item = items[index];
+                    return (item && onEnter?.(item)) || true;
                 case ActionKind.up:
                     selectedIndex((i) => (i - 1 < 0 ? maxIndex : i - 1));
                     return true;
