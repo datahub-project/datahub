@@ -527,7 +527,7 @@ def searchForAuditEvents(
     json = {
         "eventTypes": event_types,
         "actorUrns": user_urns,
-        "aspectNames": aspect_names,
+        "aspectTypes": aspect_names,
     }
     response = session.post(
         f"{get_frontend_url()}/openapi/v1/events/audit/search?size={size}", json=json
