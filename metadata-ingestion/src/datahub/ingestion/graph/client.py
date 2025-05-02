@@ -187,6 +187,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         """Get the public-facing base url of the frontend
 
         This url can be used to construct links to the frontend. The url will not include a trailing slash.
+
         Note: Only supported with DataHub Cloud.
         """
 
