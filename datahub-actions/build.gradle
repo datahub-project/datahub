@@ -134,6 +134,7 @@ docker {
     include ".dockerignore"
     include "docker/datahub-actions/**"
     include "docker/snippets/**"
+    include "metadata-ingestion/**"
     include "datahub-actions/**"
     include "python-build/**"
   }.exclude {
