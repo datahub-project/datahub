@@ -8,6 +8,7 @@ from click.testing import CliRunner, Result
 
 from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.entrypoints import datahub
+from tests.consistency_utils import wait_for_writes_to_sync
 
 runner = CliRunner(mix_stderr=False)
 
@@ -72,21 +73,29 @@ def datahub_get_user(auth_session: Any, user_urn: str):
 
 def test_user_upsert(auth_session: Any) -> None:
     num_user_profiles: int = 10
+    actual = []
+    expected = []
     for i, datahub_user in enumerate(gen_datahub_users(num_user_profiles)):
         datahub_upsert_user(auth_session, datahub_user)
         user_dict = datahub_get_user(auth_session, f"urn:li:corpuser:user_{i}")
-        assert user_dict == {
-            "corpUserEditableInfo": {
-                "aboutMe": f"The User {i}",
-                "displayName": f"User {i}",
-                "email": f"user_{i}@datahubproject.io",
-                "phone": f"1-800-USER-{i}",
-                "pictureLink": f"https://images.google.com/user{i}.jpg",
-                "skills": [],
-                "slack": f"@user{i}",
-                "teams": [],
-            },
-            "corpUserKey": {"username": f"user_{i}"},
-            "groupMembership": {"groups": [f"urn:li:corpGroup:group_{i}"]},
-            "status": {"removed": False},
-        }
+        actual.append(user_dict)
+        expected.append(
+            {
+                "corpUserEditableInfo": {
+                    "aboutMe": f"The User {i}",
+                    "displayName": f"User {i}",
+                    "email": f"user_{i}@datahubproject.io",
+                    "phone": f"1-800-USER-{i}",
+                    "pictureLink": f"https://images.google.com/user{i}.jpg",
+                    "skills": [],
+                    "slack": f"@user{i}",
+                    "teams": [],
+                },
+                "corpUserKey": {"username": f"user_{i}"},
+                "groupMembership": {"groups": [f"urn:li:corpGroup:group_{i}"]},
+                "status": {"removed": False},
+            }
+        )
+
+    wait_for_writes_to_sync()
+    assert actual == expected
