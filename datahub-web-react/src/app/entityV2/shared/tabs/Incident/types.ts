@@ -1,12 +1,9 @@
-import { Dispatch, SetStateAction } from 'react';
-
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
 import {
     AuditStamp,
     CorpUser,
     DataPlatform,
-    EntityPrivileges,
     EntityType,
     Incident,
     IncidentPriority,
@@ -147,10 +144,4 @@ export type IncidentHandlerProps = {
     entity: EntityStagedForIncident | undefined;
     assignees: CorpUser[];
     linkedAssets: string[];
-};
-
-export type CreateIncidentButtonProps = {
-    privileges: EntityPrivileges;
-    setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
-    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
 };

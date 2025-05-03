@@ -1,5 +1,5 @@
 import { Empty } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
@@ -55,10 +55,13 @@ export const IncidentList = () => {
     });
 
     // get filtered Incident as per the filter object
-    const getFilteredIncidents = (incidents: Incident[]) => {
-        const filteredIncidentData: IncidentTable = getFilteredTransformedIncidentData(incidents, selectedFilters);
-        setVisibleIncidents(filteredIncidentData);
-    };
+    const getFilteredIncidents = useCallback(
+        (incidents: Incident[]) => {
+            const filteredIncidentData: IncidentTable = getFilteredTransformedIncidentData(incidents, selectedFilters);
+            setVisibleIncidents(filteredIncidentData);
+        },
+        [selectedFilters],
+    );
 
     useEffect(() => {
         const combinedData = isSeparateSiblingsMode ? data : combineEntityDataWithSiblings(data);
@@ -68,20 +71,11 @@ export const IncidentList = () => {
             [];
         setAllIncidentData(allIncidents);
         getFilteredIncidents(allIncidents);
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [data]);
+    }, [data, isSeparateSiblingsMode, getFilteredIncidents]);
 
-    useEffect(() => {
-        // after filter change need to get filtered incidents
-        if (allIncidentData?.length > 0) {
-            getFilteredIncidents(allIncidentData);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedFilters]);
-
-    const handleFilterChange = (filter) => {
+    const handleFilterChange = useCallback((filter) => {
         setSelectedFilters(filter);
-    };
+    }, []);
 
     const refetch = () => {
         refetchEntity();

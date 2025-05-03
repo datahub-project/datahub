@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
+import { IncidentHandlerProps } from '@app/entityV2/shared/tabs/Incident/types';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
@@ -68,7 +69,15 @@ export const getCacheIncident = ({
     return newIncident;
 };
 
-export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+export const useIncidentHandler = ({
+    mode,
+    onSubmit,
+    incidentUrn,
+    user,
+    assignees,
+    linkedAssets,
+    entity,
+}: IncidentHandlerProps) => {
     // Important: Here we are trying to fetch the URN of the sibling whose "profile" we are currently viewing.
     // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
     const { urn: maybeCacheEntityUrn } = useEntityData();

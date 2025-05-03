@@ -221,4 +221,4 @@ export const STATE_ORDER = [INCIDENT_STATE_NAME_MAP.ACTIVE, INCIDENT_STATE_NAME_
 
 export const MAX_VISIBLE_ASSIGNEE = 5;
 
-export const noPermissionsMessage = 'You do not have permission to edit incidents for this asset.';
+export const NO_PERMISSIONS_MESSAGE = 'You do not have permission to edit incidents for this asset.';

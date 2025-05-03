@@ -1,5 +1,5 @@
 import { Check, Warning } from '@phosphor-icons/react';
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -38,7 +38,6 @@ import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import {
     Assertion,
     AssertionInfo,
-    CorpUser,
     EntityType,
     IncidentSourceType,
     IncidentState,
@@ -61,57 +60,45 @@ const IncidentStates = {
     },
 };
 
-export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
+export const IncidentView = memo(({ incident }: { incident: IncidentTableRow }) => {
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const [getAssigneeEntities, { data: resolvedAssignees, loading }] = useGetEntitiesLazyQuery();
 
-    const [isDescriptionOpen, setDescriptionOpen] = useState<boolean>(true);
-    const [incidentCreator, setIncidentCreator] = useState<CorpUser | any>();
-    const [incidentResolver, setIncidentResolver] = useState<CorpUser | any>();
+    const [isDescriptionOpen, setIsDescriptionOpen] = useState<boolean>(true);
 
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
 
     const { type, source } = incident.source || {};
     const { label, icon } = IncidentStates[incident?.state] || {};
 
-    const incidentActivityActors = {
-        creator: incident?.creator?.actor,
-        lastUpdated: incident?.lastUpdated?.actor,
-    };
+    const creatorUrn = useMemo(() => incident?.creator?.actor, [incident]);
+    const lastUpdatedUrn = useMemo(() => incident?.lastUpdated?.actor, [incident]);
 
     useEffect(() => {
-        // Dynamically construct the urns array
-        const urns: any = [];
+        const urns: string[] = [];
 
-        if (incidentActivityActors.creator) urns.push(incidentActivityActors?.creator);
-        if (incidentActivityActors.lastUpdated) urns.push(incidentActivityActors?.lastUpdated);
+        if (creatorUrn) urns.push(creatorUrn);
+        if (lastUpdatedUrn) urns.push(lastUpdatedUrn);
 
-        if (urns?.length) {
-            getAssigneeEntities({
-                variables: {
-                    urns,
-                },
-            });
+        if (urns.length) {
+            getAssigneeEntities({ variables: { urns } });
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [incident?.creator?.actor, incident?.lastUpdated?.actor]);
+    }, [creatorUrn, lastUpdatedUrn, getAssigneeEntities]);
 
-    useEffect(() => {
-        if (resolvedAssignees?.entities?.length) {
-            resolvedAssignees.entities.forEach((entity) => {
-                if (incidentActivityActors.creator === incidentActivityActors.lastUpdated) {
-                    setIncidentCreator(entity);
-                    setIncidentResolver(entity);
-                } else if (entity?.urn === incidentActivityActors.creator) {
-                    setIncidentCreator(entity);
-                } else if (entity?.urn === incidentActivityActors.lastUpdated) {
-                    setIncidentResolver(entity);
-                }
-            });
+    const { incidentCreator, incidentResolver } = useMemo(() => {
+        const entities = resolvedAssignees?.entities || [];
+
+        if (creatorUrn === lastUpdatedUrn) {
+            const commonEntity = entities.find((e) => e?.urn === creatorUrn);
+            return { incidentCreator: commonEntity, incidentResolver: commonEntity };
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [resolvedAssignees]);
+
+        const creator = entities.find((e) => e?.urn === creatorUrn);
+        const resolver = entities.find((e) => e?.urn === lastUpdatedUrn);
+
+        return { incidentCreator: creator, incidentResolver: resolver };
+    }, [resolvedAssignees, creatorUrn, lastUpdatedUrn]);
 
     const navigateToUser = (user) => {
         history.push(`${entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}`);
@@ -134,14 +121,13 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
         });
     };
 
-    const renderActivities = (() => {
+    const renderActivities = useMemo(() => {
         const baseActivity = {
             actor: incidentCreator,
             action: INCIDENT_STATE_TO_ACTIVITY.RAISED,
             time: incident?.creator?.time,
         };
 
-        // Only add the resolved activity if the incident state is Resolved
         if (incident?.state === IncidentState.Resolved) {
             return [
                 baseActivity,
@@ -154,9 +140,8 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             ];
         }
 
-        // Otherwise just return the base activity
         return [baseActivity];
-    })();
+    }, [incident, incidentCreator, incidentResolver]);
 
     /** Assertion Related Logic. */
     const isAssertionFailureIncident = type === IncidentSourceType.AssertionFailure;
@@ -175,7 +160,7 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
     return (
         <Container>
             <DescriptionSection>
-                <Header onClick={() => setDescriptionOpen(!isDescriptionOpen)}>
+                <Header onClick={() => setIsDescriptionOpen(!isDescriptionOpen)}>
                     <DetailsLabel>Description</DetailsLabel>
                     <CompactMarkdownViewer
                         content={incident?.description || ''}
@@ -242,4 +227,4 @@ export const IncidentView = ({ incident }: { incident: IncidentTableRow }) => {
             <IncidentActivitySection loading={loading} renderActivities={renderActivities} />
         </Container>
     );
-};
+});
