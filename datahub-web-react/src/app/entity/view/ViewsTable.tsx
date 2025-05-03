@@ -14,12 +14,13 @@ import { DataHubView } from '@types';
 type ViewsTableProps = {
     views: DataHubView[];
     onEditView: (urn) => void;
+    isOwnedByUser?: boolean;
 };
 
 /**
  * This component renders a table of Views.
  */
-export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
+export const ViewsTable = ({ views, onEditView, isOwnedByUser }: ViewsTableProps) => {
     const tableColumns = [
         {
             title: 'Name',
@@ -43,7 +44,7 @@ export const ViewsTable = ({ views, onEditView }: ViewsTableProps) => {
             title: '',
             dataIndex: '',
             key: 'x',
-            render: (record) => <ActionsColumn record={record} />,
+            render: (record) => <ActionsColumn record={record} isOwnedByUser={!!isOwnedByUser} />,
         },
     ];
 
