@@ -30,7 +30,6 @@ export function combineSiblingsInSearchResults(
         let entityToProcess = searchResult.entity;
 
         // Check if there is exactly one sibling search result and it's from snowflake
-        // @ts-ignore
         const siblingsSearch = entityToProcess?.siblingsSearch;
         const siblingEntity = siblingsSearch?.searchResults?.[0]?.entity;
 
@@ -39,7 +38,8 @@ export function combineSiblingsInSearchResults(
             siblingEntity && // Ensure sibling entity exists
             'platform' in siblingEntity && // Type guard: Check for platform property
             siblingEntity.platform?.name === 'snowflake' &&
-            siblingEntity.urn && originalUrns.has(siblingEntity.urn) // Check if snowflake sibling URN is in original results
+            siblingEntity.urn &&
+            originalUrns.has(siblingEntity.urn) // Check if snowflake sibling URN is in original results
         ) {
             // Use the snowflake sibling's URN
             entityToProcess = {
