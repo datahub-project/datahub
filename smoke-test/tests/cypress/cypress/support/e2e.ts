@@ -16,9 +16,6 @@
 // Import commands.js using ES2015 syntax:
 import "./commands";
 
-// Alternatively you can use CommonJS syntax:
-// require('./commands')
-
 // https://github.com/bahmutov/cypress-timestamps
 require("cypress-timestamps/support")({
   terminal: true, // by default the terminal output is disabled
@@ -27,7 +24,7 @@ require("cypress-timestamps/support")({
 });
 
 // Add file name to test titles for better JUnit reporting
-beforeEach(function () {
+beforeEach(function (this: Mocha.Context) {
   if (this.currentTest) {
     const testPath = this.currentTest.invocationDetails?.relativeFile;
     if (testPath) {

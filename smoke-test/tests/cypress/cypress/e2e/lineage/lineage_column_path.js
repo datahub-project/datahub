@@ -1,4 +1,4 @@
-import { aliasQuery } from "../utils";
+import { aliasQuery } from "../support/utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
 const DATASET_URN =

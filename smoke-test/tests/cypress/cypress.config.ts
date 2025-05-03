@@ -1,7 +1,6 @@
-// eslint-disable-next-line global-require
-const { defineConfig } = require("cypress");
+import { defineConfig } from "cypress";
 
-module.exports = defineConfig({
+export default defineConfig({
   chromeWebSecurity: false,
   viewportHeight: 960,
   viewportWidth: 1536,
@@ -13,11 +12,11 @@ module.exports = defineConfig({
   },
   video: false,
   e2e: {
-    // We've imported your old cypress plugins here.
-    // You may want to clean this up later by importing these.
-    setupNodeEvents(on, config) {
-      // eslint-disable-next-line global-require
-      return require("./cypress/plugins/index")(on, config);
+    async setupNodeEvents(on, config) {
+      const { default: setupPlugins } = await import(
+        "./cypress/plugins/index.js"
+      );
+      return setupPlugins(on, config);
     },
     baseUrl: "http://localhost:9002/",
     specPattern: "cypress/e2e/**/*.{js,jsx,ts,tsx}",
