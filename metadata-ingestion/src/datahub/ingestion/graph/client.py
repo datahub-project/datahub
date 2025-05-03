@@ -52,6 +52,7 @@ from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     generate_filter,
 )
+from datahub.ingestion.graph.links import make_url_for_urn
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -184,6 +185,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         """Get the public-facing base url of the frontend
 
         This url can be used to construct links to the frontend. The url will not include a trailing slash.
+
         Note: Only supported with DataHub Cloud.
         """
 
@@ -194,6 +196,20 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         if not base_url:
             raise ValueError("baseUrl not found in server config")
         return base_url
+
+    def url_for(self, entity_urn: Union[str, Urn]) -> str:
+        """Get the UI url for an entity.
+
+        Note: Only supported with DataHub Cloud.
+
+        Args:
+            entity_urn: The urn of the entity to get the url for.
+
+        Returns:
+            The public-facing url for the entity.
+        """
+
+        return make_url_for_urn(self.frontend_base_url, str(entity_urn))
 
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
