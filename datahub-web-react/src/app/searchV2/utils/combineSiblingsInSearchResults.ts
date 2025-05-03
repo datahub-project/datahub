@@ -2,8 +2,12 @@ import { CombinedEntity, createSiblingEntityCombiner } from '@app/entity/shared/
 
 import { Entity, EntityPath, MatchedField } from '@types';
 
+// Restore type hints for safety
+type MaybeEntityWithPlatform = Entity & { platform?: { name?: string }; urn?: string };
+type MaybeEntityWithSiblings = Entity & { siblingsSearch?: { searchResults?: { entity?: MaybeEntityWithPlatform }[] } };
+
 type UncombinedSeaerchResults = {
-    entity: Entity;
+    entity: MaybeEntityWithSiblings; // Restore specific type
     matchedFields: Array<MatchedField>;
     paths?: EntityPath[];
 };
@@ -19,6 +23,9 @@ export function combineSiblingsInSearchResults(
     const combine = createSiblingEntityCombiner();
     const combinedSearchResults: Array<CombinedSearchResult> = [];
 
+    // Create a set of URNs from the original search results for quick lookup
+    const originalUrns = new Set(searchResults.map((result) => result.entity.urn));
+
     searchResults.forEach((searchResult) => {
         let entityToProcess = searchResult.entity;
 
@@ -32,7 +39,7 @@ export function combineSiblingsInSearchResults(
             siblingEntity && // Ensure sibling entity exists
             'platform' in siblingEntity && // Type guard: Check for platform property
             siblingEntity.platform?.name === 'snowflake' &&
-            siblingEntity.urn // Ensure the sibling urn exists
+            siblingEntity.urn && originalUrns.has(siblingEntity.urn) // Check if snowflake sibling URN is in original results
         ) {
             // Use the snowflake sibling's URN
             entityToProcess = {
