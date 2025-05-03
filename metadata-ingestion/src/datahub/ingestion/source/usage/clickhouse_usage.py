@@ -13,6 +13,7 @@ from sqlalchemy.engine import Engine
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.configuration.time_window_config import get_time_bucket
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -21,12 +22,18 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.clickhouse import ClickHouseConfig
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.two_tier_sql_source import TwoTierSQLAlchemySource
 from datahub.ingestion.source.usage.usage_common import (
     BaseUsageConfig,
     GenericAggregatedDataset,
+)
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    ObservedQuery,
+    SqlParsingAggregator,
 )
 
 logger = logging.getLogger(__name__)
@@ -88,7 +95,7 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @dataclasses.dataclass
-class ClickHouseUsageSource(Source):
+class ClickHouseUsageSource(TwoTierSQLAlchemySource):
     """
     This plugin has the below functionalities -
     1. For a specific dataset this plugin ingests the following statistics -
@@ -108,12 +115,27 @@ class ClickHouseUsageSource(Source):
     """
 
     config: ClickHouseUsageConfig
-    report: SourceReport = dataclasses.field(default_factory=SourceReport)
+    report: SQLSourceReport = dataclasses.field(default_factory=SQLSourceReport)
+    aggregator: SqlParsingAggregator = dataclasses.field(init=False)
+
+    def __init__(self, config: ClickHouseUsageConfig, ctx: PipelineContext) -> None:
+        super().__init__(config, ctx, "clickhouse")
+        self.aggregator = SqlParsingAggregator(
+            platform="clickhouse",
+            env=config.env,
+            schema_resolver=None,
+            generate_lineage=True,
+            generate_queries=False,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            generate_query_subject_fields=False,
+            generate_query_usage_statistics=False,
+        )
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "ClickHouseUsageSource":
         config = ClickHouseUsageConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+        return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Gets ClickHouse usage stats as work units"""
@@ -123,11 +145,28 @@ class ClickHouseUsageSource(Source):
             return
 
         joined_access_event = self._get_joined_access_event(access_events)
+
+        # Add queries to aggregator after events are properly joined
+        for event in joined_access_event:
+            self.aggregator.add_observed_query(
+                observed=ObservedQuery(
+                    default_db=event.database,
+                    default_schema=None,
+                    query=event.query,
+                )
+            )
+
         aggregated_info = self._aggregate_access_events(joined_access_event)
 
         for time_bucket in aggregated_info.values():
             for aggregate in time_bucket.values():
                 yield self._make_usage_stat(aggregate)
+
+        # Generate metadata from aggregator
+        for mcp in self.aggregator.gen_metadata():
+            wu = mcp.as_workunit()
+            self.report.report_workunit(wu)
+            yield wu
 
     def _make_usage_query(self) -> str:
         return clickhouse_usage_sql_comment.format(
