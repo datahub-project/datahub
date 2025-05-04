@@ -653,6 +653,10 @@ businessAttribute:
   keepAliveTime: ${BUSINESS_ATTRIBUTE_PROPAGATION_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
 
 metadataChangeProposal:
+  consumer:
+    batch:
+      enabled: ${MCP_CONSUMER_BATCH_ENABLED:false}
+      size: ${MCP_CONSUMER_BATCH_SIZE:15744000}
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
     extensions:
