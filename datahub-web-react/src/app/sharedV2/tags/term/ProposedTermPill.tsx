@@ -2,11 +2,11 @@ import { Tag } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { TermRibbon } from '@app/sharedV2/tags/term/TermContent';
 import { colors } from '@src/alchemy-components';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import ProposedIcon from '@src/app/entityV2/shared/sidebarSection/ProposedIcon';
-import { generateColorFromPalette } from '@src/app/glossaryV2/colorUtils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityType, GlossaryTerm } from '@src/types.generated';
 
@@ -52,13 +52,14 @@ interface Props {
 
 const ProposedTermPill = ({ term, onClick, isApproved, showClockIcon = true }: Props) => {
     const entityRegistry = useEntityRegistryV2();
+    const generateColor = useGenerateGlossaryColorFromPalette();
 
     const urn = term?.urn;
     const parentNodes = term?.parentNodes;
     const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
     const termColor = lastParentNode
-        ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
-        : (urn && generateColorFromPalette(urn)) || ANTD_GRAY[6];
+        ? lastParentNode.displayProperties?.colorHex || generateColor(urn)
+        : (urn && generateColor(urn)) || ANTD_GRAY[6];
     const termName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, term);
 
     return (

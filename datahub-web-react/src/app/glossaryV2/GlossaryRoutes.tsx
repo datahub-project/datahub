@@ -13,6 +13,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { PageRoutes } from '@conf/Global';
+import { Entity } from '@src/types.generated';
 
 const ContentWrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $isEntityProfile?: boolean }>`
     display: flex;
@@ -27,6 +28,8 @@ export default function GlossaryRoutes() {
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
     const [urnsToUpdate, setUrnsToUpdate] = useState<string[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+    const [nodeToNewEntity, setNodeToNewEntity] = useState<Record<string, Entity>>({});
+    const [nodeToDeletedUrn, setNodeToDeletedUrn] = useState<Record<string, string>>({});
 
     const appConfig = useAppConfig();
     const authenticatedUser = useGetAuthenticatedUser();
@@ -51,6 +54,10 @@ export default function GlossaryRoutes() {
                 setUrnsToUpdate,
                 isSidebarOpen,
                 setIsSidebarOpen,
+                nodeToNewEntity,
+                setNodeToNewEntity,
+                nodeToDeletedUrn,
+                setNodeToDeletedUrn,
             }}
         >
             <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>

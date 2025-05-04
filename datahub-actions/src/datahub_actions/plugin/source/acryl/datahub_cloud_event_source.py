@@ -44,7 +44,7 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
 
 class DataHubEventsSourceConfig(ConfigModel):
     topic: str = PLATFORM_EVENT_TOPIC_NAME
-    consumer_id: Optional[str]  # Used to store offset for the consumer.
+    consumer_id: Optional[str] = None  # Used to store offset for the consumer.
     lookback_days: Optional[int] = None
     reset_offsets: Optional[bool] = False
 

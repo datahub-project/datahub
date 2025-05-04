@@ -1,4 +1,5 @@
 const domainName = "CypressNestedDomain";
+const chartUrn = "urn:li:chart:(looker,cypress_baz1)";
 
 const createDomain = () => {
   cy.get(".anticon-plus").first().click();
@@ -60,6 +61,7 @@ const verifyEditAndPerformAddAndRemoveActionForDomain = (
 ) => {
   cy.clickOptionWithText(entity);
   cy.clickOptionWithText(action);
+  cy.wait(500);
   cy.get('[data-testid="tag-term-modal-input"]').type(text);
   cy.get('[data-testid="tag-term-option"]').contains(text).click();
   cy.clickOptionWithText(body);
@@ -135,6 +137,9 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test Label");
     cy.clickOptionWithTestId("add-owners-button");
     cy.waitTextVisible("Find a user or group");
+    cy.get('[data-testid="users-group-search"]').type(
+      Cypress.env("ADMIN_DISPLAYNAME"),
+    );
     cy.clickTextOptionWithClass(
       ".rc-virtual-list-holder-inner",
       Cypress.env("ADMIN_DISPLAYNAME"),
@@ -224,25 +229,26 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Add assets");
     cy.waitTextVisible("Add assets to Domain");
     cy.enterTextInSpecificTestId("search-bar", 3, "Baz Chart 1");
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     cy.clickOptionWithId("#continueButton");
     cy.waitTextVisible("Added assets to Domain!");
     cy.openThreeDotMenu();
     cy.clickOptionWithText("Edit");
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     verifyEditAndPerformAddAndRemoveActionForDomain(
       "Tags",
       "Add tags",
       "Cypress",
       "Add Tags",
     );
+    cy.wait(3000); // give time for elastic to update before going to page
     cy.clickOptionWithText("Baz Chart 1");
     cy.waitTextVisible("Cypress");
     cy.waitTextVisible("Marketing");
     cy.go("back");
     cy.openThreeDotMenu();
     cy.clickOptionWithText("Edit");
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     verifyEditAndPerformAddAndRemoveActionForDomain(
       "Tags",
       "Remove tags",

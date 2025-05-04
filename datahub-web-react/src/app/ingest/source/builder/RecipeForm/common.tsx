@@ -335,7 +335,7 @@ export const TABLE_LINEAGE_MODE: RecipeField = {
             <p>
                 Which table lineage collector mode to use. Check out{' '}
                 <a
-                    href="https://datahubproject.io/docs/generated/ingestion/sources/redshift/#config-details"
+                    href="https://docs.datahub.com/docs/generated/ingestion/sources/redshift/#config-details"
                     target="_blank"
                     rel="noreferrer"
                 >

@@ -129,7 +129,7 @@ public class DataHubAuthorizer implements Authorizer {
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
   }
 
-  public List<String> getGrantedPrivileges(
+  public PolicyEngine.PolicyGrantedPrivileges getGrantedPrivileges(
       final String actor, final Optional<EntitySpec> resourceSpec) {
 
     Urn actorUrn = UrnUtils.getUrn(actor);

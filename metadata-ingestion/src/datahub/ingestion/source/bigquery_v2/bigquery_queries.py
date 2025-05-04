@@ -10,9 +10,11 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
-    BigQueryConnectionConfig,
     BigQueryFilterConfig,
     BigQueryIdentifierConfig,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,

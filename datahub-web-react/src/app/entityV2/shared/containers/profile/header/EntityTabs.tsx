@@ -43,7 +43,7 @@ const UnborderedTabs = styled(Tabs)`
     }
 
     &&& .ant-tabs-tab-active {
-        background-color: #5c3fd1;
+        background-color: ${(p) => p.theme.styles['primary-color']};
     }
 
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {

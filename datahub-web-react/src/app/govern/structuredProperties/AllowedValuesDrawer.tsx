@@ -12,8 +12,7 @@ import {
     ValuesContainer,
 } from '@app/govern/structuredProperties/styledComponents';
 import { PropValueField } from '@app/govern/structuredProperties/utils';
-import { Icon, Input, Text, TextArea, colors } from '@src/alchemy-components';
-import { StyledButton } from '@src/app/shared/share/v2/styledComponents';
+import { Button, Icon, Input, Text, TextArea } from '@src/alchemy-components';
 import { AllowedValue } from '@src/types.generated';
 
 interface Props {
@@ -123,15 +122,15 @@ const AllowedValuesDrawer = ({
 
                         <AddButtonContainer>
                             <Tooltip title="Add a new value to the allowed list" showArrow={false}>
-                                <StyledButton
+                                <Button
                                     onClick={() => {
                                         add();
                                         setTimeout(() => scrollToBottom(), 0);
                                     }}
-                                    $color={colors.violet[500]}
+                                    type="button"
                                 >
                                     Add
-                                </StyledButton>
+                                </Button>
                             </Tooltip>
                         </AddButtonContainer>
                     </FormContainer>

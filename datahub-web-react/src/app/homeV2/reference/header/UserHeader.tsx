@@ -28,6 +28,16 @@ const GreetingTextWrapper = styled.div`
     opacity: 0.8;
 `;
 
+const SmallSkeletonButton = styled(Skeleton.Button)<{ $isShowNavBarRedesign?: boolean }>`
+    &&& {
+        padding: 20px 20px 0 20px;
+        width: 100%;
+        min-height: 68px;
+        border-radius: ${(props) =>
+            props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
+    }
+`;
+
 const SkeletonButton = styled(Skeleton.Button)<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
         width: 100%;
@@ -47,6 +57,21 @@ export const UserHeader = () => {
     const displayName = user && entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const maybeRole = useUserPersonaTitle();
     const { isUserInitializing } = useContext(OnboardingContext);
+    const showNavBarRedesign = useShowNavBarRedesign();
+
+    if (showNavBarRedesign) {
+        return isUserInitializing || !user ? (
+            <SmallSkeletonButton
+                shape="square"
+                size="large"
+                active
+                block
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+            />
+        ) : (
+            <GreetingText role={maybeRole} />
+        );
+    }
 
     return (
         <Container>

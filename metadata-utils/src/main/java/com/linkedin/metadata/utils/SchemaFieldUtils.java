@@ -109,7 +109,7 @@ public class SchemaFieldUtils {
         downgradeFieldPath(schemaFieldUrn.getEntityKey().get(1)));
   }
 
-  // https://datahubproject.io/docs/advanced/field-path-spec-v2/#backward-compatibility
+  // https://docs.datahub.com/docs/advanced/field-path-spec-v2/#backward-compatibility
   @Nonnull
   public static String downgradeFieldPath(@Nonnull SchemaField field) {
     return downgradeFieldPath(field.getFieldPath());

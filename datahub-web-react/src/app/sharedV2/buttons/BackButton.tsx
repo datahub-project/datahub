@@ -4,16 +4,14 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 const StyledButton = styled(Button)`
     flex-shrink: 0;
     height: 25px;
     width: 25px;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     padding: 0px;
     border-radius: 20px;
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    border: 1px solid ${(p) => p.theme.styles['primary-color']};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -22,8 +20,8 @@ const StyledButton = styled(Button)`
     margin-top: 2px;
 
     &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => p.theme.styles['primary-color']};
+        border-color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 

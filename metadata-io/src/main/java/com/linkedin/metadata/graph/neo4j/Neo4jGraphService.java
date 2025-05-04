@@ -30,9 +30,9 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -68,22 +68,16 @@ public class Neo4jGraphService implements GraphService {
   private static final int MAX_TRANSACTION_RETRY = 3;
   private final LineageRegistry lineageRegistry;
   private final Driver driver;
-  private final OperationContext systemOperationContext;
   private SessionConfig sessionConfig;
 
-  public Neo4jGraphService(
-      @Nonnull final OperationContext systemOperationContext,
-      @Nonnull LineageRegistry lineageRegistry,
-      @Nonnull Driver driver) {
-    this(systemOperationContext, lineageRegistry, driver, SessionConfig.defaultConfig());
+  public Neo4jGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull Driver driver) {
+    this(lineageRegistry, driver, SessionConfig.defaultConfig());
   }
 
   public Neo4jGraphService(
-      @Nonnull final OperationContext systemOperationContext,
       @Nonnull LineageRegistry lineageRegistry,
       @Nonnull Driver driver,
       @Nonnull SessionConfig sessionConfig) {
-    this.systemOperationContext = systemOperationContext;
     this.lineageRegistry = lineageRegistry;
     this.driver = driver;
     this.sessionConfig = sessionConfig;
@@ -787,13 +781,10 @@ public class Neo4jGraphService implements GraphService {
    * @return list of elements in the query result
    */
   @Nonnull
+  @WithSpan
   private Result runQuery(@Nonnull Statement statement) {
-    log.debug(String.format("Running Neo4j query %s", statement.toString()));
-    return systemOperationContext.withSpan(
-        "runQuery",
-        () -> driver.session(sessionConfig).run(statement.getCommandText(), statement.getParams()),
-        MetricUtils.DROPWIZARD_NAME,
-        MetricUtils.name(this.getClass(), "runQuery"));
+    log.debug(String.format("Running Neo4j query %s", statement));
+    return driver.session(sessionConfig).run(statement.getCommandText(), statement.getParams());
   }
 
   // Returns "key:value" String, if value is not primitive, then use toString() and double quote it
@@ -803,7 +794,7 @@ public class Neo4jGraphService implements GraphService {
       return key + ":" + value;
     }
 
-    return key + ":\"" + value.toString() + "\"";
+    return key + ":\"" + value + "\"";
   }
 
   /**

@@ -488,27 +488,26 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
             "urn:li:dataset:(urn:li:dataPlatform:kafka,PageViewEvent2,PROD)",
         ]
         # Mock Urn.from_string to return our sample URN
-        with patch.object(self.cleanup, "_get_urns", return_value=urns_to_delete):
-            # Mock _process_futures to simulate completion
-            with patch.object(self.cleanup, "_process_futures", return_value={}):
-                # Run cleanup
-                self.cleanup.cleanup_soft_deleted_entities()
+        # and mock _process_futures to simulate completion
+        with patch.object(
+            self.cleanup, "_get_urns", return_value=urns_to_delete
+        ), patch.object(self.cleanup, "_process_futures", return_value={}):
+            # Run cleanup
+            self.cleanup.cleanup_soft_deleted_entities()
 
-                # Verify executor was created with correct workers
-                mock_executor_class.assert_called_once_with(
-                    max_workers=self.config.max_workers
+            # Verify executor was created with correct workers
+            mock_executor_class.assert_called_once_with(
+                max_workers=self.config.max_workers
+            )
+
+            # Verify submit was called for each urn
+            self.assertEqual(mock_executor.submit.call_count, 2)
+            # Both calls should be to delete_soft_deleted_entity with the sample_urn
+            for idx, call_args in enumerate(mock_executor.submit.call_args_list):
+                self.assertEqual(
+                    call_args[0][0], self.cleanup.delete_soft_deleted_entity
                 )
-
-                # Verify submit was called for each urn
-                self.assertEqual(mock_executor.submit.call_count, 2)
-                # Both calls should be to delete_soft_deleted_entity with the sample_urn
-                for idx, call_args in enumerate(mock_executor.submit.call_args_list):
-                    self.assertEqual(
-                        call_args[0][0], self.cleanup.delete_soft_deleted_entity
-                    )
-                    self.assertEqual(
-                        call_args[0][1], Urn.from_string(urns_to_delete[idx])
-                    )
+                self.assertEqual(call_args[0][1], Urn.from_string(urns_to_delete[idx]))
 
     def test_times_up(self):
         """Test the time limit checker."""
@@ -536,19 +535,20 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
     def test_handle_urn_parsing_error(self):
         """Test handling of URN parsing errors."""
         # Mock _get_urns to return an invalid URN
-        with patch.object(self.cleanup, "_get_urns", return_value=["invalid:urn"]):
-            # Mock Urn.from_string to raise an exception
-            # Mock logger to capture log messages
-            with self.assertLogs(level="ERROR") as log_context:
-                # Mock other methods to prevent actual execution
-                with patch.object(self.cleanup, "_process_futures", return_value={}):
-                    # Run cleanup
-                    self.cleanup.cleanup_soft_deleted_entities()
+        # and mock Urn.from_string to raise an exception
+        # and mock logger to capture log messages
+        with patch.object(
+            self.cleanup, "_get_urns", return_value=["invalid:urn"]
+        ), self.assertLogs(level="ERROR") as log_context, patch.object(
+            self.cleanup, "_process_futures", return_value={}
+        ):
+            # Run cleanup
+            self.cleanup.cleanup_soft_deleted_entities()
 
-                    # Verify error was logged
-                    self.assertTrue(
-                        any("Failed to parse urn" in msg for msg in log_context.output)
-                    )
+            # Verify error was logged
+            self.assertTrue(
+                any("Failed to parse urn" in msg for msg in log_context.output)
+            )
 
     def test_increment_retained_by_type(self):
         """Test the _increment_retained_by_type method."""
@@ -675,34 +675,34 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
         mock_executor.submit.side_effect = mock_futures
 
         # Set up _get_urns to return our sample URNs
-        with patch.object(self.cleanup, "_get_urns", return_value=self.sample_urns):
-            # Mock _process_futures to simulate completion
-            with patch.object(self.cleanup, "_process_futures", return_value={}):
-                # Mock _print_report to avoid timing issues
-                with patch.object(self.cleanup, "_print_report"):
-                    # Run cleanup
-                    self.cleanup.cleanup_soft_deleted_entities()
+        # and mock _process_futures to simulate completion
+        # and mock _print_report to avoid timing issues
+        with patch.object(
+            self.cleanup, "_get_urns", return_value=self.sample_urns
+        ), patch.object(
+            self.cleanup, "_process_futures", return_value={}
+        ), patch.object(self.cleanup, "_print_report"):
+            # Run cleanup
+            self.cleanup.cleanup_soft_deleted_entities()
 
-                    # Verify executor was created with correct workers
-                    mock_executor_class.assert_called_once_with(
-                        max_workers=self.config.max_workers
-                    )
+            # Verify executor was created with correct workers
+            mock_executor_class.assert_called_once_with(
+                max_workers=self.config.max_workers
+            )
 
-                    # Verify submit was called for each urn
-                    self.assertEqual(
-                        mock_executor.submit.call_count, len(self.sample_urns)
-                    )
+            # Verify submit was called for each urn
+            self.assertEqual(mock_executor.submit.call_count, len(self.sample_urns))
 
-                    # Check that the correct method and parameters were used
-                    expected_calls: List = [
-                        call(
-                            self.cleanup.delete_soft_deleted_entity,
-                            Urn.from_string(urn),
-                        )
-                        for urn in self.sample_urns
-                    ]
+            # Check that the correct method and parameters were used
+            expected_calls: List = [
+                call(
+                    self.cleanup.delete_soft_deleted_entity,
+                    Urn.from_string(urn),
+                )
+                for urn in self.sample_urns
+            ]
 
-                    mock_executor.submit.assert_has_calls(expected_calls)
+            mock_executor.submit.assert_has_calls(expected_calls)
 
     @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
     def test_cleanup_with_invalid_urns(self, mock_executor_class: MagicMock) -> None:
@@ -715,28 +715,26 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
         mixed_urns: List[str] = self.sample_urns + ["invalid:urn:format"]
 
         # Set up _get_urns to return mixed URNs
-        with patch.object(self.cleanup, "_get_urns", return_value=mixed_urns):
-            # Mock _process_futures to simulate completion
-            with patch.object(self.cleanup, "_process_futures", return_value={}):
-                # Mock _print_report to avoid timing issues
-                with patch.object(self.cleanup, "_print_report"):
-                    # Mock logger to capture log messages
-                    with self.assertLogs(level="ERROR") as log_context:
-                        # Run cleanup
-                        self.cleanup.cleanup_soft_deleted_entities()
+        # and mock _process_futures to simulate completion
+        # and mock _print_report to avoid timing issues
+        # and mock logger to capture log messages
+        with patch.object(
+            self.cleanup, "_get_urns", return_value=mixed_urns
+        ), patch.object(
+            self.cleanup, "_process_futures", return_value={}
+        ), patch.object(self.cleanup, "_print_report"), self.assertLogs(
+            level="ERROR"
+        ) as log_context:
+            # Run cleanup
+            self.cleanup.cleanup_soft_deleted_entities()
 
-                        # Verify error was logged for invalid URN
-                        self.assertTrue(
-                            any(
-                                "Failed to parse urn" in msg
-                                for msg in log_context.output
-                            )
-                        )
+            # Verify error was logged for invalid URN
+            self.assertTrue(
+                any("Failed to parse urn" in msg for msg in log_context.output)
+            )
 
-                        # Verify submit was called only for valid URNs
-                        self.assertEqual(
-                            mock_executor.submit.call_count, len(self.sample_urns)
-                        )
+            # Verify submit was called only for valid URNs
+            self.assertEqual(mock_executor.submit.call_count, len(self.sample_urns))
 
     @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
     def test_cleanup_with_max_futures_limit(
@@ -764,20 +762,20 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
             return {}
 
         # Set up _get_urns to return sample URNs
-        with patch.object(self.cleanup, "_get_urns", return_value=self.sample_urns):
-            # Mock _process_futures with our side effect function
-            with patch.object(
-                self.cleanup,
-                "_process_futures",
-                side_effect=process_futures_side_effect,
-            ):
-                # Mock _print_report to avoid timing issues
-                with patch.object(self.cleanup, "_print_report"):
-                    # Run cleanup
-                    self.cleanup.cleanup_soft_deleted_entities()
+        # and mock _process_futures with our side effect function
+        # and mock _print_report to avoid timing issues
+        with patch.object(
+            self.cleanup, "_get_urns", return_value=self.sample_urns
+        ), patch.object(
+            self.cleanup,
+            "_process_futures",
+            side_effect=process_futures_side_effect,
+        ), patch.object(self.cleanup, "_print_report"):
+            # Run cleanup
+            self.cleanup.cleanup_soft_deleted_entities()
 
-                    # Verify _process_futures was called for each URN (since max_futures=1)
-                    self.assertEqual(process_futures_call_count, len(self.sample_urns))
+            # Verify _process_futures was called for each URN (since max_futures=1)
+            self.assertEqual(process_futures_call_count, len(self.sample_urns))
 
     @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
     def test_cleanup_respects_deletion_limit(
@@ -794,16 +792,18 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
             mock_limit.side_effect = [False, True, True]
 
             # Set up _get_urns to return sample URNs
-            with patch.object(self.cleanup, "_get_urns", return_value=self.sample_urns):
-                # Mock _process_futures to simulate completion
-                with patch.object(self.cleanup, "_process_futures", return_value={}):
-                    # Mock _print_report to avoid timing issues
-                    with patch.object(self.cleanup, "_print_report"):
-                        # Run cleanup
-                        self.cleanup.cleanup_soft_deleted_entities()
+            # and mock _process_futures to simulate completion
+            # and mock _print_report to avoid timing issues
+            with patch.object(
+                self.cleanup, "_get_urns", return_value=self.sample_urns
+            ), patch.object(
+                self.cleanup, "_process_futures", return_value={}
+            ), patch.object(self.cleanup, "_print_report"):
+                # Run cleanup
+                self.cleanup.cleanup_soft_deleted_entities()
 
-                        # Should only process the first URN before hitting limit
-                        self.assertEqual(mock_executor.submit.call_count, 1)
+                # Should only process the first URN before hitting limit
+                self.assertEqual(mock_executor.submit.call_count, 1)
 
     @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
     def test_cleanup_respects_time_limit(self, mock_executor_class: MagicMock) -> None:
@@ -818,16 +818,18 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
             mock_times_up.side_effect = [False, True, True]
 
             # Set up _get_urns to return sample URNs
-            with patch.object(self.cleanup, "_get_urns", return_value=self.sample_urns):
-                # Mock _process_futures to simulate completion
-                with patch.object(self.cleanup, "_process_futures", return_value={}):
-                    # Mock _print_report to avoid timing issues
-                    with patch.object(self.cleanup, "_print_report"):
-                        # Run cleanup
-                        self.cleanup.cleanup_soft_deleted_entities()
+            # and mock _process_futures to simulate completion
+            # and mock _print_report to avoid timing issues
+            with patch.object(
+                self.cleanup, "_get_urns", return_value=self.sample_urns
+            ), patch.object(
+                self.cleanup, "_process_futures", return_value={}
+            ), patch.object(self.cleanup, "_print_report"):
+                # Run cleanup
+                self.cleanup.cleanup_soft_deleted_entities()
 
-                        # Should only process the first URN before hitting time limit
-                        self.assertEqual(mock_executor.submit.call_count, 1)
+                # Should only process the first URN before hitting time limit
+                self.assertEqual(mock_executor.submit.call_count, 1)
 
     @patch("datahub.ingestion.source.gc.soft_deleted_entity_cleanup.ThreadPoolExecutor")
     def test_cleanup_handles_empty_urn_list(
@@ -839,15 +841,16 @@ class TestCleanupSoftDeletedEntities(unittest.TestCase):
         mock_executor_class.return_value.__enter__.return_value = mock_executor
 
         # Set up _get_urns to return empty list
-        with patch.object(self.cleanup, "_get_urns", return_value=[]):
-            # Mock other methods to prevent errors
-            with patch.object(self.cleanup, "_process_futures"):
-                with patch.object(self.cleanup, "_print_report"):
-                    # Run cleanup
-                    self.cleanup.cleanup_soft_deleted_entities()
+        # and mock _process_futures to simulate completion
+        # and mock _print_report to avoid timing issues
+        with patch.object(self.cleanup, "_get_urns", return_value=[]), patch.object(
+            self.cleanup, "_process_futures"
+        ), patch.object(self.cleanup, "_print_report"):
+            # Run cleanup
+            self.cleanup.cleanup_soft_deleted_entities()
 
-                    # Verify submit was not called
-                    mock_executor.submit.assert_not_called()
+            # Verify submit was not called
+            mock_executor.submit.assert_not_called()
 
 
 if __name__ == "__main__":

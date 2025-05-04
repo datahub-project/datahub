@@ -14,6 +14,8 @@ import {
 export type SearchFiltersContextType = {
     // Fields to show in filters
     fields: FieldName[];
+    // Applied view
+    viewUrn?: string | null;
     // State of facets for each field
     fieldToFacetStateMap?: FieldToFacetStateMap;
     // State of applied filters
@@ -28,6 +30,7 @@ export type SearchFiltersContextType = {
 
 const SearchFiltersContext = React.createContext<SearchFiltersContextType>({
     fields: [],
+    viewUrn: undefined,
     fieldToFacetStateMap: new Map(),
     fieldToAppliedFiltersMap: new Map(),
     filtersRegistry: defaultFiltersRegistry,

@@ -55,6 +55,9 @@ query appConfig {
             searchResult {
                 enableNameHighlight
             }
+            theme {
+                themeId
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -72,6 +75,9 @@ query appConfig {
         }
         searchBarConfig {
             apiVariant
+        }
+        homePageConfig {
+            firstInPersonalSidebar
         }
         classificationConfig {
             enabled
@@ -123,6 +129,7 @@ query appConfig {
             showHasSiblingsFilter
             showSearchBarAutocompleteRedesign
             showManageTags
+            showIntroducePage
             showFormAnalytics
             showStatsTabRedesign
             requestMinimalSlackPermissions

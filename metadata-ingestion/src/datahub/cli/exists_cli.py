@@ -6,6 +6,7 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -36,4 +37,4 @@ def urn(ctx: Any, urn: Optional[str]) -> None:
             raise click.UsageError("Nothing for me to get. Maybe provide an urn?")
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
-    click.echo(json.dumps(get_default_graph().exists(urn)))
+    click.echo(json.dumps(get_default_graph(ClientMode.CLI).exists(urn)))

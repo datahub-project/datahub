@@ -44,9 +44,9 @@ from datahub.ingestion.source.sql.sql_common import (
 )
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
-    make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )

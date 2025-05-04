@@ -1,4 +1,5 @@
 /* eslint-disable import/no-cycle */
+import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { FieldType, FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
@@ -10,6 +11,7 @@ import EntityValueMenu from '@app/searchV2/filters/value/EntityValueMenu';
 import EnumValueMenu from '@app/searchV2/filters/value/EnumValueMenu';
 import TextValueMenu from '@app/searchV2/filters/value/TextValueMenu';
 import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
+import usePrevious from '@app/shared/usePrevious';
 import { EntityType, FacetFilterInput } from '@src/types.generated';
 
 interface Props {
@@ -45,9 +47,12 @@ export default function ValueMenu({
      * Synchronize stagedSelectedValues with the values prop
      * NOTE: Callback with useState not feasible due to its initialization behavior.
      */
+    const previousValues = usePrevious(values);
     useEffect(() => {
-        setStagedSelectedValues(values);
-    }, [values]);
+        if (!isEqual(values, previousValues)) {
+            setStagedSelectedValues(values);
+        }
+    }, [values, previousValues]);
 
     /**
      * If the visibility of the menu changes in the parent component, we can dump off the staged values before closing

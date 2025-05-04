@@ -1,7 +1,7 @@
 # Introduction to Metadata Ingestion
 
 :::tip Find Integration Source
-Please see our **[Integrations page](https://datahubproject.io/integrations)** to browse our ingestion sources and filter on their features.
+Please see our **[Integrations page](https://docs.datahub.com/integrations)** to browse our ingestion sources and filter on their features.
 :::
 
 ## Integration Methods

@@ -204,7 +204,7 @@ export default function SchemaHeader({
     );
     const schemaFilter = getSchemaFilterFromQueryString(location);
 
-    const docLink = 'https://datahubproject.io/docs/dev-guides/timeline/';
+    const docLink = 'https://docs.datahub.com/docs/dev-guides/timeline/';
     return (
         <TabToolbar>
             <SchemaHeaderContainer>

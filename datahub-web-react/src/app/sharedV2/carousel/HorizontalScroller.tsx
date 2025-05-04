@@ -37,7 +37,7 @@ const ScrollButton = styled.button<{
 
     &:hover {
         color: ${REDESIGN_COLORS.WHITE};
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

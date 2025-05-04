@@ -14,6 +14,8 @@ acryl-datahub-classify==0.0.11
     # via acryl-datahub
 acryl-executor==0.1.11
     # via acryl-datahub-executor
+acryl-great-expectations==0.15.50.1
+    # via acryl-datahub
 aiohappyeyeballs==2.4.4
     # via aiohttp
 aiohttp==3.11.10
@@ -23,7 +25,7 @@ aiosignal==1.3.1
 alembic==1.14.0
     # via databricks-sql-connector
 altair==4.2.0
-    # via great-expectations
+    # via acryl-great-expectations
 amqp==5.3.1
     # via kombu
 anyio==4.7.0
@@ -139,6 +141,7 @@ click==8.1.7
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   acryl-great-expectations
     #   aws-msk-iam-sasl-signer-python
     #   celery
     #   click-default-group
@@ -146,7 +149,6 @@ click==8.1.7
     #   click-plugins
     #   click-repl
     #   dataflows-tabulator
-    #   great-expectations
     #   tableschema
     #   typer
     #   uvicorn
@@ -168,8 +170,8 @@ cmdstanpy==1.2.5
     # via prophet
 colorama==0.4.6
     # via
+    #   acryl-great-expectations
     #   click
-    #   great-expectations
     #   ipython
     #   loguru
     #   tqdm
@@ -190,8 +192,8 @@ croniter==1.3.15
 cryptography==44.0.0
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   azure-identity
-    #   great-expectations
     #   moto
     #   msal
     #   pyjwt
@@ -307,8 +309,6 @@ googleapis-common-protos==1.66.0
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
     #   grpcio-status
-great-expectations==0.15.50
-    # via acryl-datahub
 greenlet==3.1.1
     # via
     #   acryl-datahub
@@ -347,7 +347,7 @@ ijson==3.3.0
     #   acryl-datahub
     #   dataflows-tabulator
 importlib-metadata==8.5.0
-    # via great-expectations
+    # via acryl-great-expectations
 importlib-resources==6.4.5
     # via
     #   prophet
@@ -361,7 +361,7 @@ ipykernel==6.17.1
 ipython==8.21.0
     # via
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
     #   ipykernel
     #   ipywidgets
 ipython-genutils==0.2.0
@@ -369,15 +369,15 @@ ipython-genutils==0.2.0
     #   nbclassic
     #   notebook
 ipywidgets==8.1.5
-    # via great-expectations
+    # via acryl-great-expectations
 isodate==0.7.2
     # via tableschema
 jedi==0.19.2
     # via ipython
 jinja2==3.1.4
     # via
+    #   acryl-great-expectations
     #   altair
-    #   great-expectations
     #   jupyter-server
     #   moto
     #   nbconvert
@@ -394,7 +394,7 @@ joblib==1.4.2
 jsonlines==4.0.0
     # via dataflows-tabulator
 jsonpatch==1.33
-    # via great-expectations
+    # via acryl-great-expectations
 jsonpointer==3.0.0
     # via jsonpatch
 jsonref==1.1.0
@@ -402,8 +402,8 @@ jsonref==1.1.0
 jsonschema==4.23.0
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   altair
-    #   great-expectations
     #   nbformat
     #   tableschema
 jsonschema-specifications==2024.10.1
@@ -446,7 +446,7 @@ lxml==5.3.0
 lz4==4.3.3
     # via databricks-sql-connector
 makefun==1.15.6
-    # via great-expectations
+    # via acryl-great-expectations
 mako==1.3.7
     # via alembic
 marisa-trie==1.2.1
@@ -460,7 +460,7 @@ markupsafe==3.0.2
     #   nbconvert
     #   werkzeug
 marshmallow==3.23.1
-    # via great-expectations
+    # via acryl-great-expectations
 matplotlib==3.10.1
     # via prophet
 matplotlib-inline==0.1.7
@@ -471,7 +471,7 @@ mdurl==0.1.2
     # via markdown-it-py
 mistune==3.0.2
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   nbconvert
 mixpanel==4.10.1
     # via acryl-datahub
@@ -513,7 +513,7 @@ nbconvert==7.16.4
     #   notebook
 nbformat==5.10.4
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   jupyter-server
     #   nbclient
     #   nbconvert
@@ -526,20 +526,20 @@ nest-asyncio==1.6.0
     #   nbclient
     #   notebook
 notebook==6.5.7
-    # via great-expectations
+    # via acryl-great-expectations
 notebook-shim==0.2.4
     # via nbclassic
 numpy==1.26.4
     # via
     #   acryl-datahub
     #   acryl-datahub-executor
+    #   acryl-great-expectations
     #   altair
     #   blis
     #   cmdstanpy
     #   contourpy
     #   databricks-sql-connector
     #   db-dtypes
-    #   great-expectations
     #   matplotlib
     #   pandas
     #   prophet
@@ -560,10 +560,10 @@ oscrypto @ git+https://github.com/wbond/oscrypto.git@1547f535001ba568b239b879746
 packaging==24.2
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   db-dtypes
     #   geoalchemy2
     #   google-cloud-bigquery
-    #   great-expectations
     #   ipykernel
     #   jupyter-server
     #   marshmallow
@@ -580,11 +580,11 @@ pandas==2.1.4
     # via
     #   acryl-datahub
     #   acryl-datahub-executor
+    #   acryl-great-expectations
     #   altair
     #   cmdstanpy
     #   databricks-sql-connector
     #   db-dtypes
-    #   great-expectations
     #   prophet
     #   pydeequ
 pandocfilters==1.5.1
@@ -690,9 +690,9 @@ pydantic==1.10.19
     #   acryl-datahub-actions
     #   acryl-datahub-executor
     #   acryl-executor
+    #   acryl-great-expectations
     #   confection
     #   fastapi
-    #   great-expectations
     #   spacy
     #   thinc
     #   weasel
@@ -711,7 +711,7 @@ pyopenssl==24.3.0
     # via snowflake-connector-python
 pyparsing==3.2.0
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   matplotlib
 pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via humanfriendly
@@ -721,11 +721,11 @@ python-dateutil==2.9.0.post0
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   acryl-great-expectations
     #   botocore
     #   celery
     #   croniter
     #   google-cloud-bigquery
-    #   great-expectations
     #   holidays
     #   jupyter-client
     #   matplotlib
@@ -741,8 +741,8 @@ python-utils==3.9.1
 pytz==2024.1
     # via
     #   acryl-datahub-executor
+    #   acryl-great-expectations
     #   apscheduler
-    #   great-expectations
     #   pandas
     #   redshift-connector
     #   snowflake-connector-python
@@ -782,6 +782,7 @@ referencing==0.35.1
 requests==2.32.3
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   azure-core
     #   confluent-kafka
     #   databricks-sdk
@@ -790,7 +791,6 @@ requests==2.32.3
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
-    #   great-expectations
     #   mixpanel
     #   moto
     #   msal
@@ -820,7 +820,7 @@ rstr==3.2.2
 ruamel-yaml==0.17.17
     # via
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
 s3transfer==0.10.4
     # via boto3
 schwifty==2024.6.1
@@ -832,7 +832,7 @@ scikit-learn==1.6.1
 scipy==1.14.1
     # via
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
     #   scikit-learn
 scramp==1.4.5
     # via redshift-connector
@@ -960,8 +960,8 @@ tornado==6.4.2
     #   terminado
 tqdm==4.67.1
     # via
+    #   acryl-great-expectations
     #   cmdstanpy
-    #   great-expectations
     #   prophet
     #   spacy
 traitlets==5.2.1.post0
@@ -989,12 +989,12 @@ typing-extensions==4.12.2
     # via
     #   acryl-datahub
     #   acryl-executor
+    #   acryl-great-expectations
     #   alembic
     #   anyio
     #   azure-core
     #   azure-identity
     #   cloudpathlib
-    #   great-expectations
     #   multidict
     #   mypy
     #   pydantic
@@ -1017,8 +1017,8 @@ tzdata==2024.2
     #   tzlocal
 tzlocal==5.2
     # via
+    #   acryl-great-expectations
     #   apscheduler
-    #   great-expectations
 ujson==5.10.0
     # via acryl-datahub
 unicodecsv==0.14.1
@@ -1027,11 +1027,11 @@ unicodecsv==0.14.1
     #   tableschema
 urllib3==1.26.20
     # via
+    #   acryl-great-expectations
     #   botocore
     #   celery
     #   databricks-sql-connector
     #   docker
-    #   great-expectations
     #   kombu
     #   mixpanel
     #   requests

@@ -3,7 +3,7 @@ import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { SearchBar } from '@app/searchV2/SearchBar';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -11,7 +11,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
-    background-color: ${SEARCH_COLORS.TITLE_PURPLE};
+    background-color: ${(p) => p.theme.styles['primary-color']};
     color: white;
     border-radius: 0;
 `;

@@ -137,6 +137,7 @@ export const LabelContainer = styled.div({
     justifyContent: 'space-between',
     width: '100%',
     alignItems: 'center',
+    gap: '4px',
 });
 
 export const OptionContainer = styled.div({

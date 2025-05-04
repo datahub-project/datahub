@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
 from json import JSONDecodeError
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import dateutil.parser as dp
 import pydantic
@@ -203,6 +203,10 @@ class HTTPError429(HTTPError):
     pass
 
 
+class HTTPError504(HTTPError):
+    pass
+
+
 ModeRequestError = (HTTPError, JSONDecodeError)
 
 
@@ -217,6 +221,9 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_query_template_render: int = 0
     num_query_template_render_failures: int = 0
     num_query_template_render_success: int = 0
+    num_requests_exceeding_rate_limit: int = 0
+    num_requests_retried_on_timeout: int = 0
+    num_spaces_retrieved: int = 0
 
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
@@ -456,9 +463,23 @@ class ModeSource(StatefulIngestionSourceBase):
         # Datasets
         datasets = []
         for imported_dataset_name in report_info.get("imported_datasets", {}):
-            mode_dataset = self._get_request_json(
-                f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
-            )
+            try:
+                mode_dataset = self._get_request_json(
+                    f"{self.workspace_uri}/reports/{imported_dataset_name.get('token')}"
+                )
+            except HTTPError as http_error:
+                status_code = http_error.response.status_code
+                if status_code == 404:
+                    self.report.report_warning(
+                        title="Report Not Found",
+                        message="Referenced report for reusable dataset was not found.",
+                        context=f"Report: {report_info.get('id')}, "
+                        f"Imported Dataset Report: {imported_dataset_name.get('token')}",
+                    )
+                    continue
+                else:
+                    raise http_error
+
             dataset_urn = builder.make_dataset_urn_with_platform_instance(
                 self.platform,
                 str(mode_dataset.get("id")),
@@ -562,29 +583,34 @@ class ModeSource(StatefulIngestionSourceBase):
         space_info = {}
         try:
             logger.debug(f"Retrieving spaces for {self.workspace_uri}")
-            payload = self._get_request_json(f"{self.workspace_uri}/spaces?filter=all")
-            spaces = payload.get("_embedded", {}).get("spaces", {})
-            logger.debug(
-                f"Got {len(spaces)} spaces from workspace {self.workspace_uri}"
-            )
-            for s in spaces:
-                logger.debug(f"Space: {s.get('name')}")
-                space_name = s.get("name", "")
-                # Using both restricted and default_access_level because
-                # there is a current bug with restricted returning False everytime
-                # which has been reported to Mode team
-                if self.config.exclude_restricted and (
-                    s.get("restricted") or s.get("default_access_level") == "restricted"
-                ):
-                    logging.debug(
-                        f"Skipping space {space_name} due to exclude restricted"
-                    )
-                    continue
-                if not self.config.space_pattern.allowed(space_name):
-                    self.report.report_dropped_space(space_name)
-                    logging.debug(f"Skipping space {space_name} due to space pattern")
-                    continue
-                space_info[s.get("token", "")] = s.get("name", "")
+            for spaces_page in self._get_paged_request_json(
+                f"{self.workspace_uri}/spaces?filter=all", "spaces", 30
+            ):
+                logger.debug(
+                    f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
+                )
+                self.report.num_spaces_retrieved += len(spaces_page)
+                for s in spaces_page:
+                    logger.debug(f"Space: {s.get('name')}")
+                    space_name = s.get("name", "")
+                    # Using both restricted and default_access_level because
+                    # there is a current bug with restricted returning False everytime
+                    # which has been reported to Mode team
+                    if self.config.exclude_restricted and (
+                        s.get("restricted")
+                        or s.get("default_access_level") == "restricted"
+                    ):
+                        logging.debug(
+                            f"Skipping space {space_name} due to exclude restricted"
+                        )
+                        continue
+                    if not self.config.space_pattern.allowed(space_name):
+                        self.report.report_dropped_space(space_name)
+                        logging.debug(
+                            f"Skipping space {space_name} due to space pattern"
+                        )
+                        continue
+                    space_info[s.get("token", "")] = s.get("name", "")
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Spaces",
@@ -1475,13 +1501,28 @@ class ModeSource(StatefulIngestionSourceBase):
             )
         return charts
 
+    def _get_paged_request_json(
+        self, url: str, key: str, per_page: int
+    ) -> Iterator[List[Dict]]:
+        page: int = 1
+        while True:
+            page_url = f"{url}&per_page={per_page}&page={page}"
+            response = self._get_request_json(page_url)
+            data: List[Dict] = response.get("_embedded", {}).get(key, [])
+            if not data:
+                break
+            yield data
+            page += 1
+
     def _get_request_json(self, url: str) -> Dict:
         r = tenacity.Retrying(
             wait=wait_exponential(
                 multiplier=self.config.api_options.retry_backoff_multiplier,
                 max=self.config.api_options.max_retry_interval,
             ),
-            retry=retry_if_exception_type((HTTPError429, ConnectionError)),
+            retry=retry_if_exception_type(
+                (HTTPError429, HTTPError504, ConnectionError)
+            ),
             stop=stop_after_attempt(self.config.api_options.max_attempts),
         )
 
@@ -1502,11 +1543,16 @@ class ModeSource(StatefulIngestionSourceBase):
             except HTTPError as http_error:
                 error_response = http_error.response
                 if error_response.status_code == 429:
+                    self.report.num_requests_exceeding_rate_limit += 1
                     # respect Retry-After
                     sleep_time = error_response.headers.get("retry-after")
                     if sleep_time is not None:
                         time.sleep(float(sleep_time))
                     raise HTTPError429 from None
+                elif error_response.status_code == 504:
+                    self.report.num_requests_retried_on_timeout += 1
+                    time.sleep(0.1)
+                    raise HTTPError504 from None
 
                 logger.debug(
                     f"Error response ({error_response.status_code}): {error_response.text}"

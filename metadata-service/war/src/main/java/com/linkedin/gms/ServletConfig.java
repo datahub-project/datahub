@@ -20,6 +20,7 @@ import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.acryl.admin.grafana.GrafanaServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
+import io.datahubproject.openapi.config.TracingInterceptor;
 import io.datahubproject.openapi.converter.StringToChangeCategoryConverter;
 import java.util.Arrays;
 import java.util.List;
@@ -47,6 +48,7 @@ import org.springframework.http.converter.json.MappingJackson2HttpMessageConvert
 import org.springframework.http.converter.xml.MappingJackson2XmlHttpMessageConverter;
 import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.PathMatchConfigurer;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -60,6 +62,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @ComponentScan(
     basePackages = {"io.datahubproject.openapi.schema.registry.config", "com.linkedin.gms.servlet"})
 public class ServletConfig implements WebMvcConfigurer {
+  @Autowired private TracingInterceptor tracingInterceptor;
 
   @Autowired private SchemaRegistry schemaRegistry;
 
@@ -205,6 +208,11 @@ public class ServletConfig implements WebMvcConfigurer {
   public void configureAsyncSupport(@Nonnull AsyncSupportConfigurer configurer) {
     WebMvcConfigurer.super.configureAsyncSupport(configurer);
     configurer.setDefaultTimeout(asyncTimeoutMilliseconds);
+  }
+
+  @Override
+  public void addInterceptors(InterceptorRegistry registry) {
+    registry.addInterceptor(tracingInterceptor).addPathPatterns("/**");
   }
 
   private void configureMessageConvertersSaas(List<HttpMessageConverter<?>> messageConverters) {

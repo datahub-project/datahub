@@ -1,6 +1,8 @@
 import { Input } from 'antd';
 import styled from 'styled-components';
 
+import { getColor } from '@components/theme/utils';
+
 import { colors, typography } from '@src/alchemy-components/theme';
 
 export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string }>`
@@ -50,8 +52,11 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
         }
     }
 
-    &:hover {
-        box-shadow: 0px 0px 0px 2px ${colors.violet[100]};
+    &:hover,
+    &:focus,
+    &:focus-within {
+        border-color: ${({ theme }) => getColor('primary', 300, theme)} !important;
+        box-shadow: none !important;
     }
 
     &.ant-input-affix-wrapper-focused {

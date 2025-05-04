@@ -20,6 +20,7 @@ const StyledSidebarWrapper = styled(SidebarWrapper)<{ $isEntityProfile?: boolean
         `
         margin: ${props.$isEntityProfile ? '5px 0px 6px 5px' : '0px 4px 0px 0px'};
     `}
+    padding-bottom: 16px;
 `;
 
 const SidebarTitleWrapper = styled.div`

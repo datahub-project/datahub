@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 class MetadataChangeEmitterConfig(BaseModel):
-    gms_server: Optional[str]
-    gms_auth_token: Optional[str]
-    aspects_to_exclude: Optional[List]
-    aspects_to_include: Optional[List]
+    gms_server: Optional[str] = None
+    gms_auth_token: Optional[str] = None
+    aspects_to_exclude: Optional[List] = None
+    aspects_to_include: Optional[List] = None
     entity_type_to_exclude: List[str] = Field(default_factory=list)
-    extra_headers: Optional[Dict[str, str]]
-    urn_regex: Optional[str]
+    extra_headers: Optional[Dict[str, str]] = None
+    urn_regex: Optional[str] = None
 
 
 class MetadataChangeSyncAction(Action):

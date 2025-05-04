@@ -1,7 +1,7 @@
 import { Button } from 'antd';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const MenuItem = styled.div`
     font-size: 12px;
@@ -27,8 +27,8 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     &&:hover,
     &&:focus {
         background-color: ${ANTD_GRAY[3]};
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
-        border-color: ${SEARCH_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.styles['primary-color']};
+        border-color: ${(props) => props.theme.styles['primary-color']};
     }
     ${(props) =>
         props.disabled

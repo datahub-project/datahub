@@ -15,10 +15,12 @@ import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfilesConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FeatureFlagsConfig;
+import com.linkedin.datahub.graphql.generated.HomePageConfig;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.LineageConfig;
 import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
 import com.linkedin.datahub.graphql.generated.MixpanelConfig;
+import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
@@ -29,11 +31,13 @@ import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
 import com.linkedin.datahub.graphql.generated.TestsExecutionLimitConfig;
+import com.linkedin.datahub.graphql.generated.ThemeConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.SearchBarConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -45,8 +49,10 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /** Resolver responsible for serving app configurations to the React UI. */
+@Slf4j
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
   private final GitVersion _gitVersion;
@@ -61,6 +67,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final DataHubConfiguration _datahubConfiguration;
   private final ViewsConfiguration _viewsConfiguration;
   private final SearchBarConfiguration _searchBarConfig;
+  private final HomePageConfiguration _homePageConfig;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
   private final ClassificationConfiguration _classificationConfiguration;
@@ -80,6 +87,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
       final SearchBarConfiguration searchBarConfig,
+      final HomePageConfiguration homePageConfig,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration,
       final ClassificationConfiguration classificationConfiguration,
@@ -96,6 +104,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _datahubConfiguration = datahubConfiguration;
     _viewsConfiguration = viewsConfiguration;
     _searchBarConfig = searchBarConfig;
+    _homePageConfig = homePageConfig;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
     _classificationConfiguration = classificationConfiguration;
@@ -195,6 +204,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       }
       visualConfig.setSearchResult(searchResultsVisualConfig);
     }
+    if (_visualConfiguration != null && _visualConfiguration.getTheme() != null) {
+      ThemeConfig themeConfig = new ThemeConfig();
+      if (_visualConfiguration.getTheme().getThemeId() != null) {
+        themeConfig.setThemeId(_visualConfiguration.getTheme().getThemeId());
+      }
+      visualConfig.setTheme(themeConfig);
+    }
     appConfig.setVisualConfig(visualConfig);
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
@@ -231,6 +247,20 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       searchBarConfig.setApiVariant(SearchBarAPI.AUTOCOMPLETE_FOR_MULTIPLE);
     }
     appConfig.setSearchBarConfig(searchBarConfig);
+
+    final HomePageConfig homePageConfig = new HomePageConfig();
+    try {
+      homePageConfig.setFirstInPersonalSidebar(
+          PersonalSidebarSection.valueOf(_homePageConfig.getFirstInPersonalSidebar()));
+    } catch (Exception e) {
+      log.warn(
+          String.format(
+              "Unexpected value set for firstInPersonalSidebar: %s",
+              _homePageConfig.getFirstInPersonalSidebar()),
+          e);
+      homePageConfig.setFirstInPersonalSidebar(PersonalSidebarSection.YOUR_ASSETS);
+    }
+    appConfig.setHomePageConfig(homePageConfig);
 
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()
@@ -285,6 +315,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowSearchBarAutocompleteRedesign(
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
             .setShowManageTags(_featureFlags.isShowManageTags())
+            .setShowIntroducePage(_featureFlags.isShowIntroducePage())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setDatasetHealthDashboardV2Enabled(_featureFlags.isDatasetHealthDashboardV2Enabled())
@@ -392,6 +423,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.BUSINESS_ATTRIBUTE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_INSTANCE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.DATA_PLATFORM_INSTANCE;
     } else if (com.linkedin.metadata.authorization.PoliciesConfig.ML_MODEL_PRIVILEGES
         .getResourceType()
         .equals(resourceType)) {
@@ -400,10 +435,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.MLFEATURE;
-    } else if (com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_INSTANCE_PRIVILEGES
-        .getResourceType()
-        .equals(resourceType)) {
-      return EntityType.DATA_PLATFORM_INSTANCE;
     } else {
       return null;
     }

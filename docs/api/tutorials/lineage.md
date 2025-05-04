@@ -72,7 +72,7 @@ mutation updateLineage {
 
 ```
 
-For more information about the `updateLineage` mutation, please refer to [updateLineage](https://datahubproject.io/docs/graphql/mutations/#updatelineage).
+For more information about the `updateLineage` mutation, please refer to [updateLineage](https://docs.datahub.com/docs/graphql/mutations/#updatelineage).
 
 If you see the following response, the operation was successful:
 
@@ -193,7 +193,7 @@ Note that `degree` means the number of hops in the lineage. For example, `degree
 :::
 
 The GraphQL example shows using lineage degrees as a filter, but additional search filters can be included here as well.
-This will perform a multi-hop lineage search on the urn specified. For more information about the `scrollAcrossLineage` mutation, please refer to [scrollAcrossLineage](https://datahubproject.io/docs/graphql/queries/#scrollacrosslineage).
+This will perform a multi-hop lineage search on the urn specified. For more information about the `scrollAcrossLineage` mutation, please refer to [scrollAcrossLineage](https://docs.datahub.com/docs/graphql/queries/#scrollacrosslineage).
 
 </TabItem>
 <TabItem value="curl" label="Curl">

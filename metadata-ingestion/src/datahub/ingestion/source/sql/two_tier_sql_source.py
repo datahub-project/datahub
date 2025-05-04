@@ -14,12 +14,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, logger
 from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
-    make_sqlalchemy_uri,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_key,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 
 
 class TwoTierSQLAlchemyConfig(BasicSQLAlchemyConfig):

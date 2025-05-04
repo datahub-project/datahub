@@ -12,16 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from enum import Enum
 from typing import Any, Dict, List, Optional, Union
 
 from pydantic import BaseModel
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.common import ConfigEnum
 from datahub.ingestion.graph.client import DatahubClientConfig
 
 
-class FailureMode(str, Enum):
+class FailureMode(ConfigEnum):
     # Log the failed event to the failed events log. Then throw an pipeline exception to stop the pipeline.
     THROW = "THROW"
     # Log the failed event to the failed events log. Then continue processing the event stream.
@@ -30,17 +30,17 @@ class FailureMode(str, Enum):
 
 class SourceConfig(ConfigModel):
     type: str
-    config: Optional[Dict[str, Any]]
+    config: Optional[Dict[str, Any]] = None
 
 
 class TransformConfig(ConfigModel):
     type: str
-    config: Optional[Dict[str, Any]]
+    config: Optional[Dict[str, Any]] = None
 
 
 class FilterConfig(ConfigModel):
     event_type: Union[str, List[str]]
-    event: Optional[Dict[str, Any]]
+    event: Optional[Dict[str, Any]] = None
 
 
 class ActionConfig(ConfigModel):
@@ -49,12 +49,11 @@ class ActionConfig(ConfigModel):
 
 
 class PipelineOptions(BaseModel):
-    retry_count: Optional[int]
-    failure_mode: Optional[FailureMode]
-    failed_events_dir: Optional[str]  # The path where failed events should be logged.
-
-    class Config:
-        use_enum_values = True
+    retry_count: Optional[int] = None
+    failure_mode: Optional[FailureMode] = None
+    failed_events_dir: Optional[str] = (
+        None  # The path where failed events should be logged.
+    )
 
 
 class PipelineConfig(ConfigModel):
@@ -68,8 +67,8 @@ class PipelineConfig(ConfigModel):
     name: str
     enabled: bool = True
     source: SourceConfig
-    filter: Optional[FilterConfig]
-    transform: Optional[List[TransformConfig]]
+    filter: Optional[FilterConfig] = None
+    transform: Optional[List[TransformConfig]] = None
     action: ActionConfig
-    datahub: Optional[DatahubClientConfig]
-    options: Optional[PipelineOptions]
+    datahub: Optional[DatahubClientConfig] = None
+    options: Optional[PipelineOptions] = None

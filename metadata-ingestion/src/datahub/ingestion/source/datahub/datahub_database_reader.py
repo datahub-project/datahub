@@ -195,17 +195,18 @@ class DataHubDatabaseReader:
         Yields:
             Row objects containing URNs of soft-deleted entities
         """
-        with self.engine.connect() as conn:
-            with contextlib.closing(conn.connection.cursor()) as cursor:
-                logger.debug("Polling soft-deleted urns from database")
-                cursor.execute(self.soft_deleted_urns_query)
-                columns = [desc[0] for desc in cursor.description]
-                while True:
-                    rows = cursor.fetchmany(self.config.database_query_batch_size)
-                    if not rows:
-                        return
-                    for row in rows:
-                        yield dict(zip(columns, row))
+        with self.engine.connect() as conn, contextlib.closing(
+            conn.connection.cursor()
+        ) as cursor:
+            logger.debug("Polling soft-deleted urns from database")
+            cursor.execute(self.soft_deleted_urns_query)
+            columns = [desc[0] for desc in cursor.description]
+            while True:
+                rows = cursor.fetchmany(self.config.database_query_batch_size)
+                if not rows:
+                    return
+                for row in rows:
+                    yield dict(zip(columns, row))
 
     def _parse_row(
         self, row: Dict[str, Any]

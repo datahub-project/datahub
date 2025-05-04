@@ -26,6 +26,10 @@ acryl-executor==0.1.11
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
+acryl-great-expectations==0.15.50.1
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub
 aiohappyeyeballs==2.4.4
     # via
     #   -r requirements.txt
@@ -45,7 +49,7 @@ alembic==1.14.0
 altair==4.2.0
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
     #   streamlit
 amqp==5.3.1
     # via
@@ -215,6 +219,7 @@ click==8.1.7
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   acryl-great-expectations
     #   aws-msk-iam-sasl-signer-python
     #   celery
     #   click-default-group
@@ -222,7 +227,6 @@ click==8.1.7
     #   click-plugins
     #   click-repl
     #   dataflows-tabulator
-    #   great-expectations
     #   streamlit
     #   tableschema
     #   typer
@@ -259,8 +263,8 @@ cmdstanpy==1.2.5
 colorama==0.4.6
     # via
     #   -r requirements.txt
+    #   acryl-great-expectations
     #   click
-    #   great-expectations
     #   ipython
     #   loguru
     #   pytest
@@ -295,8 +299,8 @@ cryptography==44.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-great-expectations
     #   azure-identity
-    #   great-expectations
     #   moto
     #   msal
     #   pyjwt
@@ -484,10 +488,6 @@ googleapis-common-protos==1.66.0
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
     #   grpcio-status
-great-expectations==0.15.50
-    # via
-    #   -r requirements.txt
-    #   acryl-datahub
 greenlet==3.1.1
     # via
     #   -r requirements.txt
@@ -543,7 +543,7 @@ ijson==3.3.0
 importlib-metadata==8.5.0
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
 importlib-resources==6.4.5
     # via
     #   -r requirements.txt
@@ -564,7 +564,7 @@ ipython==8.21.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
     #   ipykernel
     #   ipywidgets
 ipython-genutils==0.2.0
@@ -575,7 +575,7 @@ ipython-genutils==0.2.0
 ipywidgets==8.1.5
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
 isodate==0.7.2
     # via
     #   -r requirements.txt
@@ -587,8 +587,8 @@ jedi==0.19.2
 jinja2==3.1.4
     # via
     #   -r requirements.txt
+    #   acryl-great-expectations
     #   altair
-    #   great-expectations
     #   jupyter-server
     #   moto
     #   nbconvert
@@ -613,7 +613,7 @@ jsonlines==4.0.0
 jsonpatch==1.33
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
 jsonpointer==3.0.0
     # via
     #   -r requirements.txt
@@ -626,8 +626,8 @@ jsonschema==4.23.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-great-expectations
     #   altair
-    #   great-expectations
     #   nbformat
     #   tableschema
 jsonschema-specifications==2024.10.1
@@ -699,7 +699,7 @@ lz4==4.3.3
 makefun==1.15.6
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
 mako==1.3.7
     # via
     #   -r requirements.txt
@@ -722,7 +722,7 @@ markupsafe==3.0.2
 marshmallow==3.23.1
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
 matplotlib==3.10.1
     # via
     #   -r requirements.txt
@@ -739,7 +739,7 @@ mdurl==0.1.2
 mistune==3.0.2
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
     #   nbconvert
 mixpanel==4.10.1
     # via
@@ -804,7 +804,7 @@ nbconvert==7.16.4
 nbformat==5.10.4
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
     #   jupyter-server
     #   nbclient
     #   nbconvert
@@ -820,7 +820,7 @@ nest-asyncio==1.6.0
 notebook==6.5.7
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
 notebook-shim==0.2.4
     # via
     #   -r requirements.txt
@@ -831,13 +831,13 @@ numpy==1.26.4
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub
     #   acryl-datahub-executor
+    #   acryl-great-expectations
     #   altair
     #   blis
     #   cmdstanpy
     #   contourpy
     #   databricks-sql-connector
     #   db-dtypes
-    #   great-expectations
     #   matplotlib
     #   pandas
     #   prophet
@@ -867,10 +867,10 @@ packaging==24.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-great-expectations
     #   db-dtypes
     #   geoalchemy2
     #   google-cloud-bigquery
-    #   great-expectations
     #   ipykernel
     #   jupyter-server
     #   marshmallow
@@ -893,11 +893,11 @@ pandas==2.1.4
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub
     #   acryl-datahub-executor
+    #   acryl-great-expectations
     #   altair
     #   cmdstanpy
     #   databricks-sql-connector
     #   db-dtypes
-    #   great-expectations
     #   prophet
     #   pydeequ
     #   streamlit
@@ -1060,9 +1060,9 @@ pydantic==1.10.19
     #   acryl-datahub-actions
     #   acryl-datahub-executor
     #   acryl-executor
+    #   acryl-great-expectations
     #   confection
     #   fastapi
-    #   great-expectations
     #   spacy
     #   thinc
     #   weasel
@@ -1090,7 +1090,7 @@ pyopenssl==24.3.0
 pyparsing==3.2.0
     # via
     #   -r requirements.txt
-    #   great-expectations
+    #   acryl-great-expectations
     #   matplotlib
 pyreadline3==3.5.4 ; sys_platform == 'win32'
     # via
@@ -1114,12 +1114,12 @@ python-dateutil==2.9.0.post0
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   acryl-great-expectations
     #   botocore
     #   celery
     #   croniter
     #   faker
     #   google-cloud-bigquery
-    #   great-expectations
     #   holidays
     #   jupyter-client
     #   matplotlib
@@ -1143,8 +1143,8 @@ pytz==2024.1
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
     #   acryl-datahub-executor
+    #   acryl-great-expectations
     #   apscheduler
-    #   great-expectations
     #   pandas
     #   redshift-connector
     #   snowflake-connector-python
@@ -1196,6 +1196,7 @@ requests==2.32.3
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   acryl-great-expectations
     #   azure-core
     #   confluent-kafka
     #   databricks-sdk
@@ -1204,7 +1205,6 @@ requests==2.32.3
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
-    #   great-expectations
     #   mixpanel
     #   moto
     #   msal
@@ -1249,7 +1249,7 @@ ruamel-yaml==0.17.17
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
 ruff==0.9.6
     # via acryl-datahub-executor (pyproject.toml)
 s3transfer==0.10.4
@@ -1270,7 +1270,7 @@ scipy==1.14.1
     # via
     #   -r requirements.txt
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
     #   scikit-learn
 scramp==1.4.5
     # via
@@ -1484,8 +1484,8 @@ tornado==6.4.2
 tqdm==4.67.1
     # via
     #   -r requirements.txt
+    #   acryl-great-expectations
     #   cmdstanpy
-    #   great-expectations
     #   prophet
     #   spacy
 traitlets==5.2.1.post0
@@ -1531,13 +1531,13 @@ typing-extensions==4.12.2
     #   -r requirements.txt
     #   acryl-datahub
     #   acryl-executor
+    #   acryl-great-expectations
     #   alembic
     #   anyio
     #   azure-core
     #   azure-identity
     #   cloudpathlib
     #   faker
-    #   great-expectations
     #   multidict
     #   mypy
     #   pydantic
@@ -1564,8 +1564,8 @@ tzdata==2024.2
 tzlocal==5.2
     # via
     #   -r requirements.txt
+    #   acryl-great-expectations
     #   apscheduler
-    #   great-expectations
 ujson==5.10.0
     # via
     #   -r requirements.txt
@@ -1578,11 +1578,11 @@ unicodecsv==0.14.1
 urllib3==1.26.20
     # via
     #   -r requirements.txt
+    #   acryl-great-expectations
     #   botocore
     #   celery
     #   databricks-sql-connector
     #   docker
-    #   great-expectations
     #   kombu
     #   mixpanel
     #   requests

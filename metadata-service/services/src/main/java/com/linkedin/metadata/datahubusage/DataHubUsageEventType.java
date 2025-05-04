@@ -2,6 +2,7 @@ package com.linkedin.metadata.datahubusage;
 
 import lombok.Getter;
 
+/** See event.ts for frontend side events */
 @Getter
 public enum DataHubUsageEventType {
   PAGE_VIEW_EVENT("PageViewEvent"),
@@ -102,6 +103,15 @@ public enum DataHubUsageEventType {
   SHOW_ALL_VERSIONS_EVENT("ShowAllVersionsEvent"),
   LINK_ASSET_VERSION_EVENT("LinkAssetVersionEvent"),
   UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent"),
+  HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
+  SEARCH_BAR_FILTER("SearchBarFilterEvent"),
+  // Not replicated in frontend, represents generic event from backend
+  CREATE_USER_EVENT("CreateUserEvent"),
+  UPDATE_USER_EVENT("UpdateUserEvent"),
+  UPDATE_ASPECT_EVENT("UpdateAspectEvent"),
+  ENTITY_EVENT("EntityEvent"),
+  FAILED_LOGIN_EVENT("FailedLogInEvent"),
+
   // SaaS only events
   COMPLETE_DOC_REQUEST_PROMPT("CompleteDocRequestPrompt"),
   COMPLETE_VERIFICATION("CompleteVerification"),
@@ -150,7 +160,6 @@ public enum DataHubUsageEventType {
   DECLINE_INFERRED_DOCS_EVENT("DeclineInferredDocsEvent"),
   CLICK_VIEW_DOCUMENTATION_EVENT("ClickViewDocumentationEvent"),
   SSO_CONFIGURATION_EVENT("SSOConfigurationEvent"),
-  HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
   CHATBOT_INTERACTION_EVENT("ChatbotInteractionEvent"),
   CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedbackEvent");
 

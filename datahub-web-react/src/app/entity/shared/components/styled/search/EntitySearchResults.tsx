@@ -104,6 +104,7 @@ export const EntitySearchResults = ({
                                   )
                                 : isSelectMode && (
                                       <StyledCheckbox
+                                          data-testid={`checkbox-${entity.urn}`}
                                           checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
                                           onChange={(e) =>
                                               onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)

@@ -5,6 +5,8 @@ import styled from 'styled-components';
 import { colors } from '@src/alchemy-components';
 
 const IconContainer = styled.div`
+    display: flex;
+    align-items: center;
     height: 24px;
     width: 32px;
     border: 1px solid ${colors.gray[100]};

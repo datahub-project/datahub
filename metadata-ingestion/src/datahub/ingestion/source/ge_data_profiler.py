@@ -5,6 +5,7 @@ import concurrent.futures
 import contextlib
 import dataclasses
 import functools
+import importlib.metadata
 import json
 import logging
 import re
@@ -51,6 +52,7 @@ from typing_extensions import Concatenate, ParamSpec
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import get_sys_time
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
@@ -83,6 +85,30 @@ if TYPE_CHECKING:
     from pyathena.cursor import Cursor
 
 assert MARKUPSAFE_PATCHED
+
+# We need to ensure that acryl-great-expectations is installed
+# and great-expectations is not installed.
+try:
+    acryl_gx_version = bool(importlib.metadata.distribution("acryl-great-expectations"))
+except importlib.metadata.PackageNotFoundError:
+    acryl_gx_version = False
+
+try:
+    original_gx_version = bool(importlib.metadata.distribution("great-expectations"))
+except importlib.metadata.PackageNotFoundError:
+    original_gx_version = False
+
+if acryl_gx_version and original_gx_version:
+    raise RuntimeError(
+        "acryl-great-expectations and great-expectations cannot both be installed because their files will conflict. "
+        "You will need to (1) uninstall great-expectations and (2) re-install acryl-great-expectations. "
+        "See https://github.com/pypa/pip/issues/4625."
+    )
+elif original_gx_version:
+    raise RuntimeError(
+        "We expect acryl-great-expectations to be installed, but great-expectations is installed instead."
+    )
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 _original_get_column_median = SqlAlchemyDataset.get_column_median
@@ -1569,7 +1595,7 @@ def _get_columns_to_ignore_sampling(
         name=dataset_name, platform=platform, env=env
     )
 
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.INGESTION)
 
     dataset_tags = datahub_graph.get_tags(dataset_urn)
     if dataset_tags:

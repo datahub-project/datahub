@@ -14,12 +14,17 @@ export function Loader({
     size = loaderDefault.size,
     justifyContent = loaderDefault.justifyContent,
     alignItems = loaderDefault.alignItems,
+    padding,
 }: LoaderProps) {
     const loaderSize = LoaderSizes[size || 'md'];
     const ringWidth = RingWidths[size || 'md'];
 
     return (
-        <LoaderWrapper $justifyContent={justifyContent || 'center'} $alignItems={alignItems || 'none'}>
+        <LoaderWrapper
+            $justifyContent={justifyContent || 'center'}
+            $alignItems={alignItems || 'none'}
+            $padding={padding}
+        >
             <LoaderBackRing $height={loaderSize} $ringWidth={ringWidth} />
             <StyledLoadingOutlined $height={loaderSize} />
         </LoaderWrapper>

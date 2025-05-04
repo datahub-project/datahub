@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useGetGlossaryNodeLazyQuery } from '@src/graphql/glossaryNode.generated';
+import { useGetGlossaryNodeWithChildrenLazyQuery } from '@src/graphql/glossaryNode.generated';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
     useGetSearchResultsForMultipleQuery,
@@ -49,7 +49,7 @@ const GlossaryTermsSelector = ({
     const [seenNodeUrns] = useState<Set<string>>(new Set());
     const [childOptions, setChildOptions] = useState<NestedSelectOption[]>([]);
 
-    const [getNode, { loading }] = useGetGlossaryNodeLazyQuery({
+    const [getNode, { loading }] = useGetGlossaryNodeWithChildrenLazyQuery({
         onCompleted: (nodeData) => {
             const childOptionsToAdd: NestedSelectOption[] = [];
             const alreadyPresentOptionUrns = childOptions.map((option) => option.value);

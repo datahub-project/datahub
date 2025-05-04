@@ -20,6 +20,7 @@ from datahub.emitter.mce_builder import (
     validate_ownership_type,
 )
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import OwnerClass, OwnershipTypeClass
 from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.telemetry import telemetry
@@ -81,7 +82,7 @@ def mutate(file: Path, validate_assets: bool, external_url: str, upsert: bool) -
 
     config_dict = load_file(pathlib.Path(file))
     id = config_dict.get("id") if isinstance(config_dict, dict) else None
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         data_product: DataProduct = DataProduct.from_yaml(file, graph)
         external_url_override = (
             external_url
@@ -162,7 +163,7 @@ def upsert(file: Path, validate_assets: bool, external_url: str) -> None:
 def diff(file: Path, update: bool) -> None:
     """Diff a Data Product file with its twin in DataHub"""
 
-    with get_default_graph() as emitter:
+    with get_default_graph(ClientMode.CLI) as emitter:
         id: Optional[str] = None
         try:
             data_product_local: DataProduct = DataProduct.from_yaml(file, emitter)
@@ -216,7 +217,7 @@ def delete(urn: str, file: Path, hard: bool) -> None:
         raise click.Abort()
 
     graph: DataHubGraph
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         data_product_urn = (
             urn if urn.startswith("urn:li:dataProduct") else f"urn:li:dataProduct:{urn}"
         )
@@ -248,7 +249,7 @@ def get(urn: str, to_file: str) -> None:
     if not urn.startswith("urn:li:dataProduct:"):
         urn = f"urn:li:dataProduct:{urn}"
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if graph.exists(urn):
             dataproduct: DataProduct = DataProduct.from_datahub(graph=graph, id=urn)
             click.secho(
@@ -306,7 +307,7 @@ def set_description(urn: str, description: str, md_file: Path) -> None:
 
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.set_description(description)
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "set description")
         for mcp in dataproduct_patcher.build():
             graph.emit(mcp)
@@ -342,7 +343,7 @@ def add_owner(urn: str, owner: str, owner_type: str) -> None:
             owner=_get_owner_urn(owner), type=owner_type, typeUrn=owner_type_urn
         )
     )
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "add owners")
         for mcp in dataproduct_patcher.build():
             graph.emit(mcp)
@@ -360,7 +361,7 @@ def remove_owner(urn: str, owner_urn: str) -> None:
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.remove_owner(owner=_get_owner_urn(owner_urn))
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "remove owners")
         for mcp in dataproduct_patcher.build():
             click.echo(json.dumps(mcp.to_obj()))
@@ -382,7 +383,7 @@ def add_asset(urn: str, asset: str, validate_assets: bool) -> None:
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.add_asset(asset)
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "add assets")
         if validate_assets:
             _abort_if_non_existent_urn(
@@ -409,7 +410,7 @@ def remove_asset(urn: str, asset: str, validate_assets: bool) -> None:
         urn = f"urn:li:dataProduct:{urn}"
     dataproduct_patcher: DataProductPatchBuilder = DataProduct.get_patch_builder(urn)
     dataproduct_patcher.remove_asset(asset)
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         _abort_if_non_existent_urn(graph, urn, "remove assets")
         if validate_assets:
             _abort_if_non_existent_urn(

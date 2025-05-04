@@ -37,7 +37,7 @@ import LinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versionin
 import UnlinkAssetVersionModal from '@app/entityV2/shared/EntityDropdown/versioning/UnlinkAssetVersionModal';
 import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
 import { MarkAsDeprecatedButtonContents } from '@app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
@@ -75,7 +75,7 @@ const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
         padding: 2px;
 
         :hover {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            color: ${(p) => p.theme.styles['primary-color']};
         }
     }
 `;

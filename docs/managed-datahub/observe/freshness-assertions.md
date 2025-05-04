@@ -8,8 +8,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-> The **Freshness Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
-> If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
+> The **Freshness Assertions** feature is available as part of the **DataHub Cloud Observe** module of DataHub Cloud.
+> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
 
 ## Introduction
 
@@ -240,7 +240,7 @@ To resume the assertion, simply click **Start**.
 
 ## Smart Assertions ⚡
 
-As part of the **Acryl Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
+As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
 dynamic, AI-powered Freshness Assertions that you can use to monitor the freshness of important warehouse Tables, without
 requiring any manual setup.
 
@@ -360,5 +360,5 @@ Authorization: Bearer <personal-access-token>
 
 **Exploring GraphQL API**
 
-Also, remember that you can play with an interactive version of the Acryl GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
+Also, remember that you can play with an interactive version of the DataHub Cloud GraphQL API at `https://your-account-id.acryl.io/api/graphiql`
 :::

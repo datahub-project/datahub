@@ -18,7 +18,9 @@ logger = logging.getLogger(__name__)
 
 
 class EventConsumerState(BaseModel):
-    VERSION = 1  # Increment this version when the schema of EventConsumerState changes
+    VERSION: int = (
+        1  # Increment this version when the schema of EventConsumerState changes
+    )
     offset_id: Optional[str] = None
     timestamp: Optional[int] = None
 

@@ -474,6 +474,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             dataset_properties.customProperties["schema.downsampled"] = "True"
             dataset_properties.customProperties["schema.totalFields"] = f"{schema_size}"
         # append each schema field, schema will be sorted by count descending and delimited_name ascending and sliced to only include MAX_SCHEMA_SIZE items
+        primary_keys = []
         for schema_field in sorted(
             table_fields,
             key=lambda x: (
@@ -484,22 +485,23 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             field_path = schema_field["delimited_name"]
             native_data_type = self.get_native_type(schema_field["type"], table_name)
             type = self.get_field_type(schema_field["type"], table_name)
-            description = None
             nullable = True
             if field_path in primary_key_dict:
-                description = (
+                # primary key should not be nullable
+                type_key = (
                     "Partition Key"
                     if primary_key_dict.get(field_path) == "HASH"
                     else "Sort Key"
                 )
-                # primary key should not be nullable
+                dataset_properties.customProperties[type_key] = field_path
                 nullable = False
+                primary_keys.append(field_path)
 
             field = SchemaField(
                 fieldPath=field_path,
                 nativeDataType=native_data_type,
                 type=type,
-                description=description,
+                description=None,
                 nullable=nullable,
                 recursive=False,
             )
@@ -513,6 +515,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             hash="",
             platformSchema=SchemalessClass(),
             fields=canonical_schema,
+            primaryKeys=primary_keys,
         )
         return schema_metadata
 

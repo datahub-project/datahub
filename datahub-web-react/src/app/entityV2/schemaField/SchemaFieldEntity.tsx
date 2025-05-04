@@ -91,11 +91,20 @@ export class SchemaFieldEntity implements Entity<SchemaField> {
 
     displayName = (data: SchemaField) => decodeSchemaField(downgradeV2FieldPath(data?.fieldPath) || '') || data.urn;
 
+    getOverridePropertiesFromEntity = (schemaField?: SchemaField | null): GenericEntityProperties => {
+        const parent =
+            schemaField?.parent &&
+            globalEntityRegistryV2.getGenericEntityProperties(schemaField?.parent.type, schemaField?.parent);
+        return {
+            platform: parent?.platform,
+        };
+    };
+
     getGenericEntityProperties = (data: SchemaField): GenericEntityProperties | null =>
         getDataForEntityType({
             data,
             entityType: this.type,
-            getOverrideProperties: (newData) => newData,
+            getOverrideProperties: this.getOverridePropertiesFromEntity,
         });
 
     getLineageVizConfig = (entity: SchemaField): FetchedEntity => {

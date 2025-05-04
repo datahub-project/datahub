@@ -1,4 +1,4 @@
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import useToggle from '@app/shared/useToggle';
 
 const useToggleSidebar = () => {
