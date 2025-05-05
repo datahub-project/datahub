@@ -79,7 +79,9 @@ def custom_user_setup():
         assert sign_up_response
         assert "error" not in sign_up_response
         # Sleep for eventual consistency
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(
+            consumer_group="datahub-usage-event-consumer-job-client"
+        )
 
         # signUp will override the session cookie to the new user to be signed up.
         admin_session.cookies.clear()
@@ -102,7 +104,9 @@ def custom_user_setup():
         assert res_data["data"]
         assert res_data["data"]["removeUser"] is True
         # Sleep for eventual consistency
-        wait_for_writes_to_sync()
+        wait_for_writes_to_sync(
+            consumer_group="datahub-usage-event-consumer-job-client"
+        )
 
         # Make user created user is not there.
         res_data = listUsers(admin_session)
@@ -145,7 +149,7 @@ def test_audit_token_events(auth_exclude_filter):
     )
     user_token_id = res_data["data"]["createAccessToken"]["metadata"]["id"]
     # Sleep for eventual consistency
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
     # User should be able to revoke his own token
     res_data = revokeAccessToken(user_session, user_token_id)
@@ -153,7 +157,7 @@ def test_audit_token_events(auth_exclude_filter):
     assert res_data["data"]
     assert res_data["data"]["revokeAccessToken"]
     assert res_data["data"]["revokeAccessToken"] is True
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
     # Audit events for create & revoke should show
     res_data = searchForAuditEvents(
@@ -213,7 +217,7 @@ def test_failed_login_events(auth_exclude_filter):
 
     time.sleep(10)
     user_session = login_as(admin_user, admin_pass)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
     # Audit events for failed login should show, search for both to rule out any previous failures from any other tests
     res_data = searchForAuditEvents(
@@ -246,7 +250,7 @@ def test_policy_events(auth_exclude_filter):
                 "resources": {"type": "dataset", "allResources": True},
                 "privileges": ["EDIT_ENTITY_TAGS"],
                 "actors": {
-                    "users": ["urn:li:corpuser:datahub"],
+                    "users": ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
                     "resourceOwners": False,
                     "allUsers": False,
                     "allGroups": False,
@@ -263,7 +267,7 @@ def test_policy_events(auth_exclude_filter):
     assert res_data["data"]
     assert res_data["data"]["createPolicy"]
 
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
     new_urn = res_data["data"]["createPolicy"]
 
@@ -299,13 +303,12 @@ def test_policy_events(auth_exclude_filter):
     assert res_data["data"]["updatePolicy"]
     assert res_data["data"]["updatePolicy"] == new_urn
 
-    wait_for_writes_to_sync()
-
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
     res_data = searchForAuditEvents(
         user_session,
         2,
         ["CreatePolicyEvent", "UpdatePolicyEvent"],
-        ["urn:li:corpuser:datahub"],
+        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
     )
     print(res_data)
@@ -378,13 +381,13 @@ def test_ingestion_source_events(auth_exclude_filter):
     response.raise_for_status()
     res_data = response.json()
     assert res_data["data"]["updateIngestionSource"]
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
     res_data = searchForAuditEvents(
         user_session,
         2,
         ["CreateIngestionSourceEvent", "UpdateIngestionSourceEvent"],
-        ["urn:li:corpuser:datahub"],
+        ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
     )
     print(res_data)
@@ -400,7 +403,7 @@ def test_ingestion_source_events(auth_exclude_filter):
 
 def test_user_events(auth_exclude_filter):
     user_session = login_as(admin_user, admin_pass)
-    wait_for_writes_to_sync()
+    wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
 
     # TODO: This feels wrong, sign up link should have the user who created the sign up link as the actor, but this
     #       requires a fairly significant refactor that's not in scope right now
