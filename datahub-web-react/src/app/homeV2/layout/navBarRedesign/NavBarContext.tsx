@@ -22,7 +22,9 @@ export type LocalState = {
  * Loads a persisted object from the local browser storage.
  */
 const loadLocalState = () => {
-    return JSON.parse(localStorage.getItem(LOCAL_STATE_KEY) || '{}') as LocalState;
+    return JSON.parse(
+        localStorage.getItem(LOCAL_STATE_KEY) || `{"state" : ${NavBarStateType.Collapsed}}`,
+    ) as LocalState;
 };
 
 /**
