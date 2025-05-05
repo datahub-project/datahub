@@ -1,12 +1,12 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "business_report.Business_Report",
+            "schemaName": "Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel/data/[business_report.xlsx]Business Report",
             "platform": "urn:li:dataPlatform:excel",
             "version": 0,
             "created": {
@@ -95,7 +95,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -104,6 +104,12 @@
                 "author": "openpyxl",
                 "created": "2025-04-17 23:07:38",
                 "modified": "2025-04-17 23:07:38"
+            },
+            "created": {
+                "time": 1744949258000
+            },
+            "lastModified": {
+                "time": 1744949258000
             },
             "tags": []
         }
@@ -153,75 +159,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
-                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
-                },
-                {
-                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
-                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
-                },
-                {
-                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
-                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
-                },
-                {
-                    "id": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
-                    "urn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
-                },
-                {
-                    "id": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
-                    "urn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db"
-                },
-                {
-                    "id": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
-                    "urn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64"
-                },
-                {
-                    "id": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
-                    "urn": "urn:li:container:21cda2e5d8b6687acd931563065836e0"
-                },
-                {
-                    "id": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
-                    "urn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012"
-                },
-                {
-                    "id": "urn:li:container:8fa281000bab5ac221699210a16affed",
-                    "urn": "urn:li:container:8fa281000bab5ac221699210a16affed"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:8fa281000bab5ac221699210a16affed"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "container",
     "entityUrn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
     "changeType": "UPSERT",
@@ -247,126 +184,6 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProfile",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1615443388098,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "rowCount": 5,
-            "columnCount": 5,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "Region",
-                    "uniqueCount": 5,
-                    "nullCount": 0,
-                    "sampleValues": [
-                        "North America",
-                        "Europe",
-                        "Asia-Pacific",
-                        "Latin America",
-                        "Middle East & Africa"
-                    ]
-                },
-                {
-                    "fieldPath": "Q1 Sales",
-                    "uniqueCount": 5,
-                    "nullCount": 0,
-                    "min": "658.5",
-                    "max": "1364.2",
-                    "mean": "1111.58",
-                    "median": "1251.0",
-                    "stdev": "262.07",
-                    "sampleValues": [
-                        "658.5",
-                        "1364.2",
-                        "1251.0",
-                        "979.3",
-                        "1304.9"
-                    ]
-                },
-                {
-                    "fieldPath": "Q2 Sales",
-                    "uniqueCount": 5,
-                    "nullCount": 0,
-                    "min": "562.5",
-                    "max": "1341.1",
-                    "mean": "899.18",
-                    "median": "817.0",
-                    "stdev": "270.79",
-                    "sampleValues": [
-                        "1047.3",
-                        "1341.1",
-                        "817.0",
-                        "728.0",
-                        "562.5"
-                    ]
-                },
-                {
-                    "fieldPath": "Q3 Sales",
-                    "uniqueCount": 5,
-                    "nullCount": 0,
-                    "min": "514.3",
-                    "max": "1314.3",
-                    "mean": "795.6",
-                    "median": "702.4",
-                    "stdev": "280.51",
-                    "sampleValues": [
-                        "514.3",
-                        "1314.3",
-                        "837.9",
-                        "702.4",
-                        "609.1"
-                    ]
-                },
-                {
-                    "fieldPath": "YTD Total",
-                    "uniqueCount": 5,
-                    "nullCount": 0,
-                    "min": "2220.1",
-                    "max": "4019.6",
-                    "mean": "2806.36",
-                    "median": "2476.5",
-                    "stdev": "646.79",
-                    "sampleValues": [
-                        "2220.1",
-                        "4019.6",
-                        "2905.9",
-                        "2409.7",
-                        "2476.5"
-                    ]
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -1362,6 +1179,195 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:8fa281000bab5ac221699210a16affed",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768",
+                    "urn": "urn:li:container:113c066ec5c8cfffa38f98937aaa2768"
+                },
+                {
+                    "id": "urn:li:container:77ebea21f18f352b1dbec036503bad78",
+                    "urn": "urn:li:container:77ebea21f18f352b1dbec036503bad78"
+                },
+                {
+                    "id": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94",
+                    "urn": "urn:li:container:8f02c4bdf293b5f6880649fcf0ab4f94"
+                },
+                {
+                    "id": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5",
+                    "urn": "urn:li:container:29babaefcf8b8c8e1ca94e5fc691fae5"
+                },
+                {
+                    "id": "urn:li:container:425c446947fa1bed6a86eb098d53a3db",
+                    "urn": "urn:li:container:425c446947fa1bed6a86eb098d53a3db"
+                },
+                {
+                    "id": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64",
+                    "urn": "urn:li:container:2f3f54242cbfe15da93417dfcf928c64"
+                },
+                {
+                    "id": "urn:li:container:21cda2e5d8b6687acd931563065836e0",
+                    "urn": "urn:li:container:21cda2e5d8b6687acd931563065836e0"
+                },
+                {
+                    "id": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012",
+                    "urn": "urn:li:container:0cdbdebc181e1f78c902fd05edff2012"
+                },
+                {
+                    "id": "urn:li:container:8fa281000bab5ac221699210a16affed",
+                    "urn": "urn:li:container:8fa281000bab5ac221699210a16affed"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:8fa281000bab5ac221699210a16affed"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388098,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 5,
+            "columnCount": 5,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "Region",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "sampleValues": [
+                        "North America",
+                        "Europe",
+                        "Asia-Pacific",
+                        "Latin America",
+                        "Middle East & Africa"
+                    ]
+                },
+                {
+                    "fieldPath": "Q1 Sales",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "658.5",
+                    "max": "1364.2",
+                    "mean": "1111.58",
+                    "median": "1251.0",
+                    "stdev": "262.07",
+                    "sampleValues": [
+                        "658.5",
+                        "1364.2",
+                        "1251.0",
+                        "979.3",
+                        "1304.9"
+                    ]
+                },
+                {
+                    "fieldPath": "Q2 Sales",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "562.5",
+                    "max": "1341.1",
+                    "mean": "899.18",
+                    "median": "817.0",
+                    "stdev": "270.79",
+                    "sampleValues": [
+                        "1047.3",
+                        "1341.1",
+                        "817.0",
+                        "728.0",
+                        "562.5"
+                    ]
+                },
+                {
+                    "fieldPath": "Q3 Sales",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "514.3",
+                    "max": "1314.3",
+                    "mean": "795.6",
+                    "median": "702.4",
+                    "stdev": "280.51",
+                    "sampleValues": [
+                        "514.3",
+                        "1314.3",
+                        "837.9",
+                        "702.4",
+                        "609.1"
+                    ]
+                },
+                {
+                    "fieldPath": "YTD Total",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "2220.1",
+                    "max": "4019.6",
+                    "mean": "2806.36",
+                    "median": "2476.5",
+                    "stdev": "646.79",
+                    "sampleValues": [
+                        "2220.1",
+                        "4019.6",
+                        "2905.9",
+                        "2409.7",
+                        "2476.5"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,Users/michael/IdeaProjects/datahub-fork/metadata-ingestion/tests/integration/excel/data/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

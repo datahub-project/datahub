@@ -1,12 +1,12 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-bucket/data/test/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "business_report.Business_Report",
+            "schemaName": "test-bucket/data/test/[business_report.xlsx]Business Report",
             "platform": "urn:li:dataPlatform:excel",
             "version": 0,
             "created": {
@@ -89,28 +89,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "author": "openpyxl",
-                "created": "2025-04-17 23:07:38",
-                "modified": "2025-04-17 23:07:38"
-            },
-            "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
+        "runId": "excel-s3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -133,6 +112,33 @@
     "systemMetadata": {
         "lastObserved": 1615443388097,
         "runId": "excel-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-bucket/data/test/[business_report.xlsx]Business Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "author": "openpyxl",
+                "created": "2025-04-17 23:07:38",
+                "modified": "2025-04-17 23:07:38"
+            },
+            "created": {
+                "time": 1744949258000
+            },
+            "lastModified": {
+                "time": 1744949258000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-s3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -426,7 +432,36 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-bucket/data/test/[business_report.xlsx]Business Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
+                    "urn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac"
+                },
+                {
+                    "id": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
+                    "urn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0"
+                },
+                {
+                    "id": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
+                    "urn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-s3-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-bucket/data/test/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -436,13 +471,29 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "excel-test",
+        "runId": "excel-s3-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-bucket/data/test/[business_report.xlsx]Business Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-s3-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-bucket/data/test/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -540,52 +591,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:1ce8476be2087d627a7e0215868cdbac",
-                    "urn": "urn:li:container:1ce8476be2087d627a7e0215868cdbac"
-                },
-                {
-                    "id": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0",
-                    "urn": "urn:li:container:3ab5cccca45eb4ea16ad4ee97cb78fb0"
-                },
-                {
-                    "id": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8",
-                    "urn": "urn:li:container:e9ed8ebf4d85eb3115502ff40f349eb8"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-test",
+        "runId": "excel-s3-test",
         "lastRunId": "no-run-id-provided"
     }
 }

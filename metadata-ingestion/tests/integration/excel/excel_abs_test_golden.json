@@ -1,12 +1,12 @@
 [
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "business_report.Business_Report",
+            "schemaName": "test-abs/excel/test/[business_report.xlsx]Business Report",
             "platform": "urn:li:dataPlatform:excel",
             "version": 0,
             "created": {
@@ -95,7 +95,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
@@ -104,6 +104,12 @@
                 "author": "openpyxl",
                 "created": "2025-04-17 23:07:38",
                 "modified": "2025-04-17 23:07:38"
+            },
+            "created": {
+                "time": 1744949258000
+            },
+            "lastModified": {
+                "time": 1744949258000
             },
             "tags": []
         }
@@ -350,8 +356,99 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-abs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:e7d81efab7b63c19bdc5fb7c52c6b80e",
+                    "urn": "urn:li:container:e7d81efab7b63c19bdc5fb7c52c6b80e"
+                },
+                {
+                    "id": "urn:li:container:82348b0106efba75d329dd8727582b9c",
+                    "urn": "urn:li:container:82348b0106efba75d329dd8727582b9c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-abs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:excel"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-abs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Folder"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-abs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "excel-abs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProfile",
     "aspect": {
@@ -454,24 +551,8 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-abs-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -486,65 +567,8 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:e7d81efab7b63c19bdc5fb7c52c6b80e",
-                    "urn": "urn:li:container:e7d81efab7b63c19bdc5fb7c52c6b80e"
-                },
-                {
-                    "id": "urn:li:container:82348b0106efba75d329dd8727582b9c",
-                    "urn": "urn:li:container:82348b0106efba75d329dd8727582b9c"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-abs-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:excel"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-abs-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-abs-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,business_report.Business_Report,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:excel,test-abs/excel/test/[business_report.xlsx]Business Report,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -562,24 +586,6 @@
                     "id": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
                     "urn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1"
                 }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "excel-abs-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:55e5a02cbfd490e7d4f3ee6743cf41f1",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Folder"
             ]
         }
     },
