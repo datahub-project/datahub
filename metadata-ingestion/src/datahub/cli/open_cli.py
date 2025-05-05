@@ -45,7 +45,5 @@ def open(ctx: Any, urn: Optional[str], host: Optional[str]) -> None:
         raise click.UsageError("Nothing for me to open. Maybe provide an urn?")
     graph = get_default_graph()
     print(graph.get_server_config())
-    final_url = get_frontend_url_from_server(
-        graph.get_server_config().config.get("baseUrl", {}), urn
-    )
+    final_url = get_frontend_url_from_server(graph.get_config().get("baseUrl", {}), urn)
     webbrowser.open_new_tab(final_url)

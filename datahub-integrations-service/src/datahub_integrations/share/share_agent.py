@@ -76,7 +76,7 @@ class ShareAgent:
         if graph.server_id and graph.server_id != "missing":
             platform_id = graph.server_id
         else:
-            platform_id = graph.server_config.config.get("baseUrl") or ""
+            platform_id = graph.get_config().get("baseUrl") or ""
 
         return make_dataplatform_instance_urn("acryl", platform_id)
 

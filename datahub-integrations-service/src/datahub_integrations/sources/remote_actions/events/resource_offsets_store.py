@@ -88,7 +88,7 @@ class ResourceBasedOffsetsStore:
         )
 
         # Write to graph
-        self.graph.emit(mcp, async_flag=False)
+        self.graph.emit(mcp)
         logger.info(f"Stored offset id {offset_id} for consumer id {self.consumer_id}")
         return offset_id
 

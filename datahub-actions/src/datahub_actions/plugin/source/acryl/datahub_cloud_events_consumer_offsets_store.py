@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
     PlatformResourceInfoClass,
@@ -91,7 +92,7 @@ class DataHubEventsConsumerPlatformResourceOffsetsStore:
         )
 
         # Write to graph
-        self.graph.emit(mcp, async_flag=False)
+        self.graph.emit(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
         logger.info(f"Stored offset id {offset_id} for consumer id {self.consumer_id}")
         return offset_id
 

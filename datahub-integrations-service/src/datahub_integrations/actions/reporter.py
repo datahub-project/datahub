@@ -187,6 +187,5 @@ class ActionStatsReporter:
                 MetadataChangeProposalWrapper(
                     entityUrn=self.action_urn,
                     aspect=stats,
-                ),
-                async_flag=False,
+                )
             )

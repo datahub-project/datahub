@@ -30,7 +30,6 @@ def auth_session():
 
 
 def build_graph_client(auth_session, openapi_ingestion=False):
-    print(auth_session.cookies)
     graph: DataHubGraph = DataHubGraph(
         config=DatahubClientConfig(
             server=auth_session.gms_url(), token=auth_session.gms_token(),

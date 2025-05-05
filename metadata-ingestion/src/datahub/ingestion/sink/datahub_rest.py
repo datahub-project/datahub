@@ -21,10 +21,9 @@ from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.rest_emitter import (
     BATCH_INGEST_MAX_PAYLOAD_LENGTH,
     DEFAULT_REST_EMITTER_ENDPOINT,
-    DEFAULT_REST_TRACE_MODE,
     DataHubRestEmitter,
+    EmitMode,
     RestSinkEndpoint,
-    RestTraceMode,
 )
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
@@ -71,7 +70,6 @@ _DEFAULT_REST_SINK_MODE = pydantic.parse_obj_as(
 class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
     endpoint: RestSinkEndpoint = DEFAULT_REST_EMITTER_ENDPOINT
-    default_trace_mode: RestTraceMode = DEFAULT_REST_TRACE_MODE
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
@@ -134,7 +132,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         self._emitter_thread_local = threading.local()
 
         try:
-            gms_config = self.emitter.get_server_config()
+            gms_config = self.emitter.server_config
         except Exception as exc:
             raise ConfigurationError(
                 f"💥 Failed to connect to DataHub with {repr(self.emitter)}"
@@ -175,7 +173,6 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             client_certificate_path=config.client_certificate_path,
             disable_ssl_verification=config.disable_ssl_verification,
             openapi_ingestion=config.endpoint == RestSinkEndpoint.OPENAPI,
-            default_trace_mode=config.default_trace_mode == RestTraceMode.ENABLED,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
         )
@@ -252,9 +249,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             MetadataChangeProposal,
             MetadataChangeProposalWrapper,
         ],
+        emit_mode: EmitMode,
     ) -> None:
         # TODO: Add timing metrics
-        self.emitter.emit(record)
+        self.emitter.emit(record, emit_mode=emit_mode)
 
     def _emit_batch_wrapper(
         self,
@@ -269,8 +267,10 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         ],
     ) -> None:
         events: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]] = []
+
         for record in records:
             event = record[0]
+
             if isinstance(event, MetadataChangeEvent):
                 # Unpack MCEs into MCPs.
                 mcps = mcps_from_mce(event)
@@ -278,7 +278,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 events.append(event)
 
-        chunks = self.emitter.emit_mcps(events)
+        chunks = self.emitter.emit_mcps(events, emit_mode=EmitMode.ASYNC)
         self.report.async_batches_prepared += 1
         if chunks > 1:
             self.report.async_batches_split += chunks
@@ -309,6 +309,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                     partition_key,
                     self._emit_wrapper,
                     record,
+                    EmitMode.ASYNC,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
                     ),
@@ -320,6 +321,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 self.executor.submit(
                     partition_key,
                     record,
+                    EmitMode.ASYNC,
                     done_callback=functools.partial(
                         self._write_done_callback, record_envelope, write_callback
                     ),
@@ -328,7 +330,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
             else:
                 # execute synchronously
                 try:
-                    self._emit_wrapper(record)
+                    self._emit_wrapper(record, emit_mode=EmitMode.SYNC_PRIMARY)
                     write_callback.on_success(record_envelope, success_metadata={})
                 except Exception as e:
                     write_callback.on_failure(record_envelope, e, failure_metadata={})
@@ -340,8 +342,7 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         ],
     ) -> None:
         return self.write_record_async(
-            RecordEnvelope(item, metadata={}),
-            NoopWriteCallback(),
+            RecordEnvelope(item, metadata={}), NoopWriteCallback()
         )
 
     def close(self):

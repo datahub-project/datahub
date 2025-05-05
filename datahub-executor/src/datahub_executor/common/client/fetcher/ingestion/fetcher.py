@@ -58,7 +58,7 @@ class IngestionFetcher(Fetcher):
 
         # We don't have any fallbacks here - if we can't figure out the version to run with,
         # we should fail loudly.
-        return server_config.config["managedIngestion"]["defaultCliVersion"]
+        return server_config["managedIngestion"]["defaultCliVersion"]
 
     def fetch_execution_requests(self) -> List[ExecutionRequestSchedule]:
         raw = self._fetch_ingestion_sources()

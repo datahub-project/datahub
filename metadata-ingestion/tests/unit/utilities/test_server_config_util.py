@@ -2,9 +2,7 @@ from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
 import pytest
-import requests
 
-from datahub.configuration.common import ConfigurationError
 from datahub.utilities.server_config_util import (
     _REQUIRED_VERSION_OPENAPI_TRACING,
     RestServiceConfig,
@@ -35,104 +33,11 @@ def sample_config() -> Dict[str, Any]:
     }
 
 
-@pytest.fixture
-def mock_session():
-    session = MagicMock(spec=requests.Session)
-    return session
-
-
-@pytest.fixture
-def mock_response(sample_config):
-    response = MagicMock()
-    response.status_code = 200
-    response.json.return_value = sample_config
-    response.text = str(sample_config)
-    return response
-
-
 def test_init_with_config(sample_config):
     """Test initialization with a config dictionary."""
     config = RestServiceConfig(raw_config=sample_config)
-    assert config.config == sample_config
-    assert config.session is None
-    assert config.url is None
+    assert config.raw_config == sample_config
     assert config._version_cache is None
-
-
-def test_init_with_session_and_url(mock_session):
-    """Test initialization with session and URL."""
-    url = "http://localhost:8080/config"
-    config = RestServiceConfig(session=mock_session, url=url)
-    assert not config.raw_config  # Should be empty
-    assert config.session == mock_session
-    assert config.url == url
-    assert config._version_cache is None
-
-
-def test_load_config_success(mock_session, mock_response, sample_config):
-    """Test successful config loading from server."""
-    url = "http://localhost:8080/config"
-    mock_session.get.return_value = mock_response
-
-    config = RestServiceConfig(session=mock_session, url=url)
-    loaded_config = config.fetch_config()
-
-    mock_session.get.assert_called_once_with(url)
-    assert loaded_config == sample_config
-
-
-def test_load_config_failure_no_session_url():
-    """Test failure when trying to load config without session and URL."""
-    config = RestServiceConfig()
-    with pytest.raises(ConfigurationError) as exc_info:
-        config.fetch_config()
-    assert "Session and URL are required" in str(exc_info.value)
-
-
-def test_load_config_failure_wrong_service(mock_session, mock_response):
-    """Test failure when connecting to wrong service."""
-    url = "http://localhost:8080/config"
-
-    # Modify the response to indicate wrong service
-    mock_response.json.return_value = {"noCode": "false"}
-    mock_session.get.return_value = mock_response
-
-    config = RestServiceConfig(session=mock_session, url=url)
-    with pytest.raises(ConfigurationError) as exc_info:
-        config.fetch_config()
-    assert "frontend service" in str(exc_info.value)
-
-
-def test_load_config_failure_http_error(mock_session):
-    """Test failure due to HTTP error."""
-    url = "http://localhost:8080/config"
-
-    # Create error response
-    error_response = MagicMock()
-    error_response.status_code = 404
-    error_response.text = "Not Found"
-    mock_session.get.return_value = error_response
-
-    config = RestServiceConfig(session=mock_session, url=url)
-    with pytest.raises(ConfigurationError) as exc_info:
-        config.fetch_config()
-    assert "status_code: 404" in str(exc_info.value)
-
-
-def test_load_config_failure_auth_error(mock_session):
-    """Test failure due to authentication error."""
-    url = "http://localhost:8080/config"
-
-    # Create auth error response
-    error_response = MagicMock()
-    error_response.status_code = 401
-    error_response.text = "Unauthorized"
-    mock_session.get.return_value = error_response
-
-    config = RestServiceConfig(session=mock_session, url=url)
-    with pytest.raises(ConfigurationError) as exc_info:
-        config.fetch_config()
-    assert "authentication error" in str(exc_info.value)
 
 
 def test_service_version(sample_config):
@@ -198,7 +103,7 @@ def test_parsed_version_caching(sample_config):
     assert result1 == (1, 0, 0, 0)
 
     # Change the version in the config
-    config.config["versions"]["acryldata/datahub"]["version"] = "v2.0.0"
+    config.raw_config["versions"]["acryldata/datahub"]["version"] = "v2.0.0"
 
     # Second call should return cached result
     result2 = config.parsed_version
@@ -439,37 +344,29 @@ def test_feature_enum():
 
 def test_is_datahub_cloud_property():
     """Test the is_datahub_cloud property with different server environments."""
-    # We need to patch the fetch_config method to avoid the need for session and URL
-    with patch.object(RestServiceConfig, "fetch_config") as mock_fetch_config:
-        # Test with no serverEnv
-        config = RestServiceConfig(raw_config={"datahub": {}})
-        mock_fetch_config.return_value = {"datahub": {}}
-        assert config.is_datahub_cloud is False
+    # Test with no serverEnv
+    config = RestServiceConfig(raw_config={"datahub": {}})
+    assert config.is_datahub_cloud is False
 
-        # Test with empty serverEnv
-        config = RestServiceConfig(raw_config={"datahub": {"serverEnv": ""}})
-        mock_fetch_config.return_value = {"datahub": {"serverEnv": ""}}
-        assert config.is_datahub_cloud is False
+    # Test with empty serverEnv
+    config = RestServiceConfig(raw_config={"datahub": {"serverEnv": ""}})
+    assert config.is_datahub_cloud is False
 
-        # Test with "core" serverEnv
-        config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "core"}})
-        mock_fetch_config.return_value = {"datahub": {"serverEnv": "core"}}
-        assert config.is_datahub_cloud is False
+    # Test with "core" serverEnv
+    config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "core"}})
+    assert config.is_datahub_cloud is False
 
-        # Test with "cloud" serverEnv
-        config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "cloud"}})
-        mock_fetch_config.return_value = {"datahub": {"serverEnv": "cloud"}}
-        assert config.is_datahub_cloud is True
+    # Test with "cloud" serverEnv
+    config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "cloud"}})
+    assert config.is_datahub_cloud is True
 
-        # Test with other serverEnv values
-        config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "prod"}})
-        mock_fetch_config.return_value = {"datahub": {"serverEnv": "prod"}}
-        assert config.is_datahub_cloud is True
+    # Test with other serverEnv values
+    config = RestServiceConfig(raw_config={"datahub": {"serverEnv": "prod"}})
+    assert config.is_datahub_cloud is True
 
-        # Test with no datahub entry
-        config = RestServiceConfig(raw_config={})
-        mock_fetch_config.return_value = {}
-        assert config.is_datahub_cloud is False
+    # Test with no datahub entry
+    config = RestServiceConfig(raw_config={})
+    assert config.is_datahub_cloud is False
 
 
 def test_feature_requirements_dictionary():
@@ -602,9 +499,5 @@ def test_requirements_not_defined():
     mock_feature = MagicMock()
     mock_feature.value = "test_feature"
 
-    # Patch fetch_config to avoid the need for session and URL
-    with patch.object(RestServiceConfig, "fetch_config") as mock_fetch_config:
-        mock_fetch_config.return_value = {}
-
-        # Should return False as no requirements defined
-        assert not config.supports_feature(mock_feature)
+    # Should return False as no requirements defined
+    assert not config.supports_feature(mock_feature)
