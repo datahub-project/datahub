@@ -41,7 +41,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
   private IndicesClient _indexClient;
   private static final String TEST_INDEX_NAME = "esindex_builder_test";
-  private ESIndexBuilder testDefaultBuilder;
+  protected ESIndexBuilder testDefaultBuilder;
 
   @BeforeClass
   public void setup() {
