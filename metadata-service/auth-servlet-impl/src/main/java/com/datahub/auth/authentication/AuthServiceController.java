@@ -443,9 +443,11 @@ public class AuthServiceController {
       log.error("Failed to parse json while attempting to track analytics event", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
-    if (bodyJson == null) {
+    if (bodyJson == null || !bodyJson.has("type")) {
+      log.warn("Invalid tracking request: missing `type` field");
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
+
     return CompletableFuture.supplyAsync(
         () -> {
           try {
