@@ -1,8 +1,9 @@
+import '@app/entity/ermodelrelationships/preview/ERModelRelationshipAction.less';
+
 import { DatabaseFilled, DatabaseOutlined } from '@ant-design/icons';
 import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
-import '@app/entity/ermodelrelationships/preview/ERModelRelationshipAction.less';
 import { ERModelRelationshipPreviewCard } from '@app/entity/ermodelrelationships/preview/ERModelRelationshipPreviewCard';
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';

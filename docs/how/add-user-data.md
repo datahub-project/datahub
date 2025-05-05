@@ -50,17 +50,17 @@ Define a JSON File containing your user
 ]
 ```
 
-Define an [ingestion recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes)
+Define an [ingestion recipe](https://docs.datahub.com/docs/metadata-ingestion/#recipes)
 
 ```
 ---
-# see https://datahubproject.io/docs/generated/ingestion/sources/file for complete documentation
+# see https://docs.datahub.com/docs/generated/ingestion/sources/file for complete documentation
 source:
   type: "file"
   config:
     path: "./my-user.json"
 
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   ...
 

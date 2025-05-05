@@ -26,7 +26,7 @@ base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
     # We require Airflow 2.3.x at minimum, since we need the new DAG listener API.
     # We pin to 2.5.x, since we also need typing-extensions>=4.5 in acryl-datahub.
-    "apache-airflow>=2.5.0",
+    "apache-airflow>=2.5.0,<3",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -73,7 +73,8 @@ dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "ruff==0.11.4",
+    "ruff==0.11.7",
+    # Updating mypy was causing a conflict with pydantic so cannot upgrade
     "mypy==1.10.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
@@ -128,9 +129,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },

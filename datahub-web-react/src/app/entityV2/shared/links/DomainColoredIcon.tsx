@@ -2,9 +2,8 @@ import * as Muicon from '@mui/icons-material';
 import React from 'react';
 import styled from 'styled-components';
 
-import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { hexToRgba } from '@app/sharedV2/colors/colorUtils';
+import { hexToRgba, useGenerateDomainColorFromPalette } from '@app/sharedV2/colors/colorUtils';
 
 import { Domain } from '@types';
 
@@ -12,7 +11,7 @@ const DomainIconContainer = styled.div<{ color: string; size: number }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 8px;
+    border-radius: ${(props) => props.size / 4}px;
     height: ${(props) => props.size}px;
     width: ${(props) => props.size}px;
     min-width: ${(props) => props.size}px;
@@ -48,8 +47,9 @@ export const DomainColoredIcon = ({ iconColor, domain, size = 40, fontSize = 20,
     const iconName = domain?.displayProperties?.icon?.name || '';
     const MaterialIcon = getIcon(iconName);
 
-    const domainColor = domain?.displayProperties?.colorHex || generateColor.hex(domain?.urn || '');
-    const domainBackgroundColor = hexToRgba(iconColor || domainColor, 0.75);
+    const generateColor = useGenerateDomainColorFromPalette();
+    const domainColor = domain?.displayProperties?.colorHex || generateColor(domain?.urn || '');
+    const domainBackgroundColor = hexToRgba(iconColor || domainColor, 1.0);
 
     return (
         <DomainIconContainer color={domainBackgroundColor} size={size} onClick={onClick}>

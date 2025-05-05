@@ -1,15 +1,11 @@
 /*
 	Theme Utils that can be used anywhere in the app
 */
-import {
-    ColorOptions,
-    DEFAULT_VALUE,
-    FontSizeOptions,
-    MiscColorOptions,
-    RotationOptions,
-} from '@components/theme/config';
-import { foundations } from '@components/theme/foundations';
-import { semanticTokens } from '@components/theme/semantic-tokens';
+import { Theme } from '@conf/theme/types';
+
+import { ColorOptions, DEFAULT_VALUE, FontSizeOptions, MiscColorOptions, RotationOptions } from './config';
+import { foundations } from './foundations';
+import { semanticTokens } from './semantic-tokens';
 
 const { colors, typography, transform } = foundations;
 /*
@@ -17,14 +13,23 @@ const { colors, typography, transform } = foundations;
 	Falls back to `color.black` if the color is not found
 	@param color - the color to get the value for
 */
-export const getColor = (color?: MiscColorOptions | ColorOptions, value: number | string = DEFAULT_VALUE) => {
-    if (!color) return colors.black;
-    if (color === 'inherit' || color === 'transparent' || color === 'current') return colors;
-    if (color === 'white') return colors.white;
-    if (color === 'black') return colors.black;
-    const colorValue = colors[color];
-    if (!colorValue) return colors.black;
-    return colors[color][value];
+export const getColor = (
+    color?: MiscColorOptions | ColorOptions,
+    value: number | string = DEFAULT_VALUE,
+    theme?: Theme,
+) => {
+    let finalColors = colors;
+    if (theme?.colors) {
+        finalColors = { ...colors, ...theme.colors };
+    }
+
+    if (!color) return finalColors.black;
+    if (color === 'inherit' || color === 'transparent' || color === 'current') return finalColors;
+    if (color === 'white') return finalColors.white;
+    if (color === 'black') return finalColors.black;
+    const colorValue = finalColors[color];
+    if (!colorValue) return finalColors.black;
+    return finalColors[color][value];
 };
 
 /*

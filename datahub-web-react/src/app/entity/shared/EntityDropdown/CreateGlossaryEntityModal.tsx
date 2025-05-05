@@ -8,9 +8,9 @@ import styled from 'styled-components/macro';
 import analytics, { EventType } from '@app/analytics';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
 import DescriptionModal from '@app/entity/shared/components/legacy/DescriptionModal';
 import { getEntityPath } from '@app/entity/shared/containers/profile/utils';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { validateCustomUrnId } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -40,7 +40,7 @@ interface Props {
 function CreateGlossaryEntityModal(props: Props) {
     const { entityType, onClose, refetchData } = props;
     const entityData = useEntityData();
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToNewEntity } = useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
@@ -102,6 +102,22 @@ function CreateGlossaryEntityModal(props: Props) {
                         // either refresh this current glossary node or the root nodes or root terms
                         const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
+                        if (selectedParentUrn) {
+                            const dataKey =
+                                entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
+                            const newEntityUrn = res.data[dataKey];
+                            setNodeToNewEntity((currData) => ({
+                                ...currData,
+                                [selectedParentUrn]: {
+                                    urn: newEntityUrn,
+                                    type: entityType,
+                                    properties: {
+                                        name: stagedName,
+                                        description: sanitizedDescription || null,
+                                    },
+                                },
+                            }));
+                        }
                     }
                     if (refetchData) {
                         refetchData();
