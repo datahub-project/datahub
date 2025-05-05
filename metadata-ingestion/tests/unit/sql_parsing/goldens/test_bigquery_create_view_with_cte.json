@@ -108,7 +108,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)"
             ],
-            "on_clause": "`table3`.`col5` = `table1`.`col2` AND `table1`.`col1` = 'value1'",
+            "on_clause": "`table3`.`col5` = `cte1`.`col2`",
             "columns_involved": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)",
@@ -117,27 +117,19 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
                     "column": "col5"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)",
-                    "column": "col1"
                 }
             ]
         },
         {
             "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)"
             ],
-            "on_clause": "`table3`.`join_key` = `table2`.`col4` AND `table2`.`col3` = 'value2'",
+            "on_clause": "`table3`.`join_key` = `cte2`.`join_key`",
             "columns_involved": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)",
                     "column": "col4"
-                },
-                {
-                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)",
-                    "column": "col3"
                 },
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",

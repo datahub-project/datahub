@@ -54,6 +54,7 @@ from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
     cooperative_timeout,
 )
+from datahub.utilities.dedup_list import deduplicate_list
 
 assert SQLGLOT_PATCHED
 
@@ -769,22 +770,26 @@ def _get_raw_col_upstreams_for_expression(
     dialect: sqlglot.Dialect,
     scope: sqlglot.optimizer.Scope,
 ) -> Set[_ColumnRef]:
-    node = sqlglot.lineage.Node(
-        name="JOIN",
-        source=scope.expression,
-        expression=select,
-        source_name="",
-        reference_node_name="",
-    )
-    sqlglot.lineage._expression_into_node(
-        select,
-        node=node,
-        scope=scope,
-        dialect=dialect,
-        trim_selects=False,
-    )
+    if not isinstance(scope.expression, sqlglot.exp.Query):
+        # Note that Select, Subquery, SetOperation, etc. are all subclasses of Query.
+        # So this line should basically never happen.
+        return set()
 
-    return _get_direct_raw_col_upstreams(node)
+    original_expression = scope.expression
+    updated_expression = scope.expression.select(select, append=False, copy=True)
+
+    try:
+        scope.expression = updated_expression
+        node = sqlglot.lineage.to_node(
+            column=0,
+            scope=scope,
+            dialect=dialect,
+            trim_selects=False,
+        )
+
+        return _get_direct_raw_col_upstreams(node)
+    finally:
+        scope.expression = original_expression
 
 
 def _list_joins(
@@ -805,11 +810,13 @@ def _list_joins(
                 )
                 continue
 
-            joined_columns = _get_raw_col_upstreams_for_expression(
-                select=on_clause, dialect=dialect, scope=scope
+            joined_columns = sorted(
+                _get_raw_col_upstreams_for_expression(
+                    select=on_clause, dialect=dialect, scope=scope
+                )
             )
 
-            unique_tables = {col.table for col in joined_columns}
+            unique_tables = deduplicate_list(col.table for col in joined_columns)
             if len(unique_tables) > 2:
                 logger.debug(
                     "Skipping complex join with more than 2 tables involved: %s",
