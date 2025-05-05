@@ -1,5 +1,4 @@
-import { Tooltip, colors } from '@components';
-import { List, Rows } from '@phosphor-icons/react';
+import { Icon, Tooltip, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -178,20 +177,12 @@ export default function SearchFilters({
                     <CustomSwitch>
                         <IconContainer isActive={isFullViewCard} onClick={() => setIsFullViewCard(true)}>
                             <Tooltip showArrow={false} title="Full Card View">
-                                <Rows
-                                    style={{
-                                        fontSize: '16px',
-                                    }}
-                                />
+                                <Icon icon="Rows" source="phosphor" size="md" />
                             </Tooltip>
                         </IconContainer>
                         <IconContainer isActive={!isFullViewCard} onClick={() => setIsFullViewCard(false)}>
                             <Tooltip showArrow={false} title="Compact Card View">
-                                <List
-                                    style={{
-                                        fontSize: '16px',
-                                    }}
-                                />
+                                <Icon icon="List" source="phosphor" size="md" />
                             </Tooltip>
                         </IconContainer>
                     </CustomSwitch>
