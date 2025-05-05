@@ -59,6 +59,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
+    combine_identifier_parts,
     split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
@@ -606,13 +607,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         try:
             views: List[SnowflakeView] = []
             for view in self.get_views_for_schema(schema_name, db_name):
-                view_name = self.identifiers.get_dataset_identifier(
-                    view.name, schema_name, db_name
+                view_name = combine_identifier_parts(
+                    table_name=view.name, schema_name=schema_name, db_name=db_name
                 )
 
                 self.report.report_entity_scanned(view_name, "view")
 
-                if not self.filters.filter_config.view_pattern.allowed(view_name):
+                if not self.filters.is_dataset_pattern_allowed(
+                    dataset_name=view_name, dataset_type=SnowflakeObjectDomain.VIEW
+                ):
                     self.report.report_dropped(view_name)
                 else:
                     views.append(view)
