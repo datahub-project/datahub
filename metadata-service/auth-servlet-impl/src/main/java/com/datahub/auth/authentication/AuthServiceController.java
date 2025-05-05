@@ -39,7 +39,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -446,8 +445,8 @@ public class AuthServiceController {
       log.error("Failed to parse json while attempting to track analytics event", e);
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
-    if (bodyJson == null || (!bodyJson.has("event") && !bodyJson.has("type"))) {
-      log.warn("Invalid tracking request: missing event or type field");
+    if (bodyJson == null || !bodyJson.has("type")) {
+      log.warn("Invalid tracking request: missing `type` field");
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
     }
 
@@ -459,7 +458,7 @@ public class AuthServiceController {
             // behavior to re-route traffic via backend.
             int numDestinations =
                 _trackingService.track(
-                    extractEventName(bodyJson),
+                    bodyJson.get("type").asText(),
                     systemOperationContext,
                     null,
                     null,
@@ -607,15 +606,5 @@ public class AuthServiceController {
     if (oidcSettings.hasPreferredJwsAlgorithm2()) {
       json.put(PREFERRED_JWS_ALGORITHM, oidcSettings.getPreferredJwsAlgorithm2());
     }
-  }
-
-  private static String extractEventName(@Nonnull JsonNode bodyJson) {
-    final String eventName;
-    if (bodyJson.has("event")) {
-      eventName = bodyJson.get("event").asText();
-    } else {
-      eventName = bodyJson.get("type").asText();
-    }
-    return eventName;
   }
 }
