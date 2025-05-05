@@ -541,6 +541,7 @@ def test_col_col_propagation_large_fanout(
     default_max_fanout = (
         action_env_vars.DATAHUB_ACTIONS_DOC_PROPAGATION_MAX_PROPAGATION_FANOUT
     )
+
     with large_fanout_graph_function(test_id, default_max_fanout) as (
         dataset_1,
         all_urns,

@@ -226,14 +226,15 @@ The following shows a few examples of requests/response pairs.
 
 Known Limitations:
 
-- Patches are not yet supported. The following doesn't work when patches are generated.
+- Only OpenAPI is supported
+- ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
 
-Ingestion can be used with tracing enabled however it does require using an `ASYNC` mode as well as the `OPENAPI`. This
+Ingestion can be used with tracing enabled however it does require using a `ASYNC_WAIT` emit mode as well as the `OPENAPI`. This
 can be enabled by setting a couple environment variables shown below.
 
 ```shell
   DATAHUB_REST_SINK_DEFAULT_ENDPOINT=OPENAPI \
-  DATAHUB_REST_TRACE_MODE=ENABLED \
+  DATAHUB_EMIT_MODE=ASYNC_WAIT \
   datahub ingest ...
 ```
 
