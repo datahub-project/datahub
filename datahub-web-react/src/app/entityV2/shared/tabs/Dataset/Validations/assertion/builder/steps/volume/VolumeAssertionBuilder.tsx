@@ -7,7 +7,10 @@ import {
     AI_INFERRED_ASSERTION_DEFAULT_SCHEDULE_TIMEZONE,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/constants';
 import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
-import { VolumeInferenceAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/VolumeInferenceAdjuster';
+import {
+    VolumeInferenceAdjuster,
+    VolumeInferenceAdjusterHandle,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/VolumeInferenceAdjuster';
 import { VolumeFilterBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeFilterBuilder';
 import { VolumeParametersBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeParametersBuilder';
 import { VolumeSourceTypeBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeSourceTypeBuilder';
@@ -32,9 +35,18 @@ type Props = {
     updateState: (newState: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
     isEditMode?: boolean;
+    onSave?: () => void;
+    inferenceAdjusterRef?: React.Ref<VolumeInferenceAdjusterHandle>;
 };
 
-export const VolumeAssertionBuilder = ({ state, updateState, disabled, isEditMode }: Props) => {
+export const VolumeAssertionBuilder = ({
+    state,
+    updateState,
+    disabled,
+    isEditMode,
+    onSave,
+    inferenceAdjusterRef,
+}: Props) => {
     const assertion = state?.assertion;
     const schedule: CronSchedule | undefined | null = state?.schedule;
     const volumeAssertion = assertion?.volumeAssertion;
@@ -174,7 +186,13 @@ export const VolumeAssertionBuilder = ({ state, updateState, disabled, isEditMod
                 </Collapse>
             </Section>
             {isAiInferenceSelected ? (
-                <VolumeInferenceAdjuster state={state} updateState={updateState} disabled={disabled} />
+                <VolumeInferenceAdjuster
+                    ref={inferenceAdjusterRef}
+                    state={state}
+                    updateState={updateState}
+                    disabled={disabled}
+                    onSave={onSave}
+                />
             ) : (
                 <EvaluationScheduleBuilder
                     value={schedule}

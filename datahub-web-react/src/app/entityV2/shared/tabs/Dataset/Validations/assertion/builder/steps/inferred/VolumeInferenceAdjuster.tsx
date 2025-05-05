@@ -1,9 +1,10 @@
 import { Typography } from 'antd';
-import React from 'react';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
 import styled from 'styled-components';
 
 import { EvaluationScheduleBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/common/EvaluationScheduleBuilder';
 import { ExclusionWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/ExclusionWindowAdjuster';
+import { FuturePredictionsList } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/FuturePredictionsList';
 import { InferenceSensitivityAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/InferenceSensitivityAdjuster';
 import { LookBackWindowAdjuster } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/LookBackWindowAdjuster';
 import {
@@ -30,21 +31,42 @@ type Props = {
     state: AssertionMonitorBuilderState;
     updateState: (state: AssertionMonitorBuilderState) => void;
     disabled?: boolean;
+    onSave?: () => void;
 };
 
-export const VolumeInferenceAdjuster = (props: Props) => {
+export interface VolumeInferenceAdjusterHandle {
+    triggerRegeneration: () => void;
+}
+
+export const VolumeInferenceAdjuster = forwardRef<VolumeInferenceAdjusterHandle, Props>((props, ref) => {
     const { state, updateState, disabled } = props;
+    const futurePredictionsRef = useRef<VolumeInferenceAdjusterHandle>(null);
 
     const { inferenceSettings, schedule } = state;
     const { sensitivity, trainingDataLookbackWindowDays, exclusionWindows } = inferenceSettings || {};
 
     const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
+
+    // Forward the ref to the FuturePredictionsList
+    useImperativeHandle(ref, () => ({
+        triggerRegeneration: () => {
+            if (futurePredictionsRef.current) {
+                futurePredictionsRef.current.triggerRegeneration();
+            }
+        },
+    }));
+
     if (!onlineSmartAssertionsEnabled) return null;
 
     return (
         <Row>
             {/* Title */}
             <Typography.Title level={5}>Inference Settings</Typography.Title>
+
+            {/* Future Predictions - Only show in edit mode */}
+            {state.assertion?.urn && (
+                <FuturePredictionsList state={state} ref={futurePredictionsRef} onSave={props.onSave} />
+            )}
 
             {/* Sensitivity */}
             <InferenceSensitivityAdjuster
@@ -93,4 +115,4 @@ export const VolumeInferenceAdjuster = (props: Props) => {
             />
         </Row>
     );
-};
+});

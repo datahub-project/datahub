@@ -1,6 +1,6 @@
 import { Button, Tooltip } from '@components';
 import { Form } from 'antd';
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
@@ -10,6 +10,7 @@ import { SaveButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assert
 import { AssertionActionsSection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/actions/AssertionActionsSection';
 import { FieldAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/FieldAssertionBuilder';
 import { DatasetFreshnessAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/freshness/DatasetFreshnessAssertionBuilder';
+import { VolumeInferenceAdjusterHandle } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/VolumeInferenceAdjuster';
 import { TestAssertionModal } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/preview/TestAssertionModal';
 import { SchemaAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/schema/SchemaAssertionBuilder';
 import { SqlAssertionBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/sql/SqlAssertionBuilder';
@@ -52,6 +53,7 @@ export const AssertionSettings = (props: Props) => {
     const [builderState, setBuilderState] = useState<AssertionMonitorBuilderState>(initialState);
     const [editing, setEditing] = useState<boolean>(false);
     const [form] = Form.useForm();
+    const inferenceAdjusterRef = useRef<VolumeInferenceAdjusterHandle>(null);
 
     const isAiInferred = props.assertion.info?.source?.type === AssertionSourceType.Inferred;
 
@@ -106,6 +108,9 @@ export const AssertionSettings = (props: Props) => {
         if (!isValid) return;
         if (editabilityType === AssertionEditabilityScopeType.NONE) return;
         setEditing(false);
+        if (isAiInferred && inferenceAdjusterRef.current) {
+            inferenceAdjusterRef.current.triggerRegeneration();
+        }
         if (editabilityType === AssertionEditabilityScopeType.FULL) {
             await updateAssertionMonitor();
         } else {
@@ -200,6 +205,8 @@ export const AssertionSettings = (props: Props) => {
                         updateState={setBuilderState}
                         disabled={isFullEditingDisabled}
                         isEditMode
+                        onSave={save}
+                        inferenceAdjusterRef={inferenceAdjusterRef}
                     />
                 ) : null}
                 {props.assertion.info?.type === AssertionType.Field ? (
