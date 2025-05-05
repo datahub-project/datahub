@@ -9,6 +9,7 @@ import CreatedByView from '@app/actionrequestV2/item/CreatedByView';
 import RequestTargetEntityView from '@app/actionrequestV2/item/RequestTargetEntityView';
 import { ContentWrapper } from '@app/actionrequestV2/item/styledComponents';
 import DescriptionDifferenceModal from '@app/actionrequestV2/item/updateDescription/DescriptionDifferenceModal';
+import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ActionRequest, ActionRequestStatus } from '@types';
@@ -64,16 +65,7 @@ function UpdateDescriptionRequestItem({ actionRequest }: Props) {
                 <GitDiff size={16} color={colors.gray[500]} />
                 <Text color="gray">{isRequestPending ? 'View difference' : 'View description'}</Text>
             </ViewDocumentationButton>
-            <div
-                onClick={(e) => e.stopPropagation()}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                        e.stopPropagation();
-                    }
-                }}
-            >
+            <StopPropagationWrapper>
                 {isDiffModalVisible && (
                     <DescriptionDifferenceModal
                         oldDescription={oldDescription}
@@ -96,7 +88,7 @@ function UpdateDescriptionRequestItem({ actionRequest }: Props) {
                         />
                     </Modal>
                 )}
-            </div>
+            </StopPropagationWrapper>
         </ContentWrapper>
     );
 }

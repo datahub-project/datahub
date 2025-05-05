@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
 import ResultNote from '@app/taskCenterV2/proposalsV2/proposalsTable/ResultNote';
 import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
 import { Icon, Modal, Pill, colors } from '@src/alchemy-components';
@@ -178,16 +179,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
         <>
             {actionResultView}
             {!!modalType && (
-                <div
-                    onClick={(e) => e.stopPropagation()}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                            e.stopPropagation();
-                        }
-                    }}
-                >
+                <StopPropagationWrapper>
                     <Modal
                         buttons={[
                             {
@@ -214,7 +206,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                             </div>
                         </Form>
                     </Modal>
-                </div>
+                </StopPropagationWrapper>
             )}
         </>
     );

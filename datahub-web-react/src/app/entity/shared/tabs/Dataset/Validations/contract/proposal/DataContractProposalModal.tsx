@@ -6,6 +6,7 @@ import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DataQualityContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/DataQualityContractSummary';
 import { FreshnessContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/FreshnessContractSummary';
 import { SchemaContractSummary } from '@app/entity/shared/tabs/Dataset/Validations/contract/SchemaContractSummary';
+import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
 
 import { DataContractProposalParams } from '@types';
 
@@ -32,16 +33,7 @@ export const DataContractProposalModal = ({ proposal, showActions = true, onClos
     const hasAssertions = proposal.freshness?.length || proposal.schema?.length || proposal.dataQuality?.length;
 
     return (
-        <div
-            onClick={(e) => e.stopPropagation()}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.stopPropagation();
-                }
-            }}
-        >
+        <StopPropagationWrapper>
             <Modal
                 visible
                 footer={null}
@@ -63,6 +55,6 @@ export const DataContractProposalModal = ({ proposal, showActions = true, onClos
                     </>
                 )}
             </Modal>
-        </div>
+        </StopPropagationWrapper>
     );
 };

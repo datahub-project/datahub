@@ -13,6 +13,7 @@ export const ContentWrapper = styled.div`
 
 export const StyledLink = styled(Link)`
     color: ${colors.violet[500]};
+    font-weight: 500;
 
     :hover {
         color: ${colors.violet[500]};

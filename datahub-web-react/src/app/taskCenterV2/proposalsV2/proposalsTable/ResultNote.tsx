@@ -2,6 +2,7 @@ import { FileText } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
+import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
 import { Avatar, Popover, Text, colors } from '@src/alchemy-components';
 
 const PopoverContainer = styled.div`
@@ -28,16 +29,7 @@ interface Props {
 
 const ResultNote = ({ resultNote, authorDisplayName }: Props) => {
     return (
-        <span
-            onClick={(e) => e.stopPropagation()}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.stopPropagation();
-                }
-            }}
-        >
+        <StopPropagationWrapper>
             {resultNote && (
                 <Popover
                     content={
@@ -56,7 +48,7 @@ const ResultNote = ({ resultNote, authorDisplayName }: Props) => {
                     </IconContainer>
                 </Popover>
             )}
-        </span>
+        </StopPropagationWrapper>
     );
 };
 
