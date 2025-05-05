@@ -12,6 +12,7 @@ from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfi
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.emitter.mcp import _make_generic_aspect, _try_from_generic_aspect
 from datahub.metadata.schema_classes import (
+    ChangeTypeClass,
     EditableSchemaMetadataClass,
     GenericAspectClass,
     FormPromptTypeClass,
@@ -363,6 +364,14 @@ class ForwardingAction(Action):
                     "testInfo", orig_event.aspect
                 )[1]
                 test_info._inner_dict.pop("lastUpdatedTimestamp", None)
+                test_info._inner_dict.pop("lastUpdated", None)
+                test_info._inner_dict.pop("md5", None)
+                test_info._inner_dict.pop("schedule", None)
+                test_info._inner_dict.pop("status", None)
+                test_info._inner_dict.pop("source", None)
+                test_info._inner_dict.pop("created", None)
+                test_info.definition._inner_dict.pop("md5", None)
+                test_info.definition._inner_dict.pop("onQuery", None)
                 orig_event.aspect = _make_generic_aspect(test_info)
 
             if orig_event.aspectName == "dynamicFormAssignment":
@@ -399,10 +408,13 @@ class ForwardingAction(Action):
                 elif orig_event.get("aspectName") == "glossaryTerms":
                     mcp = create_terms_mcp(old_obj, new_obj, orig_event)
             else:
+                changeType = orig_event.changeType
+                if orig_event.changeType == ChangeTypeClass.RESTATE or orig_event.changeType == "RESTATE":
+                    changeType = ChangeTypeClass.UPSERT
                 mcp = [
                     MetadataChangeProposalClass(
                         entityType=orig_event.get("entityType"),
-                        changeType=orig_event.get("changeType"),
+                        changeType=changeType,
                         entityUrn=orig_event.get("entityUrn"),
                         entityKeyAspect=orig_event.get("entityKeyAspect"),
                         aspectName=orig_event.get("aspectName"),

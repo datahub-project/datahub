@@ -24,9 +24,15 @@ from datahub.metadata.schema_classes import (
     TestDefinitionClass,
     TestDefinitionTypeClass,
     TestInfoClass,
+    TestIntervalClass,
+    TestModeClass,
     TestResultClass,
     TestResultsClass,
     TestResultTypeClass,
+    TestScheduleClass,
+    TestSourceClass,
+    TestSourceTypeClass,
+    TestStatusClass,
 )
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -316,8 +322,27 @@ class TestForwardingAction(unittest.TestCase):
                 name="testOldName",
                 category="testOldCategory",
                 lastUpdatedTimestamp=1234,
+                created=AuditStampClass(
+                    actor="urn:li:corpuser:actor",
+                    time=123,
+                ),
+                lastUpdated=AuditStampClass(
+                    actor="urn:li:corpuser:actor",
+                    time=123,
+                ),
                 definition=TestDefinitionClass(
                     type=TestDefinitionTypeClass.JSON,
+                    md5="12345",
+                    onQuery="myQuery",
+                ),
+                status=TestStatusClass(
+                    mode=TestModeClass.ACTIVE,
+                ),
+                source=TestSourceClass(
+                    type=TestSourceTypeClass.FORMS,
+                ),
+                schedule=TestScheduleClass(
+                    interval=TestIntervalClass.DAILY,
                 ),
             )
         )
@@ -327,8 +352,27 @@ class TestForwardingAction(unittest.TestCase):
                 name="testName",
                 category="testCategory",
                 lastUpdatedTimestamp=12345,
+                created=AuditStampClass(
+                    actor="urn:li:corpuser:actor",
+                    time=123,
+                ),
+                lastUpdated=AuditStampClass(
+                    actor="urn:li:corpuser:actor",
+                    time=123,
+                ),
                 definition=TestDefinitionClass(
                     type=TestDefinitionTypeClass.JSON,
+                    md5="12345",
+                    onQuery="myQuery",
+                ),
+                status=TestStatusClass(
+                    mode=TestModeClass.ACTIVE,
+                ),
+                source=TestSourceClass(
+                    type=TestSourceTypeClass.FORMS,
+                ),
+                schedule=TestScheduleClass(
+                    interval=TestIntervalClass.DAILY,
                 ),
             )
         )
@@ -480,7 +524,7 @@ class TestForwardingAction(unittest.TestCase):
             aspectName="testInfo",
             entityUrn="urn:li:test:test123",
             entityType="test",
-            changeType=ChangeTypeClass.UPSERT,
+            changeType=ChangeTypeClass.RESTATE,
         )
 
         mcps = self.action.buildMcp(mock_event)
@@ -488,9 +532,16 @@ class TestForwardingAction(unittest.TestCase):
         self.assertIsNotNone(mcps)
         for mcp in mcps:
             aspect = mcp.aspect
+            changeType = mcp.changeType
+            self.assertEqual(changeType, ChangeTypeClass.UPSERT, changeType)
             serialized = aspect.value.decode() if aspect.value else ""
             aspect_converted = post_json_transform(json.loads(serialized))
             self.assertEqual(aspect_converted.get("lastUpdatedTimestamp"), None, aspect_converted)
+            self.assertEqual(aspect_converted.get("lastUpdated"), None, aspect_converted)
+            self.assertEqual(aspect_converted.get("source"), None, aspect_converted)
+            self.assertEqual(aspect_converted.get("status"), None, aspect_converted)
+            self.assertEqual(aspect_converted.get("definition").get("md5"), None, aspect_converted)
+            self.assertEqual(aspect_converted.get("definition").get("onQuery"), None, aspect_converted)
             self.assertEqual(aspect_converted.get("name"), "testName", aspect_converted)
 
     @patch.object(
