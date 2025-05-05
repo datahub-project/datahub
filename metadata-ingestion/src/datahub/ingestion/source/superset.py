@@ -548,8 +548,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                         if database_name and not self.config.database_pattern.allowed(
                             database_name
                         ):
-                            self.report.report_dropped(
-                                f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by database_pattern because chart {chart_id} uses database '{database_name}'"
+                            self.report.warning(
+                                f"Dashboard '{dashboard_title}' (id: {dashboard_id}) uses dataset filtered by database_pattern with database '{database_name}'"
                             )
                             return
                     else:
@@ -589,8 +589,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                                     self.filtered_dataset_to_database[datasource_id] = (
                                         database_name
                                     )
-                                    self.report.report_dropped(
-                                        f"Dashboard '{dashboard_title}' (id: {dashboard_id}) filtered by database_pattern because chart {chart_id} uses database '{database_name}'"
+                                    self.report.warning(
+                                        f"Dashboard '{dashboard_title}' (id: {dashboard_id}) uses dataset filtered by database_pattern with database '{database_name}'"
                                     )
                                     return
 
@@ -872,8 +872,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                     if datasource_id in self.filtered_dataset_to_database:
                         database_name = self.filtered_dataset_to_database[datasource_id]
                         self.filtered_chart_to_database[chart_id] = database_name
-                        self.report.report_dropped(
-                            f"Chart '{chart_name}' (id: {chart_id}) filtered by database_pattern with database as dataset in filtered database"
+                        self.report.warning(
+                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset filtered by database_pattern with database '{database_name}'"
                         )
                         return
                     else:
@@ -888,8 +888,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                         database_name
                     ):
                         self.filtered_chart_to_database[chart_id] = database_name
-                        self.report.report_dropped(
-                            f"Chart '{chart_name}' (id: {chart_id}) filtered by database_pattern with database '{database_name}'"
+                        self.report.warning(
+                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset filtered by database_pattern with database '{database_name}'"
                         )
                         return
 
