@@ -113,13 +113,42 @@ yarn install && yarn start
 
 The frontend will be available at `http://localhost:3000` and will automatically update as you make changes to the code.
 
-### Refreshing GMS
+### Refreshing components of quickStart
 
-To refresh the GMS (Generalized Metadata Service) with local changes:
+To refresh any of the running system stared by `./gradlew quickStartDebug`, run
 
 ```shell
-./gradlew :metadata-service:war:build -x test --parallel && docker restart datahub-datahub-gms-debug-1
+./gradlew debugReload
 ```
+
+This will build any changed components and restart those containers that had changes.
+There are a few other quickStart\* variants, like quickStartDebugMin, quickStartDebugConsumers
+
+For each of those variants, there is a corresponding reloadTask.
+
+For `./gradlew quickStartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
+For `./gradlew quickStartDebugMin`, the reload command is `./gradlew debugMinReload`
+
+A full restart using `./gradlew quickStartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
+For incremental changes, the `debugReload*` variants can be used.
+
+### Using .env to configure settings of services started by quickstart
+
+To start datahub with a customized set of environment variables, .env files can be created in the docker/profiles folder.
+For example, an env file `my-settings.env` can be created in docker/profiles folder and loaded using
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickStartDebug
+```
+
+To refresh the containers due to code changes, `debugReload` task can be used.
+To change the env and reload containers, use the task `debugReloadEnv`
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-other-settings.env ./gradlew debugReloadEnv
+```
+
+This will build any container artifacts were changed and all reloadable containers are re-created to use the new env settings.
 
 ### Refreshing the CLI
 
@@ -144,14 +173,6 @@ Expected Output:
 
 ```commandline
 acryl-datahub, version unavailable (installed in develop mode)
-```
-
-### Refreshing Other Components
-
-To refresh other components with local changes, just run:
-
-```commandline
-./gradlew quickstartDebug
 ```
 
 ## IDE Support

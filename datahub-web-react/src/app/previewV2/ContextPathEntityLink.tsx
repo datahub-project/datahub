@@ -7,7 +7,6 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
 
 import { Entity } from '@types';
 
@@ -46,10 +45,11 @@ const StyledLink = styled(Link)<{ $disabled?: boolean; $color: string }>`
     }
 
     :hover {
-        color: ${({ $disabled, $color }) => ($disabled ? $color : colors.violet[500])};
+        color: ${({ $disabled, $color, theme }) => ($disabled ? $color : theme.styles['primary-color'])};
         cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
+
         && svg {
-            color: ${({ $disabled, $color }) => ($disabled ? $color : colors.violet[500])};
+            color: ${({ $disabled, $color, theme }) => ($disabled ? $color : theme.styles['primary-color'])};
         }
     }
 `;

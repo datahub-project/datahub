@@ -43,6 +43,10 @@ def _cleanLocalDockerImages(String fullImageTag) {
   }
 }
 
+ext {
+  isDebug = false;  // quickStart configs have an isDebug flag set to indicate debug builds
+}
+
 // Create extension object
 class DockerPluginExtension {
   Project project
@@ -53,6 +57,15 @@ class DockerPluginExtension {
   ListProperty<String> platforms
   ListProperty<Object> dependencies // May contain tasks or task  names
   Property<String> target
+  MapProperty<String, Map<String, String>> variants
+  
+  Property<String> defaultVariant
+  List<String> defaultPlatforms = ["linux/amd64", "linux/arm64/v8"]
+
+  // For quickStart debug builds that use APP_ENV=dev like pattern. Not used in matrix builds.
+  MapProperty<String, String> debugBuildArgs
+
+
 
   DockerPluginExtension(Project project) {
     this.project = project
@@ -63,6 +76,13 @@ class DockerPluginExtension {
     platforms = project.objects.listProperty(String)
     dependencies = project.objects.listProperty(Object)
     target = project.objects.property(String)
+    variants = project.objects.mapProperty(String, Map)
+    // quickstart builds does not require all variants to be built. So, if default variant is specified, and 
+    // projectProperty matrixBuild is not set to true, then only default variant is built to save time. 
+    // The defaultVariant does not use a suffix in the tag.
+    defaultVariant = project.objects.property(String)
+    
+    debugBuildArgs = project.objects.mapProperty(String, String)
   }
 
   def files(Object... files) {
@@ -79,6 +99,10 @@ class DockerPluginExtension {
 
   def buildArgs(Map<String, String> values) {
     buildArgs.putAll(values)
+  }
+
+  def debugBuildArgs(Map<String, String> values) {
+    debugBuildArgs.putAll(values)
   }
 
   def platform(String... platforms) {
@@ -229,21 +253,75 @@ project.afterEvaluate {
     description "Generates bake snippets for the project"
 
     doLast {
+      // if matrixBuild is true, this is to publish images, so all variants must be built.
+      def matrixBuild = project.getProperties().getOrDefault("matrixBuild", false)
+
       def bake_spec_target = [
         context: "${buildContext}",
         dockerfile: "${extension.dockerfile.get().toPath()}",
-        tags: extension.tags.get().values()
       ]
+
+      if (project.hasProperty("tag")) {
+        def dockerTag = project.property("tag")
+        bake_spec_target.tags = extension.tags.get().values().findAll({ tag -> tag.contains(dockerTag) }).toList()
+      } else {
+        bake_spec_target.tags = extension.tags.get().values().findAll({tag ->
+          project.ext.isDebug ||  !tag.contains("debug")  //Add the debug tag only if this is this is a debug build.
+        }).toList()
+      }
       if (extension.buildArgs.get()) {
         bake_spec_target.args = extension.buildArgs.get()
-      }
-      if (extension.platforms.get()) {
-        bake_spec_target.platforms = extension.platforms.get()
+      } else {
+        bake_spec_target.args = [:]
       }
 
+      if (extension.debugBuildArgs.get() && bake_spec_target.tags.findAll { tag -> tag.contains("debug") }.size() > 0) {
+        bake_spec_target.args.putAll(extension.debugBuildArgs.get())
+      }
+
+      if (matrixBuild) {
+        if (extension.platforms.get()) {
+          bake_spec_target.platforms = extension.platforms.get()
+        } else {
+          bake_spec_target.platforms = extension.defaultPlatforms
+        }
+      }
+
+      if (extension.variants.get()) {
+        bake_spec_target.name = "${project.name}-\${variants.tagSuffix}"
+        bake_spec_target.matrix = [variants: []]
+
+        extension.variants.get().each { variant, variantSpec ->
+          if (matrixBuild || variant == extension.defaultVariant.get()) {
+              // Its not easy to merge common buildArgs and variant buildArgs with json format. 
+              // So, we just add common buildArgs to matrix.
+              bake_spec_target.matrix.variants.add([ 'tagSuffix': "${variantSpec.suffix}", 'args': variantSpec.args + bake_spec_target.args])
+            }
+        }
+        // When variants are present, fix up tags to include the variant suffix
+        // A bit of a hack that for quickstart builds, we need a tag named debug that contains the default variant without suffixes
+        bake_spec_target.tags = bake_spec_target.tags.collect(
+            { tag -> tag + (tag.contains("debug") ? "" : "\${variants.tagSuffix}") }
+          ).toList()
+        if (project.hasProperty("shaTag")) {
+          def shaTag = project.property("shaTag")
+          def dockerRepo = extension.tags.get().get("").split(":")[0] //Extract the repo name from the default tag
+          bake_spec_target.tags.add("${dockerRepo}:${shaTag}\${variants.tagSuffix}")
+        }
+
+        bake_spec_target.args = "\${variants.args}"
+
+      } else {
+        if (project.hasProperty("shaTag")) {
+          def shaTag = project.property("shaTag")
+          def dockerRepo = extension.tags.get().get("").split(":")[0]
+          bake_spec_target.tags.add("${dockerRepo}:${shaTag}")
+        }
+      }
       ext.bakeSpec = [
         target: [ "${project.name}": bake_spec_target]
       ]
+
     }
   }
 

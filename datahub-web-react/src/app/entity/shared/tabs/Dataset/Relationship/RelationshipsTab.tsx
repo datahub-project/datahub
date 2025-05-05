@@ -1,3 +1,5 @@
+import '@app/entity/shared/tabs/Dataset/Relationship/RelationshipsTab.less';
+
 import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
 import { Button, Card, Divider, Empty, Input, Modal, Pagination } from 'antd';
@@ -9,7 +11,6 @@ import { CreateERModelRelationModal } from '@app/entity/shared/components/styled
 import { ERModelRelationPreview } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview';
 import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import '@app/entity/shared/tabs/Dataset/Relationship/RelationshipsTab.less';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
 
 import { GetDatasetQuery, useGetDatasetLazyQuery, useGetDatasetSchemaLazyQuery } from '@graphql/dataset.generated';

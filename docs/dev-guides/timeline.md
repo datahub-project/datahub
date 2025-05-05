@@ -205,8 +205,8 @@ http://localhost:8080/openapi/v2/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3A
 2022-02-24 15:45:56 - 0.1.0-computed
 	ADD DOCUMENTATION dataset:hive:testTimelineDataset (https://www.google.com): The institutionalMemory 'https://www.google.com' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 2022-02-24 15:45:56 - 0.2.0-computed
-	ADD DOCUMENTATION dataset:hive:testTimelineDataset (https://datahubproject.io/docs): The institutionalMemory 'https://datahubproject.io/docs' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
-	ADD DOCUMENTATION dataset:hive:testTimelineDataset (https://datahubproject.io/docs): The institutionalMemory 'https://datahubproject.io/docs' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
+	ADD DOCUMENTATION dataset:hive:testTimelineDataset (https://docs.datahub.com/docs): The institutionalMemory 'https://docs.datahub.com/docs' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
+	ADD DOCUMENTATION dataset:hive:testTimelineDataset (https://docs.datahub.com/docs): The institutionalMemory 'https://docs.datahub.com/docs' for the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been added.
 	REMOVE DOCUMENTATION dataset:hive:testTimelineDataset (https://www.linkedin.com): The institutionalMemory 'https://www.linkedin.com' of the dataset 'urn:li:dataset:(urn:li:dataPlatform:hive,testTimelineDataset,PROD)' has been removed.
 ```
 
