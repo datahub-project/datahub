@@ -1,5 +1,6 @@
 import unittest
 from io import BytesIO, TextIOBase
+from typing import Optional
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -78,10 +79,22 @@ class TestExcelFile(unittest.TestCase):
         mock_load_workbook.return_value = self.mock_wb
 
         class MockTextIO(TextIOBase):
-            def read(self):
+            def __init__(self):
+                super().__init__()
+
+            def seekable(self) -> bool:
+                return True
+
+            def seek(self, offset: int, whence: int = 0) -> int:
+                return 0
+
+            def tell(self) -> int:
+                return 0
+
+            def read(self, size: Optional[int] = None) -> str:
                 return "text data"
 
-            def seekable(self):
+            def readable(self) -> bool:
                 return True
 
         mock_file = MockTextIO()
