@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { Tooltip2 } from '@components/components/Tooltip2';
+import { Tooltip } from '@components/components/Tooltip';
 
 const TextWrapper = styled.span`
     display: block;
@@ -26,8 +26,8 @@ export const OverflowText = ({ text }: Props) => {
     }, [text]);
 
     return (
-        <Tooltip2 title={isTruncated ? text : undefined}>
+        <Tooltip title={isTruncated ? text : undefined}>
             <TextWrapper ref={textRef}>{text}</TextWrapper>
-        </Tooltip2>
+        </Tooltip>
     );
 };
