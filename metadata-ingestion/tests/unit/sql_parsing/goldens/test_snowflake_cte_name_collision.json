@@ -25,7 +25,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TABLE2\".\"COL2\" AS \"COL2\""
+            }
         },
         {
             "downstream": {
@@ -43,9 +47,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)",
                     "column": "col1"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"CTE_ALIAS\".\"COL1\" AS \"COL1\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "WITH cte_alias AS (SELECT col1, col2 FROM table1) SELECT table2.col2, cte_alias.col1 FROM table2 JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2"

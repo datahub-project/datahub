@@ -1259,7 +1259,7 @@ def _sqlglot_lineage_inner(
             )
             debug_info.column_error = e
     joins_urns = None
-    if joins:
+    if joins is not None:
         try:
             joins_urns = _translate_internal_joins(
                 table_name_urn_mapping, raw_joins=joins, dialect=dialect

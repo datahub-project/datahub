@@ -20,7 +20,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "table_catalog"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`table_catalog` AS `table_catalog`"
+            }
         },
         {
             "downstream": {
@@ -34,7 +38,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "table_schema"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`table_schema` AS `table_schema`"
+            }
         },
         {
             "downstream": {
@@ -48,7 +56,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "table_name"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`table_name` AS `table_name`"
+            }
         },
         {
             "downstream": {
@@ -62,7 +74,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "column_name"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`column_name` AS `column_name`"
+            }
         },
         {
             "downstream": {
@@ -76,7 +92,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "ordinal_position"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`ordinal_position` AS `ordinal_position`"
+            }
         },
         {
             "downstream": {
@@ -90,7 +110,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)",
                     "column": "field_path"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`cfp`.`field_path` AS `field_path`"
+            }
         },
         {
             "downstream": {
@@ -104,7 +128,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "is_nullable"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`is_nullable` AS `is_nullable`"
+            }
         },
         {
             "downstream": {
@@ -122,7 +150,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)",
                     "column": "field_path"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN CONTAINS_SUBSTR(`cfp`.`field_path`, '.') THEN NULL ELSE `c`.`data_type` END AS `data_type`"
+            }
         },
         {
             "downstream": {
@@ -131,7 +163,11 @@
                 "column_type": null,
                 "native_column_type": null
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`description` AS `comment`"
+            }
         },
         {
             "downstream": {
@@ -145,7 +181,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "is_hidden"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`is_hidden` AS `is_hidden`"
+            }
         },
         {
             "downstream": {
@@ -159,7 +199,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "is_partitioning_column"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`is_partitioning_column` AS `is_partitioning_column`"
+            }
         },
         {
             "downstream": {
@@ -172,6 +216,37 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
                     "column": "clustering_ordinal_position"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`c`.`clustering_ordinal_position` AS `clustering_ordinal_position`"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)"
+            ],
+            "on_clause": "`cfp`.`table_name` = `c`.`table_name` AND `cfp`.`column_name` = `c`.`column_name`",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "column_name"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "table_name"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)",
+                    "column": "column_name"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)",
+                    "column": "table_name"
                 }
             ]
         }
