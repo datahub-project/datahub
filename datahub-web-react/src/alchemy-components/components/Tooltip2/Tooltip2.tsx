@@ -20,6 +20,8 @@ import { Tooltip2Props } from '@components/components/Tooltip2/types';
 export function Tooltip2(props: Tooltip2Props & TooltipProps) {
     const { header: Header, width, title, sections, ...otherProps } = props;
 
+    if (!title && !sections?.length) return <>{props.children}</>;
+
     const content = (
         <Container>
             {Header && <Header />}

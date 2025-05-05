@@ -21,6 +21,7 @@ export * from './components/LineChart';
 export * from './components/Loader';
 export * from './components/MatchText';
 export * from './components/Modal';
+export * from './components/OverflowText';
 export * from './components/PageTitle';
 export * from './components/Pagination';
 export * from './components/Pills';
