@@ -128,11 +128,12 @@ class MetadataChangeSyncAction(Action):
         self, orig_event: MetadataChangeLogClass
     ) -> Union[MetadataChangeProposalClass, None]:
         try:
-            if orig_event.changeType == ChangeTypeClass.RESTATE or orig_event.changeType == "RESTATE":
+            changeType = orig_event.get("changeType")
+            if changeType == ChangeTypeClass.RESTATE or changeType == "RESTATE":
                 changeType = ChangeTypeClass.UPSERT
             mcp = MetadataChangeProposalClass(
                 entityType=orig_event.get("entityType"),
-                changeType=orig_event.get("changeType"),
+                changeType=changeType,
                 entityUrn=orig_event.get("entityUrn"),
                 entityKeyAspect=orig_event.get("entityKeyAspect"),
                 aspectName=orig_event.get("aspectName"),
