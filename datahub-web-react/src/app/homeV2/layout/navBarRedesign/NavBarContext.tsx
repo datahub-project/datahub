@@ -23,7 +23,7 @@ export type LocalState = {
  */
 const loadLocalState = () => {
     return JSON.parse(
-        localStorage.getItem(LOCAL_STATE_KEY) || `{"state" : ${NavBarStateType.Collapsed}}`,
+        localStorage.getItem(LOCAL_STATE_KEY) || `{"state" : "${NavBarStateType.Collapsed}"}`,
     ) as LocalState;
 };
 
