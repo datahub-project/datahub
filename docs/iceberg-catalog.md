@@ -456,14 +456,14 @@ select * from myTable;
 
 DataHub provides granular access control for Iceberg operations through policies. The following privileges were introduced with Iceberg support:
 
-| Operation                              | Required Privilege                | Resource Type          |
-| -------------------------------------- | --------------------------------- | ---------------------- |
-| CREATE or DROP namespaces              | Manage Namespaces                 | Data Platform Instance |
-| CREATE, ALTER or DROP tables           | Manage Tables                     | Data Platform Instance |
-| CREATE, ALTER or DROP views            | Manage Views                      | Data Platform Instance |
-| SELECT from tables or views            | Read Only data-access             | Dataset                |
-| INSERT, UPDATE, DELETE or ALTER tables | Read-write data-access            | Dataset                |
-| List tables or views                   | List tables, views and namespaces | Data Platform Instance |
+| Operation                              | Required Privilege                | Resource Types                  |
+| -------------------------------------- | --------------------------------- |---------------------------------|
+| CREATE or DROP namespaces              | Manage Namespaces                 | Data Platform Instance          |
+| CREATE, ALTER or DROP tables           | Manage Tables                     | Data Platform Instance          |
+| CREATE, ALTER or DROP views            | Manage Views                      | Data Platform Instance          |
+| SELECT from tables or views            | Read Only data-access             | Dataset, Data Platform Instance |
+| INSERT, UPDATE, DELETE or ALTER tables | Read-write data-access            | Dataset, Data Platform Instance |
+| List tables or views                   | List tables, views and namespaces | Data Platform Instance          |
 
 To configure access:
 
@@ -473,12 +473,14 @@ To configure access:
 </p>
 
 2. Scope the policies by:
-   - Selecting specific warehouse Data Platform Instances for namespace, table management, and listing privileges
+   - Selecting specific warehouse Data Platform Instances for namespace, table/view management, listing and data access privileges
    - Selecting specific DataSets for table and view data access privileges
-   - Selecting Tags that may be applied to DataSets or Data Platform Instances
+   - Alternatively, resources can be filtered by
+     - Selecting specific namespace Containers for namespace, table/view management, listing and data access privileges: when a container is selected, all datasets in that container and its descendant containers (in the container hierarchy) are included in the scope. 
+     - Selecting Tags / Domains that may be applied to DataSets or Data Platform Instances
 
 <p>
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/cec184aa1e3cb15c087625ffc997b4345a858c8b/imgs/iceberg-policy-privileges.png"/>
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/b5468a7907023020b55d3e8d1341876ce56a6b5f/imgs/iceberg-policy-privileges.png"/>
 </p>
 
 3. Assign the policies to relevant users or groups
