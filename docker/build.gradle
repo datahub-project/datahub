@@ -224,6 +224,7 @@ quickstart_configs.each { taskName, config ->
 
             config.modules.each { module ->
                 def moduleProject = project.project(module)
+                project.ext.isDebug = config.isDebug
                 def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet")
                 bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
                 targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
