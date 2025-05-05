@@ -54,7 +54,20 @@
             }
         }
     ],
-    "joins": [],
+    "joins": [
+        {
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)"
+            ],
+            "on_clause": "\"CTE_ALIAS\".\"COL2\" = \"CTE_ALIAS\".\"COL2\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)",
+                    "column": "COL2"
+                }
+            ]
+        }
+    ],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "WITH cte_alias AS (SELECT col1, col2 FROM table1) SELECT table2.col2, cte_alias.col1 FROM table2 JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2"

@@ -666,7 +666,7 @@ def _column_level_lineage(
     try:
         # List join clauses.
         joins = _list_joins(dialect=dialect, root_scope=root_scope)
-        logger.info("Joins: %s", joins)
+        logger.debug("Joins: %s", joins)
     except Exception as e:
         # This is a non-fatal error, so we can continue.
         logger.debug("Failed to list joins: %s", e)
@@ -817,16 +817,9 @@ def _list_joins(
             )
 
             unique_tables = deduplicate_list(col.table for col in joined_columns)
-            if len(unique_tables) > 2:
+            if not unique_tables:
                 logger.debug(
-                    "Skipping complex join with more than 2 tables involved: %s",
-                    join.sql(dialect=dialect),
-                )
-                continue
-            elif len(unique_tables) < 2:
-                # Note that this will inadvertently skip self-joins.
-                logger.debug(
-                    "Skipping join with less than 2 tables involved: %s",
+                    "Skipping join because we couldn't resolve the tables: %s",
                     join.sql(dialect=dialect),
                 )
                 continue

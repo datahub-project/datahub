@@ -1375,3 +1375,31 @@ FROM ABC.employees ;
             },
         },
     )
+
+
+def test_self_join_with_cte() -> None:
+    assert_sql_result(
+        """\
+WITH table_1_day_ago AS (
+    SELECT * FROM my_table
+    WHERE ts < CURRENT_TIMESTAMP() - INTERVAL '1 DAY'
+)
+SELECT
+    my_table.id,
+    LAST_VALUE(my_table.value) OVER (PARTITION BY my_table.id ORDER BY my_table.ts) as current_value,
+    LAST_VALUE(table_1_day_ago.value) OVER (PARTITION BY table_1_day_ago.id ORDER BY table_1_day_ago.ts) as value_1_day_ago 
+FROM my_table
+JOIN table_1_day_ago ON my_table.id = table_1_day_ago.id
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_self_join_with_cte.json",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)": {
+                "id": "INTEGER",
+                "value": "VARIANT",
+                "ts": "TIMESTAMP",
+            },
+        },
+    )

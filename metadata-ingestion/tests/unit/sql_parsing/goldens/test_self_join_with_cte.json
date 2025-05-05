@@ -1,0 +1,103 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "1b53d0651689201286fe07f52d1abb173a38873bdbca9def09ff4b1115d5d4ed",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"MY_TABLE\".\"ID\" AS \"ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "current_value",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "ts"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "LAST_VALUE(\"MY_TABLE\".\"VALUE\") OVER (PARTITION BY \"MY_TABLE\".\"ID\" ORDER BY \"MY_TABLE\".\"TS\") AS \"CURRENT_VALUE\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "value_1_day_ago",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "ts"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "LAST_VALUE(\"TABLE_1_DAY_AGO\".\"VALUE\") OVER (PARTITION BY \"TABLE_1_DAY_AGO\".\"ID\" ORDER BY \"TABLE_1_DAY_AGO\".\"TS\") AS \"VALUE_1_DAY_AGO\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
+            ],
+            "on_clause": "\"MY_TABLE\".\"ID\" = \"TABLE_1_DAY_AGO\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "WITH table_1_day_ago AS (SELECT * FROM my_table WHERE ts < CURRENT_TIMESTAMP() - INTERVAL '? DAY') SELECT my_table.id, LAST_VALUE(my_table.value) OVER (PARTITION BY my_table.id ORDER BY my_table.ts) AS current_value, LAST_VALUE(table_1_day_ago.value) OVER (PARTITION BY table_1_day_ago.id ORDER BY table_1_day_ago.ts) AS value_1_day_ago FROM my_table JOIN table_1_day_ago ON my_table.id = table_1_day_ago.id"
+    }
+}
