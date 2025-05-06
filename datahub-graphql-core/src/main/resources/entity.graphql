@@ -1661,8 +1661,14 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   """
   Statistics about how this Dataset is used
   The first parameter, `resource`, is deprecated and no longer needs to be provided
+  timeZone accepts standard IANA time zone identifier ie. America/New_York
   """
-  usageStats(resource: String, range: TimeRange): UsageQueryResult
+  usageStats(
+    resource: String
+    range: TimeRange
+    startTimeMillis: Long
+    timeZone: String
+  ): UsageQueryResult
 
   """
   Experimental - Summary operational & usage statistics about a Dataset
@@ -1823,6 +1829,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
   Structured properties about this Dataset
   """
   structuredProperties: StructuredProperties
+
+  """
+  Statistics about how this Dataset has been operated on
+  """
+  operationsStats(input: OperationsStatsInput): OperationsQueryResult
 }
 
 type RoleAssociation {
@@ -3848,6 +3859,21 @@ type StringMapEntry {
   The value fo the map entry
   """
   value: String
+}
+
+"""
+An entry in a integer string map represented as a tuple
+"""
+type IntMapEntry {
+  """
+  The key of the map entry
+  """
+  key: String!
+
+  """
+  The value for the map entry
+  """
+  value: Int
 }
 
 """
@@ -7419,6 +7445,11 @@ enum TimeRange {
   Last quarter
   """
   QUARTER
+
+  """
+  Last half year
+  """
+  HALF_YEAR
 
   """
   Last year

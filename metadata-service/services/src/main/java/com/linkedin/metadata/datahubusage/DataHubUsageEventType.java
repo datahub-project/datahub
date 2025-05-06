@@ -105,6 +105,8 @@ public enum DataHubUsageEventType {
   UNLINK_ASSET_VERSION_EVENT("UnlinkAssetVersionEvent"),
   HOME_PAGE_CLICK_EVENT("HomePageClickEvent"),
   SEARCH_BAR_FILTER("SearchBarFilterEvent"),
+  FILTER_STATS_PAGE_EVENT("FilterStatsPageEvent"),
+  FILTER_STATS_CHART_LOOK_BACK_EVENT("FilterStatsChartLookBackEvent"),
   // Not replicated in frontend, represents generic event from backend
   CREATE_USER_EVENT("CreateUserEvent"),
   UPDATE_USER_EVENT("UpdateUserEvent"),
