@@ -407,7 +407,7 @@ public class SendMAEStepTest {
     assertEquals(result.stepId(), sendMAEStep.id());
     assertEquals(result.action(), UpgradeStepResult.Action.CONTINUE);
 
-    // Verify dryRun parameter
+    // Verify createDefaultAspects parameter
     ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
         ArgumentCaptor.forClass(RestoreIndicesArgs.class);
     verify(mockEntityService).restoreIndices(eq(mockOpContext), argsCaptor.capture(), any());
