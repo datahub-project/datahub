@@ -5,6 +5,7 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataContract;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.datacontract.DataContractMapper;
@@ -38,7 +39,7 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
 
   @Override
   public CompletableFuture<DataContract> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final String entityUrn = ((Entity) environment.getSource()).getUrn();
@@ -91,6 +92,8 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve Data Contract from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

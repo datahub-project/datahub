@@ -21,7 +21,9 @@ dependencies {
     implementation(externalDependency.springBootStarterWeb) {
         exclude module: "spring-boot-starter-tomcat"
     }
-    implementation externalDependency.springBootStarterJetty
+    implementation(externalDependency.springBootStarterJetty) {
+      exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+    }
     implementation externalDependency.springKafka
     implementation externalDependency.springBootAutoconfigure
     implementation externalDependency.springActuator

@@ -38,7 +38,7 @@ export const AssertionProfileFooter = () => {
                 </Title>
                 Sign up to receive notifications when this assertion passes or fails by{' '}
                 <a
-                    href="https://datahubproject.io/docs/next/managed-datahub/subscription-and-notification/"
+                    href="https://docs.datahub.com/docs/next/managed-datahub/subscription-and-notification/"
                     target="_blank"
                     rel="noreferrer noopener"
                 >

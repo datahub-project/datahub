@@ -4,6 +4,7 @@ import static auth.AuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static org.pac4j.play.store.PlayCookieSessionStore.*;
 import static play.mvc.Results.internalServerError;
+import static utils.FrontendConstants.SSO_LOGIN;
 
 import auth.CookieConfigs;
 import auth.sso.SsoManager;
@@ -295,7 +296,8 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
       log.info("OIDC callback authentication successful for user: {}", userName);
 
       // Successfully logged in - Generate GMS login token
-      final String accessToken = authClient.generateSessionTokenForUser(corpUserUrn.getId());
+      final String accessToken =
+          authClient.generateSessionTokenForUser(corpUserUrn.getId(), SSO_LOGIN);
       return result
           .withSession(createSessionMap(corpUserUrn.toString(), accessToken))
           .withCookies(

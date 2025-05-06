@@ -4,17 +4,17 @@ import QuickstartCard from '../QuickstartCard'
 const quickstartContent =  [
 {
     title: "Quickstart with DataHub",
-    icon: "datahub-logo-color-mark",
+    icon: "datahub-logo-color-light-horizontal",
     to: "quickstart",
     color: '#FFF',
     fontColor: '#091013',
   },
 {
     title: "Learn about DataHub Cloud",
-    icon: "acryl-logo-transparent-mark",
+    icon: "datahub-cloud-color-dark-horizontal",
     to: "managed-datahub/managed-datahub-overview",
-    color: '#091013',
-    fontColor: '#FFF',
+    color: '#e6f4ff',
+    fontColor: '#091013',
 }
 ]
 

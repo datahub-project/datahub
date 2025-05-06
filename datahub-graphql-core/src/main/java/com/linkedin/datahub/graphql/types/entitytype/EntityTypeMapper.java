@@ -18,7 +18,6 @@ public class EntityTypeMapper {
       ImmutableMap.<EntityType, String>builder()
           .put(EntityType.DATAHUB_CONNECTION, Constants.DATAHUB_CONNECTION_ENTITY_NAME)
           .put(EntityType.MONITOR, Constants.MONITOR_ENTITY_NAME)
-          .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
           .put(EntityType.ACTIONS_PIPELINE, Constants.ACTIONS_PIPELINE_ENTITY_NAME)
           .put(EntityType.REMOTE_EXECUTOR, AcrylConstants.REMOTE_EXECUTOR_ENTITY_NAME)
           .put(EntityType.REMOTE_EXECUTOR_POOL, AcrylConstants.REMOTE_EXECUTOR_POOL_ENTITY_NAME)
@@ -70,6 +69,7 @@ public class EntityTypeMapper {
           .put(EntityType.ENTITY_TYPE, Constants.ENTITY_TYPE_ENTITY_NAME)
           .put(EntityType.RESTRICTED, Constants.RESTRICTED_ENTITY_NAME)
           .put(EntityType.BUSINESS_ATTRIBUTE, Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)
+          .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
           .putAll(ACRYL_ENTITY_TYPE_TO_NAME) // SaaS only
           .build();
 

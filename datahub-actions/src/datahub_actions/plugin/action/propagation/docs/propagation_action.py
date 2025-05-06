@@ -15,11 +15,11 @@
 import json
 import logging
 import time
-from enum import Enum
 from typing import Iterable, List, Optional, Tuple
 
 from pydantic import Field
 
+from datahub.configuration.common import ConfigEnum
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -60,7 +60,7 @@ class DocPropagationDirective(PropagationDirective):
     )
 
 
-class ColumnPropagationRelationships(str, Enum):
+class ColumnPropagationRelationships(ConfigEnum):
     UPSTREAM = "upstream"
     DOWNSTREAM = "downstream"
     SIBLING = "sibling"
@@ -82,18 +82,15 @@ class DocPropagationConfig(PropagationConfig):
     enabled: bool = Field(
         True,
         description="Indicates whether documentation propagation is enabled or not.",
-        example=True,
     )
     columns_enabled: bool = Field(
         True,
         description="Indicates whether column documentation propagation is enabled or not.",
-        example=True,
     )
     # TODO: Currently this flag does nothing. Datasets are NOT supported for docs propagation.
     datasets_enabled: bool = Field(
         False,
         description="Indicates whether dataset level documentation propagation is enabled or not.",
-        example=False,
     )
     column_propagation_relationships: List[ColumnPropagationRelationships] = Field(
         [
@@ -102,11 +99,6 @@ class DocPropagationConfig(PropagationConfig):
             ColumnPropagationRelationships.UPSTREAM,
         ],
         description="Relationships for column documentation propagation.",
-        example=[
-            ColumnPropagationRelationships.UPSTREAM,
-            ColumnPropagationRelationships.SIBLING,
-            ColumnPropagationRelationships.DOWNSTREAM,
-        ],
     )
 
 

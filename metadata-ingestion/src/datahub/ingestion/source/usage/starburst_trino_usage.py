@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 from email.utils import parseaddr
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from dateutil import parser
 from pydantic.fields import Field
@@ -98,8 +98,10 @@ class TrinoUsageConfig(TrinoConfig, BaseUsageConfig, EnvBasedSourceBaseConfig):
     options: dict = Field(default={}, description="")
     database: str = Field(description="The name of the catalog from getting the usage")
 
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url()
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
+        return super().get_sql_alchemy_url(uri_opts=uri_opts, database=database)
 
 
 @dataclasses.dataclass

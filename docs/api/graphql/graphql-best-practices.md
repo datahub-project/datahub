@@ -31,7 +31,7 @@ This technique makes maintaining your GraphQL queries much more doable. For exam
 
 ### Deep Pagination: search* vs scroll* APIs
 
-`search*` APIs such as [`searchAcrossEntities`](https://datahubproject.io/docs/GraphQL/queries/#searchacrossentities) are designed for minimal pagination (< ~50). They do not perform well for deep pagination requests. Use the equivalent `scroll*` APIs such as [`scrollAcrossEntities`](https://datahubproject.io/docs/GraphQL/queries/#scrollacrossentities) when expecting the need to paginate deeply into the result set.
+`search*` APIs such as [`searchAcrossEntities`](https://docs.datahub.com/docs/GraphQL/queries/#searchacrossentities) are designed for minimal pagination (< ~50). They do not perform well for deep pagination requests. Use the equivalent `scroll*` APIs such as [`scrollAcrossEntities`](https://docs.datahub.com/docs/GraphQL/queries/#scrollacrossentities) when expecting the need to paginate deeply into the result set.
 
 :::note
 It is impossible to use `search*` for paginating beyond 10k results.
@@ -278,7 +278,7 @@ Page 2 Response:
 
 ### SearchFlags: Highlighting and Aggregation
 
-When performing queries which accept [`searchFlags`](https://datahubproject.io/docs/GraphQL/inputObjects#searchflags) and highlighting and aggregation is not needed, be sure to disable these flags.
+When performing queries which accept [`searchFlags`](https://docs.datahub.com/docs/GraphQL/inputObjects#searchflags) and highlighting and aggregation is not needed, be sure to disable these flags.
 
 - skipHighlighting: true
 - skipAggregates: true
@@ -454,7 +454,7 @@ Response:
 
 ### Aggregation
 
-When aggregation is required with `searchAcrossEntities`, it is possible to set the `count` to 0 to avoid fetching the top search hits, only returning the aggregations. Alternatively [aggregateAcrossEntities](https://datahubproject.io/docs/GraphQL/queries#aggregateacrossentities) provides counts and can provide faster results from server-side caching.
+When aggregation is required with `searchAcrossEntities`, it is possible to set the `count` to 0 to avoid fetching the top search hits, only returning the aggregations. Alternatively [aggregateAcrossEntities](https://docs.datahub.com/docs/GraphQL/queries#aggregateacrossentities) provides counts and can provide faster results from server-side caching.
 
 Request:
 

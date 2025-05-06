@@ -2,7 +2,7 @@ import '@src/App.less';
 
 import React, { useEffect } from 'react';
 
-import { SEVER_VERSION_KEY, THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
+import { SERVER_VERSION_KEY, THIRD_PARTY_LOGGING_KEY } from '@app/analytics/analytics';
 import { checkAuthStatus } from '@app/auth/checkAuthStatus';
 import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
@@ -40,7 +40,7 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
                 localStorage.setItem(THIRD_PARTY_LOGGING_KEY, 'false');
             }
             if (appConfigData.appConfig.appVersion) {
-                localStorage.setItem(SEVER_VERSION_KEY, appConfigData.appConfig.appVersion);
+                localStorage.setItem(SERVER_VERSION_KEY, appConfigData.appConfig.appVersion);
             }
             changeFavicon(customLogoUrl || appConfigData.appConfig.visualConfig.faviconUrl);
         }

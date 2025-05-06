@@ -19,7 +19,6 @@ from unittest.mock import Mock, patch
 import polars
 import pyarrow as pa
 import pytest
-from freezegun import freeze_time
 from polars import DataType
 from polars.datatypes import DataTypeClass
 
@@ -78,7 +77,7 @@ def test_polars_to_arrow_schema() -> None:
     assert arrow_schema == expected_arrow_schema
 
 
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_search_search_score_with_zero_usage_percentile() -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         dashboard_usage_enabled=False,
@@ -142,7 +141,7 @@ def test_search_search_score_with_zero_usage_percentile() -> None:
     assert multipliers.combinedSearchRankingMultiplier == 1
 
 
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_search_search_score_with_zero_freshness() -> None:
     config = DataHubUsageFeatureReportingSourceConfig(
         dashboard_usage_enabled=False,
@@ -263,7 +262,7 @@ def run_and_get_pipeline(pipeline_config_dict: Dict[str, Any]) -> Pipeline:
 
 @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_dataset_usage(
     load_data_from_es: Mock, pytestconfig: pytest.Config, test_name: str
 ) -> None:
@@ -312,7 +311,7 @@ def test_dataset_usage(
 
 @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_dataset_usage_with_ranking_factors(
     load_data_from_es: Mock, pytestconfig: pytest.Config, test_name: str
 ) -> None:
@@ -404,7 +403,7 @@ def check_golden_file(
 @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
 # @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_dataset_usage_with_ranking_factors_patch_enabled(
     load_data_from_es: Mock, pytestconfig: pytest.Config, test_name: str
 ) -> None:
@@ -485,7 +484,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled(
 @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
 # @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
     load_data_from_es: Mock, pytestconfig: pytest.Config, test_name: str
 ) -> None:
@@ -566,7 +565,7 @@ def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
 
 @pytest.mark.parametrize("test_name", ["dashboard_usage_small"])
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_dashboard_usage_with_ranking_factors_patch_enabled(
     load_data_from_es: Mock, test_name: str
 ) -> None:
@@ -647,7 +646,7 @@ def test_dashboard_usage_with_ranking_factors_patch_enabled(
 
 @pytest.mark.parametrize("test_name", ["dashboard_usage_incremental_small"])
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_dashboard_increremental_usage_with_ranking_factors_patch_enabled(
     load_data_from_es: Mock, test_name: str
 ) -> None:
@@ -728,7 +727,7 @@ def test_dashboard_increremental_usage_with_ranking_factors_patch_enabled(
 
 @pytest.mark.parametrize("test_name", ["query_usage_small"])
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
-@freeze_time(FROZEN_TIME)
+@pytest.mark.freeze_time(FROZEN_TIME)
 def test_query_usage_with_ranking_factors_patch_enabled(
     load_data_from_es: Mock, test_name: str
 ) -> None:

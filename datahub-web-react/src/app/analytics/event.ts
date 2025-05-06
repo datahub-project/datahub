@@ -19,6 +19,7 @@ import {
     PropertyValueInput,
     RecommendationRenderType,
     ScenarioType,
+    SearchBarApi,
     StructuredPropertyFilterStatus,
 } from '@types';
 
@@ -165,6 +166,8 @@ export enum EventType {
     LinkAssetVersionEvent,
     UnlinkAssetVersionEvent,
     ShowAllVersionsEvent,
+    HomePageClick,
+    SearchBarFilter,
     NavBarExpandCollapse,
     NavBarItemClick,
     FormByEntityNavigate,
@@ -177,7 +180,6 @@ export enum EventType {
     ClickCreateAssertion,
     ClickUserProfile,
     ClickViewDocumentation,
-    HomePageClick,
 }
 
 /**
@@ -194,7 +196,7 @@ interface BaseEvent {
     userAgent?: string;
     /** unique ID given to a user's browser */
     browserId?: string;
-    /** whether Acryl 2.0 UI is enabled or not at the time of this event */
+    /** whether DataHub 2.0 UI is enabled or not at the time of this event */
     isThemeV2Enabled?: boolean;
     /** the persona urn for this user - groups users based on their titles */
     userPersona?: PersonaType;
@@ -827,6 +829,8 @@ export interface SelectAutoCompleteOption extends BaseEvent {
     optionType: string;
     entityType?: EntityType;
     entityUrn?: string;
+    showSearchBarAutocompleteRedesign?: boolean;
+    apiVariant?: SearchBarApi;
 }
 
 export interface SelectQuickFilterEvent extends BaseEvent {
@@ -1216,6 +1220,12 @@ export interface ShowAllVersionsEvent extends BaseEvent {
     uiLocation: 'preview' | 'more-options';
 }
 
+export interface SearchBarFilterEvent extends BaseEvent {
+    type: EventType.SearchBarFilter;
+    field: string; // the filter field
+    values: string[]; // the values being filtered for
+}
+
 export interface NavBarExpandCollapseEvent extends BaseEvent {
     type: EventType.NavBarExpandCollapse;
     isExpanding: boolean; // whether this action is expanding or collapsing the nav bar
@@ -1436,6 +1446,8 @@ export type Event =
     | LinkAssetVersionEvent
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
+    | HomePageClickEvent
+    | SearchBarFilterEvent
     | NavBarExpandCollapseEvent
     | NavBarItemClickEvent
     | FormByEntityNavigateEvent
@@ -1447,5 +1459,4 @@ export type Event =
     | FilterStatsChartLookBackEvent
     | ClickCreateAssertionEvent
     | ClickUserProfileEvent
-    | ClickViewDocumentationEvent
-    | HomePageClickEvent;
+    | ClickViewDocumentationEvent;

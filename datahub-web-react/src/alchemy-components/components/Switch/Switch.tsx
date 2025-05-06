@@ -15,7 +15,7 @@ import { SwitchProps } from '@components/components/Switch/types';
 export const switchDefaults: SwitchProps = {
     label: 'Label',
     labelPosition: 'left',
-    colorScheme: 'violet',
+    colorScheme: 'primary',
     size: 'md',
     isSquare: false,
     isChecked: false,

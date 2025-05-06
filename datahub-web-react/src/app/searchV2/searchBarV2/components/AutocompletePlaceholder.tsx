@@ -6,12 +6,24 @@ import NoSearchingPlaceholder from '@app/searchV2/searchBarV2/components/NoSearc
 interface Props {
     isSearching?: boolean;
     hasAppliedFilters?: boolean;
+    hasSelectedView?: boolean;
     onClearFilters?: () => void;
 }
 
-export default function AutocompletePlaceholder({ isSearching, hasAppliedFilters, onClearFilters }: Props) {
+export default function AutocompletePlaceholder({
+    isSearching,
+    hasAppliedFilters,
+    hasSelectedView,
+    onClearFilters,
+}: Props) {
     if (isSearching) {
-        return <NoResultsFoundPlaceholder hasAppliedFilters={hasAppliedFilters} onClearFilters={onClearFilters} />;
+        return (
+            <NoResultsFoundPlaceholder
+                hasAppliedFilters={hasAppliedFilters}
+                hasSelectedView={hasSelectedView}
+                onClearFilters={onClearFilters}
+            />
+        );
     }
 
     return <NoSearchingPlaceholder />;

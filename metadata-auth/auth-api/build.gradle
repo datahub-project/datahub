@@ -61,7 +61,7 @@ publishing {
           group = 'io.acryl'
           artifactId = 'datahub-auth-api'
           description = 'DataHub Auth API for developers to write custom Authentication & Authorization plugins for DataHub'
-          url = 'https://datahubproject.io'
+          url = 'https://docs.datahub.com'
           artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
           scm {

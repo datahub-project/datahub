@@ -316,7 +316,7 @@ mutation updateDescription {
 ```
 
 `updateDescription` currently only supports Dataset Schema Fields, Containers.
-For more information about the `updateDescription` mutation, please refer to [updateLineage](https://datahubproject.io/docs/graphql/mutations/#updateDescription).
+For more information about the `updateDescription` mutation, please refer to [updateLineage](https://docs.datahub.com/docs/graphql/mutations/#updateDescription).
 
 If you see the following response, the operation was successful:
 

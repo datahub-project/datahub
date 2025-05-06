@@ -1,4 +1,5 @@
 const domainName = "CypressNestedDomain";
+const chartUrn = "urn:li:chart:(looker,cypress_baz2)";
 
 const handledResizeLoopErrors = () => {
   const resizeObserverLoopLimitErrRe = "ResizeObserver loop limit exceeded";
@@ -285,7 +286,7 @@ describe("Verify nested domains test functionalities", () => {
       .type("Baz Chart 2", { delay: 0 });
     cy.wait(1000);
     cy.get('[data-testid="preview-urn:li:chart:(looker,cypress_baz2)"]');
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     cy.clickOptionWithId("#continueButton");
     cy.waitTextVisible("Added assets to Domain!");
     cy.get('[data-node-key="Assets"]').click();
@@ -296,13 +297,14 @@ describe("Verify nested domains test functionalities", () => {
     }).click();
     cy.waitTextVisible("0 selected");
     cy.get("[data-testid='search-input']").last().type("Baz Chart 2");
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     verifyEditAndPerformAddAndRemoveActionForDomain(
       "Tags",
       "Add tags",
       "Cypress",
       "Add Tags",
     );
+    cy.wait(3000); // give time for elastic to update before going to page
     cy.clickOptionWithText("Baz Chart 2");
     cy.waitTextVisible("Cypress");
     cy.waitTextVisible("Marketing");
@@ -310,7 +312,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.get('[data-testid="search-results-edit-button"]', {
       timeout: 10000,
     }).click();
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     verifyEditAndPerformAddAndRemoveActionForDomain(
       "Tags",
       "Remove tags",

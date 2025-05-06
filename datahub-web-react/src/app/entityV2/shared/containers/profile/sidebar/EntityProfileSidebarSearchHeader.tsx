@@ -3,9 +3,9 @@ import React, { useContext } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import SidebarBackArrow from '@images/sidebarBackArrow.svg?react';
 
@@ -29,6 +29,7 @@ type Props = {
 };
 
 export default function EntityProfileSidebarSearchHeader({ showViewDetails = true }: Props) {
+    const { theme } = useCustomTheme();
     const entitySidebarContext = useContext(EntitySidebarContext);
     const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
@@ -44,7 +45,7 @@ export default function EntityProfileSidebarSearchHeader({ showViewDetails = tru
                 <Button
                     size="small"
                     type="primary"
-                    color={SEARCH_COLORS.TITLE_PURPLE}
+                    color={theme?.styles['primary-color']}
                     href={entityRegistry.getEntityUrl(entityType, urn)}
                 >
                     View more

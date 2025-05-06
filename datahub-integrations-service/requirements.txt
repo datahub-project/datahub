@@ -11,12 +11,14 @@ acryl-datahub-actions==0.2.0
     # via acryl-datahub-integrations
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
+acryl-great-expectations==0.15.50.1
+    # via acryl-datahub
 aiohttp==3.9.5
     # via acryl-datahub
 aiosignal==1.3.1
     # via aiohttp
 altair==4.2.0
-    # via great-expectations
+    # via acryl-great-expectations
 anyio==4.9.0
     # via
     #   acryl-datahub-integrations
@@ -115,9 +117,9 @@ click==8.1.7
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   acryl-great-expectations
     #   aws-msk-iam-sasl-signer-python
     #   click-default-group
-    #   great-expectations
     #   mlflow-skinny
     #   typer
     #   uvicorn
@@ -131,10 +133,10 @@ cloudpickle==3.1.1
     # via mlflow-skinny
 colorama==0.4.6
     # via
+    #   acryl-great-expectations
     #   build
     #   click
     #   colorlog
-    #   great-expectations
     #   ipython
     #   loguru
     #   tqdm
@@ -151,8 +153,8 @@ confluent-kafka==2.3.0
 cryptography==42.0.5
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   azure-identity
-    #   great-expectations
     #   msal
     #   pyjwt
     #   pyopenssl
@@ -268,8 +270,6 @@ googleapis-common-protos==1.65.0
     #   google-cloud-audit-log
     #   grpc-google-iam-v1
     #   grpcio-status
-great-expectations==0.15.50
-    # via acryl-datahub
 greenlet==3.0.3
     # via
     #   acryl-datahub
@@ -311,7 +311,7 @@ ijson==3.2.3
     # via acryl-datahub
 importlib-metadata==7.1.0
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   mlflow-skinny
     #   opentelemetry-api
 importlib-resources==6.4.0 ; python_full_version < '3.12'
@@ -327,7 +327,7 @@ ipykernel==6.17.1
 ipython==8.21.0
     # via
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
     #   ipykernel
     #   ipywidgets
 ipython-genutils==0.2.0
@@ -335,7 +335,7 @@ ipython-genutils==0.2.0
     #   nbclassic
     #   notebook
 ipywidgets==8.1.2
-    # via great-expectations
+    # via acryl-great-expectations
 iso3166==2.1.1
     # via schwifty
 jedi==0.19.1
@@ -343,8 +343,8 @@ jedi==0.19.1
 jinja2==3.1.3
     # via
     #   acryl-datahub-integrations
+    #   acryl-great-expectations
     #   altair
-    #   great-expectations
     #   jupyter-server
     #   nbclassic
     #   nbconvert
@@ -356,7 +356,7 @@ jmespath==1.0.1
     #   botocore
 jsonpatch==1.33
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   reactpy
 jsonpointer==2.4
     # via jsonpatch
@@ -365,8 +365,8 @@ jsonref==1.1.0
 jsonschema==4.21.1
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   altair
-    #   great-expectations
     #   nbformat
 jsonschema-specifications==2023.12.1
     # via jsonschema
@@ -402,7 +402,7 @@ loguru==0.7.2
 lxml==5.2.1
     # via reactpy
 makefun==1.15.2
-    # via great-expectations
+    # via acryl-great-expectations
 marisa-trie==1.2.1
     # via language-data
 markupsafe==2.1.5
@@ -410,14 +410,14 @@ markupsafe==2.1.5
     #   jinja2
     #   nbconvert
 marshmallow==3.21.1
-    # via great-expectations
+    # via acryl-great-expectations
 matplotlib-inline==0.1.7
     # via
     #   ipykernel
     #   ipython
 mistune==3.0.2
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   nbconvert
 mixpanel==4.10.1
     # via acryl-datahub
@@ -460,7 +460,7 @@ nbconvert==7.16.3
     #   notebook
 nbformat==5.10.4
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   jupyter-server
     #   nbclassic
     #   nbclient
@@ -474,15 +474,15 @@ nest-asyncio==1.6.0
     #   nbclient
     #   notebook
 notebook==6.5.6
-    # via great-expectations
+    # via acryl-great-expectations
 notebook-shim==0.2.4
     # via nbclassic
 numpy==1.26.4
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   altair
     #   blis
-    #   great-expectations
     #   pandas
     #   pyarrow
     #   scipy
@@ -500,10 +500,10 @@ opentelemetry-semantic-conventions==0.53b1
 packaging==24.0
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   build
     #   docker
     #   google-cloud-bigquery
-    #   great-expectations
     #   ipykernel
     #   jupyter-server
     #   marshmallow
@@ -517,8 +517,8 @@ pandas==2.2.2
     # via
     #   acryl-datahub
     #   acryl-datahub-integrations
+    #   acryl-great-expectations
     #   altair
-    #   great-expectations
 pandocfilters==1.5.1
     # via nbconvert
 parse==1.20.2
@@ -605,9 +605,9 @@ pydantic==1.10.22
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   acryl-great-expectations
     #   confection
     #   fastapi
-    #   great-expectations
     #   mlflow-skinny
     #   spacy
     #   thinc
@@ -629,7 +629,7 @@ pynacl==1.5.0
 pyopenssl==24.1.0
     # via snowflake-connector-python
 pyparsing==3.1.2
-    # via great-expectations
+    # via acryl-great-expectations
 pyproject-hooks==1.1.0
     # via build
 pyreadline3==3.5.4 ; sys_platform == 'win32'
@@ -638,9 +638,9 @@ python-dateutil==2.8.2
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
+    #   acryl-great-expectations
     #   botocore
     #   google-cloud-bigquery
-    #   great-expectations
     #   jupyter-client
     #   pandas
 python-dotenv==1.0.1
@@ -653,7 +653,7 @@ python-utils==3.8.2
     # via progressbar2
 pytz==2024.1
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   pandas
     #   snowflake-connector-python
 pywin32==308 ; sys_platform == 'win32'
@@ -691,13 +691,13 @@ referencing==0.35.0
     #   jsonschema-specifications
 requests==2.31.0
     # via
+    #   acryl-great-expectations
     #   azure-core
     #   confluent-kafka
     #   databricks-sdk
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
-    #   great-expectations
     #   mixpanel
     #   mlflow-skinny
     #   msal
@@ -717,7 +717,7 @@ rsa==4.9
 ruamel-yaml==0.17.17
     # via
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
 s3transfer==0.12.0
     # via boto3
 schwifty==2024.4.0
@@ -727,7 +727,7 @@ schwifty==2024.4.0
 scipy==1.13.0
     # via
     #   acryl-datahub
-    #   great-expectations
+    #   acryl-great-expectations
 send2trash==1.8.3
     # via
     #   jupyter-server
@@ -841,7 +841,7 @@ tornado==6.4
     #   terminado
 tqdm==4.66.2
     # via
-    #   great-expectations
+    #   acryl-great-expectations
     #   spacy
 traitlets==5.2.1.post0
     # via
@@ -868,11 +868,11 @@ typer==0.7.0
 typing-extensions==4.11.0
     # via
     #   acryl-datahub
+    #   acryl-great-expectations
     #   anyio
     #   azure-core
     #   azure-identity
     #   fastapi
-    #   great-expectations
     #   inflect
     #   mlflow-skinny
     #   opentelemetry-sdk
@@ -893,12 +893,12 @@ tzdata==2024.1
     #   pandas
     #   tzlocal
 tzlocal==5.2
-    # via great-expectations
+    # via acryl-great-expectations
 urllib3==1.26.18
     # via
+    #   acryl-great-expectations
     #   botocore
     #   docker
-    #   great-expectations
     #   mixpanel
     #   pygithub
     #   requests

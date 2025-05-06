@@ -45,6 +45,14 @@ ext {
             'quickstartDebug': [
                     profile: 'debug',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartDebugMin': [
+                    profile: 'debug-min',
+                    modules: backend_profile_modules + [':datahub-frontend'],
                     isDebug: true
             ],
             'quickstartDebugMin': [
@@ -58,7 +66,10 @@ ext {
                                                                           ':metadata-jobs:mce-consumer-job',
                                                                           ':metadata-jobs:mae-consumer-job',
                                                                           ':datahub-actions'],
-                    isDebug: true
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
             ],
             'quickstartPg': [
                     profile: 'quickstart-postgres',
@@ -112,7 +123,6 @@ ext {
         ':datahub-frontend': 'frontend',
         ':metadata-jobs:mce-consumer-job': 'datahub-mce-consumer',
         ':metadata-jobs:mae-consumer-job': 'datahub-mae-consumer',
-        ':datahub-actions': 'datahub-actions',
     ]
 }
 

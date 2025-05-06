@@ -8,9 +8,19 @@ interface DynamicFacetsUpdaterProps {
     fieldNames: FieldName[];
     onFieldFacetsUpdated: (fieldToFacetStateMap: FieldToFacetStateMap) => void;
     query: string;
+    viewUrn?: string | null;
+    shouldUpdateFacetsForFieldsWithAppliedFilters?: boolean;
+    shouldUpdateFacetsForFieldsWithoutAppliedFilters?: boolean;
 }
 
-export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdaterProps) => {
+export default ({
+    fieldNames,
+    query,
+    viewUrn,
+    onFieldFacetsUpdated,
+    shouldUpdateFacetsForFieldsWithAppliedFilters,
+    shouldUpdateFacetsForFieldsWithoutAppliedFilters,
+}: DynamicFacetsUpdaterProps) => {
     const { fieldToAppliedFiltersMap } = useSearchFiltersContext();
 
     const fieldNamesWithAppliedFilters = useMemo(
@@ -28,20 +38,25 @@ export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdate
 
     return (
         <>
-            {fieldNamesWithAppliedFilters.map((fieldName) => (
+            {shouldUpdateFacetsForFieldsWithAppliedFilters &&
+                fieldNamesWithAppliedFilters.map((fieldName) => (
+                    <FacetsUpdater
+                        fieldNames={fieldName}
+                        key={fieldName}
+                        query={query}
+                        viewUrn={viewUrn}
+                        onFacetsUpdated={onFieldFacetsUpdated}
+                    />
+                ))}
+
+            {shouldUpdateFacetsForFieldsWithoutAppliedFilters && (
                 <FacetsUpdater
-                    fieldNames={fieldName}
-                    key={fieldName}
+                    fieldNames={fieldNamesWithoutAppliedFilters}
                     query={query}
+                    viewUrn={viewUrn}
                     onFacetsUpdated={onFieldFacetsUpdated}
                 />
-            ))}
-
-            <FacetsUpdater
-                fieldNames={fieldNamesWithoutAppliedFilters}
-                query={query}
-                onFacetsUpdated={onFieldFacetsUpdated}
-            />
+            )}
         </>
     );
 };

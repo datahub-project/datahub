@@ -4,6 +4,7 @@ import { useHistory } from 'react-router';
 import { EXACT_AUTOCOMPLETE_OPTION_TYPE, RELEVANCE_QUERY_OPTION_TYPE } from '@app/searchV2/searchBarV2/constants';
 import { Option } from '@app/searchV2/searchBarV2/types';
 import filterSearchQuery from '@app/searchV2/utils/filterSearchQuery';
+import { useAppConfig } from '@app/useAppConfig';
 import analytics, { Event, EventType } from '@src/app/analytics';
 import { getEntityPath } from '@src/app/entityV2/shared/containers/profile/utils';
 import { isEntityType } from '@src/app/entityV2/shared/utils';
@@ -17,6 +18,8 @@ export default function useSelectOption(
 ) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
+    const appConfig = useAppConfig();
+    const searchAPIVariant = appConfig.config.searchBarConfig.apiVariant;
 
     return useCallback(
         (value: string, option: Option) => {
@@ -26,6 +29,8 @@ export default function useSelectOption(
                 analytics.event({
                     type: EventType.SelectAutoCompleteOption,
                     optionType: option.type,
+                    showSearchBarAutocompleteRedesign: true,
+                    apiVariant: searchAPIVariant,
                 } as Event);
             } else if (isEntityType(option.type)) {
                 // Navigate directly to the entity profile.
@@ -36,11 +41,13 @@ export default function useSelectOption(
                     optionType: option.type,
                     entityType: option.type,
                     entityUrn: value,
+                    showSearchBarAutocompleteRedesign: true,
+                    apiVariant: searchAPIVariant,
                 } as Event);
             } else {
                 console.warn('Unknown entity type', option.type);
             }
         },
-        [onSearch, onClear, entityRegistry, filters, history],
+        [onSearch, onClear, entityRegistry, filters, history, searchAPIVariant],
     );
 }

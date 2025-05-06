@@ -13,6 +13,7 @@ import datahub.metadata.schema_classes
 from datahub.cli.cli_utils import post_entity
 from datahub.configuration.common import GraphError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import SystemMetadataClass
 from datahub.telemetry import telemetry
 
@@ -178,7 +179,7 @@ def create(
     Create an iceberg warehouse.
     """
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     urn = iceberg_data_platform_instance_urn(warehouse)
 
@@ -331,7 +332,7 @@ def update(
     Update iceberg warehouses. Can only update credentials, and role. Cannot update region
     """
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     urn = iceberg_data_platform_instance_urn(warehouse)
 
@@ -407,7 +408,7 @@ def list() -> None:
     List iceberg warehouses
     """
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     for warehouse in get_all_warehouses(client):
         click.echo(warehouse)
@@ -420,7 +421,7 @@ def list() -> None:
 @telemetry.with_telemetry()
 def get(warehouse: str) -> None:
     """Fetches the details of the specified iceberg warehouse"""
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     urn = iceberg_data_platform_instance_urn(warehouse)
 
     if client.exists(urn):
@@ -455,7 +456,7 @@ def delete(warehouse: str, dry_run: bool, force: bool) -> None:
 
     urn = iceberg_data_platform_instance_urn(warehouse)
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     if not client.exists(urn):
         raise click.ClickException(f"urn {urn} not found")

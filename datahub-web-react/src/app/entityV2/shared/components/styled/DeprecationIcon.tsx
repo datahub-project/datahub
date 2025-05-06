@@ -23,7 +23,7 @@ const DeprecatedContainer = styled.div`
     justify-content: center;
     gap: 4px;
     align-items: center;
-    color: ${REDESIGN_COLORS.DEPRECATION_RED};
+    color: ${colors.red[500]};
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`
@@ -70,7 +70,7 @@ const IconGroup = styled.div`
     color: ${REDESIGN_COLORS.TEXT_HEADING};
 
     &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.styles['primary-color']};
         cursor: pointer;
     }
 `;

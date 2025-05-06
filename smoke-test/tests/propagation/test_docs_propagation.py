@@ -758,7 +758,7 @@ def docs_propagation_bootstrap(
     time_stages["bootstrap_data_setup"] = time.time()
     # Apply base graph
     for mcp in scenario.base_graph:
-        graph_client.emit(mcp, async_flag=False)
+        graph_client.emit(mcp)
 
     wait_for_writes_to_sync()
     time_stages["bootstrap_data_setup"] = (

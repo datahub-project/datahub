@@ -202,10 +202,7 @@ public class ScimpleSpringTestApp {
     Driver _driver = GraphDatabase.driver(_serverBuilder.boltURI());
 
     Neo4jGraphService _client =
-        new Neo4jGraphService(
-            systemOperationContext,
-            new LineageRegistry(SnapshotEntityRegistry.getInstance()),
-            _driver);
+        new Neo4jGraphService(new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
 
     _client.clear();
 

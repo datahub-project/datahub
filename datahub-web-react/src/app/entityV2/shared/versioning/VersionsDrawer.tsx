@@ -80,7 +80,7 @@ const MenuIcon = styled(Icon)`
     }
 
     :hover {
-        border: ${colors.violet[500]} 1px solid;
+        border: ${(props) => props.theme.styles['primary-color']} 1px solid;
     }
 `;
 

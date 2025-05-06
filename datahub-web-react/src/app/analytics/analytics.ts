@@ -14,7 +14,7 @@ import { CLIENT_AUTH_COOKIE } from '@conf/Global';
 const appName = 'datahub-react';
 
 export const THIRD_PARTY_LOGGING_KEY = 'enableThirdPartyLogging';
-export const SEVER_VERSION_KEY = 'dataHubServerVersion';
+export const SERVER_VERSION_KEY = 'dataHubServerVersion';
 const { NODE_ENV } = import.meta.env;
 
 let analytics: any = null; // Global variable for analytics. Uninitialized at the start
@@ -69,7 +69,7 @@ export default {
         const isThemeV2Enabled = loadThemeV2FromLocalStorage();
         const userPersona = loadUserPersonaFromLocalStorage();
         const userTitle = loadUserTitleFromLocalStorage();
-        const serverVersion = localStorage.getItem(SEVER_VERSION_KEY);
+        const serverVersion = localStorage.getItem(SERVER_VERSION_KEY);
         const actorUrn = Cookies.get(CLIENT_AUTH_COOKIE) || undefined;
         const modifiedData = {
             ...data,
@@ -102,7 +102,7 @@ export default {
         const isThemeV2Enabled = loadThemeV2FromLocalStorage();
         const userPersona = loadUserPersonaFromLocalStorage();
         const userTitle = loadUserTitleFromLocalStorage();
-        const serverVersion = localStorage.getItem(SEVER_VERSION_KEY);
+        const serverVersion = localStorage.getItem(SERVER_VERSION_KEY);
         const eventTypeName = EventType[event.type];
         const modifiedEvent = {
             ...event,

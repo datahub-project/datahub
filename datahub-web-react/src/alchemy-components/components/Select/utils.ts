@@ -125,7 +125,7 @@ export const getSelectStyle = (props: SelectStyleProps) => {
         ...(isOpen
             ? {
                   borderColor: colors.gray[1800],
-                  outline: `2px solid ${colors.violet[300]}`,
+                  outline: `1px solid ${colors.violet[300]}`,
               }
             : {}),
 

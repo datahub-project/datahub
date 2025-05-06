@@ -10,7 +10,7 @@ import EntityRegistry from '@app/entity/EntityRegistry';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '@app/search/filters/ParentEntities';
-import { colors } from '@src/alchemy-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Domain, Entity, EntityType } from '@types';
 

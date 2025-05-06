@@ -1,6 +1,7 @@
 package com.datahub.graphql;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.ACTOR_URN_ATTR;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -132,7 +133,7 @@ public class GraphQLController {
             operationName,
             query,
             variables);
-    Span.current().setAttribute("actor.urn", context.getActorUrn());
+    Span.current().setAttribute(ACTOR_URN_ATTR, context.getActorUrn());
 
     final String threadName = Thread.currentThread().getName();
     final String queryName = context.getQueryName();

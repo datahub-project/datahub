@@ -62,11 +62,11 @@ Next, you'll configure an ingestion **Recipe**, which defines _how_ and _what_ t
 
 #### Step 2: Configure a Recipe
 
-Next, you'll define an ingestion **Recipe** in [YAML](https://yaml.org/). A [Recipe](https://datahubproject.io/docs/metadata-ingestion/#recipes) is a set of configurations which is
+Next, you'll define an ingestion **Recipe** in [YAML](https://yaml.org/). A [Recipe](https://docs.datahub.com/docs/metadata-ingestion/#recipes) is a set of configurations which is
 used by DataHub to extract metadata from a 3rd party system. It most often consists of the following parts:
 
 1. A source **type**: The type of system you'd like to extract metadata from (e.g. snowflake, mysql, postgres). If you've chosen a native template, this will already be populated for you.
-   To view a full list of currently supported **types**, check out [this list](https://datahubproject.io/docs/metadata-ingestion/#installing-plugins).
+   To view a full list of currently supported **types**, check out [this list](https://docs.datahub.com/docs/metadata-ingestion/#installing-plugins).
 
 2. A source **config**: A set of configurations specific to the source **type**. Most sources support the following types of configuration values:
 
@@ -85,7 +85,7 @@ A sample of a full recipe configured to ingest metadata from MySQL can be found 
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/example-mysql-recipe.png"/>
 </p>
 
-Detailed configuration examples & documentation for each source type can be found on the [DataHub Docs](https://datahubproject.io/docs/metadata-ingestion/) website.
+Detailed configuration examples & documentation for each source type can be found on the [DataHub Docs](https://docs.datahub.com/docs/metadata-ingestion/) website.
 
 ##### Creating a Secret
 
@@ -257,7 +257,7 @@ Once cancelled, you can view the output of the ingestion run by clicking **Detai
 A variety of things can cause an ingestion run to fail. Common reasons for failure include:
 
 1. **Recipe Misconfiguration**: A recipe has not provided the required or expected configurations for the ingestion source. You can refer
-   to the [Metadata Ingestion Framework](https://datahubproject.io/docs/metadata-ingestion) source docs to learn more about the configurations required for your source type.
+   to the [Metadata Ingestion Framework](https://docs.datahub.com/docs/metadata-ingestion) source docs to learn more about the configurations required for your source type.
 2. **Failure to resolve Secrets**: If DataHub is unable to find secrets that were referenced by your Recipe configuration, the ingestion run will fail.
    Verify that the names of the secrets referenced in your recipe match those which have been created.
 3. **Connectivity / Network Reachability**: If DataHub is unable to reach a data source, for example due to DNS resolution

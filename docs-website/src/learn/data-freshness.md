@@ -83,7 +83,7 @@ While manual investigation and communication using tools like Slack can help tri
 DataHub offers comprehensive features designed to tackle data freshness challenges:
 
 
-**[End-To-End Data Lineage](https://datahubproject.io/docs/generated/lineage/lineage-feature-guide) and [Impact Analysis](https://datahubproject.io/docs/act-on-metadata/impact-analysis):** Easily track the flow of data through your organization to identify, debug, and resolve delays quickly.
+**[End-To-End Data Lineage](https://docs.datahub.com/docs/generated/lineage/lineage-feature-guide) and [Impact Analysis](https://docs.datahub.com/docs/act-on-metadata/impact-analysis):** Easily track the flow of data through your organization to identify, debug, and resolve delays quickly.
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/lineage.png"/>
  <br />
@@ -91,7 +91,7 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 </p>
 
 
-**Freshness Monitoring & Alerting:** Automatically detect and alert when data freshness issues occur, to ensure timely updates by proactively monitoring key datasets for updates. Check out [Assertions](https://datahubproject.io/docs/managed-datahub/observe/assertions) and [Freshness Assertions](https://datahubproject.io/docs/managed-datahub/observe/freshness-assertions), Available in **DataHub Cloud Only.**
+**Freshness Monitoring & Alerting:** Automatically detect and alert when data freshness issues occur, to ensure timely updates by proactively monitoring key datasets for updates. Check out [Assertions](https://docs.datahub.com/docs/managed-datahub/observe/assertions) and [Freshness Assertions](https://docs.datahub.com/docs/managed-datahub/observe/freshness-assertions), Available in **DataHub Cloud Only.**
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/freshness-assertions.png"/>
@@ -107,7 +107,7 @@ DataHub offers comprehensive features designed to tackle data freshness challeng
 </p>
 
 
-**[Incident Management](https://datahubproject.io/docs/incidents/incidents)** : Centralize data incident management and begin to effectively triage, prioritize, communicate and resolve data freshness issues to all relevant stakeholders. Check out [subscription & notification](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) features as well.
+**[Incident Management](https://docs.datahub.com/docs/incidents/incidents)** : Centralize data incident management and begin to effectively triage, prioritize, communicate and resolve data freshness issues to all relevant stakeholders. Check out [subscription & notification](https://docs.datahub.com/docs/managed-datahub/subscription-and-notification) features as well.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/incidents.png"/>

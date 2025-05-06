@@ -19,6 +19,7 @@ import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.ClassificationConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.ExecutorConfiguration;
+import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.config.SearchBarConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
@@ -85,6 +86,7 @@ public class GmsGraphQLEngineArgs {
   DataHubConfiguration datahubConfiguration;
   ViewsConfiguration viewsConfiguration;
   SearchBarConfiguration searchBarConfiguration;
+  HomePageConfiguration homePageConfiguration;
   SiblingGraphService siblingGraphService;
   GroupService groupService;
   RoleService roleService;

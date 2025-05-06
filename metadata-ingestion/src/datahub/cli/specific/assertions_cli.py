@@ -15,6 +15,7 @@ from datahub.api.entities.assertion.compiler_interface import (
 from datahub.emitter.mce_builder import make_assertion_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.integrations.assertion.registry import ASSERTION_PLATFORMS
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -39,7 +40,7 @@ def upsert(file: str) -> None:
 
     assertions_spec: AssertionsConfigSpec = AssertionsConfigSpec.from_yaml(file)
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         for assertion_spec in assertions_spec.assertions:
             try:
                 mcp = MetadataChangeProposalWrapper(

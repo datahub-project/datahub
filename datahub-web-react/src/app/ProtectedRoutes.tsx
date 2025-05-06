@@ -13,6 +13,7 @@ import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
 import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
 import { useIsThemeV2, useSetThemeIsV2 } from '@app/useIsThemeV2';
+import { useSetAppTheme } from '@app/useSetAppTheme';
 import { useSetNavBarRedesignEnabled } from '@app/useShowNavBarRedesign';
 import { NEW_ROUTE_MAP, PageRoutes } from '@conf/Global';
 import { getRedirectUrl } from '@conf/utils';
@@ -25,6 +26,7 @@ const StyledLayout = styled(Layout)`
  * Container for all views behind an authentication wall.
  */
 export const ProtectedRoutes = (): JSX.Element => {
+    useSetAppTheme();
     useSetThemeIsV2();
     useSetUserPersona();
     useSetUserTitle();

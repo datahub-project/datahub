@@ -66,10 +66,10 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
         fetchPolicy: 'no-cache',
     });
 
-    const updateLocalState = (newState: LocalState) => {
+    const updateLocalState = useCallback((newState: LocalState) => {
         saveLocalState(newState);
         setLocalState(newState);
-    };
+    }, []);
 
     const setDefaultSelectedView = useCallback(
         (newViewUrn) => {
@@ -78,7 +78,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
                 selectedViewUrn: newViewUrn,
             });
         },
-        [localState],
+        [localState, updateLocalState],
     );
 
     const fetchUnfinishedTaskCount = () => {

@@ -4,12 +4,13 @@ import useSearchResultsOptions from '@app/searchV2/searchBarV2/hooks/useAutocomp
 import useRecentlySearchedQueriesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlySearchedQueriesOptions';
 import useRecentlyViewedEntitiesOptions from '@app/searchV2/searchBarV2/hooks/useRecentlyViewedEntitiesOptions';
 import useViewAllResultsOptions from '@app/searchV2/searchBarV2/hooks/useViewAllResultsOptions';
-import { Entity } from '@src/types.generated';
+import { EntityWithMatchedFields } from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
+import usePrevious from '@app/shared/usePrevious';
 
 export default function useOptions(
     searchQuery: string,
     showViewAllResults: boolean | undefined,
-    entities: Entity[] | undefined,
+    entitiesWithMatchedFields: EntityWithMatchedFields[] | undefined,
     isDataLoading: boolean,
     shouldCombineSiblings: boolean,
     isSearching: boolean,
@@ -18,15 +19,18 @@ export default function useOptions(
     // used to show Loader when we searching for suggestions in both cases for the first time and after clearing searchQuery
     const [isDataInitialized, setIsDataInitialized] = useState<boolean>(false);
 
-    const hasResults = useMemo(() => (entities?.length ?? 0) > 0, [entities?.length]);
+    const hasResults = useMemo(() => (entitiesWithMatchedFields?.length ?? 0) > 0, [entitiesWithMatchedFields?.length]);
 
     useEffect(() => {
         if (searchQuery === '') setIsDataInitialized(false);
     }, [searchQuery]);
 
+    const previousIsLoading = usePrevious(isDataLoading);
     useEffect(() => {
-        if (!isDataLoading) setIsDataInitialized(true);
-    }, [isDataLoading]);
+        if (previousIsLoading && !isDataLoading) {
+            setIsDataInitialized(true);
+        }
+    }, [isDataLoading, previousIsLoading]);
 
     const recentlySearchedQueriesOptions = useRecentlySearchedQueriesOptions();
     const recentlyViewedEntitiesOptions = useRecentlyViewedEntitiesOptions();
@@ -38,7 +42,7 @@ export default function useOptions(
     const viewAllResultsOptions = useViewAllResultsOptions(searchQuery, showViewAllResults);
 
     const searchResultsOptions = useSearchResultsOptions(
-        entities,
+        entitiesWithMatchedFields,
         searchQuery,
         isDataLoading,
         isDataInitialized,
@@ -49,7 +53,7 @@ export default function useOptions(
         if (!isSearching) return initialOptions;
 
         if (shouldShowAutoCompleteResults) {
-            if (!isDataLoading && !hasResults) return [];
+            if (!isDataLoading && !hasResults && isDataInitialized) return [];
             return [...viewAllResultsOptions, ...searchResultsOptions];
         }
 
@@ -62,6 +66,7 @@ export default function useOptions(
         viewAllResultsOptions,
         shouldShowAutoCompleteResults,
         isDataLoading,
+        isDataInitialized,
     ]);
 
     return options;

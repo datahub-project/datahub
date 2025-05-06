@@ -12,6 +12,7 @@ import {
 import { formLabelTextStyles } from '@components/components/commonStyles';
 import { borders, colors, shadows, spacing, transition } from '@components/theme';
 import { ColorOptions, SizeOptions } from '@components/theme/config';
+import { getColor } from '@components/theme/utils';
 
 export const Label = styled.div({
     ...formLabelTextStyles,
@@ -80,7 +81,8 @@ export const StyledInput = styled.input<{
     position: absolute;
 
     &:checked + ${Slider} {
-        background-color: ${(props) => (!props.disabled ? colors[props.colorScheme][500] : colors.gray[100])};
+        background-color: ${(props) =>
+            !props.disabled ? getColor(props.colorScheme, 500, props.theme) : colors.gray[100]};
 
         &:before {
             transform: ${({ customSize }) => getSliderTransformPosition(customSize || 'md')};
@@ -88,8 +90,9 @@ export const StyledInput = styled.input<{
     }
 
     &:focus-within + ${Slider} {
-        border-color: ${(props) => (props.checked ? colors[props.colorScheme][200] : 'transparent')};
-        outline: ${(props) => (props.checked ? `${borders['2px']} ${colors[props.colorScheme][200]}` : 'none')};
+        border-color: ${(props) => (props.checked ? getColor(props.colorScheme, 200, props.theme) : 'transparent')};
+        outline: ${(props) =>
+            props.checked ? `${borders['2px']} ${getColor(props.colorScheme, 200, props.theme)}` : 'none'};
         box-shadow: ${(props) => (props.checked ? shadows.xs : 'none')};
     }
 `;

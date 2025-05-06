@@ -77,7 +77,13 @@ task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
 }
 
 task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  args = ['run', 'start',  '--proxy', 'http://localhost:9001']
+  environment.put('REACT_APP_PROXY_TARGET', 'http://localhost:9001')
+  args = ['run', 'start']
+}
+
+task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  environment.put('REACT_APP_PROXY_TARGET', project.findProperty('proxy') ?: 'http://localhost:9001')
+  args = ['run', 'preview']
 }
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {

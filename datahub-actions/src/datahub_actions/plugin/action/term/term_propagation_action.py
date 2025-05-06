@@ -60,17 +60,21 @@ class TermPropagationConfig(ConfigModel):
     enabled: bool = Field(
         True,
         description="Indicates whether term propagation is enabled or not.",
-        example=True,
     )
     target_terms: Optional[List[str]] = Field(
         None,
         description="Optional target terms to restrict term propagation to this and all terms related to these terms.",
-        example="[urn:li:glossaryTerm:Sensitive]",
+        examples=[
+            "urn:li:glossaryTerm:Sensitive",
+        ],
     )
     term_groups: Optional[List[str]] = Field(
         None,
         description="Optional list of term groups to restrict term propagation.",
-        example=["Group1", "Group2"],
+        examples=[
+            "Group1",
+            "Group2",
+        ],
     )
 
 

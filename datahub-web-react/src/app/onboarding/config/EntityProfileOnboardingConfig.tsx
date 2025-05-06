@@ -133,7 +133,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Tags</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/tags">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/tags">
                         {' '}
                         here.{' '}
                     </a>
@@ -160,7 +160,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/glossary/business-glossary"
+                        href="https://docs.datahub.com/docs/glossary/business-glossary"
                     >
                         {' '}
                         here.
@@ -184,7 +184,7 @@ export const EntityProfileOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Domains</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/domains">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains">
                         {' '}
                         here.
                     </a>

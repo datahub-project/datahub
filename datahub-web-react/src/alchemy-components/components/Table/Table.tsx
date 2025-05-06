@@ -199,6 +199,7 @@ export const Table = <T,>({
                                         onRowClick?.(row); // Handle row click
                                         e.stopPropagation();
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     className={rowClassName?.(row)} // Add row-specific class
                                     ref={(el) => {
                                         if (rowRefs && el) {
@@ -206,7 +207,6 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
-                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
                                     canHover

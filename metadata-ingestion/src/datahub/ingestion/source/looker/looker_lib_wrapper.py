@@ -113,7 +113,7 @@ class LookerAPI:
             )
         except SDKError as e:
             raise ConfigurationError(
-                f"Failed to connect/authenticate with looker - check your configuration: {e}"
+                "Failed to connect/authenticate with looker - check your configuration"
             ) from e
 
         self.client_stats = LookerAPIStats()

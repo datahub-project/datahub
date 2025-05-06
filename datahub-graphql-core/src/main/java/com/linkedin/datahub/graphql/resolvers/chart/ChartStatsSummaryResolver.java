@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -47,7 +48,7 @@ public class ChartStatsSummaryResolver
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // TODO: We don't have a chart specific priv
@@ -72,7 +73,9 @@ public class ChartStatsSummaryResolver
             return null; // Do not throw when loading usage summary fails.
           }
           return null;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<CorpUser> trimUsers(final List<CorpUser> originalUsers) {

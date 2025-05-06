@@ -1,4 +1,8 @@
-export const GlossaryV2PaletteColors = {
+import { useCustomTheme } from '@src/customThemeContext';
+
+export type ColorPalette = { [key: string]: string };
+
+export const GlossaryV2PaletteColors: ColorPalette = {
     PASTEL_LAVENDER: '#9386E2',
     PURPLE: '#9254DE',
     LIGHT_BLUE: '#85A5FF',
@@ -15,7 +19,7 @@ export const GlossaryV2PaletteColors = {
     COLD_GREY: '#81879F',
 };
 
-const getStringHash = (str: string) => {
+export const getStringHash = (str: string) => {
     let hash = 0;
     for (let i = 0; i < str.length; i++) {
         /* eslint-disable no-bitwise */
@@ -24,7 +28,14 @@ const getStringHash = (str: string) => {
     return hash;
 };
 
-export const generateColorFromPalette = (text: string) => {
-    const colorIndex = Math.abs(getStringHash(text)) % Object.values(GlossaryV2PaletteColors).length;
-    return Object.values(GlossaryV2PaletteColors)[colorIndex];
-};
+export function useGenerateGlossaryColorFromPalette() {
+    const { theme } = useCustomTheme();
+
+    const generateColor = (urn: string) => {
+        const palette = theme?.colors?.glossaryPalette || Object.values(GlossaryV2PaletteColors);
+        const colorIndex = Math.abs(getStringHash(urn)) % palette.length;
+        return palette[colorIndex];
+    };
+
+    return generateColor;
+}

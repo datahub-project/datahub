@@ -13,3 +13,5 @@ export enum ErrorCodes {
     NotFound = 404,
     ServerError = 500,
 }
+
+export const DEBOUNCE_SEARCH_MS = 300;

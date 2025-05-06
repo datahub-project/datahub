@@ -74,6 +74,7 @@ export interface ActionButtonsProps {
     isDisabled: boolean;
     isReadOnly: boolean;
     showClear: boolean;
+    fontSize?: SelectSizeOptions;
     handleClearSelection: () => void;
 }
 

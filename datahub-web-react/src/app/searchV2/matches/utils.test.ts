@@ -6,6 +6,7 @@ import {
     getMatchedFieldsByNames,
     getMatchedFieldsByUrn,
     getMatchesPrioritized,
+    getMatchesPrioritizedByQueryInQueryParams,
     isDescriptionField,
     isHighlightableEntityField,
     shouldShowInMatchedFieldList,
@@ -56,11 +57,124 @@ const MOCK_MATCHED_DESCRIPTION_FIELDS = [
     },
 ];
 
+const MOCK_MATCHED_DESCRIPTION_FIELDS_DESCRIPTION_FIRST = [
+    {
+        name: 'description',
+        value: 'description value',
+    },
+    {
+        name: 'editedDescription',
+        value: 'edited description value',
+    },
+    {
+        name: 'fieldDescriptions',
+        value: 'field descriptions value',
+    },
+    {
+        name: 'editedFieldDescriptions',
+        value: 'edited field descriptions value',
+    },
+];
+
 describe('utils', () => {
-    describe('getMatchPrioritizingPrimary', () => {
+    describe('getMatchesPrioritized', () => {
+        it('prioritizes exact match', () => {
+            const groupedMatches = getMatchesPrioritized(
+                EntityType.Dataset,
+                'rainbow',
+                MOCK_MATCHED_FIELDS,
+                'fieldPaths',
+            );
+            expect(groupedMatches).toEqual([
+                {
+                    fieldName: 'fieldPaths',
+                    matchedFields: [
+                        { name: 'fieldPaths', value: 'rainbow' },
+                        { name: 'fieldPaths', value: 'rainbows' },
+                        { name: 'fieldPaths', value: 'rain' },
+                    ],
+                },
+                {
+                    fieldName: 'fieldDescriptions',
+                    matchedFields: [{ name: 'fieldDescriptions', value: 'rainbow' }],
+                },
+            ]);
+        });
+        it('will accept first contains match', () => {
+            const groupedMatches = getMatchesPrioritized(EntityType.Dataset, 'bow', MOCK_MATCHED_FIELDS, 'fieldPaths');
+            expect(groupedMatches).toEqual([
+                {
+                    fieldName: 'fieldPaths',
+                    matchedFields: [
+                        { name: 'fieldPaths', value: 'rainbow' },
+                        { name: 'fieldPaths', value: 'rainbows' },
+                        { name: 'fieldPaths', value: 'rain' },
+                    ],
+                },
+                {
+                    fieldName: 'fieldDescriptions',
+                    matchedFields: [{ name: 'fieldDescriptions', value: 'rainbow' }],
+                },
+            ]);
+        });
+        it('will group by field name', () => {
+            const groupedMatches = getMatchesPrioritized(
+                EntityType.Dataset,
+                '',
+                MOCK_MATCHED_DESCRIPTION_FIELDS,
+                'fieldPaths',
+            );
+            expect(groupedMatches).toEqual([
+                {
+                    fieldName: 'description',
+                    matchedFields: [
+                        { name: 'editedDescription', value: 'edited description value' },
+                        { name: 'description', value: 'description value' },
+                    ],
+                },
+                {
+                    fieldName: 'fieldDescriptions',
+                    matchedFields: [
+                        { name: 'fieldDescriptions', value: 'field descriptions value' },
+                        { name: 'editedFieldDescriptions', value: 'edited field descriptions value' },
+                    ],
+                },
+            ]);
+        });
+        it('will order matches in group', () => {
+            const groupedMatches = getMatchesPrioritized(
+                EntityType.Dataset,
+                '',
+                MOCK_MATCHED_DESCRIPTION_FIELDS_DESCRIPTION_FIRST,
+                'fieldPaths',
+            );
+            expect(groupedMatches).toEqual([
+                {
+                    fieldName: 'description',
+                    matchedFields: [
+                        { name: 'editedDescription', value: 'edited description value' },
+                        { name: 'description', value: 'description value' },
+                    ],
+                },
+                {
+                    fieldName: 'fieldDescriptions',
+                    matchedFields: [
+                        { name: 'fieldDescriptions', value: 'field descriptions value' },
+                        { name: 'editedFieldDescriptions', value: 'edited field descriptions value' },
+                    ],
+                },
+            ]);
+        });
+    });
+
+    describe('getMatchesPrioritizedByQueryInQueryParams', () => {
         it('prioritizes exact match', () => {
             global.window.location.search = 'query=rainbow';
-            const groupedMatches = getMatchesPrioritized(EntityType.Dataset, MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const groupedMatches = getMatchesPrioritizedByQueryInQueryParams(
+                EntityType.Dataset,
+                MOCK_MATCHED_FIELDS,
+                'fieldPaths',
+            );
             expect(groupedMatches).toEqual([
                 {
                     fieldName: 'fieldPaths',
@@ -78,7 +192,11 @@ describe('utils', () => {
         });
         it('will accept first contains match', () => {
             global.window.location.search = 'query=bow';
-            const groupedMatches = getMatchesPrioritized(EntityType.Dataset, MOCK_MATCHED_FIELDS, 'fieldPaths');
+            const groupedMatches = getMatchesPrioritizedByQueryInQueryParams(
+                EntityType.Dataset,
+                MOCK_MATCHED_FIELDS,
+                'fieldPaths',
+            );
             expect(groupedMatches).toEqual([
                 {
                     fieldName: 'fieldPaths',
@@ -96,9 +214,33 @@ describe('utils', () => {
         });
         it('will group by field name', () => {
             global.window.location.search = '';
-            const groupedMatches = getMatchesPrioritized(
+            const groupedMatches = getMatchesPrioritizedByQueryInQueryParams(
                 EntityType.Dataset,
                 MOCK_MATCHED_DESCRIPTION_FIELDS,
+                'fieldPaths',
+            );
+            expect(groupedMatches).toEqual([
+                {
+                    fieldName: 'description',
+                    matchedFields: [
+                        { name: 'editedDescription', value: 'edited description value' },
+                        { name: 'description', value: 'description value' },
+                    ],
+                },
+                {
+                    fieldName: 'fieldDescriptions',
+                    matchedFields: [
+                        { name: 'fieldDescriptions', value: 'field descriptions value' },
+                        { name: 'editedFieldDescriptions', value: 'edited field descriptions value' },
+                    ],
+                },
+            ]);
+        });
+        it('will order matches in group', () => {
+            global.window.location.search = '';
+            const groupedMatches = getMatchesPrioritizedByQueryInQueryParams(
+                EntityType.Dataset,
+                MOCK_MATCHED_DESCRIPTION_FIELDS_DESCRIPTION_FIRST,
                 'fieldPaths',
             );
             expect(groupedMatches).toEqual([
@@ -130,7 +272,7 @@ describe('utils', () => {
         it('should return false if field should not show in matched field list', () => {
             const field = { name: 'description', value: 'edited description value' };
             const show = shouldShowInMatchedFieldList(EntityType.Dashboard, field);
-            expect(show).toBe(false);
+            expect(show).toBe(true);
         });
     });
 
@@ -230,6 +372,20 @@ describe('utils', () => {
             const target = 'description';
             const slice = getDescriptionSlice(text, target);
             expect(slice).toBe('... a sample description text valu...');
+        });
+
+        it('should return slice of text surrounding the target (case insensitive)', () => {
+            const text = 'This is a sample Description text value';
+            const target = 'descriptioN';
+            const slice = getDescriptionSlice(text, target);
+            expect(slice).toBe('... a sample Description text valu...');
+        });
+
+        it('should return slice from the beginning when the target is not found in the text', () => {
+            const text = 'This is a sample Description text value';
+            const target = 'novalue';
+            const slice = getDescriptionSlice(text, target);
+            expect(slice).toBe('This is a sample...');
         });
     });
 });

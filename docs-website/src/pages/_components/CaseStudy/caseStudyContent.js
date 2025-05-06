@@ -6,8 +6,8 @@ const caseStudyData = [
     tag: "Technology",
     backgroundImage:
       "https://miro.medium.com/v2/resize:fit:1400/format:webp/1*iUnFujzVqMBpK41z32-Ctw.png",
-    image: "https://datahubproject.io/img/logos/companies/netflix.png",
-    link: "https://datahubproject.io/adoption-stories/#netflix",
+    image: "https://docs.datahub.com/img/logos/companies/netflix.png",
+    link: "https://docs.datahub.com/adoption-stories/#netflix",
   },
   {
     title: "A Solid Foundation For Data and AI",
@@ -17,7 +17,7 @@ const caseStudyData = [
     backgroundImage:
       "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Aerial_view_of_Apple_Park_dllu.jpg/2560px-Aerial_view_of_Apple_Park_dllu.jpg",
     image: "/img/logos/companies/apple_text.png",
-    link: "https://datahubproject.io/adoption-stories/#apple",
+    link: "https://docs.datahub.com/adoption-stories/#apple",
   },
   {
     title: "Scaling Data Governance",
@@ -27,7 +27,7 @@ const caseStudyData = [
     backgroundImage:
       "https://miro.medium.com/v2/resize:fit:2000/format:webp/1*mtC4j8J-jumJKWg8RuR6xQ@2x.png",
     image: "/img/logos/companies/visa_text.png",
-    link: "https://datahubproject.io/adoption-stories/#visa",
+    link: "https://docs.datahub.com/adoption-stories/#visa",
   },
   {
     title: "Ensuring Data Reliability",
@@ -36,8 +36,8 @@ const caseStudyData = [
     tag: "Technology",
     backgroundImage:
       "https://www.notion.so/cdn-cgi/image/format=webp,width=1920/front-static/pages/product/super-duper/hero-illo.png",
-    image: "https://datahubproject.io/img/logos/scrollingCompanies/notion.png",
-    link: "https://datahubproject.io/adoption-stories/#notion",
+    image: "https://docs.datahub.com/img/logos/scrollingCompanies/notion.png",
+    link: "https://docs.datahub.com/adoption-stories/#notion",
   },
   {
     title: "Building on DataHub",
@@ -46,7 +46,7 @@ const caseStudyData = [
     tag: "Technology",
     backgroundImage:
       "https://newsroom-archive.pinterest.com/static/images/pin32189_primary-image_hero_0db73.png",
-    image: "https://datahubproject.io/img/logos/companies/pinterest.png",
+    image: "https://docs.datahub.com/img/logos/companies/pinterest.png",
     link: "https://www.youtube.com/watch?v=YoxTg8tQSwg",
   },
   {
@@ -57,7 +57,7 @@ const caseStudyData = [
     backgroundImage:
       "https://i.pcmag.com/imagery/reviews/07td46ju7p6lLVb0QGwc5VF-19.fit_lim.size_1050x.png",
     image: "/img/logos/companies/slack.png",
-    link: "https://datahubproject.io/adoption-stories/#slack",
+    link: "https://docs.datahub.com/adoption-stories/#slack",
   },
   {
     title: "Working with Petabyte Scale Healthcare Data",
@@ -66,8 +66,8 @@ const caseStudyData = [
     tag: "Healthcare",
     backgroundImage:
       "https://opensource.optum.com/static/images/mesh-overview-e26ea2aaa8d3dbb1f1771b50f4e31449.png",
-    image: "https://datahubproject.io/img/logos/companies/optum.png",
-    link: "https://datahubproject.io/adoption-stories/#optum",
+    image: "https://docs.datahub.com/img/logos/companies/optum.png",
+    link: "https://docs.datahub.com/adoption-stories/#optum",
   },
   {
     title: "Exploring Airtel's shift to a decentralized data architecture.",
@@ -77,7 +77,7 @@ const caseStudyData = [
     backgroundImage:
       "https://upload.wikimedia.org/wikipedia/commons/3/3a/Airtel_logo-01.png",
     image: "/img/logos/companies/airtel.png",
-    link: "https://datahubproject.io/adoption-stories/#airtel",
+    link: "https://docs.datahub.com/adoption-stories/#airtel",
   },
   {
     title: "Leveling Up Data Management.",
@@ -87,7 +87,7 @@ const caseStudyData = [
     backgroundImage:
       "https://upload.wikimedia.org/wikipedia/en/thumb/7/7b/Zynga.svg/1200px-Zynga.svg.png",
     image: "/img/logos/companies/zynga.png",
-    link: "https://datahubproject.io/adoption-stories/#zynga",
+    link: "https://docs.datahub.com/adoption-stories/#zynga",
   },
   {
     title: "Reliable Data Products",
@@ -107,7 +107,7 @@ const caseStudyData = [
     backgroundImage:
       "",
     image: "",
-    link: "https://datahubproject.io/adoption-stories/",
+    link: "https://docs.datahub.com/adoption-stories/",
   },
 ];
 

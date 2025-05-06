@@ -78,6 +78,31 @@ def test_config_redaction():
     }
 
 
+def test_config_redaction_2():
+    obj = {
+        "config": {
+            "catalog": {
+                "config": {
+                    "s3.access-key-id": "ABCDEF",
+                    "s3.secret-access-key": "8126818",
+                }
+            }
+        },
+    }
+
+    redacted = redact_raw_config(obj)
+    assert redacted == {
+        "config": {
+            "catalog": {
+                "config": {
+                    "s3.access-key-id": "********",
+                    "s3.secret-access-key": "********",
+                }
+            }
+        },
+    }
+
+
 def test_shared_defaults():
     class SourceConfig(ConfigModel):
         token: str

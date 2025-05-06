@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.stream.Stream;
 import org.mockito.Mockito;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -122,11 +123,76 @@ public class FormPromptValidatorTest {
     FormInfo formInfo =
         new FormInfo().setName("test form").setType(FormType.VERIFICATION).setPrompts(prompts);
 
-    // Mock search results with a match - meaning another form has
+    // Mock search results with a match from a different entity - meaning another form has duplicate
+    // prompts
     SearchEntity existingForm = new SearchEntity();
     existingForm.setEntity(TEST_FORM_URN_2);
     ScrollResult mockResult = new ScrollResult();
     mockResult.setEntities(new SearchEntityArray(Collections.singletonList(existingForm)));
+    Mockito.when(
+            mockSearchRetriever.scroll(
+                Mockito.eq(Collections.singletonList(FORM_ENTITY_NAME)),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(10),
+                Mockito.eq(new ArrayList<>()),
+                Mockito.any(SearchFlags.class)))
+        .thenReturn(mockResult);
+
+    // Test validation
+    Stream<AspectValidationException> validationResult =
+        FormPromptValidator.validateFormInfoUpserts(
+            TestMCP.ofOneUpsertItem(TEST_FORM_URN, formInfo, TEST_REGISTRY), retrieverContext);
+
+    // Assert validation exception exists
+    Assert.assertFalse(validationResult.findAny().isEmpty());
+  }
+
+  @Test
+  public void testValidUpsertResultMatchesSelf() {
+    FormPromptArray prompts = new FormPromptArray();
+    prompts.add(new FormPrompt().setId("test1"));
+    FormInfo formInfo =
+        new FormInfo().setName("test form").setType(FormType.VERIFICATION).setPrompts(prompts);
+
+    // Mock search results with a match from the same entity - should not fail
+    SearchEntity sameForm = new SearchEntity();
+    sameForm.setEntity(TEST_FORM_URN);
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setEntities(new SearchEntityArray(Collections.singletonList(sameForm)));
+    Mockito.when(
+            mockSearchRetriever.scroll(
+                Mockito.eq(Collections.singletonList(FORM_ENTITY_NAME)),
+                Mockito.any(Filter.class),
+                Mockito.eq(null),
+                Mockito.eq(10),
+                Mockito.eq(new ArrayList<>()),
+                Mockito.any(SearchFlags.class)))
+        .thenReturn(mockResult);
+
+    // Test validation
+    Stream<AspectValidationException> validationResult =
+        FormPromptValidator.validateFormInfoUpserts(
+            TestMCP.ofOneUpsertItem(TEST_FORM_URN, formInfo, TEST_REGISTRY), retrieverContext);
+
+    // Assert no validation exceptions
+    Assert.assertTrue(validationResult.findAny().isEmpty());
+  }
+
+  @Test
+  public void testInvalidUpsertResultMatchesSelfAndOthers() {
+    FormPromptArray prompts = new FormPromptArray();
+    prompts.add(new FormPrompt().setId("test1"));
+    FormInfo formInfo =
+        new FormInfo().setName("test form").setType(FormType.VERIFICATION).setPrompts(prompts);
+
+    // Mock search results with a match from the same entity and another entity - should fail
+    SearchEntity existingForm = new SearchEntity();
+    existingForm.setEntity(TEST_FORM_URN_2);
+    SearchEntity sameForm = new SearchEntity();
+    sameForm.setEntity(TEST_FORM_URN);
+    ScrollResult mockResult = new ScrollResult();
+    mockResult.setEntities(new SearchEntityArray(ImmutableList.of(sameForm, existingForm)));
     Mockito.when(
             mockSearchRetriever.scroll(
                 Mockito.eq(Collections.singletonList(FORM_ENTITY_NAME)),

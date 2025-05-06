@@ -35,4 +35,4 @@ If that all sounds like what you're looking for, navigate to the [next page](set
 If you're looking to do something more in-depth, want to use CLI instead of the DataHub UI, or just need to look at the reference documentation for this connector, use these links:
 
 - Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
-- [BigQuery Ingestion Reference Guide](https://datahubproject.io/docs/generated/ingestion/sources/bigquery/#module-bigquery)
+- [BigQuery Ingestion Reference Guide](https://docs.datahub.com/docs/generated/ingestion/sources/bigquery/#module-bigquery)

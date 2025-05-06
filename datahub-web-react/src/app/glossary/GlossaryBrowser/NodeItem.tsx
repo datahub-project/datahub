@@ -5,12 +5,12 @@ import styled from 'styled-components/macro';
 
 import { sortGlossaryNodes } from '@app/entity/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entity/glossaryTerm/utils';
-import { useGlossaryEntityData } from '@app/entity/shared/GlossaryEntityContext';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import TermItem, { NameWrapper, TermLink as NodeLink } from '@app/glossary/GlossaryBrowser/TermItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import useGlossaryChildren from '@src/app/entityV2/glossaryNode/useGlossaryChildren';
 
-import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
 const ItemWrapper = styled.div`
@@ -87,11 +87,13 @@ function NodeItem(props: Props) {
 
     const [areChildrenVisible, setAreChildrenVisible] = useState(false);
     const entityRegistry = useEntityRegistry();
-    const { entityData, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
-    const { data, loading, refetch } = useGetGlossaryNodeQuery({
-        variables: { urn: node.urn },
-        skip: !areChildrenVisible || shouldHideNode,
-    });
+    const entityUrn = node.urn;
+    const {
+        scrollRef,
+        data: children,
+        loading,
+    } = useGlossaryChildren({ entityUrn, skip: !areChildrenVisible || shouldHideNode });
+    const { entityData } = useGlossaryEntityData();
 
     useEffect(() => {
         if (openToEntity && entityData && entityData.parentNodes?.nodes?.some((parent) => parent.urn === node.urn)) {
@@ -105,17 +107,7 @@ function NodeItem(props: Props) {
         }
     }, [refreshBrowser]);
 
-    useEffect(() => {
-        if (urnsToUpdate.includes(node.urn)) {
-            refetch();
-            setUrnsToUpdate(urnsToUpdate.filter((urn) => urn !== node.urn));
-        }
-    });
-
     const isOnEntityPage = entityData && entityData.urn === node.urn;
-
-    const children =
-        entityData && isOnEntityPage ? entityData.children?.relationships : data?.glossaryNode?.children?.relationships;
 
     function handleSelectNode() {
         if (selectNode) {
@@ -124,16 +116,12 @@ function NodeItem(props: Props) {
         }
     }
 
-    const childNodes =
-        (children as any)
-            ?.filter((child) => child.entity?.type === EntityType.GlossaryNode)
-            .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA.entity, nodeB.entity))
-            .map((child) => child.entity) || [];
-    const childTerms =
-        (children as any)
-            ?.filter((child) => child.entity?.type === EntityType.GlossaryTerm)
-            .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA.entity, termB.entity))
-            .map((child) => child.entity) || [];
+    const childNodes = children
+        ?.filter((child) => child?.type === EntityType.GlossaryNode)
+        .sort((nodeA, nodeB) => sortGlossaryNodes(entityRegistry, nodeA, nodeB));
+    const childTerms = children
+        ?.filter((child) => child?.type === EntityType.GlossaryTerm)
+        .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
 
     if (shouldHideNode) return null;
 
@@ -160,15 +148,16 @@ function NodeItem(props: Props) {
             </NodeWrapper>
             {areChildrenVisible && (
                 <>
-                    {!data && loading && (
+                    {!children.length && loading && (
                         <LoadingWrapper>
                             <LoadingOutlined />
                         </LoadingWrapper>
                     )}
-                    {data && data.glossaryNode && (
+                    {children.length > 0 && (
                         <ChildrenWrapper>
                             {(childNodes as GlossaryNode[]).map((child) => (
                                 <NodeItem
+                                    key={child.urn}
                                     node={child}
                                     isSelecting={isSelecting}
                                     hideTerms={hideTerms}
@@ -181,6 +170,7 @@ function NodeItem(props: Props) {
                             {!hideTerms &&
                                 (childTerms as GlossaryTerm[]).map((child) => (
                                     <TermItem
+                                        key={child.urn}
                                         term={child}
                                         isSelecting={isSelecting}
                                         selectTerm={selectTerm}
@@ -188,6 +178,7 @@ function NodeItem(props: Props) {
                                         termUrnToHide={termUrnToHide}
                                     />
                                 ))}
+                            <div ref={scrollRef} />
                         </ChildrenWrapper>
                     )}
                 </>

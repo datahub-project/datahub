@@ -354,10 +354,11 @@ class Telemetry:
             }
         else:
             return {
-                "server_type": server.server_config.get("datahub", {}).get(
-                    "serverType", "missing"
-                ),
-                "server_version": server.server_config.get("versions", {})
+                "server_type": server.get_config()
+                .get("datahub", {})
+                .get("serverType", "missing"),
+                "server_version": server.get_config()
+                .get("versions", {})
                 .get("acryldata/datahub", {})
                 .get("version", "missing"),
                 "server_id": server.server_id or "missing",

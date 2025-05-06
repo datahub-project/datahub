@@ -1,3 +1,5 @@
+import { Color } from '@src/alchemy-components/theme/config';
+
 export type Theme = {
     styles: {
         'primary-color'?: string;
@@ -22,6 +24,11 @@ export type Theme = {
         'border-radius-navbar-redesign'?: string;
         'highlight-color': string;
         'highlight-border-color': string;
+    };
+    colors?: {
+        primary?: Color;
+        glossaryPalette?: string[];
+        domainPalette?: string[];
     };
     assets: {
         logoUrl: string;
