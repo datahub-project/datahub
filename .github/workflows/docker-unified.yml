@@ -121,7 +121,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-               (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+               (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'release' )
                && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
             }}
         run: |
