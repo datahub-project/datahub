@@ -10,5 +10,5 @@ export default function StatsTabWrapper(props: StatsProps) {
     const { config } = useAppConfig();
     const { showStatsTabRedesign } = config.featureFlags;
 
-    return showStatsTabRedesign || true? <StatsTabContent {...props} /> : <StatsSidebarView {...props} />;
+    return showStatsTabRedesign || true ? <StatsTabContent {...props} /> : <StatsSidebarView {...props} />;
 }
