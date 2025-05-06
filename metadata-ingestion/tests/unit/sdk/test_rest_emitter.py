@@ -1,7 +1,8 @@
 import json
 import os
 from datetime import timedelta
-from unittest.mock import ANY, Mock, patch
+from typing import Any, Dict
+from unittest.mock import ANY, MagicMock, Mock, patch
 
 import pytest
 from requests import Response, Session
@@ -19,6 +20,7 @@ from datahub.emitter.rest_emitter import (
     INGEST_MAX_PAYLOAD_BYTES,
     DataHubRestEmitter,
     DatahubRestEmitter,
+    EmitMode,
     RequestsSessionConfig,
     RestSinkEndpoint,
     logger,
@@ -41,10 +43,61 @@ from datahub.utilities.server_config_util import RestServiceConfig
 MOCK_GMS_ENDPOINT = "http://fakegmshost:8080"
 
 
+@pytest.fixture
+def sample_config() -> Dict[str, Any]:
+    return {
+        "models": {},
+        "patchCapable": True,
+        "versions": {
+            "acryldata/datahub": {
+                "version": "v1.0.1",
+                "commit": "dc127c5f031d579732899ccd81a53a3514dc4a6d",
+            }
+        },
+        "managedIngestion": {"defaultCliVersion": "1.0.0.2", "enabled": True},
+        "statefulIngestionCapable": True,
+        "supportsImpactAnalysis": True,
+        "timeZone": "GMT",
+        "telemetry": {"enabledCli": True, "enabledIngestion": False},
+        "datasetUrnNameCasing": False,
+        "retention": "true",
+        "datahub": {"serverType": "dev"},
+        "noCode": "true",
+    }
+
+
+@pytest.fixture
+def mock_session():
+    session = MagicMock(spec=Session)
+    return session
+
+
+@pytest.fixture
+def mock_response(sample_config):
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = sample_config
+    response.text = str(sample_config)
+    return response
+
+
 class TestDataHubRestEmitter:
     @pytest.fixture
     def openapi_emitter(self) -> DataHubRestEmitter:
-        return DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+        openapi_emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+
+        # Set the underlying private attribute directly
+        openapi_emitter._server_config = RestServiceConfig(
+            raw_config={
+                "versions": {
+                    "acryldata/datahub": {
+                        "version": "v1.0.1rc0"  # Supports OpenApi & Tracing
+                    }
+                }
+            }
+        )
+
+        return openapi_emitter
 
     def test_datahub_rest_emitter_missing_gms_server(self):
         """Test that emitter raises ConfigurationError when gms_server is not provided."""
@@ -58,11 +111,11 @@ class TestDataHubRestEmitter:
         # Create a basic emitter
         emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
 
-        # Mock RestServiceConfig.fetch_config to raise ConfigurationError
-        with patch.object(RestServiceConfig, "fetch_config") as mock_fetch_config:
+        # Mock the session's get method to raise ConfigurationError
+        with patch.object(emitter._session, "get") as mock_get:
             # Configure the mock to raise ConfigurationError
             mock_error = ConfigurationError("Connection failed")
-            mock_fetch_config.side_effect = mock_error
+            mock_get.side_effect = mock_error
 
             # Verify that the exception is re-raised
             with pytest.raises(ConfigurationError) as excinfo:
@@ -148,6 +201,7 @@ class TestDataHubRestEmitter:
                                     "clientVersion": "1!0.0.0.dev0",
                                 },
                             },
+                            "headers": {},
                         },
                     }
                 ],
@@ -179,7 +233,7 @@ class TestDataHubRestEmitter:
             call_args = mock_emit.call_args
             assert (
                 call_args[0][0]
-                == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true"
+                == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false"
             )
             assert isinstance(call_args[1]["payload"], str)  # Should be JSON string
 
@@ -294,11 +348,11 @@ class TestDataHubRestEmitter:
             # Verify each URL got the right aspects
             for url, payload in calls.items():
                 if "datasetProfile" in payload[0]:
-                    assert url.endswith("dataset?async=true")
+                    assert url.endswith("dataset?async=false")
                     assert len(payload) == 2
                     assert all("datasetProfile" in item for item in payload)
                 else:
-                    assert url.endswith("dashboard?async=true")
+                    assert url.endswith("dashboard?async=false")
                     assert len(payload) == 2
                     assert all("status" in item for item in payload)
 
@@ -365,9 +419,8 @@ class TestDataHubRestEmitter:
             # Emit with tracing enabled
             openapi_emitter.emit_mcp(
                 item,
-                async_flag=True,
-                trace_flag=True,
-                trace_timeout=timedelta(seconds=10),
+                emit_mode=EmitMode.ASYNC_WAIT,
+                wait_timeout=timedelta(seconds=10),
             )
 
             # Verify initial emit call
@@ -452,9 +505,8 @@ class TestDataHubRestEmitter:
             # Emit with tracing enabled
             result = openapi_emitter.emit_mcps(
                 items,
-                async_flag=True,
-                trace_flag=True,
-                trace_timeout=timedelta(seconds=10),
+                emit_mode=EmitMode.ASYNC_WAIT,
+                wait_timeout=timedelta(seconds=10),
             )
 
             assert result == 1  # Should return number of unique entity URLs
@@ -525,9 +577,8 @@ class TestDataHubRestEmitter:
             with pytest.raises(TraceTimeoutError) as exc_info:
                 openapi_emitter.emit_mcp(
                     item,
-                    async_flag=True,
-                    trace_flag=True,
-                    trace_timeout=timedelta(milliseconds=1),
+                    emit_mode=EmitMode.ASYNC_WAIT,
+                    wait_timeout=timedelta(milliseconds=1),
                 )
 
             assert "Timeout waiting for async write completion" in str(exc_info.value)
@@ -558,9 +609,8 @@ class TestDataHubRestEmitter:
             with pytest.warns(APITracingWarning):
                 openapi_emitter.emit_mcp(
                     item,
-                    async_flag=True,
-                    trace_flag=True,
-                    trace_timeout=timedelta(seconds=10),
+                    emit_mode=EmitMode.ASYNC_WAIT,
+                    wait_timeout=timedelta(seconds=10),
                 )
 
     def test_openapi_emitter_invalid_status_code(self, openapi_emitter):
@@ -592,9 +642,8 @@ class TestDataHubRestEmitter:
             # Should not raise exception but log warning
             openapi_emitter.emit_mcp(
                 item,
-                async_flag=True,
-                trace_flag=True,
-                trace_timeout=timedelta(seconds=10),
+                emit_mode=EmitMode.ASYNC_WAIT,
+                wait_timeout=timedelta(seconds=10),
             )
 
     def test_openapi_emitter_trace_failure(self, openapi_emitter):
@@ -644,9 +693,8 @@ class TestDataHubRestEmitter:
             with pytest.raises(TraceValidationError) as exc_info:
                 openapi_emitter.emit_mcp(
                     item,
-                    async_flag=True,
-                    trace_flag=True,
-                    trace_timeout=timedelta(seconds=10),
+                    emit_mode=EmitMode.ASYNC_WAIT,
+                    wait_timeout=timedelta(seconds=10),
                 )
 
             assert "Unable to validate async write to DataHub GMS" in str(
@@ -833,11 +881,11 @@ class TestDataHubRestEmitter:
 
             assert (
                 "post",
-                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true",
+                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false",
             ) in calls
             assert (
                 "patch",
-                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true",
+                f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false",
             ) in calls
 
     def test_openapi_emitter_mixed_method_chunking(self, openapi_emitter):
@@ -909,100 +957,139 @@ class TestDataHubRestEmitter:
             for call in post_calls:
                 assert (
                     call[0][0]
-                    == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true"
+                    == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false"
                 )
 
             # Verify all patch calls are to the dataset endpoint
             for call in patch_calls:
                 assert (
                     call[0][0]
-                    == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=true"
+                    == f"{MOCK_GMS_ENDPOINT}/openapi/v3/entity/dataset?async=false"
                 )
+
+    def test_openapi_sync_full_emit_mode(self, openapi_emitter):
+        """Test that SYNC_WAIT emit mode correctly sets async=false URL parameter and sync header"""
+
+        # Create a test MCP
+        test_mcp = MetadataChangeProposalWrapper(
+            entityUrn="urn:li:dataset:(test,sync_full,PROD)",
+            aspect=DatasetProfile(
+                rowCount=500,
+                columnCount=10,
+                timestampMillis=1626995099686,
+            ),
+        )
+
+        # Test with SYNC_WAIT emit mode
+        with patch.object(openapi_emitter, "_emit_generic") as mock_emit:
+            # Configure mock to return a simple response
+            mock_response = Mock(spec=Response)
+            mock_response.status_code = 200
+            mock_response.headers = {}
+            mock_emit.return_value = mock_response
+
+            # Call emit_mcp with SYNC_WAIT mode
+            openapi_emitter.emit_mcp(test_mcp, emit_mode=EmitMode.SYNC_WAIT)
+
+            # Verify _emit_generic was called
+            mock_emit.assert_called_once()
+
+            # Check URL contains async=false
+            url = mock_emit.call_args[0][0]
+            assert "async=false" in url
+
+            # Check payload contains the synchronization header
+            payload = mock_emit.call_args[1]["payload"]
+            # Convert payload to dict if it's a JSON string
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+
+            # Verify the headers in the payload
+            assert isinstance(payload, list)
+            assert len(payload) > 0
+            assert "headers" in payload[0]["datasetProfile"]
+            assert (
+                payload[0]["datasetProfile"]["headers"].get(
+                    "X-DataHub-Sync-Index-Update"
+                )
+                == "true"
+            )
 
 
 class TestOpenApiModeSelection:
-    def test_sdk_client_mode_no_env_var(self):
+    def test_sdk_client_mode_no_env_var(self, mock_session, mock_response):
         """Test that SDK client mode defaults to OpenAPI when no env var is present"""
-        # Ensure no env vars
-        with patch.dict(os.environ, {}, clear=True), patch(
-            "datahub.emitter.rest_emitter.RestServiceConfig"
-        ) as mock_config_class:
-            # Setup the mock config instance
-            mock_config_instance = Mock()
-            mock_config_instance.supports_feature.return_value = True
-            mock_config_class.return_value = mock_config_instance
+        mock_session.get.return_value = mock_response
 
+        # Ensure no env vars
+        with patch.dict(os.environ, {}, clear=True):
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.SDK)
+            emitter._session = mock_session
             emitter.test_connection()
             assert emitter._openapi_ingestion is True
 
-    def test_non_sdk_client_mode_no_env_var(self):
+    def test_non_sdk_client_mode_no_env_var(self, mock_session, mock_response):
         """Test that non-SDK client modes default to RestLi when no env var is present"""
-        # Ensure no env vars
-        with patch.dict(os.environ, {}, clear=True), patch(
-            "datahub.emitter.rest_emitter.RestServiceConfig"
-        ) as mock_config_class:
-            # Setup the mock config instance
-            mock_config_instance = Mock()
-            mock_config_instance.supports_feature.return_value = True
-            mock_config_class.return_value = mock_config_instance
+        mock_session.get.return_value = mock_response
 
+        # Ensure no env vars
+        with patch.dict(os.environ, {}, clear=True):
             # Test INGESTION mode
             emitter = DataHubRestEmitter(
                 MOCK_GMS_ENDPOINT, client_mode=ClientMode.INGESTION
             )
+            emitter._session = mock_session
             emitter.test_connection()
             assert emitter._openapi_ingestion is False
 
             # Test CLI mode
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.CLI)
+            emitter._session = mock_session
             emitter.test_connection()
             assert emitter._openapi_ingestion is False
 
-    def test_env_var_restli_overrides_sdk_mode(self):
+    def test_env_var_restli_overrides_sdk_mode(self, mock_session, mock_response):
         """Test that env var set to RESTLI overrides SDK client mode default"""
+        mock_session.get.return_value = mock_response
+
         with patch.dict(
             os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "RESTLI"}, clear=True
         ), patch(
             "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
             RestSinkEndpoint.RESTLI,
-        ), patch("datahub.emitter.rest_emitter.RestServiceConfig") as mock_config_class:
-            # Setup the mock config instance
-            mock_config_instance = Mock()
-            mock_config_instance.supports_feature.return_value = True
-            mock_config_class.return_value = mock_config_instance
-
+        ):
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.SDK)
+            emitter._session = mock_session
             emitter.test_connection()
             assert emitter._openapi_ingestion is False
 
-    def test_env_var_openapi_any_client_mode(self):
+    def test_env_var_openapi_any_client_mode(self, mock_session, mock_response):
         """Test that env var set to OPENAPI enables OpenAPI for any client mode"""
+        mock_session.get.return_value = mock_response
+
         with patch.dict(
             os.environ, {"DATAHUB_REST_EMITTER_DEFAULT_ENDPOINT": "OPENAPI"}, clear=True
         ), patch(
             "datahub.emitter.rest_emitter.DEFAULT_REST_EMITTER_ENDPOINT",
             RestSinkEndpoint.OPENAPI,
-        ), patch("datahub.emitter.rest_emitter.RestServiceConfig") as mock_config_class:
-            # Setup the mock config instance
-            mock_config_instance = Mock()
-            mock_config_instance.supports_feature.return_value = True
-            mock_config_class.return_value = mock_config_instance
-
+        ):
             # Test INGESTION mode
             emitter = DataHubRestEmitter(
                 MOCK_GMS_ENDPOINT, client_mode=ClientMode.INGESTION
             )
+            emitter._session = mock_session
             emitter.test_connection()
             assert emitter._openapi_ingestion is True
 
             # Test CLI mode
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.CLI)
+            emitter._session = mock_session
             emitter.test_connection()
             assert emitter._openapi_ingestion is True
 
             # Test SDK mode
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.SDK)
+            emitter._session = mock_session
             emitter.test_connection()
             assert emitter._openapi_ingestion is True
 
@@ -1036,40 +1123,33 @@ class TestOpenApiModeSelection:
             )
             assert emitter._openapi_ingestion is False
 
-    def test_debug_logging(self):
+    def test_debug_logging(self, mock_session, mock_response):
         """Test that debug logging is called with correct protocol information"""
-        with patch("datahub.emitter.rest_emitter.logger") as mock_logger, patch(
-            "datahub.emitter.rest_emitter.RestServiceConfig"
-        ) as mock_config_class:
-            # Setup the mock config instance
-            mock_config_instance = Mock()
-            mock_config_instance.supports_feature.return_value = True
-            mock_config_class.return_value = mock_config_instance
+        mock_session.get.return_value = mock_response
 
+        with patch("datahub.emitter.rest_emitter.logger") as mock_logger:
             # Test OpenAPI logging
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=True)
+            emitter._session = mock_session
             emitter.test_connection()
-            mock_logger.debug.assert_called_with("Using OpenAPI for ingestion.")
+            mock_logger.debug.assert_any_call("Using OpenAPI for ingestion.")
 
             # Test RestLi logging
             mock_logger.reset_mock()
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, openapi_ingestion=False)
+            emitter._session = mock_session
             emitter.test_connection()
-            mock_logger.debug.assert_called_with("Using Restli for ingestion.")
+            mock_logger.debug.assert_any_call("Using Restli for ingestion.")
 
 
 class TestOpenApiIntegration:
-    def test_sdk_mode_uses_openapi_by_default(self):
+    def test_sdk_mode_uses_openapi_by_default(self, mock_session, mock_response):
         """Test that SDK mode uses OpenAPI by default for emit_mcp"""
-        with patch.dict("os.environ", {}, clear=True), patch(
-            "datahub.emitter.rest_emitter.RestServiceConfig"
-        ) as mock_config_class:
-            # Setup the mock config instance
-            mock_config_instance = Mock()
-            mock_config_instance.supports_feature.return_value = True
-            mock_config_class.return_value = mock_config_instance
+        mock_session.get.return_value = mock_response
 
+        with patch.dict("os.environ", {}, clear=True):
             emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.SDK)
+            emitter._session = mock_session
             emitter.test_connection()
 
             # Verify _openapi_ingestion was set correctly
@@ -1091,19 +1171,15 @@ class TestOpenApiIntegration:
                 assert "openapi" in url
                 assert url.startswith(f"{MOCK_GMS_ENDPOINT}/openapi")
 
-    def test_ingestion_mode_uses_restli_by_default(self):
+    def test_ingestion_mode_uses_restli_by_default(self, mock_session, mock_response):
         """Test that INGESTION mode uses RestLi by default for emit_mcp"""
-        with patch.dict("os.environ", {}, clear=True), patch(
-            "datahub.emitter.rest_emitter.RestServiceConfig"
-        ) as mock_config_class:
-            # Setup the mock config instance
-            mock_config_instance = Mock()
-            mock_config_instance.supports_feature.return_value = True
-            mock_config_class.return_value = mock_config_instance
+        mock_session.get.return_value = mock_response
 
+        with patch.dict("os.environ", {}, clear=True):
             emitter = DataHubRestEmitter(
                 MOCK_GMS_ENDPOINT, client_mode=ClientMode.INGESTION
             )
+            emitter._session = mock_session
             emitter.test_connection()
 
             # Verify _openapi_ingestion was set correctly
