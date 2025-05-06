@@ -3,19 +3,9 @@ from __future__ import annotations
 import difflib
 from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DatasetLineageTypeClass,
-    MetadataChangeProposalClass,
-    QueryLanguageClass,
-    QueryPropertiesClass,
-    QuerySourceClass,
-    QueryStatementClass,
-    SchemaMetadataClass,
-    UpstreamClass,
-)
 from datahub.metadata.urns import DatasetUrn, QueryUrn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
@@ -29,7 +19,7 @@ if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
 
-_empty_audit_stamp = AuditStampClass(
+_empty_audit_stamp = models.AuditStampClass(
     time=0,
     actor=DEFAULT_ACTOR_URN,
 )
@@ -41,7 +31,7 @@ class LineageClient:
 
     def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> Set[str]:
         schema_metadata = self._client._graph.get_aspect(
-            str(dataset_urn), SchemaMetadataClass
+            str(dataset_urn), models.SchemaMetadataClass
         )
         if schema_metadata is None:
             return set()
@@ -160,9 +150,9 @@ class LineageClient:
 
         updater = DatasetPatchBuilder(str(downstream))
         updater.add_upstream_lineage(
-            UpstreamClass(
+            models.UpstreamClass(
                 dataset=str(upstream),
-                type=DatasetLineageTypeClass.COPY,
+                type=models.DatasetLineageTypeClass.COPY,
             )
         )
         for cl in cll or []:
@@ -209,11 +199,11 @@ class LineageClient:
             query_entity = MetadataChangeProposalWrapper.construct_many(
                 query_urn,
                 aspects=[
-                    QueryPropertiesClass(
-                        statement=QueryStatementClass(
-                            value=query_text, language=QueryLanguageClass.SQL
+                    models.QueryPropertiesClass(
+                        statement=models.QueryStatementClass(
+                            value=query_text, language=models.QueryLanguageClass.SQL
                         ),
-                        source=QuerySourceClass.SYSTEM,
+                        source=models.QuerySourceClass.SYSTEM,
                         created=_empty_audit_stamp,
                         lastModified=_empty_audit_stamp,
                     ),
@@ -223,9 +213,9 @@ class LineageClient:
 
         updater = DatasetPatchBuilder(str(downstream))
         updater.add_upstream_lineage(
-            UpstreamClass(
+            models.UpstreamClass(
                 dataset=str(upstream),
-                type=DatasetLineageTypeClass.TRANSFORMED,
+                type=models.DatasetLineageTypeClass.TRANSFORMED,
                 query=query_urn,
             )
         )
@@ -242,7 +232,7 @@ class LineageClient:
             )
 
         mcps: List[
-            Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+            Union[MetadataChangeProposalWrapper, models.MetadataChangeProposalClass]
         ] = list(updater.build())
         if query_entity:
             mcps.extend(query_entity)
