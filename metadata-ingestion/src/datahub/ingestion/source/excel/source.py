@@ -220,6 +220,21 @@ class ExcelSource(StatefulIngestionSourceBase):
                 partitions=[],
             )
 
+    def get_local_file(self, file_path: str) -> Union[BytesIO, None]:
+        try:
+            with open(file_path, "rb") as f:
+                bytes_io = io.BytesIO(f.read())
+                bytes_io.seek(0)
+                return bytes_io
+        except Exception as e:
+            self.report.report_file_dropped(file_path)
+            self.report.warning(
+                message="Error reading local Excel file",
+                context=f"Path={file_path}",
+                exc=e,
+            )
+            return None
+
     @staticmethod
     def get_prefix(relative_path: str) -> str:
         index = re.search(r"[*|{]", relative_path)
@@ -576,12 +591,13 @@ class ExcelSource(StatefulIngestionSourceBase):
                         filename = os.path.splitext(basename)[0]
 
                         logger.debug(f"Processing {filename}")
-                        with open(browse_path.file, "rb") as f:
-                            file_content = f.read()
-                        bytes_io = io.BytesIO(file_content)
+                        file_data = self.get_local_file(browse_path.file)
+
+                        if file_data is None:
+                            continue
 
                         yield from self.process_file(
-                            bytes_io,
+                            file_data,
                             file_path,
                             browse_path.file,
                             filename,
