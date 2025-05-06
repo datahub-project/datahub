@@ -11,14 +11,16 @@ import {
     SectionsContainer,
     Title,
     TitleSuffix,
-} from '@components/components/Tooltip2/components';
-import { Tooltip2Props } from '@components/components/Tooltip2/types';
+} from '@components/components/StructuredPopover/components';
+import { StructuredPopoverProps } from '@components/components/StructuredPopover/types';
 
 /**
  * Note: Depends on styling set in global-overrides-v2.less to override ant padding
  */
-export function Tooltip2(props: Tooltip2Props & TooltipProps) {
+export function StructuredPopover(props: StructuredPopoverProps & TooltipProps) {
     const { header: Header, width, title, sections, ...otherProps } = props;
+
+    if (!title && !sections?.length) return <>{props.children}</>;
 
     const content = (
         <Container>
