@@ -58,7 +58,9 @@ public class DatasetStatsSummaryResolverTest {
             mockClient.getUsageStats(
                 any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(UsageTimeRange.MONTH)))
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
         .thenReturn(testResult);
 
     // Execute resolver
@@ -94,7 +96,9 @@ public class DatasetStatsSummaryResolverTest {
             mockClient.getUsageStats(
                 any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(UsageTimeRange.MONTH)))
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
         .thenReturn(newResult);
   }
 
@@ -123,7 +127,9 @@ public class DatasetStatsSummaryResolverTest {
             mockClient.getUsageStats(
                 any(OperationContext.class),
                 Mockito.eq(TEST_DATASET_URN),
-                Mockito.eq(UsageTimeRange.MONTH)))
+                Mockito.eq(UsageTimeRange.MONTH),
+                Mockito.eq(null),
+                Mockito.eq(null)))
         .thenThrow(RuntimeException.class);
 
     // Execute resolver
