@@ -3,6 +3,11 @@ package controllers;
 import static auth.AuthUtils.*;
 import static org.pac4j.core.client.IndirectClient.ATTEMPTED_AUTHENTICATION_SUFFIX;
 import static org.pac4j.play.store.PlayCookieSessionStore.*;
+import static utils.FrontendConstants.FALLBACK_LOGIN;
+import static utils.FrontendConstants.GUEST_LOGIN;
+import static utils.FrontendConstants.PASSWORD_LOGIN;
+import static utils.FrontendConstants.PASSWORD_RESET;
+import static utils.FrontendConstants.SIGN_UP_LINK_LOGIN;
 
 import auth.AuthUtils;
 import auth.CookieConfigs;
@@ -117,7 +122,8 @@ public class AuthenticationController extends Controller {
     if (guestAuthenticationConfigs.isGuestEnabled()
         && guestAuthenticationConfigs.getGuestPath().equals(redirectPath)) {
       final String accessToken =
-          authClient.generateSessionTokenForUser(guestAuthenticationConfigs.getGuestUser());
+          authClient.generateSessionTokenForUser(
+              guestAuthenticationConfigs.getGuestUser(), GUEST_LOGIN);
       redirectPath =
           "/"; // We requested guest login by accessing {guestPath} URL. It is not really a target.
       CorpuserUrn guestUserUrn = new CorpuserUrn(guestAuthenticationConfigs.getGuestUser());
@@ -150,7 +156,8 @@ public class AuthenticationController extends Controller {
 
     // 3. If no auth enabled, fallback to using default user account & redirect.
     // Generate GMS session token, TODO:
-    final String accessToken = authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId());
+    final String accessToken =
+        authClient.generateSessionTokenForUser(DEFAULT_ACTOR_URN.getId(), FALLBACK_LOGIN);
     return Results.redirect(redirectPath)
         .withSession(createSessionMap(DEFAULT_ACTOR_URN.toString(), accessToken))
         .withCookies(
@@ -215,7 +222,8 @@ public class AuthenticationController extends Controller {
 
     final Urn actorUrn = new CorpuserUrn(username);
     logger.info("Login successful for user: {}, urn: {}", username, actorUrn);
-    final String accessToken = authClient.generateSessionTokenForUser(actorUrn.getId());
+    final String accessToken =
+        authClient.generateSessionTokenForUser(actorUrn.getId(), PASSWORD_LOGIN);
     return createSession(actorUrn.toString(), accessToken);
   }
 
@@ -279,7 +287,8 @@ public class AuthenticationController extends Controller {
     final String userUrnString = userUrn.toString();
     authClient.signUp(userUrnString, fullName, email, title, password, inviteToken);
     logger.info("Signed up user {} using invite tokens", userUrnString);
-    final String accessToken = authClient.generateSessionTokenForUser(userUrn.getId());
+    final String accessToken =
+        authClient.generateSessionTokenForUser(userUrn.getId(), SIGN_UP_LINK_LOGIN);
     return createSession(userUrnString, accessToken);
   }
 
@@ -319,7 +328,8 @@ public class AuthenticationController extends Controller {
     final Urn userUrn = new CorpuserUrn(email);
     final String userUrnString = userUrn.toString();
     authClient.resetNativeUserCredentials(userUrnString, password, resetToken);
-    final String accessToken = authClient.generateSessionTokenForUser(userUrn.getId());
+    final String accessToken =
+        authClient.generateSessionTokenForUser(userUrn.getId(), PASSWORD_RESET);
     return createSession(userUrnString, accessToken);
   }
 

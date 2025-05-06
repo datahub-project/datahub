@@ -43,6 +43,10 @@ def _cleanLocalDockerImages(String fullImageTag) {
   }
 }
 
+ext {
+  isDebug = false;  // quickStart configs have an isDebug flag set to indicate debug builds
+}
+
 // Create extension object
 class DockerPluginExtension {
   Project project
@@ -61,7 +65,7 @@ class DockerPluginExtension {
   // For quickStart debug builds that use APP_ENV=dev like pattern. Not used in matrix builds.
   MapProperty<String, String> debugBuildArgs
 
-  
+
 
   DockerPluginExtension(Project project) {
     this.project = project
@@ -261,7 +265,9 @@ project.afterEvaluate {
         def dockerTag = project.property("tag")
         bake_spec_target.tags = extension.tags.get().values().findAll({ tag -> tag.contains(dockerTag) }).toList()
       } else {
-        bake_spec_target.tags = extension.tags.get().values().toList()
+        bake_spec_target.tags = extension.tags.get().values().findAll({tag ->
+          project.ext.isDebug ||  !tag.contains("debug")  //Add the debug tag only if this is this is a debug build.
+        }).toList()
       }
       if (extension.buildArgs.get()) {
         bake_spec_target.args = extension.buildArgs.get()
