@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import SidebarLineageLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Lineage/SidebarLineageLoadingSection';
 import {
@@ -75,6 +76,7 @@ const StyledPartitionOutlined = styled(PartitionOutlined)`
 
 const SidebarLineageSection = () => {
     const { urn, entityData, entityType } = useEntityData();
+    const { isInFormContext } = useEntityFormContext();
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
     const startTimeMillis = useGetDefaultLineageStartTimeMillis();
@@ -144,20 +146,24 @@ const SidebarLineageSection = () => {
                 </>
             }
             extra={
-                <SectionActionButton
-                    button={
-                        <Tooltip
-                            title="Explore related entities using the lineage graph"
-                            placement="left"
-                            showArrow={false}
-                        >
-                            <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
-                                <StyledPartitionOutlined />
-                            </Link>
-                        </Tooltip>
-                    }
-                    onClick={(e) => e.stopPropagation()}
-                />
+                <>
+                    {!isInFormContext && (
+                        <SectionActionButton
+                            button={
+                                <Tooltip
+                                    title="Explore related entities using the lineage graph"
+                                    placement="left"
+                                    showArrow={false}
+                                >
+                                    <Link to={`${entityRegistry.getEntityUrl(entityType, urn)}/Lineage`} {...linkProps}>
+                                        <StyledPartitionOutlined />
+                                    </Link>
+                                </Tooltip>
+                            }
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    )}
+                </>
             }
         />
     );

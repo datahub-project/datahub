@@ -3,6 +3,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import React, { useMemo } from 'react';
 
 import { useEntityData, useMutationUrn, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import DescriptionSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/DescriptionSection';
 import LinksSection from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/LinksSection';
@@ -26,7 +27,9 @@ interface Props {
     readOnly?: boolean;
 }
 
-export const SidebarAboutSection = ({ readOnly }: Props) => {
+export const SidebarAboutSection = ({ readOnly: readOnlyFromProps }: Props) => {
+    const { isInFormContext } = useEntityFormContext();
+    const readOnly = readOnlyFromProps || isInFormContext;
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const isLineageMode = useIsLineageMode();

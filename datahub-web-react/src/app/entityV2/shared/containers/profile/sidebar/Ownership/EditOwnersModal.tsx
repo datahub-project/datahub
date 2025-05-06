@@ -4,6 +4,7 @@ import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
 import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
 import ProposalDescriptionModal from '@app/entityV2/shared/containers/profile/sidebar/ProposalDescriptionModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
@@ -16,6 +17,7 @@ import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { getModalDomContainer } from '@src/utils/focus';
+import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 import { useListOwnershipTypesQuery, useProposeOwnersMutation } from '@graphql/ownership.generated';
@@ -81,6 +83,7 @@ export const EditOwnersModal = ({
     const entityRegistry = useEntityRegistry();
     const mutationUrn = useMutationUrn();
     const { refetch: entityRefetch } = useEntityContext();
+    const { isInFormContext } = useEntityFormContext();
 
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Entity) => {
@@ -150,6 +153,7 @@ export const EditOwnersModal = ({
     ]);
     const loading = recommendationsLoading || userSearchLoading || groupSearchLoading;
     const inputEl = useRef(null);
+    useAutoFocusInModal(inputEl);
     const [showProposeModal, setShowProposeModal] = useState(false);
     const { config } = useAppConfig();
     const { showTaskCenterRedesign } = config.featureFlags;
@@ -442,7 +446,7 @@ export const EditOwnersModal = ({
                             id: 'addOwnerButton',
                         },
                     ]}
-                    getContainer={getModalDomContainer}
+                    getContainer={!isInFormContext ? getModalDomContainer : undefined} // if filling out form in full page modal, don't change container as this modal gets hidden
                 >
                     <Form layout="vertical" colon={false}>
                         <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
@@ -453,6 +457,7 @@ export const EditOwnersModal = ({
                                     autoFocus
                                     defaultOpen
                                     mode="multiple"
+                                    showAction={['focus', 'click']}
                                     ref={inputEl}
                                     placeholder="Search for users or groups..."
                                     showSearch

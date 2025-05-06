@@ -16,7 +16,7 @@ import { useEntityContext, useMutationUrn } from '@src/app/entity/shared/EntityC
 import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { useProposeDomainMutation } from '@src/graphql/domain.generated';
-import { getModalDomContainer } from '@src/utils/focus';
+import useAutoFocusInModal from '@utils/focus/useFocusInModal';
 
 import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
@@ -58,6 +58,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
     const [batchSetDomainMutation] = useBatchSetDomainMutation();
     const [proposeDomainMutation] = useProposeDomainMutation();
     const inputEl = useRef(null);
+    useAutoFocusInModal(inputEl);
     const isShowingDomainNavigator = !inputValue && isFocusedOnInput;
     const [showProposeModal, setShowProposeModal] = useState(false);
     const { config } = useAppConfig();
@@ -250,7 +251,6 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             id: 'setDomainButton',
                         },
                     ]}
-                    getContainer={getModalDomContainer}
                 >
                     <Form component={false}>
                         <Form.Item>
