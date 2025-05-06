@@ -171,24 +171,13 @@ class OperationProcessor:
         self.owner_source_type = owner_source_type
         self.match_nested_props = match_nested_props
 
-    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:
-        # Defining the following local variables -
-        # operations_map - the final resulting map when operations are processed.
-        # Against each operation the values to be applied are stored.
-        # for e.g "tag_operation" -> set("has_pii", "external")
-        # operation_key : the property on which an operation is defined in the defs
-        # operation config: map which contains the parameters to carry out that operation.
-        # For e.g for add_tag operation config will have the tag value.
-        # operation_type: the type of operation (add_tag, add_term, etc.)
-
-        # Process the special "datahub" property, which supports tags, terms, and owners.
+    def process(self, raw_props: Mapping[str, Any]) -> Dict[str, Any]:  # noqa: C901
         operations_map: Dict[str, list] = {}
         try:
             raw_datahub_prop = raw_props.get("datahub")
             if raw_datahub_prop:
                 datahub_prop = _DatahubProps.parse_obj_allow_extras(raw_datahub_prop)
                 if datahub_prop.tags:
-                    # Note that tags get converted to urns later because we need to support the tag prefix.
                     operations_map.setdefault(Constants.ADD_TAG_OPERATION, []).extend(
                         datahub_prop.tags
                     )
@@ -210,7 +199,6 @@ class OperationProcessor:
         except Exception as e:
             logger.error(f"Error while processing datahub property: {e}")
 
-        # Process the actual directives.
         try:
             for operation_key in self.operation_defs:
                 operation_type = self.operation_defs.get(operation_key, {}).get(
@@ -221,6 +209,7 @@ class OperationProcessor:
                 )
                 if not operation_type or not operation_config:
                     continue
+
                 raw_props_value = raw_props.get(operation_key)
                 if not raw_props_value and self.match_nested_props:
                     try:
@@ -230,39 +219,61 @@ class OperationProcessor:
                     except KeyError:
                         pass
 
-                maybe_match = self.get_match(
-                    self.operation_defs[operation_key][Constants.MATCH],
-                    raw_props_value,
-                )
-                if maybe_match is not None:
-                    operation = self.get_operation_value(
-                        operation_key, operation_type, operation_config, maybe_match
-                    )
-
-                    if operation_type == Constants.ADD_TERMS_OPERATION:
-                        # add_terms operation is a special case where the operation value is a list of terms.
-                        # We want to aggregate these values with the add_term operation.
-                        operation_type = Constants.ADD_TERM_OPERATION
-
-                    if operation:
-                        if (
-                            isinstance(operation, list)
-                            and operation_type == Constants.ADD_OWNER_OPERATION
+                values_to_process = []
+                if isinstance(raw_props_value, list):
+                    processed_any_item = False
+                    for item in raw_props_value:
+                        if any(
+                            isinstance(item, t)
+                            for t in Constants.OPERAND_DATATYPE_SUPPORTED
                         ):
-                            operations_map.setdefault(operation_type, []).extend(
-                                operation
-                            )
-
-                        elif isinstance(operation, (str, list)):
-                            operations_map.setdefault(operation_type, []).extend(
-                                operation
-                                if isinstance(operation, list)
-                                else [operation]
-                            )
+                            values_to_process.append(item)
+                            processed_any_item = True
                         else:
-                            operations_map.setdefault(operation_type, []).append(
-                                operation
+                            logger.debug(
+                                f"Skipping non-primitive item of type {type(item)} in list for operation '{operation_key}'"
                             )
+                    if not processed_any_item:
+                        continue  # Skip if list was empty or had no processable items
+                elif any(
+                    isinstance(raw_props_value, t)
+                    for t in Constants.OPERAND_DATATYPE_SUPPORTED
+                ):
+                    values_to_process.append(raw_props_value)
+                else:
+                    if raw_props_value is not None:
+                        logger.debug(
+                            f"Skipping value of unsupported type {type(raw_props_value)} for operation '{operation_key}'"
+                        )
+                    continue
+
+                aggregated_operation_values = []
+                current_op_type_for_aggregation = (
+                    operation_type  # Store original type for map key
+                )
+                if operation_type == Constants.ADD_TERMS_OPERATION:
+                    current_op_type_for_aggregation = Constants.ADD_TERM_OPERATION
+
+                for value_item in values_to_process:
+                    maybe_match = self.get_match(
+                        self.operation_defs[operation_key][Constants.MATCH],
+                        value_item,  # Process individual item
+                    )
+                    if maybe_match is not None:
+                        operation = self.get_operation_value(
+                            operation_key, operation_type, operation_config, maybe_match
+                        )
+
+                        if operation:
+                            if isinstance(operation, list):
+                                aggregated_operation_values.extend(operation)
+                            else:
+                                aggregated_operation_values.append(operation)
+
+                if aggregated_operation_values:
+                    operations_map.setdefault(
+                        current_op_type_for_aggregation, []
+                    ).extend(aggregated_operation_values)
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
 

@@ -1315,6 +1315,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.tag_prefix,
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
+            match_nested_props=True,
         )
 
         action_processor_tag = OperationProcessor(
@@ -1322,6 +1323,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             self.config.tag_prefix,
             "SOURCE_CONTROL",
             self.config.strip_user_ids_from_email,
+            match_nested_props=True,
         )
         for node in sorted(dbt_nodes, key=lambda n: n.dbt_name):
             node_datahub_urn = node.get_urn(
