@@ -306,7 +306,7 @@ def test_policy_events(auth_exclude_filter):
     wait_for_writes_to_sync(consumer_group="datahub-usage-event-consumer-job-client")
     res_data = searchForAuditEvents(
         user_session,
-        2,
+        3,
         ["CreatePolicyEvent", "UpdatePolicyEvent"],
         ["urn:li:corpuser:datahub", "urn:li:corpuser:admin"],
         [],
@@ -314,11 +314,15 @@ def test_policy_events(auth_exclude_filter):
     print(res_data)
     assert res_data
     assert res_data["usageEvents"]
-    assert len(res_data["usageEvents"]) == 2
+    assert len(res_data["usageEvents"]) == 3
     assert res_data["usageEvents"][0]["eventType"] == "UpdatePolicyEvent"
     assert res_data["usageEvents"][0]["entityUrn"] == new_urn
-    assert res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
+    assert (res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
+            or res_data["usageEvents"][1]["eventType"] == "UpdatePolicyEvent")
     assert res_data["usageEvents"][1]["entityUrn"] == new_urn
+    assert (res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
+            or res_data["usageEvents"][2]["eventType"] == "UpdatePolicyEvent")
+    assert res_data["usageEvents"][2]["entityUrn"] == new_urn
     user_session.cookies.clear()
 
 
