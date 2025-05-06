@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.ListSubscriptionsInput;
 import com.linkedin.datahub.graphql.generated.ListSubscriptionsResult;
@@ -43,7 +44,7 @@ public class ListSubscriptionsResolver
             .filter(Objects::nonNull)
             .findFirst()
             .get();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (groupUrnString != null && !canManageGroupSubscriptions(groupUrnString, context)) {
@@ -70,6 +71,8 @@ public class ListSubscriptionsResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list subscriptions", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

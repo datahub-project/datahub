@@ -9,6 +9,7 @@ import com.linkedin.constraint.ConstraintInfo;
 import com.linkedin.constraint.ConstraintParams;
 import com.linkedin.constraint.GlossaryTermInNodeConstraint;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -52,7 +53,7 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
             String.format("Failed to create constraint. %s does not exist.", nodeUrn),
             DataHubGraphQLErrorCode.BAD_REQUEST);
       }
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // Create the Constraint key.
@@ -81,7 +82,9 @@ public class CreateTermConstraintResolver implements DataFetcher<CompletableFutu
             } catch (Exception e) {
               throw new RuntimeException("Failed to create constraint", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

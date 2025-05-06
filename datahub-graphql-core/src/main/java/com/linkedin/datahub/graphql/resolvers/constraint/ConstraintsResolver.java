@@ -4,6 +4,7 @@ import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.constraint.ConstraintInfo;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Constraint;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
@@ -57,7 +58,7 @@ public class ConstraintsResolver implements DataFetcher<CompletableFuture<List<C
     final QueryContext context = environment.getContext();
     final String urn = _urnProvider.apply(environment);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             EntitySpec spec = new EntitySpec(Urn.createFromString(urn).getEntityType(), urn);
@@ -82,6 +83,8 @@ public class ConstraintsResolver implements DataFetcher<CompletableFuture<List<C
           } catch (Exception e) {
             throw new RuntimeException("Failed to load constraints", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

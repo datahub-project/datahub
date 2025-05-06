@@ -6,6 +6,7 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ExecutorConfigs;
 import com.linkedin.datahub.graphql.generated.ListExecutorConfigsInput;
 import com.linkedin.datahub.graphql.generated.ListExecutorConfigsResult;
@@ -164,7 +165,7 @@ public class ListExecutorConfigsResolver
             ? input.getExecutorIds()
             : Collections.<String>emptyList();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           List<ExecutorConfigs> executorConfigList = new ArrayList<>();
           try {
@@ -192,6 +193,8 @@ public class ListExecutorConfigsResolver
             result.setExecutorConfigs(executorConfigList);
             return result;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

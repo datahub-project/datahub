@@ -20,6 +20,7 @@ import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
@@ -59,7 +60,7 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
     final String maybeNote = (String) environment.getArgument("note");
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // First, validate all proposals.
           ProposalUtils.validateProposalUrns(proposalUrns);
@@ -69,7 +70,9 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
 
           // Return true if all are successful.
           return true;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void acceptProposals(

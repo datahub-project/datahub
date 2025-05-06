@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -46,7 +47,7 @@ public class UpdateMonitorStatusResolver implements DataFetcher<CompletableFutur
     final Urn monitorUrn = UrnUtils.getUrn(input.getUrn());
     final Urn entityUrn = UrnUtils.getUrn(monitorUrn.getEntityKey().get(0));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (isAuthorizedToUpdateEntityMonitors(entityUrn, context)) {
 
@@ -72,7 +73,9 @@ public class UpdateMonitorStatusResolver implements DataFetcher<CompletableFutur
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /** Verifies that an entity exists, else throws a {@link DataHubGraphQLException}. */

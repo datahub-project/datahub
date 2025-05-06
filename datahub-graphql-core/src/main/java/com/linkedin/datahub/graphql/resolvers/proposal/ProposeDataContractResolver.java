@@ -10,6 +10,7 @@ import com.linkedin.datacontract.DataQualityContract;
 import com.linkedin.datacontract.FreshnessContract;
 import com.linkedin.datacontract.SchemaContract;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataQualityContractInput;
 import com.linkedin.datahub.graphql.generated.FreshnessContractInput;
 import com.linkedin.datahub.graphql.generated.ProposeDataContractInput;
@@ -45,7 +46,7 @@ public class ProposeDataContractResolver implements DataFetcher<CompletableFutur
     final Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
     final String description = input.getDescription();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.info("Proposing change to data contract. input: {}", input);
@@ -63,7 +64,9 @@ public class ProposeDataContractResolver implements DataFetcher<CompletableFutur
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable

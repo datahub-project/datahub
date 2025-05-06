@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.integration;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.GetLinkPreviewInput;
 import com.linkedin.datahub.graphql.generated.LinkPreviewType;
 import com.linkedin.link.LinkPreviewInfo;
@@ -28,11 +29,13 @@ public class GetLinkPreviewResolver
       DataFetchingEnvironment environment) throws Exception {
     final GetLinkPreviewInput input =
         bindArgument(environment.getArgument("input"), GetLinkPreviewInput.class);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final LinkPreviewInfo result = this.service.getLinkPreview(input.getUrl());
           return result == null ? null : mapResult(result);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private com.linkedin.datahub.graphql.generated.LinkPreview mapResult(

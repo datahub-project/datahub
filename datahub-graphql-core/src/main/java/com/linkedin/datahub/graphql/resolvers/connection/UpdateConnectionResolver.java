@@ -7,6 +7,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetailsType;
 import com.linkedin.connection.DataHubJsonConnection;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
@@ -53,7 +54,7 @@ public class UpdateConnectionResolver implements DataFetcher<CompletableFuture<D
             ? DataHubConnectionDetailsType.valueOf(input.getType().toString())
             : null;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!ConnectionUtils.canManageConnections(context)) {
             throw new AuthorizationException(
@@ -82,6 +83,8 @@ public class UpdateConnectionResolver implements DataFetcher<CompletableFuture<D
             throw new RuntimeException(
                 String.format("Failed to update a Connection from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

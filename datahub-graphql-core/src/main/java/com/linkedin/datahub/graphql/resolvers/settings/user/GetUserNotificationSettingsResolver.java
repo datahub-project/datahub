@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.settings.user;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
 import com.linkedin.identity.CorpUserSettings;
@@ -26,7 +27,7 @@ public class GetUserNotificationSettingsResolver
 
     final String userUrnString = context.getActorUrn();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Urn userUrn = UrnUtils.getUrn(userUrnString);
@@ -44,6 +45,8 @@ public class GetUserNotificationSettingsResolver
             throw new RuntimeException(
                 String.format("Failed to get notification settings for user %s", userUrnString), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AssertionResult;
 import com.linkedin.datahub.graphql.generated.AssertionType;
@@ -35,7 +36,7 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
     final Urn asserteeUrn = UrnUtils.getUrn(AssertionUtils.getAsserteeUrnFromTestInput(input));
     final Urn connectionUrn = UrnUtils.getUrn(input.getConnectionUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (isAuthorizedToTestAssertion(asserteeUrn, input, context)) {
             switch (input.getType()) {
@@ -87,7 +88,9 @@ public class TestAssertionResolver implements DataFetcher<CompletableFuture<Asse
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToTestAssertion(

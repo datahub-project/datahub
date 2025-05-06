@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils.toUr
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -37,7 +38,7 @@ public class ProposeDomainResolver implements DataFetcher<CompletableFuture<Stri
     final String targetUrnStr = input.getResourceUrn();
     final String description = input.getDescription();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // Step 1: validate and authorize the action
           validateAndAuthorize(context, domainUrnStr, targetUrnStr);
@@ -81,7 +82,9 @@ public class ProposeDomainResolver implements DataFetcher<CompletableFuture<Stri
                   e);
             }
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateAndAuthorize(

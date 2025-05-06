@@ -7,6 +7,7 @@ import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormForActor;
@@ -54,7 +55,7 @@ public class GetFormsForActorResolver
     final OperationContext opContext =
         context.getOperationContext().withSearchFlags(flags -> searchFlags);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // get forms explicitly assigned to me on the form itself
@@ -85,7 +86,9 @@ public class GetFormsForActorResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to get forms for the given user.", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private FormForActor mapFormForActor(@Nonnull final Urn formUrn) {

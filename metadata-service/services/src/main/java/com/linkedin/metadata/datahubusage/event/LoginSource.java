@@ -9,7 +9,8 @@ public enum LoginSource {
   FALLBACK_LOGIN("fallbackLogin"),
   SIGN_UP_LINK_LOGIN("signUpLinkLogin"),
   GUEST_LOGIN("guestLogin"),
-  SSO_LOGIN("ssoLogin");
+  SSO_LOGIN("ssoLogin"),
+  OIDC_IMPLICIT_LOGIN("oidcImplicit");
 
   @Getter private final String source;
 

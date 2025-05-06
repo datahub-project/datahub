@@ -7,6 +7,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataHubSubscription;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.generated.GetSubscriptionInput;
@@ -35,7 +36,7 @@ public class GetSubscriptionResolver
     final String entityUrnString = input.getEntityUrn();
     final String groupUrnString = input.getGroupUrn();
     final String actorUrnString = groupUrnString == null ? context.getActorUrn() : groupUrnString;
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final GetSubscriptionResult result = new GetSubscriptionResult();
@@ -66,6 +67,8 @@ public class GetSubscriptionResolver
                     actorUrnString, entityUrnString),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.GetGroupNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSettingsMapper;
@@ -31,7 +32,7 @@ public class GetGroupNotificationSettingsResolver
         bindArgument(environment.getArgument("input"), GetGroupNotificationSettingsInput.class);
     final String groupUrnString = input.getGroupUrn();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Urn groupUrn = UrnUtils.getUrn(groupUrnString);
@@ -47,6 +48,8 @@ public class GetGroupNotificationSettingsResolver
                 String.format("Failed to get notification settings for group %s", groupUrnString),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

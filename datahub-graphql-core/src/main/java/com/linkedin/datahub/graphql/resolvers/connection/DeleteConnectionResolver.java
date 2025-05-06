@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DeleteDataHubConnectionInput;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -34,7 +35,7 @@ public class DeleteConnectionResolver implements DataFetcher<CompletableFuture<B
         bindArgument(environment.getArgument("input"), DeleteDataHubConnectionInput.class);
     final Urn connectionUrn = UrnUtils.getUrn(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!ConnectionUtils.canManageConnections(context)) {
             throw new AuthorizationException(
@@ -52,6 +53,8 @@ public class DeleteConnectionResolver implements DataFetcher<CompletableFuture<B
             throw new RuntimeException(
                 String.format("Failed to delete a Connection from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

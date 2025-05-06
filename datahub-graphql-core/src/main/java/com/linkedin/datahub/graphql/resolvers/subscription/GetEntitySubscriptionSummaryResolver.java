@@ -7,6 +7,7 @@ import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetcher;
@@ -45,7 +46,7 @@ public class GetEntitySubscriptionSummaryResolver
         input.getNumSubscribedGroups() == null
             ? DEFAULT_GROUP_COUNT
             : input.getNumSubscribedGroups();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Urn entityUrn = UrnUtils.getUrn(entityUrnString);
@@ -122,6 +123,8 @@ public class GetEntitySubscriptionSummaryResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to get subscription summary", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

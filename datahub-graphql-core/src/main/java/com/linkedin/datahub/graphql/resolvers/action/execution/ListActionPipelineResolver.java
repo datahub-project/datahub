@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.action.ActionPipelineType;
@@ -52,7 +53,7 @@ public class ListActionPipelineResolver
 
       log.info("ListActionPipelineResolver called with input: {}", input);
 
-      return CompletableFuture.supplyAsync(
+      return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
               // First, get all actions pipeline urns
@@ -92,7 +93,9 @@ public class ListActionPipelineResolver
             } catch (Exception e) {
               throw new RuntimeException("Failed to list actions pipelines", e);
             }
-          });
+          },
+          this.getClass().getSimpleName(),
+          "get");
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");

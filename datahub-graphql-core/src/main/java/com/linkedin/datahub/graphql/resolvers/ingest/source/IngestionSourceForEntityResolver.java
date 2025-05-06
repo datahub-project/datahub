@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.resolvers.ingest.CachingEntityIngestionSourceFetcher;
@@ -47,7 +48,7 @@ public class IngestionSourceForEntityResolver
 
     final Urn entityUrn = Urn.createFromString(entityUrnString);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             return _ingestionSourceFetcher.getIngestionSourceForEntity(entityUrn, context);
@@ -58,6 +59,8 @@ public class IngestionSourceForEntityResolver
                 e);
             return null;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

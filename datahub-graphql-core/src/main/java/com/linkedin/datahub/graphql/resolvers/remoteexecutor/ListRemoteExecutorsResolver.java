@@ -6,6 +6,7 @@ import com.google.common.collect.Iterables;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorsResult;
@@ -56,7 +57,7 @@ public class ListRemoteExecutorsResolver
     final int start = environment.getArgument("start");
     final int count = environment.getArgument("count");
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final ListRemoteExecutorsResult result = new ListRemoteExecutorsResult();
@@ -96,7 +97,9 @@ public class ListRemoteExecutorsResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list remote executors", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private SearchResult searchForExecutors(

@@ -13,6 +13,7 @@ import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.ActionRequestService;
@@ -49,7 +50,7 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
     final String maybeNote = environment.getArgument("note");
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // First, validate all proposals.
           ProposalUtils.validateProposalUrns(proposalUrns);
@@ -59,7 +60,9 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
 
           // Return true if all are successful.
           return true;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void rejectProposals(

@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.test;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchTestRunEvent;
 import com.linkedin.datahub.graphql.generated.BatchTestRunEventsResult;
 import com.linkedin.datahub.graphql.generated.Test;
@@ -29,7 +30,7 @@ public class BatchTestRunEventsResolver
 
   @Override
   public CompletableFuture<BatchTestRunEventsResult> get(DataFetchingEnvironment environment) {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final String urn = ((Test) environment.getSource()).getUrn();
@@ -64,6 +65,8 @@ public class BatchTestRunEventsResolver
           } catch (RemoteInvocationException e) {
             throw new RuntimeException("Failed to retrieve Batch Test  Run Events from GMS", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

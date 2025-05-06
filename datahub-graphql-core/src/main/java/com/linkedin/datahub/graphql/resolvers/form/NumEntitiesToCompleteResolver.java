@@ -6,6 +6,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormFilter;
 import com.linkedin.datahub.graphql.generated.FormForActor;
@@ -51,7 +52,7 @@ public class NumEntitiesToCompleteResolver implements DataFetcher<CompletableFut
     final Form form = formForActor.getForm();
     final Urn formUrn = UrnUtils.getUrn(form.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // 1. fetch the formInfo aspect from database
@@ -83,7 +84,9 @@ public class NumEntitiesToCompleteResolver implements DataFetcher<CompletableFut
                 e);
           }
           return 0;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private FormInfo getFormInfoFromResponse(

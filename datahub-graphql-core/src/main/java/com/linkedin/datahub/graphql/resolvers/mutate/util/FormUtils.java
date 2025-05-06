@@ -12,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.CreateDynamicFormAssignmentInput;
 import com.linkedin.datahub.graphql.generated.CreateFormInput;
@@ -58,7 +59,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -506,7 +506,7 @@ public class FormUtils {
    */
   public static void runTest(
       QueryContext context, MetadataTestClient metadataTestClient, String taskUrn) {
-    CompletableFuture.supplyAsync(
+    GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             metadataTestClient.evaluateSingleTest(
@@ -517,7 +517,9 @@ public class FormUtils {
                 e);
           }
           return null;
-        });
+        },
+        FormUtils.class.getSimpleName(),
+        "runTest");
   }
 
   public static ObjectNode buildBulkFormDefinitionOnNode(

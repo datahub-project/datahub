@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BatchSubmitFormPromptInput;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
 import com.linkedin.datahub.graphql.generated.SubmitFormPromptInput;
@@ -44,7 +45,7 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
     final List<String> fieldPaths =
         promptInput.getFieldPaths() != null ? promptInput.getFieldPaths() : new ArrayList<>();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (promptInput.getType().equals(FormPromptType.STRUCTURED_PROPERTY)) {
@@ -166,6 +167,8 @@ public class BatchSubmitFormPromptResolver implements DataFetcher<CompletableFut
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

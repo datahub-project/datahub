@@ -6,6 +6,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.GlossaryNodeUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetcher;
@@ -40,7 +41,7 @@ public class ProposeCreateGlossaryNodeResolver implements DataFetcher<Completabl
             ? Optional.empty()
             : Optional.of(GlossaryNodeUrn.createFromString(parentNodeUrnStr));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.info("Proposing Creation of Glossary Node. input: {}", input);
@@ -52,6 +53,8 @@ public class ProposeCreateGlossaryNodeResolver implements DataFetcher<Completabl
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
 import com.linkedin.datahub.graphql.generated.ActionRequestStatus;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
@@ -57,7 +58,7 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
 
     Filter filter = ProposalUtils.createActionRequestFilter(type, status, urn, null);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final SearchResult searchResult =
@@ -80,6 +81,8 @@ public class ProposalsResolver implements DataFetcher<CompletableFuture<List<Act
           } catch (Exception e) {
             throw new RuntimeException("Failed to load action requests", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

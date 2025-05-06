@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.settings;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -29,7 +30,7 @@ public class GlobalSettingsResolver implements DataFetcher<CompletableFuture<Glo
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             GlobalSettingsInfo globalSettings =
@@ -38,6 +39,8 @@ public class GlobalSettingsResolver implements DataFetcher<CompletableFuture<Glo
           } catch (Exception e) {
             throw new RuntimeException("Failed to retrieve Global Settings", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

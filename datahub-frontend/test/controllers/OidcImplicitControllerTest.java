@@ -8,7 +8,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static play.test.Helpers.contentAsString;
-import static utils.FrontendConstants.SSO_LOGIN;
+import static utils.FrontendConstants.OIDC_IMPLICIT_LOGIN;
 
 import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -83,7 +83,7 @@ public class OidcImplicitControllerTest {
     mockOidcClient = mock(OidcClient.class);
 
     // Set up mocks
-    when(mockAuthClient.generateSessionTokenForUser(anyString(), eq(SSO_LOGIN)))
+    when(mockAuthClient.generateSessionTokenForUser(anyString(), eq(OIDC_IMPLICIT_LOGIN)))
         .thenReturn(TEST_TOKEN);
 
     // Create controller with mocks

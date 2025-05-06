@@ -7,6 +7,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
@@ -40,7 +41,7 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
     final String maybeNote = environment.getArgument("note");
     QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!proposalUrn.getEntityType().equals("actionRequest")) {
             throw new RuntimeException(
@@ -171,6 +172,8 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", proposalUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

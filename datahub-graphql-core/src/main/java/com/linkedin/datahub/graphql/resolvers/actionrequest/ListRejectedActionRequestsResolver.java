@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ActionRequestResult;
 import com.linkedin.datahub.graphql.generated.ActionRequestType;
 import com.linkedin.datahub.graphql.generated.ListRejectedActionRequestsInput;
@@ -61,7 +62,7 @@ public class ListRejectedActionRequestsResolver
     final Long endTimestampMillis =
         input.getEndTimestampMillis() == null ? null : input.getEndTimestampMillis();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -101,7 +102,9 @@ public class ListRejectedActionRequestsResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list rejected action requests", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter createFilter(

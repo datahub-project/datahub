@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.ListSignalRequestsInput;
 import com.linkedin.datahub.graphql.generated.ListSignalRequestsResult;
 import com.linkedin.datahub.graphql.generated.SignalRequest;
@@ -38,7 +39,7 @@ public class ListSignalRequestsResolver
     final ListSignalRequestsInput input =
         bindArgument(environment.getArgument("input"), ListSignalRequestsInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Set<Urn> urns =
@@ -80,6 +81,8 @@ public class ListSignalRequestsResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list ingestion sources", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

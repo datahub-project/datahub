@@ -28,6 +28,7 @@ dependencies {
     implementation project(':metadata-models')
     implementation project(':metadata-utils')
     implementation project(':metadata-operation-context')
+    implementation externalDependency.opentelemetrySdk
 
     implementation externalDependency.springBoot
 

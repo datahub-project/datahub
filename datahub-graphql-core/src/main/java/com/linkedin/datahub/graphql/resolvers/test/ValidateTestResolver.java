@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
 import com.linkedin.datahub.graphql.generated.TestValidationResult;
 import com.linkedin.metadata.test.TestEngine;
@@ -24,7 +25,7 @@ public class ValidateTestResolver implements DataFetcher<CompletableFuture<TestV
   @Override
   public CompletableFuture<TestValidationResult> get(DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final TestDefinitionInput testDefinitionInput =
               bindArgument(environment.getArgument("input"), TestDefinitionInput.class);
@@ -35,6 +36,8 @@ public class ValidateTestResolver implements DataFetcher<CompletableFuture<TestV
           graphQLResult.setIsValid(validationResult.isValid());
           graphQLResult.setMessages(validationResult.getMessages());
           return graphQLResult;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

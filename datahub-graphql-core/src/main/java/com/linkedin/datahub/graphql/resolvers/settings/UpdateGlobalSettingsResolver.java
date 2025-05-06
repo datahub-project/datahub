@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.UpdateEmailIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
@@ -47,7 +48,7 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
       throws Exception {
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (SettingsMapper.canManageGlobalSettings(context)) {
 
@@ -75,7 +76,9 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void updateSettings(

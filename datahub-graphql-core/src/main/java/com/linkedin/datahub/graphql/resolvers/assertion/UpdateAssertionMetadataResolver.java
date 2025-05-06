@@ -4,6 +4,7 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.UpdateAssertionMetadataInput;
@@ -36,7 +37,7 @@ public class UpdateAssertionMetadataResolver implements DataFetcher<CompletableF
         ResolverUtils.bindArgument(
             environment.getArgument("input"), UpdateAssertionMetadataInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // Check whether the current user is allowed to update the assertion.
           final AssertionInfo info =
@@ -68,6 +69,8 @@ public class UpdateAssertionMetadataResolver implements DataFetcher<CompletableF
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

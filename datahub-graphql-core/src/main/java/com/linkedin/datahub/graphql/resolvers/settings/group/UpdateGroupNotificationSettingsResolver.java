@@ -7,6 +7,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EmailNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
@@ -33,7 +34,7 @@ public class UpdateGroupNotificationSettingsResolver
 
   public CompletableFuture<NotificationSettings> get(DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final Authentication authentication = context.getAuthentication();
@@ -116,6 +117,8 @@ public class UpdateGroupNotificationSettingsResolver
                 String.format(
                     "Failed to update notification settings for group %s", groupUrnString, e));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

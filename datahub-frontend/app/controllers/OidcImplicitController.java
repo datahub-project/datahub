@@ -3,7 +3,7 @@ package controllers;
 import static auth.AuthUtils.*;
 import static auth.sso.SsoConfigs.OIDC_ENABLED_CONFIG_PATH;
 import static auth.sso.oidc.OidcConfigs.OIDC_IMPLICIT_ENABLED;
-import static utils.FrontendConstants.SSO_LOGIN;
+import static utils.FrontendConstants.OIDC_IMPLICIT_LOGIN;
 
 import auth.CookieConfigs;
 import auth.sso.oidc.OidcConfigs;
@@ -159,7 +159,7 @@ public class OidcImplicitController extends Controller {
 
       // Generate session token
       final String sessionToken =
-          authClient.generateSessionTokenForUser(userUrn.getId(), SSO_LOGIN);
+          authClient.generateSessionTokenForUser(userUrn.getId(), OIDC_IMPLICIT_LOGIN);
 
       // Create session
       return Results.ok()

@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
 import com.linkedin.metadata.Constants;
@@ -41,7 +42,7 @@ public class ProposeUpdateDescriptionResolver implements DataFetcher<Completable
     String entityType = resourceUrn.getEntityType();
 
     log.info("Proposing a description update. input: {}", input);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             switch (entityType) {
@@ -78,6 +79,8 @@ public class ProposeUpdateDescriptionResolver implements DataFetcher<Completable
           } catch (Exception e) {
             throw new RuntimeException("Failed to update description", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

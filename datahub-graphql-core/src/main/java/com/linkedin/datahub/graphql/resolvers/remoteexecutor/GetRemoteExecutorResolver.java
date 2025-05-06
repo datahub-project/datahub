@@ -6,6 +6,7 @@ import static com.linkedin.metadata.AcrylConstants.REMOTE_EXECUTOR_STATUS_ASPECT
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.RemoteExecutor;
 import com.linkedin.datahub.graphql.types.remoteexecutor.RemoteExecutorMapper;
 import com.linkedin.entity.EntityResponse;
@@ -29,7 +30,7 @@ public class GetRemoteExecutorResolver implements DataFetcher<CompletableFuture<
     final QueryContext context = environment.getContext();
     final Urn urn = UrnUtils.getUrn(environment.getArgument("urn"));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final EntityResponse response =
@@ -47,6 +48,8 @@ public class GetRemoteExecutorResolver implements DataFetcher<CompletableFuture<
           } catch (Exception e) {
             throw new RuntimeException("Failed to get remote executor", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

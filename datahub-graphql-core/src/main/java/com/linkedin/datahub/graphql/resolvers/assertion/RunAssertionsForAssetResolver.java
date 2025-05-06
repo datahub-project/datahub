@@ -9,6 +9,7 @@ import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -57,8 +58,10 @@ public class RunAssertionsForAssetResolver
         tagUrnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
     final Map<String, String> parameters = extractStringMapEntryInputList(environment);
 
-    return CompletableFuture.supplyAsync(
-        () -> runAssertionsForAsset(context, entityUrn, saveResults, tagUrns, parameters, async));
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> runAssertionsForAsset(context, entityUrn, saveResults, tagUrns, parameters, async),
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private RunAssertionsResult runAssertionsForAsset(

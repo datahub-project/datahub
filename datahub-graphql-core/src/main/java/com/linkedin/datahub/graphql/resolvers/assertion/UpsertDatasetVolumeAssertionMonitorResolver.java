@@ -10,6 +10,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -103,7 +104,7 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
     }
 
     // upsert assertion
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // Check whether the current user is allowed to update the assertion.
           if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, entityUrn)
@@ -156,7 +157,9 @@ public class UpsertDatasetVolumeAssertionMonitorResolver
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private AssertionInfo getAssertionInfoForVolumeAssertion(

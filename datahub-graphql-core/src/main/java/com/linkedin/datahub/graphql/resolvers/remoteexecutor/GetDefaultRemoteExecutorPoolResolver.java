@@ -4,6 +4,7 @@ import static com.linkedin.metadata.AcrylConstants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DefaultRemoteExecutorPoolResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RemoteExecutorPool;
@@ -26,7 +27,7 @@ public class GetDefaultRemoteExecutorPoolResolver
       throws Exception {
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final DefaultRemoteExecutorPoolResult result = new DefaultRemoteExecutorPoolResult();
@@ -48,6 +49,8 @@ public class GetDefaultRemoteExecutorPoolResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to get default remote executor pool", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

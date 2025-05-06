@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.form;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.FormAnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.FormAnalyticsError;
@@ -53,7 +54,7 @@ public class FormAnalyticsConfigResolver
       throws Exception {
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             FormAnalyticsConfig response = new FormAnalyticsConfig();
@@ -80,6 +81,8 @@ public class FormAnalyticsConfigResolver
             log.error("Failed to retrieve config", e);
             return response;
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

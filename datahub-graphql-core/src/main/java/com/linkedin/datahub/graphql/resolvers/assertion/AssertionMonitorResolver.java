@@ -6,6 +6,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.Monitor;
 import com.linkedin.datahub.graphql.types.monitor.MonitorType;
@@ -43,7 +44,8 @@ public class AssertionMonitorResolver implements DataFetcher<CompletableFuture<M
   public CompletableFuture<Monitor> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
     final Urn assertionUrn = UrnUtils.getUrn(((Assertion) environment.getSource()).getUrn());
-    return CompletableFuture.supplyAsync(() -> getAssertionMonitor(context, assertionUrn));
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> getAssertionMonitor(context, assertionUrn), this.getClass().getSimpleName(), "get");
   }
 
   @Nonnull

@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.GetActionRequestAssigneeInput;
 import com.linkedin.metadata.resource.SubResourceType;
 import com.linkedin.metadata.service.ActionRequestService;
@@ -29,7 +30,7 @@ public class GetActionRequestAssigneeResolver
     final GetActionRequestAssigneeInput input =
         bindArgument(environment.getArgument("input"), GetActionRequestAssigneeInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           List<String> actors;
           SubResourceType subResourceType = null;
@@ -48,6 +49,8 @@ public class GetActionRequestAssigneeResolver
             throw new RuntimeException(e);
           }
           return actors;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

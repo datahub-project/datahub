@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResultsSummary;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
@@ -70,7 +71,7 @@ public class TestResultsSummaryResolver
 
     String md5 = testInfo == null ? null : testInfo.getDefinition().getMd5();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           List<EnvelopedAspect> lastComputed =
               timeseriesAspectService.getAspectValues(
@@ -116,7 +117,9 @@ public class TestResultsSummaryResolver
             result.setLastRunTimestampMillis(timestamp);
           }
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static Filter createFilter() {

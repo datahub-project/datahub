@@ -7,6 +7,7 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -47,8 +48,10 @@ public class RunAssertionResolver implements DataFetcher<CompletableFuture<Asser
     final Map<String, String> parameters = extractStringMapEntryInputList(environment);
     final Boolean async = environment.getArgumentOrDefault("async", false);
 
-    return CompletableFuture.supplyAsync(
-        () -> runAssertion(context, assertionUrn, saveResult, parameters, async));
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> runAssertion(context, assertionUrn, saveResult, parameters, async),
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable

@@ -4,6 +4,7 @@ import com.linkedin.assertion.VolumeAssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.CreateVolumeAssertionInput;
@@ -35,7 +36,7 @@ public class CreateVolumeAssertionResolver implements DataFetcher<CompletableFut
             environment.getArgument("input"), CreateVolumeAssertionInput.class);
     final Urn asserteeUrn = UrnUtils.getUrn(input.getEntityUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
 
@@ -58,6 +59,8 @@ public class CreateVolumeAssertionResolver implements DataFetcher<CompletableFut
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

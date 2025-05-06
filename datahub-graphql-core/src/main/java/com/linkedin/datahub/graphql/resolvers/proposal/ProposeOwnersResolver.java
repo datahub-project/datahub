@@ -7,6 +7,7 @@ import com.linkedin.common.Owner;
 import com.linkedin.common.OwnershipSource;
 import com.linkedin.common.OwnershipSourceType;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -44,7 +45,7 @@ public class ProposeOwnersResolver implements DataFetcher<CompletableFuture<Stri
     final String targetUrnStr = input.getResourceUrn();
     final String description = input.getDescription();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // Step 1: validate and authorize the action
           validateAndAuthorize(context, owners, targetUrnStr);
@@ -88,7 +89,9 @@ public class ProposeOwnersResolver implements DataFetcher<CompletableFuture<Stri
                   e);
             }
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateAndAuthorize(

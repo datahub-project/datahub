@@ -7,6 +7,7 @@ import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -46,7 +47,7 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
     final Urn assertionUrn = UrnUtils.getUrn(input.getAssertionUrn());
     final Urn entityUrn = UrnUtils.getUrn(input.getEntityUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (isAuthorizedToCreateMonitor(entityUrn, assertionUrn, context)) {
             try {
@@ -74,7 +75,9 @@ public class CreateAssertionMonitorResolver implements DataFetcher<CompletableFu
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private boolean isAuthorizedToCreateMonitor(

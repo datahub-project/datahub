@@ -4,6 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.TestResult;
@@ -44,7 +45,7 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
         environment.getArgumentOrDefault("includeSoftDeleted", false);
     final Urn entityUrn = Urn.createFromString(((Entity) environment.getSource()).getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final com.linkedin.test.TestResults gmsTestResults =
               getTestResults(entityUrn, includeSoftDeleted, context);
@@ -57,7 +58,9 @@ public class EntityTestResultsResolver implements DataFetcher<CompletableFuture<
           testResults.setPassing(mapTestResults(gmsTestResults.getPassing(), context));
           testResults.setFailing(mapTestResults(gmsTestResults.getFailing(), context));
           return testResults;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable

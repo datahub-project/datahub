@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.Monitor;
@@ -43,7 +44,7 @@ public class SystemMonitorsResolver
     final QueryContext context = environment.getContext();
     final Urn entityUrn = UrnUtils.getUrn(environment.getArgument("urn"));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           // Ensure that the entity exists.
           validateEntity(context.getOperationContext(), entityUrn);
@@ -55,7 +56,9 @@ public class SystemMonitorsResolver
               getSystemMonitorsForEntity(context.getOperationContext(), entityUrn);
           result.setMonitors(monitors);
           return result;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.test;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.test.TestResults;
 import graphql.schema.DataFetcher;
@@ -23,7 +24,7 @@ public class RunTestsResolver implements DataFetcher<CompletableFuture<Boolean>>
 
     final QueryContext context = environment.getContext();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final String urnStr = environment.getArgument("urn");
           final Urn urn = UrnUtils.getUrn(urnStr);
@@ -36,6 +37,8 @@ public class RunTestsResolver implements DataFetcher<CompletableFuture<Boolean>>
               _testEngine.evaluateTests(context.getOperationContext(), urn, evaluationMode);
 
           return testResults.getFailing().isEmpty();
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

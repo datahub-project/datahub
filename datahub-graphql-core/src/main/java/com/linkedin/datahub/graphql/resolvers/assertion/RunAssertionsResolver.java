@@ -7,6 +7,7 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -55,8 +56,10 @@ public class RunAssertionsResolver implements DataFetcher<CompletableFuture<RunA
           DataHubGraphQLErrorCode.BAD_REQUEST);
     }
 
-    return CompletableFuture.supplyAsync(
-        () -> runAssertions(context, assertionUrns, saveResults, parameters, async));
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> runAssertions(context, assertionUrns, saveResults, parameters, async),
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable

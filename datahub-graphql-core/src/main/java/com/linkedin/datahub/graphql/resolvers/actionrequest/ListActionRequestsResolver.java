@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -76,7 +77,7 @@ public class ListActionRequestsResolver
         input.getEndTimestampMillis() == null ? null : input.getEndTimestampMillis();
     final List<String> facets = input.getFacets() == null ? null : input.getFacets();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
 
@@ -176,7 +177,9 @@ public class ListActionRequestsResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list action requests", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private Filter createFilter(

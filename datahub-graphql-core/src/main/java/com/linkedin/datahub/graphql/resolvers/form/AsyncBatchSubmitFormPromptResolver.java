@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AsyncBatchSubmitFormPromptInput;
 import com.linkedin.datahub.graphql.generated.AsyncBatchSubmitFormPromptResponse;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
@@ -98,7 +99,7 @@ public class AsyncBatchSubmitFormPromptResolver
     final TestKey key = new TestKey();
     key.setId(UUID.randomUUID().toString());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final MetadataChangeProposal proposal =
@@ -117,7 +118,9 @@ public class AsyncBatchSubmitFormPromptResolver
             throw new RuntimeException(
                 String.format("Failed to async batch submit form prompt with input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /*

@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.schema.DataFetcher;
@@ -28,7 +29,7 @@ public class UpdateDefaultRemoteExecutorPoolResolver
     final String urnStr = environment.getArgument("urn");
     final Urn urn = UrnUtils.getUrn(urnStr);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // 1. Ensure user has permissions
@@ -54,6 +55,8 @@ public class UpdateDefaultRemoteExecutorPoolResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to update the default pool", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

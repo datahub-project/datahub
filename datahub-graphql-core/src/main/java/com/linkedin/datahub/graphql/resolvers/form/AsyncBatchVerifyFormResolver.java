@@ -14,6 +14,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AsyncBatchVerifyFormInput;
 import com.linkedin.datahub.graphql.generated.AsyncBatchVerifyFormResponse;
 import com.linkedin.datahub.graphql.generated.TaskInput;
@@ -94,7 +95,7 @@ public class AsyncBatchVerifyFormResolver
     final TestKey key = new TestKey();
     key.setId(UUID.randomUUID().toString());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final MetadataChangeProposal proposal =
@@ -113,7 +114,9 @@ public class AsyncBatchVerifyFormResolver
             throw new RuntimeException(
                 String.format("Failed to async batch verify form with input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /*

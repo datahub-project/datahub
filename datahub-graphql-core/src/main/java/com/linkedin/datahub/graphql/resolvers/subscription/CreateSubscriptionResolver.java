@@ -7,6 +7,7 @@ import static com.linkedin.datahub.graphql.resolvers.subscription.SubscriptionRe
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateSubscriptionInput;
@@ -34,7 +35,7 @@ public class CreateSubscriptionResolver
     final QueryContext context = environment.getContext();
     final CreateSubscriptionInput input =
         bindArgument(environment.getArgument("input"), CreateSubscriptionInput.class);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final String entityUrnString = input.getEntityUrn();
@@ -92,6 +93,8 @@ public class CreateSubscriptionResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to create subscriptions", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

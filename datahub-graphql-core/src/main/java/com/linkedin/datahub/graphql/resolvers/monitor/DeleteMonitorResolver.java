@@ -11,6 +11,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -40,7 +41,7 @@ public class DeleteMonitorResolver implements DataFetcher<CompletableFuture<Bool
     final QueryContext context = environment.getContext();
     final Urn monitorUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Urn entityUrn = UrnUtils.getUrn(monitorUrn.getEntityKey().get(0));
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // 1. check the entity exists. If not, return false.
@@ -76,7 +77,9 @@ public class DeleteMonitorResolver implements DataFetcher<CompletableFuture<Bool
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

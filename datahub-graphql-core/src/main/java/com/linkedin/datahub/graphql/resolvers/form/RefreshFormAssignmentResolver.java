@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.RefreshFormAssignmentInput;
 import com.linkedin.metadata.service.FormService;
@@ -37,7 +38,7 @@ public class RefreshFormAssignmentResolver implements DataFetcher<CompletableFut
         input.getReassignAllAssets() != null ? input.getReassignAllAssets() : false;
     final Boolean unassignForm = input.getUnassignForm() != null ? input.getUnassignForm() : true;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (!AuthorizationUtils.canManageForms(context)) {
@@ -50,6 +51,8 @@ public class RefreshFormAssignmentResolver implements DataFetcher<CompletableFut
           } catch (Exception e) {
             throw new RuntimeException("Failed to reassign form", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

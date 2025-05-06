@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.scim.repositories;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.SSO_SCIM_SOURCE;
 import static org.apache.directory.scim.core.repository.DefaultPatchHandler.*;
 
 import com.datahub.util.RecordUtils;
@@ -21,6 +22,8 @@ import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.TraceContext;
+import io.opentelemetry.context.Context;
 import java.io.UnsupportedEncodingException;
 import java.net.URISyntaxException;
 import java.time.Instant;
@@ -206,7 +209,13 @@ abstract class AbstractScimRepository<
     if (!_entityService.exists(systemOperationContext, urn, false)) {
       throw resourceNotFoundException(id);
     }
-    _entityService.deleteUrn(systemOperationContext, urn);
+    systemOperationContext.withSpan(
+        "scimDelete",
+        () -> {
+          Optional.ofNullable(Context.current().get(TraceContext.EVENT_SOURCE_CONTEXT_KEY))
+              .ifPresent(eventSource -> eventSource.set(SSO_SCIM_SOURCE));
+          _entityService.deleteUrn(systemOperationContext, urn);
+        });
 
     log.debug(String.format("Deleted entity %s with scim-id %s", urn, id));
 
@@ -233,7 +242,13 @@ abstract class AbstractScimRepository<
     mcp.setAspectName(aspectName);
     mcp.setAspect(GenericRecordUtils.serializeAspect(aspect));
     mcp.setChangeType(ChangeType.UPSERT);
-    _entityService.ingestProposal(systemOperationContext, mcp, auditStamp, false);
+    systemOperationContext.withSpan(
+        "scimIngest",
+        () -> {
+          Optional.ofNullable(Context.current().get(TraceContext.EVENT_SOURCE_CONTEXT_KEY))
+              .ifPresent(eventSource -> eventSource.set(SSO_SCIM_SOURCE));
+          _entityService.ingestProposal(systemOperationContext, mcp, auditStamp, false);
+        });
   }
 
   /*

@@ -5,6 +5,7 @@ import com.linkedin.assertion.AssertionResult;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.DataContract;
@@ -63,8 +64,10 @@ public class DataContractResultResolver
     final Urn contractUrn = UrnUtils.getUrn(((DataContract) environment.getSource()).getUrn());
     final Boolean refresh = environment.getArgumentOrDefault("refresh", false);
 
-    return CompletableFuture.supplyAsync(
-        () -> getDataContractResult(context, contractUrn, refresh));
+    return GraphQLConcurrencyUtils.supplyAsync(
+        () -> getDataContractResult(context, contractUrn, refresh),
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nullable

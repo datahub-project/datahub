@@ -7,6 +7,7 @@ import static com.linkedin.metadata.AcrylConstants.REMOTE_EXECUTOR_POOL_INFO_ASP
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.UpdateRemoteExecutorPoolInput;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -39,7 +40,7 @@ public class UpdateRemoteExecutorPoolResolver implements DataFetcher<Completable
         bindArgument(environment.getArgument("input"), UpdateRemoteExecutorPoolInput.class);
     final Urn poolUrn = Urn.createFromString(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // 1. Check auth
@@ -81,7 +82,9 @@ public class UpdateRemoteExecutorPoolResolver implements DataFetcher<Completable
           } catch (Exception e) {
             throw new RuntimeException("Failed to update pool", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private RemoteExecutorPoolInfo getPoolInfo(OperationContext opContext, Urn poolUrn)

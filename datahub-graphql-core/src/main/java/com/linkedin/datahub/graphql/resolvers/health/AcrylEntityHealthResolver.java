@@ -6,6 +6,7 @@ import com.linkedin.common.AssertionsSummary;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
@@ -61,7 +62,7 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
   public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment)
       throws Exception {
     final Entity parent = environment.getSource();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final HealthStatuses statuses =
@@ -70,7 +71,9 @@ public class AcrylEntityHealthResolver implements DataFetcher<CompletableFuture<
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve asset's health status.", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**

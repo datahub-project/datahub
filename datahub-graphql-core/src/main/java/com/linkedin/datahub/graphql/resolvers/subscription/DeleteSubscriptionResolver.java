@@ -8,6 +8,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.DeleteSubscriptionInput;
@@ -31,7 +32,7 @@ public class DeleteSubscriptionResolver implements DataFetcher<CompletableFuture
     final DeleteSubscriptionInput input =
         bindArgument(environment.getArgument("input"), DeleteSubscriptionInput.class);
     final String subscriptionUrnString = input.getSubscriptionUrn();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final Urn subscriptionUrn = UrnUtils.getUrn(subscriptionUrnString);
@@ -64,6 +65,8 @@ public class DeleteSubscriptionResolver implements DataFetcher<CompletableFuture
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete subscription", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

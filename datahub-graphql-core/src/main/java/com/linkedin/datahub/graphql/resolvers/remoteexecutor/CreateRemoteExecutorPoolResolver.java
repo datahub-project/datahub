@@ -7,6 +7,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.CreateRemoteExecutorPoolInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.executorpool.RemoteExecutorPoolInfo;
@@ -47,7 +48,7 @@ public class CreateRemoteExecutorPoolResolver implements DataFetcher<Completable
     final Urn poolUrn =
         Urn.createFromTuple(REMOTE_EXECUTOR_POOL_ENTITY_NAME, input.getExecutorPoolId());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // 1. Check auth
@@ -82,6 +83,8 @@ public class CreateRemoteExecutorPoolResolver implements DataFetcher<Completable
           } catch (Exception e) {
             throw new RuntimeException("Failed to create a new pool", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -6,6 +6,7 @@ import static com.linkedin.metadata.AcrylConstants.*;
 import com.google.common.collect.Iterables;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorPoolsInput;
 import com.linkedin.datahub.graphql.generated.ListRemoteExecutorPoolsResult;
@@ -47,7 +48,7 @@ public class ListRemoteExecutorPoolsResolver
     final String maybeQuery = input.getQuery();
     final String query = maybeQuery == null ? "*" : maybeQuery;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final ListRemoteExecutorPoolsResult result = new ListRemoteExecutorPoolsResult();
@@ -88,7 +89,9 @@ public class ListRemoteExecutorPoolsResolver
           } catch (Exception e) {
             throw new RuntimeException("Failed to list remote executor pools", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   @Nonnull

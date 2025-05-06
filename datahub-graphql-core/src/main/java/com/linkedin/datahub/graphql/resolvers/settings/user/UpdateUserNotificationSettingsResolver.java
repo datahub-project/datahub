@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EmailNotificationSettingsInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettings;
 import com.linkedin.datahub.graphql.generated.NotificationSettingsInput;
@@ -31,7 +32,7 @@ public class UpdateUserNotificationSettingsResolver
 
   public CompletableFuture<NotificationSettings> get(DataFetchingEnvironment environment)
       throws Exception {
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final QueryContext context = environment.getContext();
           final String userUrnString = context.getActorUrn();
@@ -109,6 +110,8 @@ public class UpdateUserNotificationSettingsResolver
                 String.format(
                     "Failed to update notification settings for user %s", userUrnString, e));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

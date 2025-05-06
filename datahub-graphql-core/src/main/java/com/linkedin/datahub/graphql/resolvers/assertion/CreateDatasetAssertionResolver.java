@@ -6,6 +6,7 @@ import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.CreateDatasetAssertionInput;
@@ -38,7 +39,7 @@ public class CreateDatasetAssertionResolver implements DataFetcher<CompletableFu
             environment.getArgument("input"), CreateDatasetAssertionInput.class);
     final Urn asserteeUrn = UrnUtils.getUrn(input.getDatasetUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn)) {
 
@@ -72,6 +73,8 @@ public class CreateDatasetAssertionResolver implements DataFetcher<CompletableFu
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

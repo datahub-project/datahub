@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.RunTestDefinitionResult;
 import com.linkedin.datahub.graphql.generated.RunTestDefinitionStatus;
 import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
@@ -34,7 +35,7 @@ public class RunTestDefinitionResolver
     final Urn urn = UrnUtils.getUrn(urnStr);
     final TestDefinitionInput test =
         bindArgument(environment.getArgument("test"), TestDefinitionInput.class);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final TestDefinition parsedDefinition =
               _testEngine.getParser().deserialize(TEST_URN, test.getJson());
@@ -47,7 +48,9 @@ public class RunTestDefinitionResolver
                       TestEngine.EvaluationMode.EVALUATE_ONLY)
                   .get(urn);
           return mapToResult(testResults);
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private RunTestDefinitionResult mapToResult(final TestResults testResults) {
