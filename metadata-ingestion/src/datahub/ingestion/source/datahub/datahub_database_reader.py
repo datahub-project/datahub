@@ -201,17 +201,36 @@ class DataHubDatabaseReader:
             else:
                 raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
 
-    def _get_rows_for_date_range(
+    def _get_rows(
         self,
         start_date: datetime,
         end_date: datetime,
         set_structured_properties_filter: bool,
         limit: int,
     ) -> Iterable[Dict[str, Any]]:
-        """Get rows for a specific date range"""
+        """
+        Retrieves data rows within a specified date range using pagination.
+
+        Implements a hybrid pagination strategy that switches between time-based and
+        offset-based approaches depending on the returned data. Uses server-side
+        cursors for efficient memory usage.
+
+        Note: May return duplicate rows across batch boundaries when multiple rows
+        share the same 'createdon' timestamp. This is expected behavior when
+        transitioning between pagination methods.
+
+        Args:
+        start_date: Beginning of date range (inclusive)
+        end_date: End of date range (exclusive)
+        set_structured_properties_filter: Whether to apply structured filtering
+        limit: Maximum rows to fetch per query
+
+        Returns:
+            An iterable of database rows as dictionaries
+        """
         offset = 0
         last_createdon = None
-        previous_first_row = None
+        first_iteration = True
 
         while True:
             try:
@@ -239,31 +258,15 @@ class DataHubDatabaseReader:
                 # Execute query with server-side cursor
                 rows = self.execute_server_cursor(query, params)
                 # Process and yield rows
-                duplicate_found = False
-                first_row: Optional[Dict] = None
                 rows_processed = 0
                 for row in rows:
-                    if rows_processed == 0:
-                        first_row = row
-                        # Check for duplicate data
-                        if previous_first_row and previous_first_row == first_row:
-                            logger.info(
-                                f"Skipping duplicate row for {first_row.get('urn')} with createdon {first_row.get('createdon')}."
-                            )
-                            # Update parameters and continue to next iteration
-                            duplicate_found = True
-                            break
+                    if first_iteration:
+                        start_date = row.get("createdon", start_date)
+                        first_iteration = False
 
                     last_createdon = row.get("createdon")
                     rows_processed += 1
                     yield row
-
-                if duplicate_found:
-                    # Skip to the next iteration if duplicate found
-                    offset += limit
-                    continue
-
-                previous_first_row = first_row
 
                 # If we processed fewer than the limit or no last_createdon, we're done
                 if rows_processed < limit or not last_createdon:
@@ -273,6 +276,8 @@ class DataHubDatabaseReader:
                 if start_date != last_createdon:
                     start_date = last_createdon
                     offset = 0
+                else:
+                    offset += limit
 
                 logger.info(
                     f"Processed {rows_processed} rows for date range {start_date} to {end_date}. Continuing to next batch."
@@ -284,20 +289,6 @@ class DataHubDatabaseReader:
                 )
                 # Re-raise the exception after logging
                 raise
-
-    def _get_rows(
-        self,
-        from_createdon: datetime,
-        stop_time: datetime,
-        set_structured_properties_filter: bool = False,
-    ) -> Iterable[Dict[str, Any]]:
-        # Query and yield rows for this date batch
-        yield from self._get_rows_for_date_range(
-            from_createdon,
-            stop_time,
-            set_structured_properties_filter,
-            limit=self.config.database_query_batch_size,
-        )
 
     def get_all_aspects(
         self, from_createdon: datetime, stop_time: datetime
@@ -334,9 +325,10 @@ class DataHubDatabaseReader:
             enabled=self.config.include_all_versions
         )
         rows = self._get_rows(
-            from_createdon=from_createdon,
-            stop_time=stop_time,
+            start_date=from_createdon,
+            end_date=stop_time,
             set_structured_properties_filter=set_structured_properties_filter,
+            limit=self.config.database_query_batch_size,
         )
         for row in orderer(rows):
             mcp = self._parse_row(row)

@@ -75,7 +75,7 @@ def test_get_rows_for_date_range_no_rows(mock_reader):
     mock_reader.execute_server_cursor.return_value = []
 
     # Execute
-    result = list(mock_reader._get_rows_for_date_range(start_date, end_date, False, 50))
+    result = list(mock_reader._get_rows(start_date, end_date, False, 50))
 
     # Assert
     assert len(result) == 0
@@ -94,7 +94,7 @@ def test_get_rows_for_date_range_with_rows(mock_reader):
     mock_reader.execute_server_cursor.return_value = mock_rows
 
     # Execute
-    result = list(mock_reader._get_rows_for_date_range(start_date, end_date, False, 50))
+    result = list(mock_reader._get_rows(start_date, end_date, False, 50))
 
     # Assert
     assert result == mock_rows
@@ -118,7 +118,7 @@ def test_get_rows_for_date_range_pagination_same_timestamp(mock_reader):
     mock_reader.execute_server_cursor.side_effect = [batch1, batch2, batch3]
 
     # Execute
-    result = list(mock_reader._get_rows_for_date_range(start_date, end_date, False, 2))
+    result = list(mock_reader._get_rows(start_date, end_date, False, 2))
 
     # Assert
     assert len(result) == 3
@@ -144,7 +144,7 @@ def test_get_rows_for_date_range_pagination_different_timestamp(mock_reader):
     mock_reader.execute_server_cursor.side_effect = [batch1, batch2, batch3]
 
     # Execute
-    result = list(mock_reader._get_rows_for_date_range(start_date, end_date, False, 2))
+    result = list(mock_reader._get_rows(start_date, end_date, False, 2))
 
     # Assert
     assert len(result) == 3
@@ -162,17 +162,14 @@ def test_get_rows_for_date_range_duplicate_data_handling(mock_reader):
         {"urn": "urn1", "metadata": "data1", "createdon": datetime(2023, 1, 1, 12, 0)},
     ]
     batch2 = [
-        {"urn": "urn1", "metadata": "data1", "createdon": datetime(2023, 1, 1, 12, 0)},
-    ]
-    batch3 = [
         {"urn": "urn2", "metadata": "data2", "createdon": datetime(2023, 1, 1, 13, 0)},
     ]
-    batch4: List[Dict] = []
+    batch3: List[Dict] = []
 
-    mock_reader.execute_server_cursor.side_effect = [batch1, batch2, batch3, batch4]
+    mock_reader.execute_server_cursor.side_effect = [batch1, batch2, batch3]
 
     # Execute
-    result = list(mock_reader._get_rows_for_date_range(start_date, end_date, False, 1))
+    result = list(mock_reader._get_rows(start_date, end_date, False, 1))
 
     # Assert
     assert len(result) == 2
@@ -181,7 +178,7 @@ def test_get_rows_for_date_range_duplicate_data_handling(mock_reader):
 
     # Check call parameters for each iteration
     calls = mock_reader.execute_server_cursor.call_args_list
-    assert len(calls) == 4
+    assert len(calls) == 3
 
     # First call: initial parameters
     first_call_params = calls[0][0][1]
@@ -192,7 +189,7 @@ def test_get_rows_for_date_range_duplicate_data_handling(mock_reader):
 
     # Second call: duplicate detected, same createdon so offset increased
     second_call_params = calls[1][0][1]
-    assert second_call_params["offset"] == 0
+    assert second_call_params["offset"] == 1
     assert second_call_params["since_createdon"] == datetime(
         2023, 1, 1, 12, 0
     ).strftime(DATETIME_FORMAT)
@@ -200,15 +197,87 @@ def test_get_rows_for_date_range_duplicate_data_handling(mock_reader):
     # Third call: successful fetch after duplicate with new timestamp
     third_call_params = calls[2][0][1]
     # After a duplicate with no last_createdon, offset should increase
-    assert third_call_params["offset"] == 1
+    assert third_call_params["offset"] == 0
 
-    # Fourth call: after returning the second row with timestamp 13:00
-    fourth_call_params = calls[3][0][1]
-    # Should reset offset and use last_createdon as new start_date
-    assert fourth_call_params["since_createdon"] == datetime(
-        2023, 1, 1, 13, 0
+
+def test_get_rows_multiple_paging(mock_reader):
+    # Setup
+    start_date = datetime(2023, 1, 1)
+    end_date = datetime(2023, 1, 2)
+    batch1 = [
+        {"urn": "urn1", "metadata": "data1", "createdon": datetime(2023, 1, 1, 12, 0)},
+        {"urn": "urn2", "metadata": "data1", "createdon": datetime(2023, 1, 1, 12, 0)},
+        {"urn": "urn3", "metadata": "data1", "createdon": datetime(2023, 1, 1, 12, 0)},
+    ]
+    batch2 = [
+        {"urn": "urn4", "metadata": "data1", "createdon": datetime(2023, 1, 1, 12, 0)},
+        {"urn": "urn5", "metadata": "data1", "createdon": datetime(2023, 1, 1, 12, 0)},
+        {"urn": "urn6", "metadata": "data1", "createdon": datetime(2023, 1, 1, 13, 0)},
+    ]
+    batch3 = [
+        {"urn": "urn7", "metadata": "data1", "createdon": datetime(2023, 1, 1, 14, 0)},
+        {"urn": "urn8", "metadata": "data1", "createdon": datetime(2023, 1, 1, 14, 0)},
+        {"urn": "urn9", "metadata": "data1", "createdon": datetime(2023, 1, 1, 15, 0)},
+    ]
+    batch4 = [
+        {"urn": "urn10", "metadata": "data1", "createdon": datetime(2023, 1, 1, 16, 0)},
+    ]
+
+    mock_reader.execute_server_cursor.side_effect = [batch1, batch2, batch3, batch4]
+
+    # Execute
+    result = list(mock_reader._get_rows(start_date, end_date, False, 3))
+
+    # Assert
+    # In this case duplicate items are expected
+    assert len(result) == 10
+    assert result[0]["urn"] == "urn1"
+    assert result[1]["urn"] == "urn2"
+    assert result[2]["urn"] == "urn3"
+    assert result[3]["urn"] == "urn4"
+    assert result[4]["urn"] == "urn5"
+    assert result[5]["urn"] == "urn6"
+    assert result[6]["urn"] == "urn7"
+    assert result[7]["urn"] == "urn8"
+    assert result[8]["urn"] == "urn9"
+    assert result[9]["urn"] == "urn10"
+
+    # Check call parameters for each iteration
+    calls = mock_reader.execute_server_cursor.call_args_list
+    assert len(calls) == 4
+
+    # First call: initial parameters
+    first_call_params = calls[0][0][1]
+    assert first_call_params["since_createdon"] == start_date.strftime(DATETIME_FORMAT)
+    assert first_call_params["end_createdon"] == end_date.strftime(DATETIME_FORMAT)
+    assert first_call_params["limit"] == 3
+    assert first_call_params["offset"] == 0
+
+    # Second call: duplicate detected, same createdon so offset increased
+    second_call_params = calls[1][0][1]
+    assert second_call_params["offset"] == 3
+    assert second_call_params["limit"] == 3
+    assert second_call_params["since_createdon"] == datetime(
+        2023, 1, 1, 12, 0
     ).strftime(DATETIME_FORMAT)
+    assert first_call_params["end_createdon"] == end_date.strftime(DATETIME_FORMAT)
+
+    # Third call: successful fetch after duplicate with new timestamp
+    third_call_params = calls[2][0][1]
+    # After a duplicate with no last_createdon, offset should increase
+    assert third_call_params["offset"] == 0
+    assert third_call_params["since_createdon"] == datetime(2023, 1, 1, 13, 0).strftime(
+        DATETIME_FORMAT
+    )
+
+    # Third call: successful fetch after duplicate with new timestamp
+    fourth_call_params = calls[3][0][1]
+    # After a duplicate with no last_createdon, offset should increase
     assert fourth_call_params["offset"] == 0
+    assert fourth_call_params["since_createdon"] == datetime(
+        2023, 1, 1, 15, 0
+    ).strftime(DATETIME_FORMAT)
+    assert fourth_call_params["limit"] == 3
 
 
 def test_get_rows_for_date_range_exception_handling(mock_reader):
@@ -219,7 +288,7 @@ def test_get_rows_for_date_range_exception_handling(mock_reader):
 
     # Execute and Assert
     with pytest.raises(Exception, match="Test exception"):
-        list(mock_reader._get_rows_for_date_range(start_date, end_date, False, 50))
+        list(mock_reader._get_rows(start_date, end_date, False, 50))
 
 
 def test_get_rows_for_date_range_exclude_aspects(mock_reader):
@@ -230,7 +299,7 @@ def test_get_rows_for_date_range_exclude_aspects(mock_reader):
     mock_reader.execute_server_cursor.return_value = []
 
     # Execute
-    list(mock_reader._get_rows_for_date_range(start_date, end_date, False, 50))
+    list(mock_reader._get_rows(start_date, end_date, False, 50))
 
     # Assert
     called_params = mock_reader.execute_server_cursor.call_args[0][1]

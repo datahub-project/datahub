@@ -125,7 +125,6 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     )
 
     query_timeout: Optional[int] = Field(
-        hidden_from_docs=True,
         default=None,
         description="Timeout for each query in seconds. ",
     )
