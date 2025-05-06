@@ -18,7 +18,6 @@ const RequiredText = styled.span<{ displayBulkStyles?: boolean }>`
     ${(props) =>
         props.displayBulkStyles &&
         `
-        color: #FFCCC7;
         margin-left: 8px;
     `}
 `;
@@ -54,11 +53,7 @@ export default function PromptHeader({ title, description, promptNumber, require
             </PromptTitle>
             {description && (
                 <PromptSubTitle>
-                    <Editor
-                        content={description}
-                        readOnly
-                        editorStyle={!displayBulkPromptStyles ? 'padding: 0;' : 'padding: 0; color: white;'}
-                    />
+                    <Editor content={description} readOnly editorStyle="padding: 0;" />
                 </PromptSubTitle>
             )}
         </>

@@ -10,7 +10,7 @@ import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
 import { AllowedValue } from '@types';
 
-const StyledCheckbox = styled(Checkbox)<{ $displayBulkStyles?: boolean }>`
+const StyledCheckbox = styled(Checkbox)`
     display: flex;
     margin: 0 0 4px 0;
     .ant-checkbox-inner {
@@ -19,7 +19,6 @@ const StyledCheckbox = styled(Checkbox)<{ $displayBulkStyles?: boolean }>`
     &&& {
         margin-left: 0;
     }
-    ${(props) => props.$displayBulkStyles && 'color: white;'}
 `;
 
 const StyleTag = styled(Tag)`
@@ -82,7 +81,6 @@ export default function MultiSelectInput({
                     value={getStructuredPropertyValue(allowedValue.value)}
                     onChange={(e) => toggleSelectedValue(e.target.value)}
                     checked={selectedValues.includes(getStructuredPropertyValue(allowedValue.value))}
-                    $displayBulkStyles={displayBulkPromptStyles}
                 >
                     {getStructuredPropertyValue(allowedValue.value)}
                     {allowedValue.description && <ValueDescription description={allowedValue.description} />}

@@ -33,12 +33,10 @@ const StyledButton = styled(Button)<{ $displayBulkStyles?: boolean }>`
     display: block;
     margin-top: 4px;
     padding: 0;
-    ${(props) => props.$displayBulkStyles && 'color: white;'}
 `;
 
 const DeleteButton = styled(Button)<{ $displayBulkStyles?: boolean }>`
     margin-left: 4px;
-    ${(props) => props.$displayBulkStyles && 'color: white;'}
 
     &:hover {
         ${(props) => props.$displayBulkStyles && `color: ${red[3]};`}

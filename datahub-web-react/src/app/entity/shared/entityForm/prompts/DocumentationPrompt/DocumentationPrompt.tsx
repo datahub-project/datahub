@@ -19,7 +19,6 @@ const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;
     justify-content: space-between;
     height: min-content;
-    ${(props) => props.displayBulkStyles && `color: white;`}
 `;
 
 export const PromptSubTitle = styled.div`
@@ -86,7 +85,7 @@ export default function DocumentationPrompt({
 
     return (
         <>
-            <PromptWrapper displayBulkStyles={displayBulkPromptStyles}>
+            <PromptWrapper>
                 <PromptInputWrapper>
                     <PromptHeader
                         title={prompt.title}

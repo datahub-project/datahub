@@ -15,11 +15,10 @@ import { applyOpacity } from '@app/shared/styleUtils';
 
 import { EntityType, FormPrompt, PromptCardinality, SchemaField, SubmitFormPromptInput } from '@types';
 
-const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
+const PromptWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     height: min-content;
-    ${(props) => props.displayBulkStyles && `color: white;`}
 `;
 
 export const PromptSubTitle = styled.div`
@@ -88,7 +87,7 @@ export default function GlossaryTermsPrompt({
 
     return (
         <>
-            <PromptWrapper displayBulkStyles={displayBulkPromptStyles}>
+            <PromptWrapper>
                 <PromptInputWrapper>
                     <PromptHeader
                         title={prompt.title}

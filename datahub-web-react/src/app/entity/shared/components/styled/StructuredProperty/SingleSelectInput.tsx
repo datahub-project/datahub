@@ -10,12 +10,11 @@ import { getStructuredPropertyValue } from '@app/entity/shared/utils';
 
 import { AllowedValue } from '@types';
 
-const StyledRadio = styled(Radio)<{ displayBulkStyles?: boolean }>`
+const StyledRadio = styled(Radio)`
     display: block;
     .ant-radio-inner {
         border-color: ${ANTD_GRAY_V2[8]};
     }
-    ${(props) => props.displayBulkStyles && 'color: white;'}
 `;
 
 const DROPDOWN_STYLE = { minWidth: 320, maxWidth: 320, textAlign: 'left', fontSize: '14px' };
@@ -56,7 +55,6 @@ export default function SingleSelectInput({ selectSingleValue, allowedValues, se
                 <StyledRadio
                     key={getStructuredPropertyValue(allowedValue.value)}
                     value={getStructuredPropertyValue(allowedValue.value)}
-                    displayBulkStyles={displayBulkPromptStyles}
                 >
                     {getStructuredPropertyValue(allowedValue.value)}
                     {allowedValue.description && <ValueDescription description={allowedValue.description} />}
