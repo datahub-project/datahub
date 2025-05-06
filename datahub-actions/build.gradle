@@ -25,8 +25,8 @@ apply from: '../gradle/docker/docker.gradle'
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
-  docker_registry = 'acryldata'
-  docker_repo = 'datahub-actions'
+  // Saas only
+  docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-actions' : 'datahub-actions'
   docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
 
   python_docker_version = project.getProperties().getOrDefault("pythonDockerVersion", "1!0.0.0+docker.${version}")

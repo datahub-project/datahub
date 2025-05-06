@@ -8,7 +8,8 @@ apply from: "../../gradle/versioning/versioning.gradle"
 apply from: "../../gradle/docker/docker.gradle"
 
 ext {
-  docker_repo = 'datahub-gms'
+  // Saas only
+  docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-gms' : 'datahub-gms'
 }
 
 ext.apiProject = project(':metadata-service:restli-api')
@@ -109,12 +110,12 @@ bootRun {
 docker {
   dependsOn bootJar
   name "${docker_registry}/${docker_repo}:${versionTag}"
-  dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+  dockerfile file("${rootProject.projectDir}/docker/datahub-gms/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
-    include "docker/${docker_repo}/*"
+    include "docker/datahub-gms/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())

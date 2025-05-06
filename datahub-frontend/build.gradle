@@ -9,7 +9,8 @@ apply from: '../gradle/coverage/java-coverage.gradle'
 apply from: '../gradle/docker/docker.gradle'
 
 ext {
-  docker_repo = 'datahub-frontend-react'
+  // Saas only
+  docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-frontend' : 'datahub-frontend-react'
   docker_dir = 'datahub-frontend'
 }
 

@@ -25,8 +25,8 @@ apply from: '../gradle/docker/docker.gradle'
 ext {
     python_executable = 'python3'
     venv_name = '.venv'
-    docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
-    docker_repo = 'datahub-executor'
+    // Saas only
+    docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-executor' : 'datahub-executor'
 }
 
 task checkPythonVersion(type: Exec) {
@@ -114,10 +114,10 @@ docker {
     dependsOn (':metadata-ingestion-modules:acryl-cloud:codegen')
 
     name "${docker_registry}/${docker_repo}:${versionTag}"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+    dockerfile file("${rootProject.projectDir}/docker/datahub-executor/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
-        include "docker/${docker_repo}/*"
+        include "docker/datahub-executor/*"
         include "docker/snippets/*"
         include "/docker/datahub-ingestion/pyspark_jars.sh"
         include "docker/datahub-ingestion/oracle_instantclient.sh"

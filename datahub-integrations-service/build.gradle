@@ -26,8 +26,8 @@ apply from: "../gradle/docker/docker.gradle"
 ext {
     python_executable = 'python3'
     venv_name = 'venv'
-    docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
-    docker_repo = 'datahub-integrations-service'
+    // Saas only
+    docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-integrations-service' : 'datahub-integrations-service'
 }
 
 task installUv(type: Exec) {
@@ -153,10 +153,10 @@ docker {
     dependsOn(':metadata-ingestion:codegen')
 
     name "${docker_registry}/${docker_repo}:${versionTag}"
-    dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
+    dockerfile file("${rootProject.projectDir}/docker/datahub-integrations-service/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'
-        include "docker/${docker_repo}/*"
+        include "docker/datahub-integrations-service/*"
         include "datahub-integrations-service/src/**"
         include "datahub-integrations-service/scripts/sync.sh"
         include "datahub-integrations-service/static/**"

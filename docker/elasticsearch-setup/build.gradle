@@ -6,7 +6,8 @@ apply from: "../../gradle/versioning/versioning.gradle"
 apply from: "../../gradle/docker/docker.gradle"
 
 ext {
-    docker_repo = 'datahub-elasticsearch-setup'
+    // Saas only
+    docker_repo = project.hasProperty('dockerRegistry') && project.dockerRegistry == 'acrylio' ? 'acryl-elasticsearch-setup' : 'datahub-elasticsearch-setup'
     docker_dir = 'elasticsearch-setup'
 }
 
