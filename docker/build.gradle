@@ -112,6 +112,14 @@ ext {
                         ':datahub-actions',
                         ':docker:datahub-ingestion'
                     ]
+            ],
+            'saasImages': [ //This is a special task just to include all Saas images as dependencies - and is useful when CI needs to publish all images
+                           profile: 'quickstart-consumers',
+                           modules: python_services_modules + backend_profile_modules + [
+                                   ':datahub-frontend',
+                                   ':metadata-jobs:mce-consumer-job',
+                                   ':metadata-jobs:mae-consumer-job',
+                           ]
             ]
     ]
 

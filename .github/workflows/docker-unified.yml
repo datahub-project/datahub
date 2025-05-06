@@ -234,16 +234,16 @@ jobs:
 
       - name: Login to AWS ECR
         uses: docker/login-action@v3
-        if: ${{ inputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         with:
           registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
 
-      - name: Build all Images (Publish - ECR)
+      - name: Build Saas Images (Publish - ECR)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
 
       - name: Capture build Id
         id: capture-build-id
@@ -261,10 +261,10 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
-      - name: Build all Images (Publish - ACRYLIO)
+      - name: Build Saas Images (Publish - ACRYLIO)
         if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
+          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
