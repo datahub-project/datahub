@@ -1,10 +1,9 @@
-import io
 import logging
 import re
 from collections import Counter
 from dataclasses import dataclass
-from io import TextIOBase
-from typing import Any, BinaryIO, Dict, List, Optional, Union
+from io import BytesIO
+from typing import Any, Dict, List, Optional
 
 import openpyxl
 import pandas as pd
@@ -29,7 +28,7 @@ class ExcelTable:
 class ExcelFile:
     wb: Workbook
     filename: str
-    data: Union[bytes, BinaryIO, str, io.TextIOBase]
+    data: BytesIO
     sheet_list: List[str]
     active_sheet: str
     properties: Dict[str, Any]
@@ -38,7 +37,7 @@ class ExcelFile:
     def __init__(
         self,
         filename: str,
-        data: Union[bytes, BinaryIO, str, io.TextIOBase],
+        data: BytesIO,
         report: ExcelSourceReport,
     ) -> None:
         self.filename = filename
@@ -49,33 +48,8 @@ class ExcelFile:
         self.properties = {}
 
     def load_workbook(self) -> bool:
-        file: Union[BinaryIO, None] = None
         try:
-            if isinstance(self.data, bytes):
-                file = io.BytesIO(self.data)
-            elif isinstance(self.data, str):
-                file = io.BytesIO(io.StringIO(self.data).getvalue().encode("utf-8"))
-            elif hasattr(self.data, "read") and callable(self.data.read):
-                if hasattr(self.data, "seekable") and self.data.seekable():
-                    if isinstance(self.data, TextIOBase):
-                        data = self.data.read()
-                        file = io.BytesIO(data.encode("utf-8"))
-                    else:
-                        file = self.data
-                else:
-                    content = self.data.read()
-                    if isinstance(content, str):
-                        content = content.encode("utf-8")
-                        file = io.BytesIO(content)
-                    elif isinstance(content, bytes):
-                        file = io.BytesIO(content)
-
-            if not file:
-                raise TypeError(
-                    f"File {self.filename}: Expected bytes, string, or file-like object, got {type(self.data)}"
-                )
-
-            self.wb = openpyxl.load_workbook(file, data_only=True)
+            self.wb = openpyxl.load_workbook(self.data, data_only=True)
             self.properties = self.read_excel_properties(self.wb)
             self.sheet_list = self.wb.sheetnames
             self.active_sheet = self.wb.active.title

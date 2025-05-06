@@ -1,6 +1,5 @@
 import unittest
-from io import BytesIO, TextIOBase
-from typing import Optional
+from io import BytesIO
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -14,8 +13,8 @@ class TestExcelFile(unittest.TestCase):
         self.report = ExcelSourceReport()
         self.filename = "test_file.xlsx"
 
-        self.bytes_data = b"mock bytes data"
-        self.string_data = "mock string data"
+        self.bytes_data = BytesIO(b"mock bytes data")
+        self.bytes_data.seek(0)
 
         self.mock_wb = MagicMock()
         self.mock_wb.sheetnames = ["Sheet1", "Sheet2"]
@@ -40,98 +39,9 @@ class TestExcelFile(unittest.TestCase):
         self.mock_wb.properties = self.mock_properties
 
     @patch("openpyxl.load_workbook")
-    def test_load_workbook_with_bytes(self, mock_load_workbook):
+    def test_load_workbook_with_readable_seekable_bytesio(self, mock_load_workbook):
         mock_load_workbook.return_value = self.mock_wb
-        excel_file = ExcelFile(self.filename, self.bytes_data, self.report)
-
-        result = excel_file.load_workbook()
-
-        self.assertTrue(result)
-        mock_load_workbook.assert_called_once()
-        self.assertEqual(excel_file.sheet_list, ["Sheet1", "Sheet2"])
-        self.assertEqual(excel_file.active_sheet, "Sheet1")
-
-    @patch("openpyxl.load_workbook")
-    def test_load_workbook_with_string(self, mock_load_workbook):
-        mock_load_workbook.return_value = self.mock_wb
-        excel_file = ExcelFile(self.filename, self.string_data, self.report)
-
-        result = excel_file.load_workbook()
-
-        self.assertTrue(result)
-        mock_load_workbook.assert_called_once()
-        self.assertEqual(excel_file.sheet_list, ["Sheet1", "Sheet2"])
-        self.assertEqual(excel_file.active_sheet, "Sheet1")
-
-    @patch("openpyxl.load_workbook")
-    def test_load_workbook_with_readable_seekable_binary_io(self, mock_load_workbook):
-        mock_load_workbook.return_value = self.mock_wb
-        mock_file = BytesIO(self.bytes_data)
-        excel_file = ExcelFile(self.filename, mock_file, self.report)
-
-        result = excel_file.load_workbook()
-
-        self.assertTrue(result)
-        mock_load_workbook.assert_called_once()
-
-    @patch("openpyxl.load_workbook")
-    def test_load_workbook_with_readable_seekable_text_io(self, mock_load_workbook):
-        mock_load_workbook.return_value = self.mock_wb
-
-        class MockTextIO(TextIOBase):
-            def __init__(self):
-                super().__init__()
-
-            def seekable(self) -> bool:
-                return True
-
-            def seek(self, offset: int, whence: int = 0) -> int:
-                return 0
-
-            def tell(self) -> int:
-                return 0
-
-            def read(self, size: Optional[int] = None) -> str:
-                return "text data"
-
-            def readable(self) -> bool:
-                return True
-
-        mock_file = MockTextIO()
-        excel_file = ExcelFile(self.filename, mock_file, self.report)
-
-        result = excel_file.load_workbook()
-
-        self.assertTrue(result)
-        mock_load_workbook.assert_called_once()
-
-    @patch("openpyxl.load_workbook")
-    def test_load_workbook_with_readable_non_seekable_string_content(
-        self, mock_load_workbook
-    ):
-        mock_load_workbook.return_value = self.mock_wb
-
-        mock_file = MagicMock()
-        mock_file.read.return_value = "non-seekable string content"
-        mock_file.seekable.return_value = False
-
-        excel_file = ExcelFile(self.filename, mock_file, self.report)
-
-        result = excel_file.load_workbook()
-
-        self.assertTrue(result)
-        mock_load_workbook.assert_called_once()
-
-    @patch("openpyxl.load_workbook")
-    def test_load_workbook_with_readable_non_seekable_bytes_content(
-        self, mock_load_workbook
-    ):
-        mock_load_workbook.return_value = self.mock_wb
-
-        mock_file = MagicMock()
-        mock_file.read.return_value = b"non-seekable bytes content"
-        mock_file.seekable.return_value = False
-
+        mock_file = self.bytes_data
         excel_file = ExcelFile(self.filename, mock_file, self.report)
 
         result = excel_file.load_workbook()
