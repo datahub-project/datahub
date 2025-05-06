@@ -82,6 +82,22 @@ def extract_assertion_monitor_parameters(
     )
 
 
+def extract_assertion_monitor_executor_id(monitor: dict, default: str) -> str:
+    """
+    Extract the executor ID from an assertion's monitor info.
+
+    Args:
+        assertion (dict): A dictionary containing assertion data, possibly with nested monitor info.
+        default (str): The default value to return if executor ID is not found.
+
+    Returns:
+        str: The executor ID if found, otherwise the default value.
+    """
+    monitor_info = monitor.get("info", {})
+    executor_id = monitor_info.get("executorId", default)
+    return executor_id
+
+
 def safe_get(data: Dict[str, Any], keys: List[str], default: Any = None) -> Any:
     """Get a nested value from a dictionary safely."""
     try:

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.assertion;
 
 import static com.linkedin.datahub.graphql.resolvers.assertion.AssertionMonitorResolver.ASSERTION_MONITOR_RELATIONSHIP_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
@@ -16,23 +17,14 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Monitor;
-import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.datahub.graphql.types.monitor.MonitorType;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.monitor.AssertionEvaluationSpecArray;
-import com.linkedin.monitor.AssertionMonitor;
-import com.linkedin.monitor.MonitorInfo;
-import com.linkedin.monitor.MonitorMode;
-import com.linkedin.monitor.MonitorStatus;
-import com.linkedin.monitor.MonitorType;
+import graphql.execution.DataFetcherResult;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -43,17 +35,20 @@ public class AssertionMonitorResolverTest {
 
   @Test
   public void testGetSuccess() throws Exception {
+    // Mock dependencies
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
+    MonitorType mockMonitorType = Mockito.mock(MonitorType.class);
 
+    // Mock GraphClient response
     Mockito.when(
-            graphClient.getRelatedEntities(
-                Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
-                Mockito.eq(RelationshipDirection.INCOMING),
-                Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+            mockGraphClient.getRelatedEntities(
+                eq(TEST_ASSERTION_URN.toString()),
+                eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
+                eq(RelationshipDirection.INCOMING),
+                eq(0),
+                eq(1),
+                any()))
         .thenReturn(
             new EntityRelationships()
                 .setStart(0)
@@ -66,37 +61,25 @@ public class AssertionMonitorResolverTest {
                                 .setEntity(TEST_MONITOR_URN)
                                 .setType(ASSERTION_MONITOR_RELATIONSHIP_NAME)))));
 
-    MonitorInfo expectedMonitorInfo =
-        new MonitorInfo()
-            .setType(MonitorType.ASSERTION)
-            .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
-            .setAssertionMonitor(
-                new AssertionMonitor()
-                    .setAssertions(new AssertionEvaluationSpecArray(Collections.emptyList())));
+    // Mock entity existence check
+    Mockito.when(mockClient.exists(any(), eq(TEST_MONITOR_URN), eq(false))).thenReturn(true);
 
-    Map<String, com.linkedin.entity.EnvelopedAspect> monitorAspects = new HashMap<>();
-    monitorAspects.put(
-        Constants.MONITOR_INFO_ASPECT_NAME,
-        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(expectedMonitorInfo.data())));
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(Constants.MONITOR_ENTITY_NAME),
-                Mockito.eq(TEST_MONITOR_URN),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(Constants.MONITOR_ENTITY_NAME)
-                .setUrn(TEST_MONITOR_URN)
-                .setAspects(new EnvelopedAspectMap(monitorAspects)));
+    // Mock Monitor response from MonitorType
+    Monitor mockMonitor = new Monitor();
+    mockMonitor.setUrn(TEST_MONITOR_URN.toString());
+    mockMonitor.setType(EntityType.MONITOR);
 
-    // Monitor Exists
-    Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_MONITOR_URN), Mockito.eq(false)))
-        .thenReturn(true);
+    // Mock the MonitorType batchLoad method
+    DataFetcherResult<Monitor> loadResult =
+        new DataFetcherResult<>(mockMonitor, Collections.emptyList());
+    Mockito.when(mockMonitorType.batchLoad(Mockito.eq(List.of(TEST_MONITOR_URN.toString())), any()))
+        .thenReturn(List.of(loadResult));
 
-    AssertionMonitorResolver resolver = new AssertionMonitorResolver(mockClient, graphClient);
+    // Create resolver with the mocks
+    AssertionMonitorResolver resolver =
+        new AssertionMonitorResolver(mockClient, mockGraphClient, mockMonitorType);
 
-    // Execute resolver
+    // Set up environment for the test
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -106,28 +89,34 @@ public class AssertionMonitorResolverTest {
     Mockito.when(mockEnv.getSource()).thenReturn(parentAssertion);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
+    // Execute resolver
     Monitor monitor = resolver.get(mockEnv).get();
 
+    // Verify results
     assertEquals(monitor.getUrn(), TEST_MONITOR_URN.toString());
     assertEquals(monitor.getType(), EntityType.MONITOR);
-    assertEquals(
-        monitor.getInfo().getType(), com.linkedin.datahub.graphql.generated.MonitorType.ASSERTION);
+
+    // Verify the right methods were called
+    Mockito.verify(mockMonitorType)
+        .batchLoad(Mockito.eq(List.of(TEST_MONITOR_URN.toString())), any());
   }
 
   @Test
   public void testGetSuccessMultipleMonitors() throws Exception {
     // THIS CASE SHOULD NOT HAPPEN UNDER NORMAL OPERATION.
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
+    MonitorType mockMonitorType = Mockito.mock(MonitorType.class);
 
+    // Mock GraphClient response with multiple relationships
     Mockito.when(
-            graphClient.getRelatedEntities(
-                Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
-                Mockito.eq(RelationshipDirection.INCOMING),
-                Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+            mockGraphClient.getRelatedEntities(
+                eq(TEST_ASSERTION_URN.toString()),
+                eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
+                eq(RelationshipDirection.INCOMING),
+                eq(0),
+                eq(1),
+                any()))
         .thenReturn(
             new EntityRelationships()
                 .setStart(0)
@@ -143,37 +132,25 @@ public class AssertionMonitorResolverTest {
                                 .setEntity(UrnUtils.getUrn("urn:li:monitor:test2"))
                                 .setType(ASSERTION_MONITOR_RELATIONSHIP_NAME)))));
 
-    MonitorInfo expectedMonitorInfo =
-        new MonitorInfo()
-            .setType(MonitorType.ASSERTION)
-            .setStatus(new MonitorStatus().setMode(MonitorMode.ACTIVE))
-            .setAssertionMonitor(
-                new AssertionMonitor()
-                    .setAssertions(new AssertionEvaluationSpecArray(Collections.emptyList())));
+    // Mock entity existence check
+    Mockito.when(mockClient.exists(any(), eq(TEST_MONITOR_URN), eq(false))).thenReturn(true);
 
-    Map<String, com.linkedin.entity.EnvelopedAspect> monitorAspects = new HashMap<>();
-    monitorAspects.put(
-        Constants.MONITOR_INFO_ASPECT_NAME,
-        new com.linkedin.entity.EnvelopedAspect().setValue(new Aspect(expectedMonitorInfo.data())));
-    Mockito.when(
-            mockClient.getV2(
-                any(),
-                Mockito.eq(Constants.MONITOR_ENTITY_NAME),
-                Mockito.eq(TEST_MONITOR_URN),
-                Mockito.eq(null)))
-        .thenReturn(
-            new EntityResponse()
-                .setEntityName(Constants.MONITOR_ENTITY_NAME)
-                .setUrn(TEST_MONITOR_URN)
-                .setAspects(new EnvelopedAspectMap(monitorAspects)));
+    // Mock Monitor response
+    Monitor mockMonitor = new Monitor();
+    mockMonitor.setUrn(TEST_MONITOR_URN.toString());
+    mockMonitor.setType(EntityType.MONITOR);
 
-    // Monitor Exists
-    Mockito.when(mockClient.exists(any(), Mockito.eq(TEST_MONITOR_URN), Mockito.eq(false)))
-        .thenReturn(true);
+    // Mock the MonitorType batchLoad method
+    DataFetcherResult<Monitor> loadResult =
+        new DataFetcherResult<>(mockMonitor, Collections.emptyList());
+    Mockito.when(mockMonitorType.batchLoad(Mockito.eq(List.of(TEST_MONITOR_URN.toString())), any()))
+        .thenReturn(List.of(loadResult));
 
-    AssertionMonitorResolver resolver = new AssertionMonitorResolver(mockClient, graphClient);
+    // Create resolver
+    AssertionMonitorResolver resolver =
+        new AssertionMonitorResolver(mockClient, mockGraphClient, mockMonitorType);
 
-    // Execute resolver
+    // Set up environment
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -183,27 +160,33 @@ public class AssertionMonitorResolverTest {
     Mockito.when(mockEnv.getSource()).thenReturn(parentAssertion);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
+    // Execute resolver
     Monitor monitor = resolver.get(mockEnv).get();
 
+    // Verify results
     assertEquals(monitor.getUrn(), TEST_MONITOR_URN.toString());
     assertEquals(monitor.getType(), EntityType.MONITOR);
-    assertEquals(
-        monitor.getInfo().getType(), com.linkedin.datahub.graphql.generated.MonitorType.ASSERTION);
+
+    // Verify the right methods were called
+    Mockito.verify(mockMonitorType)
+        .batchLoad(Mockito.eq(List.of(TEST_MONITOR_URN.toString())), any());
   }
 
   @Test
   public void testGetSuccessNoRelationships() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    GraphClient graphClient = Mockito.mock(GraphClient.class);
+    GraphClient mockGraphClient = Mockito.mock(GraphClient.class);
+    MonitorType mockMonitorType = Mockito.mock(MonitorType.class);
 
+    // Mock GraphClient response with no relationships
     Mockito.when(
-            graphClient.getRelatedEntities(
-                Mockito.eq(TEST_ASSERTION_URN.toString()),
-                Mockito.eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
-                Mockito.eq(RelationshipDirection.INCOMING),
-                Mockito.eq(0),
-                Mockito.eq(1),
-                Mockito.any()))
+            mockGraphClient.getRelatedEntities(
+                eq(TEST_ASSERTION_URN.toString()),
+                eq(ImmutableSet.of(ASSERTION_MONITOR_RELATIONSHIP_NAME)),
+                eq(RelationshipDirection.INCOMING),
+                eq(0),
+                eq(1),
+                any()))
         .thenReturn(
             new EntityRelationships()
                 .setStart(0)
@@ -211,9 +194,11 @@ public class AssertionMonitorResolverTest {
                 .setTotal(0)
                 .setRelationships(new EntityRelationshipArray(Collections.emptyList())));
 
-    AssertionMonitorResolver resolver = new AssertionMonitorResolver(mockClient, graphClient);
+    // Create resolver
+    AssertionMonitorResolver resolver =
+        new AssertionMonitorResolver(mockClient, mockGraphClient, mockMonitorType);
 
-    // Execute resolver
+    // Set up environment
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -223,8 +208,13 @@ public class AssertionMonitorResolverTest {
     Mockito.when(mockEnv.getSource()).thenReturn(parentAssertion);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
+    // Execute resolver
     Monitor monitor = resolver.get(mockEnv).get();
 
+    // Verify no monitor is returned
     assertNull(monitor);
+
+    // Verify the batchLoad was never called since there were no relationships
+    Mockito.verify(mockMonitorType, Mockito.never()).batchLoad(any(), any());
   }
 }

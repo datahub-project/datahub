@@ -37,11 +37,11 @@ from datahub_executor.common.types import (
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
-    DATAHUB_EXECUTOR_POOL_ID,
     ONLINE_SMART_ASSERTIONS_ENABLED,
 )
 from datahub_executor.coordinator.utils import (
     extract_assertion_entity_from_graphql,
+    extract_assertion_monitor_executor_id,
     extract_assertion_monitor_parameters,
 )
 from datahub_executor.worker.remote import apply_remote_assertion_request
@@ -91,12 +91,15 @@ def handle_evaluate_assertion_urns_sync(
             assertion_result = handle_evaluate_assertion_urn(
                 assertion_input, input.asyncFlag
             )
-            result = AssertionsResultItemSchema(urn=urn, result=assertion_result)
+            result = None
+            if assertion_result:
+                result = AssertionsResultItemSchema(urn=urn, result=assertion_result)
         except Exception as e:
             logger.warning(e)
             item_error = AssertionResultErrorSchema(type="UNKNOWN_ERROR")
             item_result = AssertionResultSchema(type="UNKNOWN", error=item_error)
             result = AssertionsResultItemSchema(urn=urn, result=item_result)
+
         q.put(result)
 
     def producer() -> None:
@@ -109,7 +112,8 @@ def handle_evaluate_assertion_urns_sync(
     # Consume results
     for _ in input.urns:
         result = q.get()
-        results.append(result)
+        if result is not None:
+            results.append(result)
 
     prod.join()
 
@@ -138,7 +142,9 @@ def _evaluate_assertion(
     # For evaluate assertion by inputs - used for test assertion flow - the monitor URN will be null.
     monitor_urn = assertion.monitor.get("urn", None) if assertion.monitor else None
     executor_id = (
-        assertion.monitor.get("executor_id", DATAHUB_EXECUTOR_EMBEDDED_POOL_ID)
+        extract_assertion_monitor_executor_id(
+            assertion.monitor, DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
+        )
         if assertion.monitor
         else DATAHUB_EXECUTOR_EMBEDDED_POOL_ID
     )
@@ -148,19 +154,21 @@ def _evaluate_assertion(
         monitor_urn=monitor_urn,
     )
     is_embedded = DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED and (
-        DATAHUB_EXECUTOR_POOL_ID == executor_id
+        DATAHUB_EXECUTOR_EMBEDDED_POOL_ID == executor_id
     )
 
     if async_flag and not is_embedded:
         assertion_spec = AssertionEvaluationSpec(
             assertion=assertion,
             parameters=parameters,
-            context=context,
+            # For now, we do not provide monitor context. This is because for on-demand assertions we don't need it.
+            context=None,
             schedule=CronSchedule(
                 cron="",
                 timezone="",
             ),
         )
+
         execution_request = ExecutionRequest(
             executor_id=executor_id,
             exec_id=monitor_urn,

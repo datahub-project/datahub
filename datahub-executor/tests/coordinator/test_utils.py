@@ -1,5 +1,5 @@
 import unittest
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pytest
 from pydantic.error_wrappers import ValidationError
@@ -10,6 +10,7 @@ from datahub_executor.common.types import (
 )
 from datahub_executor.coordinator.utils import (
     extract_assertion_entity_from_graphql,
+    extract_assertion_monitor_executor_id,
     extract_assertion_monitor_parameters,
 )
 
@@ -403,6 +404,50 @@ class TestExtractAssertionMonitorParameters(unittest.TestCase):
 
         with pytest.raises(ValidationError):
             extract_assertion_monitor_parameters(test_monitor, "urn:li:assertion:123")
+
+
+class TestExtractAssertionMonitorExecutorId(unittest.TestCase):
+    def test_executor_id_present(self) -> None:
+        monitor: Dict[str, Dict[str, str]] = {"info": {"executorId": "executor-123"}}
+        result: str = extract_assertion_monitor_executor_id(
+            monitor, default="default-id"
+        )
+        self.assertEqual(result, "executor-123")
+
+    def test_executor_id_missing(self) -> None:
+        monitor: Dict[str, Dict[str, str]] = {"info": {}}
+        result: str = extract_assertion_monitor_executor_id(
+            monitor, default="default-id"
+        )
+        self.assertEqual(result, "default-id")
+
+    def test_info_missing(self) -> None:
+        monitor: Dict[str, Dict] = {}
+        result: str = extract_assertion_monitor_executor_id(
+            monitor, default="default-id"
+        )
+        self.assertEqual(result, "default-id")
+
+    def test_monitor_is_none(self) -> None:
+        monitor: Optional[Dict] = None
+        result: str = extract_assertion_monitor_executor_id(
+            monitor or {}, default="default-id"
+        )
+        self.assertEqual(result, "default-id")
+
+    def test_executor_id_is_none(self) -> None:
+        monitor: Dict[str, Dict[str, Optional[str]]] = {"info": {"executorId": None}}
+        result: Optional[str] = extract_assertion_monitor_executor_id(
+            monitor, default="default-id"
+        )
+        self.assertIsNone(result)
+
+    def test_executor_id_is_empty_string(self) -> None:
+        monitor: Dict[str, Dict[str, str]] = {"info": {"executorId": ""}}
+        result: str = extract_assertion_monitor_executor_id(
+            monitor, default="default-id"
+        )
+        self.assertEqual(result, "")
 
 
 if __name__ == "__main__":

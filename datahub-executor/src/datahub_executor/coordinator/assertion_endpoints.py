@@ -47,7 +47,7 @@ def evaluate_assertion_urns(
 @assertions_router.post("/evaluate_assertion_urn")
 def evaluate_assertion_urn(
     assertion_urn_input: EvaluateAssertionUrnInputSchema,
-) -> AssertionResultSchema:
+) -> Optional[AssertionResultSchema]:
     return handle_evaluate_assertion_urn(assertion_urn_input, False)
 
 

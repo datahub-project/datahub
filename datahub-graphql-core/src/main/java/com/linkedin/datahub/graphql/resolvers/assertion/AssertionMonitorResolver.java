@@ -8,16 +8,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.Monitor;
-import com.linkedin.datahub.graphql.types.monitor.MonitorMapper;
-import com.linkedin.entity.EntityResponse;
+import com.linkedin.datahub.graphql.types.monitor.MonitorType;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -30,13 +26,17 @@ import lombok.extern.slf4j.Slf4j;
 public class AssertionMonitorResolver implements DataFetcher<CompletableFuture<Monitor>> {
   static final String ASSERTION_MONITOR_RELATIONSHIP_NAME = "Evaluates";
 
+  private final MonitorType monitorType;
   private final EntityClient entityClient;
   private final GraphClient graphClient;
 
   public AssertionMonitorResolver(
-      @Nonnull final EntityClient entityClient, @Nonnull final GraphClient graphClient) {
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final GraphClient graphClient,
+      @Nonnull final MonitorType monitorType) {
     this.entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
     this.graphClient = Objects.requireNonNull(graphClient, "graphClient must not be null");
+    this.monitorType = Objects.requireNonNull(monitorType, "monitorType must not be null");
   }
 
   @Override
@@ -79,19 +79,12 @@ public class AssertionMonitorResolver implements DataFetcher<CompletableFuture<M
         // Extract the monitor.
         final Urn monitorUrn = monitorUrns.get(0);
 
-        // Hydrate the contract entities based on the urns from step 1
-        final EntityResponse entityResponse =
-            this.entityClient.getV2(
-                context.getOperationContext(), Constants.MONITOR_ENTITY_NAME, monitorUrn, null);
-
-        if (entityResponse != null) {
-          //  Package and return result
-          return MonitorMapper.map(context, entityResponse);
-        }
+        // Simply use the monitor type batch load call to fetch and wait on this.
+        return this.monitorType.batchLoad(List.of(monitorUrn.toString()), context).get(0).getData();
       }
-      // No contract found
+      // No monitors found
       return null;
-    } catch (URISyntaxException | RemoteInvocationException e) {
+    } catch (Exception e) {
       throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
     }
   }

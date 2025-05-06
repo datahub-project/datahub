@@ -686,7 +686,9 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         "Assertion",
         typeWiring ->
             typeWiring.dataFetcher(
-                "monitor", new AssertionMonitorResolver(this.entityClient, this.graphClient)));
+                "monitor",
+                new AssertionMonitorResolver(
+                    this.entityClient, this.graphClient, this.monitorType)));
   }
 
   private void configureActionPipelineResolvers(
