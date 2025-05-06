@@ -18,6 +18,8 @@ def test_sample_files(pytestconfig):
         ("file_7.xlsx", "12345678 (Current Month)", 1, 4, 3, 68),
         ("file_8.xlsx", "Test3_Test", 4, 8, 4, 24),
         ("file_9.xlsx", "Business Report", 6, 11, 5, 5),
+        ("file_10.xlsx", "Sheet1", 0, 0, 0, 0),
+        ("file_10.xlsx", "Sheet2", 0, 0, 0, 0),
     ]
     test_resources_dir = pytestconfig.rootpath / "tests/unit/excel"
 
@@ -37,7 +39,10 @@ def test_sample_files(pytestconfig):
 
         table = xls.get_table(sheet)
 
-        assert table.header_row == header
-        assert table.footer_row == footer
-        assert table.row_count == rows
-        assert table.column_count == columns
+        if table is None:
+            assert header == 0
+        else:
+            assert table.header_row == header
+            assert table.footer_row == footer
+            assert table.row_count == rows
+            assert table.column_count == columns

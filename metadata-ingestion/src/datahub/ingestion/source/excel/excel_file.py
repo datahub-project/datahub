@@ -3,7 +3,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import openpyxl
 import pandas as pd
@@ -79,10 +79,18 @@ class ExcelFile:
         results: List[ExcelTable] = []
         sheet_list = [self.active_sheet] if active_only else self.sheet_list
         for sheet in sheet_list:
-            results.append(self.get_table(sheet))
+            table = self.get_table(sheet)
+            if table is not None:
+                results.append(table)
+            else:
+                self.report.report_worksheet_dropped(sheet)
+                self.report.warning(
+                    message="Worksheet does not contain a table",
+                    context=f"Worksheet=[{self.filename}]{sheet}",
+                )
         return results
 
-    def get_table(self, sheet_name: str) -> ExcelTable:
+    def get_table(self, sheet_name: str) -> Union[ExcelTable, None]:
         sheet = self.wb[sheet_name]
 
         # Extract all rows from the sheet
@@ -90,6 +98,8 @@ class ExcelFile:
 
         # Find a potential header row
         header_row_idx = self.find_header_row(rows)
+        if header_row_idx is None:
+            return None
 
         # Find where the footer starts
         footer_start_idx = self.find_footer_start(rows, header_row_idx)
@@ -176,7 +186,7 @@ class ExcelFile:
             sheet.title.strip(),
         )
 
-    def find_header_row(self, rows: List[List[Any]]) -> int:
+    def find_header_row(self, rows: List[List[Any]]) -> Union[int, None]:
         max_score = -1
         header_idx = 0
 
@@ -205,7 +215,10 @@ class ExcelFile:
                 max_score = score
                 header_idx = i
 
-        return header_idx
+        if max_score <= 0:
+            return None
+        else:
+            return header_idx
 
     def _find_first_non_empty_row(self, rows: List[List[Any]]) -> int:
         for i, row in enumerate(rows):
@@ -226,6 +239,9 @@ class ExcelFile:
     ) -> int:
         score = 0
 
+        score += ExcelFile._score_row_with_numeric_cells(current_row)
+        if score < 0:
+            return score
         score += self._score_non_empty_cells(row_idx, current_row, all_rows)
         score += self._score_header_like_text(current_row)
         score += self._score_text_followed_by_numeric(current_row, next_rows)
@@ -261,6 +277,12 @@ class ExcelFile:
             if cell is not None
             and isinstance(cell, str)
             and re.match(r"^[A-Z][a-zA-Z\s]*$", str(cell).strip())
+        )
+
+    @staticmethod
+    def _score_row_with_numeric_cells(row: List[Any]) -> int:
+        return sum(
+            -1 for cell in row if cell is not None and isinstance(cell, (int, float))
         )
 
     @staticmethod

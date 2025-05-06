@@ -69,6 +69,7 @@ class ExcelProfiler:
         self.sheet_name = sheet_name
         self.dataset_urn = dataset_urn
         self.path = path
+        self.sheet_path = f"[{self.filename}]{self.sheet_name}"
 
         if self.config.profiling.use_sampling:
             self.sample_size = self.config.profiling.sample_size
@@ -83,15 +84,15 @@ class ExcelProfiler:
             self.sample_fields = 0
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
-        logger.info(f"Profiling file {self.filename} sheet {self.sheet_name}")
+        logger.info(f"Profiling worksheet {self.sheet_path}")
 
         try:
             yield from self.generate_profile()
         except Exception as exc:
             self.report.profiling_skipped_other[self.filename] += 1
             self.report.failure(
-                message="Failed to profile Excel sheet",
-                context=f"File {self.filename} Sheet {self.sheet_name}",
+                message="Failed to profile Excel worksheet",
+                context=f"Worksheet={self.sheet_path}",
                 exc=exc,
             )
 
@@ -108,15 +109,15 @@ class ExcelProfiler:
             and self.config.profiling.report_dropped_profiles
         ):
             self.report.profiling_skipped_table_profile_pattern[self.filename] += 1
-            logger.info(f"Profiling not allowed for sheet {self.sheet_name}")
+            logger.info(f"Profiling not allowed for worksheet {self.sheet_path}")
             return
 
         try:
             profile_data = self.profile_workbook()
         except Exception as exc:
             self.report.warning(
-                message="Profiling Failed",
-                context=f"File {self.filename} Sheet {self.sheet_name}",
+                message="Failed to profile Excel worksheet",
+                context=f"Worksheet={self.sheet_path}",
                 exc=exc,
             )
             return

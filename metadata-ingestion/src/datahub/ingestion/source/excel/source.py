@@ -124,6 +124,7 @@ class UriType(Enum):
     HTTPS = auto()
     LOCAL_FILE = auto()
     ABSOLUTE_PATH = auto()
+    RELATIVE_PATH = auto()
     S3 = auto()
     S3A = auto()
     ABS = auto()
@@ -191,13 +192,13 @@ class ExcelSource(StatefulIngestionSourceBase):
         elif scheme == "s3a":
             return UriType.S3A, uri[6:]
 
-        if os.path.isabs(uri):
-            return UriType.ABSOLUTE_PATH, uri
-
         if scheme:
             return UriType.UNKNOWN, uri[len(scheme) + 3 :]
 
-        return UriType.UNKNOWN, ""
+        if os.path.isabs(uri):
+            return UriType.ABSOLUTE_PATH, uri
+        else:
+            return UriType.RELATIVE_PATH, uri
 
     @staticmethod
     def is_excel_file(path: str) -> bool:
@@ -472,6 +473,7 @@ class ExcelSource(StatefulIngestionSourceBase):
         table: ExcelTable,
         source_type: UriType,
     ) -> Iterable[MetadataWorkUnit]:
+        self.report.report_worksheet_processed()
         dataset_name = gen_dataset_name(
             relative_path, table.sheet_name, self.config.convert_urns_to_lowercase
         )
@@ -542,11 +544,13 @@ class ExcelSource(StatefulIngestionSourceBase):
         filename: str,
         source_type: UriType,
     ) -> Iterable[MetadataWorkUnit]:
+        self.report.report_file_processed()
         xls = ExcelFile(filename, file_content, self.report)
         result = xls.load_workbook()
 
         if result:
             for table in xls.get_tables(active_only=self.config.active_sheet_only):
+                self.report.report_worksheet_scanned()
                 dataset_name = gen_dataset_name(
                     relative_path,
                     table.sheet_name,
@@ -572,17 +576,22 @@ class ExcelSource(StatefulIngestionSourceBase):
                 uri_type, path = self.uri_type(path_spec)
                 logger.debug(f"URI Type: {uri_type} Path: {path}")
 
-                if uri_type == UriType.LOCAL_FILE or uri_type == UriType.ABSOLUTE_PATH:
+                if (
+                    uri_type == UriType.LOCAL_FILE
+                    or uri_type == UriType.ABSOLUTE_PATH
+                    or uri_type == UriType.RELATIVE_PATH
+                ):
                     logger.debug(f"Searching local path: {path}")
 
                     for browse_path in self.local_browser(path):
+                        self.report.report_file_scanned()
                         if not self.config.path_pattern.allowed(browse_path.file):
                             self.report.report_dropped(browse_path.file)
                             continue
 
                         if not self.is_excel_file(browse_path.file):
                             logger.debug(
-                                f"Skipping unsupported file {browse_path.file}"
+                                f"File is not an Excel workbook: {browse_path.file}"
                             )
                             continue
 
@@ -608,12 +617,15 @@ class ExcelSource(StatefulIngestionSourceBase):
                     logger.debug(f"Searching S3 path: {path}")
 
                     for browse_path in self.s3_browser(path_spec):
+                        self.report.report_file_scanned()
                         if not self.config.path_pattern.allowed(browse_path.file):
                             self.report.report_dropped(browse_path.file)
                             continue
 
                         if not self.is_excel_file(browse_path.file):
-                            logger.debug(f"No files found on path {browse_path.file}")
+                            logger.debug(
+                                f"File is not an Excel workbook: {browse_path.file}"
+                            )
                             continue
 
                         uri_path = strip_s3_prefix(browse_path.file)
@@ -634,12 +646,15 @@ class ExcelSource(StatefulIngestionSourceBase):
                     logger.debug(f"Searching Azure Blob Storage path: {path}")
 
                     for browse_path in self.abs_browser(path_spec):
+                        self.report.report_file_scanned()
                         if not self.config.path_pattern.allowed(browse_path.file):
                             self.report.report_dropped(browse_path.file)
                             continue
 
                         if not self.is_excel_file(browse_path.file):
-                            logger.debug(f"No files found on path {browse_path.file}")
+                            logger.debug(
+                                f"File is not an Excel workbook: {browse_path.file}"
+                            )
                             continue
 
                         uri_path = strip_abs_prefix(browse_path.file)
@@ -655,6 +670,13 @@ class ExcelSource(StatefulIngestionSourceBase):
                         yield from self.process_file(
                             file_data, uri_path, browse_path.file, filename, UriType.ABS
                         )
+
+                else:
+                    self.report.report_file_dropped(path_spec)
+                    self.report.warning(
+                        message="Unsupported URI Type",
+                        context=f"Type={uri_type.name},URI={path_spec}",
+                    )
 
             time_taken = timer.elapsed_seconds()
 

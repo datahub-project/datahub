@@ -10,6 +10,9 @@ from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 @dataclass
 class ExcelSourceReport(StaleEntityRemovalSourceReport):
     files_scanned = 0
+    files_processed = 0
+    worksheets_scanned = 0
+    worksheets_processed = 0
     datasets_profiled = 0
     filtered: List[str] = field(default_factory=list)
     profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
@@ -26,5 +29,17 @@ class ExcelSourceReport(StaleEntityRemovalSourceReport):
     def report_file_scanned(self) -> None:
         self.files_scanned += 1
 
+    def report_file_processed(self) -> None:
+        self.files_processed += 1
+
+    def report_worksheet_scanned(self) -> None:
+        self.worksheets_scanned += 1
+
+    def report_worksheet_processed(self) -> None:
+        self.worksheets_processed += 1
+
     def report_file_dropped(self, file: str) -> None:
         self.filtered.append(file)
+
+    def report_worksheet_dropped(self, worksheet: str) -> None:
+        self.filtered.append(worksheet)

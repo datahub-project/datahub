@@ -173,6 +173,7 @@ class TestExcelFile(unittest.TestCase):
             excel_file.properties = excel_file.read_excel_properties(mock_wb)
 
             table = excel_file.get_table("TestSheet")
+            assert table is not None
 
             self.assertIsInstance(table, ExcelTable)
             self.assertEqual(table.sheet_name, "TestSheet")

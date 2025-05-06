@@ -7,7 +7,7 @@ from tests.test_helpers import mce_helpers
 @pytest.mark.integration
 def test_excel(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/excel"
-    test_file = test_resources_dir / "data/*.xlsx"
+    test_files = "tests/integration/excel/data/*.xlsx"
 
     # Run the metadata ingestion pipeline.
     pipeline = Pipeline.create(
@@ -17,7 +17,7 @@ def test_excel(pytestconfig, tmp_path, mock_time):
                 "type": "excel",
                 "config": {
                     "path_list": [
-                        str(test_file),
+                        str(test_files),
                     ],
                     "profiling": {
                         "enabled": True,
