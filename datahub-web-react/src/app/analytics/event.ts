@@ -119,6 +119,8 @@ export enum EventType {
     ShowAllVersionsEvent,
     HomePageClick,
     SearchBarFilter,
+    FilterStatsPage,
+    FilterStatsChartLookBack,
 }
 
 /**
@@ -880,6 +882,17 @@ export interface SearchBarFilterEvent extends BaseEvent {
     values: string[]; // the values being filtered for
 }
 
+export interface FilterStatsPageEvent extends BaseEvent {
+    type: EventType.FilterStatsPage;
+    platform: string | null;
+}
+
+export interface FilterStatsChartLookBackEvent extends BaseEvent {
+    type: EventType.FilterStatsChartLookBack;
+    lookBackValue: string;
+    chartName: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -983,4 +996,6 @@ export type Event =
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
     | HomePageClickEvent
-    | SearchBarFilterEvent;
+    | SearchBarFilterEvent
+    | FilterStatsPageEvent
+    | FilterStatsChartLookBackEvent;
