@@ -75,8 +75,6 @@ jobs:
       integrations_service_change: ${{ steps.ci-optimize.outputs.integrations-service-change == 'true' }}
       datahub_executor_change: ${{ steps.ci-optimize.outputs.datahub-executor-change == 'true' }}
 
-      run_publish_images: ${{ steps.run-publish-images.outputs.run_publish_images}}
-
       build_runner_type: ${{ steps.set-runner.outputs.build_runner_type }}
       test_runner_type: ${{ steps.set-runner.outputs.test_runner_type }}
       test_runner_type_small: ${{ steps.set-runner.outputs.test_runner_type_small }}
@@ -282,8 +280,6 @@ jobs:
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
-
-
   scan_images:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -450,7 +446,6 @@ jobs:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_REPO: ${{ env.DOCKER_REGISTRY }}
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           DATAHUB_EXECUTOR_VERSION: ${{ needs.setup.outputs.tag }}
