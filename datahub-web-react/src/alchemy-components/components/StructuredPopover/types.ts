@@ -4,7 +4,7 @@ export interface SectionType {
     content: string | React.ReactNode;
 }
 
-export interface Tooltip2Props {
+export interface StructuredPopoverProps {
     header?: React.ComponentType;
     sections?: SectionType[];
     children?: React.ReactNode;

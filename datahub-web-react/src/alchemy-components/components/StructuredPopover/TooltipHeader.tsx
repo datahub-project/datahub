@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { TooltipHeaderProps } from '@components/components/Tooltip2/types';
+import { TooltipHeaderProps } from '@components/components/StructuredPopover/types';
 
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
