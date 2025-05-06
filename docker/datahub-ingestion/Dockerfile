@@ -140,7 +140,9 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 
 FROM add-code AS install-slim
 
+# zstd needs to be pinned because the latest version causes issues on arm
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000 \
+    UV_LINK_MODE=copy uv pip install "zstd<1.5.6.8" && \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
 
