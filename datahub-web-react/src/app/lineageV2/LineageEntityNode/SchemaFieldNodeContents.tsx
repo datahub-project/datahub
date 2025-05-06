@@ -334,7 +334,7 @@ export default function SchemaFieldNodeContents({
                         <TitleWrapper>
                             <ParentLine>
                                 <OverflowTitle
-                                    title={parent?.name ?? undefined}
+                                    title={parent?.name ?? parent?.urn}
                                     highlightText={searchQuery}
                                     highlightColor={highlightColor}
                                 />

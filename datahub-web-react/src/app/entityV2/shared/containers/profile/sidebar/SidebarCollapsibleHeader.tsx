@@ -55,12 +55,14 @@ const Top = styled.div`
 const RightActions = styled.div`
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 8px;
 `;
 
 const TasksIcon = styled.span`
+    display: flex;
     position: relative;
     cursor: pointer;
+    margin-right: 4px;
 `;
 
 const PillDot = styled.div<{ $isSelected?: boolean }>`

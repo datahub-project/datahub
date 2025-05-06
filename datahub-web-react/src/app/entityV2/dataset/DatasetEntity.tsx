@@ -190,6 +190,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     icon: PartitionOutlined,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Access',

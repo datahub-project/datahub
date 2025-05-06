@@ -122,6 +122,7 @@ export class DataJobEntity implements Entity<DataJob> {
                     name: 'Lineage',
                     component: LineageTab,
                     icon: TreeStructure,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',

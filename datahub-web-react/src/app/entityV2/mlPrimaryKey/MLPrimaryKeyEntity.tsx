@@ -98,6 +98,7 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',

@@ -186,6 +186,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
                     },
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',

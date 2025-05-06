@@ -64,6 +64,7 @@ export type EntityTab = {
     properties?: any;
     id?: string;
     getDynamicName?: (GenericEntityProperties, T, loading: boolean) => ReactElement;
+    supportsFullsize?: boolean; // As per TabFullsizedContext
 };
 
 export type EntitySidebarTab = {

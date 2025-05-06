@@ -117,6 +117,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     name: 'Lineage',
                     component: LineageTab,
                     icon: TreeStructure,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',
