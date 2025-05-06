@@ -48,8 +48,7 @@ public class ReindexConfig {
     Most index settings are default values and populated by Elastic. This list is an include list to determine which
     settings we care about when a difference is present.
   */
-  public static final List<String> SETTINGS_DYNAMIC =
-      ImmutableList.of("number_of_replicas", "refresh_interval");
+  public static final List<String> SETTINGS_DYNAMIC = ImmutableList.of("refresh_interval");
   // These setting require reindex
   public static final List<String> SETTINGS_STATIC = ImmutableList.of("number_of_shards");
   public static final List<String> SETTINGS =

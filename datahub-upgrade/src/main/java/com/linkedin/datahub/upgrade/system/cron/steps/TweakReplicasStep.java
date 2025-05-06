@@ -46,9 +46,6 @@ public class TweakReplicasStep implements UpgradeStep {
     } else {
       CronArgs result = new CronArgs();
       result.dryRun = getDryRun(context.parsedArgs());
-      if (containsKey(context.parsedArgs(), "stepType")) {
-        result.stepType = context.parsedArgs().get("stepType").get();
-      }
       args = result;
       return result;
     }

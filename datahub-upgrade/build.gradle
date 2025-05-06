@@ -140,7 +140,7 @@ task runCron(type: Exec) {
   commandLine "java",
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",
-          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron", "-a", "stepType=TweakReplicasStep"
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron"
 }
 
 task runCronDryRun(type: Exec) {
@@ -153,7 +153,7 @@ task runCronDryRun(type: Exec) {
   commandLine "java",
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",
-          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron", "-a", "stepType=TweakReplicasStep", "-a", "dryRun=true"
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron", "-a", "dryRun=true"
 }
 
 /**

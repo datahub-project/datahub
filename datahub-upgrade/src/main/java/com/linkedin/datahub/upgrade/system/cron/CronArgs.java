@@ -7,7 +7,6 @@ import lombok.experimental.Accessors;
 @Accessors(fluent = true)
 public class CronArgs implements Cloneable {
   public boolean dryRun;
-  public String stepType;
 
   @Override
   public CronArgs clone() {

@@ -351,14 +351,15 @@ public class ESIndexBuilder {
     // Check if index has 0 replicas and >0 documents
     if (replicaCount == 0 && docCount > 0) {
       if (!dryRun) {
-        // Update replica count to 1
+        // Update replica count to X
         UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(indexName);
-        Settings.Builder settingsBuilder = Settings.builder().put("index.number_of_replicas", 1);
+        Settings.Builder settingsBuilder =
+            Settings.builder().put("index.number_of_replicas", getNumReplicas());
         updateSettingsRequest.settings(settingsBuilder);
         _searchClient.indices().putSettings(updateSettingsRequest, RequestOptions.DEFAULT);
       }
       result.put("changed", true);
-      result.put("action", "Increase replicas from 0 to 1");
+      result.put("action", "Increase replicas from 0 to " + getNumReplicas());
     } else {
       result.put("action", "No change needed");
     }
@@ -438,7 +439,7 @@ public class ESIndexBuilder {
         increaseResult.containsKey("changed") && (Boolean) increaseResult.get("changed");
     boolean reduced = reduceResult.containsKey("changed") && (Boolean) reduceResult.get("changed");
     if (increased) {
-      summary.append("1 (increased)");
+      summary.append("" + getNumReplicas() + " (increased)");
     } else if (reduced) {
       summary.append("0 (reduced)");
     } else {
