@@ -1248,9 +1248,17 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     target_node_urn, self._to_schema_info(inferred_schema_fields)
                 )
 
-            # Save the inferred schema fields into the dbt node.
+            # When updating the node's columns, our order of preference is:
+            # 1. Schema from the dbt catalog
+            # 2. Inferred schema
+            # 3. Schema fetched from the graph
             if inferred_schema_fields:
                 node.columns_setdefault(inferred_schema_fields)
+            elif schema_fields:
+                # If we don't have a schema for this node from the dbt catalog
+                # and were unable to infer it (e.g. for sources), then we use
+                # the schema from the graph.
+                node.columns_setdefault(schema_fields)
 
     def _parse_cll(
         self,
