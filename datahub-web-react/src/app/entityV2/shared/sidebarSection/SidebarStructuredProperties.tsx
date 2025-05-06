@@ -6,6 +6,7 @@ import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { getSidebarStructuredPropertiesOrFilters } from '@app/entityV2/shared/sidebarSection/utils';
 import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
@@ -14,16 +15,7 @@ import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHy
 import ProposalModal from '@app/shared/tags/ProposalModal';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import {
-    getDisplayName,
-    getEntityTypesPropertyFilter,
-    getNotHiddenPropertyFilter,
-    getPropertyRowFromSearchResult,
-} from '@src/app/govern/structuredProperties/utils';
-import {
-    SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
-    SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
-} from '@src/app/searchV2/utils/constants';
+import { getDisplayName, getPropertyRowFromSearchResult } from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
@@ -53,29 +45,16 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
-
     const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | undefined | null>(null);
 
+    const orFilters = getSidebarStructuredPropertiesOrFilters(isSchemaSidebar, entityRegistry, entityType);
     const inputs = {
         types: [EntityType.StructuredProperty],
         query: '',
         start: 0,
         count: 50,
         searchFlags: { skipCache: true },
-        orFilters: [
-            {
-                and: [
-                    getEntityTypesPropertyFilter(entityRegistry, isSchemaSidebar, entityType),
-                    getNotHiddenPropertyFilter(),
-                    {
-                        field: isSchemaSidebar
-                            ? SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME
-                            : SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
-                        values: ['true'],
-                    },
-                ],
-            },
-        ],
+        orFilters,
     };
 
     // Execute search
