@@ -10,6 +10,13 @@ from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.resolver_client import ResolverClient
 from datahub.sdk.search_client import SearchClient
 
+try:
+    from acryl_datahub_cloud._sdk_extras import (  # type: ignore[import-not-found]
+        AssertionClient,
+    )
+except ImportError:
+    AssertionClient = None
+
 
 class DataHubClient:
     """Main client for interacting with DataHub.
@@ -103,3 +110,11 @@ class DataHubClient:
     @property
     def lineage(self) -> LineageClient:
         return LineageClient(self)
+
+    @property
+    def assertion(self) -> AssertionClient:  # type: ignore[return-value]  # Type is not available if assertion_client is not installed
+        if AssertionClient is None:
+            raise SdkUsageError(
+                "AssertionClient is not installed, please install it with `pip install acryl-datahub-cloud`"
+            )
+        return AssertionClient(self)

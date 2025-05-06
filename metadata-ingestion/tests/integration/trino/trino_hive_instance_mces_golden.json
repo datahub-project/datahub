@@ -246,7 +246,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1746487772"
+                            "transient_lastddltime": "1746463134"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -301,8 +301,7 @@
                                 },
                                 "nativeDataType": "ARRAY(ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))]))",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))]))\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -314,8 +313,7 @@
                                 },
                                 "nativeDataType": "VARCHAR()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -331,8 +329,7 @@
                                 },
                                 "nativeDataType": "ARRAY(INTEGER())",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(INTEGER())\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -507,7 +504,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1746487776"
+                            "transient_lastddltime": "1746463139"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -766,7 +763,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746487775"
+                            "transient_lastddltime": "1746463137"
                         },
                         "name": "map_test",
                         "tags": []
@@ -818,7 +815,7 @@
                                 "nativeDataType": "MAP(INTEGER(), VARCHAR())",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"MAP(INTEGER(), VARCHAR())\", \"key_type\": {\"type\": \"int\", \"native_data_type\": \"INTEGER()\", \"_nullable\": true}, \"key_native_data_type\": \"INTEGER()\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"int\", \"native_data_type\": \"INTEGER()\", \"_nullable\": true}, \"key_native_data_type\": \"INTEGER()\"}"
                             }
                         ]
                     }
@@ -993,7 +990,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746487775"
+                            "transient_lastddltime": "1746463137"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -1041,8 +1038,7 @@
                                 },
                                 "nativeDataType": "ROW([('type', VARCHAR()), ('provider', ROW([('name', VARCHAR(length=50)), ('id', SMALLINT())]))])",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ROW([('type', VARCHAR()), ('provider', ROW([('name', VARCHAR(length=50)), ('id', SMALLINT())]))])\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -1054,8 +1050,7 @@
                                 },
                                 "nativeDataType": "VARCHAR()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
@@ -1067,8 +1062,7 @@
                                 },
                                 "nativeDataType": "ROW([('name', VARCHAR(length=50)), ('id', SMALLINT())])",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ROW([('name', VARCHAR(length=50)), ('id', SMALLINT())])\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
@@ -1080,8 +1074,7 @@
                                 },
                                 "nativeDataType": "VARCHAR(length=50)",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR(length=50)\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
@@ -1093,8 +1086,7 @@
                                 },
                                 "nativeDataType": "SMALLINT()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"SMALLINT()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1264,7 +1256,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1746487768"
+                            "transient_lastddltime": "1746463127"
                         },
                         "name": "pokes",
                         "tags": []
@@ -1499,7 +1491,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746487770"
+                            "transient_lastddltime": "1746463130"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1547,8 +1539,7 @@
                                 },
                                 "nativeDataType": "ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))])",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))])\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -1560,8 +1551,7 @@
                                 },
                                 "nativeDataType": "VARCHAR()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
@@ -1577,8 +1567,7 @@
                                 },
                                 "nativeDataType": "ARRAY(INTEGER())",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(INTEGER())\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1750,7 +1739,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746487774"
+                            "transient_lastddltime": "1746463136"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1798,8 +1787,7 @@
                                 },
                                 "nativeDataType": "ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))])",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))])\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -1811,8 +1799,7 @@
                                 },
                                 "nativeDataType": "VARCHAR()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
@@ -1828,8 +1815,7 @@
                                 },
                                 "nativeDataType": "ARRAY(INTEGER())",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(INTEGER())\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -2004,7 +1990,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746487770"
+                            "transient_lastddltime": "1746463130"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -2227,7 +2213,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746487775"
+                            "transient_lastddltime": "1746463137"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2263,8 +2249,7 @@
                                 },
                                 "nativeDataType": "ROW([('tag', SMALLINT()), ('field0', INTEGER()), ('field1', DOUBLE()), ('field2', ARRAY(VARCHAR())), ('field3', ROW([('a', INTEGER()), ('b', VARCHAR())]))])",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ROW([('tag', SMALLINT()), ('field0', INTEGER()), ('field1', DOUBLE()), ('field2', ARRAY(VARCHAR())), ('field3', ROW([('a', INTEGER()), ('b', VARCHAR())]))])\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].foo.[type=int].tag",
@@ -2276,8 +2261,7 @@
                                 },
                                 "nativeDataType": "SMALLINT()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"SMALLINT()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].foo.[type=int].field0",
@@ -2289,8 +2273,7 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"INTEGER()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].foo.[type=double].field1",
@@ -2302,8 +2285,7 @@
                                 },
                                 "nativeDataType": "DOUBLE()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"DOUBLE()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].foo.[type=array].[type=string].field2",
@@ -2319,8 +2301,7 @@
                                 },
                                 "nativeDataType": "ARRAY(VARCHAR())",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(VARCHAR())\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].foo.[type=struct].field3",
@@ -2332,8 +2313,7 @@
                                 },
                                 "nativeDataType": "ROW([('a', INTEGER()), ('b', VARCHAR())])",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ROW([('a', INTEGER()), ('b', VARCHAR())])\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].foo.[type=struct].field3.[type=int].a",
@@ -2345,8 +2325,7 @@
                                 },
                                 "nativeDataType": "INTEGER()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"INTEGER()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].foo.[type=struct].field3.[type=string].b",
@@ -2358,8 +2337,7 @@
                                 },
                                 "nativeDataType": "VARCHAR()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -2529,7 +2507,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1746487774",
+                            "transient_lastddltime": "1746463137",
                             "is_view": "True",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\""
                         },
@@ -2583,8 +2561,7 @@
                                 },
                                 "nativeDataType": "ARRAY(ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))]))",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(ROW([('type', VARCHAR()), ('provider', ARRAY(INTEGER()))]))\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -2596,8 +2573,7 @@
                                 },
                                 "nativeDataType": "VARCHAR()",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR()\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -2613,8 +2589,7 @@
                                 },
                                 "nativeDataType": "ARRAY(INTEGER())",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(INTEGER())\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -2780,7 +2755,6 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),property_id)"
                     ],
-                    "transformOperation": "COPY: \"array_struct_test\".\"property_id\" AS \"property_id\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29"
                 },
@@ -2793,7 +2767,6 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),service)"
                     ],
-                    "transformOperation": "COPY: \"array_struct_test\".\"service\" AS \"service\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29"
                 }

@@ -5,7 +5,6 @@ import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Properties;
 import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Producer;
@@ -39,11 +38,16 @@ public class DataHubKafkaProducerFactory {
    */
   @Bean(name = "dataHubUsageProducer")
   protected Producer<String, String> createDUEProducer(
-      @Qualifier("configurationProvider") ConfigurationProvider provider) {
+      @Qualifier("configurationProvider") ConfigurationProvider provider,
+      KafkaProperties properties) {
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     final ProducerConfiguration producerConfiguration = kafkaConfiguration.getProducer();
-    final Properties props = new Properties();
+
+    // Initialize with Spring Kafka production configuration
+    Map<String, Object> props = properties.buildProducerProperties(null);
+
+    // Apply DUE specifics
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "datahub-analytics");
     props.put(
         ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG,
