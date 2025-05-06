@@ -317,11 +317,15 @@ def test_policy_events(auth_exclude_filter):
     assert len(res_data["usageEvents"]) == 3
     assert res_data["usageEvents"][0]["eventType"] == "UpdatePolicyEvent"
     assert res_data["usageEvents"][0]["entityUrn"] == new_urn
-    assert (res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
-            or res_data["usageEvents"][1]["eventType"] == "UpdatePolicyEvent")
+    assert (
+        res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
+        or res_data["usageEvents"][1]["eventType"] == "UpdatePolicyEvent"
+    )
     assert res_data["usageEvents"][1]["entityUrn"] == new_urn
-    assert (res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
-            or res_data["usageEvents"][2]["eventType"] == "UpdatePolicyEvent")
+    assert (
+        res_data["usageEvents"][2]["eventType"] == "CreatePolicyEvent"
+        or res_data["usageEvents"][2]["eventType"] == "UpdatePolicyEvent"
+    )
     assert res_data["usageEvents"][2]["entityUrn"] == new_urn
     user_session.cookies.clear()
 
