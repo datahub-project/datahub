@@ -154,8 +154,9 @@ export function getStartTimeByWindowSize(window?: LookbackWindow): number | unde
     return getTimeWindowStart(endTimemillis, window.windowSize.interval, window.windowSize.count);
 }
 
-export function getCalendarStartTimeByTimeRange(time: number, range: TimeRange): number | undefined {
-    const dayjsTime = dayjs(time);
+export function getCalendarStartTimeByTimeRange(time: number, range: TimeRange, useUtc?: boolean): number | undefined {
+    let dayjsTime = dayjs(time);
+    if (useUtc) dayjsTime = dayjsTime.utc();
 
     switch (range) {
         case TimeRange.Day:
@@ -175,10 +176,11 @@ export function getCalendarStartTimeByTimeRange(time: number, range: TimeRange):
     }
 }
 
-export function roundTimeByTimeRange(time: number | undefined, range: TimeRange) {
+export function roundTimeByTimeRange(time: number | undefined, range: TimeRange, useUtc?: boolean) {
     if (time === undefined) return time;
 
-    const dayjsTime = dayjs(time);
+    let dayjsTime = dayjs(time);
+    if (useUtc) dayjsTime = dayjsTime.utc();
 
     switch (range) {
         case TimeRange.Day:
