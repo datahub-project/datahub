@@ -402,13 +402,15 @@ public class ESIndexBuilder {
     String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
     createIndex(nextIndexName, config);
     renameReindexedIndices(_searchClient, indexAlias, null, nextIndexName, false);
+    int targetshards = (Integer) config.targetSettings().get("number_of_shards");
 
     return submitReindex(
         aliasesResponse.getAliases().keySet().toArray(new String[0]),
         nextIndexName,
         options.getBatchSize(),
         TimeValue.timeValueSeconds(options.getTimeoutSeconds()),
-        filterQuery);
+        filterQuery,
+        targetshards);
   }
 
   private static String getNextIndexName(String base, long startTime) {
@@ -424,6 +426,7 @@ public class ESIndexBuilder {
         maxReindexHours > 0 ? startTime + (1000L * 60 * 60 * maxReindexHours) : Long.MAX_VALUE;
 
     String tempIndexName = getNextIndexName(indexState.name(), startTime);
+    int targetshards = (Integer) indexState.targetSettings().get("number_of_shards");
 
     try {
       Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(indexState.name());
@@ -442,7 +445,7 @@ public class ESIndexBuilder {
         // Create new index
         createIndex(tempIndexName, indexState);
 
-        parentTaskId = submitReindex(indexState.name(), tempIndexName);
+        parentTaskId = submitReindex(indexState.name(), tempIndexName, targetshards);
       }
 
       int reindexCount = 1;
@@ -506,7 +509,7 @@ public class ESIndexBuilder {
               log.warn(
                   "No change in index count after 5 minutes, re-triggering reindex #{}.",
                   reindexCount);
-              submitReindex(indexState.name(), tempIndexName);
+              submitReindex(indexState.name(), tempIndexName, targetshards);
               reindexCount = reindexCount + 1;
               documentCountsLastUpdated = System.currentTimeMillis(); // reset timer
             } else {
@@ -619,7 +622,8 @@ public class ESIndexBuilder {
       String destinationIndex,
       int batchSize,
       @Nullable TimeValue timeout,
-      @Nullable QueryBuilder sourceFilterQuery)
+      @Nullable QueryBuilder sourceFilterQuery,
+      int targetShards)
       throws IOException {
     ReindexRequest reindexRequest =
         new ReindexRequest()
@@ -627,6 +631,8 @@ public class ESIndexBuilder {
             .setDestIndex(destinationIndex)
             .setMaxRetries(numRetries)
             .setAbortOnVersionConflict(false)
+            // we cannot set to 'auto', so explicitely set to the number of target number_of_shards
+            .setSlices(targetShards)
             .setSourceBatchSize(batchSize);
     if (timeout != null) {
       reindexRequest.setTimeout(timeout);
@@ -644,8 +650,10 @@ public class ESIndexBuilder {
     return reindexTask.getTask();
   }
 
-  private String submitReindex(String sourceIndex, String destinationIndex) throws IOException {
-    return submitReindex(new String[] {sourceIndex}, destinationIndex, 2500, null, null);
+  private String submitReindex(String sourceIndex, String destinationIndex, int targetShards)
+      throws IOException {
+    return submitReindex(
+        new String[] {sourceIndex}, destinationIndex, 2500, null, null, targetShards);
   }
 
   private Pair<Long, Long> getDocumentCounts(String sourceIndex, String destinationIndex)
