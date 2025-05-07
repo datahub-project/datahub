@@ -51,7 +51,6 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -190,16 +189,9 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(
-            getIndexBuilder(),
-            operationContext.getEntityRegistry(),
-            operationContext.getSearchContext().getIndexConvention(),
-            settingsBuilder);
-    searchClientSpy = spy(getSearchClient());
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            searchClientSpy,
+            getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
@@ -207,9 +199,18 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClientSpy, getSearchConfiguration(), null, QueryFilterRewriteChain.EMPTY);
-    ESWriteDAO writeDAO = new ESWriteDAO(searchClientSpy, getBulkProcessor(), 1);
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
+            getSearchClient(), getSearchConfiguration(), null, QueryFilterRewriteChain.EMPTY);
+    ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
+    ElasticSearchService searchService =
+        new ElasticSearchService(
+            getIndexBuilder(),
+            operationContext.getEntityRegistry(),
+            operationContext.getSearchContext().getIndexConvention(),
+            settingsBuilder,
+            searchDAO,
+            browseDAO,
+            writeDAO);
+    return searchService;
   }
 
   private void clearCache(boolean withLightingCache) {

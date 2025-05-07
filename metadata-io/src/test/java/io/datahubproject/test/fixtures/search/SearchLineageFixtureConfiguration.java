@@ -27,8 +27,6 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -107,31 +105,6 @@ public class SearchLineageFixtureConfiguration {
         .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
     conf.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
     return conf;
-  }
-
-  @Bean(name = "searchLineageEntityIndexBuilders")
-  protected EntityIndexBuilders entityIndexBuilders(
-      @Qualifier("searchLineageOperationContext") OperationContext opContext) {
-    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
-    ESIndexBuilder indexBuilder =
-        new ESIndexBuilder(
-            searchClient,
-            1,
-            0,
-            1,
-            1,
-            Map.of(),
-            true,
-            false,
-            false,
-            new ElasticSearchConfiguration(),
-            gitVersion);
-    SettingsBuilder settingsBuilder = new SettingsBuilder(null);
-    return new EntityIndexBuilders(
-        indexBuilder,
-        opContext.getEntityRegistry(),
-        opContext.getSearchContext().getIndexConvention(),
-        settingsBuilder);
   }
 
   @Bean(name = "searchLineageEntitySearchService")

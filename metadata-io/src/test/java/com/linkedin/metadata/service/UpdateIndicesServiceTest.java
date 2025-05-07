@@ -13,7 +13,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -34,7 +34,7 @@ public class UpdateIndicesServiceTest {
   @Mock private TimeseriesAspectService timeseriesAspectService;
   @Mock private SystemMetadataService systemMetadataService;
   @Mock private SearchDocumentTransformer searchDocumentTransformer;
-  @Mock private EntityIndexBuilders entityIndexBuilders;
+  @Mock private ElasticSearchService elasticSearchService;
 
   private OperationContext operationContext;
   private UpdateIndicesService updateIndicesService;
@@ -50,8 +50,8 @@ public class UpdateIndicesServiceTest {
             timeseriesAspectService,
             systemMetadataService,
             searchDocumentTransformer,
-            entityIndexBuilders,
-            "MD5");
+            "MD5",
+            elasticSearchService);
   }
 
   @Test
