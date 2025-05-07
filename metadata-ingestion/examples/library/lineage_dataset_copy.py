@@ -13,3 +13,8 @@ lineage_client.add_dataset_copy_lineage(
 # by default, the column lineage is "auto_fuzzy", which will match similar field names.
 # can also be "auto_strict" for strict matching.
 # can also be a dict mapping upstream fields to downstream fields.
+# e.g. 
+# column_lineage={
+#     "customer_id": ["id"],
+#     "full_name": ["first_name", "last_name"],
+# }
