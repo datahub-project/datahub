@@ -254,6 +254,10 @@ export class MLModelEntity implements Entity<MlModel> {
         });
     };
 
+    getPlatformProperties = (data: MlModel) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

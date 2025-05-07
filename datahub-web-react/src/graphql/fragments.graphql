@@ -1776,6 +1776,21 @@ fragment entityPlatformFields on Entity {
             ...platformFields
         }
     }
+    ... on DataPlatform {
+        ...platformFields
+    }
+    ... on DataPlatformInstance {
+        platform {
+            ...platformFields
+        }
+    }
+    ... on DataJob {
+        dataFlow {
+            platform {
+                ...platformFields
+            }
+        }
+    }
     ... on Container {
         platform {
             ...platformFields
@@ -1786,17 +1801,30 @@ fragment entityPlatformFields on Entity {
             ...platformFields
         }
     }
+    ... on MLFeature {
+        properties {
+            sources {
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
+    ... on MLPrimaryKey {
+        properties {
+            sources {
+                platform {
+                    ...platformFields
+                }
+            }
+        }
+    }
     ... on MLModel {
         platform {
             ...platformFields
         }
     }
     ... on MLModelGroup {
-        platform {
-            ...platformFields
-        }
-    }
-    ... on DataPlatformInstance {
         platform {
             ...platformFields
         }

@@ -312,6 +312,10 @@ export class DataJobEntity implements Entity<DataJob> {
         });
     };
 
+    getPlatformProperties = (data: DataJob) => {
+        return data?.dataFlow?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

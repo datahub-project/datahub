@@ -251,6 +251,10 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         });
     };
 
+    getPlatformProperties = (data: MlFeature) => {
+        return data?.properties?.sources?.[0]?.platform;
+    };
+
     getLineageVizConfig = (entity: MlFeature) => {
         return {
             urn: entity.urn,

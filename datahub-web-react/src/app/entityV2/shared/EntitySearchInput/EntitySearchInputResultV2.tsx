@@ -3,6 +3,7 @@ import { Skeleton } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import ContextPath from '@app/previewV2/ContextPath';
 import useContentTruncation from '@app/shared/useContentTruncation';
@@ -31,9 +32,9 @@ type Props = {
 };
 
 export default function EntitySearchInputResultV2({ entity }: Props) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistry() as EntityRegistry;
     const properties = entityRegistry.getGenericEntityProperties(entity.type, entity);
-    const platformIcon = properties?.platform?.properties?.logoUrl;
+    const platformIcon = entityRegistry.getPlatformProperties?.(entity.type, entity)?.properties?.logoUrl;
 
     const { contentRef, isContentTruncated } = useContentTruncation(properties);
     const displayedEntityType = getDisplayedEntityType(properties, entityRegistry, entity.type);

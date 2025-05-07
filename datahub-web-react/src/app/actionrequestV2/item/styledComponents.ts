@@ -17,5 +17,6 @@ export const StyledLink = styled(Link)`
 
     :hover {
         color: ${colors.violet[500]};
+        text-decoration: underline;
     }
 `;

@@ -4,7 +4,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
 import { FetchedEntity } from '@app/lineage/types';
 
-import { EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
+import { DataPlatform, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
 
 export enum PreviewType {
     /**
@@ -202,6 +202,11 @@ export interface Entity<T> {
      * Returns generic entity properties for the entity
      */
     getGenericEntityProperties: (data: T, flags?: FeatureFlagsConfig) => GenericEntityProperties | null;
+
+    /**
+     * Returns entity platform properties for the entity
+     */
+    getPlatformProperties?: (data: T) => DataPlatform | null | undefined;
 
     /**
      * Returns the supported features for the entity

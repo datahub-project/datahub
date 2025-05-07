@@ -69,6 +69,10 @@ export class DataPlatformEntity implements Entity<DataPlatform> {
         } as GenericEntityProperties;
     };
 
+    getPlatformProperties = (data: DataPlatform) => {
+        return data;
+    };
+
     supportedCapabilities = () => {
         return new Set([]);
     };

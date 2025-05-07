@@ -527,6 +527,10 @@ export class DatasetEntity implements Entity<Dataset> {
         });
     };
 
+    getPlatformProperties = (data: Dataset) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

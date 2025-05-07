@@ -229,6 +229,10 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         });
     };
 
+    getPlatformProperties = (data: MlFeatureTable) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

@@ -14,7 +14,7 @@ import { FetchedEntityV2, FetchedEntityV2Relationship, LineageAsset, LineageAsse
 import { SearchResultProvider } from '@app/search/context/SearchResultContext';
 
 import { EntityLineageV2Fragment, LineageSchemaFieldFragment } from '@graphql/lineage.generated';
-import { Entity as EntityInterface, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
+import { DataPlatform, Entity as EntityInterface, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>, def: V): V {
     if (map.has(key)) {
@@ -315,6 +315,11 @@ export default class EntityRegistry {
     ): GenericEntityProperties | null {
         const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
         return entity.getGenericEntityProperties(data, flags);
+    }
+
+    getPlatformProperties<T>(type: EntityType, data: T): DataPlatform | null | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
+        return entity.getPlatformProperties?.(data);
     }
 
     getSupportedEntityCapabilities(type: EntityType): Set<EntityCapabilityType> {

@@ -247,6 +247,10 @@ export class DataFlowEntity implements Entity<DataFlow> {
         });
     };
 
+    getPlatformProperties = (data: DataFlow) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

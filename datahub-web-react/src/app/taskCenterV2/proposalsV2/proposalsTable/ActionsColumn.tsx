@@ -1,5 +1,4 @@
-import { Form, Input, message } from 'antd';
-import { useForm } from 'antd/lib/form/Form';
+import { Form, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -7,7 +6,7 @@ import styled from 'styled-components';
 import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
 import ResultNote from '@app/taskCenterV2/proposalsV2/proposalsTable/ResultNote';
 import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
-import { Icon, Modal, Pill, colors } from '@src/alchemy-components';
+import { Icon, Modal, Pill, TextArea, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
@@ -36,7 +35,6 @@ const StyledIcon = styled(Icon)`
 `;
 
 type ModalType = ProposalModalType | null;
-const PROPOSAL_REVIEW_NOTE = 'proposalReviewNote';
 
 const modalConfig = {
     [ProposalModalType.Accept]: {
@@ -59,16 +57,16 @@ interface Props {
 
 const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
     const entityRegistry = useEntityRegistryV2();
+    const [note, setNote] = useState('');
 
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
 
-    const [form] = useForm();
     const [modalType, setModalType] = useState<ModalType>(null);
 
     const acceptRequest = () => {
         acceptProposalsMutation({
-            variables: { urns: [actionRequest.urn], note: form.getFieldValue(PROPOSAL_REVIEW_NOTE) },
+            variables: { urns: [actionRequest.urn], note },
         })
             .then(() => {
                 if (actionRequest.entity?.urn) {
@@ -91,7 +89,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
 
     const rejectRequest = () => {
         rejectProposalsMutation({
-            variables: { urns: [actionRequest.urn], note: form.getFieldValue(PROPOSAL_REVIEW_NOTE) },
+            variables: { urns: [actionRequest.urn], note },
         })
             .then(() => {
                 if (actionRequest.entity?.urn) {
@@ -172,7 +170,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
 
     const handleCancel = () => {
         setModalType(null);
-        form.resetFields();
+        setNote('');
     };
 
     return (
@@ -197,13 +195,13 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                         title={modalConfig[modalType].title}
                         subtitle={modalConfig[modalType].subtitle}
                     >
-                        <Form form={form} initialValues={{}} layout="vertical">
-                            <div>
-                                <div>Reason</div>
-                                <Form.Item name={PROPOSAL_REVIEW_NOTE}>
-                                    <Input.TextArea rows={4} placeholder={modalConfig[modalType].placeholder} />
-                                </Form.Item>
-                            </div>
+                        <Form>
+                            <TextArea
+                                label="Add Note"
+                                placeholder="Note - optional"
+                                value={note}
+                                onChange={(e) => setNote(e.target.value)}
+                            />
                         </Form>
                     </Modal>
                 </StopPropagationWrapper>

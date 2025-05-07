@@ -1,10 +1,9 @@
-import { Divider, Form, Input, message } from 'antd';
-import { useForm } from 'antd/lib/form/Form';
+import { Divider, Form, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
-import { Button, Modal, Text, colors } from '@src/alchemy-components';
+import { Button, Modal, Text, TextArea, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
 
@@ -45,7 +44,6 @@ const VerticalDivider = styled(Divider)`
 `;
 
 type ModalType = ProposalModalType | null;
-const PROPOSALS_REVIEW_NOTE = 'proposalsReviewNote';
 
 const modalConfig = {
     [ProposalModalType.AcceptAll]: {
@@ -68,15 +66,15 @@ interface Props {
 }
 
 const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasPagination }: Props) => {
-    const [form] = useForm();
     const [modalType, setModalType] = useState<ModalType>(null);
+    const [note, setNote] = useState('');
 
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
 
     const acceptSelectedProposals = () => {
         acceptProposalsMutation({
-            variables: { urns: selectedUrns, note: form.getFieldValue(PROPOSALS_REVIEW_NOTE) },
+            variables: { urns: selectedUrns, note },
         })
             .then(() => {
                 analytics.event({
@@ -96,7 +94,7 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
 
     const rejectSelectedProposals = () => {
         rejectProposalsMutation({
-            variables: { urns: selectedUrns, note: form.getFieldValue(PROPOSALS_REVIEW_NOTE) },
+            variables: { urns: selectedUrns, note },
         })
             .then(() => {
                 analytics.event({
@@ -116,7 +114,7 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
 
     const handleCancel = () => {
         setModalType(null);
-        form.resetFields();
+        setNote('');
     };
 
     return (
@@ -157,13 +155,13 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
                         },
                     ]}
                 >
-                    <Form form={form} initialValues={{}} layout="vertical">
-                        <div>
-                            <div>Reason</div>
-                            <Form.Item name={PROPOSALS_REVIEW_NOTE}>
-                                <Input.TextArea rows={4} placeholder={modalConfig[modalType]?.placeholder} />
-                            </Form.Item>
-                        </div>
+                    <Form>
+                        <TextArea
+                            label="Add Note"
+                            placeholder="Note - optional"
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                        />
                     </Form>
                 </Modal>
             )}

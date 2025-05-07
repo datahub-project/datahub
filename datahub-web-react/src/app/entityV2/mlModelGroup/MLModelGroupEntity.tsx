@@ -229,6 +229,10 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         });
     };
 
+    getPlatformProperties = (data: MlModelGroup) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

@@ -411,6 +411,10 @@ export class DashboardEntity implements Entity<Dashboard> {
         });
     };
 
+    getPlatformProperties = (data: Dashboard) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

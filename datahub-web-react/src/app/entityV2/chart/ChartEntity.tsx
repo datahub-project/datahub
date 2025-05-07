@@ -401,6 +401,10 @@ export class ChartEntity implements Entity<Chart> {
         });
     };
 
+    getPlatformProperties = (data: Chart) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

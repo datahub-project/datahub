@@ -215,6 +215,10 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         });
     };
 
+    getPlatformProperties = (data: MlPrimaryKey) => {
+        return data?.properties?.sources?.[0]?.platform;
+    };
+
     getLineageVizConfig = (entity: MlPrimaryKey) => {
         return {
             urn: entity.urn,

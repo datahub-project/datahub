@@ -263,6 +263,10 @@ export class ContainerEntity implements Entity<Container> {
         });
     };
 
+    getPlatformProperties = (data: Container) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([
             EntityCapabilityType.OWNERS,

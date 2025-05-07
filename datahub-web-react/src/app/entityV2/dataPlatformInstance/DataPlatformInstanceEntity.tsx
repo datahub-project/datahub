@@ -57,6 +57,10 @@ export class DataPlatformInstanceEntity implements Entity<DataPlatformInstance> 
         });
     };
 
+    getPlatformProperties = (data: DataPlatformInstance) => {
+        return data?.platform;
+    };
+
     supportedCapabilities = () => {
         return new Set([]);
     };
