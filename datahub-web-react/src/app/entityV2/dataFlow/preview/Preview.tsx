@@ -19,7 +19,13 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-} from '@types';
+    SubTypes,
+} from '../../../../types.generated';
+import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '../../../useEntityRegistry';
+import { IconStyleType, PreviewType } from '../../Entity';
+import { ANTD_GRAY } from '../../shared/constants';
+import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
@@ -48,6 +54,7 @@ export const Preview = ({
     headerDropdownItems,
     previewType,
     parentContainers,
+    subTypes,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -71,8 +78,10 @@ export const Preview = ({
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: PreviewType;
     parentContainers?: ParentContainersResult | null;
+    subTypes?: SubTypes | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    console.log('subTypes', subTypes);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataFlow, urn)}
@@ -107,6 +116,7 @@ export const Preview = ({
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
             parentEntities={parentContainers?.containers}
+            type={subTypes?.typeNames?.[0]}
         />
     );
 };

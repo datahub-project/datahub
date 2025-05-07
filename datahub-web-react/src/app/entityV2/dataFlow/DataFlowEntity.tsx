@@ -179,6 +179,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     renderPreview = (previewType: PreviewType, data: DataFlow) => {
         const genericProperties = this.getGenericEntityProperties(data);
+        console.log('data', data);
         return (
             <Preview
                 urn={data.urn}
@@ -196,6 +197,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
+                subTypes={genericProperties?.subTypes}
             />
         );
     };
@@ -227,6 +229,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 parentContainers={data.parentContainers}
+                subTypes={genericProperties?.subTypes}
             />
         );
     };
