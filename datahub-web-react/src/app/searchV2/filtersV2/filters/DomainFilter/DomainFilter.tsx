@@ -1,16 +1,17 @@
+import { debounce } from 'lodash';
+import React, { useMemo, useState } from 'react';
+
+import { EntityIconWithName } from '@app/searchV2/filtersV2/filters/BaseEntityFilter/components/EntityIconWithName';
+import useDomainsFromAggregations from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useDomainsFromAggregations';
+import useDomainsFromSuggestions from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useDomainsFromSuggestions';
+import useMergedDomains from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useMergedDomains';
+import useOptionsFromDomains from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useOptionsFromDomains';
+import { DEBOUNCE_ON_SEARCH_TIMEOUT_MS } from '@app/searchV2/filtersV2/filters/constants';
+import useValues from '@app/searchV2/filtersV2/filters/hooks/useValues';
+import { FilterComponentProps } from '@app/searchV2/filtersV2/types';
 import { NestedSelect } from '@src/alchemy-components/components/Select/Nested/NestedSelect';
 import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
 import { Domain, EntityType, FilterOperator } from '@src/types.generated';
-import React, { useMemo, useState } from 'react';
-import { debounce } from 'lodash';
-import { FilterComponentProps } from '../../types';
-import { EntityIconWithName } from '../BaseEntityFilter/components/EntityIconWithName';
-import useValues from '../hooks/useValues';
-import useDomainsFromAggregations from './hooks/useDomainsFromAggregations';
-import useDomainsFromSuggestions from './hooks/useDomainsFromSuggestions';
-import useMergedDomains from './hooks/useMergedDomains';
-import useOptionsFromDomains from './hooks/useOptionsFromDomains';
-import { DEBOUNCE_ON_SEARCH_TIMEOUT_MS } from '../constants';
 
 export default function DomainFilter({ fieldName, facetState, appliedFilters, onUpdate }: FilterComponentProps) {
     const [entities, setEntities] = useState<Domain[]>([]);
@@ -25,22 +26,24 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
     const onSearch = debounce((newQuery: string) => setQuery(newQuery), DEBOUNCE_ON_SEARCH_TIMEOUT_MS);
 
     const onSelectUpdate = (selectedOptions: NestedSelectOption[]) => {
-        const selectedValues = selectedOptions.map((option) => option.value);
-        const selectedEntities: Domain[] = selectedOptions
-            .map((option) => option.entity)
-            .filter((entity): entity is Domain => !!entity && entity.type === EntityType.Domain);
+        if (facetState !== undefined) {
+            const selectedValues = selectedOptions.map((option) => option.value);
+            const selectedEntities: Domain[] = selectedOptions
+                .map((option) => option.entity)
+                .filter((entity): entity is Domain => !!entity && entity.type === EntityType.Domain);
 
-        setEntities(selectedEntities);
+            setEntities(selectedEntities);
 
-        onUpdate?.({
-            filters: [
-                {
-                    field: fieldName,
-                    condition: FilterOperator.Equal,
-                    values: selectedValues,
-                },
-            ],
-        });
+            onUpdate?.({
+                filters: [
+                    {
+                        field: fieldName,
+                        condition: FilterOperator.Equal,
+                        values: selectedValues,
+                    },
+                ],
+            });
+        }
     };
 
     return (

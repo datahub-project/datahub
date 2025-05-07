@@ -1,5 +1,6 @@
 import React from 'react';
-import { RecipeField, FieldType, setListValuesOnRecipe } from './common';
+
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const UNITY_CATALOG = 'unity-catalog';
 

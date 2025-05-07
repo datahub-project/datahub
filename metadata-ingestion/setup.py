@@ -105,7 +105,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==26.6.0",
+    "sqlglot[rs]==26.16.4",
     "patchy==2.8.0",
 }
 
@@ -131,14 +131,33 @@ cachetools_lib = {
     "cachetools",
 }
 
+great_expectations_lib = {
+    # 1. Our original dep was this:
+    # "great-expectations>=0.15.12, <=0.15.50",
+    # 2. For hive, we had additional restrictions:
+    #    Due to https://github.com/great-expectations/great_expectations/issues/6146,
+    #    we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
+    #    https://github.com/great-expectations/great_expectations/pull/6149.
+    # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
+    # 3. Since then, we've ended up forking great-expectations in order to
+    #    add pydantic 2.x support. The fork is pretty simple
+    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...hsheth2:great_expectations:0.15.50-pydantic-2-patch?expand=1
+    #    This was derived from work done by @jskrzypek in
+    #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
+    "acryl-great-expectations==0.15.50.1",
+}
+
+sqlalchemy_lib = {
+    # Required for all SQL sources.
+    # This is temporary lower bound that we're open to loosening/tightening as requirements show up
+    "sqlalchemy>=1.4.39, <2",
+}
 sql_common = (
     {
-        # Required for all SQL sources.
-        # This is temporary lower bound that we're open to loosening/tightening as requirements show up
-        "sqlalchemy>=1.4.39, <2",
+        *sqlalchemy_lib,
         # Required for SQL profiling.
-        "great-expectations>=0.15.12, <=0.15.50",
-        *pydantic_no_v2,  # because of great-expectations
+        *great_expectations_lib,
+        "pydantic<2",  # keeping this for now, but can be removed eventually
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
@@ -208,6 +227,8 @@ clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
     # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
     # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    # zstd needs to be pinned because the latest version causes issues on arm
+    "zstd<1.5.6.8",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
@@ -220,8 +241,6 @@ redshift_common = {
 }
 
 snowflake_common = {
-    # Snowflake plugin utilizes sql common
-    *sql_common,
     # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
     "snowflake-sqlalchemy>=1.4.3",
     "snowflake-connector-python>=3.4.0",
@@ -229,14 +248,14 @@ snowflake_common = {
     "cryptography",
     "msal",
     *cachetools_lib,
-} | classification_lib
+}
 
 trino = {
     "trino[sqlalchemy]>=0.308",
 }
 
 pyhive_common = {
-    # Acryl Data maintains a fork of PyHive
+    # DataHub maintains a fork of PyHive
     # - 0.6.11 adds support for table comments and column comments,
     #   and also releases HTTP and HTTPS transport schemes
     # - 0.6.12 adds support for Spark Thrift Server
@@ -253,7 +272,9 @@ pyhive_common = {
     # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
-microsoft_common = {"msal>=1.24.0"}
+microsoft_common = {
+    "msal>=1.31.1",
+}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -294,8 +315,8 @@ threading_timeout_common = {
 }
 
 abs_base = {
-    "azure-core==1.29.4",
-    "azure-identity>=1.17.1",
+    "azure-core>=1.31.0",
+    "azure-identity>=1.21.0",
     "azure-storage-blob>=12.19.0",
     "azure-storage-file-datalake>=12.14.0",
     "more-itertools>=8.12.0",
@@ -400,6 +421,7 @@ plugins: Dict[str, Set[str]] = {
     | {
         "google-cloud-datacatalog-lineage==0.2.2",
     },
+    "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
@@ -446,10 +468,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {
         "databricks-dbapi",
-        # Due to https://github.com/great-expectations/great_expectations/issues/6146,
-        # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
-        # https://github.com/great-expectations/great_expectations/pull/6149.
-        "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
+        *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     "hive-metastore": sql_common
@@ -502,9 +521,10 @@ plugins: Dict[str, Set[str]] = {
     "abs": {*abs_base, *data_lake_profiling},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce", *cachetools_lib},
-    "snowflake": snowflake_common | usage_common | sqlglot_lib,
-    "snowflake-summary": snowflake_common | usage_common | sqlglot_lib,
-    "snowflake-queries": snowflake_common | usage_common | sqlglot_lib,
+    "snowflake": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowflake-slim": snowflake_common,
+    "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
+    "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "sqlalchemy": sql_common,
     "sql-queries": usage_common | sqlglot_lib,
     "slack": slack,
@@ -533,7 +553,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common,
-    "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
+    "fivetran": snowflake_common | bigquery_common | sqlalchemy_lib | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
@@ -609,8 +629,8 @@ debug_requirements = {
 lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "ruff==0.11.4",
-    "mypy==1.10.1",
+    "ruff==0.11.7",
+    "mypy==1.14.1",
 }
 
 base_dev_requirements = {
@@ -873,9 +893,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=_version,
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
         "Releases": "https://github.com/acryldata/datahub/releases",
@@ -886,7 +906,7 @@ setuptools.setup(
 The `acryl-datahub` package contains a CLI and SDK for interacting with DataHub,
 as well as an integration framework for pulling/pushing metadata from external systems.
 
-See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
+See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
 """,
     long_description_content_type="text/markdown",
     classifiers=[
@@ -935,6 +955,8 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                         "sql-parser",
                         "iceberg",
                         "feast",
+                        "bigquery-slim",
+                        "snowflake-slim",
                     }
                     else set()
                 )

@@ -1,5 +1,6 @@
 import { isEqual } from 'lodash';
-import { ColumnEdge } from '../types';
+
+import { ColumnEdge } from '@app/lineage/types';
 
 function highlightDownstreamColumnLineage(
     sourceField: string,

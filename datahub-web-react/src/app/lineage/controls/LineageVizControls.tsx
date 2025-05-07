@@ -1,11 +1,11 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { LINEAGE_GRAPH_TIME_FILTER_ID } from '../../onboarding/config/LineageGraphOnboardingConfig';
-import LineageVizTimeSelector from './LineageVizTimeSelector';
-import { useIsSeparateSiblingsMode } from '../../entity/shared/siblingUtils';
-import { useIsShowColumnsMode } from '../utils/useIsShowColumnsMode';
-import { LineageVizToggles } from './LineageVizToggles';
+import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import LineageVizTimeSelector from '@app/lineage/controls/LineageVizTimeSelector';
+import { LineageVizToggles } from '@app/lineage/controls/LineageVizToggles';
+import { useIsShowColumnsMode } from '@app/lineage/utils/useIsShowColumnsMode';
+import { LINEAGE_GRAPH_TIME_FILTER_ID } from '@app/onboarding/config/LineageGraphOnboardingConfig';
 
 const LeftControlsDiv = styled.div`
     display: flex;

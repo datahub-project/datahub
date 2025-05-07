@@ -1,6 +1,6 @@
-# Acryl Actions Container
+# DataHub Cloud Actions Container
 
-This module is used to publish docker images to acryldata's docker repository.
+This module is used to publish docker images to DataHub Cloud's docker repository.
 
 # Overview
 
@@ -25,7 +25,7 @@ docker build -f docker/datahub-actions/Dockerfile . --no-cache
 # Running the Docker Image
 
 ```
-docker image ls # Grab the container id 
+docker image ls # Grab the container id
 docker run --env-file docker/actions.env --network datahub_network <image-id>
 ```
 

@@ -66,6 +66,13 @@ services:
     depends_on:
       system-update-debug:
         condition: service_completed_successfully
+  frontend-debug-min:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-min
+    depends_on:
+      system-update-debug:
+        condition: service_completed_successfully
   frontend-debug-frontend:
     <<: *datahub-frontend-service-dev
     profiles:

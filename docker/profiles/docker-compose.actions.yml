@@ -20,6 +20,10 @@ x-datahub-actions-service: &datahub-actions-service
 
 x-datahub-actions-service-dev: &datahub-actions-service-dev
   <<: *datahub-actions-service
+  volumes:
+    - ./datahub-actions/start.sh:/start_datahub_actions.sh
+    - ../../metadata-ingestion/src:/metadata-ingestion/src
+    - ../../datahub-actions/src:/datahub-actions/src
 
 services:
   datahub-actions-quickstart:

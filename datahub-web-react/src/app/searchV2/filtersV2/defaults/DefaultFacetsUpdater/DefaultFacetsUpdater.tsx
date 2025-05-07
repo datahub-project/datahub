@@ -1,15 +1,26 @@
 import React, { useMemo } from 'react';
-import { useSearchFiltersContext } from '../../context';
-import { FieldName, FieldToFacetStateMap } from '../../types';
-import { FacetsUpdater } from './FacetsUpdater';
+
+import { useSearchFiltersContext } from '@app/searchV2/filtersV2/context';
+import { FacetsUpdater } from '@app/searchV2/filtersV2/defaults/DefaultFacetsUpdater/FacetsUpdater';
+import { FieldName, FieldToFacetStateMap } from '@app/searchV2/filtersV2/types';
 
 interface DynamicFacetsUpdaterProps {
     fieldNames: FieldName[];
     onFieldFacetsUpdated: (fieldToFacetStateMap: FieldToFacetStateMap) => void;
     query: string;
+    viewUrn?: string | null;
+    shouldUpdateFacetsForFieldsWithAppliedFilters?: boolean;
+    shouldUpdateFacetsForFieldsWithoutAppliedFilters?: boolean;
 }
 
-export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdaterProps) => {
+export default ({
+    fieldNames,
+    query,
+    viewUrn,
+    onFieldFacetsUpdated,
+    shouldUpdateFacetsForFieldsWithAppliedFilters,
+    shouldUpdateFacetsForFieldsWithoutAppliedFilters,
+}: DynamicFacetsUpdaterProps) => {
     const { fieldToAppliedFiltersMap } = useSearchFiltersContext();
 
     const fieldNamesWithAppliedFilters = useMemo(
@@ -27,20 +38,25 @@ export default ({ fieldNames, query, onFieldFacetsUpdated }: DynamicFacetsUpdate
 
     return (
         <>
-            {fieldNamesWithAppliedFilters.map((fieldName) => (
+            {shouldUpdateFacetsForFieldsWithAppliedFilters &&
+                fieldNamesWithAppliedFilters.map((fieldName) => (
+                    <FacetsUpdater
+                        fieldNames={fieldName}
+                        key={fieldName}
+                        query={query}
+                        viewUrn={viewUrn}
+                        onFacetsUpdated={onFieldFacetsUpdated}
+                    />
+                ))}
+
+            {shouldUpdateFacetsForFieldsWithoutAppliedFilters && (
                 <FacetsUpdater
-                    fieldNames={fieldName}
-                    key={fieldName}
+                    fieldNames={fieldNamesWithoutAppliedFilters}
                     query={query}
+                    viewUrn={viewUrn}
                     onFacetsUpdated={onFieldFacetsUpdated}
                 />
-            ))}
-
-            <FacetsUpdater
-                fieldNames={fieldNamesWithoutAppliedFilters}
-                query={query}
-                onFacetsUpdated={onFieldFacetsUpdated}
-            />
+            )}
         </>
     );
 };

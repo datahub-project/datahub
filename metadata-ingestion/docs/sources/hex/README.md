@@ -2,13 +2,13 @@ This connector ingests [Hex](https://hex.tech/) assets into DataHub.
 
 ### Concept Mapping
 
-| Hex Concept | DataHub Concept                                                                                    | Notes               |
-|-------------|----------------------------------------------------------------------------------------------------|---------------------|
-| `"hex"`     | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataplatform/)         |                     |
-| Workspace   | [Container](https://datahubproject.io/docs/generated/metamodel/entities/container/)                |  |
-| Project     | [Dashboard](https://datahubproject.io/docs/generated/metamodel/entities/dashboard/)                | Subtype `Project`   |
-| Component   | [Dashboard](https://datahubproject.io/docs/generated/metamodel/entities/dashboard/)                | Subtype `Component` |
-| Collection  | [Tag](https://datahubproject.io/docs/generated/metamodel/entities/Tag/)                            |  |
+| Hex Concept | DataHub Concept                                                                           | Notes               |
+| ----------- | ----------------------------------------------------------------------------------------- | ------------------- |
+| `"hex"`     | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                     |
+| Workspace   | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        |                     |
+| Project     | [Dashboard](https://docs.datahub.com/docs/generated/metamodel/entities/dashboard/)        | Subtype `Project`   |
+| Component   | [Dashboard](https://docs.datahub.com/docs/generated/metamodel/entities/dashboard/)        | Subtype `Component` |
+| Collection  | [Tag](https://docs.datahub.com/docs/generated/metamodel/entities/Tag/)                    |                     |
 
 Other Hex concepts are not mapped to DataHub entities yet.
 
@@ -22,7 +22,7 @@ Currently, the [Hex API](https://learn.hex.tech/docs/api/api-reference) has some
 
 Please keep these limitations in mind when working with the Hex connector.
 
-For the **Dataset - Hex Project lineage**, the connector relies on the 
+For the **Dataset - Hex Project lineage**, the connector relies on the
 [_Hex query metadata_](https://learn.hex.tech/docs/explore-data/cells/sql-cells/sql-cells-introduction#query-metadata) feature.
 Therefore, in order to extract lineage information, the required setup must include:
 

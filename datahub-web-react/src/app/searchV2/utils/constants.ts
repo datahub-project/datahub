@@ -1,4 +1,4 @@
-import { EntityType } from '../../../types.generated';
+import { EntityType } from '@types';
 
 export const FILTER_URL_PREFIX = 'filter_';
 export const SEARCH_FOR_ENTITY_PREFIX = 'SEARCH__';
@@ -187,3 +187,7 @@ export const ASSET_ENTITY_TYPES = [
     EntityType.MlprimaryKey,
     EntityType.Container,
 ];
+
+export const MIN_CHARACTER_COUNT_FOR_SEARCH = 3;
+
+export const SEARCH_BAR_CLASS_NAME = 'search-bar';

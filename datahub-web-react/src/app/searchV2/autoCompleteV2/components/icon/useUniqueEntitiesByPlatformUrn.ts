@@ -1,19 +1,27 @@
+import { useMemo } from 'react';
+
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
-import { useMemo } from 'react';
 
 export default function useUniqueEntitiesByPlatformUrn(entities: Entity[] | undefined): Entity[] {
     const entityRegistry = useEntityRegistryV2();
 
     return useMemo(() => {
-        const platformUrnsOfEntities = (entities || [])
-            .map((entity) => entityRegistry.getGenericEntityProperties(entity.type, entity)?.platform?.urn)
-            .filter((platformUrn) => !!platformUrn);
+        const seenPlatformUrns = new Set<string>();
+        const result: Entity[] = [];
 
-        return (entities || []).filter(
-            (_, index) =>
-                index ===
-                platformUrnsOfEntities.findIndex((platformUrn) => platformUrn === platformUrnsOfEntities[index]),
-        );
+        (entities || [])
+            .map((entity) => ({
+                entity,
+                platformUrn: entityRegistry.getGenericEntityProperties(entity.type, entity)?.platform?.urn,
+            }))
+            .forEach((value) => {
+                if (value.platformUrn !== undefined && !seenPlatformUrns.has(value.platformUrn)) {
+                    seenPlatformUrns.add(value.platformUrn);
+                    result.push(value.entity);
+                }
+            });
+
+        return result;
     }, [entities, entityRegistry]);
 }

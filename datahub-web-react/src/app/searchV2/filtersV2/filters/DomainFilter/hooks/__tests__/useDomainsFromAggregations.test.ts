@@ -1,6 +1,7 @@
-import { EntityType } from '@src/types.generated';
 import { renderHook } from '@testing-library/react-hooks';
-import useDomainsFromAggregations from '../useDomainsFromAggregations';
+
+import useDomainsFromAggregations from '@app/searchV2/filtersV2/filters/DomainFilter/hooks/useDomainsFromAggregations';
+import { EntityType } from '@src/types.generated';
 
 describe('useDomainsFromAggregations', () => {
     it('should return domains from aggregations', () => {

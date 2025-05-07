@@ -1,7 +1,8 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const StyledParagraph = styled(Typography.Paragraph)`
     text-align: justify;

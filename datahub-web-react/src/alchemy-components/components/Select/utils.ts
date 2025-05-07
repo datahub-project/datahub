@@ -1,7 +1,6 @@
+import { SelectStyleProps } from '@components/components/Select/types';
 import { colors, radius, spacing, typography } from '@components/theme';
 import { getFontSize } from '@components/theme/utils';
-
-import { SelectStyleProps } from './types';
 
 export const getOptionLabelStyle = (
     isSelected: boolean,
@@ -126,7 +125,7 @@ export const getSelectStyle = (props: SelectStyleProps) => {
         ...(isOpen
             ? {
                   borderColor: colors.gray[1800],
-                  outline: `2px solid ${colors.violet[300]}`,
+                  outline: `1px solid ${colors.violet[300]}`,
               }
             : {}),
 

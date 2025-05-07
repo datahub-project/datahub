@@ -1,6 +1,7 @@
-import React from 'react';
-import { Button, Text } from '@src/alchemy-components';
+import React, { useMemo } from 'react';
 import styled from 'styled-components';
+
+import { Button, Text } from '@src/alchemy-components';
 
 const Container = styled.div`
     display: flex;
@@ -21,22 +22,39 @@ const InlineButton = styled(Button)`
 
 interface Props {
     hasAppliedFilters?: boolean;
+    hasSelectedView?: boolean;
     onClearFilters?: () => void;
 }
 
-export default function NoResultsFoundPlaceholder({ hasAppliedFilters, onClearFilters }: Props) {
+export default function NoResultsFoundPlaceholder({ hasAppliedFilters, hasSelectedView, onClearFilters }: Props) {
+    const clearText = useMemo(() => {
+        if (hasAppliedFilters && hasSelectedView) {
+            return 'clear filters and selected view';
+        }
+
+        if (hasAppliedFilters && !hasSelectedView) {
+            return 'clear filters';
+        }
+
+        if (hasSelectedView && !hasAppliedFilters) {
+            return 'clear selected view';
+        }
+
+        return undefined;
+    }, [hasAppliedFilters, hasSelectedView]);
+
     return (
         <Container>
             <Text color="gray" colorLevel={600} size="md">
                 No results found
             </Text>
             <Text color="gray" size="sm">
-                Try adjusting your search to display data
-                {hasAppliedFilters && (
+                Try adjusting your search to find what you&apos;re looking for
+                {clearText && (
                     <>
                         , or&nbsp;
                         <InlineButton variant="text" onClick={onClearFilters}>
-                            clear filters
+                            {clearText}
                         </InlineButton>
                         .
                     </>

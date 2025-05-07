@@ -1,7 +1,9 @@
 import React from 'react';
-import { DataHubView } from '../../../../types.generated';
-import { ViewOption } from './ViewOption';
-import { UserContextType } from '../../../context/userContext';
+
+import { UserContextType } from '@app/context/userContext';
+import { ViewOption } from '@app/entityV2/view/select/ViewOption';
+
+import { DataHubView } from '@types';
 
 const selectOptionStyle = { paddingLeft: 0 };
 

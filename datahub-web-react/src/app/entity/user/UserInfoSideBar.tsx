@@ -1,32 +1,35 @@
-import { getCountryName } from '@src/app/shared/sidebar/components';
-import { Divider, message, Space, Button, Typography, Tag } from 'antd';
-import React, { useEffect, useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
-import GlobeIcon from '../../../images/Globe.svg';
-import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
-import { EntityRelationship, DataHubRole } from '../../../types.generated';
-import UserEditProfileModal from './UserEditProfileModal';
-import CustomAvatar from '../../shared/avatar/CustomAvatar';
+import { Button, Divider, Space, Tag, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+
+import { useUserContext } from '@app/context/useUserContext';
+import EntityGroups from '@app/entity/shared/EntityGroups';
 import {
-    SideBar,
-    SideBarSubSection,
-    EmptyValue,
-    SocialDetails,
-    EditButton,
     AboutSection,
     AboutSectionText,
+    EditButton,
+    EmptyValue,
     GroupsSection,
-    Name,
-    TitleRole,
-    Team,
     LocationSection,
     LocationSectionText,
+    Name,
+    SideBar,
+    SideBarSubSection,
+    SocialDetails,
+    Team,
+    TitleRole,
     UserDetails,
-} from '../shared/SidebarStyledComponents';
-import EntityGroups from '../shared/EntityGroups';
-import { mapRoleIcon } from '../../identity/user/UserUtils';
-import { useUserContext } from '../../context/useUserContext';
-import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
+} from '@app/entity/shared/SidebarStyledComponents';
+import UserEditProfileModal from '@app/entity/user/UserEditProfileModal';
+import { mapRoleIcon } from '@app/identity/user/UserUtils';
+import { useBrowserTitle } from '@app/shared/BrowserTabTitleContext';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { getCountryName } from '@src/app/shared/sidebar/components';
+
+import { useUpdateCorpUserPropertiesMutation } from '@graphql/user.generated';
+import { DataHubRole, EntityRelationship } from '@types';
+
+import GlobeIcon from '@images/Globe.svg';
 
 const { Paragraph } = Typography;
 

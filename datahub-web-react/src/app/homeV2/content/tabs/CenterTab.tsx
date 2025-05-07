@@ -1,8 +1,9 @@
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Tooltip } from '@components';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { CountBadge } from './CountBadge';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { CountBadge } from '@app/homeV2/content/tabs/CountBadge';
 
 const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
     font-size: 14px;
@@ -14,13 +15,13 @@ const Tab = styled.div<{ selected: boolean; disabled: boolean }>`
     justify-content: space-between;
     ${(props) => !props.selected && `color: ${ANTD_GRAY[9]};`}
     ${(props) => props.disabled && `color: ${ANTD_GRAY[6]};`}
-    ${(props) => props.selected && 'background-color: #3F54D1;'}
+    ${(props) => props.selected && `background-color: ${props.theme.styles['primary-color']};`}
     ${(props) => props.selected && 'color: #ffffff;'}
     ${(props) =>
         !props.disabled &&
         `:hover {
             cursor: pointer;
-            ${!props.selected && 'color: #3F54D1;'}
+            ${!props.selected && `color: ${props.theme.styles['primary-color']};`}
         }`}
 `;
 

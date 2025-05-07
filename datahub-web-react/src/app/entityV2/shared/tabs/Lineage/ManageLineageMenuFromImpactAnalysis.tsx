@@ -1,12 +1,14 @@
 import { ArrowDownOutlined, ArrowUpOutlined, MoreOutlined } from '@ant-design/icons';
 import { Popover, Tooltip } from '@components';
-import { Direction } from '@src/app/lineage/types';
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { EntityType } from '../../../../../types.generated';
-import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '../../../../entity/shared/constants';
-import { MenuItemStyle } from '../../../../entity/view/menu/item/styledComponent';
+
+import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { Direction } from '@src/app/lineage/types';
+
+import { EntityType } from '@types';
 
 const DROPDOWN_Z_INDEX = 100;
 const POPOVER_Z_INDEX = 101;

@@ -1,6 +1,3 @@
-import InfoPopover from '@app/sharedV2/icons/InfoPopover';
-import React from 'react';
-import { Divider } from 'antd';
 import {
     BoldOutlined,
     ItalicOutlined,
@@ -11,13 +8,17 @@ import {
     UnorderedListOutlined,
 } from '@ant-design/icons';
 import { useActive, useCommands } from '@remirror/react';
+import { Divider } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { CommandButton } from './CommandButton';
-import { HeadingMenu } from './HeadingMenu';
-import { AddImageButton } from './AddImageButton';
-import { AddLinkButton } from './AddLinkButton';
-import { CodeBlockIcon, CodeIcon } from './Icons';
-import { REDESIGN_COLORS } from '../../../../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { AddImageButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/AddImageButton';
+import { AddLinkButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/AddLinkButton';
+import { CommandButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/CommandButton';
+import { HeadingMenu } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/HeadingMenu';
+import { CodeBlockIcon, CodeIcon } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/Icons';
+import InfoPopover from '@app/sharedV2/icons/InfoPopover';
 
 const Container = styled.div`
     position: sticky;
@@ -26,7 +27,7 @@ const Container = styled.div`
     background-color: ${REDESIGN_COLORS.LIGHT_GREY};
     border-top-left-radius: 4px;
     border-bottom-left-radius: 4px;
-    border-left: 2px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    border-left: 2px solid ${(props) => props.theme.styles['primary-color']};
     padding: 8px 20px !important;
     margin: 2px 14px 2px 12px;
     & button {

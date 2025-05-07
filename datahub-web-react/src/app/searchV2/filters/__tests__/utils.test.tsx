@@ -1,30 +1,33 @@
 import { FolderFilled } from '@ant-design/icons';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import React from 'react';
-import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '../../../../Mocks';
-import { EntityType } from '../../../../types.generated';
-import { getTestEntityRegistry } from '../../../../utils/test-utils/TestPageContainer';
-import { IconStyleType } from '../../../entity/Entity';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
-    getFilterEntity,
-    getNewFilters,
-    isFilterOptionSelected,
-    getFilterIconAndLabel,
     PlatformIcon,
+    canCreateViewFromFilters,
+    combineAggregations,
+    deduplicateAggregations,
+    filterEmptyAggregations,
+    filterOptionsWithSearch,
+    getFilterDisplayName,
+    getFilterEntity,
+    getFilterIconAndLabel,
+    getFilterOptions,
+    getNewFilters,
     getNumActiveFiltersForFilter,
     getNumActiveFiltersForGroupOfFilters,
-    combineAggregations,
-    filterEmptyAggregations,
-    getFilterOptions,
-    filterOptionsWithSearch,
-    canCreateViewFromFilters,
-    isAnyOptionSelected,
     getStructuredPropFilterDisplayName,
-    getFilterDisplayName,
-} from '../utils';
-import { ENTITY_SUB_TYPE_FILTER_NAME } from '../../utils/constants';
-import { FieldType, FilterField } from '../types';
+    isAnyOptionSelected,
+    isFilterOptionSelected,
+} from '@app/searchV2/filters/utils';
+import { ENTITY_SUB_TYPE_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { dataPlatform, dataPlatformInstance, dataset1, glossaryTerm1, user1 } from '@src/Mocks';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+
+import { AggregationMetadata, EntityType } from '@types';
 
 describe('filter utils - getNewFilters', () => {
     it('should get the correct list of filters when adding filters where the filter field did not already exist', () => {
@@ -353,6 +356,81 @@ describe('filter utils - filterEmptyAggregations', () => {
             { value: 'maggie', count: 5 },
             { value: 'john', count: 0 },
         ]);
+    });
+});
+
+describe('deduplicateAggregations() deduplicateAggregations method', () => {
+    // Happy Path Tests
+    describe('Happy Paths', () => {
+        it('should return an empty array when both baseAggs and secondaryAggs are empty', () => {
+            const baseAggs: AggregationMetadata[] = [];
+            const secondaryAggs: AggregationMetadata[] = [];
+            const result = deduplicateAggregations(baseAggs, secondaryAggs);
+            expect(result).toEqual([]);
+        });
+
+        it('should return secondaryAggs when baseAggs is empty', () => {
+            const baseAggs: AggregationMetadata[] = [];
+            const secondaryAggs: AggregationMetadata[] = [
+                { count: 0, value: 'value1' },
+                { count: 0, value: 'value2' },
+            ];
+            const result = deduplicateAggregations(baseAggs, secondaryAggs);
+            expect(result).toEqual(secondaryAggs);
+        });
+
+        it('should return an empty array when all secondaryAggs are in baseAggs', () => {
+            const baseAggs: AggregationMetadata[] = [
+                { count: 0, value: 'value1' },
+                { count: 0, value: 'value2' },
+            ];
+            const secondaryAggs: AggregationMetadata[] = [
+                { count: 1, value: 'value1' },
+                { count: 2, value: 'value2' },
+            ];
+            const result = deduplicateAggregations(baseAggs, secondaryAggs);
+            expect(result).toEqual([]);
+        });
+
+        it('should return only the unique secondaryAggs not present in baseAggs', () => {
+            const baseAggs: AggregationMetadata[] = [{ count: 0, value: 'value1' }];
+            const secondaryAggs: AggregationMetadata[] = [
+                { count: 0, value: 'value1' },
+                { count: 2, value: 'value2' },
+            ];
+            const result = deduplicateAggregations(baseAggs, secondaryAggs);
+            expect(result).toEqual([{ count: 2, value: 'value2' }]);
+        });
+    });
+
+    // Edge Case Tests
+    describe('Edge Cases', () => {
+        it('should handle case sensitivity correctly', () => {
+            const baseAggs: AggregationMetadata[] = [{ count: 0, value: 'Value1' }];
+            const secondaryAggs: AggregationMetadata[] = [
+                { count: 0, value: 'value1' },
+                { count: 0, value: 'Value2' },
+            ];
+            const result = deduplicateAggregations(baseAggs, secondaryAggs);
+            expect(result).toEqual([
+                { count: 0, value: 'value1' },
+                { count: 0, value: 'Value2' },
+            ]);
+        });
+
+        it('should handle large arrays efficiently', () => {
+            const baseAggs: AggregationMetadata[] = Array.from({ length: 1000 }, (_, i) => ({
+                count: 0,
+                value: `value${i}`,
+            }));
+            const secondaryAggs: AggregationMetadata[] = Array.from({ length: 2000 }, (_, i) => ({
+                count: 0,
+                value: `value${i}`,
+            }));
+            const result = deduplicateAggregations(baseAggs, secondaryAggs);
+            expect(result.length).toBe(1000);
+            expect(result[0]).toEqual({ count: 0, value: 'value1000' });
+        });
     });
 });
 
