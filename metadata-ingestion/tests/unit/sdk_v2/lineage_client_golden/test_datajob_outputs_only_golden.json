@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(airflow,transform_job,PROD)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),transform_job)",
     "changeType": "PATCH",
     "aspectName": "dataJobInputOutput",
     "aspect": {

@@ -276,7 +276,7 @@ class LineageClient:
         downstream_urn = parsed_result.out_tables[0]
 
         # Process all upstream tables found in the query
-        for i, upstream_table in enumerate(parsed_result.in_tables):
+        for upstream_table in parsed_result.in_tables:
             # Skip self-lineage
             if upstream_table == downstream_urn:
                 continue
@@ -298,12 +298,12 @@ class LineageClient:
                     if upstream_cols:
                         column_mapping[col_lineage.downstream.column] = upstream_cols
 
-            # Add lineage, including query text only for the first upstream
+            # Add lineage, including query text
             self.add_dataset_transform_lineage(
                 upstream=upstream_table,
                 downstream=downstream_urn,
                 column_lineage=column_mapping or None,
-                query_text=query_text if i == 0 else None,
+                query_text=query_text,
             )
 
     def add_datajob_lineage(
@@ -321,6 +321,9 @@ class LineageClient:
             upstreams: List of upstream datasets or datajobs that serve as inputs to the datajob
             downstreams: List of downstream datasets that are outputs of the datajob
         """
+
+        if not upstreams and not downstreams:
+            raise SdkUsageError("No upstreams or downstreams provided")
 
         datajob_urn = str(datajob)
         if not datajob_urn.startswith("urn:li:dataJob:"):
@@ -361,7 +364,4 @@ class LineageClient:
                     )
 
         # Apply the changes to the entity
-        if upstreams or downstreams:  # Only update if there are actual changes
-            self._client.entities.update(patch_builder)
-        else:
-            raise SdkUsageError("No upstreams or downstreams provided")
+        self._client.entities.update(patch_builder)

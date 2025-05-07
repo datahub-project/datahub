@@ -15,7 +15,12 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+    SqlParsingResult,
+)
 from tests.test_helpers import mce_helpers
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "lineage_client_golden"
@@ -419,6 +424,75 @@ def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_from_sql_golden.json")
 
 
+def test_add_dataset_lineage_from_sql_with_multiple_upstreams(
+    client: DataHubClient,
+) -> None:
+    """Test adding lineage for a dataset with multiple upstreams."""
+    lineage_client = LineageClient(client=client)
+
+    # Create minimal mock result with necessary info
+    mock_result = SqlParsingResult(
+        in_tables=[
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,products,PROD)",
+        ],
+        out_tables=[
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)"
+        ],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    column="product_name",
+                ),
+                upstreams=[
+                    ColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:snowflake,sales,PROD)",
+                        column="product_name",
+                    )
+                ],
+            ),
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(
+                    column="total_quantity",
+                ),
+                upstreams=[
+                    ColumnRef(
+                        table="urn:li:dataset:(urn:li:dataPlatform:snowflake,sales,PROD)",
+                        column="quantity",
+                    )
+                ],
+            ),
+        ],
+        query_type=QueryType.SELECT,
+        debug_info=MagicMock(error=None, table_error=None),
+    )
+
+    # Simple SQL that would produce the expected lineage
+    query_text = """
+    CREATE TABLE sales_summary AS
+    SELECT 
+        p.product_name,
+        SUM(s.quantity) as total_quantity,
+    FROM sales s
+    JOIN products p ON s.product_id = p.id
+    GROUP BY p.product_name
+    """
+
+    # Patch SQL parser and execute lineage creation
+    with patch(
+        "datahub.sql_parsing.sqlglot_lineage.create_lineage_sql_parsed_result",
+        return_value=mock_result,
+    ):
+        lineage_client.add_dataset_lineage_from_sql(
+            query_text=query_text, platform="snowflake", env="PROD"
+        )
+
+    # Validate against golden file
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_from_sql_multiple_upstreams_golden.json"
+    )
+
+
 def test_add_datajob_lineage(client: DataHubClient) -> None:
     """Test adding lineage for datajobs using DataJobPatchBuilder."""
     lineage_client = LineageClient(client=client)
@@ -453,7 +527,9 @@ def test_add_datajob_inputs_only(client: DataHubClient) -> None:
     lineage_client = LineageClient(client=client)
 
     # Define URNs for test
-    datajob_urn = "urn:li:dataJob:(airflow,process_job,PROD)"
+    datajob_urn = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
+    )
     input_dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
     )
@@ -473,7 +549,9 @@ def test_add_datajob_outputs_only(client: DataHubClient) -> None:
     lineage_client = LineageClient(client=client)
 
     # Define URNs for test
-    datajob_urn = "urn:li:dataJob:(airflow,transform_job,PROD)"
+    datajob_urn = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),transform_job)"
+    )
     output_dataset_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
     )
@@ -492,7 +570,9 @@ def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
     lineage_client = LineageClient(client=client)
 
     # Define URNs for test
-    datajob_urn = "urn:li:dataJob:(airflow,transform_job,PROD)"
+    datajob_urn = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),transform_job)"
+    )
     invalid_urn = "urn:li:glossaryNode:something"
 
     # Test with invalid datajob URN
