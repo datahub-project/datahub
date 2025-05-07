@@ -19,7 +19,7 @@ public class MappingsBuilderTest {
     Map<String, Object> result = MappingsBuilder.getMappings(aspectSpec);
     assertEquals(result.size(), 1);
     Map<String, Object> properties = (Map<String, Object>) result.get("properties");
-    assertEquals(properties.size(), 20);
+    assertEquals(properties.size(), 17);
     assertEquals(properties.get("actor"), ImmutableMap.of("type", "keyword"));
     assertEquals(properties.get("operationType"), ImmutableMap.of("type", "keyword"));
     assertEquals(properties.get("customOperationType"), ImmutableMap.of("type", "keyword"));
