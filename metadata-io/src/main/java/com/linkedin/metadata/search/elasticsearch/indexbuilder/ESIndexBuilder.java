@@ -561,6 +561,10 @@ public class ESIndexBuilder {
     }
 
     log.info("Reindex from {} to {} succeeded", indexState.name(), tempIndexName);
+    // set the original replica nb
+    setIndexReplicas(
+        tempIndexName,
+        Integer.parseInt((String) indexState.targetSettings().get("number_of_replicas")));
     renameReindexedIndices(
         _searchClient, indexState.name(), indexState.indexPattern(), tempIndexName, true);
     log.info("Finished setting up {}", indexState.name());
@@ -602,6 +606,14 @@ public class ESIndexBuilder {
             RequestOptions.DEFAULT);
   }
 
+  private void setIndexReplicas(String indexName, int numberOfReplicas) throws IOException {
+    UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
+    Settings settings =
+        Settings.builder().put("index.number_of_replicas", numberOfReplicas).build();
+    request.settings(settings);
+    _searchClient.indices().putSettings(request, RequestOptions.DEFAULT);
+  }
+
   private String submitReindex(
       String[] sourceIndices,
       String destinationIndex,
@@ -622,7 +634,8 @@ public class ESIndexBuilder {
     if (sourceFilterQuery != null) {
       reindexRequest.setSourceQuery(sourceFilterQuery);
     }
-
+    // make if faster by indexing to 0 replicas
+    setIndexReplicas(destinationIndex, 0);
     RequestOptions requestOptions =
         ESUtils.buildReindexTaskRequestOptions(
             gitVersion.getVersion(), sourceIndices[0], destinationIndex);
