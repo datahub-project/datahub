@@ -75,6 +75,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     );
 
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
+    const canProposeDomains = !!entityData?.privileges?.canProposeDomains;
 
     const removeDomain = (urnToRemoveFrom) => {
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
@@ -161,7 +162,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                             setShowModal(true);
                             event.stopPropagation();
                         }}
-                        actionPrivilege={canEditDomains}
+                        actionPrivilege={canEditDomains || canProposeDomains}
                     />
                 }
             />
@@ -172,6 +173,8 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                     onCloseModal={() => {
                         setShowModal(false);
                     }}
+                    canEdit={canEditDomains}
+                    canPropose={canProposeDomains}
                 />
             )}
             {selectedActionRequest && (

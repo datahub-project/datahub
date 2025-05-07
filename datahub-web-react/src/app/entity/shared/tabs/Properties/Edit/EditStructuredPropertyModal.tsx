@@ -43,6 +43,8 @@ interface Props {
     refetch?: () => void;
     isAddMode?: boolean;
     fieldEntity?: Maybe<SchemaFieldEntity>;
+    canEdit?: boolean;
+    canPropose?: boolean;
 }
 
 const SEARCH_SELECT_MODAL_WIDTH = 1400;
@@ -57,6 +59,8 @@ export default function EditStructuredPropertyModal({
     refetch,
     isAddMode,
     fieldEntity,
+    canEdit = true,
+    canPropose = true,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
     const { refetch: entityRefetch } = useEntityContext();
@@ -226,7 +230,7 @@ export default function EditStructuredPropertyModal({
                             variant: 'outline',
                             onClick: handlePropose,
                             type: 'button',
-                            disabled: !selectedValues.length,
+                            disabled: !canPropose || !selectedValues.length,
                             buttonDataTestId: 'propose-update-structured-prop-on-entity-button',
                         },
                         {
@@ -234,7 +238,7 @@ export default function EditStructuredPropertyModal({
                             key: isAddMode ? 'Add' : 'Update',
                             variant: 'filled',
                             onClick: upsertProperties,
-                            disabled: !selectedValues.length,
+                            disabled: !canEdit || !selectedValues.length,
                             buttonDataTestId: 'add-update-structured-prop-on-entity-button',
                         },
                     ]}

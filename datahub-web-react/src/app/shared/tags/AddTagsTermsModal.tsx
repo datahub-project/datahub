@@ -49,6 +49,10 @@ type EditTagsModalProps = {
     onOkOverride?: (result: string[]) => void;
     showPropose?: boolean;
     entityType?: EntityType;
+    canProposeTerm?: boolean;
+    canAddTerm?: boolean;
+    canProposeTag?: boolean;
+    canAddTag?: boolean;
 };
 
 const StyleTag = styled(CustomTag)`
@@ -134,6 +138,10 @@ export default function EditTagTermsModal({
     onOkOverride,
     showPropose = false,
     entityType,
+    canAddTerm = true,
+    canProposeTerm = true,
+    canAddTag = true,
+    canProposeTag = true,
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
     const { isInFormContext } = useEntityFormContext();
@@ -583,7 +591,7 @@ export default function EditTagTermsModal({
         key: 'Add',
         variant: 'filled',
         onClick: onOk,
-        disabled: urns.length === 0 || disableAction,
+        disabled: (type === EntityType.GlossaryTerm ? !canAddTerm : !canAddTag) || urns.length === 0 || disableAction,
         id: 'addTagButton',
         buttonDataTestId: 'add-tag-term-from-modal-btn',
     };
@@ -594,7 +602,8 @@ export default function EditTagTermsModal({
         variant: 'outline',
         type: 'button',
         onClick: handlePropose,
-        disabled: urns.length === 0 || disableAction,
+        disabled:
+            (type === EntityType.GlossaryTerm ? !canProposeTerm : !canProposeTag) || urns.length === 0 || disableAction,
         buttonDataTestId: 'create-proposal-btn',
     };
 

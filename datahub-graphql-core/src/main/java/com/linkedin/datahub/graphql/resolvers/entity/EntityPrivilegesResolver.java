@@ -189,6 +189,10 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         ProposalUtils.isAuthorizedToProposeDescription(context, urn, null));
     result.setCanProposeGlossaryTerms(ProposalUtils.isAuthorizedToProposeTerms(context, urn, null));
     result.setCanProposeTags(ProposalUtils.isAuthorizedToProposeTags(context, urn, null));
+    result.setCanProposeDomains(ProposalUtils.isAuthorizedToProposeDomains(context, urn));
+    result.setCanProposeOwners(ProposalUtils.isAuthorizedToProposeOwners(context, urn));
+    result.setCanProposeStructuredProperties(
+        ProposalUtils.isAuthorizedToProposeStructuredProperties(context, urn, null));
     result.setCanProposeSchemaFieldDescription(
         ProposalUtils.isAuthorizedToProposeDescription(context, urn, "ignored"));
     result.setCanProposeSchemaFieldGlossaryTerms(

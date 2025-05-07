@@ -87,6 +87,8 @@ export const SidebarTagsSection = ({ readOnly }: Props) => {
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                canAddTag={canEditTags}
+                canProposeTag={canProposeTags}
             />
         </div>
     );

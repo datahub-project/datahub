@@ -93,6 +93,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     }
 
     const canEditOwners = !!entityData?.privileges?.canEditOwners;
+    const canProposeOwners = !!entityData?.privileges?.canProposeOwners;
 
     return (
         <div id={ENTITY_PROFILE_OWNERS_ID}>
@@ -125,7 +126,7 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                                 setShowAddModal(true);
                                 event.stopPropagation();
                             }}
-                            actionPrivilege={canEditOwners}
+                            actionPrivilege={canEditOwners || canProposeOwners}
                             dataTestId="addOwner"
                         />
                     )
@@ -138,6 +139,8 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
                     hideOwnerType={properties?.hideOwnerType || false}
                     entityType={entityType}
                     refetch={refetch}
+                    canPropose={canProposeOwners}
+                    canEdit={canEditOwners}
                     onCloseModal={() => {
                         setShowAddModal(false);
                     }}

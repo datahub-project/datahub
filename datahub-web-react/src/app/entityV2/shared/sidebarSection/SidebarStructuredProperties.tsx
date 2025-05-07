@@ -41,7 +41,11 @@ interface Props {
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistryV2();
-    const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
+    const canEditProps =
+        !!entityData?.parent?.privileges?.canEditProperties || !!entityData?.privileges?.canEditProperties;
+    const canProposeProps =
+        !!entityData?.parent?.privileges?.canProposeStructuredProperties ||
+        !!entityData?.privileges?.canProposeStructuredProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
@@ -178,7 +182,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                             setIsPropModalVisible(true);
                                             event.stopPropagation();
                                         }}
-                                        actionPrivilege={!!canEditProps}
+                                        actionPrivilege={canEditProps || canProposeProps}
                                         dataTestId={`${propertyName}-add-or-edit-button`}
                                     />
                                 </>
@@ -202,6 +206,8 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                     refetch={isSchemaSidebar ? properties?.refetch : undefined}
                     associatedUrn={isSchemaSidebar ? properties?.fieldEntity?.urn : undefined}
                     fieldEntity={isSchemaSidebar ? properties?.fieldEntity : undefined}
+                    canEdit={canEditProps}
+                    canPropose={canProposeProps}
                 />
             )}
             {selectedActionRequest && (

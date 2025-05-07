@@ -14,6 +14,10 @@ type Props = {
     showAddModal: boolean;
     setShowAddModal: React.Dispatch<React.SetStateAction<boolean>>;
     addModalType: any;
+    canAddTerm?: boolean;
+    canProposeTerm?: boolean;
+    canAddTag?: boolean;
+    canProposeTag?: boolean;
 };
 
 export default function AddTagTerm({
@@ -25,6 +29,10 @@ export default function AddTagTerm({
     showAddModal,
     setShowAddModal,
     addModalType,
+    canAddTerm = true,
+    canProposeTerm = true,
+    canAddTag = true,
+    canProposeTag = true,
 }: Props) {
     return (
         <>
@@ -45,6 +53,10 @@ export default function AddTagTerm({
                         },
                     ]}
                     showPropose={shouldShowProposeButton(entityType)}
+                    canAddTerm={canAddTerm}
+                    canProposeTerm={canProposeTerm}
+                    canAddTag={canAddTag}
+                    canProposeTag={canProposeTag}
                 />
             )}
         </>

@@ -58,6 +58,8 @@ type Props = {
     onOkOverride?: (result: SelectedOwner[]) => void;
     title?: string;
     defaultValues?: { urn: string; entity?: Entity | null }[];
+    canPropose?: boolean;
+    canEdit?: boolean;
 };
 
 type SelectedOwner = {
@@ -79,6 +81,8 @@ export const EditOwnersModal = ({
     onOkOverride,
     title,
     defaultValues,
+    canEdit = true,
+    canPropose = true,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const mutationUrn = useMutationUrn();
@@ -434,15 +438,16 @@ export const EditOwnersModal = ({
                             type: 'button',
                             variant: 'outline',
                             onClick: handlePropose,
-                            disabled: !selectedOwners?.length,
+                            disabled: !canPropose || !selectedOwners?.length,
                             buttonDataTestId: 'propose-owners-on-entity-button',
                         },
                         {
                             text: 'Add',
                             key: 'Add',
+                            type: 'button',
                             variant: 'filled',
                             onClick: onOk,
-                            disabled: selectedOwners.length === 0,
+                            disabled: !canEdit || selectedOwners.length === 0,
                             id: 'addOwnerButton',
                         },
                     ]}

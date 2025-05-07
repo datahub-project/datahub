@@ -2228,6 +2228,9 @@ fragment entityPrivileges on EntityPrivileges {
     canProposeDescription
     canProposeTags
     canProposeGlossaryTerms
+    canProposeDomains
+    canProposeOwners
+    canProposeStructuredProperties
     canEditSchemaFieldTags
     canEditSchemaFieldGlossaryTerms
     canEditSchemaFieldDescription

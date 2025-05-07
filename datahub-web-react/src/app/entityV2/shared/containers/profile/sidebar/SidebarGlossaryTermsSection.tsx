@@ -90,6 +90,8 @@ export const SidebarGlossaryTermsSection = ({ readOnly }: Props) => {
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                canAddTerm={canEditGlossaryTerms}
+                canProposeTerm={canProposeGlossaryTerms}
             />
         </div>
     );

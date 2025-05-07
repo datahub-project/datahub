@@ -365,6 +365,21 @@ type EntityPrivileges {
   canProposeGlossaryTerms: Boolean
 
   """
+  Whether or not a user can propose structured properties
+  """
+  canProposeStructuredProperties: Boolean
+
+  """
+  Whether or not a user can propose domains
+  """
+  canProposeDomains: Boolean
+
+  """
+  Whether or not a user can propose owners
+  """
+  canProposeOwners: Boolean
+
+  """
   Whether or not a user can propose a schema field description for an asset
   """
   canProposeSchemaFieldDescription: Boolean

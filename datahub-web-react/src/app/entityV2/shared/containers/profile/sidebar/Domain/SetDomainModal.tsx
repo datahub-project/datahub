@@ -29,6 +29,8 @@ type Props = {
     defaultValue?: { urn: string; entity?: Entity | null };
     onOkOverride?: (result: string) => void;
     titleOverride?: string;
+    canEdit?: boolean;
+    canPropose?: boolean;
 };
 
 type SelectedDomain = {
@@ -37,7 +39,16 @@ type SelectedDomain = {
     urn: string;
 };
 
-export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOkOverride, titleOverride }: Props) => {
+export const SetDomainModal = ({
+    urns,
+    onCloseModal,
+    refetch,
+    defaultValue,
+    onOkOverride,
+    titleOverride,
+    canEdit = true,
+    canPropose = true,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const { refetch: entityRefetch } = useEntityContext();
     const mutationUrn = useMutationUrn();
@@ -239,7 +250,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             variant: 'outline',
                             type: 'button',
                             onClick: handlePropose,
-                            disabled: !selectedDomain,
+                            disabled: !canPropose || !selectedDomain,
                             buttonDataTestId: 'propose-domain-on-entity-button',
                         },
                         {
@@ -247,7 +258,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             key: 'Save',
                             variant: 'filled',
                             onClick: onOk,
-                            disabled: selectedDomain === undefined,
+                            disabled: !canEdit || selectedDomain === undefined,
                             id: 'setDomainButton',
                         },
                     ]}

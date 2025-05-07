@@ -70,6 +70,9 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
     const { entityType, entityData, loading } = useEntityData();
     const refetch = useRefetch();
 
+    const canEditDescription = entityData?.privileges?.canEditDescription;
+    const canProposeDescription = entityData?.privileges?.canProposeDescription;
+
     const shouldShowInferDocsAction = useShouldShowInferDocumentationButton(entityType);
 
     const updateEntity = useEntityUpdate<GenericEntityUpdate>();
@@ -303,8 +306,8 @@ export const DescriptionEditor = ({ inferOnMount, onComplete }: DescriptionEdito
                 onSave={handleSave}
                 onPropose={handlePropose}
                 onCancel={handleCancel}
-                disableSave={!isDescriptionUpdated}
-                showPropose={shouldShowProposeButton}
+                disableSave={!isDescriptionUpdated || !canEditDescription}
+                disablePropose={!shouldShowProposeButton || !isDescriptionUpdated || !canProposeDescription}
             />
             {showProposeModal && (
                 <ProposalDescriptionModal onPropose={proposeUpdate} onCancel={() => setShowProposeModal(false)} />
