@@ -17,8 +17,6 @@ DATAHUB_COMPONENT_ENV: str = os.getenv("DATAHUB_COMPONENT", "datahub").lower()
 class DatahubClientConfig(ConfigModel):
     """Configuration class for holding connectivity to datahub gms"""
 
-    # TODO: Having a default for the server doesn't make a ton of sense. This should be handled
-    # by callers / the CLI, but the actual client should not have any magic.
     server: str
     token: Optional[str] = None
     timeout_sec: Optional[float] = None
@@ -31,3 +29,6 @@ class DatahubClientConfig(ConfigModel):
     openapi_ingestion: Optional[bool] = None
     client_mode: Optional[ClientMode] = None
     datahub_component: Optional[str] = None
+
+    class Config:
+        extra = "ignore"
