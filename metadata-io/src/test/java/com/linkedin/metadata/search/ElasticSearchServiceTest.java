@@ -48,7 +48,7 @@ public class ElasticSearchServiceTest {
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            mock(opContext.getEntityRegistry()),
+            opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,

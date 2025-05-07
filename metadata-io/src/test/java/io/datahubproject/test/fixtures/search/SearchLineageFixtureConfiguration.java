@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -109,8 +110,23 @@ public class SearchLineageFixtureConfiguration {
 
   @Bean(name = "searchLineageEntitySearchService")
   protected ElasticSearchService entitySearchService(
-      @Qualifier("searchLineageEntityIndexBuilders") EntityIndexBuilders indexBuilders,
+      @Qualifier("searchLineageOperationContext") OperationContext opContext,
       final QueryFilterRewriteChain queryFilterRewriteChain) {
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    ESIndexBuilder indexBuilder =
+        new ESIndexBuilder(
+            searchClient,
+            1,
+            0,
+            1,
+            1,
+            Map.of(),
+            true,
+            false,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
+    SettingsBuilder settingsBuilder = new SettingsBuilder(null);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClient,
@@ -124,7 +140,14 @@ public class SearchLineageFixtureConfiguration {
             searchClient, searchConfiguration, customSearchConfiguration, queryFilterRewriteChain);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClient, bulkProcessor, 1);
 
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
+    return new ElasticSearchService(
+        indexBuilder,
+        opContext.getEntityRegistry(),
+        opContext.getSearchContext().getIndexConvention(),
+        settingsBuilder,
+        searchDAO,
+        browseDAO,
+        writeDAO);
   }
 
   @Bean(name = "searchLineageOperationContext")
@@ -203,8 +226,7 @@ public class SearchLineageFixtureConfiguration {
   @Nonnull
   protected SearchService searchService(
       @Qualifier("searchLineageOperationContext") OperationContext opContext,
-      @Qualifier("searchLineageEntitySearchService") ElasticSearchService entitySearchService,
-      @Qualifier("searchLineageEntityIndexBuilders") EntityIndexBuilders indexBuilders)
+      @Qualifier("searchLineageEntitySearchService") ElasticSearchService entitySearchService)
       throws IOException {
 
     int batchSize = 100;
@@ -224,7 +246,7 @@ public class SearchLineageFixtureConfiguration {
             ranker);
 
     // Build indices
-    indexBuilders.reindexAll(Collections.emptySet());
+    entitySearchService.reindexAll(Collections.emptySet());
 
     return service;
   }
