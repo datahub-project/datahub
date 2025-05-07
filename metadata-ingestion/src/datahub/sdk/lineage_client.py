@@ -3,6 +3,8 @@ from __future__ import annotations
 import difflib
 from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 
+from typing_extensions import assert_never
+
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
@@ -120,7 +122,7 @@ class LineageClient:
 
         if column_lineage is None:
             cll = None
-        elif column_lineage in ["auto_fuzzy", "auto_strict"]:
+        elif column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
             upstream_schema = self._get_fields_from_dataset_urn(upstream)
             downstream_schema = self._get_fields_from_dataset_urn(downstream)
             if column_lineage == "auto_fuzzy":
@@ -143,10 +145,7 @@ class LineageClient:
                 cll_mapping=column_lineage,
             )
         else:
-            raise SdkUsageError(
-                f"Invalid column lineage type: {type(column_lineage)}. "
-                "Expected None, dict, 'auto_fuzzy', or 'auto_strict'."
-            )
+            assert_never(column_lineage)
 
         updater = DatasetPatchBuilder(str(downstream))
         updater.add_upstream_lineage(
