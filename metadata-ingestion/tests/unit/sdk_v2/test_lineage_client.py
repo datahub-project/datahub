@@ -12,7 +12,6 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
-from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
 from datahub.sql_parsing.sql_parsing_common import QueryType
@@ -391,19 +390,6 @@ def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
 
     lineage_client = LineageClient(client=client)
 
-    # Create upstream and downstream datasets
-    client.entities.upsert(
-        Dataset(
-            platform="snowflake",
-            name="orders",
-            env="PROD",
-            schema=[("price", "float"), ("qty", "int"), ("unit_cost", "float")],
-        )
-    )
-    client.entities.upsert(
-        Dataset(platform="snowflake", name="sales_summary", env="PROD")
-    )
-
     # Create minimal mock result with necessary info
     mock_result = SqlParsingResult(
         in_tables=["urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)"],
@@ -416,7 +402,9 @@ def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
     )
 
     # Simple SQL that would produce the expected lineage
-    query_text = "SELECT price, qty, unit_cost FROM orders"
+    query_text = (
+        "create table sales_summary as SELECT price, qty, unit_cost FROM orders"
+    )
 
     # Patch SQL parser and execute lineage creation
     with patch(

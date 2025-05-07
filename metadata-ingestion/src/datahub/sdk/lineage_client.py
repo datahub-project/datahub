@@ -263,9 +263,6 @@ class LineageClient:
             schema_aware=schema_aware,
         )
 
-        # Validate parsing result
-        if not parsed_result:
-            raise SdkUsageError("Failed to parse SQL query: Unable to parse")
         if parsed_result.debug_info.error:
             raise SdkUsageError(
                 f"Failed to parse SQL query: {parsed_result.debug_info.error}"
@@ -366,3 +363,5 @@ class LineageClient:
         # Apply the changes to the entity
         if upstreams or downstreams:  # Only update if there are actual changes
             self._client.entities.update(patch_builder)
+        else:
+            raise SdkUsageError("No upstreams or downstreams provided")
