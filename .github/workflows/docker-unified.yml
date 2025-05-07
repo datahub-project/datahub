@@ -254,12 +254,12 @@ jobs:
           echo "build_id=${DEPOT_BUILD_ID}" >> "$GITHUB_OUTPUT"
           echo "matrix=$(jq -c '{"target":.["depot.build"].targets}' ${{ github.workspace }}/build/build-metadata.json)" >> $GITHUB_OUTPUT
 
-      - name: Login to DockerHub
+      - name: Login to ACRYLIO DockerHub
         uses: docker/login-action@v3
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
-          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
 
       - name: Build Saas Images (Publish - ACRYLIO)
         if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
