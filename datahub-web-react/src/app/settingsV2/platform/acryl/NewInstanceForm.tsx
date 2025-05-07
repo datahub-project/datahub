@@ -22,6 +22,7 @@ import {
 } from '@app/settingsV2/platform/acryl/utils';
 import { FormItemTitle, StyledButton, StyledFormItem } from '@app/shared/share/v2/styledComponents';
 import { BackButton } from '@app/sharedV2/buttons/BackButton';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { useUpdateConnectionMutation, useUpsertConnectionMutation } from '@graphql/connection.generated';
 import { DataHubConnection, DataHubConnectionDetailsType, SearchAcrossEntitiesInput, SearchResults } from '@types';
@@ -87,6 +88,7 @@ interface Props {
 const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inputs, searchAcrossEntities }: Props) => {
     const [form] = Form.useForm();
     const history = useHistory();
+    const { theme } = useCustomTheme();
 
     const [upsertConnection] = useUpsertConnectionMutation();
     const [updateConnection] = useUpdateConnectionMutation();
@@ -268,11 +270,11 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
             <FooterContainer>
                 <StyledDivider />
                 <ButtonsContainer>
-                    <StyledButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={onCancelAdd}>
+                    <StyledButton $color={theme?.styles['primary-color']} onClick={onCancelAdd}>
                         Cancel
                     </StyledButton>
                     <StyledButton
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
+                        $color={theme?.styles['primary-color']}
                         $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
                         $type="filled"
                         form="upsertInstanceForm"

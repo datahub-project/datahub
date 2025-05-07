@@ -26,7 +26,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
 
         &:focus,
         &-focused {
-            border-color: ${colors.violet[500]};
+            border-color: ${(props) => props.theme.styles['primary-color']};
             box-shadow: 0px 0px 0px 2px ${colors.violet[100]};
         }
     }
@@ -60,7 +60,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
     }
 
     &.ant-input-affix-wrapper-focused {
-        border-color: ${colors.violet[500]};
+        border-color: ${(props) => props.theme.styles['primary-color']};
         box-shadow: 0px 0px 0px 2px ${colors.violet[100]};
     }
 `;

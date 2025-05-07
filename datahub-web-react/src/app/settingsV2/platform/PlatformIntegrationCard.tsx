@@ -2,8 +2,6 @@ import { Button, Divider, Image, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
 const Container = styled.div`
     display: flex;
     justify-content: left;
@@ -28,7 +26,7 @@ const ImageContainer = styled.div`
 const NameContainer = styled.div`
     font-size: 18px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
 `;
 
 const TitleContainer = styled.div``;

@@ -41,7 +41,7 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                             title="Optionally provide a dot-separated fully qualified name for this property. This name serves as an ID, and must be unique across properties"
                             showArrow={false}
                         >
-                            <Icon icon="Info" color="violet" size="lg" />
+                            <Icon icon="Info" color="primary" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </InputLabel>

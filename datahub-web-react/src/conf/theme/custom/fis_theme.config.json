@@ -1,10 +1,10 @@
 {
     "styles": {
-        "primary-color": "#533FD1",
-        "primary-color-dark": "#5C3FD1",
-        "primary-color-light": "#ece9f8",
-        "primary-color-gradient": "#705EE4",
-        "link-color": "#533FD1",
+        "primary-color": "#431C5B",
+        "primary-color-dark": "#431C5B",
+        "primary-color-light": "#E4D0F1",
+        "primary-color-gradient": "#6D2E94",
+        "link-color": "#431C5B",
         "layout-header-background": "white",
         "layout-header-color": "#434343",
         "layout-body-background": "white",
@@ -28,8 +28,48 @@
         "highlight-color": "#ece9f8",
         "highlight-border-color": "#07878180"
     },
+    "colors": {
+        "primary": {
+            "0": "#FBF7FD",
+            "100": "#E4D0F1",
+            "200": "#AC6FD3",
+            "300": "#6D2E94",
+            "400": "#532371",
+            "500": "#431C5B",
+            "600": "#431C5B",
+            "700": "#431C5B",
+            "800": "#431C5B",
+            "900": "#431C5B",
+            "1000": "#431C5B",
+            "1100": "#431C5B"
+        },
+        "glossaryPalette": [
+            "#312E81",
+            "#431C5B",
+            "#174913",
+            "#7A2E0E",
+            "#7A271A",
+            "#4338CA",
+            "#6D2E94",
+            "#277A1F",
+            "#B54708",
+            "#B42318"
+        ],
+        "domainPalette": [
+            "#312E81",
+            "#431C5B",
+            "#174913",
+            "#7A2E0E",
+            "#7A271A",
+            "#4338CA",
+            "#6D2E94",
+            "#277A1F",
+            "#B54708",
+            "#B42318"
+        ]
+    },
     "assets": {
-        "logoUrl": "/assets/logo.png"
+        "logoUrl": "/assets/logos/custom/fis-logo.png"
     },
     "content": {
         "title": "DataHub",
@@ -43,7 +83,7 @@
             "items": [
                 {
                     "label": "DataHub Project",
-                    "path": "https://docs.datahub.com",
+                    "path": "https://datahubproject.io",
                     "shouldOpenInNewTab": true,
                     "description": "Explore DataHub Project website"
                 },

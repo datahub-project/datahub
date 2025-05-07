@@ -13,6 +13,7 @@ import { PLATFORM_CONNECTION_URN } from '@app/shared/constants';
 import { ModalTitle, StyledCheckbox, StyledModal } from '@app/shared/share/v2/styledComponents';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { useShareEntityMutation, useUnshareEntityMutation } from '@graphql/share.generated';
@@ -38,13 +39,13 @@ const StyledSelect = styled(Select)`
     padding-top: 8px;
 
     .ant-select-selector {
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE} !important;
+        border: 1px solid ${(p) => p.theme.styles['primary-color']} !important;
         display: flex;
         align-items: center;
     }
 
     .ant-select-selection-placeholder {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => p.theme.styles['primary-color']};
         font-size: 14px;
         font-weight: 500;
     }
@@ -146,6 +147,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
     const [instancesToShare, setInstancesToShare] = useState<string[]>([]);
     const [selectedInstances, setSelectedInstances] = useState<string[]>([]);
     const [shouldShareLineage, setShouldShareLineage] = useState(false);
+    const { theme } = useCustomTheme();
 
     const entityRegistry = useEntityRegistryV2();
     const { urn, entityType, entityData, refetch } = useEntityContext();
@@ -417,7 +419,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                                 {options.map((option) => (
                                     <ListOption key={option.value} onClick={() => handleSelectionChange(option.value)}>
                                         <StyledCheckbox
-                                            $color={REDESIGN_COLORS.TITLE_PURPLE}
+                                            $color={theme?.styles['primary-color']}
                                             checked={instancesToShare.includes(option.value)}
                                             onChange={() => handleSelectionChange(option.value)}
                                         />
@@ -434,7 +436,7 @@ export default function ShareModal({ isModalVisible, closeModal }: Props) {
                 <ButtonContainer>
                     <LineageBoxWrapper>
                         <StyledCheckbox
-                            $color={REDESIGN_COLORS.TITLE_PURPLE}
+                            $color={theme?.styles['primary-color']}
                             checked={shouldShareLineage}
                             onChange={() => setShouldShareLineage(!shouldShareLineage)}
                         />

@@ -125,7 +125,7 @@ export const IncidentLinkedAssetsList = ({
                                             key={asset.urn}
                                             label={entityRegistry.getDisplayName(asset.type, asset)}
                                             rightIcon="Close"
-                                            color="violet"
+                                            color="primary"
                                             variant="outline"
                                             onClickRightIcon={() => {
                                                 removeLinkedAsset(asset);

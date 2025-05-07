@@ -130,7 +130,7 @@ const ManageTags = () => {
                     mouseLeaveDelay={0.1}
                 >
                     <span>
-                        <Button size="md" color="violet" icon={{ icon: 'Plus', source: 'phosphor' }} disabled>
+                        <Button size="md" color="primary" icon={{ icon: 'Plus', source: 'phosphor' }} disabled>
                             Create Tag
                         </Button>
                     </span>
@@ -142,7 +142,7 @@ const ManageTags = () => {
             <Button
                 onClick={() => setShowCreateTagModal(true)}
                 size="md"
-                color="violet"
+                color="primary"
                 icon={{ icon: 'Plus', source: 'phosphor' }}
             >
                 Create Tag

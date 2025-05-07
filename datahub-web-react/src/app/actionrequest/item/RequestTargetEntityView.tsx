@@ -3,7 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { ActionRequest } from '@types';
 
@@ -13,6 +13,7 @@ interface Props {
 
 function RequestTargetEntityView({ actionRequest }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { theme } = useCustomTheme();
 
     const requestTargetEntityType = actionRequest.entity?.type;
     if (!requestTargetEntityType) return null;
@@ -24,7 +25,7 @@ function RequestTargetEntityView({ actionRequest }: Props) {
         <>
             <Link
                 to={`/${entityRegistry.getPathName(requestTargetEntityType)}/${actionRequest.entity?.urn}`}
-                style={{ color: REDESIGN_COLORS.TITLE_PURPLE }}
+                style={{ color: theme?.styles['primary-color'] }}
             >
                 {requestTargetDisplayName}
             </Link>

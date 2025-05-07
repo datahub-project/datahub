@@ -1,8 +1,6 @@
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { colors } from '@src/alchemy-components';
-
 export const ContentWrapper = styled.div`
     font-size: 14px;
     display: inline-flex;
@@ -12,11 +10,11 @@ export const ContentWrapper = styled.div`
 `;
 
 export const StyledLink = styled(Link)`
-    color: ${colors.violet[500]};
+    color: ${(props) => props.theme.styles['primary-color']};
     font-weight: 500;
 
     :hover {
-        color: ${colors.violet[500]};
+        color: ${(props) => props.theme.styles['primary-color']};
         text-decoration: underline;
     }
 `;

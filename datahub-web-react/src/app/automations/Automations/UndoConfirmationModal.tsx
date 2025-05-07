@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ModalTitle, StyledButton, StyledModal } from '@app/shared/share/v2/styledComponents';
+import { useCustomTheme } from '@src/customThemeContext';
 
 const Container = styled.div`
     display: flex;
@@ -37,6 +38,8 @@ interface Props {
 }
 
 export const UndoConfirmationModal = ({ showUndoConfirmation, handleClose, handleUndo }: Props) => {
+    const { theme } = useCustomTheme();
+
     return (
         <StyledModal
             open={showUndoConfirmation}
@@ -49,12 +52,12 @@ export const UndoConfirmationModal = ({ showUndoConfirmation, handleClose, handl
                 <Header>Undoing the Automation</Header>
                 <Content>Are you sure you want to undo the automation?</Content>
                 <ButtonsContainer>
-                    <StyledButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={handleUndo}>
+                    <StyledButton $color={theme?.styles['primary-color']} onClick={handleUndo}>
                         Yes
                     </StyledButton>
                     <StyledButton
                         $type="filled"
-                        $color={REDESIGN_COLORS.TITLE_PURPLE}
+                        $color={theme?.styles['primary-color']}
                         $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
                         onClick={handleClose}
                     >

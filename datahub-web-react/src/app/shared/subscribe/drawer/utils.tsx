@@ -1,5 +1,5 @@
 import { CheckCircleFilled, QuestionCircleOutlined } from '@ant-design/icons';
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import { Typography, message, notification } from 'antd';
 import { DataNode } from 'antd/lib/tree';
 import _ from 'lodash';
@@ -9,6 +9,7 @@ import styled from 'styled-components/macro';
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { ActorTypes } from '@app/settings/personal/notifications/constants';
+import { Theme } from '@conf/theme/types';
 
 import {
     useCreateSubscriptionMutation,
@@ -330,12 +331,14 @@ export const deleteSubscriptionFunction = ({
     deleteSubscription,
     onSuccess,
     onRefetch,
+    theme,
 }: {
     subscription: DataHubSubscription;
     isPersonal: boolean;
     deleteSubscription: ReturnType<typeof useDeleteSubscriptionMutation>[0];
     onSuccess?: () => void;
     onRefetch?: () => void;
+    theme?: Theme;
 }) => {
     deleteSubscription({
         variables: {
@@ -362,7 +365,7 @@ export const deleteSubscriptionFunction = ({
                 description,
                 placement: 'bottomLeft',
                 duration: 3,
-                icon: <CheckCircleFilled style={{ color: colors.violet[500] }} />,
+                icon: <CheckCircleFilled style={{ color: theme?.styles['primary-color'] }} />,
             });
             if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
@@ -397,6 +400,7 @@ export const createSubscriptionFunction = ({
     notificationSettings,
     onSuccess,
     onRefetch,
+    theme,
 }: {
     createSubscription: ReturnType<typeof useCreateSubscriptionMutation>[0];
     isPersonal: boolean;
@@ -408,6 +412,7 @@ export const createSubscriptionFunction = ({
     notificationSettings: NotificationSettingsInput;
     onSuccess?: () => void;
     onRefetch?: () => void;
+    theme?: Theme;
 }) => {
     const input = {
         groupUrn,
@@ -444,7 +449,7 @@ export const createSubscriptionFunction = ({
                 description,
                 placement: 'bottomLeft',
                 duration: 3,
-                icon: <CheckCircleFilled style={{ color: colors.violet[500] }} />,
+                icon: <CheckCircleFilled style={{ color: theme?.styles['primary-color'] }} />,
             });
             if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
         })
@@ -509,6 +514,7 @@ export const updateSubscriptionFunction = ({
     entityChangeTypes,
     notificationSettings,
     onRefetch,
+    theme,
 }: {
     updateSubscription: ReturnType<typeof useUpdateSubscriptionMutation>[0];
     isPersonal: boolean;
@@ -518,6 +524,7 @@ export const updateSubscriptionFunction = ({
     entityChangeTypes: Array<EntityChangeDetails>;
     notificationSettings: NotificationSettingsInput;
     onRefetch?: () => void;
+    theme?: Theme;
 }) => {
     const entityChangeTypesAdded = _.difference(
         entityChangeTypes.map((details) => details.entityChangeType),
@@ -575,7 +582,7 @@ export const updateSubscriptionFunction = ({
                     description,
                     placement: 'bottomLeft',
                     duration: 3,
-                    icon: <CheckCircleFilled style={{ color: colors.violet[500] }} />,
+                    icon: <CheckCircleFilled style={{ color: theme?.styles['primary-color'] }} />,
                 });
                 if (onRefetch) window.setTimeout(onRefetch, REFETCH_DELAY);
             })

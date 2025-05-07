@@ -1,4 +1,5 @@
 import { deleteSubscriptionFunction } from '@app/shared/subscribe/drawer/utils';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { useDeleteSubscriptionMutation } from '@graphql/subscriptions.generated';
 import { DataHubSubscription } from '@types';
@@ -12,6 +13,7 @@ type Props = {
 
 const useDeleteSubscription = ({ subscription, isPersonal, onDeleteSuccess, onRefetch }: Props) => {
     const [deleteSubscription] = useDeleteSubscriptionMutation();
+    const { theme } = useCustomTheme();
 
     return () => {
         if (subscription?.subscriptionUrn)
@@ -21,6 +23,7 @@ const useDeleteSubscription = ({ subscription, isPersonal, onDeleteSuccess, onRe
                 deleteSubscription,
                 onSuccess: onDeleteSuccess,
                 onRefetch,
+                theme,
             });
     };
 };

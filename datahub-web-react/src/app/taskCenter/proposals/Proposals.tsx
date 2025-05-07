@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 import { ProposalGroupTab } from '@app/taskCenter/proposals/ProposalGroupTab';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 import { ActionRequestAssignee, AssigneeType, CorpGroup } from '@types';
 
@@ -14,10 +13,10 @@ const StyledTabs = styled(Tabs)`
         padding-left: 28px;
     }
     &&& .ant-tabs-nav-list .ant-tabs-ink-bar {
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(p) => p.theme.styles['primary-color']};
     }
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => p.theme.styles['primary-color']};
     }
 
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn,

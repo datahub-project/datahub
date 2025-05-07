@@ -5,6 +5,8 @@ import { IconProps, IconPropsDefaults } from '@components/components/Icon/types'
 import { getIconComponent, getIconNames } from '@components/components/Icon/utils';
 import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
 
+import { useCustomTheme } from '@src/customThemeContext';
+
 export const iconDefaults: IconPropsDefaults = {
     source: 'material',
     variant: 'outline',
@@ -23,6 +25,7 @@ export const Icon = ({
     ...props
 }: IconProps) => {
     const { filled, outlined } = getIconNames();
+    const { theme } = useCustomTheme();
 
     // Return early if no icon is provided
     if (!icon) return null;
@@ -49,9 +52,9 @@ export const Icon = ({
             <IconComponent
                 sx={{
                     fontSize: getFontSize(size),
-                    color: getColor(color),
+                    color: getColor(color, undefined, theme),
                 }}
-                style={{ color: getColor(color) }}
+                style={{ color: getColor(color, undefined, theme) }}
             />
         </IconWrapper>
     );

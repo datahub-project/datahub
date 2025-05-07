@@ -58,7 +58,7 @@ const DepthContainer = styled.div`
 const DepthNumber = styled(Typography.Text)`
     margin-left: 4px;
     background: transparent;
-    color: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     font-size: 10px;
     font-weight: 400;
 `;

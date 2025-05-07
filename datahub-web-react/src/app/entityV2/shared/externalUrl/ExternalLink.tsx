@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { Popover, colors } from '@src/alchemy-components';
+import { Popover } from '@src/alchemy-components';
 import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
 
 const Link = styled.a`
@@ -15,7 +15,7 @@ const Link = styled.a`
     padding: 4px 6px;
 
     background: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};
-    color: ${colors.violet[500]};
+    color: ${(props) => props.theme.styles['primary-color']};
 
     max-width: 215px;
     width: fit-content;

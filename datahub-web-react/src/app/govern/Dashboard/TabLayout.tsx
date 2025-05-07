@@ -33,11 +33,11 @@ const StyledTabs = styled(Tabs)<{ isThemeV2: boolean }>`
         props.isThemeV2 &&
         `
         .ant-tabs-tab-active .ant-tabs-tab-btn {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            color: ${(p) => p.theme.styles['primary-color']};
         }
 
         .ant-tabs-ink-bar {
-            background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            background-color: ${(p) => p.theme.styles['primary-color']};
         }
     `}
 

@@ -33,7 +33,7 @@ export const ToggleCard = ({
                     disabled={disabled}
                     isChecked={value}
                     onChange={(e) => onToggle(e.target.checked)}
-                    colorScheme="violet"
+                    colorScheme="primary"
                     label=""
                     labelStyle={{ display: 'none' }}
                     data-testid={toggleDataTestId}

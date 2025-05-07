@@ -54,7 +54,7 @@ function TabView({ tab }: { tab: Tab }) {
         <Tooltip title={tab.tooltip}>
             <TabViewWrapper id={tab.id}>
                 {tab.name}
-                {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="violet" />}
+                {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="primary" />}
             </TabViewWrapper>
         </Tooltip>
     );

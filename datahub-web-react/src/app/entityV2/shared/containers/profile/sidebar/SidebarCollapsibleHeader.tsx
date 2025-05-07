@@ -69,7 +69,7 @@ const PillDot = styled.div<{ $isSelected?: boolean }>`
     position: absolute;
     width: 10px;
     height: 10px;
-    background: ${colors.violet[500]};
+    background: ${(props) => props.theme.styles['primary-color']};
     border-radius: 6px;
     border: 2px solid ${(props) => (props.$isSelected ? '#f9fafc' : '#f2f3fa')};
     top: -2px;

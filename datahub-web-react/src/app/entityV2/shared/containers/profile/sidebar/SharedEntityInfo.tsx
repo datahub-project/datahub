@@ -20,6 +20,7 @@ import { StyledButton, StyledCheckbox } from '@app/shared/share/v2/styledCompone
 import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { ShareResult } from '@types';
 
@@ -179,6 +180,7 @@ export const SharedEntityInfo = ({
     const { entityData } = useEntityContext();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
+    const { theme } = useCustomTheme();
 
     // Sort the list
     const sortedResults = sortSharedList(lastShareResults);
@@ -215,7 +217,7 @@ export const SharedEntityInfo = ({
                 </Heading>
                 {!isImplicitList && selectedInstances.length > 0 && (
                     <ButtonContainer>
-                        <StyledButton $color={REDESIGN_COLORS.TITLE_PURPLE} onClick={() => setSelectedInstances([])}>
+                        <StyledButton $color={theme?.styles['primary-color']} onClick={() => setSelectedInstances([])}>
                             Clear
                         </StyledButton>
                     </ButtonContainer>
@@ -342,7 +344,7 @@ export const SharedEntityInfo = ({
                                 result?.implicitShareEntity?.type &&
                                 result?.implicitShareEntity?.urn && (
                                     <StyledButton
-                                        $color={REDESIGN_COLORS.TITLE_PURPLE}
+                                        $color={theme?.styles['primary-color']}
                                         onClick={() =>
                                             history.push(
                                                 `${entityRegistry.getEntityUrl(

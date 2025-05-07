@@ -6,6 +6,7 @@ import {
     removeNestedTypeNames,
     updateSubscriptionFunction,
 } from '@app/shared/subscribe/drawer/utils';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { useGetDatasetAssertionsWithMonitorsQuery } from '@graphql/monitor.generated';
 import { useUpdateSubscriptionMutation } from '@graphql/subscriptions.generated';
@@ -71,6 +72,7 @@ export function useRemoveAssertionFromAssetLevelSubscription({
     entityType,
     onRefetch,
 }: UseRemoveAssertionFromAssetLevelSubscriptionParams) {
+    const { theme } = useCustomTheme();
     const { data } = useGetDatasetAssertionsWithMonitorsQuery({
         variables: { urn: entityUrn },
         fetchPolicy: 'cache-first',
@@ -148,6 +150,7 @@ export function useRemoveAssertionFromAssetLevelSubscription({
             entityChangeTypes: removeNestedTypeNames(entityChangeDetails),
             notificationSettings,
             onRefetch,
+            theme,
         });
     };
 

@@ -89,7 +89,7 @@ const Instance = styled.div`
     gap: 16px;
     font-size: 20px;
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     border-radius: 18px;
     padding: 12px;
     border: 1px solid transparent;
@@ -102,7 +102,7 @@ const Instance = styled.div`
 
     :hover {
         cursor: pointer;
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+        border: 1px solid ${(p) => p.theme.styles['primary-color']};
 
         ${DeleteIcon} {
             display: block !important;
@@ -120,8 +120,8 @@ const PrimaryButton = styled(Button)`
     color: ${REDESIGN_COLORS.WHITE};
     font-size: 12px;
     box-shadow: none;
-    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    border-color: ${(p) => p.theme.styles['primary-color']};
+    background-color: ${(p) => p.theme.styles['primary-color']};
     margin-left: 9px;
     padding: 10px 20px;
     display: flex;
@@ -136,8 +136,8 @@ const PrimaryButton = styled(Button)`
     &:hover {
         transition: 0.15s;
         opacity: 0.9;
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        border-color: ${(p) => p.theme.styles['primary-color']};
+        background-color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 

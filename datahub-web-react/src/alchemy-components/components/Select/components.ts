@@ -220,8 +220,8 @@ export const ArrowIcon = styled.span<{ isOpen: boolean }>(({ isOpen }) => ({
 
 export const StyledCheckbox = styled(Checkbox)({
     '.ant-checkbox-checked:not(.ant-checkbox-disabled) .ant-checkbox-inner': {
-        backgroundColor: colors.violet[500],
-        borderColor: `${colors.violet[500]} !important`,
+        backgroundColor: `${(props) => props.theme.styles['primary-color']}`,
+        borderColor: `${(props) => props.theme.styles['primary-color']} !important`,
     },
 });
 

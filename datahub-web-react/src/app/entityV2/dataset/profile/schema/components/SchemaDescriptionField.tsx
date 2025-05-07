@@ -45,7 +45,7 @@ const InferDescriptionButton = styled(Button)`
     justify-content: flex-start;
     span,
     path {
-        color: ${colors.violet[500]} !important;
+        color: ${(props) => props.theme.styles['primary-color']} !important;
     }
     &:hover {
         background-color: ${colors.gray[100]} !important;

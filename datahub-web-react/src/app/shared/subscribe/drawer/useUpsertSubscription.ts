@@ -9,6 +9,7 @@ import {
     removeNestedTypeNames,
     updateSubscriptionFunction,
 } from '@app/shared/subscribe/drawer/utils';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { useCreateSubscriptionMutation, useUpdateSubscriptionMutation } from '@graphql/subscriptions.generated';
 import {
@@ -168,6 +169,7 @@ const useUpsertSubscription = ({
     onRefetch,
     forSubResource,
 }: UseUpsertSubScriptionParams) => {
+    const { theme } = useCustomTheme();
     const {
         isPersonal,
         notificationTypes: { checkedKeys, keysWithAllFilteringCleared },
@@ -221,6 +223,7 @@ const useUpsertSubscription = ({
             notificationSettings,
             onSuccess: onCreateSuccess,
             onRefetch,
+            theme,
         });
     };
 
@@ -234,6 +237,7 @@ const useUpsertSubscription = ({
             entityChangeTypes: entityChangeDetails,
             notificationSettings,
             onRefetch,
+            theme,
         });
     };
 

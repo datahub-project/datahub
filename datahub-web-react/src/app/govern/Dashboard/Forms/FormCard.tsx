@@ -39,7 +39,7 @@ const StyledMoreIcon = styled(MoreVertOutlinedIcon)`
     padding: 3px;
 
     :hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 
@@ -64,7 +64,7 @@ const CardContainer = styled.div`
     position: relative;
 
     :hover {
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+        border: 1px solid ${(p) => p.theme.styles['primary-color']};
 
         ${OptionsDropdown} {
             display: block !important;

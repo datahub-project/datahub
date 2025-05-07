@@ -13,6 +13,7 @@ import {
 } from '@app/settingsV2/platform/teams/utils';
 import { FormItemTitle, StyledButton, StyledFormItem } from '@app/shared/share/v2/styledComponents';
 import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { useConnectionQuery, useUpsertConnectionMutation } from '@graphql/connection.generated';
 import { DataHubConnectionDetailsType } from '@types';
@@ -48,6 +49,7 @@ const ItemSubtext = styled.div`
 
 export const TeamsIntegration = () => {
     const [webhookURL, setWebhookURL] = useState<string>('');
+    const { theme } = useCustomTheme();
 
     const [upsertConnection] = useUpsertConnectionMutation();
 
@@ -116,7 +118,7 @@ export const TeamsIntegration = () => {
                             data-testid="connect-to-teams-button"
                             type="primary"
                             disabled={!webhookURL}
-                            $color={REDESIGN_COLORS.TITLE_PURPLE}
+                            $color={theme?.styles['primary-color']}
                             $hoverColor={REDESIGN_COLORS.HOVER_PURPLE}
                             $type="filled"
                         >

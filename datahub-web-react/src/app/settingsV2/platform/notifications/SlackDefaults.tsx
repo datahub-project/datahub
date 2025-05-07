@@ -9,6 +9,7 @@ import { SLACK_CONNECTION_URN } from '@app/settingsV2/platform/slack/constants';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
+import { useCustomTheme } from '@src/customThemeContext';
 
 const InputDiv = styled.div`
     width: 360px;
@@ -57,6 +58,7 @@ interface Props {
 
 export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botToken }: Props) => {
     const hasChannel = !!channel;
+    const { theme } = useCustomTheme();
     const [editing, setEditing] = useState<boolean>(isSlackEnabled && !hasChannel);
     const [inputValue, setInputValue] = useState<string | undefined>(channel);
     const [isChannelUpdated, setIsChannelUpdated] = useState<boolean>(false);
@@ -151,7 +153,7 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
                 (isAdminAccess ? (
                     <MessageDiv>
                         Slack is currently disabled.&nbsp;
-                        <Link to="/settings/integrations/slack" style={{ color: colors.violet[500] }}>
+                        <Link to="/settings/integrations/slack" style={{ color: theme?.styles['primary-color'] }}>
                             Click here
                         </Link>{' '}
                         to setup the Slack integration.

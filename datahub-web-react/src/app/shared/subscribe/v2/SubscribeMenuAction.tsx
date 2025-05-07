@@ -18,7 +18,6 @@ import useSubscriptionSummary from '@app/shared/subscribe/useSubscriptionSummary
 import { useSiblingOptionsForSubscriptions } from '@app/shared/subscribe/v2/utils';
 import { Button, Icon, Pill, Text, colors } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/useIsSeparateSiblingsMode';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
@@ -85,14 +84,14 @@ const StyledTabs = styled(Tabs)`
         font-size: 14px;
     }
     .ant-tabs-ink-bar {
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(p) => p.theme.styles['primary-color']};
     }
 
     .ant-tabs-tab-active {
         border-radius: 4px;
 
         .ant-tabs-tab-btn {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE} !important;
+            color: ${(p) => p.theme.styles['primary-color']} !important;
         }
     }
 `;

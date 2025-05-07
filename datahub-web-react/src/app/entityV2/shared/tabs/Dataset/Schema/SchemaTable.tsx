@@ -102,7 +102,7 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
 
     &&& .expanded-child > td {
         .depth-container {
-            background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+            background: ${(p) => p.theme.styles['primary-color']};
         }
 
         .depth-text {

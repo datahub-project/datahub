@@ -27,9 +27,9 @@ const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        color: ${colors.violet[500]};
+        color: ${props.theme.styles['primary-color']};
         &:focus {
-            color: ${colors.violet[500]};
+            color: ${props.theme.styles['primary-color']};
         }    
     `}
 `;

@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { ProposalList } from '@app/taskCenter/proposals/ProposalList';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { ActionRequestAssignee, ActionRequestStatus } from '@types';
 
@@ -19,9 +19,10 @@ export const ProposalGroupTab = ({ assignee }: Props) => {
      * Determines which view should be visible: pending or completed requests.
      */
     const [viewType, setViewType] = useState<string>(ActionRequestStatus.Pending);
+    const { theme } = useCustomTheme();
 
-    const pendingColor = viewType === ActionRequestStatus.Pending ? REDESIGN_COLORS.TITLE_PURPLE : undefined;
-    const completedColor = viewType === ActionRequestStatus.Completed ? REDESIGN_COLORS.TITLE_PURPLE : undefined;
+    const pendingColor = viewType === ActionRequestStatus.Pending ? theme?.styles['primary-color'] : undefined;
+    const completedColor = viewType === ActionRequestStatus.Completed ? theme?.styles['primary-color'] : undefined;
 
     return (
         <>

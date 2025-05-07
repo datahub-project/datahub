@@ -28,7 +28,6 @@ import {
 import { isSinkEnabled } from '@app/settingsV2/utils';
 import { Message } from '@app/shared/Message';
 import { useAppConfig } from '@app/useAppConfig';
-import { colors } from '@src/alchemy-components';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 import { useUpdateGlobalNotificationSettingsMutation } from '@graphql/settings.generated';
@@ -47,7 +46,7 @@ const GlobalNotificationsBanner = styled.div`
 `;
 
 const InfoIcon = styled(InfoCircleFilled)`
-    color: ${colors.violet[500]};
+    color: ${(props) => props.theme.styles['primary-color']};
     margin-right: 8px;
 `;
 

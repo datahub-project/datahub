@@ -70,7 +70,7 @@ const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
     height: ${(props) => (props.multipleDigits ? '20px' : '13px')};
     width: ${(props) => (props.multipleDigits ? '20px' : '13px')};
     border-radius: 50%;
-    background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
+    background: ${(p) => p.theme.styles['primary-color']};
     margin-left: -7px;
     margin-top: -12px;
     display: flex;

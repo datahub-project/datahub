@@ -3,7 +3,6 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { RoutedTabs } from '@app/shared/RoutedTabs';
 import { Proposals } from '@app/taskCenter/proposals/Proposals';
 import { Requests } from '@app/taskCenter/requests/Requests';
@@ -52,10 +51,10 @@ const StyledTabs = styled(RoutedTabs)`
         padding-left: 28px;
     }
     &&& .ant-tabs-nav-list .ant-tabs-ink-bar {
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(p) => p.theme.styles['primary-color']};
     }
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => p.theme.styles['primary-color']};
     }
 
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn,
@@ -114,7 +113,7 @@ const TabTitle = ({ title, count, dataTestId }: TabTitleProps) => {
             {count > 0 && !isShowNavBarRedesign && (
                 <StyledBadge count={count} overflowCount={99} size="small" color="red" />
             )}
-            {isShowNavBarRedesign && <Badge count={count} size="xs" color="violet" clickable={false} />}
+            {isShowNavBarRedesign && <Badge count={count} size="xs" color="primary" clickable={false} />}
         </TabContainer>
     );
 };

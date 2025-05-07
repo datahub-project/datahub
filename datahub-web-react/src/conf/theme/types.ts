@@ -3,6 +3,7 @@ import { Color } from '@src/alchemy-components/theme/config';
 export type Theme = {
     styles: {
         'primary-color'?: string;
+        'primary-color-gradient'?: string;
         'layout-header-background': string;
         'layout-header-color': string;
         'layout-body-background': string;
