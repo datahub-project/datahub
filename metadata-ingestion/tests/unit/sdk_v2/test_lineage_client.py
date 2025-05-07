@@ -49,12 +49,9 @@ def assert_client_golden(client: DataHubClient, golden_path: pathlib.Path) -> No
     )
 
 
-def test_get_fuzzy_column_lineage():
+def test_get_fuzzy_column_lineage(client: DataHubClient) -> None:
     """Test the fuzzy column lineage matching algorithm."""
     # Create a minimal client just for testing the method
-    client = MagicMock(spec=DataHubClient)
-    lineage_client = LineageClient(client=client)
-
     # Test cases
     test_cases = [
         # Case 1: Exact matches
@@ -113,7 +110,7 @@ def test_get_fuzzy_column_lineage():
 
     # Run test cases
     for i, test_case in enumerate(test_cases):
-        result = lineage_client._get_fuzzy_column_lineage(
+        result = client.lineage._get_fuzzy_column_lineage(
             cast(Set[str], test_case["upstream_fields"]),
             cast(Set[str], test_case["downstream_fields"]),
         )
@@ -122,11 +119,9 @@ def test_get_fuzzy_column_lineage():
         )
 
 
-def test_get_strict_column_lineage():
+def test_get_strict_column_lineage(client: DataHubClient) -> None:
     """Test the strict column lineage matching algorithm."""
     # Create a minimal client just for testing the method
-    client = MagicMock(spec=DataHubClient)
-    lineage_client = LineageClient(client=client)
 
     # Define test cases
     test_cases = [
@@ -152,7 +147,7 @@ def test_get_strict_column_lineage():
 
     # Run test cases
     for i, test_case in enumerate(test_cases):
-        result = lineage_client._get_strict_column_lineage(
+        result = client.lineage._get_strict_column_lineage(
             cast(Set[str], test_case["upstream_fields"]),
             cast(Set[str], test_case["downstream_fields"]),
         )
@@ -161,7 +156,6 @@ def test_get_strict_column_lineage():
 
 def test_add_dataset_copy_lineage_auto_fuzzy(client: DataHubClient) -> None:
     """Test auto fuzzy column lineage mapping."""
-    lineage_client = LineageClient(client=client)
 
     upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
     downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
@@ -222,23 +216,22 @@ def test_add_dataset_copy_lineage_auto_fuzzy(client: DataHubClient) -> None:
         ],
     )
 
-    # Mock the _get_fields_from_dataset_urn method to return our test fields
-    lineage_client._get_fields_from_dataset_urn = MagicMock()  # type: ignore
-    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: sorted(
-        {  # type: ignore
+    # Use patch.object with a context manager
+    with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
+        # Configure the mock with a simpler side effect function
+        mock_method.side_effect = lambda urn: {
             field.fieldPath
             for field in (
                 upstream_schema if "upstream" in str(urn) else downstream_schema
             ).fields
         }
-    )
 
-    # Run the lineage function
-    lineage_client.add_dataset_copy_lineage(
-        upstream=upstream,
-        downstream=downstream,
-        column_lineage="auto_fuzzy",
-    )
+        # Now use client.lineage with the patched method
+        client.lineage.add_dataset_copy_lineage(
+            upstream=upstream,
+            downstream=downstream,
+            column_lineage="auto_fuzzy",
+        )
 
     # Use golden file for assertion
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_copy_fuzzy_golden.json")
@@ -246,8 +239,6 @@ def test_add_dataset_copy_lineage_auto_fuzzy(client: DataHubClient) -> None:
 
 def test_add_dataset_copy_lineage_auto_strict(client: DataHubClient) -> None:
     """Test strict column lineage with field matches."""
-    lineage_client = LineageClient(client=client)
-
     upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
     downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
 
@@ -312,41 +303,20 @@ def test_add_dataset_copy_lineage_auto_strict(client: DataHubClient) -> None:
         ],
     )
 
-    # Mock the _get_fields_from_dataset_urn method to return our test fields
-    lineage_client._get_fields_from_dataset_urn = MagicMock()  # type: ignore
-    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: sorted(
-        {  # type: ignore
+    with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
+        mock_method.side_effect = lambda urn: {
             field.fieldPath
             for field in (
                 upstream_schema if "upstream" in str(urn) else downstream_schema
             ).fields
         }
-    )
 
-    # Run the lineage function
-    lineage_client.add_dataset_copy_lineage(
-        upstream=upstream,
-        downstream=downstream,
-        column_lineage="auto_strict",
-    )
-
-    # Mock the _get_fields_from_dataset_urn method to return our test fields
-    lineage_client._get_fields_from_dataset_urn = MagicMock()  # type: ignore
-    lineage_client._get_fields_from_dataset_urn.side_effect = lambda urn: sorted(
-        {  # type: ignore
-            field.fieldPath
-            for field in (
-                upstream_schema if "upstream" in str(urn) else downstream_schema
-            ).fields
-        }
-    )
-
-    # Run the lineage function
-    lineage_client.add_dataset_copy_lineage(
-        upstream=upstream,
-        downstream=downstream,
-        column_lineage="auto_strict",
-    )
+        # Run the lineage function
+        client.lineage.add_dataset_copy_lineage(
+            upstream=upstream,
+            downstream=downstream,
+            column_lineage="auto_strict",
+        )
 
     # Use golden file for assertion
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_copy_strict_golden.json")
@@ -354,13 +324,12 @@ def test_add_dataset_copy_lineage_auto_strict(client: DataHubClient) -> None:
 
 def test_add_dataset_transform_lineage_basic(client: DataHubClient) -> None:
     """Test basic lineage without column mapping or query."""
-    lineage_client = LineageClient(client=client)
 
     # Basic lineage test
     upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
     downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
 
-    lineage_client.add_dataset_transform_lineage(
+    client.lineage.add_dataset_transform_lineage(
         upstream=upstream,
         downstream=downstream,
     )
@@ -369,7 +338,6 @@ def test_add_dataset_transform_lineage_basic(client: DataHubClient) -> None:
 
 def test_add_dataset_transform_lineage_complete(client: DataHubClient) -> None:
     """Test complete lineage with column mapping and query."""
-    lineage_client = LineageClient(client=client)
 
     upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
     downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
@@ -381,7 +349,7 @@ def test_add_dataset_transform_lineage_complete(client: DataHubClient) -> None:
         "ds_col2": ["us_col2", "us_col3"],  # 2:1 mapping
     }
 
-    lineage_client.add_dataset_transform_lineage(
+    client.lineage.add_dataset_transform_lineage(
         upstream=upstream,
         downstream=downstream,
         query_text=query_text,
@@ -392,8 +360,6 @@ def test_add_dataset_transform_lineage_complete(client: DataHubClient) -> None:
 
 def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
     """Test adding lineage from SQL parsing with a golden file."""
-
-    lineage_client = LineageClient(client=client)
 
     # Create minimal mock result with necessary info
     mock_result = SqlParsingResult(
@@ -416,7 +382,7 @@ def test_add_dataset_lineage_from_sql(client: DataHubClient) -> None:
         "datahub.sql_parsing.sqlglot_lineage.create_lineage_sql_parsed_result",
         return_value=mock_result,
     ):
-        lineage_client.add_dataset_lineage_from_sql(
+        client.lineage.add_dataset_lineage_from_sql(
             query_text=query_text, platform="snowflake", env="PROD"
         )
 
@@ -428,7 +394,6 @@ def test_add_dataset_lineage_from_sql_with_multiple_upstreams(
     client: DataHubClient,
 ) -> None:
     """Test adding lineage for a dataset with multiple upstreams."""
-    lineage_client = LineageClient(client=client)
 
     # Create minimal mock result with necessary info
     mock_result = SqlParsingResult(
@@ -483,7 +448,7 @@ def test_add_dataset_lineage_from_sql_with_multiple_upstreams(
         "datahub.sql_parsing.sqlglot_lineage.create_lineage_sql_parsed_result",
         return_value=mock_result,
     ):
-        lineage_client.add_dataset_lineage_from_sql(
+        client.lineage.add_dataset_lineage_from_sql(
             query_text=query_text, platform="snowflake", env="PROD"
         )
 
@@ -495,7 +460,6 @@ def test_add_dataset_lineage_from_sql_with_multiple_upstreams(
 
 def test_add_datajob_lineage(client: DataHubClient) -> None:
     """Test adding lineage for datajobs using DataJobPatchBuilder."""
-    lineage_client = LineageClient(client=client)
 
     # Define URNs for test with correct format
     datajob_urn = (
@@ -512,7 +476,7 @@ def test_add_datajob_lineage(client: DataHubClient) -> None:
     )
 
     # Test adding both upstream and downstream connections
-    lineage_client.add_datajob_lineage(
+    client.lineage.add_datajob_lineage(
         datajob=datajob_urn,
         upstreams=[input_dataset_urn, input_datajob_urn],
         downstreams=[output_dataset_urn],
@@ -524,7 +488,6 @@ def test_add_datajob_lineage(client: DataHubClient) -> None:
 
 def test_add_datajob_inputs_only(client: DataHubClient) -> None:
     """Test adding only inputs to a datajob."""
-    lineage_client = LineageClient(client=client)
 
     # Define URNs for test
     datajob_urn = (
@@ -535,7 +498,7 @@ def test_add_datajob_inputs_only(client: DataHubClient) -> None:
     )
 
     # Test adding just upstream connections
-    lineage_client.add_datajob_lineage(
+    client.lineage.add_datajob_lineage(
         datajob=datajob_urn,
         upstreams=[input_dataset_urn],
     )
@@ -546,7 +509,6 @@ def test_add_datajob_inputs_only(client: DataHubClient) -> None:
 
 def test_add_datajob_outputs_only(client: DataHubClient) -> None:
     """Test adding only outputs to a datajob."""
-    lineage_client = LineageClient(client=client)
 
     # Define URNs for test
     datajob_urn = (
@@ -557,7 +519,7 @@ def test_add_datajob_outputs_only(client: DataHubClient) -> None:
     )
 
     # Test adding just downstream connections
-    lineage_client.add_datajob_lineage(
+    client.lineage.add_datajob_lineage(
         datajob=datajob_urn, downstreams=[output_dataset_urn]
     )
 
@@ -567,7 +529,6 @@ def test_add_datajob_outputs_only(client: DataHubClient) -> None:
 
 def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
     """Test validation checks in add_datajob_lineage."""
-    lineage_client = LineageClient(client=client)
 
     # Define URNs for test
     datajob_urn = (
@@ -579,7 +540,7 @@ def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
     with pytest.raises(
         SdkUsageError, match=r"The datajob parameter must be a DataJob URN"
     ):
-        lineage_client.add_datajob_lineage(
+        client.lineage.add_datajob_lineage(
             datajob=invalid_urn,
             upstreams=[
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
@@ -590,10 +551,10 @@ def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
     with pytest.raises(
         SdkUsageError, match=r"Upstream URN .* must be either a dataset or datajob URN"
     ):
-        lineage_client.add_datajob_lineage(datajob=datajob_urn, upstreams=[invalid_urn])
+        client.lineage.add_datajob_lineage(datajob=datajob_urn, upstreams=[invalid_urn])
 
     # Test with invalid downstream URN
     with pytest.raises(SdkUsageError, match=r"Downstream URN .* must be a dataset URN"):
-        lineage_client.add_datajob_lineage(
+        client.lineage.add_datajob_lineage(
             datajob=datajob_urn, downstreams=[invalid_urn]
         )
