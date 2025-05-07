@@ -3,19 +3,11 @@ from __future__ import annotations
 import difflib
 from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 
+from typing_extensions import assert_never
+
+import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.schema_classes import (
-    AuditStampClass,
-    DatasetLineageTypeClass,
-    MetadataChangeProposalClass,
-    QueryLanguageClass,
-    QueryPropertiesClass,
-    QuerySourceClass,
-    QueryStatementClass,
-    SchemaMetadataClass,
-    UpstreamClass,
-)
 from datahub.metadata.urns import DatasetUrn, QueryUrn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
@@ -29,7 +21,7 @@ if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
 
-_empty_audit_stamp = AuditStampClass(
+_empty_audit_stamp = models.AuditStampClass(
     time=0,
     actor=DEFAULT_ACTOR_URN,
 )
@@ -41,10 +33,10 @@ class LineageClient:
 
     def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> Set[str]:
         schema_metadata = self._client._graph.get_aspect(
-            str(dataset_urn), SchemaMetadataClass
+            str(dataset_urn), models.SchemaMetadataClass
         )
         if schema_metadata is None:
-            return Set()
+            return set()
 
         return {field.fieldPath for field in schema_metadata.fields}
 
@@ -130,7 +122,7 @@ class LineageClient:
 
         if column_lineage is None:
             cll = None
-        elif column_lineage in ["auto_fuzzy", "auto_strict"]:
+        elif column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
             upstream_schema = self._get_fields_from_dataset_urn(upstream)
             downstream_schema = self._get_fields_from_dataset_urn(downstream)
             if column_lineage == "auto_fuzzy":
@@ -152,12 +144,14 @@ class LineageClient:
                 downstream=downstream,
                 cll_mapping=column_lineage,
             )
+        else:
+            assert_never(column_lineage)
 
         updater = DatasetPatchBuilder(str(downstream))
         updater.add_upstream_lineage(
-            UpstreamClass(
+            models.UpstreamClass(
                 dataset=str(upstream),
-                type=DatasetLineageTypeClass.COPY,
+                type=models.DatasetLineageTypeClass.COPY,
             )
         )
         for cl in cll or []:
@@ -204,11 +198,11 @@ class LineageClient:
             query_entity = MetadataChangeProposalWrapper.construct_many(
                 query_urn,
                 aspects=[
-                    QueryPropertiesClass(
-                        statement=QueryStatementClass(
-                            value=query_text, language=QueryLanguageClass.SQL
+                    models.QueryPropertiesClass(
+                        statement=models.QueryStatementClass(
+                            value=query_text, language=models.QueryLanguageClass.SQL
                         ),
-                        source=QuerySourceClass.SYSTEM,
+                        source=models.QuerySourceClass.SYSTEM,
                         created=_empty_audit_stamp,
                         lastModified=_empty_audit_stamp,
                     ),
@@ -218,9 +212,9 @@ class LineageClient:
 
         updater = DatasetPatchBuilder(str(downstream))
         updater.add_upstream_lineage(
-            UpstreamClass(
+            models.UpstreamClass(
                 dataset=str(upstream),
-                type=DatasetLineageTypeClass.TRANSFORMED,
+                type=models.DatasetLineageTypeClass.TRANSFORMED,
                 query=query_urn,
             )
         )
@@ -237,7 +231,7 @@ class LineageClient:
             )
 
         mcps: List[
-            Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]
+            Union[MetadataChangeProposalWrapper, models.MetadataChangeProposalClass]
         ] = list(updater.build())
         if query_entity:
             mcps.extend(query_entity)
@@ -269,9 +263,6 @@ class LineageClient:
             schema_aware=schema_aware,
         )
 
-        # Validate parsing result
-        if not parsed_result:
-            raise SdkUsageError("Failed to parse SQL query: Unable to parse")
         if parsed_result.debug_info.error:
             raise SdkUsageError(
                 f"Failed to parse SQL query: {parsed_result.debug_info.error}"
@@ -285,7 +276,7 @@ class LineageClient:
         downstream_urn = parsed_result.out_tables[0]
 
         # Process all upstream tables found in the query
-        for i, upstream_table in enumerate(parsed_result.in_tables):
+        for upstream_table in parsed_result.in_tables:
             # Skip self-lineage
             if upstream_table == downstream_urn:
                 continue
@@ -307,12 +298,12 @@ class LineageClient:
                     if upstream_cols:
                         column_mapping[col_lineage.downstream.column] = upstream_cols
 
-            # Add lineage, including query text only for the first upstream
+            # Add lineage, including query text
             self.add_dataset_transform_lineage(
                 upstream=upstream_table,
                 downstream=downstream_urn,
                 column_lineage=column_mapping or None,
-                query_text=query_text if i == 0 else None,
+                query_text=query_text,
             )
 
     def add_datajob_lineage(
@@ -330,6 +321,9 @@ class LineageClient:
             upstreams: List of upstream datasets or datajobs that serve as inputs to the datajob
             downstreams: List of downstream datasets that are outputs of the datajob
         """
+
+        if not upstreams and not downstreams:
+            raise SdkUsageError("No upstreams or downstreams provided")
 
         datajob_urn = str(datajob)
         if not datajob_urn.startswith("urn:li:dataJob:"):
@@ -370,5 +364,4 @@ class LineageClient:
                     )
 
         # Apply the changes to the entity
-        if upstreams or downstreams:  # Only update if there are actual changes
-            self._client.entities.update(patch_builder)
+        self._client.entities.update(patch_builder)

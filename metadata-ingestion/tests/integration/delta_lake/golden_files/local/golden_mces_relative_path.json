@@ -12,12 +12,12 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "number_of_files": "5",
                             "partition_columns": "['foo', 'bar']",
                             "table_creation_time": "1655831476360",
                             "id": "628d06df-ecb0-4314-a97e-75d8872db7c3",
                             "version": "4",
-                            "location": "tests/integration/delta_lake/test_data/delta_tables/my_table_basic/"
+                            "location": "tests/integration/delta_lake/test_data/delta_tables/my_table_basic/",
+                            "number_of_files": "5"
                         },
                         "name": "test-table-basic",
                         "description": "test delta table basic with table name",
@@ -54,8 +54,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].foo",
@@ -67,8 +66,7 @@
                                 },
                                 "nativeDataType": "integer",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"integer\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].zip",
@@ -80,8 +78,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }

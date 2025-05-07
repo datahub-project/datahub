@@ -67,8 +67,9 @@ const DirectionHeader = styled.div`
 `;
 
 const StyledPartitionOutlined = styled(PartitionOutlined)`
-    svg {
-        padding: 4px 5px 4px 4px;
+    color: ${(p) => p.theme.styles['primary-color']};
+    &:hover {
+        color: white;
     }
 `;
 

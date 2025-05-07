@@ -66,6 +66,7 @@ public class CreateAccessTokenResolver implements DataFetcher<CompletableFuture<
 
             final String accessToken =
                 _statefulTokenService.generateAccessToken(
+                    context.getOperationContext(),
                     type,
                     createActor(input.getType(), actorUrn),
                     expiresInMs.orElse(null),

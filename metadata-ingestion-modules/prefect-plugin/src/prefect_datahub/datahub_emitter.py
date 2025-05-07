@@ -22,6 +22,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import BrowsePathsClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
@@ -98,7 +99,12 @@ class DatahubEmitter(Block):
         # self._datajobs_to_emit: Dict[str, _Entity] = {}
 
         token = self.token.get_secret_value() if self.token is not None else None
-        self.emitter = DatahubRestEmitter(gms_server=self.datahub_rest_url, token=token)
+        self.emitter = DatahubRestEmitter(
+            gms_server=self.datahub_rest_url,
+            token=token,
+            client_mode=ClientMode.INGESTION,
+            datahub_component="prefect-plugin",
+        )
         self.emitter.test_connection()
 
     def _entities_to_urn_list(self, iolets: List[_Entity]) -> List[DatasetUrn]:

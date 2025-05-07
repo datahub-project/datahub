@@ -16,7 +16,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,orders,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:509b41a0a4e15e2123668512e69a238401fa3994ca88d475b611566023a6a980"
+                    "query": "urn:li:query:743f1807704d3d59ff076232e8788b43d98292f7d98ad14ce283d606351b7bb6"
                 }
             }
         ]
@@ -24,14 +24,14 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:509b41a0a4e15e2123668512e69a238401fa3994ca88d475b611566023a6a980",
+    "entityUrn": "urn:li:query:743f1807704d3d59ff076232e8788b43d98292f7d98ad14ce283d606351b7bb6",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
             "customProperties": {},
             "statement": {
-                "value": "SELECT price, qty, unit_cost FROM orders",
+                "value": "create table sales_summary as SELECT price, qty, unit_cost FROM orders",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -48,7 +48,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:509b41a0a4e15e2123668512e69a238401fa3994ca88d475b611566023a6a980",
+    "entityUrn": "urn:li:query:743f1807704d3d59ff076232e8788b43d98292f7d98ad14ce283d606351b7bb6",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
