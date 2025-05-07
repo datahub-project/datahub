@@ -189,9 +189,10 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
 
   @Nonnull
   private ElasticSearchService buildEntitySearchService() {
+    searchClientSpy = spy(getSearchClient());
     ESSearchDAO searchDAO =
         new ESSearchDAO(
-            getSearchClient(),
+            searchClientSpy,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
             getSearchConfiguration(),
@@ -199,8 +200,8 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            getSearchClient(), getSearchConfiguration(), null, QueryFilterRewriteChain.EMPTY);
-    ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
+            searchClientSpy, getSearchConfiguration(), null, QueryFilterRewriteChain.EMPTY);
+    ESWriteDAO writeDAO = new ESWriteDAO(searchClientSpy, getBulkProcessor(), 1);
     ElasticSearchService searchService =
         new ElasticSearchService(
             getIndexBuilder(),

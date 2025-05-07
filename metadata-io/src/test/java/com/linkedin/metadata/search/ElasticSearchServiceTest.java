@@ -37,7 +37,6 @@ public class ElasticSearchServiceTest {
   private static final int MAX_RUN_IDS_INDEXED = 25;
 
   @Mock private ESWriteDAO mockEsWriteDAO;
-  private ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
 
   private ElasticSearchService testInstance;
   private static final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
@@ -51,7 +50,7 @@ public class ElasticSearchServiceTest {
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
-            mockEsSearchDAO,
+            mock(ESSearchDAO.class),
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
   }
@@ -132,10 +131,11 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testRaw_WithValidUrns() {
+    ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            mock(opContext.getEntityRegistry()),
+            opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
@@ -192,10 +192,11 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testRaw_WithEmptyHits() {
+    ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            mock(opContext.getEntityRegistry()),
+            opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
@@ -248,10 +249,11 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testRaw_WithNullHits() {
+    ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            mock(opContext.getEntityRegistry()),
+            opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,
@@ -286,10 +288,11 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testRaw_WithEmptyUrns() {
+    ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
     testInstance =
         new ElasticSearchService(
             mock(ESIndexBuilder.class),
-            mock(opContext.getEntityRegistry()),
+            opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
             mockEsSearchDAO,

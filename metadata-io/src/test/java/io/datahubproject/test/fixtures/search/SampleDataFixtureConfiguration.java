@@ -138,12 +138,6 @@ public class SampleDataFixtureConfiguration {
         .build(testOpContext.getSessionAuthentication(), true);
   }
 
-  @Bean(name = "sampleDataEntitySearchService")
-  protected ElasticSearchService entitySearchService(
-      @Qualifier("sampleDataEntityIndexBuilders") OperationContext opContext) throws IOException {
-    return entitySearchServiceHelper(opContext);
-  }
-
   protected ElasticSearchService entitySearchServiceHelper(OperationContext opContext)
       throws IOException {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
@@ -185,6 +179,19 @@ public class SampleDataFixtureConfiguration {
         searchDAO,
         browseDAO,
         writeDAO);
+  }
+
+  @Bean(name = "sampleDataEntitySearchService")
+  protected ElasticSearchService entitySearchService(
+      @Qualifier("sampleDataOperationContext") OperationContext opContext) throws IOException {
+    return entitySearchServiceHelper(opContext);
+  }
+
+  @Bean(name = "longTailEntitySearchService")
+  protected ElasticSearchService longTailEntitySearchService(
+      @Qualifier("longTailOperationContext") OperationContext longtailOperationContext)
+      throws IOException {
+    return entitySearchServiceHelper(longtailOperationContext);
   }
 
   @Bean(name = "sampleDataSearchService")

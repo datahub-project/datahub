@@ -499,7 +499,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public IndexConvention getIndexConvention() {
-    return getIndexConvention();
+    return indexConvention;
   }
 
   public ESIndexBuilder getIndexBuilder() {
