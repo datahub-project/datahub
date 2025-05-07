@@ -179,7 +179,6 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     renderPreview = (previewType: PreviewType, data: DataFlow) => {
         const genericProperties = this.getGenericEntityProperties(data);
-        console.log('data', data);
         return (
             <Preview
                 urn={data.urn}
