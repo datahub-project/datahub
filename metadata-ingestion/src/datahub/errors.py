@@ -45,3 +45,7 @@ class APITracingWarning(Warning):
 
 class DataHubDeprecationWarning(DeprecationWarning):
     pass
+
+
+class SQLParsingWarning(Warning):
+    pass

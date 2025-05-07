@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 import difflib
+import warnings
 from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 
 from typing_extensions import assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.errors import SdkUsageError
+from datahub.errors import SdkUsageError, SQLParsingWarning
 from datahub.metadata.urns import DatasetUrn, QueryUrn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
@@ -249,7 +250,9 @@ class LineageClient:
         schema_aware: bool = True,
     ) -> None:
         """Add lineage by parsing a SQL query."""
-        from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+        from datahub.sql_parsing.sqlglot_lineage import (
+            create_lineage_sql_parsed_result,
+        )
 
         # Parse the SQL query to extract lineage information
         parsed_result = create_lineage_sql_parsed_result(
@@ -263,10 +266,17 @@ class LineageClient:
             schema_aware=schema_aware,
         )
 
-        if parsed_result.debug_info.error:
+        if parsed_result.debug_info.table_error:
             raise SdkUsageError(
                 f"Failed to parse SQL query: {parsed_result.debug_info.error}"
             )
+        elif parsed_result.debug_info.column_error:
+            warnings.warn(
+                f"Failed to parse SQL query: {parsed_result.debug_info.error}",
+                category=SQLParsingWarning,
+                stacklevel=2,
+            )
+
         if not parsed_result.out_tables:
             raise SdkUsageError(
                 "No output tables found in the query. Cannot establish lineage."
