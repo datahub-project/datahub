@@ -4,6 +4,7 @@ from typing import List
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
@@ -14,6 +15,9 @@ class ExcelSourceReport(StaleEntityRemovalSourceReport):
     worksheets_scanned = 0
     worksheets_processed = 0
     datasets_profiled = 0
+    local_file_get_timer: PerfTimer = field(default_factory=PerfTimer)
+    s3_file_get_timer: PerfTimer = field(default_factory=PerfTimer)
+    abs_file_get_timer: PerfTimer = field(default_factory=PerfTimer)
     filtered: List[str] = field(default_factory=list)
     profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
     profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(

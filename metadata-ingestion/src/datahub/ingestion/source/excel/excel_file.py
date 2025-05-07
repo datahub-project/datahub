@@ -3,7 +3,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Iterator, List, Optional, Union
 
 import openpyxl
 import pandas as pd
@@ -75,20 +75,18 @@ class ExcelFile:
     def workbook_properties(self) -> Dict[str, Any]:
         return self.properties
 
-    def get_tables(self, active_only: Optional[bool] = False) -> List[ExcelTable]:
-        results: List[ExcelTable] = []
+    def get_tables(self, active_only: Optional[bool] = False) -> Iterator[ExcelTable]:
         sheet_list = [self.active_sheet] if active_only else self.sheet_list
         for sheet in sheet_list:
             table = self.get_table(sheet)
             if table is not None:
-                results.append(table)
+                yield table
             else:
                 self.report.report_worksheet_dropped(sheet)
                 self.report.warning(
                     message="Worksheet does not contain a table",
                     context=f"Worksheet=[{self.filename}]{sheet}",
                 )
-        return results
 
     def get_table(self, sheet_name: str) -> Union[ExcelTable, None]:
         sheet = self.wb[sheet_name]

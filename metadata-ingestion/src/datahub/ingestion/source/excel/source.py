@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from enum import Enum, auto
 from io import BytesIO
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterable, Iterator, List, Optional, Tuple, Type, Union
 from urllib.parse import urlparse
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -563,6 +563,75 @@ class ExcelSource(StatefulIngestionSourceBase):
                     relative_path, full_path, filename, table, source_type
                 )
 
+    def check_file_is_valid(self, filename: str) -> bool:
+        self.report.report_file_scanned()
+        if not self.config.path_pattern.allowed(filename):
+            self.report.report_dropped(filename)
+            return False
+        elif not self.is_excel_file(filename):
+            logger.debug(f"File is not an Excel workbook: {filename}")
+            return False
+        return True
+
+    def retrieve_file_data(
+        self, uri_type: UriType, path: str, path_spec: str
+    ) -> Iterator[Tuple[BytesIO, str, str, str]]:
+        if (
+            uri_type == UriType.LOCAL_FILE
+            or uri_type == UriType.ABSOLUTE_PATH
+            or uri_type == UriType.RELATIVE_PATH
+        ):
+            logger.debug(f"Searching local path: {path}")
+            for browse_path in self.local_browser(path):
+                if self.check_file_is_valid(browse_path.file):
+                    basename = os.path.basename(browse_path.file)
+                    file_path = self.strip_file_prefix(browse_path.file)
+                    filename = os.path.splitext(basename)[0]
+
+                    logger.debug(f"Processing {filename}")
+                    with self.report.local_file_get_timer:
+                        file_data = self.get_local_file(browse_path.file)
+
+                    if file_data is not None:
+                        yield file_data, file_path, browse_path.file, filename
+
+        elif uri_type == UriType.S3:
+            logger.debug(f"Searching S3 path: {path}")
+            for browse_path in self.s3_browser(path_spec):
+                if self.check_file_is_valid(browse_path.file):
+                    uri_path = strip_s3_prefix(browse_path.file)
+                    basename = os.path.basename(uri_path)
+                    filename = os.path.splitext(basename)[0]
+
+                    logger.debug(f"Processing {browse_path.file}")
+                    with self.report.s3_file_get_timer:
+                        file_data = self.get_s3_file(browse_path.file)
+
+                    if file_data is not None:
+                        yield file_data, uri_path, browse_path.file, filename
+
+        elif uri_type == UriType.ABS:
+            logger.debug(f"Searching Azure Blob Storage path: {path}")
+            for browse_path in self.abs_browser(path_spec):
+                if self.check_file_is_valid(browse_path.file):
+                    uri_path = strip_abs_prefix(browse_path.file)
+                    basename = os.path.basename(uri_path)
+                    filename = os.path.splitext(basename)[0]
+
+                    logger.debug(f"Processing {browse_path.file}")
+                    with self.report.abs_file_get_timer:
+                        file_data = self.get_abs_file(browse_path.file)
+
+                    if file_data is not None:
+                        yield file_data, uri_path, browse_path.file, filename
+
+        else:
+            self.report.report_file_dropped(path_spec)
+            self.report.warning(
+                message="Unsupported URI Type",
+                context=f"Type={uri_type.name},URI={path_spec}",
+            )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
             self.platform,
@@ -576,111 +645,18 @@ class ExcelSource(StatefulIngestionSourceBase):
                 uri_type, path = self.uri_type(path_spec)
                 logger.debug(f"URI Type: {uri_type} Path: {path}")
 
-                if (
-                    uri_type == UriType.LOCAL_FILE
-                    or uri_type == UriType.ABSOLUTE_PATH
-                    or uri_type == UriType.RELATIVE_PATH
-                ):
-                    logger.debug(f"Searching local path: {path}")
-
-                    for browse_path in self.local_browser(path):
-                        self.report.report_file_scanned()
-                        if not self.config.path_pattern.allowed(browse_path.file):
-                            self.report.report_dropped(browse_path.file)
-                            continue
-
-                        if not self.is_excel_file(browse_path.file):
-                            logger.debug(
-                                f"File is not an Excel workbook: {browse_path.file}"
-                            )
-                            continue
-
-                        basename = os.path.basename(browse_path.file)
-                        file_path = self.strip_file_prefix(browse_path.file)
-                        filename = os.path.splitext(basename)[0]
-
-                        logger.debug(f"Processing {filename}")
-                        file_data = self.get_local_file(browse_path.file)
-
-                        if file_data is None:
-                            continue
-
-                        yield from self.process_file(
-                            file_data,
-                            file_path,
-                            browse_path.file,
-                            filename,
-                            UriType.LOCAL_FILE,
-                        )
-
-                elif uri_type == UriType.S3 or uri_type == UriType.S3A:
-                    logger.debug(f"Searching S3 path: {path}")
-
-                    for browse_path in self.s3_browser(path_spec):
-                        self.report.report_file_scanned()
-                        if not self.config.path_pattern.allowed(browse_path.file):
-                            self.report.report_dropped(browse_path.file)
-                            continue
-
-                        if not self.is_excel_file(browse_path.file):
-                            logger.debug(
-                                f"File is not an Excel workbook: {browse_path.file}"
-                            )
-                            continue
-
-                        uri_path = strip_s3_prefix(browse_path.file)
-                        basename = os.path.basename(uri_path)
-                        filename = os.path.splitext(basename)[0]
-
-                        logger.debug(f"Processing {browse_path.file}")
-                        file_data = self.get_s3_file(browse_path.file)
-
-                        if file_data is None:
-                            continue
-
-                        yield from self.process_file(
-                            file_data, uri_path, browse_path.file, filename, UriType.S3
-                        )
-
-                elif uri_type == UriType.ABS:
-                    logger.debug(f"Searching Azure Blob Storage path: {path}")
-
-                    for browse_path in self.abs_browser(path_spec):
-                        self.report.report_file_scanned()
-                        if not self.config.path_pattern.allowed(browse_path.file):
-                            self.report.report_dropped(browse_path.file)
-                            continue
-
-                        if not self.is_excel_file(browse_path.file):
-                            logger.debug(
-                                f"File is not an Excel workbook: {browse_path.file}"
-                            )
-                            continue
-
-                        uri_path = strip_abs_prefix(browse_path.file)
-                        basename = os.path.basename(uri_path)
-                        filename = os.path.splitext(basename)[0]
-
-                        logger.debug(f"Processing {browse_path.file}")
-                        file_data = self.get_abs_file(browse_path.file)
-
-                        if file_data is None:
-                            continue
-
-                        yield from self.process_file(
-                            file_data, uri_path, browse_path.file, filename, UriType.ABS
-                        )
-
-                else:
-                    self.report.report_file_dropped(path_spec)
-                    self.report.warning(
-                        message="Unsupported URI Type",
-                        context=f"Type={uri_type.name},URI={path_spec}",
+                for (
+                    file_data,
+                    relative_path,
+                    full_path,
+                    filename,
+                ) in self.retrieve_file_data(uri_type, path, path_spec):
+                    yield from self.process_file(
+                        file_data, relative_path, full_path, filename, uri_type
                     )
 
-            time_taken = timer.elapsed_seconds()
-
-            logger.info(f"Finished ingestion; took {time_taken:.3f} seconds")
+        time_taken = timer.elapsed_seconds()
+        logger.info(f"Finished ingestion in {time_taken:.3f} seconds")
 
     def get_report(self):
         return self.report

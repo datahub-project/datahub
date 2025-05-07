@@ -122,7 +122,7 @@ class TestExcelFile(unittest.TestCase):
         )
         excel_file.get_table.side_effect = [mock_table1, mock_table2]
 
-        tables = excel_file.get_tables()
+        tables = list(excel_file.get_tables())
 
         self.assertEqual(len(tables), 2)
         self.assertEqual(tables[0].sheet_name, "Sheet1")
