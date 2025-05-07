@@ -33,6 +33,9 @@ CREATE SCHEMA Foo;
 GO
 CREATE TABLE Foo.Items (ID int, ItemName nvarchar(max));
 GO
+-- Create a table, ephimeral will be used as temp table pattern in some test case
+CREATE TABLE Foo.EphimeralItems (ID int, ItemName nvarchar(max));
+GO
 CREATE TABLE Foo.Persons (
     ID int NOT NULL PRIMARY KEY,
     LastName varchar(255) NOT NULL,
@@ -72,6 +75,16 @@ CREATE PROCEDURE [Foo].[NewProc]
         SELECT TempID, Name
         FROM Foo.SalesReason;
 
+        -- lineage: Foo.Items --> Foo.EphimeralItems
+        insert into Foo.EphimeralItems (ID, ItemName)
+        select ID, ItemName
+        from Foo.Items;
+
+        -- lineage: Foo.EphimeralItems --> Foo.Persons
+        UPDATE DemoData.Foo.Persons
+        SET Age = t.Age
+        FROM DemoData.Foo.Persons p
+        JOIN DemoData.Foo.EphimeralItems t ON p.ID = t.ID;
 
        IF OBJECT_ID('Foo.age_dist', 'U') IS NULL
        BEGIN
