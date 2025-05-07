@@ -238,6 +238,11 @@ jobs:
         run: |
           ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
 
+      - name: Print bake spec
+        if: always()
+        run: |
+          cat ./build/bake-spec*.json
+
       - name: Capture build Id
         id: capture-build-id
         run: |
