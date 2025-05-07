@@ -20,12 +20,7 @@ import {
     ParentContainersResult,
     SearchInsight,
     SubTypes,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+} from '@types';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};
@@ -81,7 +76,6 @@ export const Preview = ({
     subTypes?: SubTypes | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
-    console.log('subTypes', subTypes);
     return (
         <DefaultPreviewCard
             url={entityRegistry.getEntityUrl(EntityType.DataFlow, urn)}
