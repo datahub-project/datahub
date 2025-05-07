@@ -73,12 +73,11 @@ dev_requirements = {
     *base_requirements,
     *mypy_stubs,
     "coverage>=5.1",
-    "ruff==0.11.6",
-    # Updating mypy was causing a conflict with pydantic so cannot upgrade
-    "mypy==1.10.1",
+    "mypy==1.14.1",
+    "ruff==0.11.7",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
-    "pydantic>=1.10",
+    "pydantic>=1.10.16",
     "pytest>=6.2.2",
     "pytest-cov>=2.8.1",
     "tox",

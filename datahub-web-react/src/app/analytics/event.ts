@@ -118,6 +118,7 @@ export enum EventType {
     UnlinkAssetVersionEvent,
     ShowAllVersionsEvent,
     HomePageClick,
+    SearchBarFilter,
 }
 
 /**
@@ -873,6 +874,12 @@ export interface HomePageClickEvent extends BaseEvent {
     value?: string; // what was actually clicked ie. an entity urn to go to a page, or "View all" for a section
 }
 
+export interface SearchBarFilterEvent extends BaseEvent {
+    type: EventType.SearchBarFilter;
+    field: string; // the filter field
+    values: string[]; // the values being filtered for
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -975,4 +982,5 @@ export type Event =
     | LinkAssetVersionEvent
     | UnlinkAssetVersionEvent
     | ShowAllVersionsEvent
-    | HomePageClickEvent;
+    | HomePageClickEvent
+    | SearchBarFilterEvent;

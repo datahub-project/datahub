@@ -12,7 +12,7 @@ import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 import { useUpdateParentNodeMutation } from '@graphql/glossary.generated';
-import { EntityType } from '@types';
+import { Entity, EntityType } from '@types';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -30,7 +30,8 @@ interface Props {
 }
 
 function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props) {
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn, setNodeToNewEntity } =
+        useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
@@ -58,7 +59,18 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
                     if (isInGlossaryContext) {
                         const oldParentToUpdate = getParentNodeToUpdate(entityData, entityType);
                         const newParentToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
+                        if (oldParentToUpdate === newParentToUpdate) return;
                         updateGlossarySidebar([oldParentToUpdate, newParentToUpdate], urnsToUpdate, setUrnsToUpdate);
+                        setNodeToDeletedUrn((currData) => ({
+                            ...currData,
+                            [oldParentToUpdate]: urn,
+                        }));
+                        if (selectedParentUrn) {
+                            setNodeToNewEntity((currData) => ({
+                                ...currData,
+                                [selectedParentUrn]: entityData as Entity,
+                            }));
+                        }
                     }
                 }, 2000);
             })

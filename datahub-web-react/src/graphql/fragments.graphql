@@ -33,80 +33,55 @@ fragment rootGlossaryNodeWithFourLayers on GlossaryNode {
     displayProperties {
         ...displayPropertiesFields
     }
-    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }) {
+    childrenCount {
+        termsCount
+        nodesCount
+    }
+    glossaryChildrenSearch(input: { query: "*", count: 500, types: [GLOSSARY_NODE] }) {
         total
-        relationships {
-            type
+        searchResults {
             entity {
+                urn
                 type
-                ... on GlossaryTerm {
-                    urn
-                }
                 ... on GlossaryNode {
-                    urn
-                    children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }) {
+                    childrenCount {
+                        termsCount
+                        nodesCount
+                    }
+                    glossaryChildrenSearch(input: { query: "*", count: 500, types: [GLOSSARY_NODE] }) {
                         total
-                        relationships {
-                            type
+                        searchResults {
                             entity {
+                                urn
                                 type
-                                ... on GlossaryTerm {
-                                    urn
-                                }
                                 ... on GlossaryNode {
-                                    urn
-                                    children: relationships(
-                                        input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 500 }
-                                    ) {
+                                    childrenCount {
+                                        termsCount
+                                        nodesCount
+                                    }
+                                    glossaryChildrenSearch(input: { query: "*", count: 500, types: [GLOSSARY_NODE] }) {
                                         total
-                                        relationships {
-                                            type
+                                        searchResults {
                                             entity {
+                                                urn
                                                 type
-                                                ... on GlossaryTerm {
-                                                    urn
-                                                }
                                                 ... on GlossaryNode {
-                                                    urn
-                                                    children: relationships(
-                                                        input: {
-                                                            types: ["IsPartOf"]
-                                                            direction: INCOMING
-                                                            start: 0
-                                                            count: 500
-                                                        }
+                                                    childrenCount {
+                                                        termsCount
+                                                        nodesCount
+                                                    }
+                                                    glossaryChildrenSearch(
+                                                        input: { query: "*", count: 500, types: [GLOSSARY_NODE] }
                                                     ) {
                                                         total
-                                                        relationships {
-                                                            type
+                                                        searchResults {
                                                             entity {
+                                                                urn
                                                                 type
-                                                                ... on GlossaryTerm {
-                                                                    urn
-                                                                }
                                                                 ... on GlossaryNode {
-                                                                    urn
-                                                                    children: relationships(
-                                                                        input: {
-                                                                            types: ["IsPartOf"]
-                                                                            direction: INCOMING
-                                                                            start: 0
-                                                                            count: 500
-                                                                        }
-                                                                    ) {
-                                                                        total
-                                                                        relationships {
-                                                                            type
-                                                                            entity {
-                                                                                type
-                                                                                ... on GlossaryTerm {
-                                                                                    urn
-                                                                                }
-                                                                                ... on GlossaryNode {
-                                                                                    urn
-                                                                                }
-                                                                            }
-                                                                        }
+                                                                    childrenCount {
+                                                                        termsCount
+                                                                        nodesCount
                                                                     }
                                                                 }
                                                             }
@@ -135,6 +110,10 @@ fragment glossaryNode on GlossaryNode {
     }
     displayProperties {
         ...displayPropertiesFields
+    }
+    childrenCount {
+        termsCount
+        nodesCount
     }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 1000 }) {
         total

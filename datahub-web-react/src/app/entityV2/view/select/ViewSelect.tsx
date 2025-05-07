@@ -1,6 +1,6 @@
 import { Popover, colors } from '@components';
 import { debounce } from 'lodash';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
@@ -140,6 +140,11 @@ const Blur = styled.div<{ $isOpen?: boolean }>`
     ${(props) => !props.$isOpen && 'display: none;'}
 `;
 
+interface Props {
+    isOpen?: boolean;
+    onOpenChange?: (isOpen: boolean) => void;
+}
+
 /**
  * The View Select component allows you to select a View to apply to query on the current page. For example,
  * search, recommendations, and browse.
@@ -149,7 +154,7 @@ const Blur = styled.div<{ $isOpen?: boolean }>`
  *
  * In the event that a user refreshes their browser, the state of the view should be saved as well.
  */
-export const ViewSelect = () => {
+export const ViewSelect = ({ isOpen, onOpenChange }: Props) => {
     const history = useHistory();
     const userContext = useUserContext();
     const [viewBuilderDisplayState, setViewBuilderDisplayState] = useState<ViewBuilderDisplayState>(
@@ -163,7 +168,7 @@ export const ViewSelect = () => {
     const [publicView, setPublicView] = useState<boolean>(true);
 
     const [filterText, setFilterText] = useState('');
-    const [isOpen, setIsOpen] = useState(false);
+    const [isInternalOpen, setIsInternalOpen] = useState(!!isOpen);
     const [selectedViewName, setSelectedView] = useState<string>('');
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -193,6 +198,11 @@ export const ViewSelect = () => {
         },
         fetchPolicy: 'cache-first',
     });
+
+    // Possibility to control open/close state by parents components
+    useEffect(() => {
+        if (isOpen !== undefined) setIsInternalOpen(isOpen);
+    }, [isOpen]);
 
     useEffect(() => {
         setSelectedUrn(userContext.localState?.selectedViewUrn || undefined);
@@ -224,6 +234,14 @@ export const ViewSelect = () => {
      * Event Handlers
      */
 
+    const updateOpenState = useCallback(
+        (newIsOpen: boolean) => {
+            if (isOpen === undefined) setIsInternalOpen(newIsOpen);
+            onOpenChange?.(newIsOpen);
+        },
+        [onOpenChange, isOpen],
+    );
+
     const onSelectView = (newUrn) => {
         const selectedView =
             highlightedPrivateViewData?.find((view) => view?.urn === selectedUrn) ||
@@ -234,7 +252,7 @@ export const ViewSelect = () => {
             selectedViewUrn: newUrn,
         });
         setTimeout(() => {
-            setIsOpen(false);
+            updateOpenState(false);
         }, 250);
     };
 
@@ -273,18 +291,23 @@ export const ViewSelect = () => {
             ...userContext.localState,
             selectedViewUrn: undefined,
         });
-        setIsOpen(false);
+        updateOpenState(false);
     };
 
     const onClickManageViews = () => {
         history.push(PageRoutes.SETTINGS_VIEWS);
-        setIsOpen(false);
+        updateOpenState(false);
     };
 
     const onClickViewTypeFilter = (type: string) => {
         setPrivateView(type === 'private' || type === 'all');
         setPublicView(type === 'public' || type === 'all');
     };
+
+    const onOpenChangeHandler = useCallback(() => {
+        scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        updateOpenState(!isInternalOpen);
+    }, [isInternalOpen, updateOpenState]);
 
     /**
      * Render variables
@@ -297,14 +320,11 @@ export const ViewSelect = () => {
 
     return (
         <>
-            {isShowNavBarRedesign && createPortal(<Blur $isOpen={isOpen} />, document.body)}
+            {isShowNavBarRedesign && createPortal(<Blur $isOpen={isInternalOpen} />, document.body)}
             <ViewSelectContainer>
                 <Popover
-                    open={isOpen}
-                    onOpenChange={() => {
-                        scrollToRef?.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-                        setIsOpen(!isOpen);
-                    }}
+                    open={isInternalOpen}
+                    onOpenChange={onOpenChangeHandler}
                     content={
                         <>
                             <ViewSelectPopoverContent

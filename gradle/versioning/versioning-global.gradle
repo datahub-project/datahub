@@ -22,6 +22,9 @@ import groovy.json.JsonBuilder
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
 def cliMajorVersion = "0.15.0" // base default cli major version
 def snapshotVersion = false
+
+// This is the version field that had a slightly different implementation for embedding in jars.
+// metadata-integration/java/versioning.gradle reads javaVersion as version.
 def javaVersion = ""
 
 // Used to tag docker images. If the project property tag is set, use it as is (posssibly add suffixes like slim, pythonVersion if applicable). 
@@ -32,6 +35,7 @@ def versionTag = ""
 if (project.hasProperty("releaseVersion")) {
   version = releaseVersion
   detailedVersionString = releaseVersion
+  javaVersion = version
 } else {
   try {
       // apply this plugin in a try-catch block so that we can handle cases without .git directory
