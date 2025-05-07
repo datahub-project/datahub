@@ -38,6 +38,7 @@ export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
 export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
+export const CREATED_AT_FILTER_NAME = 'createdAt';
 export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
 export const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
 export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
@@ -118,6 +119,7 @@ export const FIELD_TO_LABEL = {
     hasSiblings: 'Has Siblings',
     [BROWSE_PATH_V2_FILTER_NAME]: 'Path',
     [LAST_MODIFIED_FILTER_NAME]: 'Last Modified (In Source)',
+    [CREATED_AT_FILTER_NAME]: 'Created At',
     [STRUCTURED_PROPERTIES_FILTER_NAME]: 'Structured Property',
 };
 

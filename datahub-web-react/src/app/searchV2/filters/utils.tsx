@@ -23,6 +23,7 @@ import {
     BOOLEAN_FIELDS,
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
+    CREATED_AT_FILTER_NAME,
     DATA_PLATFORM_INSTANCE_FILTER_NAME,
     DOMAINS_FILTER_NAME,
     ENTITY_FIELDS,
@@ -93,7 +94,9 @@ export function getNewFilters(
             field: filterField,
             values: selectedFilterValues,
             // TODO: Define on filter field instead
-            condition: filterField === LAST_MODIFIED_FILTER_NAME ? FilterOperator.GreaterThan : undefined,
+            condition: [LAST_MODIFIED_FILTER_NAME, CREATED_AT_FILTER_NAME].includes(filterField)
+                ? FilterOperator.GreaterThan
+                : undefined,
         },
     ].filter((f) => !(f.values?.length === 0));
 }

@@ -21,6 +21,7 @@ import { FieldType, FilterField } from '@app/searchV2/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
+    CREATED_AT_FILTER_NAME,
     DATA_PLATFORM_INSTANCE_FILTER_NAME,
     DATA_PRODUCT_FILTER_NAME,
     DESCRIPTION_FILTER_NAME,
@@ -213,6 +214,40 @@ export const HAS_SIBLINGS_FILTER: FilterField = {
 };
 
 const DAY_IN_MILLIS = 24 * 60 * 60 * 1000;
+const defaultTimestampOptions = [
+    {
+        label: 'Last 1 day',
+        startOffsetMillis: DAY_IN_MILLIS,
+    },
+    {
+        label: 'Last 3 days',
+        startOffsetMillis: 3 * DAY_IN_MILLIS,
+    },
+    {
+        label: 'Last week',
+        startOffsetMillis: 7 * DAY_IN_MILLIS,
+    },
+    {
+        label: 'Last two weeks',
+        startOffsetMillis: 14 * DAY_IN_MILLIS,
+    },
+    {
+        label: 'Last month',
+        startOffsetMillis: 31 * DAY_IN_MILLIS,
+    },
+    {
+        label: 'Last 3 months',
+        startOffsetMillis: 92 * DAY_IN_MILLIS,
+    },
+    {
+        label: 'Last 6 months',
+        startOffsetMillis: 184 * DAY_IN_MILLIS,
+    },
+    {
+        label: 'Last year',
+        startOffsetMillis: 365 * DAY_IN_MILLIS,
+    },
+];
 
 export const LAST_MODIFIED_FILTER: FilterField = {
     field: LAST_MODIFIED_FILTER_NAME,
@@ -220,40 +255,16 @@ export const LAST_MODIFIED_FILTER: FilterField = {
     type: FieldType.BUCKETED_TIMESTAMP,
     icon: <TimerOutlined fontSize="inherit" color="inherit" />,
     useDatePicker: true,
-    options: [
-        {
-            label: 'Last 1 day',
-            startOffsetMillis: DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 3 days',
-            startOffsetMillis: 3 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last week',
-            startOffsetMillis: 7 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last two weeks',
-            startOffsetMillis: 14 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last month',
-            startOffsetMillis: 31 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 3 months',
-            startOffsetMillis: 92 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last 6 months',
-            startOffsetMillis: 184 * DAY_IN_MILLIS,
-        },
-        {
-            label: 'Last year',
-            startOffsetMillis: 365 * DAY_IN_MILLIS,
-        },
-    ],
+    options: defaultTimestampOptions,
+};
+
+export const CREATED_AT_FILTER: FilterField = {
+    field: CREATED_AT_FILTER_NAME,
+    displayName: FIELD_TO_LABEL[CREATED_AT_FILTER_NAME],
+    type: FieldType.BUCKETED_TIMESTAMP,
+    icon: <TimerOutlined fontSize="inherit" color="inherit" />,
+    useDatePicker: true,
+    options: defaultTimestampOptions,
 };
 
 export const BROWSE_FILTER: FilterField = {
@@ -270,6 +281,7 @@ export const DEFAULT_FILTER_FIELDS: FilterField[] = [
     DOMAINS_FILTER,
     DATA_PRODUCT_FILTER,
     LAST_MODIFIED_FILTER,
+    CREATED_AT_FILTER,
     TAGS_FILTER,
     GLOSSARY_TERMS_FILTER,
     CONTAINER_FILTER,
@@ -294,6 +306,7 @@ export const VIEW_BUILDER_FIELDS: FilterField[] = [
     DOMAINS_FILTER,
     DATA_PRODUCT_FILTER,
     LAST_MODIFIED_FILTER,
+    CREATED_AT_FILTER,
     TAGS_FILTER,
     GLOSSARY_TERMS_FILTER,
     CONTAINER_FILTER,

@@ -14,8 +14,8 @@ import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
 import { FilterPredicate } from '@app/searchV2/filters/types';
 import { convertToAvailableFilterPredictes, sortFacets } from '@app/searchV2/filters/utils';
-import { ORIGIN_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
-import { useAppConfig } from '@src/app/useAppConfig';
+import { CREATED_AT_FILTER_NAME, ORIGIN_FILTER_NAME, UnionType } from '@app/searchV2/utils/constants';
+import { useAppConfig, useIsShowCreatedAtFilter } from '@src/app/useAppConfig';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
 
@@ -77,9 +77,14 @@ export default function SearchFilterOptions({
     const showSaveViewButton = activeFilters?.length > 0 && selectedViewUrn === undefined;
 
     let filterSet = availableFilters;
+    const showCreatedAtFilter = useIsShowCreatedAtFilter();
+    const filteredNonFacetFields = NON_FACET_FILTER_FIELDS.filter(
+        ({ field }) => field !== CREATED_AT_FILTER_NAME || showCreatedAtFilter,
+    );
+
     if (filterSet.length) {
         // Include non-facet filters and remove any duplicates in filterSet
-        const nonFacetFilters = NON_FACET_FILTER_FIELDS.map(
+        const nonFacetFilters = filteredNonFacetFields.map(
             ({ field, displayName }): FacetMetadata => ({
                 field,
                 displayName,

@@ -139,6 +139,7 @@ query appConfig {
             onlineSmartAssertionsEnabled
             showDefaultExternalLinks
             datasetHealthDashboardV2Enabled
+            showCreatedAtFilter
         }
         chromeExtensionConfig {
             enabled

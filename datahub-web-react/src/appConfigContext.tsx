@@ -119,6 +119,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         onlineSmartAssertionsEnabled: false,
         showDefaultExternalLinks: true,
         datasetHealthDashboardV2Enabled: false,
+        showCreatedAtFilter: false,
     },
     chromeExtensionConfig: {
         enabled: false,
