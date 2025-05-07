@@ -21,6 +21,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
@@ -64,31 +65,32 @@ public class ElasticSearchServiceTest {
 
     // Capture and verify the script update parameters
     ArgumentCaptor<Map<String, Object>> upsertCaptor = ArgumentCaptor.forClass(Map.class);
-    ArgumentCaptor<String> scriptCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<String> scriptSourceCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Map<String, Object>> scriptParamsCaptor = ArgumentCaptor.forClass(Map.class);
 
     verify(mockEsWriteDAO)
         .applyScriptUpdate(
             eq(opContext),
             eq(TEST_URN.getEntityType()),
             eq(TEST_DOC_ID),
-            scriptCaptor.capture(),
+            scriptSourceCaptor.capture(),
+            scriptParamsCaptor.capture(),
             upsertCaptor.capture());
 
     // Verify script content
-    String expectedScript =
-        String.format(
-            "if (ctx._source.containsKey('runId')) { "
-                + "if (!ctx._source.runId.contains('%s')) { "
-                + "ctx._source.runId.add('%s'); "
-                + "if (ctx._source.runId.length > %s) { ctx._source.runId.remove(0) } } "
-                + "} else { ctx._source.runId = ['%s'] }",
-            runId, runId, MAX_RUN_IDS_INDEXED, runId);
-    assertEquals(scriptCaptor.getValue(), expectedScript);
+    String expectedScriptSource = ElasticSearchService.SCRIPT_SOURCE;
+    assertEquals(expectedScriptSource, scriptSourceCaptor.getValue());
+
+    // Verify script parameters
+    Map<String, Object> expectedParams = new HashMap<>();
+    expectedParams.put("runId", runId);
+    expectedParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
+    assertEquals(expectedParams, scriptParamsCaptor.getValue());
 
     // Verify upsert document
     Map<String, Object> capturedUpsert = upsertCaptor.getValue();
-    assertEquals(capturedUpsert.get("runId"), Collections.singletonList(runId));
-    assertEquals(capturedUpsert.get("urn"), TEST_URN.toString());
+    assertEquals(Collections.singletonList(runId), capturedUpsert.get("runId"));
+    assertEquals(TEST_URN.toString(), capturedUpsert.get("urn"));
   }
 
   @Test
@@ -97,31 +99,26 @@ public class ElasticSearchServiceTest {
     testInstance.appendRunId(opContext, TEST_URN, null);
 
     // Verify the script update is still called with null handling
+    ArgumentCaptor<String> scriptSourceCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Map<String, Object>> scriptParamsCaptor = ArgumentCaptor.forClass(Map.class);
     ArgumentCaptor<Map<String, Object>> upsertCaptor = ArgumentCaptor.forClass(Map.class);
-    ArgumentCaptor<String> scriptCaptor = ArgumentCaptor.forClass(String.class);
 
     verify(mockEsWriteDAO)
         .applyScriptUpdate(
             eq(opContext),
             eq(TEST_URN.getEntityType()),
             eq(TEST_DOC_ID),
-            scriptCaptor.capture(),
+            scriptSourceCaptor.capture(),
+            scriptParamsCaptor.capture(),
             upsertCaptor.capture());
 
+    String expectedScriptSource = ElasticSearchService.SCRIPT_SOURCE;
     // Verify script content handles null
-    String expectedScript =
-        String.format(
-            "if (ctx._source.containsKey('runId')) { "
-                + "if (!ctx._source.runId.contains('%s')) { "
-                + "ctx._source.runId.add('%s'); "
-                + "if (ctx._source.runId.length > %s) { ctx._source.runId.remove(0) } } "
-                + "} else { ctx._source.runId = ['%s'] }",
-            null, null, MAX_RUN_IDS_INDEXED, null);
-    assertEquals(scriptCaptor.getValue(), expectedScript);
-
-    Map<String, Object> capturedUpsert = upsertCaptor.getValue();
-    assertEquals(capturedUpsert.get("runId"), Collections.singletonList(null));
-    assertEquals(capturedUpsert.get("urn"), TEST_URN.toString());
+    assertEquals(expectedScriptSource, scriptSourceCaptor.getValue());
+    Map<String, Object> expectedParams = new HashMap<>();
+    expectedParams.put("runId", null);
+    expectedParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
+    assertEquals(expectedParams, scriptParamsCaptor.getValue());
   }
 
   @Test(expectedExceptions = NullPointerException.class)

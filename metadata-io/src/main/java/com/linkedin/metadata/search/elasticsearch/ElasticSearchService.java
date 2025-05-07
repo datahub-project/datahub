@@ -54,6 +54,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           .setIncludeRestricted(false);
 
   private static final int MAX_RUN_IDS_INDEXED = 25; // Save the previous 25 run ids in the index.
+  public static final String SCRIPT_SOURCE =
+      "if (ctx._source.containsKey('runId')) { "
+          + "if (!ctx._source.runId.contains(params.runId)) { "
+          + "ctx._source.runId.add(params.runId); "
+          + "if (ctx._source.runId.length > params.maxRunIds) { ctx._source.runId.remove(0) } } "
+          + "} else { ctx._source.runId = [params.runId] }";
+
   @VisibleForTesting @Getter private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
@@ -170,22 +177,20 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
     upsert.put("urn", urn.toString());
     upsert.put("runId", Collections.singletonList(runId));
 
+    Map<String, Object> scriptParams = new HashMap<>();
+    scriptParams.put("runId", runId);
+    scriptParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
     esWriteDAO.applyScriptUpdate(
         opContext,
         urn.getEntityType(),
         docId,
         /*
-          Script used to apply updates to the runId field of the index.
+          Parameterized script used to apply updates to the runId field of the index.
           This script saves the past N run ids which touched a particular URN in the search index.
           It only adds a new run id if it is not already stored inside the list. (List is unique AND ordered)
         */
-        String.format(
-            "if (ctx._source.containsKey('runId')) { "
-                + "if (!ctx._source.runId.contains('%s')) { "
-                + "ctx._source.runId.add('%s'); "
-                + "if (ctx._source.runId.length > %s) { ctx._source.runId.remove(0) } } "
-                + "} else { ctx._source.runId = ['%s'] }",
-            runId, runId, MAX_RUN_IDS_INDEXED, runId),
+        SCRIPT_SOURCE,
+        scriptParams,
         upsert);
   }
 

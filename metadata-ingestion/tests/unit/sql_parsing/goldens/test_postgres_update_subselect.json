@@ -19,7 +19,7 @@
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                 },
-                "native_column_type": "VARCHAR"
+                "native_column_type": "VARCHAR(16777216)"
             },
             "upstreams": [
                 {

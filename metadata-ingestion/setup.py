@@ -105,7 +105,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==26.6.0",
+    "sqlglot[rs]==26.16.4",
     "patchy==2.8.0",
 }
 
@@ -131,17 +131,33 @@ cachetools_lib = {
     "cachetools",
 }
 
-sql_common_slim = {
+great_expectations_lib = {
+    # 1. Our original dep was this:
+    # "great-expectations>=0.15.12, <=0.15.50",
+    # 2. For hive, we had additional restrictions:
+    #    Due to https://github.com/great-expectations/great_expectations/issues/6146,
+    #    we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
+    #    https://github.com/great-expectations/great_expectations/pull/6149.
+    # "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
+    # 3. Since then, we've ended up forking great-expectations in order to
+    #    add pydantic 2.x support. The fork is pretty simple
+    #    https://github.com/great-expectations/great_expectations/compare/0.15.50...hsheth2:great_expectations:0.15.50-pydantic-2-patch?expand=1
+    #    This was derived from work done by @jskrzypek in
+    #    https://github.com/datahub-project/datahub/issues/8115#issuecomment-2264219783
+    "acryl-great-expectations==0.15.50.1",
+}
+
+sqlalchemy_lib = {
     # Required for all SQL sources.
     # This is temporary lower bound that we're open to loosening/tightening as requirements show up
     "sqlalchemy>=1.4.39, <2",
 }
 sql_common = (
     {
-        *sql_common_slim,
+        *sqlalchemy_lib,
         # Required for SQL profiling.
-        "great-expectations>=0.15.12, <=0.15.50",
-        *pydantic_no_v2,  # because of great-expectations
+        *great_expectations_lib,
+        "pydantic<2",  # keeping this for now, but can be removed eventually
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
@@ -211,6 +227,8 @@ clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
     # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
     # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    # zstd needs to be pinned because the latest version causes issues on arm
+    "zstd<1.5.6.8",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
@@ -450,10 +468,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {
         "databricks-dbapi",
-        # Due to https://github.com/great-expectations/great_expectations/issues/6146,
-        # we cannot allow 0.15.{23-26}. This was fixed in 0.15.27 by
-        # https://github.com/great-expectations/great_expectations/pull/6149.
-        "great-expectations != 0.15.23, != 0.15.24, != 0.15.25, != 0.15.26",
+        *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     "hive-metastore": sql_common
@@ -538,7 +553,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common,
-    "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
+    "fivetran": snowflake_common | bigquery_common | sqlalchemy_lib | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,
