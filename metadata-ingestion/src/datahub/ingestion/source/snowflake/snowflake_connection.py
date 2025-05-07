@@ -388,8 +388,14 @@ class SnowflakeConnectionConfig(ConfigModel):
 class SnowflakeConnection(Closeable):
     _connection: NativeSnowflakeConnection
 
-    def __init__(self, connection: NativeSnowflakeConnection):
+    def __init__(
+        self, connection: NativeSnowflakeConnection, statement_timeout_secs: int = 3600
+    ):
         self._connection = connection
+        # Set statement timeout in seconds (default 1 hour)
+        self._connection.cursor().execute(
+            f"ALTER SESSION SET STATEMENT_TIMEOUT_IN_SECONDS = {statement_timeout_secs}"
+        )
 
         self._query_num_lock = threading.Lock()
         self._query_num = 1
