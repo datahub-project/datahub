@@ -212,15 +212,7 @@ module.exports = {
             },
             {
               value: `
-                     <a class="dropdown__link" href="https://docs-website-598w4asvz-acryldata.vercel.app/docs/1.0.0/features">1.0.0
-                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
-                     </a>
-                     `,
-              type: "html",
-            },
-            {
-              value: `
-                     <a class="dropdown__link" href="https://docs-website-shzlgpxtc-acryldata.vercel.app/docs/0.15.0/features">0.15.0
+                     <a class="dropdown__link" href="https://docs-website-e66n33vyl-acryldata.vercel.app/docs/0.15.0/features">0.15.0
                      <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                      </a>
                      `,
