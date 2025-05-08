@@ -34,6 +34,7 @@ export const DEFAULT_APP_CONFIG = {
     },
     authConfig: {
         tokenAuthEnabled: false,
+        tokenNoExpiry: true,
     },
     telemetryConfig: {
         enableThirdPartyLogging: false,

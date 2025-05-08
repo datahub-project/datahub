@@ -9,6 +9,9 @@ public class AuthenticationConfiguration {
   /** Whether authentication is enabled */
   private boolean enabled;
 
+  /** Whether creating an access token that never expires is allowed */
+  private boolean tokenNoExpiry;
+
   /** Whether user existence is enforced */
   private boolean enforceExistenceEnabled;
 

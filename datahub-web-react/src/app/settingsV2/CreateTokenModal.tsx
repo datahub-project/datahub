@@ -9,6 +9,7 @@ import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/util
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Button } from '@src/alchemy-components';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
@@ -125,6 +126,7 @@ export default function CreateTokenModal({
     });
 
     const hasSelectedNoExpiration = selectedTokenDuration === AccessTokenDuration.NoExpiry;
+    const allowTokenNoExpiry = useAppConfig().config?.authConfig?.tokenNoExpiry;
 
     return (
         <>
@@ -191,7 +193,9 @@ export default function CreateTokenModal({
                         <Typography.Text strong>Expires in</Typography.Text>
                         <Form.Item name="duration" data-testid="create-access-token-duration" noStyle>
                             <ExpirationDurationSelect disabled={forRemoteExecutor}>
-                                {ACCESS_TOKEN_DURATIONS.map((duration) => (
+                                {ACCESS_TOKEN_DURATIONS.filter((duration) => {
+                                    return allowTokenNoExpiry || duration.duration !== AccessTokenDuration.NoExpiry;
+                                }).map((duration) => (
                                     <Select.Option key={duration.text} value={duration.duration}>
                                         <OptionText isRed={duration.duration === AccessTokenDuration.NoExpiry}>
                                             {duration.text}
