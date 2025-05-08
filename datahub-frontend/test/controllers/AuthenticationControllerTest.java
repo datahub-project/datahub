@@ -95,7 +95,7 @@ public class AuthenticationControllerTest {
 
     // Mock auth service client
     authClient = mock(AuthServiceClient.class);
-    when(authClient.generateSessionTokenForUser(anyString())).thenReturn("mock-token");
+    when(authClient.generateSessionTokenForUser(anyString(), anyString())).thenReturn("mock-token");
 
     // Create the controller
     controller = new AuthenticationController(mockConfig);
