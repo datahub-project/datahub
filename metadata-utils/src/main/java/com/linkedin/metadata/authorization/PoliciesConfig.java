@@ -428,10 +428,10 @@ public class PoliciesConfig {
           "The ability to read & write the data in a dataset.");
 
   public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_TABLES", "Manage tables", "The ability to create and drop tables.");
+      Privilege.of("DATA_MANAGE_TABLES", "Manage Iceberg Tables", "The ability to create and drop tables.");
 
   public static final Privilege DATA_MANAGE_VIEWS_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_VIEWS", "Manage views", "The ability to create and drop views.");
+      Privilege.of("DATA_MANAGE_VIEWS", "Manage Iceberg Views", "The ability to create and drop views.");
 
   public static final Privilege DATA_MANAGE_NAMESPACES_PRIVILEGE =
       Privilege.of(
