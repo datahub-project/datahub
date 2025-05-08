@@ -25,7 +25,7 @@ public class TweakReplicasStep implements UpgradeStep {
 
   private final List<ElasticSearchIndexed> services;
   private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
-  @Getter private CronArgs args;
+  @Getter public CronArgs args;
 
   @Override
   public String id() {
