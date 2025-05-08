@@ -101,8 +101,8 @@ ext {
                         ':datahub-frontend',
                         ':metadata-jobs:mce-consumer-job',
                         ':metadata-jobs:mae-consumer-job',
-                        //':datahub-actions',
-                        ':docker:datahub-ingestion'
+                        ':datahub-actions',
+                        //':docker:datahub-ingestion'
                     ]
             ]
     ]
@@ -221,7 +221,7 @@ quickstart_configs.each { taskName, config ->
 
         }
         if (project.properties.getOrDefault("dockerPush", false)){
-            buildCmd += ["--push"]
+            buildCmd += ["--push", "--no-cache"]
         }
         print("buildCmd: ${buildCmd}")
         commandLine buildCmd
