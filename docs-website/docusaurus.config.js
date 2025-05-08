@@ -201,72 +201,88 @@ module.exports = {
           type: "docsVersionDropdown",
           position: "left",
           dropdownActiveClassDisabled: true,
-            dropdownItemsAfter: [
-                {
-                type: 'html',
-                value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
-                },
-                {
-                type: 'html',
-                value: '<div class="dropdown__link"><b>Archived versions</b></div>',
-                },
-                {
-                  value: `
+          dropdownItemsAfter: [
+            {
+              type: 'html',
+              value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
+            },
+            {
+              type: 'html',
+              value: '<div class="dropdown__link"><b>Archived versions</b></div>',
+            },
+            {
+              value: `
+                     <a class="dropdown__link" href="https://docs-website-598w4asvz-acryldata.vercel.app/docs/1.0.0/features">1.0.0
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+              type: "html",
+            },
+            {
+              value: `
+                     <a class="dropdown__link" href="https://docs-website-shzlgpxtc-acryldata.vercel.app/docs/0.15.0/features">0.15.0
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+              type: "html",
+            },
+            {
+              value: `
                      <a class="dropdown__link" href="https://docs-website-8jkm4uler-acryldata.vercel.app/docs/0.14.1/features">0.14.1
                      <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                      </a>
                      `,
-                  type: "html",
-                },
-                {
-                  value: `
+              type: "html",
+            },
+            {
+              value: `
                      <a class="dropdown__link" href="https://docs-website-eue2qafvn-acryldata.vercel.app/docs/features">0.14.0
                      <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                      </a>
                      `,
-                  type: "html",
-                },
-                {
-                value: `
+              type: "html",
+            },
+            {
+              value: `
                    <a class="dropdown__link" href="https://docs-website-psat3nzgi-acryldata.vercel.app/docs/features">0.13.1
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
                    `,
-                type: "html",
-                },
-                {
-                  value: `
+              type: "html",
+            },
+            {
+              value: `
                      <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
                      <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                      </a>
                      `,
-                  type: "html",
-                },
-                {
-                value: `
+              type: "html",
+            },
+            {
+              value: `
                    <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
                    `,
-                type: "html",
-                },
-                {
-                value: `
+              type: "html",
+            },
+            {
+              value: `
                    <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
                    `,
-                type: "html",
-                },
-                {
-                value: `
+              type: "html",
+            },
+            {
+              value: `
                    <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
                    <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
                    </a>
                    `,
-                type: "html",
-                },
-            ],
+              type: "html",
+            },
+          ],
         },
         {
           href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
@@ -372,13 +388,13 @@ module.exports = {
       "@docusaurus/preset-classic",
       {
         docs: {
-            lastVersion: "current",
-              versions: {
-                current: {
-                  label: "Next",
-                  banner: 'none',
-                },
-              },
+          lastVersion: "current",
+          versions: {
+            current: {
+              label: "Next",
+              banner: 'none',
+            },
+          },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
