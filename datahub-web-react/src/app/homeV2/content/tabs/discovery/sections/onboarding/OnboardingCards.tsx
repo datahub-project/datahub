@@ -1,9 +1,7 @@
+import React, { useState } from 'react';
 import { Button, Card, colors } from '@components';
 import { Globe, Plugs, UserPlus } from '@phosphor-icons/react';
-import { useState } from 'react';
 import { useHistory } from 'react-router';
-import styled from 'styled-components';
-
 import { useUserContext } from '@app/context/useUserContext';
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { HOME_PAGE_ONBOARDING_CARDS_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
