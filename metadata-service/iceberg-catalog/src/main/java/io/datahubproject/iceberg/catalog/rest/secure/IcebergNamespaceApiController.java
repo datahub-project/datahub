@@ -80,10 +80,7 @@ public class IcebergNamespaceApiController extends AbstractIcebergController {
         catalogOperation(
             warehouse,
             operationContext,
-            catalog -> {
-              CatalogHandlers.createNamespace(catalog, createNamespaceRequest);
-              return CreateNamespaceResponse.builder().withNamespace(namespace).build();
-            });
+            catalog -> CatalogHandlers.createNamespace(catalog, createNamespaceRequest));
 
     log.info("CREATE NAMESPACE RESPONSE {}", createNamespaceResponse);
     return createNamespaceResponse;
