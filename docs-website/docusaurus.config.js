@@ -42,7 +42,22 @@ module.exports = {
     },
     {
       src: "/scripts/reo.js",
-    }
+    },
+    {
+      id: "runllm-widget-script",
+      type: "module",
+      src: "https://widget.runllm.com",
+      crossorigin: "true",
+      "runllm-name": "DataHub",
+      "runllm-assistant-id": "81",
+      "runllm-position": "BOTTOM_RIGHT",
+      "runllm-keyboard-shortcut": "Mod+j",
+      "runllm-preset": "docusaurus",
+      "runllm-brand-logo": "https://docs.datahub.com/img/datahub-logo-color-mark.svg",
+      "runllm-community-url": "https://datahub.com/slack",
+      "runllm-community-type": "slack",
+      async: true,
+    },
   ],
   noIndex: isSaas,
   customFields: {
