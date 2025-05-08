@@ -322,6 +322,7 @@ jobs:
           vuln-type: "os,library"
       - name: Upload Trivy scan results to GitHub Security tab
         uses: github/codeql-action/upload-sarif@v3
+        if: ${{ false }} # Saas only - we can't upload results
         with:
           sarif_file: "trivy-results.sarif"
 
