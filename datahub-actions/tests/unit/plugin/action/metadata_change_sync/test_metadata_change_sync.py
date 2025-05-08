@@ -10,7 +10,7 @@ from tests.unit.test_helpers import pipeline_context
 def test_create():
     # Create with gms server
     MetadataChangeSyncAction.create(
-        {"gms_server": "https://demo.datahubproject.io/"}, pipeline_context
+        {"gms_server": "https://demo.datahub.com/"}, pipeline_context
     )
 
     # Create with no gms_server
@@ -21,7 +21,7 @@ def test_create():
     with pytest.raises(ValidationError, match="extra_headers"):
         MetadataChangeSyncAction.create(
             {
-                "gms_server": "https://demo.datahubproject.io/",
+                "gms_server": "https://demo.datahub.com/",
                 "extra_headers": ["test", "action"],
             },
             pipeline_context,

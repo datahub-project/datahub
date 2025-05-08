@@ -6,7 +6,7 @@ import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { ViewOptionTooltipTitle } from '@app/entityV2/view/select/ViewOptionTooltipTitle';
 import {
@@ -20,6 +20,7 @@ import {
 import { GlobalDefaultViewIcon } from '@app/entityV2/view/shared/GlobalDefaultViewIcon';
 import { UserDefaultViewIcon } from '@app/entityV2/view/shared/UserDefaultViewIcon';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { useCustomTheme } from '@src/customThemeContext';
 
 import { DataHubView } from '@types';
 
@@ -52,9 +53,9 @@ const DefaultViewIconContainer = styled.div<{ selected?: boolean; $isShowNavBarR
     border: 1px solid
         ${(props) => {
             if (props.$isShowNavBarRedesign) {
-                return props.selected ? colors.violet[500] : 'transparent';
+                return props.selected ? props.theme.styles['primary-color'] : 'transparent';
             }
-            return props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK;
+            return props.selected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK;
         }};
     border-radius: 100%;
 `;
@@ -113,6 +114,7 @@ export const ViewOptionName = ({
     selectView,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { theme } = useCustomTheme();
 
     const renderViewIcon = () => {
         if (isShowNavBarRedesign) {
@@ -139,7 +141,7 @@ export const ViewOptionName = ({
                                 >
                                     <UserDefaultViewIcon
                                         title="Your default View."
-                                        color={colors.violet[500]}
+                                        color={theme?.styles['primary-color']}
                                         size={5}
                                     />
                                 </DefaultViewIconContainer>

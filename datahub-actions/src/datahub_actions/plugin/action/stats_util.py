@@ -15,13 +15,13 @@
 import abc
 import json
 from datetime import datetime, timezone
-from enum import Enum
 from typing import Dict, Optional
 
 import pydantic
 from pydantic import BaseModel
 
 from datahub.ingestion.api.report import Report, SupportsAsObj
+from datahub.utilities.str_enum import StrEnum
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import (
@@ -114,7 +114,7 @@ class EventProcessingStats(BaseModel):
         return json.dumps(self.dict(), indent=2)
 
 
-class StageStatus(str, Enum):
+class StageStatus(StrEnum):
     SUCCESS = "success"
     FAILURE = "failure"
     RUNNING = "running"

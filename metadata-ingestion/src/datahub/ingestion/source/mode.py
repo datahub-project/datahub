@@ -1457,11 +1457,18 @@ class ModeSource(StatefulIngestionSourceBase):
             )
             queries = queries_json.get("_embedded", {}).get("queries", {})
         except ModeRequestError as e:
-            self.report.report_failure(
-                title="Failed to Retrieve Queries",
-                message="Unable to retrieve queries for report token.",
-                context=f"Report Token: {report_token}, Error: {str(e)}",
-            )
+            if isinstance(e, HTTPError) and e.response.status_code == 404:
+                self.report.report_warning(
+                    title="No Queries Found",
+                    message="No queries found for the report token. Maybe the report is deleted...",
+                    context=f"Report Token: {report_token}, Error: {str(e)}",
+                )
+            else:
+                self.report.report_failure(
+                    title="Failed to Retrieve Queries",
+                    message="Unable to retrieve queries for report token.",
+                    context=f"Report Token: {report_token}, Error: {str(e)}",
+                )
         return queries
 
     @lru_cache(maxsize=None)

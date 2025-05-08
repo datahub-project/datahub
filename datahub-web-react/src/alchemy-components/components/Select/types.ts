@@ -55,6 +55,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     position?: OptionPosition;
     applyHoverWidth?: boolean;
     ignoreMaxHeight?: boolean;
+    isLoading?: boolean;
 }
 
 export interface SelectStyleProps {
@@ -73,6 +74,7 @@ export interface ActionButtonsProps {
     isDisabled: boolean;
     isReadOnly: boolean;
     showClear: boolean;
+    fontSize?: SelectSizeOptions;
     handleClearSelection: () => void;
 }
 
