@@ -221,7 +221,7 @@ quickstart_configs.each { taskName, config ->
 
         }
         if (project.properties.getOrDefault("dockerPush", false)){
-            buildCmd += ["--push", "--no-cache"]
+            buildCmd += ["--push"]
         }
         print("buildCmd: ${buildCmd}")
         commandLine buildCmd
