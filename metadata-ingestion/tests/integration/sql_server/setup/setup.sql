@@ -33,8 +33,10 @@ CREATE SCHEMA Foo;
 GO
 CREATE TABLE Foo.Items (ID int, ItemName nvarchar(max));
 GO
--- Create a table, ephimeral will be used as temp table pattern in some test case
-CREATE TABLE Foo.EphimeralItems (ID int, ItemName nvarchar(max));
+-- Create a table, ephemeral will be used as temp table pattern in some test case
+CREATE TABLE Foo.EphemeralItems (ID int, ItemName nvarchar(max));
+GO
+CREATE TABLE Foo.FinalItems (ID int, ItemName nvarchar(max));
 GO
 CREATE TABLE Foo.Persons (
     ID int NOT NULL PRIMARY KEY,
@@ -75,16 +77,16 @@ CREATE PROCEDURE [Foo].[NewProc]
         SELECT TempID, Name
         FROM Foo.SalesReason;
 
-        -- lineage: Foo.Items --> Foo.EphimeralItems
-        insert into Foo.EphimeralItems (ID, ItemName)
+        -- lineage: Foo.Items --> Foo.EphemeralItems
+        insert into Foo.EphemeralItems (ID, ItemName)
         select ID, ItemName
         from Foo.Items;
 
-        -- lineage: Foo.EphimeralItems --> Foo.Persons
-        UPDATE DemoData.Foo.Persons
-        SET Age = t.Age
-        FROM DemoData.Foo.Persons p
-        JOIN DemoData.Foo.EphimeralItems t ON p.ID = t.ID;
+        -- lineage: Foo.EphemeralItems --> Foo.FinalItems
+        UPDATE DemoData.Foo.FinalItems
+        SET ItemName = e.ItemName
+        FROM DemoData.Foo.FinalItems f
+        JOIN DemoData.Foo.EphemeralItems e ON f.ID = e.ID;
 
        IF OBJECT_ID('Foo.age_dist', 'U') IS NULL
        BEGIN

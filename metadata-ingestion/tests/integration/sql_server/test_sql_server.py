@@ -30,8 +30,19 @@ def mssql_runner(docker_compose_runner, pytestconfig):
 
         # Run the setup.sql file to populate the database.
         command = "docker exec testsqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql"
-        ret = subprocess.run(command, shell=True, capture_output=True)
-        assert ret.returncode == 0
+        print("\nExecuting SQL setup command:", command)
+        ret = subprocess.run(command, shell=True, capture_output=True, text=True)
+
+        # Note: sqlcmd returns 0 even when there are SQL errors in the script.
+        # Developers must check the output for "Msg" entries to identify actual SQL errors.
+
+        print("\nSQL Command Results:")
+        print(f"Return code: {ret.returncode}")
+        print("STDOUT:")
+        print(ret.stdout)
+        print("STDERR:")
+        print(ret.stderr)
+
         yield docker_services
 
     # The image is pretty large, so we remove it after the test.

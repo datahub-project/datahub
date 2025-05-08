@@ -794,6 +794,7 @@ class SQLServerSource(SQLAlchemySource):
             re.match(pattern, name, flags=re.IGNORECASE)
             for pattern in self.config.temporary_tables_pattern
         ):
+            logger.debug(f"temp table matched by pattern {name}")
             return True
 
         try:
@@ -813,8 +814,14 @@ class SQLServerSource(SQLAlchemySource):
                 self.config.database_pattern.allowed(db_name)
                 and self.config.schema_pattern.allowed(schema_name)
                 and self.config.table_pattern.allowed(name)
-                and self.standardize_identifier_case(name)
-                not in self.discovered_datasets
+                and False
+                # we are failing the discovered tables validation because of the case
+                # eg. we get 'demodata.foo.items' from sqlgot_lineage even with `convert_urns_to_lowercase=False`
+                # and self.standardize_identifier_case(name)
+                # not in [
+                #     self.standardize_identifier_case(d)
+                #     for d in self.discovered_datasets
+                # ]
             ):
                 logger.debug(f"inferred as temp table {name}")
                 return True

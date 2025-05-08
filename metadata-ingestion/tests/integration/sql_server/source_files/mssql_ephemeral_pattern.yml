@@ -10,7 +10,7 @@ source:
     platform_instance: my-instance
     include_containers_for_pipelines: true
     temporary_tables_pattern:
-      - ".*Ephimeral.*"
+      - ".*Ephemeral.*"
 
 sink:
   type: file
