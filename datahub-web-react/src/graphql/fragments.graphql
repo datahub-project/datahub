@@ -494,6 +494,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     deprecation {
         ...deprecationFields
     }
+    subTypes {
+        typeNames
+    }
 }
 
 fragment nonRecursiveDataJobFields on DataJob {
