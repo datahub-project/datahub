@@ -428,10 +428,16 @@ public class PoliciesConfig {
           "The ability to read & write the data in a dataset.");
 
   public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_TABLES", "Manage Iceberg Tables", "The ability to create and drop Iceberg tables registered in DataHub.");
+      Privilege.of(
+          "DATA_MANAGE_TABLES",
+          "Manage Iceberg Tables",
+          "The ability to create and drop Iceberg tables registered in DataHub.");
 
   public static final Privilege DATA_MANAGE_VIEWS_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_VIEWS", "Manage Iceberg Views", "The ability to create and drop views registered in DataHub.");
+      Privilege.of(
+          "DATA_MANAGE_VIEWS",
+          "Manage Iceberg Views",
+          "The ability to create and drop views registered in DataHub.");
 
   public static final Privilege DATA_MANAGE_NAMESPACES_PRIVILEGE =
       Privilege.of(
@@ -585,7 +591,7 @@ public class PoliciesConfig {
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
                       EDIT_QUERIES_PRIVILEGE,
-                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
+                      // CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
                       DATA_READ_ONLY_PRIVILEGE,
                       DATA_READ_WRITE_PRIVILEGE,
                       EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
