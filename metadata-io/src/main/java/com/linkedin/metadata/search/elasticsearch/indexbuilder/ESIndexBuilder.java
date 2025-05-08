@@ -431,7 +431,8 @@ public class ESIndexBuilder {
     try {
       Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(indexState.name());
 
-      String parentTaskId;
+      String parentTaskId = "";
+      boolean reindexTaskCompleted = false;
       if (previousTaskInfo.isPresent()) {
         log.info(
             "Reindex task {} in progress with description {}. Attempting to continue task from breakpoint.",
@@ -444,19 +445,25 @@ public class ESIndexBuilder {
       } else {
         // Create new index
         createIndex(tempIndexName, indexState);
-
-        parentTaskId = submitReindex(indexState.name(), tempIndexName, targetshards);
+        Pair<Long, Long> documentCounts = getDocumentCounts(indexState.name(), tempIndexName);
+        long curDocCount = documentCounts.getSecond();
+        if (curDocCount == 0) {
+          reindexTaskCompleted = true;
+          log.info(
+              "Reindex skipped for {} -> {} due to 0 docs .", indexState.name(), tempIndexName);
+        } else {
+          parentTaskId = submitReindex(indexState.name(), tempIndexName, targetshards);
+        }
       }
 
       int reindexCount = 1;
       int count = 0;
-      boolean reindexTaskCompleted = false;
       Pair<Long, Long> documentCounts = getDocumentCounts(indexState.name(), tempIndexName);
       long documentCountsLastUpdated = System.currentTimeMillis();
       long previousDocCount = documentCounts.getSecond();
       long estimatedMinutesRemaining = 0;
 
-      while (System.currentTimeMillis() < timeoutAt) {
+      while (!reindexTaskCompleted || (System.currentTimeMillis() < timeoutAt)) {
         log.info(
             "Task: {} - Reindexing from {} to {} in progress...",
             parentTaskId,
