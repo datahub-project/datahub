@@ -101,7 +101,7 @@ ext {
                         ':datahub-frontend',
                         ':metadata-jobs:mce-consumer-job',
                         ':metadata-jobs:mae-consumer-job',
-                        ':datahub-actions',
+                        //':datahub-actions',
                         ':docker:datahub-ingestion'
                     ]
             ]
