@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
-from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     OtherSchemaClass,
     SchemaFieldClass,
@@ -21,6 +20,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
     SqlParsingResult,
 )
+from datahub.utilities.urns.error import InvalidUrnError
 from tests.test_helpers import mce_helpers
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "lineage_client_golden"
@@ -538,7 +538,8 @@ def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
 
     # Test with invalid datajob URN
     with pytest.raises(
-        SdkUsageError, match=r"The datajob parameter must be a DataJob URN"
+        InvalidUrnError,
+        match="Passed an urn of type glossaryNode to the from_string method of DataJobUrn",
     ):
         client.lineage.add_datajob_lineage(
             datajob=invalid_urn,
@@ -548,13 +549,11 @@ def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
         )
 
     # Test with invalid upstream URN
-    with pytest.raises(
-        SdkUsageError, match=r"Upstream URN .* must be either a dataset or datajob URN"
-    ):
+    with pytest.raises(InvalidUrnError):
         client.lineage.add_datajob_lineage(datajob=datajob_urn, upstreams=[invalid_urn])
 
     # Test with invalid downstream URN
-    with pytest.raises(SdkUsageError, match=r"Downstream URN .* must be a dataset URN"):
+    with pytest.raises(InvalidUrnError):
         client.lineage.add_datajob_lineage(
             datajob=datajob_urn, downstreams=[invalid_urn]
         )

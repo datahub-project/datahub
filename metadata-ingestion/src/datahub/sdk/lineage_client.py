@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 import difflib
-import warnings
+import logging
 from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 
 from typing_extensions import assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.errors import SdkUsageError, SQLParsingWarning
-from datahub.metadata.urns import DatasetUrn, QueryUrn
+from datahub.errors import SdkUsageError
+from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
@@ -17,6 +17,7 @@ from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -26,6 +27,9 @@ _empty_audit_stamp = models.AuditStampClass(
     time=0,
     actor=DEFAULT_ACTOR_URN,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class LineageClient:
@@ -247,7 +251,6 @@ class LineageClient:
         env: str = "PROD",
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
-        schema_aware: bool = True,
     ) -> None:
         """Add lineage by parsing a SQL query."""
         from datahub.sql_parsing.sqlglot_lineage import (
@@ -257,13 +260,12 @@ class LineageClient:
         # Parse the SQL query to extract lineage information
         parsed_result = create_lineage_sql_parsed_result(
             query=query_text,
-            default_db=default_db or "",
-            default_schema=default_schema or "",
+            default_db=default_db,
+            default_schema=default_schema,
             platform=platform,
             platform_instance=platform_instance,
             env=env,
             graph=self._client._graph,
-            schema_aware=schema_aware,
         )
 
         if parsed_result.debug_info.table_error:
@@ -271,10 +273,8 @@ class LineageClient:
                 f"Failed to parse SQL query: {parsed_result.debug_info.error}"
             )
         elif parsed_result.debug_info.column_error:
-            warnings.warn(
+            logger.warning(
                 f"Failed to parse SQL query: {parsed_result.debug_info.error}",
-                category=SQLParsingWarning,
-                stacklevel=2,
             )
 
         if not parsed_result.out_tables:
@@ -335,43 +335,28 @@ class LineageClient:
         if not upstreams and not downstreams:
             raise SdkUsageError("No upstreams or downstreams provided")
 
-        datajob_urn = str(datajob)
-        if not datajob_urn.startswith("urn:li:dataJob:"):
-            raise SdkUsageError(
-                f"The datajob parameter must be a DataJob URN, got {datajob_urn}"
-            )
+        datajob_urn = DataJobUrn.from_string(datajob)
 
         # Initialize the patch builder for the datajob
-        patch_builder = DataJobPatchBuilder(datajob_urn)
+        patch_builder = DataJobPatchBuilder(str(datajob_urn))
 
         # Process upstream connections (inputs to the datajob)
         if upstreams:
             for upstream in upstreams:
-                upstream_urn = str(upstream)
-
-                if upstream_urn.startswith("urn:li:dataset:"):
-                    # Add dataset as input to the datajob
-                    patch_builder.add_input_dataset(upstream_urn)
-                elif upstream_urn.startswith("urn:li:dataJob:"):
-                    # Add datajob as input to the datajob
-                    patch_builder.add_input_datajob(upstream_urn)
-                else:
-                    raise SdkUsageError(
-                        f"Upstream URN {upstream_urn} must be either a dataset or datajob URN"
-                    )
+                # try converting to dataset urn
+                try:
+                    dataset_urn = DatasetUrn.from_string(upstream)
+                    patch_builder.add_input_dataset(dataset_urn)
+                except InvalidUrnError:
+                    # try converting to datajob urn
+                    datajob_urn = DataJobUrn.from_string(upstream)
+                    patch_builder.add_input_datajob(datajob_urn)
 
         # Process downstream connections (outputs from the datajob)
         if downstreams:
             for downstream in downstreams:
-                downstream_urn = str(downstream)
-
-                if downstream_urn.startswith("urn:li:dataset:"):
-                    # Add dataset as output from the datajob
-                    patch_builder.add_output_dataset(downstream_urn)
-                else:
-                    raise SdkUsageError(
-                        f"Downstream URN {downstream_urn} must be a dataset URN"
-                    )
+                downstream_urn = DatasetUrn.from_string(downstream)
+                patch_builder.add_output_dataset(downstream_urn)
 
         # Apply the changes to the entity
         self._client.entities.update(patch_builder)
