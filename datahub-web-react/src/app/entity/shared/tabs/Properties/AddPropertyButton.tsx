@@ -91,7 +91,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
         types: [EntityType.StructuredProperty],
         query: '',
         start: 0,
-        count: 100,
+        count: 500,
         searchFlags: { skipCache: true },
         orFilters: [
             {

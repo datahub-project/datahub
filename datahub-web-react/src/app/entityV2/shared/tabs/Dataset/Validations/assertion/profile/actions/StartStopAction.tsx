@@ -5,7 +5,7 @@ import React from 'react';
 import analytics, { EventType } from '@app/analytics';
 import { isMonitorActive } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { colors } from '@src/alchemy-components';
-import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
 import { ActionMenuItem } from '@src/app/entityV2/shared/EntityDropdown/styledComponents';
 
 import { useUpdateMonitorStatusMutation } from '@graphql/monitor.generated';
@@ -90,7 +90,7 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
     const authorizedTip = isActive ? 'Stop' : 'Start';
     const unauthorizedTip = canEdit ? undefined : 'You do not have permission to start or stop this assertion';
     return (
-        <Tooltip2 title={canEdit ? authorizedTip : unauthorizedTip}>
+        <StructuredPopover title={canEdit ? authorizedTip : unauthorizedTip}>
             <ActionMenuItem
                 key="0"
                 disabled={!canEdit}
@@ -104,6 +104,6 @@ export const StartStopAction = ({ assertion, monitor, canEdit, refetch }: Props)
                 }
                 data-testid="assertion-start-stop-action"
             />
-        </Tooltip2>
+        </StructuredPopover>
     );
 };
