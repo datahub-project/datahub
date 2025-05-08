@@ -219,12 +219,14 @@ def test_add_dataset_copy_lineage_auto_fuzzy(client: DataHubClient) -> None:
     # Use patch.object with a context manager
     with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
         # Configure the mock with a simpler side effect function
-        mock_method.side_effect = lambda urn: {
-            field.fieldPath
-            for field in (
-                upstream_schema if "upstream" in str(urn) else downstream_schema
-            ).fields
-        }
+        mock_method.side_effect = lambda urn: sorted(
+            {
+                field.fieldPath
+                for field in (
+                    upstream_schema if "upstream" in str(urn) else downstream_schema
+                ).fields
+            }
+        )
 
         # Now use client.lineage with the patched method
         client.lineage.add_dataset_copy_lineage(
@@ -304,12 +306,14 @@ def test_add_dataset_copy_lineage_auto_strict(client: DataHubClient) -> None:
     )
 
     with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
-        mock_method.side_effect = lambda urn: {
-            field.fieldPath
-            for field in (
-                upstream_schema if "upstream" in str(urn) else downstream_schema
-            ).fields
-        }
+        mock_method.side_effect = lambda urn: sorted(
+            {
+                field.fieldPath
+                for field in (
+                    upstream_schema if "upstream" in str(urn) else downstream_schema
+                ).fields
+            }
+        )
 
         # Run the lineage function
         client.lineage.add_dataset_copy_lineage(
