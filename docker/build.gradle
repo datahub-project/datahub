@@ -214,14 +214,16 @@ quickstart_configs.each { taskName, config ->
         if (System.getenv("DOCKER_CACHE") == "DEPOT") {
             buildCmd << "depot"
             buildCmd += bakeCmdArgs
-            buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
-            if (project.properties.getOrDefault("dockerPush", false)){
-                buildCmd << "--push"
-            }
+            buildCmd += ['--save', '--load', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
+
         }
+        if (project.properties.getOrDefault("dockerPush", false)){
+            buildCmd << "--push"
+        }
+        print("buildCmd: ${buildCmd}")
         commandLine buildCmd
         workingDir rootProject.projectDir
 
