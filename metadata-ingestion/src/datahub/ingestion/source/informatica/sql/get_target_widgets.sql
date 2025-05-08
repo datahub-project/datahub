@@ -1,0 +1,42 @@
+SELECT DISTINCT SWI.WIDGET_ID,
+                CNX.OBJECT_NAME    AS CONNECTION_NAME,
+                CNX.CONNECT_STRING AS CONNECT_STRING,
+                coalesce(WA_SCHEMA.target_database_name, CNX.USER_NAME)      AS SCHEMA_NAME,
+                TARG.TARGET_NAME,
+                TARG.TARGET_DESC   AS DESCRIPTION,
+                WA.ATTR_VALUE      AS TABLE_NAME,
+                PARM_VAL.SESSION_INST_ID,
+                PARM_VAR.PV_ID,
+                PARM_VAL.PV_VALUE  AS PV_TABLE_NAME
+FROM {metadata_schema}.OPB_SWIDGET_INST SWI
+          JOIN {metadata_schema}.OPB_WIDGET_ATTR WA
+            ON SWI.WIDGET_TYPE = WA.WIDGET_TYPE AND SWI.MAPPING_ID = WA.MAPPING_ID AND SWI.WIDGET_ID = WA.WIDGET_ID AND ATTR_ID = 19
+    LEFT OUTER JOIN (SELECT widget_id , mapping_id ,WIDGET_TYPE,
+        instance_id,
+        CASE WHEN attr_value = '$$P_ODS_OWNER' AND attr_id IN (3,28) THEN 'DS_ADM'
+        WHEN attr_value = '$$P_DW_OWNER' AND attr_id IN (3,28) THEN 'DW_ADM'
+        WHEN attr_value = '$$P_DM_OWNER' AND attr_id IN (3,28) THEN 'DM_ADM'
+        WHEN attr_id IN (3,28) THEN attr_value
+        ELSE NULL
+        END AS target_database_name
+        FROM {metadata_schema}.opb_widget_attr
+        WHERE widget_type = '2' AND attr_id IN (3,28) AND attr_value IS NOT NULL) WA_SCHEMA
+    ON SWI.WIDGET_TYPE = WA_SCHEMA.WIDGET_TYPE AND SWI.WIDGET_ID = WA_SCHEMA.WIDGET_ID AND SWI.MAPPING_ID = WA_SCHEMA.MAPPING_ID
+    LEFT OUTER JOIN {metadata_schema}.OPB_TARG TARG ON TARG.TARGET_ID = SWI.WIDGET_ID
+    LEFT OUTER JOIN {metadata_schema}.OPB_MAP_PARMVAR PARM_VAR
+    ON SWI.MAPPING_ID = PARM_VAR.MAPPING_ID AND WA.ATTR_VALUE = PARM_VAR.PV_NAME
+    LEFT OUTER JOIN (SELECT MAPPING_ID, PV_ID, PV_VALUE, SESSION_INST_ID
+    FROM (SELECT MAPPING_ID,
+    PV_ID,
+    PV_VALUE,
+    SESSION_INST_ID,
+    ROW_NUMBER() OVER (PARTITION BY mapping_id, PV_ID ORDER BY session_inst_id DESC) AS RN
+    FROM {metadata_schema}.OPB_MAP_PERSISVAL)
+    WHERE RN = 1) PARM_VAL
+    ON PARM_VAR.MAPPING_ID = PARM_VAL.MAPPING_ID AND PARM_VAR.PV_ID = PARM_VAL.PV_ID
+    LEFT OUTER JOIN {metadata_schema}.OPB_SESS_CNX_VALS S_CNX
+    ON SWI.SESSION_ID = S_CNX.SESSION_ID AND SWI.SESS_WIDG_INST_ID = S_CNX.SESS_WIDG_INST_ID
+    LEFT OUTER JOIN {metadata_schema}.OPB_CNX CNX ON CNX.OBJECT_ID = S_CNX.CONNECTION_ID
+WHERE SWI.MAPPING_ID = :mapping_id
+  AND SWI.SESSION_ID = :session_id
+  AND SWI.WIDGET_TYPE = 2
