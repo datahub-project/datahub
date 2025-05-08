@@ -428,22 +428,28 @@ public class PoliciesConfig {
           "The ability to read & write the data in a dataset.");
 
   public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_TABLES", "Manage Iceberg Tables", "The ability to create and drop tables.");
+      Privilege.of(
+          "DATA_MANAGE_TABLES",
+          "Manage Iceberg Tables",
+          "The ability to create and drop Iceberg tables registered in DataHub.");
 
   public static final Privilege DATA_MANAGE_VIEWS_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_VIEWS", "Manage Iceberg Views", "The ability to create and drop views.");
+      Privilege.of(
+          "DATA_MANAGE_VIEWS",
+          "Manage Iceberg Views",
+          "The ability to create and drop views registered in DataHub.");
 
   public static final Privilege DATA_MANAGE_NAMESPACES_PRIVILEGE =
       Privilege.of(
           "DATA_MANAGE_NAMESPACES",
-          "Manage namespaces",
-          "The ability to create and drop namespaces.");
+          "Manage Iceberg Namespaces",
+          "The ability to create and drop Iceberg namespaces registered in DataHub.");
 
   public static final Privilege DATA_LIST_ENTITIES_PRIVILEGE =
       Privilege.of(
           "DATA_LIST_ENTITIES",
-          "List tables, views & namespaces",
-          "The ability to list tables, views and namespaces.");
+          "List Iceberg Tables, Views & Namespaces",
+          "The ability to list Iceberg tables, views and namespaces registered in DataHub.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
@@ -585,7 +591,7 @@ public class PoliciesConfig {
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
                       EDIT_QUERIES_PRIVILEGE,
-                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
+                      // CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
                       DATA_READ_ONLY_PRIVILEGE,
                       DATA_READ_WRITE_PRIVILEGE,
                       EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
