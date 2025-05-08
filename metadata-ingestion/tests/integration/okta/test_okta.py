@@ -6,10 +6,10 @@ from unittest.mock import Mock, patch
 import jsonpickle
 import pytest
 from freezegun import freeze_time
+from okta.models import Group, User
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.okta import OktaConfig
-from okta.models import Group, User
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
