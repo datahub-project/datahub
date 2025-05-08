@@ -293,6 +293,11 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return indexBuilder;
+  }
+
+  @Override
   public void upsertDocument(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
