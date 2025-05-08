@@ -166,6 +166,7 @@ class SupersetDataset(BaseModel):
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
 ):
+    # TODO: Add support for missing dataPlatformInstance/containers
     # See the Superset /security/login endpoint for details
     # https://superset.apache.org/docs/rest-api
     connect_uri: str = Field(
@@ -177,7 +178,7 @@ class SupersetConfig(
     )
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
-        description="regex patterns for tables to filter to assign domain_key. ",
+        description="Regex patterns for tables to filter to assign domain_key. ",
     )
     dataset_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -193,7 +194,7 @@ class SupersetConfig(
     )
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="regex patterns for databases to filter in ingestion.",
+        description="Regex patterns for databases to filter in ingestion.",
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
@@ -303,6 +304,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         self.owner_info = self.parse_owner_info()
         self.filtered_dataset_to_database: Dict[int, str] = {}
         self.filtered_chart_to_database: Dict[int, str] = {}
+        self.processed_charts: Dict[int, Tuple[Optional[str], bool]] = {}
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -543,63 +545,40 @@ class SupersetSource(StatefulIngestionSourceBase):
                         chart_ids.append(chart_id)
 
                 for chart_id in chart_ids:
-                    if chart_id in self.filtered_chart_to_database:
-                        database_name = self.filtered_chart_to_database[chart_id]
-                        if database_name and not self.config.database_pattern.allowed(
-                            database_name
-                        ):
+                    if chart_id in self.processed_charts:
+                        database_name, is_filtered = self.processed_charts[chart_id]
+                        if is_filtered:
                             self.report.warning(
-                                f"Dashboard '{dashboard_title}' (id: {dashboard_id}) uses dataset filtered by database_pattern with database '{database_name}'"
+                                message="Dashboard contains charts using datasets from a filtered database. Include the database to ingest this dashboard.",
+                                context=str(
+                                    dict(
+                                        dashboard_id=dashboard_id,
+                                        dashboard_title=dashboard_title,
+                                        chart_id=chart_id,
+                                        database_name=database_name,
+                                    )
+                                ),
+                                title="Incomplete Ingestion",
                             )
                             return
-                    else:
-                        chart_response = self.session.get(
-                            f"{self.config.connect_uri}/api/v1/chart/{chart_id}",
-                            timeout=self.config.timeout,
-                        )
-
-                        if chart_response.status_code == 200:
-                            chart_data = chart_response.json().get("result", {})
-                            datasource_id = chart_data.get("datasource_id")
-
-                            if datasource_id:
-                                if datasource_id in self.filtered_dataset_to_database:
-                                    database_name = self.filtered_dataset_to_database[
-                                        datasource_id
-                                    ]
-                                else:
-                                    dataset_response = self.get_dataset_info(
-                                        datasource_id
-                                    )
-                                    database_name = (
-                                        dataset_response.get("result", {})
-                                        .get("database", {})
-                                        .get("database_name", "")
-                                    )
-
-                                if (
-                                    database_name
-                                    and not self.config.database_pattern.allowed(
-                                        database_name
-                                    )
-                                ):
-                                    self.filtered_chart_to_database[chart_id] = (
-                                        database_name
-                                    )
-                                    self.filtered_dataset_to_database[datasource_id] = (
-                                        database_name
-                                    )
-                                    self.report.warning(
-                                        f"Dashboard '{dashboard_title}' (id: {dashboard_id}) uses dataset filtered by database_pattern with database '{database_name}'"
-                                    )
-                                    return
 
             dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
+
         except Exception as e:
             self.report.warning(
-                f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
+                message="Failed to construct dashboard snapshot. This dashboard will not be ingested.",
+                context=str(
+                    dict(
+                        dashboard_id=dashboard_id,
+                        dashboard_title=dashboard_title,
+                        error=str(e),
+                    )
+                ),
+                title="Dashboard Construction Failed",
+                exc=e,
             )
             return
+
         mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
         yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
         yield from self._get_domain_wu(
@@ -855,6 +834,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def _process_chart(self, chart_data: Any) -> Iterable[MetadataWorkUnit]:
         chart_name = ""
+        database_name = None
         try:
             chart_id = chart_data.get("id")
             chart_name = chart_data.get("slice_name", "")
@@ -864,34 +844,70 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
                 return
 
+            # TODO: Make helper methods for database_pattern
             if self.config.database_pattern != AllowDenyPattern.allow_all():
                 datasource_id = chart_data.get("datasource_id")
-                database_name = None
 
                 if datasource_id:
                     if datasource_id in self.filtered_dataset_to_database:
                         database_name = self.filtered_dataset_to_database[datasource_id]
                         self.filtered_chart_to_database[chart_id] = database_name
-                        self.report.warning(
-                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset filtered by database_pattern with database '{database_name}'"
+
+                        is_filtered = not self.config.database_pattern.allowed(
+                            database_name
                         )
-                        return
+                        self.processed_charts[chart_id] = (database_name, is_filtered)
+
+                        if is_filtered:
+                            self.report.warning(
+                                message="Chart uses a dataset from a filtered database. Include the database to ingest this chart.",
+                                context=str(
+                                    dict(
+                                        chart_id=chart_id,
+                                        chart_name=chart_name,
+                                        database_name=database_name,
+                                    )
+                                ),
+                                title="Incomplete Ingestion",
+                            )
+                            return
                     else:
                         dataset_response = self.get_dataset_info(datasource_id)
                         database_name = (
                             dataset_response.get("result", {})
                             .get("database", {})
-                            .get("database_name", "")
+                            .get("database_name")
                         )
 
-                    if database_name and not self.config.database_pattern.allowed(
-                        database_name
-                    ):
-                        self.filtered_chart_to_database[chart_id] = database_name
-                        self.report.warning(
-                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset filtered by database_pattern with database '{database_name}'"
-                        )
-                        return
+                        if database_name:
+                            is_filtered = not self.config.database_pattern.allowed(
+                                database_name
+                            )
+                            if is_filtered:
+                                self.filtered_chart_to_database[chart_id] = (
+                                    database_name
+                                )
+                                self.filtered_dataset_to_database[datasource_id] = (
+                                    database_name
+                                )
+                            self.processed_charts[chart_id] = (
+                                database_name,
+                                is_filtered,
+                            )
+
+                            if is_filtered:
+                                self.report.warning(
+                                    message="Chart uses a dataset from a filtered database. Include the database to ingest this chart.",
+                                    context=str(
+                                        dict(
+                                            chart_id=chart_id,
+                                            chart_name=chart_name,
+                                            database_name=database_name,
+                                        )
+                                    ),
+                                    title="Incomplete Ingestion",
+                                )
+                                return
 
             if self.config.dataset_pattern != AllowDenyPattern.allow_all():
                 datasource_id = chart_data.get("datasource_id")
@@ -904,12 +920,28 @@ class SupersetSource(StatefulIngestionSourceBase):
                         dataset_name
                     ):
                         self.report.warning(
-                            f"Chart '{chart_name}' (id: {chart_id}) uses dataset '{dataset_name}' which is filtered by dataset_pattern"
+                            message="Chart uses a dataset that was filtered by dataset pattern. Update your dataset pattern to include this dataset.",
+                            context=str(
+                                dict(
+                                    chart_id=chart_id,
+                                    chart_name=chart_name,
+                                    dataset_name=dataset_name,
+                                )
+                            ),
+                            title="Incomplete Ingestion",
                         )
+            if chart_id not in self.processed_charts:
+                self.processed_charts[chart_id] = (database_name, False)
+
             yield from self.construct_chart_from_chart_data(chart_data)
         except Exception as e:
             self.report.warning(
-                f"Failed to construct chart snapshot. Chart name: {chart_name}. Error: \n{e}"
+                message="Failed to construct chart snapshot. This chart will not be ingested.",
+                context=str(
+                    dict(chart_id=chart_id, chart_name=chart_name, error=str(e))
+                ),
+                title="Chart Construction Failed",
+                exc=e,
             )
             return
 
@@ -1165,7 +1197,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 database_name = (
                     dataset_response.get("result", {})
                     .get("database", {})
-                    .get("database_name", "")
+                    .get("database_name")
                 )
 
                 if database_name and not self.config.database_pattern.allowed(
@@ -1202,6 +1234,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        # TODO: Possibly change ingestion order to minimize API calls
         if self.config.ingest_datasets:
             yield from self.emit_dataset_mces()
         if self.config.ingest_charts:
