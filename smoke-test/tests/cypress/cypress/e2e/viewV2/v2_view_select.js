@@ -37,7 +37,7 @@ describe("view select", () => {
     cy.clickOptionWithText("Add filter");
     cy.contains("Column Term").scrollIntoView();
     cy.clickOptionWithText("Column Term");
-    cy.ensureElementPresent('[placeholder="Search for Column Term"]');
+    cy.ensureElementPresent('[placeholder="Search"]');
     cy.get('[data-testid="search-input"]').last().type("CypressColumnInfoType");
     cy.get(".ant-checkbox").should("be.visible").click();
     cy.clickOptionWithTestId("update-filters");
