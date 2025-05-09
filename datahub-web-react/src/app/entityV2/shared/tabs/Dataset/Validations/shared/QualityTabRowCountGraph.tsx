@@ -25,7 +25,7 @@ export default function QualityTabRowCountGraph(): JSX.Element {
     const entityUrn = qualityEntityUrn || statsEntityUrn;
 
     const { data, loading: dataLoading } = useRowCountData(
-        entityUrn,
+        entityUrn ?? undefined,
         DEFAULT_GRAPH_LOOKBACK_WINDOW,
         canViewDatasetProfile,
     );

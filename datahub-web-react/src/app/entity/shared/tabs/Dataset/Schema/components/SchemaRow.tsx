@@ -126,7 +126,7 @@ export const SchemaRow = React.forwardRef<HTMLTableRowElement>((props, ref) => {
                             </EntitySidePanel>
                             <ConstraintSection>
                                 <div>
-                                    <TableTitle>{baseEntity.dataset?.name}</TableTitle>
+                                    <TableTitle>{baseEntity?.dataset?.name}</TableTitle>
                                     {selectedFk?.constraint?.sourceFields?.map((field) => (
                                         <div key={field?.fieldPath}>
                                             <FieldBadge count={decodeSchemaField(field?.fieldPath || '')} />

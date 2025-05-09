@@ -15,6 +15,11 @@ const QualityTabContext = createContext<QualityTabContextProps>({
     canViewDatasetProfile: false,
 });
 
+const DEFAULT_CONTEXT_VALUE: QualityTabContextProps = {
+    qualityEntityUrn: undefined,
+    canViewDatasetProfile: false,
+};
+
 export const useQualityTabContext = (): QualityTabContextProps => useContext(QualityTabContext);
 
 interface Props {
@@ -23,20 +28,25 @@ interface Props {
 
 export const QualityTabContextProvider = ({ children }: Props): JSX.Element => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const qualityEntityUrn = getSiblingEntityWithStats(baseEntity);
 
-    const statsEntity: any =
-        baseEntity.dataset?.urn !== qualityEntityUrn
-            ? baseEntity.dataset?.siblingsSearch?.searchResults?.find((res) => res.entity.urn === qualityEntityUrn)
-                  ?.entity || baseEntity.dataset?.siblingsSearch?.searchResults[0]?.entity
-            : baseEntity.dataset;
+    let value: QualityTabContextProps = DEFAULT_CONTEXT_VALUE;
 
-    const canViewDatasetProfile = !!(statsEntity as GenericEntityProperties)?.privileges?.canViewDatasetProfile;
+    if (baseEntity) {
+        const qualityEntityUrn = getSiblingEntityWithStats(baseEntity);
 
-    const value = {
-        qualityEntityUrn,
-        canViewDatasetProfile,
-    };
+        const statsEntity: any =
+            baseEntity.dataset?.urn !== qualityEntityUrn
+                ? baseEntity.dataset?.siblingsSearch?.searchResults?.find((res) => res.entity.urn === qualityEntityUrn)
+                      ?.entity || baseEntity.dataset?.siblingsSearch?.searchResults[0]?.entity
+                : baseEntity.dataset;
+
+        const canViewDatasetProfile = !!(statsEntity as GenericEntityProperties)?.privileges?.canViewDatasetProfile;
+
+        value = {
+            qualityEntityUrn,
+            canViewDatasetProfile,
+        };
+    }
 
     return <QualityTabContext.Provider value={value}>{children}</QualityTabContext.Provider>;
 };

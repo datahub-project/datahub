@@ -33,7 +33,11 @@ const QueryCountChart = () => {
     const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(AGGRAGATION_TIME_RANGE_OPTIONS, oldestDatasetUsageTime);
     const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.Month);
 
-    const { chartData, loading: dataLoading, groupInterval } = useQueryCountData(statsEntityUrn, timeRange);
+    const {
+        chartData,
+        loading: dataLoading,
+        groupInterval,
+    } = useQueryCountData(statsEntityUrn ?? undefined, timeRange);
 
     const loading = capabilitiesLoading || dataLoading;
 

@@ -17,7 +17,7 @@ import { Dataset } from '@src/types.generated';
 
 const StatsHighlights = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
-    const baseEntityData = baseEntity.dataset as Dataset;
+    const baseEntityData = baseEntity?.dataset as Dataset;
 
     const { statsEntityUrn, setStatsEntityUrn } = useStatsSectionsContext();
 
