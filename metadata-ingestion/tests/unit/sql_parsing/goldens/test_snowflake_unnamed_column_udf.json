@@ -20,7 +20,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
                     "column": "id"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"A\".\"ID\" AS \"ID\""
+            }
         },
         {
             "downstream": {
@@ -34,7 +38,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)",
                     "column": "name"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"B\".\"NAME\" AS \"NAME\""
+            }
         },
         {
             "downstream": {
@@ -47,6 +55,29 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)",
                     "column": "address"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"B\".\"ADDRESS\" AS \"ADDRESS\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)"
+            ],
+            "on_clause": "\"A\".\"ID\" = \"B\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)",
+                    "column": "ID"
                 }
             ]
         }

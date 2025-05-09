@@ -19,7 +19,11 @@
                 },
                 "native_column_type": "INT64"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "1 AS `constant1`"
+            }
         },
         {
             "downstream": {
@@ -32,7 +36,30 @@
                 },
                 "native_column_type": "INT64"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "2 AS `constant2`"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.external_users,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.main_users,PROD)"
+            ],
+            "on_clause": "`main`.`id` = `extras`.`id`",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.external_users,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.main_users,PROD)",
+                    "column": "id"
+                }
+            ]
         }
     ],
     "debug_info": {

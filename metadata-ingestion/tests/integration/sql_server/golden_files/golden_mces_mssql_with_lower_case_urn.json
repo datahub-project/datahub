@@ -130,11 +130,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "ae341aad-8ab2-421e-b46b-147afd4b0705",
+                "job_id": "15da6289-717d-49bd-9918-4ee66a453755",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2025-03-04 16:55:50.893000",
-                "date_modified": "2025-03-04 16:55:51.043000",
+                "date_created": "2025-05-06 18:04:03.460000",
+                "date_modified": "2025-05-06 18:04:03.667000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -2333,8 +2333,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2025-03-04 16:55:50.720000",
-                "date_modified": "2025-03-04 16:55:50.720000"
+                "date_created": "2025-05-06 18:04:03.317000",
+                "date_modified": "2025-05-06 18:04:03.317000"
             },
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
@@ -2401,8 +2401,8 @@
                 "depending_on_procedure": "{}",
                 "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2025-03-04 16:55:50.727000",
-                "date_modified": "2025-03-04 16:55:50.727000"
+                "date_created": "2025-05-06 18:04:03.323000",
+                "date_modified": "2025-05-06 18:04:03.323000"
             },
             "name": "DemoData.Foo.NewProc",
             "type": {
@@ -5044,6 +5044,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),ID)"
                     ],
+                    "transformOperation": "COPY: [persons].[id] AS [id]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
                 },
@@ -5056,6 +5057,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),LastName)"
                     ],
+                    "transformOperation": "COPY: [persons].[lastname] AS [lastname]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
                 },
@@ -5068,6 +5070,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),FirstName)"
                     ],
+                    "transformOperation": "COPY: [persons].[firstname] AS [firstname]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
                 },
@@ -5080,6 +5083,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),Age)"
                     ],
+                    "transformOperation": "COPY: [persons].[age] AS [age]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
                 }
@@ -5099,6 +5103,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW Foo.PersonsView AS\nSELECT\n  *\nFROM Foo.Persons",
                 "language": "SQL"
@@ -5109,7 +5114,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1741107357875,
+                "time": 1746554655578,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -5215,6 +5220,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),LastName)"
                     ],
+                    "transformOperation": "COPY: [personsnew].[lastname] AS [lastname]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29"
                 },
@@ -5227,6 +5233,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),FirstName)"
                     ],
+                    "transformOperation": "COPY: [personsnew].[firstname] AS [firstname]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cnewdata.foonew.view1%2CPROD%29"
                 }
@@ -5246,6 +5253,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW FooNew.View1 AS\nSELECT\n  LastName,\n  FirstName\nFROM FooNew.PersonsNew\nWHERE\n  Age > 18",
                 "language": "SQL"
@@ -5256,7 +5264,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1741107357882,
+                "time": 1746554655592,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -5345,6 +5353,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD),Age)"
                     ],
+                    "transformOperation": "COPY: [persons].[age] AS [age]",
                     "confidenceScore": 0.9
                 },
                 {
@@ -5356,6 +5365,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),tempid)"
                     ],
+                    "transformOperation": "COPY: [salesreason].[tempid] AS [tempid]",
                     "confidenceScore": 0.9
                 },
                 {
@@ -5367,6 +5377,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),name)"
                     ],
+                    "transformOperation": "COPY: [salesreason].[name] AS [name]",
                     "confidenceScore": 0.9
                 },
                 {

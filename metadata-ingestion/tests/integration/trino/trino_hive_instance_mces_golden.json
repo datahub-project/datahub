@@ -246,7 +246,7 @@
                             "numrows": "1",
                             "rawdatasize": "32",
                             "totalsize": "33",
-                            "transient_lastddltime": "1746463134"
+                            "transient_lastddltime": "1746552260"
                         },
                         "name": "array_struct_test",
                         "description": "This table has array of structs",
@@ -504,7 +504,7 @@
                             "numrows": "3",
                             "rawdatasize": "94",
                             "totalsize": "97",
-                            "transient_lastddltime": "1746463139"
+                            "transient_lastddltime": "1746552265"
                         },
                         "name": "classification_test",
                         "tags": []
@@ -763,7 +763,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746463137"
+                            "transient_lastddltime": "1746552263"
                         },
                         "name": "map_test",
                         "tags": []
@@ -990,7 +990,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746463137"
+                            "transient_lastddltime": "1746552263"
                         },
                         "name": "nested_struct_test",
                         "tags": []
@@ -1256,7 +1256,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1746463127"
+                            "transient_lastddltime": "1746552252"
                         },
                         "name": "pokes",
                         "tags": []
@@ -1491,7 +1491,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746463130"
+                            "transient_lastddltime": "1746552256"
                         },
                         "name": "struct_test",
                         "tags": []
@@ -1739,7 +1739,7 @@
                         "customProperties": {
                             "numfiles": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746463136"
+                            "transient_lastddltime": "1746552262"
                         },
                         "name": "struct_test_view_materialized",
                         "tags": []
@@ -1990,7 +1990,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746463130"
+                            "transient_lastddltime": "1746552256"
                         },
                         "name": "_test_table_underscore",
                         "tags": []
@@ -2213,7 +2213,7 @@
                             "numrows": "0",
                             "rawdatasize": "0",
                             "totalsize": "0",
-                            "transient_lastddltime": "1746463137"
+                            "transient_lastddltime": "1746552263"
                         },
                         "name": "union_test",
                         "tags": []
@@ -2507,7 +2507,7 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "transient_lastddltime": "1746463137",
+                            "transient_lastddltime": "1746552262",
                             "is_view": "True",
                             "view_definition": "SELECT \"property_id\", \"service\"\nFROM \"db1\".\"array_struct_test\""
                         },
@@ -2755,6 +2755,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),property_id)"
                     ],
+                    "transformOperation": "COPY: \"array_struct_test\".\"property_id\" AS \"property_id\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29"
                 },
@@ -2767,6 +2768,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:trino,production_warehouse.hivedb.db1.array_struct_test_view,PROD),service)"
                     ],
+                    "transformOperation": "COPY: \"array_struct_test\".\"service\" AS \"service\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atrino%2Cproduction_warehouse.hivedb.db1.array_struct_test_view%2CPROD%29"
                 }

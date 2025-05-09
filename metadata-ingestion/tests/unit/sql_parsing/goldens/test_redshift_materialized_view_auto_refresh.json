@@ -24,7 +24,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
                     "column": "cust_id"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"c\".\"cust_id\" AS \"cust_id\""
+            }
         },
         {
             "downstream": {
@@ -38,7 +42,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
                     "column": "first_name"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"c\".\"first_name\" AS \"first_name\""
+            }
         },
         {
             "downstream": {
@@ -51,6 +59,29 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)",
                     "column": "amount"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(\"o\".\"amount\") AS \"total_amount\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)"
+            ],
+            "on_clause": "\"c\".\"cust_id\" = \"o\".\"customer_id\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
+                    "column": "cust_id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)",
+                    "column": "customer_id"
                 }
             ]
         }
