@@ -42,12 +42,28 @@ module.exports = {
     },
     {
       src: "/scripts/reo.js",
-    }
+    },
+    {
+      id: "runllm-widget-script",
+      type: "module",
+      src: "https://widget.runllm.com",
+      crossorigin: "true",
+      "runllm-name": "DataHub",
+      "runllm-assistant-id": "81",
+      "runllm-position": "BOTTOM_RIGHT",
+      "runllm-keyboard-shortcut": "Mod+j",
+      "runllm-preset": "docusaurus",
+      "runllm-theme-color": "#1890FF",
+      "runllm-brand-logo": "https://docs.datahub.com/img/datahub-logo-color-mark.svg",
+      "runllm-community-url": "https://datahub.com/slack",
+      "runllm-community-type": "slack",
+      "runllm-disable-ask-a-person": "true",
+      async: true,
+    },
   ],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
-    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "0U6baUoEdHVV4fyPpr5pxcX3dFlAMEu9",
   },
 
   // See https://github.com/facebook/docusaurus/issues/4765
