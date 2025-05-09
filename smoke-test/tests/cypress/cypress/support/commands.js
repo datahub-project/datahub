@@ -474,13 +474,17 @@ Cypress.Commands.add("mouseHoverOnFirstElement", (selector) =>
   cy.get(selector).first().trigger("mouseover", { force: true }),
 );
 
-Cypress.Commands.add("createUser", (name, password, email) => {
+Cypress.Commands.add("createUser", (name, password, email, isV2 = false) => {
   cy.visit("/settings/identities/users");
   cy.clickOptionWithText("Invite Users");
   cy.waitTextVisible(/signup\?invite_token=\w{32}/).then(($elem) => {
     const inviteLink = $elem.text();
     cy.visit("/settings/identities/users");
-    cy.logout();
+    if (isV2) {
+      cy.logoutV2();
+    } else {
+      cy.logout();
+    }
     cy.visit(inviteLink);
     cy.enterTextInTestId("email", email);
     cy.enterTextInTestId("name", name);
@@ -489,11 +493,18 @@ Cypress.Commands.add("createUser", (name, password, email) => {
     cy.mouseover("#title").click();
     cy.waitTextVisible("Other").click();
     cy.get("[type=submit]").click();
-    cy.waitTextVisible("Welcome");
-    cy.hideOnboardingTour();
-    cy.waitTextVisible(name);
-    cy.logout();
-    cy.loginWithCredentials();
+    if (isV2) {
+      cy.waitTextVisible("Get Started");
+      cy.clickOptionWithText("Skip");
+      cy.waitTextVisible(name);
+      cy.logoutV2();
+    } else {
+      cy.waitTextVisible("Welcome");
+      cy.hideOnboardingTour();
+      cy.waitTextVisible(name);
+      cy.logout();
+    }
+    cy.login();
   });
 });
 
@@ -517,9 +528,11 @@ Cypress.Commands.add("addGroupMember", (group_name, group_urn, member_name) => {
   cy.contains(group_name).should("be.visible");
   cy.get('[role="tab"]').contains("Members").click();
   cy.clickOptionWithText("Add Member");
-  cy.contains("Search for users...").click({ force: true });
-  cy.focused().type(member_name);
-  cy.contains(member_name).click();
+  cy.contains("Search for users...")
+    .click({ force: true })
+    .focused()
+    .type(member_name);
+  cy.get(".ant-select-item-option-content").contains(member_name).click();
   cy.focused().blur();
   cy.contains(member_name).should("have.length", 1);
   cy.get('[role="dialog"] button').contains("Add").click({ force: true });
