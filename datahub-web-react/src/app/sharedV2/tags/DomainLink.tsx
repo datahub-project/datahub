@@ -17,7 +17,6 @@ const DomainLinkContainer = styled(Link)`
 
 const DomainWrapper = styled.span`
     display: inline-block;
-    margin-bottom: 8px;
 `;
 
 const CloseButton = styled.div`
@@ -79,16 +78,26 @@ export type Props = {
     tagStyle?: any | undefined;
     readOnly?: boolean;
     fontSize?: number;
+    enableTooltip?: boolean;
 };
 
-export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly, fontSize }: Props): JSX.Element => {
+export const DomainLink = ({
+    domain,
+    name,
+    closable,
+    onClose,
+    tagStyle,
+    readOnly,
+    fontSize,
+    enableTooltip = true,
+}: Props): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
     const urn = domain?.urn;
 
     if (readOnly) {
         return (
-            <HoverEntityTooltip entity={domain}>
+            <HoverEntityTooltip entity={domain} canOpen={enableTooltip}>
                 <DomainWrapper>
                     <DomainContent
                         domain={domain}
@@ -104,7 +113,7 @@ export const DomainLink = ({ domain, name, closable, onClose, tagStyle, readOnly
     }
 
     return (
-        <HoverEntityTooltip entity={domain}>
+        <HoverEntityTooltip entity={domain} canOpen={enableTooltip}>
             <DomainLinkContainer to={entityRegistry.getEntityUrl(EntityType.Domain, urn)} {...linkProps}>
                 <DomainContent
                     domain={domain}
