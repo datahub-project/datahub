@@ -1,18 +1,17 @@
-import { FieldType, RecipeField } from './common';
+import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
 export const AIRBYTE_DEPLOYMENT_TYPE: RecipeField = {
     name: 'deployment_type',
     label: 'Deployment Type',
     tooltip: 'The type of Airbyte deployment - "oss" for self-hosted or "cloud" for Airbyte Cloud.',
-    type: FieldType.ENUM,
+    type: FieldType.SELECT,
     fieldPath: 'source.config.deployment_type',
     options: [
         { label: 'Open Source', value: 'oss' },
-        { label: 'Cloud', value: 'cloud' }
+        { label: 'Cloud', value: 'cloud' },
     ],
     rules: null,
     required: true,
-    default: 'oss',
 };
 
 export const AIRBYTE_HOST_PORT: RecipeField = {
@@ -24,7 +23,6 @@ export const AIRBYTE_HOST_PORT: RecipeField = {
     placeholder: 'http://localhost:8000',
     rules: null,
     required: true,
-    dependencies: [{ field: 'deployment_type', value: 'oss' }],
 };
 
 export const AIRBYTE_USERNAME: RecipeField = {
@@ -36,7 +34,6 @@ export const AIRBYTE_USERNAME: RecipeField = {
     placeholder: 'airbyte',
     rules: null,
     required: false,
-    dependencies: [{ field: 'deployment_type', value: 'oss' }],
 };
 
 export const AIRBYTE_PASSWORD: RecipeField = {
@@ -48,10 +45,6 @@ export const AIRBYTE_PASSWORD: RecipeField = {
     placeholder: 'password',
     rules: null,
     required: false,
-    dependencies: [
-        { field: 'deployment_type', value: 'oss' },
-        { field: 'username', value: '', operator: 'notEmpty' }
-    ],
 };
 
 export const AIRBYTE_API_KEY: RecipeField = {
@@ -63,7 +56,6 @@ export const AIRBYTE_API_KEY: RecipeField = {
     placeholder: 'your-api-key',
     rules: null,
     required: false,
-    dependencies: [{ field: 'deployment_type', value: 'oss' }],
 };
 
 export const AIRBYTE_OAUTH2_CLIENT_ID: RecipeField = {
@@ -75,7 +67,6 @@ export const AIRBYTE_OAUTH2_CLIENT_ID: RecipeField = {
     placeholder: 'client-id',
     rules: null,
     required: true,
-    dependencies: [{ field: 'deployment_type', value: 'cloud' }],
 };
 
 export const AIRBYTE_OAUTH2_CLIENT_SECRET: RecipeField = {
@@ -87,7 +78,6 @@ export const AIRBYTE_OAUTH2_CLIENT_SECRET: RecipeField = {
     placeholder: 'client-secret',
     rules: null,
     required: true,
-    dependencies: [{ field: 'deployment_type', value: 'cloud' }],
 };
 
 export const AIRBYTE_OAUTH2_REFRESH_TOKEN: RecipeField = {
@@ -99,7 +89,6 @@ export const AIRBYTE_OAUTH2_REFRESH_TOKEN: RecipeField = {
     placeholder: 'refresh-token',
     rules: null,
     required: true,
-    dependencies: [{ field: 'deployment_type', value: 'cloud' }],
 };
 
 export const AIRBYTE_CLOUD_WORKSPACE_ID: RecipeField = {
@@ -111,16 +100,14 @@ export const AIRBYTE_CLOUD_WORKSPACE_ID: RecipeField = {
     placeholder: 'workspace-id',
     rules: null,
     required: true,
-    dependencies: [{ field: 'deployment_type', value: 'cloud' }],
 };
 
 export const AIRBYTE_VERIFY_SSL: RecipeField = {
     name: 'verify_ssl',
     label: 'Verify SSL',
     tooltip: 'Whether to verify SSL certificates when connecting to Airbyte.',
-    type: FieldType.TOGGLE,
+    type: FieldType.BOOLEAN,
     fieldPath: 'source.config.verify_ssl',
-    default: false,
     rules: null,
     required: false,
 };
@@ -129,9 +116,8 @@ export const AIRBYTE_EXTRACT_COLUMN_LEVEL_LINEAGE: RecipeField = {
     name: 'extract_column_level_lineage',
     label: 'Extract Column-level Lineage',
     tooltip: 'Extract column-level lineage between source and destination datasets.',
-    type: FieldType.TOGGLE,
+    type: FieldType.BOOLEAN,
     fieldPath: 'source.config.extract_column_level_lineage',
-    default: true,
     rules: null,
     required: false,
 };
@@ -140,9 +126,8 @@ export const AIRBYTE_INCLUDE_STATUSES: RecipeField = {
     name: 'include_statuses',
     label: 'Include Job Statuses',
     tooltip: 'Include status information from Airbyte connection jobs.',
-    type: FieldType.TOGGLE,
+    type: FieldType.BOOLEAN,
     fieldPath: 'source.config.include_statuses',
-    default: true,
     rules: null,
     required: false,
 };
@@ -151,9 +136,8 @@ export const AIRBYTE_EXTRACT_OWNERS: RecipeField = {
     name: 'extract_owners',
     label: 'Extract Owners',
     tooltip: 'Extract ownership information from connection names.',
-    type: FieldType.TOGGLE,
+    type: FieldType.BOOLEAN,
     fieldPath: 'source.config.extract_owners',
-    default: false,
     rules: null,
     required: false,
 };
@@ -167,16 +151,14 @@ export const AIRBYTE_OWNER_EXTRACTION_PATTERN: RecipeField = {
     placeholder: '.*owner:([\\w-]+).*',
     rules: null,
     required: false,
-    dependencies: [{ field: 'extract_owners', value: true }],
 };
 
 export const AIRBYTE_EXTRACT_TAGS: RecipeField = {
     name: 'extract_tags',
     label: 'Extract Tags',
     tooltip: 'Extract tags from Airbyte metadata.',
-    type: FieldType.TOGGLE,
+    type: FieldType.BOOLEAN,
     fieldPath: 'source.config.extract_tags',
-    default: false,
     rules: null,
     required: false,
 };
@@ -202,7 +184,6 @@ export const AIRBYTE_SOURCE_PATTERN: RecipeField = {
     placeholder: '.*MySQL.*',
     rules: null,
     required: false,
-    advanced: true,
 };
 
 export const AIRBYTE_DESTINATION_PATTERN: RecipeField = {
@@ -214,17 +195,14 @@ export const AIRBYTE_DESTINATION_PATTERN: RecipeField = {
     placeholder: '.*Postgres.*',
     rules: null,
     required: false,
-    advanced: true,
 };
 
 export const AIRBYTE_REQUEST_TIMEOUT: RecipeField = {
     name: 'request_timeout',
     label: 'Request Timeout',
     tooltip: 'Timeout for API requests in seconds.',
-    type: FieldType.NUMBER,
+    type: FieldType.TEXT,
     fieldPath: 'source.config.request_timeout',
-    default: 30,
     rules: null,
     required: false,
-    advanced: true,
 };
