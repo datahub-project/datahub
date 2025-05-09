@@ -1,0 +1,211 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Model"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-delta-lake-tvf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:dbt"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-delta-lake-tvf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "node_type": "model",
+                            "materialization": "table",
+                            "dbt_file_path": "models/gold/gold_table.sql",
+                            "language": "sql",
+                            "dbt_unique_id": "model.ut_project.gold_table",
+                            "dbt_package_name": "ut_project",
+                            "manifest_schema": "https://schemas.getdbt.com/dbt/manifest/v12.json",
+                            "manifest_version": "1.9.2",
+                            "manifest_adapter": "spark",
+                            "catalog_schema": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+                            "catalog_version": "1.9.2"
+                        },
+                        "name": "gold_table",
+                        "description": "sample data",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "model.ut_project.gold_table",
+                        "platform": "urn:li:dataPlatform:dbt",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "name",
+                                "nullable": false,
+                                "description": "name",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "trade_date",
+                                "nullable": false,
+                                "description": "trade_date of the taxlot",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.DateType": {}
+                                    }
+                                },
+                                "nativeDataType": "date",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.UpstreamLineage": {
+                        "upstreams": [
+                            {
+                                "auditStamp": {
+                                    "time": 1643871600000,
+                                    "actor": "urn:li:corpuser:unknown"
+                                },
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,hive_hao.delta_lake_cdc_table,PROD)",
+                                "type": "TRANSFORMED"
+                            }
+                        ],
+                        "fineGrainedLineages": [
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,hive_hao.delta_lake_cdc_table,PROD),name)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD),name)"
+                                ],
+                                "confidenceScore": 0.2
+                            },
+                            {
+                                "upstreamType": "FIELD_SET",
+                                "upstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,hive_hao.delta_lake_cdc_table,PROD),trade_date)"
+                                ],
+                                "downstreamType": "FIELD",
+                                "downstreams": [
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD),trade_date)"
+                                ],
+                                "confidenceScore": 0.2
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
+                        "materialized": true,
+                        "viewLogic": "{{ config(\n    materialized='table',\n    file_format='delta',\n    location_root='s3a://' ~ env_var('GOLD_BUCKET') ~ '/' ~ env_var('TENANT_ID'),\n) }}\nwith final_data as (\n    select\n        name,\n        trade_date\n    FROM  table_changes('hive_hao.delta_lake_cdc_table', 0, 3)\n)\n\nselect * from final_data",
+                        "formattedViewLogic": "WITH final_data AS (\n  SELECT\n    name,\n    trade_date\n  FROM TABLE_CHANGES('hive_hao.delta_lake_cdc_table', 0, 3)\n)\nSELECT\n  *\nFROM final_data",
+                        "viewLanguage": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-delta-lake-tvf",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,hive_hao.gold_table,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 1643871600000,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD)",
+                    "type": "COPY"
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,hive_hao.gold_table,PROD),name)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD),name)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            },
+            {
+                "op": "add",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,hive_hao.gold_table,PROD),trade_date)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,hive_hao.gold_table,PROD),trade_date)",
+                "value": {
+                    "confidenceScore": 1.0
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "dbt-delta-lake-tvf",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
