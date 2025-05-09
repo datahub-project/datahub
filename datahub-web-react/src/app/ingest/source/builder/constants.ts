@@ -15,6 +15,7 @@ import elasticsearchLogo from '@images/elasticsearchlogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
+import gSheetLogo from '@images/gsheet.png';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
@@ -143,6 +144,8 @@ export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 export const VERTEX_AI = 'vertexai';
 export const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
+export const GOOGLE_SHEETS = 'gsheet';
+export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -156,6 +159,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
+    [GOOGLE_SHEETS_URN]: gSheetLogo,
     [GLUE_URN]: glueLogo,
     [HIVE_URN]: hiveLogo,
     [KAFKA_URN]: kafkaLogo,

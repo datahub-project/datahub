@@ -1,0 +1,67 @@
+source:
+  type: "google-sheets"
+  config:
+    # Required: path to service account credentials JSON file
+    credentials: "${GOOGLE_SHEETS_CREDENTIALS}"
+
+    # Optional: platform instance for the Google Sheets source
+    platform_instance: "${PLATFORM_INSTANCE}" # optional
+
+    # Optional: specify patterns to include/exclude sheets
+    sheet_patterns:
+      allow:
+        - ".*" # Include all sheets by default
+      deny:
+        - "^test_.*" # Exclude sheets starting with "test_"
+
+    # Optional: specify patterns to include/exclude folders
+    folder_patterns:
+      allow:
+        - ".*" # Include all folders by default
+      deny: [] # No exclusions by default
+
+    # Optional: extract usage statistics
+    extract_usage_stats: true
+
+    # Optional: extract lineage from formulas
+    extract_lineage_from_formulas: true
+    enable_cross_platform_lineage: true
+    extract_column_level_lineage: true
+
+    # Optional: scan shared drives in addition to 'My Drive'
+    scan_shared_drives: false
+
+    # Optional: treat individual sheets as datasets
+    # If true: each sheet within a Google Sheets document becomes a separate dataset
+    # If false: each Google Sheets document is a dataset with sheets as fields
+    sheets_as_datasets: false
+
+    # Optional: specify retry settings for API requests
+    max_retries: 3
+    retry_delay: 1 # seconds
+
+    # Optional: enable data profiling
+    profiling:
+      enabled: false # Set to true to enable profiling
+      max_rows: 10000 # Maximum number of rows to profile per sheet
+      include_field_null_count: true
+      include_field_min_value: true
+      include_field_max_value: true
+      include_field_mean_value: true
+      include_field_median_value: true
+      include_field_stddev_value: true
+      include_field_quantiles: true
+      include_field_distinct_value_frequencies: true
+      include_field_histogram: true
+      include_field_sample_values: true
+      max_number_of_fields_to_profile: null # Set a limit or null for all columns
+
+    # Optional: stateful ingestion for detecting stale entities
+    stateful_ingestion:
+      enabled: false
+      remove_stale_metadata: true
+      fail_safe_threshold: 100.0
+      state_provider:
+        type: datahub
+        config: {}
+# sink configs
