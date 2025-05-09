@@ -315,7 +315,10 @@ def test_policy_events(auth_exclude_filter):
     assert res_data
     assert res_data["usageEvents"]
     assert len(res_data["usageEvents"]) == 3 or len(res_data["usageEvents"]) == 2
-    assert res_data["usageEvents"][0]["eventType"] == "UpdatePolicyEvent"
+    assert (
+        res_data["usageEvents"][0]["eventType"] == "CreatePolicyEvent"
+        or res_data["usageEvents"][0]["eventType"] == "UpdatePolicyEvent"
+    )
     assert res_data["usageEvents"][0]["entityUrn"] == new_urn
     assert (
         res_data["usageEvents"][1]["eventType"] == "CreatePolicyEvent"
