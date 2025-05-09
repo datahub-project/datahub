@@ -20,7 +20,9 @@ module.exports = defineConfig({
       return require("./cypress/plugins/index")(on, config);
     },
     baseUrl: "http://localhost:9002/",
-    specPattern: "cypress/e2e/**/*.{js,jsx,ts,tsx}",
+    // Couldn't get specifying non-e2e directory to work with --spec CLI argument
+    specPattern:
+      process.env.CYPRESS_SPEC_PATTERN || "cypress/e2e/**/*.{js,jsx,ts,tsx}",
     experimentalStudio: true,
   },
   reporter: "cypress-junit-reporter",

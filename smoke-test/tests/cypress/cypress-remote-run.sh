@@ -1,0 +1,3 @@
+CYPRESS_SPEC_PATTERN="$CYPRESS_TEST_DIR/**/*.{js,jsx,ts,tsx}" npx cypress run \
+  --env "ADMIN_USERNAME=$CYPRESS_ADMIN_USERNAME,ADMIN_PASSWORD=$CYPRESS_ADMIN_PASSWORD" \
+  --config numTestsKeptInMemory=2

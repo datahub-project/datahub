@@ -107,7 +107,7 @@ task pytest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev'
 }
 
 //  ./gradlew :smoke-test:cypressTest -PbatchNumber=2 (default 0)
-task cypressTest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
+task cypressTest(type: Exec) {
     // Get BATCH_NUMBER from command line argument with default value of 0
     def batchNumber = project.hasProperty('batchNumber') ? project.property('batchNumber') : '0'
 
@@ -153,7 +153,17 @@ task cypressRemote(type: Exec) {
   environment 'CYPRESS_ADMIN_PASSWORD', project.findProperty('password')
 
   workingDir = "${project.rootDir}/smoke-test/tests/cypress"
-  commandLine 'bash', '-c', './cypress-remote.sh'
+  commandLine 'bash', '-c', './cypress-remote-open.sh'
+}
+
+task cypressTestRemote(type: Exec) {
+  environment 'CYPRESS_BASE_URL', project.findProperty('baseUrl') ?: 'http://localhost:4173'
+  environment 'CYPRESS_ADMIN_USERNAME', project.findProperty('username') ?: 'admin'
+  environment 'CYPRESS_ADMIN_PASSWORD', project.findProperty('password')
+  environment 'CYPRESS_TEST_DIR', project.findProperty('testDir') ?: ''
+
+  workingDir = "${project.rootDir}/smoke-test/tests/cypress"
+  commandLine 'bash', '-c', './cypress-remote-run.sh'
 }
 
 task cypressSaasSuite1(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev']) {
