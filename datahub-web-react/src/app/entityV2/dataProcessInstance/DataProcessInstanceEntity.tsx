@@ -1,3 +1,4 @@
+import { TreeStructure } from '@phosphor-icons/react';
 import { ArrowsClockwise } from 'phosphor-react';
 import React from 'react';
 
@@ -11,7 +12,7 @@ import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { getDataProduct } from '@app/entityV2/shared/utils';
+import { SidebarTitleActionType, getDataProduct } from '@app/entityV2/shared/utils';
 import DataProcessInstanceSummary from '@src/app/entity/dataProcessInstance/profile/DataProcessInstanceSummary';
 
 import { GetDataProcessInstanceQuery, useGetDataProcessInstanceQuery } from '@graphql/dataProcessInstance.generated';
@@ -96,6 +97,7 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 {
                     name: 'Lineage',
                     component: LineageTab,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',
@@ -103,10 +105,23 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 },
             ]}
             sidebarSections={this.getSidebarSections()}
+            sidebarTabs={this.getSidebarTabs()}
         />
     );
 
     getSidebarSections = () => [{ component: SidebarEntityHeader }];
+
+    getSidebarTabs = () => [
+        {
+            name: 'Lineage',
+            component: LineageTab,
+            description: "View this data asset's upstream and downstream dependencies",
+            icon: TreeStructure,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
+        },
+    ];
 
     getOverridePropertiesFromEntity = (processInstance?: DataProcessInstance | null): GenericEntityProperties => {
         const parent =

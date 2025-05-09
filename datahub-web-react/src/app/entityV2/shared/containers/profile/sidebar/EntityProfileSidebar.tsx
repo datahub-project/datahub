@@ -128,7 +128,7 @@ export default function EntityProfileSidebar({
     backgroundColor,
     contextType = TabContextType.PROFILE_SIDEBAR,
     width,
-    headerDropdownItems: _headerDropdownItems,
+    headerDropdownItems,
     className,
 }: Props) {
     const { isClosed } = useContext(EntitySidebarContext);
@@ -152,7 +152,7 @@ export default function EntityProfileSidebar({
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
-                    <SidebarCollapsibleHeader currentTab={selectedTab} />
+                    <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
                     <Body>
                         {selectedTab && (
                             <Content>
