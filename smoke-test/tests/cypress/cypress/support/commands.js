@@ -162,11 +162,11 @@ Cypress.Commands.add("goToIngestionPage", () => {
   cy.waitTextVisible("Sources");
 });
 
-Cypress.Commands.add("goToDataset", (urn, dataset_name, login) => {
+Cypress.Commands.add("goToDataset", (urn, dataset_name, login, tab = "") => {
   if (login) {
-    cy.visitWithLogin(`/dataset/${urn}/`);
+    cy.visitWithLogin(`/dataset/${urn}/${tab}`);
   } else {
-    cy.visit(`/dataset/${urn}/`);
+    cy.visit(`/dataset/${urn}/${tab}`);
   }
   cy.wait(3000);
   cy.waitTextVisible(dataset_name);

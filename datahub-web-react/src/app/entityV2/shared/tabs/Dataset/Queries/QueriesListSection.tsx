@@ -227,7 +227,7 @@ export default function QueriesListSection({
     };
 
     return (
-        <SectionWrapper $borderRadiusBottom={isTopSection}>
+        <SectionWrapper $borderRadiusBottom={isTopSection} data-testid={`queries-list-section-${section}`}>
             <QueriesTitleSection>
                 <TitleWrapper>
                     <QueriesTitle>{title}</QueriesTitle>

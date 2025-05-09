@@ -30,6 +30,7 @@ TEST_ONBOARDING_DATA_FILENAME: str = "onboarding.json"
 
 ACRYL_MAIN_TEST_DATA_FILENAME = "acryl-main-data.json"
 ACRYL_MAIN_INCIDENT_DATA_FILENAME = "incidents_test.json"
+ACRYL_MAIN_QUERY_DATA_FILENAME = "query-data.json"
 
 HOME_PAGE_ONBOARDING_IDS: List[str] = [
     "global-welcome-to-datahub",
@@ -157,6 +158,9 @@ def ingest_data(auth_session, graph_client):
     ingest_file_via_rest(
         auth_session, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_INCIDENT_DATA_FILENAME}"
     )
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_QUERY_DATA_FILENAME}"
+    )
     print_now()
     print("completed ingesting test data")
 
@@ -188,6 +192,9 @@ def ingest_cleanup_data(auth_session, graph_client):
     )
     delete_urns_from_file(
         graph_client, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_INCIDENT_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{ACRYL_MAIN_QUERY_DATA_FILENAME}"
     )
     print_now()
     print("deleting onboarding data file")

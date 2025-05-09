@@ -180,6 +180,7 @@ export default function useQueryTableColumns({
         title: 'Popularity',
         key: 'popularity',
         field: 'runsPercentileLast30days',
+        className: 'popularity',
         width: 110,
         sorter: shouldRelyOnBackendSorting
             ? true

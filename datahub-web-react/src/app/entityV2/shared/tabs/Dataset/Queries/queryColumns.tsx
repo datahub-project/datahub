@@ -189,7 +189,7 @@ export const PopularityColumn = ({ query }: PopularityColumnProps) => {
                 <>This query has been run more than {runsPercentileLast30days}% of other queries in the last 30 days.</>
             }
         >
-            <PopularityWrapper>
+            <PopularityWrapper data-testid="query-popularity">
                 <PopularityBars status={status} />
             </PopularityWrapper>
         </Popover>
