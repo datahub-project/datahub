@@ -1,21 +1,19 @@
-# Restoring Search and Graph Indices from Local Database
+# Search and Graph Reindexing
 
 If search infrastructure (Elasticsearch/Opensearch) or graph services (Elasticsearch/Opensearch/Neo4j) become inconsistent,
-you can restore them from the aspects stored in the local database.
+you can restore them from the aspects stored in the local database, which serves as the primary storage mechanism.
 
-When a new version of the aspect gets ingested, GMS initiates an MCL event for the aspect which is consumed to update
-the search and graph indices. As such, we can fetch the latest version of each aspect in the local database and produce
-MCL events corresponding to the aspects to restore the search and graph indices.
+To do this, we fetch the latest version of each aspect in the local database and produce new
+MCL events, essentially "replaying" all of the current aspects to the search and graph indices. 
 
-By default, restoring the indices from the local database will not remove any existing documents in
-the search and graph indices that no longer exist in the local database, potentially leading to inconsistencies
-between the search and graph indices and the local database.
+By default, restoring the indices from the primary database will not remove any documents in
+the search and graph indices that no longer exist in your database. For this reason, we generally recommend reindexing against a clean
+instance of your search & graph store (or remove existing indexes using the `-a clean` option below).
 
 ## Configuration
 
-The upgrade jobs take arguments as command line args to the job itself rather than environment variables for job specific
-configuration. The RestoreIndices job is specified through the `-u RestoreIndices` upgrade ID parameter and then additional
-parameters are specified like `-a batchSize=1000`.
+The reindexing job is actually provided as a part of the `datahub-upgrade` container.
+It can be triggered via the `-u RestoreIndices` upgrade ID parameter and then additional arguments are specified using the following format `-a batchSize=1000`.
 
 The following configurations are available:
 
@@ -43,7 +41,7 @@ The following configurations are available:
 
 - `createDefaultAspects`: Create default aspects in both SQL and ES if missing.
 
-During the restore indices process, it will create default aspects in SQL. While this may be
+During the restore indices process, it will create "default aspects" in SQL. While this may be"
 desired in some situations, disabling this feature is required when using a read-only SQL replica.
 
 ### Nuclear option
