@@ -29,6 +29,7 @@ from datahub.metadata.urns import (
     ContainerUrn,
     CorpGroupUrn,
     CorpUserUrn,
+    DataFlowUrn,
     DataJobUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
@@ -51,6 +52,7 @@ if TYPE_CHECKING:
 UrnOrStr: TypeAlias = Union[Urn, str]
 DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
+DataflowUrnOrStr: TypeAlias = Union[str, DataFlowUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 
