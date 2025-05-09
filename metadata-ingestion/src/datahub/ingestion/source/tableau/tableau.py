@@ -114,6 +114,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
     query_metadata_cursor_based_pagination,
     sheet_graphql_query,
     tableau_field_to_schema_field,
+    virtual_connection_graphql_query,
     workbook_graphql_query,
 )
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
@@ -473,6 +474,15 @@ class TableauPageSizeConfig(ConfigModel):
     def effective_database_table_page_size(self) -> int:
         return self.database_table_page_size or self.page_size
 
+    virtual_connection_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of virtual connections to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_virtual_connection_page_size(self) -> int:
+        return self.virtual_connection_page_size or self.page_size
+
 
 class TableauConfig(
     DatasetLineageProviderConfigBase,
@@ -551,6 +561,11 @@ class TableauConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
+    )
+
+    ingest_virtual_connections: bool = Field(
+        default=True,
+        description="Ingest Tableau virtual connections as DataHub datasets with lineage to source tables.",
     )
 
     ingest_embed_url: Optional[bool] = Field(
@@ -829,6 +844,10 @@ class TableauSourceReport(
     )
     num_paginated_queries_by_connection_type: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
+    )
+    num_vc_field_skipped_no_name: int = 0
+    emit_virtual_connections_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
     )
 
 
@@ -3546,6 +3565,195 @@ class TableauSiteSource:
 
         return browse_paths
 
+    def emit_virtual_connections(self) -> Iterable[MetadataWorkUnit]:
+        """
+        Emits virtual connections as DataHub datasets with lineage to source tables.
+        """
+        try:
+            for virtual_connection in self.get_connection_objects(
+                query=virtual_connection_graphql_query,
+                connection_type=c.VIRTUAL_CONNECTIONS_CONNECTION,
+                query_filter={},
+                page_size=self.config.effective_virtual_connection_page_size,
+            ):
+                yield from self.emit_virtual_connection(virtual_connection)
+        except Exception as e:
+            self.report.warning(
+                title="Virtual Connection Extraction Error",
+                message="Failed to extract virtual connections",
+                context=str(e),
+                exc=e,
+            )
+
+    def emit_virtual_connection(
+        self, virtual_connection: dict
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Process a single virtual connection and emit it as a DataHub dataset.
+        """
+        vc_id = virtual_connection[c.ID]
+        vc_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=vc_id,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        dataset_snapshot = DatasetSnapshot(
+            urn=vc_urn,
+            aspects=[self.get_data_platform_instance()],
+        )
+
+        # Dataset properties
+        custom_props = self.get_custom_props_from_dict(
+            virtual_connection,
+            [c.LUID, c.CREATED_AT, c.UPDATED_AT],
+        )
+
+        # Add connection attributes as custom properties
+        if virtual_connection.get(c.CONNECTION_ATTRIBUTES):
+            conn_attrs = {}
+            for attr in virtual_connection.get(c.CONNECTION_ATTRIBUTES, []):
+                if attr.get(c.NAME) and attr.get("value"):
+                    conn_attrs[attr[c.NAME]] = attr["value"]
+
+            if conn_attrs:
+                if custom_props:
+                    custom_props.update(conn_attrs)
+                else:
+                    custom_props = conn_attrs
+
+        dataset_props = DatasetPropertiesClass(
+            name=virtual_connection.get(c.NAME),
+            description=virtual_connection.get(c.DESCRIPTION),
+            customProperties=custom_props,
+        )
+        dataset_snapshot.aspects.append(dataset_props)
+
+        # Schema metadata
+        schema_fields = []
+        for table in virtual_connection.get(c.TABLES, []):
+            for column in table.get(c.COLUMNS, []):
+                if column.get(c.NAME) is None:
+                    self.report.num_vc_field_skipped_no_name += 1
+                    continue
+
+                nativeDataType = column.get(c.REMOTE_TYPE, c.UNKNOWN)
+                TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
+
+                # Field name as table.column to avoid duplicates
+                field_path = f"{table.get(c.NAME)}.{column.get(c.NAME)}"
+
+                schema_field = SchemaField(
+                    fieldPath=field_path,
+                    type=SchemaFieldDataType(type=TypeClass()),
+                    nativeDataType=nativeDataType,
+                    description=column.get(c.DESCRIPTION),
+                )
+                schema_fields.append(schema_field)
+
+        if schema_fields:
+            schema_metadata = SchemaMetadata(
+                schemaName="virtual_connection_schema",
+                platform=f"urn:li:dataPlatform:{self.platform}",
+                version=0,
+                fields=schema_fields,
+                hash="",
+                platformSchema=OtherSchema(rawSchema=""),
+            )
+            dataset_snapshot.aspects.append(schema_metadata)
+
+        # Browse path
+        project = virtual_connection.get("project", {})
+        if project and project.get(c.NAME):
+            project_id = project.get(c.ID)
+            project_browse_path = None
+
+            if project_id in self.tableau_project_registry:
+                project_browse_path = self._project_luid_to_browse_path_name(project_id)
+            else:
+                project_browse_path = project.get(c.NAME)
+
+            if project_browse_path:
+                browse_paths = BrowsePathsClass(
+                    paths=[
+                        f"{self.dataset_browse_prefix}/{project_browse_path}/Virtual Connections/{virtual_connection.get(c.NAME, '')}"
+                    ]
+                )
+                dataset_snapshot.aspects.append(browse_paths)
+
+        # Owner
+        owner_username = virtual_connection.get(c.OWNER, {}).get(c.USERNAME)
+        owner = self._get_ownership(owner_username)
+        if owner is not None:
+            dataset_snapshot.aspects.append(owner)
+
+        # Tags
+        if self.config.ingest_tags:
+            tags = self.get_tags(virtual_connection)
+            if tags:
+                dataset_snapshot.aspects.append(
+                    builder.make_global_tag_aspect_with_tag_list(tags)
+                )
+
+        # Emit the dataset
+        yield self.get_metadata_change_event(dataset_snapshot)
+
+        # Add subtype
+        yield self.get_metadata_change_proposal(
+            dataset_snapshot.urn,
+            aspect_name=c.SUB_TYPES,
+            aspect=SubTypesClass(typeNames=["View", c.VIRTUAL_CONNECTION]),
+        )
+
+        # Add to container
+        if project and project.get(c.ID) in self.tableau_project_registry:
+            yield from add_entity_to_container(
+                self.gen_project_key(project.get(c.ID)),
+                c.DATASET,
+                dataset_snapshot.urn,
+            )
+
+        # Add lineage from source tables
+        upstream_tables = []
+        for table in virtual_connection.get(c.TABLES, []):
+            try:
+                ref = TableauUpstreamReference.create(
+                    table, default_schema_map=self.config.default_schema_map
+                )
+
+                table_urn = ref.make_dataset_urn(
+                    self.config.env,
+                    self.config.platform_instance_map,
+                    self.config.lineage_overrides,
+                    self.config.database_hostname_to_platform_instance_map,
+                    self.database_server_hostname_map,
+                )
+
+                upstream_table = Upstream(
+                    dataset=table_urn,
+                    type=DatasetLineageType.TRANSFORMED,
+                )
+                upstream_tables.append(upstream_table)
+
+            except Exception as e:
+                self.report.warning(
+                    title="Upstream Table Reference Error",
+                    message="Failed to generate upstream reference for virtual connection table",
+                    context=f"virtual_connection={virtual_connection.get(c.NAME)}, table={table.get(c.NAME)}",
+                    exc=e,
+                )
+
+        if upstream_tables:
+            upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+            yield self.get_metadata_change_proposal(
+                vc_urn,
+                aspect_name=c.UPSTREAM_LINEAGE,
+                aspect=upstream_lineage,
+            )
+            self.report.num_tables_with_upstream_lineage += 1
+            self.report.num_upstream_table_lineage += len(upstream_tables)
+
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
 
@@ -3790,6 +3998,27 @@ class TableauSiteSource:
                     self.report.emit_published_datasources_timer[
                         self.site_content_url
                     ] = timer.elapsed_seconds(digits=2)
+
+            if self.config.ingest_virtual_connections:
+                tableau_version = self.server.version or ""
+                if (
+                    not tableau_version
+                    or int(tableau_version.split(".")[0]) < 2021
+                    or (
+                        int(tableau_version.split(".")[0]) == 2021
+                        and int(tableau_version.split(".")[1]) < 4
+                    )
+                ):
+                    self.report.report_warning(
+                        message="Tableau version %s does not support virtual connections (requires 2021.4+)",
+                        context=tableau_version,
+                    )
+                else:
+                    with PerfTimer() as timer:
+                        yield from self.emit_virtual_connections()
+                        self.report.emit_virtual_connections_timer[
+                            self.site_content_url
+                        ] = timer.elapsed_seconds(digits=2)
 
             if self.custom_sql_ids_being_used:
                 with PerfTimer() as timer:
