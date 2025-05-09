@@ -233,6 +233,7 @@ const TagsTable = ({ searchQuery, searchData, loading: propLoading, networkStatu
                         color: 'red',
                         variant: 'filled',
                         onClick: handleDeleteTag,
+                        buttonDataTestId: 'delete-tag-button',
                     },
                 ]}
             >

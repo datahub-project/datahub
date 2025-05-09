@@ -1,4 +1,4 @@
-import { hasOperationName } from "../../e2e/utils";
+import { hasOperationName } from "../utils";
 
 function readyToTypeEditor() {
   return cy.get(".monaco-scrollable-element").first().click().focused();

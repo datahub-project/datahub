@@ -2,10 +2,11 @@ import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
 
+import { ModalButton } from '@components/components/Modal/Modal';
+
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import OwnersSection, { PendingOwner } from '@app/tags/CreateNewTagModal/OwnersSection';
 import TagDetailsSection from '@app/tags/CreateNewTagModal/TagDetailsSection';
-import { ModalButton } from '@app/tags/CreateNewTagModal/types';
 
 import { useBatchAddOwnersMutation, useSetTagColorMutation } from '@graphql/mutations.generated';
 import { useCreateTagMutation } from '@graphql/tag.generated';
@@ -116,6 +117,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             color: 'violet',
             variant: 'text',
             onClick: onClose,
+            buttonDataTestId: 'create-tag-modal-cancel-button',
         },
         {
             text: 'Create',
@@ -125,6 +127,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             onClick: onOk,
             disabled: !tagName || isLoading,
             isLoading,
+            buttonDataTestId: 'create-tag-modal-create-button',
         },
     ];
 

@@ -80,6 +80,7 @@ export function Modal({
             onCancel={onCancel}
             closeIcon={<Icon icon="X" source="phosphor" />}
             hasChildren={!!children}
+            data-testid={dataTestId}
             title={
                 <HeaderContainer hasChildren={!!children}>
                     <Heading type="h1" color="gray" colorLevel={600} weight="bold" size="lg">

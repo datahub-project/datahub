@@ -1,7 +1,9 @@
-import { ButtonProps, ColorPicker, Input, Modal, Text } from '@components';
+import { ColorPicker, Input, Modal, Text } from '@components';
 import { Select, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { ModalButton } from '@components/components/Modal/Modal';
 
 import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { OwnerLabel } from '@src/app/shared/OwnerLabel';
@@ -63,12 +65,6 @@ interface Props {
     onClose: () => void;
     onSave?: () => void;
     isModalOpen?: boolean;
-}
-
-// Define a compatible interface for modal buttons
-interface ModalButton extends ButtonProps {
-    text: string;
-    onClick: () => void;
 }
 
 // Interface for pending owner
@@ -380,6 +376,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
             variant: 'filled',
             onClick: handleSave,
             disabled: !hasChanges(),
+            buttonDataTestId: 'update-tag-button',
         },
     ];
 
@@ -403,7 +400,15 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
     }
 
     return (
-        <Modal title={modalTitle} onCancel={onClose} buttons={buttons} open={isModalOpen} centered width={400}>
+        <Modal
+            title={modalTitle}
+            onCancel={onClose}
+            buttons={buttons}
+            open={isModalOpen}
+            centered
+            width={400}
+            dataTestId="edit-tag-modal"
+        >
             <div>
                 <FormSection>
                     <Input
@@ -412,6 +417,7 @@ const ManageTag = ({ tagUrn, onClose, onSave, isModalOpen = false }: Props) => {
                         setValue={handleDescriptionChange}
                         placeholder="Tag description"
                         type="textarea"
+                        data-testid="tag-description-field"
                     />
                 </FormSection>
 
