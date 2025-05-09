@@ -1,4 +1,4 @@
-import airbyteLogo from '@images/airbytelogo.png'
+import airbyteLogo from '@images/airbytelogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
