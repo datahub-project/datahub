@@ -1,4 +1,4 @@
-from datahub_integrations.gen_ai.mlflow_init import MLFLOW_INITIALIZED
+from datahub_integrations.gen_ai.mlflow_init import MLFLOW_ENABLED, MLFLOW_INITIALIZED
 
 import contextlib
 import uuid
@@ -236,7 +236,8 @@ class ChatSession:
 
     @mlflow.trace
     def generate_next_message(self) -> NextMessage:
-        mlflow.update_current_trace(tags={"session_id": self.session_id})
+        if MLFLOW_ENABLED:
+            mlflow.update_current_trace(tags={"session_id": self.session_id})
 
         for i in range(MAX_TOOL_CALLS):
             logger.info(f"Generating tool call {i}")
