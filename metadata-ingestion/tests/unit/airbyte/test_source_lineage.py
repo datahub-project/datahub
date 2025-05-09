@@ -48,12 +48,12 @@ class TestAirbyteSourceLineage(unittest.TestCase):
             self.source = AirbyteSource(self.config, self.mock_ctx)
 
             # Add the methods directly to the instance rather than trying to patch the class
-            self.source._get_source_platform = MagicMock(return_value="postgres")
-            self.source._get_destination_platform = MagicMock(return_value="postgres")
-            self.source._get_source_type_from_definition = MagicMock(
+            self.source._get_source_platform = MagicMock(return_value="postgres")  # type: ignore[attr-defined]
+            self.source._get_destination_platform = MagicMock(return_value="postgres")  # type: ignore[attr-defined]
+            self.source._get_source_type_from_definition = MagicMock(  # type: ignore[attr-defined]
                 return_value="postgres"
             )
-            self.source._get_destination_type_from_definition = MagicMock(
+            self.source._get_destination_type_from_definition = MagicMock(  # type: ignore[attr-defined]
                 return_value="postgres"
             )
 

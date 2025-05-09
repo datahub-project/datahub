@@ -14,6 +14,7 @@ You'll need to have an Airbyte instance running with configured sources and dest
 2. **Authentication Credentials**:
 
    - **For Open Source (OSS)**:
+
      - The URL of your Airbyte instance (host and port)
      - Username and password if basic authentication is enabled
      - API token if available
@@ -37,16 +38,16 @@ source:
   config:
     # Authentication details for OSS deployment
     deployment_type: oss
-    host_port: http://localhost:8000     # The URL of your Airbyte instance
-    username: airbyte                    # Replace with your Airbyte username
-    password: password                   # Replace with your Airbyte password
-    
+    host_port: http://localhost:8000 # The URL of your Airbyte instance
+    username: airbyte # Replace with your Airbyte username
+    password: password # Replace with your Airbyte password
+
     # Enable column-level lineage tracking
     extract_column_level_lineage: true
-    
+
     # Include connection job statuses
     include_statuses: true
-    
+
     # Optional filtering
     # source_pattern:
     #   allow:
@@ -69,21 +70,21 @@ source:
   config:
     # Authentication details for Cloud deployment
     deployment_type: cloud
-    oauth2_client_id:        # Replace with your OAuth2 client ID
-    oauth2_client_secret:   # Replace with your OAuth2 client secret
-    oauth2_refresh_token:   # Replace with your OAuth2 refresh token
-    cloud_workspace_id:   # Replace with your Airbyte Cloud workspace ID
-    
+    oauth2_client_id: # Replace with your OAuth2 client ID
+    oauth2_client_secret: # Replace with your OAuth2 client secret
+    oauth2_refresh_token: # Replace with your OAuth2 refresh token
+    cloud_workspace_id: # Replace with your Airbyte Cloud workspace ID
+
     # Enable column-level lineage tracking
     extract_column_level_lineage: true
-    
+
     # Include connection job statuses
     include_statuses: true
-    
+
     # Optional: Extract ownership information
     extract_owners: true
-    owner_extraction_pattern: ".*owner:([\\w-]+).*"  # Extract owner from connection name
-    
+    owner_extraction_pattern: ".*owner:([\\w-]+).*" # Extract owner from connection name
+
     # Optional: Extract tags from metadata
     extract_tags: true
 

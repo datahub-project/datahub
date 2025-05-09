@@ -507,7 +507,7 @@ def set_docker_env_vars() -> Generator[None, None, None]:
     }
     # Store original values - explicitly handle Optional type
     original_vars: Dict[str, Optional[str]] = {
-        key: os.environ.get(key) for key in env_vars.keys()
+        key: os.environ.get(key) for key in env_vars
     }
 
     # Set vars
