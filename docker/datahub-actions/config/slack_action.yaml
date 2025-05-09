@@ -1,0 +1,38 @@
+# Copyright 2021 Acryl Data, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+name: ${DATAHUB_ACTIONS_SLACK_CONSUMER_GROUP_ID:-datahub_slack_action}
+enabled: ${DATAHUB_ACTIONS_SLACK_ENABLED:-false}
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+    topic_routes:
+      mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
+      pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
+action:
+  type: slack
+  config:
+    # Action-specific configs (map)
+    base_url: ${DATAHUB_ACTIONS_SLACK_DATAHUB_BASE_URL:-http://localhost:9002}
+    bot_token: ${DATAHUB_ACTIONS_SLACK_BOT_TOKEN}
+    signing_secret: ${DATAHUB_ACTIONS_SLACK_SIGNING_SECRET}
+    default_channel: ${DATAHUB_ACTIONS_SLACK_CHANNEL}
+    suppress_system_activity: ${DATAHUB_ACTIONS_SLACK_SUPPRESS_SYSTEM_ACTIVITY:-true}
+
+datahub:
+  server: "http://${DATAHUB_GMS_HOST:-localhost}:${DATAHUB_GMS_PORT:-8080}"
+  extra_headers:
+    Authorization: "Basic ${DATAHUB_SYSTEM_CLIENT_ID:-__datahub_system}:${DATAHUB_SYSTEM_CLIENT_SECRET:-JohnSnowKnowsNothing}"

@@ -1,9 +1,11 @@
+import { Collapse } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Collapse } from 'antd';
-import { FormPrompt, SchemaField } from '../../../../../types.generated';
-import Prompt from '../prompts/Prompt';
-import DropdownHeader from './DropdownHeader';
+
+import Prompt from '@app/entity/shared/entityForm/prompts/Prompt';
+import DropdownHeader from '@app/entity/shared/entityForm/schemaFieldPrompts/DropdownHeader';
+
+import { FormPrompt, SchemaField } from '@types';
 
 const StyledCollapse = styled(Collapse)`
     margin-bottom: 16px;

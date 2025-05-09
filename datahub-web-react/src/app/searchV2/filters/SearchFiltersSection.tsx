@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '@app/onboarding/config/SearchOnboardingConfig';
+import SearchFilters from '@app/searchV2/filters/SearchFilters';
+import { UnionType } from '@app/searchV2/utils/constants';
+import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { UnionType } from '../utils/constants';
-import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '../../onboarding/config/SearchOnboardingConfig';
-import SearchFilters from './SearchFilters';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const Section = styled.div<{ removePadding?: boolean; $isShowNavBarRedesign?: boolean }>`
     padding: ${(props) => {
@@ -24,6 +27,11 @@ interface Props {
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
     onClearFilters: () => void;
     onChangeUnionType: (unionType: UnionType) => void;
+    query: string;
+    viewUrn?: string;
+    totalResults: number;
+    setShowSelectMode?: (showSelectMode: boolean) => any;
+    downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
 }
 
 export default function SearchFiltersSection({
@@ -34,6 +42,11 @@ export default function SearchFiltersSection({
     onChangeFilters,
     onClearFilters,
     onChangeUnionType,
+    query,
+    viewUrn,
+    totalResults,
+    setShowSelectMode,
+    downloadSearchResults,
 }: Props) {
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -59,8 +72,13 @@ export default function SearchFiltersSection({
                 activeFilters={activeFilters}
                 unionType={unionType}
                 onChangeFilters={onChangeFilters}
-                onChangeUnionType={onChangeUnionType}
                 onClearFilters={onClearFilters}
+                onChangeUnionType={onChangeUnionType}
+                query={query}
+                viewUrn={viewUrn}
+                totalResults={totalResults}
+                setShowSelectMode={setShowSelectMode}
+                downloadSearchResults={downloadSearchResults}
             />
         </Section>
     );

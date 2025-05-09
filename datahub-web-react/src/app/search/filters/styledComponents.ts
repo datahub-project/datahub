@@ -1,6 +1,7 @@
 import { Button, Typography } from 'antd';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 export const SearchFilterLabel = styled(Button)<{ isActive: boolean }>`
     font-size: 14px;

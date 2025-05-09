@@ -1,25 +1,27 @@
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
     Container,
+    DataProduct,
+    Deprecation,
+    Domain,
+    EntityPath,
     EntityType,
+    GlobalTags,
+    GlossaryTerms,
     Owner,
+    ParentContainersResult,
     SearchInsight,
     SubTypes,
-    Domain,
-    ParentContainersResult,
-    GlobalTags,
-    Deprecation,
-    GlossaryTerms,
-    DataProduct,
-    EntityPath,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
+} from '@types';
 
 const StatText = styled(Typography.Text)`
     color: ${ANTD_GRAY[8]};

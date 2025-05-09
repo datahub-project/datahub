@@ -5,6 +5,7 @@ import click
 from click_default_group import DefaultGroup
 
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -28,7 +29,7 @@ def inspect(pipeline_name: str, platform: str) -> None:
     Only works for state entity removal for now.
     """
 
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.CLI)
     checkpoint = datahub_graph.get_latest_pipeline_checkpoint(pipeline_name, platform)
     if not checkpoint:
         click.secho("No ingestion state found.", fg="red")

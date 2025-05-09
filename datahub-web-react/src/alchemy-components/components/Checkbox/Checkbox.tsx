@@ -1,15 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { CheckboxProps, CheckboxGroupProps } from './types';
+
 import {
     CheckboxBase,
     CheckboxContainer,
     CheckboxGroupContainer,
     Checkmark,
-    HoverState,
     Label,
     Required,
     StyledCheckbox,
-} from './components';
+} from '@components/components/Checkbox/components';
+import { CheckboxGroupProps, CheckboxProps } from '@components/components/Checkbox/types';
 
 export const checkboxDefaults: CheckboxProps = {
     error: '',
@@ -34,7 +34,6 @@ export const Checkbox = ({
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
-    const [isHovering, setIsHovering] = useState(false);
 
     useEffect(() => {
         setChecked(isChecked || false);
@@ -75,14 +74,6 @@ export const Checkbox = ({
                     disabled={isDisabled || false}
                     checked={checked || false}
                     size={size || 'md'}
-                    onMouseOver={() => setIsHovering(true)}
-                    onMouseLeave={() => setIsHovering(false)}
-                />
-                <HoverState
-                    isHovering={!isDisabled ? isHovering : false}
-                    error={error || ''}
-                    checked={checked || false}
-                    disabled={isDisabled || false}
                 />
             </CheckboxBase>
         </CheckboxContainer>

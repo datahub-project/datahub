@@ -1,52 +1,74 @@
 package io.datahubproject.openapi.v1.event;
 
+import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static io.datahubproject.event.ExternalEventsService.PLATFORM_EVENT_TOPIC_NAME;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.metadata.authorization.ApiGroup;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.datahubusage.DataHubUsageService;
+import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchRequest;
+import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchResponse;
 import io.datahubproject.event.ExternalEventsService;
 import io.datahubproject.event.models.v1.ExternalEvent;
 import io.datahubproject.event.models.v1.ExternalEvents;
 import io.datahubproject.event.models.v1.ExternalEventsResponse;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-@ConditionalOnProperty(name = "eventsApi.enabled", havingValue = "true")
 @RestController
+@Slf4j
 @RequestMapping("/openapi/v1/events")
-@Tag(name = "Events", description = "An API for fetching events for a topic.")
+@Tag(name = "Events", description = "An API for fetching external facing DataHub events.")
 public class ExternalEventsController {
 
-  private static final int MAX_POLL_TIMEOUT_SECONDS = 60; // 1 minute
-  private static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
+  static final int MAX_POLL_TIMEOUT_SECONDS = 60; // 1 minute
+  static final int MAX_LIMIT = 5000; // Max of 5,000 messages per batch
 
-  @Autowired private ExternalEventsService eventsService;
-  @Autowired private AuthorizerChain authorizationChain;
-
-  @Qualifier("systemOperationContext")
-  @Autowired
+  private ExternalEventsService eventsService;
+  private AuthorizerChain authorizationChain;
   private OperationContext systemOperationContext;
+  private final DataHubUsageService dataHubUsageService;
+
+  @Autowired ObjectMapper objectMapper;
+
+  public ExternalEventsController(
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      AuthorizerChain authorizerChain,
+      DataHubUsageService dataHubUsageService,
+      ExternalEventsService eventsService) {
+    this.systemOperationContext = systemOperationContext;
+    this.authorizationChain = authorizerChain;
+    this.dataHubUsageService = dataHubUsageService;
+    this.eventsService = eventsService;
+  }
 
   @GetMapping(path = "/poll", produces = MediaType.APPLICATION_JSON_VALUE)
   @Operation(
@@ -79,31 +101,41 @@ public class ExternalEventsController {
               description =
                   "The window to lookback in days if there is no offset provided. Defaults to null.")
           @RequestParam(name = "lookbackWindowDays", required = false)
-          Integer lookbackWindowDays)
-      throws Exception {
+          Integer lookbackWindowDays) {
+    try {
+      final Authentication authentication = AuthenticationContext.getAuthentication();
 
-    final Authentication authentication = AuthenticationContext.getAuthentication();
+      final OperationContext opContext =
+          OperationContext.asSession(
+              systemOperationContext,
+              RequestContext.builder()
+                  .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of()),
+              authorizationChain,
+              authentication,
+              true);
 
-    final OperationContext opContext =
-        OperationContext.asSession(
-            systemOperationContext,
-            RequestContext.builder()
-                .buildOpenapi(authentication.getActor().toUrnStr(), request, "poll", List.of()),
-            authorizationChain,
-            authentication,
-            true);
+      if (isAuthorizedToGetEvents(opContext, topic)) {
+        return toResponse(
+            eventsService.poll(
+                topic,
+                offsetId,
+                getLimit(limit),
+                getPollTimeout(pollTimeoutSeconds),
+                lookbackWindowDays));
+      }
+      // If unauthorized
+      return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
 
-    if (isAuthorizedToGetEvents(opContext, topic)) {
-      return toResponse(
-          eventsService.poll(
-              topic,
-              offsetId,
-              getLimit(limit),
-              getPollTimeout(pollTimeoutSeconds),
-              lookbackWindowDays));
+    } catch (Exception ex) {
+      // Log the exception
+      log.error("An unexpected error occurred while polling events. Returning 500 to client", ex);
+
+      // Return a generic error response
+      String errorMessage = "An unexpected error occurred: " + ex.getMessage();
+      ExternalEventsResponse response = new ExternalEventsResponse();
+      response.setErrorMessage(errorMessage);
+      return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
-    // Else, we're unauthorized.
-    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
   }
 
   private boolean isAuthorizedToGetEvents(
@@ -153,5 +185,55 @@ public class ExternalEventsController {
       response.add(result);
     }
     return response;
+  }
+
+  @PostMapping(value = "/audit/search", produces = MediaType.APPLICATION_JSON_VALUE)
+  public ResponseEntity<ExternalAuditEventsSearchResponse> auditEventsSearch(
+      HttpServletRequest request,
+      @Parameter(
+              name = "searchRequest",
+              required = true,
+              description = "Search Request for trace analytics usage events.")
+          @RequestBody
+          @Nonnull
+          ExternalAuditEventsSearchRequest searchRequest,
+      @RequestParam(value = "startTime", required = false) @Nullable Long startTime,
+      @RequestParam(value = "endTime", required = false) @Nullable Long endTime,
+      @RequestParam(value = "size", required = false) @Nullable Integer size,
+      @RequestParam(value = "scrollId", required = false) String scrollId,
+      @RequestParam(value = "includeRaw", defaultValue = "true") Boolean includeRaw) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(
+                    authentication.getActor().toUrnStr(),
+                    request,
+                    "search",
+                    DATAHUB_USAGE_EVENT_INDEX),
+            authorizationChain,
+            authentication,
+            true);
+
+    if (!AuthUtil.isAPIAuthorized(opContext, ApiGroup.ANALYTICS, READ)) {
+      throw new UnauthorizedException(
+          authentication.getActor().toUrnStr()
+              + " is unauthorized to "
+              + READ
+              + " "
+              + ApiGroup.ANALYTICS
+              + ".");
+    }
+    searchRequest.setEndTime(Optional.ofNullable(endTime).orElse(-1L));
+    searchRequest.setStartTime(Optional.ofNullable(startTime).orElse(-1L));
+    searchRequest.setSize(Optional.ofNullable(size).orElse(10));
+    searchRequest.setScrollId(scrollId);
+    searchRequest.setIncludeRaw(includeRaw);
+
+    ExternalAuditEventsSearchResponse response =
+        dataHubUsageService.externalAuditEventsSearch(opContext, searchRequest);
+
+    return ResponseEntity.ok(response);
   }
 }

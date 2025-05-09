@@ -2,7 +2,6 @@ package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.EntityRelationships;
@@ -27,6 +26,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -374,7 +374,7 @@ public class DataProductService {
   public void unsetDataProduct(
       @Nonnull OperationContext opContext, @Nonnull Urn resourceUrn, @Nonnull Urn actorUrn) {
     try {
-      List<String> relationshipTypes = ImmutableList.of("DataProductContains");
+      Set<String> relationshipTypes = ImmutableSet.of("DataProductContains");
       EntityRelationships relationships =
           _graphClient.getRelatedEntities(
               resourceUrn.toString(),

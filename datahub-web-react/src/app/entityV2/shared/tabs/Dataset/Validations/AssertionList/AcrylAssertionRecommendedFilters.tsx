@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 interface FilterItem {

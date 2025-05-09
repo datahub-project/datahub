@@ -1,7 +1,8 @@
 import { Form, Table } from 'antd';
 import styled, { keyframes } from 'styled-components';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+
 import { Button, colors } from '@src/alchemy-components';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 export const IncidentListStyledTable = styled(Table)`
     max-width: none;
@@ -224,8 +225,8 @@ export const SaveButton = styled(Button)<{ disabled: boolean }>`
     width: 100%;
     height: 36px;
     border-radius: 4px;
-    border: 1px solid ${colors.violet[500]};
-    background-color: ${({ disabled }) => (disabled ? '#f9fafc' : colors.violet[500])};
+    border: 1px solid ${(props) => props.theme.styles['primary-color']};
+    background-color: ${({ disabled, theme }) => (disabled ? '#f9fafc' : theme.styles['primary-color'])};
     font-size: 16px;
     font-weight: 600;
     line-height: 22.59px;

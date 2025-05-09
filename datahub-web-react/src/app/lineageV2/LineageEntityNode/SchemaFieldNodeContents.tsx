@@ -1,25 +1,28 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Skeleton, Spin } from 'antd';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Handle, Position } from 'reactflow';
+import styled from 'styled-components';
+
 import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { FetchStatus } from '@app/lineageV2/common';
 import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import { ContractLineageButton } from '@app/lineageV2/LineageEntityNode/ContractLineageButton';
 import { ExpandLineageButton } from '@app/lineageV2/LineageEntityNode/ExpandLineageButton';
 import { LoadingWrapper } from '@app/lineageV2/LineageEntityNode/NodeContents';
 import NodeSkeleton from '@app/lineageV2/LineageEntityNode/NodeSkeleton';
+import { FetchStatus } from '@app/lineageV2/common';
+import { downgradeV2FieldPath, useGetLineageUrl } from '@app/lineageV2/lineageUtils';
 import { FetchedEntityV2 } from '@app/lineageV2/types';
 import { COLORS } from '@app/sharedV2/colors';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
 import { EntityType, LineageDirection } from '@types';
-import { Skeleton, Spin } from 'antd';
-import { Tooltip } from '@components';
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Handle, Position } from 'reactflow';
-import styled from 'styled-components';
+
 import LinkOut from '@images/link-out.svg?react';
-import { downgradeV2FieldPath, useGetLineageUrl } from '../lineageUtils';
 
 export const SCHEMA_FIELD_NODE_HEIGHT = 80;
 export const SCHEMA_FIELD_NODE_WIDTH = 240;
@@ -40,8 +43,8 @@ const NodeWrapper = styled.div<{
             if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
             return LINEAGE_COLORS.NODE_BORDER;
         }};
-    box-shadow: ${({ isSearchedEntity }) =>
-        isSearchedEntity ? `0 0 4px 4px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
+    box-shadow: ${({ isSearchedEntity, theme }) =>
+        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;
@@ -190,7 +193,7 @@ const ColumnLinkWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.styles['primary-color']};
     }
 `;
 

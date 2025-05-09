@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import tableauLogo from '../../../../../images/tableaulogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import tableauLogo from '@images/tableaulogo.png';
 
 const placeholderRecipe = `\
 source:
@@ -28,7 +29,7 @@ const tableauConfig: SourceConfig = {
     type: TABLEAU,
     placeholderRecipe,
     displayName: 'Tableau',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/tableau/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/tableau/',
     logoUrl: tableauLogo,
 };
 

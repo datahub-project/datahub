@@ -1,7 +1,8 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import DataHubLogo from '../../images/datahublogo.png';
+
+import DataHubLogo from '@images/datahublogo.png';
 
 const BannerWrapper = styled.div`
     padding: 12px;
@@ -45,7 +46,7 @@ export default function AcrylDemoBanner() {
                 <TextContent>
                     DataHub is already the industry&apos;s #1 Open Source Data Catalog.{' '}
                     <StyledLink
-                        href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup"
+                        href="https://www.datahub.com/demo?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup"
                         target="_blank"
                         rel="noopener noreferrer"
                     >

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
+
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
 import { Button } from '@src/alchemy-components';
-import { Editor } from './editor/Editor';
 
 const LINE_HEIGHT = 1.5;
 

@@ -92,6 +92,8 @@ import com.linkedin.datahub.graphql.resolvers.glossary.CreateGlossaryTermResolve
 import com.linkedin.datahub.graphql.resolvers.glossary.DeleteGlossaryEntityResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.GetRootGlossaryNodesResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.GetRootGlossaryTermsResolver;
+import com.linkedin.datahub.graphql.resolvers.glossary.GlossaryChildrenSearchResolver;
+import com.linkedin.datahub.graphql.resolvers.glossary.GlossaryNodeChildrenCountResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.ParentNodesResolver;
 import com.linkedin.datahub.graphql.resolvers.glossary.RemoveRelatedTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.group.AddGroupMembersResolver;
@@ -297,7 +299,9 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.SearchBarConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
@@ -403,6 +407,8 @@ public class GmsGraphQLEngine {
   private final TestsConfiguration testsConfiguration;
   private final DataHubConfiguration datahubConfiguration;
   private final ViewsConfiguration viewsConfiguration;
+  private final SearchBarConfiguration searchBarConfiguration;
+  private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
 
   private final DatasetType datasetType;
@@ -528,6 +534,8 @@ public class GmsGraphQLEngine {
     this.testsConfiguration = args.testsConfiguration;
     this.datahubConfiguration = args.datahubConfiguration;
     this.viewsConfiguration = args.viewsConfiguration;
+    this.searchBarConfiguration = args.searchBarConfiguration;
+    this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
 
@@ -915,6 +923,8 @@ public class GmsGraphQLEngine {
                         this.testsConfiguration,
                         this.datahubConfiguration,
                         this.viewsConfiguration,
+                        this.searchBarConfiguration,
+                        this.homePageConfiguration,
                         this.featureFlags,
                         this.chromeExtensionConfiguration))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
@@ -1811,6 +1821,10 @@ public class GmsGraphQLEngine {
                 .dataFetcher("parentNodes", new ParentNodesResolver(entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("exists", new EntityExistsResolver(entityService))
+                .dataFetcher("childrenCount", new GlossaryNodeChildrenCountResolver(entityClient))
+                .dataFetcher(
+                    "glossaryChildrenSearch",
+                    new GlossaryChildrenSearchResolver(this.entityClient, this.viewService))
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry)));
   }

@@ -1,11 +1,12 @@
-import React from 'react';
-import { render } from '@testing-library/react';
 import { MockedProvider } from '@apollo/client/testing';
+import { render } from '@testing-library/react';
+import React from 'react';
 
-import { EntityType, PlatformNativeType, SearchResult } from '../../../../types.generated';
-import TestPageContainer from '../../../../utils/test-utils/TestPageContainer';
-import RelatedEntity from '../RelatedEntity';
-import { mocks } from '../../../../Mocks';
+import RelatedEntity from '@app/shared/entitySearch/RelatedEntity';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
+import { EntityType, PlatformNativeType, SearchResult } from '@types';
 
 const searchResult: {
     [key in EntityType]?: Array<SearchResult>;
