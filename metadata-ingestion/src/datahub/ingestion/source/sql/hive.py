@@ -877,7 +877,7 @@ class HiveSource(TwoTierSQLAlchemySource):
 
         new_properties = {}
         for key, value in properties.items():
-            if key[-1] == ":":
+            if key and key[-1] == ":":
                 new_properties[key[:-1]] = value
             else:
                 new_properties[key] = value
