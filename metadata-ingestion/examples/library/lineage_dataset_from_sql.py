@@ -1,8 +1,6 @@
-from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
 
 client = DataHubClient.from_env()
-lineage_client = LineageClient(client=client)
 
 sql_query = """
 CREATE TABLE sales_summary AS
@@ -19,7 +17,7 @@ GROUP BY p.product_name, c.customer_segment
 
 # sales_summary will be assumed to be in the default db/schema
 # e.g. prod_db.public.sales_summary
-lineage_client.add_dataset_lineage_from_sql(
+client.lineage.add_dataset_lineage_from_sql(
     query_text=sql_query,
     platform="snowflake",
     default_db="prod_db",
