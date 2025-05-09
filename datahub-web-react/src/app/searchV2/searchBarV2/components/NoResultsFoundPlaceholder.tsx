@@ -49,7 +49,7 @@ export default function NoResultsFoundPlaceholder({ hasAppliedFilters, hasSelect
                 No results found
             </Text>
             <Text color="gray" size="sm">
-                Try adjusting your search to display data
+                Try adjusting your search to find what you&apos;re looking for
                 {clearText && (
                     <>
                         , or&nbsp;

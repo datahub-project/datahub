@@ -1,11 +1,9 @@
-import { EditOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from '@components';
+import { Button, Tooltip, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 const StyledButton = styled(Button)`
-    height: 28px;
-    margin: 0px 4px 0px 4px;
+    border: 1px solid ${colors.gray[100]};
 `;
 
 type Props = {
@@ -20,9 +18,12 @@ export default function EditButton({ setShowSelectMode, disabled }: Props) {
                 onClick={() => setShowSelectMode(true)}
                 disabled={disabled}
                 data-testid="search-results-edit-button"
-            >
-                <EditOutlined />
-            </StyledButton>
+                isCircle
+                icon={{ icon: 'PencilSimple', source: 'phosphor' }}
+                variant="text"
+                color="gray"
+                size="sm"
+            />
         </Tooltip>
     );
 }

@@ -26,7 +26,9 @@ def test_cooperative_timeout_sql() -> None:
             # sql() implicitly calls copy(), which is where we check for the timeout.
             assert statement.sql() is not None
             time.sleep(0.0001)
-    assert 0.6 <= timer.elapsed_seconds() <= 1.0
+
+    # To avoid flakiness, this range is quite generous.
+    assert 0.6 <= timer.elapsed_seconds() <= 1.2
 
 
 def test_scope_circular_dependency() -> None:

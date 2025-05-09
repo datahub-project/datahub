@@ -193,7 +193,9 @@
         "MANAGE_STRUCTURED_PROPERTIES",
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_FEATURES"
+        "MANAGE_FEATURES",
+        "MANAGE_SYSTEM_OPERATIONS",
+        "GET_PLATFORM_EVENTS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",

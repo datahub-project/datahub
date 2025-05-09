@@ -3,6 +3,7 @@ import { Text } from '@components';
 import { CaretDown, CaretUp } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 
+import { StructuredPopover } from '@components/components/StructuredPopover';
 import {
     BaseTable,
     HeaderContainer,
@@ -18,7 +19,6 @@ import {
 import { SortingState, TableProps } from '@components/components/Table/types';
 import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
 import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
-import { Tooltip2 } from '@components/components/Tooltip2';
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -92,11 +92,12 @@ export const Table = <T,>({
                                 <TableHeaderCell
                                     key={column.key} // Unique key for each header cell
                                     width={column.width}
+                                    minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
                                     shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
                                 >
                                     {column?.tooltipTitle ? (
-                                        <Tooltip2 title={column.tooltipTitle}>
+                                        <StructuredPopover title={column.tooltipTitle}>
                                             <HeaderContainer alignment={column.alignment}>
                                                 {column.title}
                                                 {column.sorter && ( // Render sort icons if the column is sortable
@@ -132,7 +133,7 @@ export const Table = <T,>({
                                                     </SortIconsContainer>
                                                 )}
                                             </HeaderContainer>
-                                        </Tooltip2>
+                                        </StructuredPopover>
                                     ) : (
                                         <HeaderContainer alignment={column.alignment}>
                                             {column.title}
@@ -188,7 +189,7 @@ export const Table = <T,>({
                                 <TableRow
                                     key={key}
                                     canExpand={canExpand}
-                                    onClick={() => {
+                                    onClick={(e) => {
                                         if (focusedRowIndex === index) {
                                             setFocusedRowIndex(null);
                                         } else {
@@ -196,7 +197,9 @@ export const Table = <T,>({
                                         }
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
+                                        e.stopPropagation();
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     className={rowClassName?.(row)} // Add row-specific class
                                     ref={(el) => {
                                         if (rowRefs && el) {
@@ -204,7 +207,6 @@ export const Table = <T,>({
                                             currentRefs[index] = el;
                                         }
                                     }}
-                                    isFocused={focusedRowIndex === index}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
                                     canHover
