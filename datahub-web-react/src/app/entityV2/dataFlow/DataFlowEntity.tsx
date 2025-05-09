@@ -196,6 +196,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
+                subTypes={genericProperties?.subTypes}
             />
         );
     };
@@ -227,6 +228,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 parentContainers={data.parentContainers}
+                subTypes={genericProperties?.subTypes}
             />
         );
     };

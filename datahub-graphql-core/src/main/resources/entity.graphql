@@ -2546,6 +2546,30 @@ type GlossaryNode implements Entity {
   Display properties for the glossary node
   """
   displayProperties: DisplayProperties
+
+  """
+  Carries information about where an entity originated from.
+  """
+  childrenCount: GlossaryNodeChildrenCount
+
+  """
+  Executes a search on the children of this glossary node
+  """
+  glossaryChildrenSearch(input: ScrollAcrossEntitiesInput!): ScrollResults
+}
+
+"""
+All of the parent nodes for GlossaryTerms and GlossaryNodes
+"""
+type GlossaryNodeChildrenCount {
+  """
+  The number of child glossary terms
+  """
+  termsCount: Int!
+  """
+  The number of child glossary nodes
+  """
+  nodesCount: Int!
 }
 
 """
@@ -6510,6 +6534,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Sub Types that this entity implements
+  """
+  subTypes: SubTypes
 }
 
 """
@@ -9323,19 +9352,22 @@ The resources that a DataHub Access Policy applies to
 """
 type ResourceFilter {
   """
+  Deprecated, use filter instead
   The type of the resource the policy should apply to Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String
+  type: String @deprecated
 
   """
+  Deprecated, use filter instead
   A list of specific resource urns to apply the filter to
   """
-  resources: [String!]
+  resources: [String!] @deprecated
 
   """
+  Deprecated, use filter instead
   Whether of not to apply the filter to all resources of the type
   """
-  allResources: Boolean
+  allResources: Boolean @deprecated
 
   """
   Whether of not to apply the filter to all resources of the type
@@ -9469,17 +9501,20 @@ Input required when creating or updating an Access Policies Determines which res
 """
 input ResourceFilterInput {
   """
+  Deprecated, use filter field instead
   The type of the resource the policy should apply to
   Not required because in the future we want to support filtering by type OR by domain
   """
-  type: String
+  type: String @deprecated
 
   """
+  Deprecated, use filter instead
   A list of specific resource urns to apply the filter to
   """
   resources: [String!]
 
   """
+  Deprecated, use empty filter instead
   Whether of not to apply the filter to all resources of the type
   """
   allResources: Boolean

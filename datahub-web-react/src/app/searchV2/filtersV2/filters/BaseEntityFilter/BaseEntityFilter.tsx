@@ -52,6 +52,8 @@ export default function BaseEntityFilter({
 
     const onSearch = debounce((newQuery: string) => setSearchQuery(newQuery), DEBOUNCE_ON_SEARCH_TIMEOUT_MS);
 
+    if (options.length === 0) return null;
+
     return (
         <Select<BaseEntitySelectOption>
             size="sm"
