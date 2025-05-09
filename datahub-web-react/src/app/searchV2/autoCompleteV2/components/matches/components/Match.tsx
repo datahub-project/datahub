@@ -36,9 +36,10 @@ export default function Match({ query, entityType, entity, match }: Props) {
         [entityType, match.fieldName],
     );
 
+    const field = useMemo(() => match.matchedFields?.[0], [match]);
+
     const value = useMemo(() => {
         // show only the first value
-        const field = match.matchedFields?.[0];
         if (field === undefined) return undefined;
 
         // do not show empty matches
@@ -70,14 +71,15 @@ export default function Match({ query, entityType, entity, match }: Props) {
         }
 
         return field.value;
-    }, [match, query, entityRegistry, entity, entityType]);
+    }, [field, query, entityRegistry, entity, entityType]);
 
-    if (!value) return null;
+    if (!value || !field) return null;
 
     return (
-        <TextWrapper>
+        <TextWrapper data-testid={`matched-field-container-${field.name}`}>
             <Text color={MATCH_COLOR} colorLevel={MATCH_COLOR_LEVEL} size="sm" type="span">
-                {label}: <MatchText size="sm" type="span" text={value} highlight={query} />
+                {`${label}: `}
+                <MatchText size="sm" type="span" text={value} highlight={query} data-testid="matched-field-value" />
             </Text>
         </TextWrapper>
     );
