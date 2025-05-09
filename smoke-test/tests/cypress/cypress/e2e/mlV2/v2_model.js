@@ -1,3 +1,6 @@
+const MODEL_DESCRIPTION = "ml model description";
+const PROPERTY_NAME = "EnableNetworkIsolation";
+
 describe("models", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
@@ -7,21 +10,42 @@ describe("models", () => {
       "/mlModels/urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)/Summary?is_lineage_mode=false",
     );
 
-    cy.contains("ml model description");
-
     // the model has metrics & hyper params
     cy.contains("another-metric");
     cy.contains("parameter-1");
 
-    // the model has features
-    cy.contains("Features").click();
+    // check the description on the sidebar
+    cy.getWithTestId("sidebar-section-content-Documentation").should(
+      "contain",
+      MODEL_DESCRIPTION,
+    );
+
+    // check the description on the documentation tab
+    cy.openEntityTab("Documentation");
+    cy.getWithTestId("documentation-tab-content").should(
+      "contain",
+      MODEL_DESCRIPTION,
+    );
+
+    // check the group on the groups tab
+    cy.openEntityTab("Group");
+    cy.contains("cypress-model-package-group");
+
+    // check features on the features tab
+    cy.openEntityTab("Features");
     cy.contains("some-cypress-feature-1");
 
-    // the model has a group
-    cy.visit(
-      "/mlModels/urn:li:mlModel:(urn:li:dataPlatform:sagemaker,cypress-model,PROD)/Group?is_lineage_mode=false",
+    // check properties on the properties tab
+    // cy.openEntityTab('Properties'); // FYI: conflict with tab on the sidebar
+    cy.clickOptionWithTestId("Properties-entity-tab-header");
+    cy.contains(PROPERTY_NAME);
+
+    // check properties on the sidebar's properties tab
+    cy.clickOptionWithTestId("entity-sidebar-tab-Properties");
+    cy.getWithTestId("entity-profile-sidebar-container").should(
+      "contain",
+      PROPERTY_NAME,
     );
-    cy.contains("cypress-model-package-group");
   });
 
   it("can visit models and groups", () => {

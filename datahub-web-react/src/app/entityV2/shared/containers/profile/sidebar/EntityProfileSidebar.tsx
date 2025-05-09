@@ -146,12 +146,13 @@ export default function EntityProfileSidebar({
             $width={width}
             backgroundColor={backgroundColor}
             id="entity-profile-sidebar"
+            data-testid="entity-profile-sidebar"
             isFocused={focused}
             className={className}
             $isShowNavBarRedesign={isShowNavBarRedesign}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
-                <ContentContainer isVisible={!isClosed}>
+                <ContentContainer isVisible={!isClosed} data-testid="entity-profile-sidebar-container">
                     <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
                     <Body>
                         {selectedTab && (

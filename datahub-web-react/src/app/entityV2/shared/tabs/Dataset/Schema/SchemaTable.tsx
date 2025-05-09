@@ -521,6 +521,7 @@ export default function SchemaTable({
                                 );
                             },
                             id: `column-${record.fieldPath}`,
+                            'data-testid': `column-${record.fieldPath}`,
                         })}
                         showSorterTooltip={false}
                     />

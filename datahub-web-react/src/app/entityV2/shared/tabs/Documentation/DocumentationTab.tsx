@@ -108,7 +108,7 @@ export const DocumentationTab = () => {
                             </AntButton>
                         </div>
                     </StyledTabToolbar>
-                    <div>
+                    <div data-testid="documentation-tab-content">
                         {displayedDescription ? (
                             [
                                 isInferred && <InferenceDetailsPill pillStyles={{ marginTop: 16, marginLeft: 24 }} />,
