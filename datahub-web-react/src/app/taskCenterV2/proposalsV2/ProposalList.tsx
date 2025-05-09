@@ -62,7 +62,8 @@ type Props = {
     showFilters?: boolean;
     useUrlParams?: boolean;
     height?: string;
-    createdBy?: string;
+    defaultFilters?: FacetFilterInput[];
+    initialFilters?: FacetFilterInput[];
     filterFacets?: Array<string>;
     getAllActionRequests?: boolean;
     showPendingView?: boolean;
@@ -77,7 +78,8 @@ export const ProposalList = ({
     showFilters = false,
     useUrlParams = false,
     height,
-    createdBy,
+    defaultFilters = [],
+    initialFilters = [],
     filterFacets,
     getAllActionRequests = false,
     showPendingView = false,
@@ -86,21 +88,12 @@ export const ProposalList = ({
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
     const { start, pageSize, setPageSize, page, setPage } = usePagination(DEFAULT_PAGE_SIZE);
-    const defaultFilters: Array<FacetFilterInput> = useMemo(
-        () =>
-            createdBy
-                ? [
-                      {
-                          field: 'createdBy',
-                          condition: FilterOperator.Equal,
-                          values: [createdBy],
-                          negated: false,
-                      },
-                  ]
-                : [],
-        [createdBy],
-    );
-    const { filters, orFilters, onChangeFilters } = useGetActionRequestsQueryInputs({ useUrlParams, defaultFilters });
+
+    const { filters, orFilters, onChangeFilters } = useGetActionRequestsQueryInputs({
+        useUrlParams,
+        defaultFilters,
+        initialFilters,
+    });
 
     const entitiesSelected = filters?.find((f) => f.field === 'resource')?.values || [];
     const { loading, error, data, refetch } = useListActionRequestsQuery({
@@ -149,6 +142,13 @@ export const ProposalList = ({
         onChangeFilters([entityFilter], true);
     };
 
+    const handleFiltersChange = (newFilters: FacetFilterInput[]): void => {
+        // clear the table selection upon filters change
+        setSelectedUrns([]);
+        setPage(1);
+        onChangeFilters(newFilters);
+    };
+
     // If there are no action requests when no filters are applied, the filter header shouldn't be shown
     const showFiltersHeader = showFilters && (filters?.length || !!totalActionRequests);
 
@@ -170,7 +170,7 @@ export const ProposalList = ({
                             loading={loading}
                             availableFilters={facets || []}
                             activeFilters={filters}
-                            onChangeFilters={onChangeFilters}
+                            onChangeFilters={handleFiltersChange}
                             customFilterLabels={PROPOSALS_FILTER_LABELS}
                             aggregationsEntityTypes={[EntityType.ActionRequest]}
                             noOfLoadingSkeletons={1}

@@ -1,5 +1,5 @@
 import * as QueryString from 'query-string';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 
 import { mergeFilters, replaceFilterValues } from '@app/taskCenterV2/proposalsV2/utils';
@@ -12,11 +12,17 @@ import { FacetFilterInput } from '@src/types.generated';
 type Props = {
     useUrlParams: boolean;
     defaultFilters?: FacetFilterInput[];
+    initialFilters?: FacetFilterInput[];
 };
 
-export default function useGetActionRequestsQueryInputs({ useUrlParams, defaultFilters = [] }: Props) {
+export default function useGetActionRequestsQueryInputs({
+    useUrlParams,
+    defaultFilters = [],
+    initialFilters = [],
+}: Props) {
     const history = useHistory();
     const location = useLocation();
+    const hasInjectedInitialFiltersRef = useRef(false);
 
     // TODO: Separate other page params from proposal params when needed (eg ProposalsTab)
     const params = useMemo(() => {
@@ -24,12 +30,29 @@ export default function useGetActionRequestsQueryInputs({ useUrlParams, defaultF
     }, [location.search]);
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
 
+    const activeFilters = useFilters(params);
+
+    // Only inject initialFilters into the url if there are no active filters
+    const shouldInjectInitialFilters = useMemo(() => {
+        if (!useUrlParams || !initialFilters?.length || hasInjectedInitialFiltersRef.current) return false;
+        const shouldInject = !activeFilters?.length;
+        if (shouldInject) hasInjectedInitialFiltersRef.current = true;
+        return shouldInject;
+    }, [useUrlParams, initialFilters, activeFilters]);
+
+    useEffect(() => {
+        if (shouldInjectInitialFilters) {
+            const merged = mergeFilters(activeFilters, initialFilters || []);
+            navigateWithFilters({ filters: merged, history, location });
+        }
+    }, [shouldInjectInitialFilters, history, location, initialFilters, activeFilters]);
+
     // Filters extracted from query params.
     const filtersFromUrl: FacetFilterInput[] = mergeFilters(defaultFilters, useFilters(params));
     const orFiltersFromUrl = useMemo(() => generateOrFilters(unionType, filtersFromUrl), [filtersFromUrl, unionType]);
 
     // Filters for local state
-    const [filters, setFilters] = useState<FacetFilterInput[]>([]);
+    const [filters, setFilters] = useState<FacetFilterInput[]>(() => initialFilters || []);
     const orFilters = useMemo(() => generateOrFilters(UnionType.AND, filters), [filters]);
 
     const onChangeFilters = (newFilters: FacetFilterInput[], replace?: boolean) => {

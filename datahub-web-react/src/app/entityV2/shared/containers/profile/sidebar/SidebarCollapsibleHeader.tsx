@@ -15,6 +15,8 @@ import { ProposalList } from '@src/app/taskCenterV2/proposalsV2/ProposalList';
 import { entityHasProposals } from '@src/app/taskCenterV2/proposalsV2/utils';
 import { useAppConfig } from '@src/app/useAppConfig';
 
+import { ActionRequestStatus, FilterOperator } from '@types';
+
 const Controls = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     align-items: center;
@@ -134,7 +136,18 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                     {showProposalsModal && (
                         // TODO: Add Proposals count Badge in the Modal title
                         <Modal width="90%" title="Proposals" onCancel={handleModalClose}>
-                            <ProposalList resourceUrn={urn} height="700px" />
+                            <ProposalList
+                                resourceUrn={urn}
+                                height="700px"
+                                initialFilters={[
+                                    {
+                                        field: 'status',
+                                        condition: FilterOperator.Equal,
+                                        values: [ActionRequestStatus.Pending],
+                                        negated: false,
+                                    },
+                                ]}
+                            />
                         </Modal>
                     )}
                 </Title>

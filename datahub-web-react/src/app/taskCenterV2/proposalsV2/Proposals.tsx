@@ -13,7 +13,7 @@ import {
 import { ACTION_REQUEST_DISPLAY_FACETS } from '@app/taskCenterV2/utils/constants';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 
-import { ActionRequest, AssigneeType, CorpGroup } from '@types';
+import { ActionRequest, ActionRequestStatus, AssigneeType, CorpGroup, FilterOperator } from '@types';
 
 const StyledButtonGroup = styled(Button.Group)`
     margin: 8px 16px;
@@ -78,6 +78,14 @@ export const Proposals = ({ onProposalClick }: Props) => {
                     type: AssigneeType.User,
                     urn: authenticatedUser?.corpUser?.urn,
                 },
+                initialFilters: [
+                    {
+                        field: 'status',
+                        condition: FilterOperator.Equal,
+                        values: [ActionRequestStatus.Pending],
+                        negated: false,
+                    },
+                ],
             },
             {
                 name: MY_PROPOSALS_GROUP_NAME,
@@ -85,6 +93,14 @@ export const Proposals = ({ onProposalClick }: Props) => {
                 createdBy: {
                     urn: authenticatedUser?.corpUser?.urn,
                 },
+                defaultFilters: [
+                    {
+                        field: 'createdBy',
+                        condition: FilterOperator.Equal,
+                        values: [authenticatedUser?.corpUser?.urn],
+                        negated: false,
+                    },
+                ],
             },
             ...(authenticatedUser?.corpUser?.groups?.relationships?.map((rel) => {
                 const group = rel.entity as CorpGroup;
@@ -95,6 +111,14 @@ export const Proposals = ({ onProposalClick }: Props) => {
                         type: AssigneeType.Group,
                         urn: group.urn,
                     },
+                    initialFilters: [
+                        {
+                            field: 'status',
+                            condition: FilterOperator.Equal,
+                            values: [ActionRequestStatus.Pending],
+                            negated: false,
+                        },
+                    ],
                 };
             }) || []),
         ]) ||
@@ -115,7 +139,8 @@ export const Proposals = ({ onProposalClick }: Props) => {
                 showFilters
                 onProposalClick={onProposalClick}
                 useUrlParams
-                createdBy={activeActionRequestGroup?.createdBy?.urn}
+                defaultFilters={activeActionRequestGroup.defaultFilters}
+                initialFilters={activeActionRequestGroup.initialFilters}
                 getAllActionRequests={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
                 filterFacets={
                     activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME

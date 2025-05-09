@@ -20,6 +20,8 @@ export type ActionRequestGroup = {
     createdBy?: {
         urn: string;
     };
+    defaultFilters?: FacetFilterInput[];
+    initialFilters?: FacetFilterInput[];
 };
 
 export const entityHasProposals = (entityData: GenericEntityProperties | null) => {

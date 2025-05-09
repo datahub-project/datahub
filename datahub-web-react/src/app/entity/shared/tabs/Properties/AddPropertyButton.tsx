@@ -152,10 +152,12 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
         [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns, entityRegistry],
     );
 
-    const canEditProperties =
-        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
+    const canEditProperties = !!(
+        entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties
+    );
+    const proposeProperties = !!entityData?.privileges?.canProposeStructuredProperties;
 
-    if (!canEditProperties) return null;
+    if (!canEditProperties && !proposeProperties) return null;
 
     // Filter items based on search query
     const filteredItems = properties?.filter((prop) => prop.name?.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -225,6 +227,8 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                     associatedUrn={fieldUrn} // pass in fieldUrn to use otherwise we will use mutation urn for siblings
                     refetch={refetch}
                     isAddMode
+                    canEdit={canEditProperties}
+                    canPropose={proposeProperties}
                 />
             )}
         </>
