@@ -1,4 +1,8 @@
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
+
 # Audit Events Search API V1
+
+<FeatureAvailability />
 
 ## Endpoint
 

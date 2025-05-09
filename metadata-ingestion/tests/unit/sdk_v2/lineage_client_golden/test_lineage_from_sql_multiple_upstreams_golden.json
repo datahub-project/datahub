@@ -1,0 +1,67 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:snowflake,products,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,products,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:41fd73db4d7749a886910c3c7f06c29082420f5e6feb988c534c595561bb4131"
+                }
+            }
+        ]
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:41fd73db4d7749a886910c3c7f06c29082420f5e6feb988c534c595561bb4131",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "\n    CREATE TABLE sales_summary AS\n    SELECT \n        p.product_name,\n        SUM(s.quantity) as total_quantity,\n    FROM sales s\n    JOIN products p ON s.product_id = p.id\n    GROUP BY p.product_name\n    ",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:__ingestion"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:__ingestion"
+            }
+        }
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:41fd73db4d7749a886910c3c7f06c29082420f5e6feb988c534c595561bb4131",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,products,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)"
+                }
+            ]
+        }
+    }
+}
+]
