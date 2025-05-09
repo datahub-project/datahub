@@ -80,6 +80,7 @@ export const RightColumn = styled.div`
     flex-direction: column;
     align-items: end;
     justify-content: center;
+    padding-left: 8px;
 `;
 
 export const TopButtonsWrapper = styled.div`
