@@ -34,9 +34,7 @@ from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import (
-    DEFAULT_REST_TRACE_MODE,
     DatahubRestEmitter,
-    RestTraceMode,
 )
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
@@ -54,6 +52,7 @@ from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     generate_filter,
 )
+from datahub.ingestion.graph.links import make_url_for_urn
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -158,7 +157,6 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
-            default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
         )
@@ -187,6 +185,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         """Get the public-facing base url of the frontend
 
         This url can be used to construct links to the frontend. The url will not include a trailing slash.
+
         Note: Only supported with DataHub Cloud.
         """
 
@@ -197,6 +196,20 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         if not base_url:
             raise ValueError("baseUrl not found in server config")
         return base_url
+
+    def url_for(self, entity_urn: Union[str, Urn]) -> str:
+        """Get the UI url for an entity.
+
+        Note: Only supported with DataHub Cloud.
+
+        Args:
+            entity_urn: The urn of the entity to get the url for.
+
+        Returns:
+            The public-facing url for the entity.
+        """
+
+        return make_url_for_urn(self.frontend_base_url, str(entity_urn))
 
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
@@ -361,7 +374,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         )
 
     def get_config(self) -> Dict[str, Any]:
-        return self.get_server_config().config
+        return self.server_config.raw_config
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)

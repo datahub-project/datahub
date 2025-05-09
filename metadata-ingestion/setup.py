@@ -105,7 +105,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==26.6.0",
+    "sqlglot[rs]==26.16.4",
     "patchy==2.8.0",
 }
 
@@ -147,14 +147,14 @@ great_expectations_lib = {
     "acryl-great-expectations==0.15.50.1",
 }
 
-sql_common_slim = {
+sqlalchemy_lib = {
     # Required for all SQL sources.
     # This is temporary lower bound that we're open to loosening/tightening as requirements show up
     "sqlalchemy>=1.4.39, <2",
 }
 sql_common = (
     {
-        *sql_common_slim,
+        *sqlalchemy_lib,
         # Required for SQL profiling.
         *great_expectations_lib,
         "pydantic<2",  # keeping this for now, but can be removed eventually
@@ -227,6 +227,8 @@ clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
     # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
     # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    # zstd needs to be pinned because the latest version causes issues on arm
+    "zstd<1.5.6.8",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 
@@ -551,7 +553,7 @@ plugins: Dict[str, Set[str]] = {
     "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
     "databricks": databricks | sql_common,
-    "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
+    "fivetran": snowflake_common | bigquery_common | sqlalchemy_lib | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
     "sac": sac,

@@ -122,7 +122,7 @@ task cleanPythonCache(type: Exec) {
 }
 
 docker {
-  //dependsOn(build)
+  dependsOn ':metadata-ingestion:codegen'
   name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/datahub-actions/Dockerfile")
   files fileTree(rootProject.projectDir) {
@@ -134,12 +134,13 @@ docker {
     include ".dockerignore"
     include "docker/datahub-actions/**"
     include "docker/snippets/**"
+    include "metadata-ingestion/**"
     include "datahub-actions/**"
     include "python-build/**"
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
-  
+
   additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   defaultVariant = "slim"
@@ -147,7 +148,6 @@ docker {
     "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version]],
     "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version]]
   ]
-
 }
 
 build.dependsOn install
