@@ -1,5 +1,0 @@
-auth_basic "Airbyte";
-auth_basic_user_file /etc/nginx/.htpasswd;
-
-# .htpasswd file is created with BASIC_AUTH_USERNAME and BASIC_AUTH_PASSWORD env vars
-# Example: airbyte:$apr1$5xC7FYvV$63JkPN0zXIjlnhfuLXY1V1 
