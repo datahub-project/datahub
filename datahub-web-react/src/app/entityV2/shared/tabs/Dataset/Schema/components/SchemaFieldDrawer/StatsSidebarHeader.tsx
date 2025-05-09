@@ -1,9 +1,10 @@
-import React from 'react';
 import { ClockCircleOutlined, LineChartOutlined } from '@ant-design/icons';
+import React from 'react';
 import styled from 'styled-components';
-import LookbackWindowSelect from '../../../Stats/historical/LookbackWindowSelect';
-import { LookbackWindow } from '../../../Stats/lookbackWindows';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../../../constants';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import LookbackWindowSelect from '@app/entityV2/shared/tabs/Dataset/Stats/historical/LookbackWindowSelect';
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 
 export enum StatsViewType {
     LATEST,
@@ -20,7 +21,7 @@ const TabContainer = styled.div`
 `;
 
 const StatsTabViewSwitch = styled.div<{ isActive: boolean }>`
-    background: ${({ isActive }) => (isActive ? `${REDESIGN_COLORS.BACKGROUND_PRIMARY_1}` : 'transperent')};
+    background: ${({ isActive, theme }) => (isActive ? `${theme.styles['primary-color']}` : 'transperent')};
     border-radius: 4px;
     color: ${({ isActive }) => (isActive ? '#fff' : '#56668E')};
     cursor: pointer;
@@ -32,7 +33,9 @@ const StatsTabViewSwitch = styled.div<{ isActive: boolean }>`
     width: 180px;
     align-items: center;
     gap: 5px;
-    transition: background 0.3s ease, color 0.3s ease;
+    transition:
+        background 0.3s ease,
+        color 0.3s ease;
 `;
 
 const SwitchWrapper = styled.div`

@@ -5,8 +5,9 @@ The dataset entity is one the most important entities in the metadata model. The
 ## Identity
 
 Datasets are identified by three pieces of information:
+
 - The platform that they belong to: this is the specific data technology that hosts this dataset. Examples are `hive`, `bigquery`, `redshift` etc. See [dataplatform](./dataPlatform.md) for more details.
-- The name of the dataset in the specific platform. Each platform will have a unique way of naming assets within its system. Usually, names are composed by combining the structural elements of the name and separating them by `.`. e.g. relational datasets are usually named as `<db>.<schema>.<table>`, except for platforms like MySQL which do not have the concept of a `schema`; as a result MySQL datasets are named `<db>.<table>`. In cases where the specific platform can have multiple instances (e.g. there are multiple different instances of MySQL databases that have different data assets in them), names can also include instance ids, making the general pattern for a name `<platform_instance>.<db>.<schema>.<table>`. 
+- The name of the dataset in the specific platform. Each platform will have a unique way of naming assets within its system. Usually, names are composed by combining the structural elements of the name and separating them by `.`. e.g. relational datasets are usually named as `<db>.<schema>.<table>`, except for platforms like MySQL which do not have the concept of a `schema`; as a result MySQL datasets are named `<db>.<table>`. In cases where the specific platform can have multiple instances (e.g. there are multiple different instances of MySQL databases that have different data assets in them), names can also include instance ids, making the general pattern for a name `<platform_instance>.<db>.<schema>.<table>`.
 - The environment or fabric in which the dataset belongs: this is an additional qualifier available on the identifier, to allow disambiguating datasets that live in Production environments from datasets that live in Non-production environments, such as Staging, QA, etc. The full list of supported environments / fabrics is available in [FabricType.pdl](https://raw.githubusercontent.com/datahub-project/datahub/master/li-utils/src/main/pegasus/com/linkedin/common/FabricType.pdl).
 
 An example of a dataset identifier is `urn:li:dataset:(urn:li:dataPlatform:redshift,userdb.public.customer_table,PROD)`.
@@ -15,12 +16,13 @@ An example of a dataset identifier is `urn:li:dataset:(urn:li:dataPlatform:redsh
 
 ### Schemas
 
-Datasets support flat and nested schemas. Metadata about schemas are contained in the `schemaMetadata` aspect. Schemas are represented as an array of fields, each identified by a specific field path. 
+Datasets support flat and nested schemas. Metadata about schemas are contained in the `schemaMetadata` aspect. Schemas are represented as an array of fields, each identified by a specific field path.
 
 #### Field Paths explained
 
 Fields that are either top-level or expressible unambiguously using a `.` based notation can be identified via a v1 path name, whereas fields that are part of a union need further disambiguation using `[type=X]` markers.
 Taking a simple nested schema as described below:
+
 ```javascript
 {
     "type": "record",
@@ -30,29 +32,31 @@ Taking a simple nested schema as described below:
         "type": "record",
         "name": "address",
         "fields": [
-            { "name": "zipcode", "type": string}, 
+            { "name": "zipcode", "type": string},
             {"name": "street", "type": string}]
         }],
 }
 ```
+
 - v1 field path: `address.zipcode`
 - v2 field path: `[version=2.0].[type=struct].address.[type=string].zipcode"`. More examples and a formal specification of a v2 fieldPath can be found [here](docs/advanced/field-path-spec-v2.md).
 
 Understanding field paths is important, because they are the identifiers through which tags, terms, documentation on fields are expressed. Besides the type and name of the field, schemas also contain descriptions attached to the individual fields, as well as information about primary and foreign keys.
 
 The following code snippet shows you how to add a Schema containing 3 fields to a dataset.
+
 <details>
 <summary>Python SDK: Add a schema to a dataset</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_schema.py show_path_as_comment }}
 ```
-</details>
 
+</details>
 
 ### Tags and Glossary Terms
 
-Datasets can have Tags or Terms attached to them. Read [this blog](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e) to understand the difference between tags and terms so you understand when you should use which.
+Datasets can have Tags or Terms attached to them. Read [this blog](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e) to understand the difference between tags and terms so you understand when you should use which.
 
 #### Adding Tags or Glossary Terms at the top-level to a dataset
 
@@ -66,15 +70,18 @@ Here is an example for how to add a tag to a dataset. Note that this involves re
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_tag.py show_path_as_comment }}
 ```
+
 </details>
 
 Here is an example of adding a term to a dataset. Note that this involves reading the currently set terms on the dataset and then adding a new one if needed.
+
 <details>
 <summary>Python SDK: Add a term to a dataset at the top-level</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_term.py show_path_as_comment }}
 ```
+
 </details>
 
 #### Adding Tags or Glossary Terms to columns / fields of a dataset
@@ -90,15 +97,18 @@ Here is an example of how you can add a tag to a field in a dataset using the lo
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_column_tag.py show_path_as_comment }}
 ```
+
 </details>
 
-Similarly, here is an example of how you would add a term to a field in a dataset using the low-level Python SDK. 
+Similarly, here is an example of how you would add a term to a field in a dataset using the low-level Python SDK.
+
 <details>
 <summary>Python SDK: Add a term to a column (field) of a dataset</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_column_term.py show_path_as_comment }}
 ```
+
 </details>
 
 ### Ownership
@@ -115,9 +125,11 @@ The following script shows you how to add an owner to a dataset using the low-le
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_owner.py show_path_as_comment }}
 ```
+
 </details>
 
 ### Fine-grained lineage
+
 Fine-grained lineage at field level can be associated to a dataset in two ways - either directly attached to the `upstreamLineage` aspect of a dataset, or captured as part of the `dataJobInputOutput` aspect of a dataJob.
 
 <details>
@@ -126,6 +138,7 @@ Fine-grained lineage at field level can be associated to a dataset in two ways -
 ```python
 {{ inline /metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py show_path_as_comment }}
 ```
+
 </details>
 
 <details>
@@ -134,20 +147,25 @@ Fine-grained lineage at field level can be associated to a dataset in two ways -
 ```python
 {{ inline /metadata-ingestion/examples/library/lineage_emitter_datajob_finegrained.py show_path_as_comment }}
 ```
+
 </details>
 
 #### Querying lineage information
-The standard [GET APIs to retrieve entities](https://datahubproject.io/docs/metadata-service/#retrieving-entities) can be used to fetch the dataset/datajob created by the above example.
+
+The standard [GET APIs to retrieve entities](https://docs.datahub.com/docs/metadata-service/#retrieving-entities) can be used to fetch the dataset/datajob created by the above example.
 The response will include the fine-grained lineage information as well.
+
 <details>
 <summary>Fetch entity snapshot, including fine-grained lineages</summary>
 
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3Adataset%3A(urn%3Ali%3AdataPlatform%3Apostgres,bar,PROD)'
 ```
+
 ```
 curl 'http://localhost:8080/entities/urn%3Ali%3AdataJob%3A(urn%3Ali%3AdataFlow%3A(spark,Flow1,prod),Task1)'
 ```
+
 </details>
 
 The below queries can be used to find the upstream/downstream datasets/fields of a dataset/datajob.
@@ -202,6 +220,7 @@ curl 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3Adata
     "total": 9
 }
 ```
+
 </details>
 
 <details>
@@ -254,6 +273,7 @@ curl 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3Adata
     "total": 9
 }
 ```
+
 </details>
 
 <details>
@@ -314,6 +334,7 @@ curl 'http://localhost:8080/relationships?direction=OUTGOING&urn=urn%3Ali%3Adata
     "total": 11
 }
 ```
+
 </details>
 
 ### Documentation, Links etc.
@@ -330,10 +351,12 @@ Here is a simple script that shows you how to add documentation for a dataset in
 ```python
 {{ inline /metadata-ingestion/examples/library/dataset_add_documentation.py show_path_as_comment }}
 ```
+
 </details>
 
 ## Notable Exceptions
 
-The following overloaded uses of the Dataset entity exist for convenience, but will likely move to fully modeled entity types in the future. 
+The following overloaded uses of the Dataset entity exist for convenience, but will likely move to fully modeled entity types in the future.
+
 - OpenAPI endpoints: the GET API of OpenAPI endpoints are currently modeled as Datasets, but should really be modeled as a Service/API entity once this is created in the metadata model.
 - DataHub's Logical Entities (e.g.. Dataset, Chart, Dashboard) are represented as Datasets, with sub-type Entity. These should really be modeled as Entities in a logical ER model once this is created in the metadata model.

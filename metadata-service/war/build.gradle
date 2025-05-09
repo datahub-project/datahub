@@ -38,7 +38,13 @@ dependencies {
   implementation(externalDependency.springBootStarterWeb) {
     exclude module: "spring-boot-starter-tomcat"
   }
-  implementation externalDependency.springBootStarterJetty
+  implementation(externalDependency.springBootStarterJetty) {
+    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+  }
+  implementation(externalDependency.springBootStarterValidation) {
+    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+  }
+
   implementation externalDependency.jettyJmx
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBootAutoconfigure
@@ -56,6 +62,8 @@ dependencies {
   runtimeOnly externalDependency.log4j2Api
   runtimeOnly externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
 
@@ -86,7 +94,7 @@ bootRun {
 
 docker {
   dependsOn bootJar
-  name "${docker_registry}/${docker_repo}:v${version}"
+  name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
@@ -114,6 +122,8 @@ docker {
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)
   }
+
+  debugBuildArgs = [APP_ENV:  'dev']
 }
 
 test {

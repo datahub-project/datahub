@@ -1,7 +1,9 @@
-import { CaretUp, CaretDown } from 'phosphor-react';
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
+import { CaretDown, CaretUp } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
+
+import { StructuredPopover } from '@components/components/StructuredPopover';
 import {
     BaseTable,
     HeaderContainer,
@@ -13,11 +15,10 @@ import {
     TableHeader,
     TableHeaderCell,
     TableRow,
-} from './components';
-import { SortingState, TableProps } from './types';
-import { getSortedData, handleActiveSort, renderCell } from './utils';
-import { Tooltip2 } from '../Tooltip2';
-import { useGetSelectionColumn } from './useGetSelectionColumn';
+} from '@components/components/Table/components';
+import { SortingState, TableProps } from '@components/components/Table/types';
+import { useGetSelectionColumn } from '@components/components/Table/useGetSelectionColumn';
+import { getSortedData, handleActiveSort, renderCell } from '@components/components/Table/utils';
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -51,6 +52,7 @@ export const Table = <T,>({
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<SortingState>(SortingState.ORIGINAL);
+    const [focusedRowIndex, setFocusedRowIndex] = useState<number | null>(null);
 
     const sortedData = getSortedData(columns, data, sortColumn, sortOrder);
     const isRowClickable = !!onRowClick;
@@ -64,6 +66,10 @@ export const Table = <T,>({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sortOrder, sortColumn]);
+
+    useEffect(() => {
+        setFocusedRowIndex(null);
+    }, [data]);
 
     if (isLoading) {
         return (
@@ -86,11 +92,12 @@ export const Table = <T,>({
                                 <TableHeaderCell
                                     key={column.key} // Unique key for each header cell
                                     width={column.width}
+                                    minWidth={column.minWidth}
                                     maxWidth={column.maxWidth}
                                     shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
                                 >
                                     {column?.tooltipTitle ? (
-                                        <Tooltip2 title={column.tooltipTitle}>
+                                        <StructuredPopover title={column.tooltipTitle}>
                                             <HeaderContainer alignment={column.alignment}>
                                                 {column.title}
                                                 {column.sorter && ( // Render sort icons if the column is sortable
@@ -126,7 +133,7 @@ export const Table = <T,>({
                                                     </SortIconsContainer>
                                                 )}
                                             </HeaderContainer>
-                                        </Tooltip2>
+                                        </StructuredPopover>
                                     ) : (
                                         <HeaderContainer alignment={column.alignment}>
                                             {column.title}
@@ -182,10 +189,17 @@ export const Table = <T,>({
                                 <TableRow
                                     key={key}
                                     canExpand={canExpand}
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        if (focusedRowIndex === index) {
+                                            setFocusedRowIndex(null);
+                                        } else {
+                                            setFocusedRowIndex(index);
+                                        }
                                         if (canExpand) onExpand?.(row); // Handle row expansion
                                         onRowClick?.(row); // Handle row click
+                                        e.stopPropagation();
                                     }}
+                                    isFocused={focusedRowIndex === index}
                                     className={rowClassName?.(row)} // Add row-specific class
                                     ref={(el) => {
                                         if (rowRefs && el) {
@@ -195,6 +209,7 @@ export const Table = <T,>({
                                     }}
                                     isRowClickable={isRowClickable}
                                     data-testId={rowDataTestId?.(row)}
+                                    canHover
                                 >
                                     {/* Render each cell in the row */}
 
@@ -241,7 +256,7 @@ export const Table = <T,>({
                                 </TableRow>
                                 {/* Render expanded content if row is expanded */}
                                 {isExpanded && expandable?.expandedRowRender && (
-                                    <TableRow isRowClickable={isRowClickable}>
+                                    <TableRow isRowClickable={isRowClickable} canHover={false}>
                                         <TableCell
                                             colSpan={columns.length + (expandable?.expandIconPosition ? 1 : 0)}
                                             style={{ padding: 0 }}

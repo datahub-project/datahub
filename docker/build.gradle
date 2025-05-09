@@ -19,7 +19,8 @@ ext {
             ':metadata-service:war',
     ]
 
-    python_services_modules = []
+    python_services_modules = [
+    ]
 
     // Common configuration for all tasks
     common_config = [
@@ -35,25 +36,39 @@ ext {
                             ':datahub-frontend',
                             ':metadata-jobs:mce-consumer-job',
                             ':metadata-jobs:mae-consumer-job',
+                            ':datahub-actions',
                     ]
             ],
             'quickstartDebug': [
                     profile: 'debug',
-                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartDebugMin': [
+                    profile: 'debug-min',
+                    modules: backend_profile_modules + [':datahub-frontend'],
                     isDebug: true
             ],
             'quickstartDebugConsumers': [
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
                                                                           ':metadata-jobs:mce-consumer-job',
-                                                                          ':metadata-jobs:mae-consumer-job'],
-                    isDebug: true
+                                                                          ':metadata-jobs:mae-consumer-job',
+                                                                          ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
             ],
             'quickstartPg': [
                     profile: 'quickstart-postgres',
                     modules: (backend_profile_modules - [':docker:mysql-setup']) + [
                             ':docker:postgres-setup',
-                            ':datahub-frontend'
+                            ':datahub-frontend',
+                            ':datahub-actions',
                     ]
             ],
             'quickstartPgDebug': [
@@ -66,10 +81,11 @@ ext {
             ],
             'quickstartSlim': [
                     profile: 'quickstart-backend',
-                    modules: backend_profile_modules + [':docker:datahub-ingestion'],
+                    modules: backend_profile_modules + [
+                        ':docker:datahub-ingestion',
+                    ],
                     additionalEnv: [
                             'DATAHUB_ACTIONS_IMAGE': 'acryldata/datahub-ingestion',
-                            'ACTIONS_VERSION': "v${version}-slim",
                             'ACTIONS_EXTRA_PACKAGES': 'acryl-datahub-actions[executor] acryl-datahub-actions',
                             'ACTIONS_CONFIG': 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml',
                             'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
@@ -78,18 +94,27 @@ ext {
             'quickstartStorage': [
                     profile: 'quickstart-storage',
                     preserveVolumes: true
+            ],
+            'allImages': [ //This is a special task just to include all images as dependencies - and is useful when CI needs to publish all images
+                    profile: 'quickstart-consumers',
+                    modules: python_services_modules + backend_profile_modules + [
+                        ':datahub-frontend',
+                        ':metadata-jobs:mce-consumer-job',
+                        ':metadata-jobs:mae-consumer-job',
+                        ':datahub-actions',
+                        ':docker:datahub-ingestion'
+                    ]
             ]
     ]
 
-    //  only for debug variants of quickstart to enable <variant>Reload tasks. 
+    // only for debug variants of quickstart to enable <variant>Reload tasks. 
     // The actual service name needs the profile to be appended,  <container-name>-<profile>
+    // This list only contains modules that can be reloaded via the reloadTask. If other modules need to be reloaded, quickstart* needs to be used.
     moduleToContainer = [
         ':metadata-service:war': 'datahub-gms',
         ':datahub-frontend': 'frontend',
-        ':datahub-upgrade': 'system-update',
         ':metadata-jobs:mce-consumer-job': 'datahub-mce-consumer',
         ':metadata-jobs:mae-consumer-job': 'datahub-mae-consumer',
-
     ]
 }
 
@@ -155,14 +180,6 @@ dockerCompose {
     }
 }
 
-// Configure dependencies for ComposeUp tasks
-quickstart_configs.each { taskName, config ->
-    if (config.modules) {
-        tasks.getByName("${taskName}ComposeUp").dependsOn(
-                config.modules.collect { it + ":${config.isDebug ? 'dockerTagDebug' : 'dockerTag'}" }
-        )
-    }
-}
 
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
@@ -179,34 +196,64 @@ quickstart_configs.each { taskName, config ->
     }
 }
 
+
 quickstart_configs.each { taskName, config ->
-    tasks.register("buildImagesFromCache${taskName}") {
+    tasks.register("buildImages${taskName}", Exec) {
+        ext{
+            bakeSpec = [:]
+        }
         group = 'quickstart-ci'
+        def taskSuffix = config.isDebug? 'debug' : ''
+        dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
+        dependsOn(tasks.getByName("prepareAll${taskName}"))
+
+        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
+
+        def bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
+        def buildCmd = []
+        if (System.getenv("DOCKER_CACHE") == "DEPOT") {
+            buildCmd << "depot"
+            buildCmd += bakeCmdArgs
+            buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
+            if (project.properties.getOrDefault("dockerPush", false)){
+                buildCmd << "--push"
+            }
+        } else {
+            buildCmd += ["docker",  "buildx" ]
+            buildCmd +=bakeCmdArgs
+        }
+        commandLine buildCmd
+        workingDir rootProject.projectDir
+
+        doFirst {
+            def bakeSnippets = [:]
+            def targets = []
+
+            config.modules.each { module ->
+                def moduleProject = project.project(module)
+                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
+                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
+                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
+            }
+
+            ext.bakeSpec.group = [ "default": ["targets": targets] ]
+            ext.bakeSpec.target = bakeSnippets
+
+            jsonFile.parentFile.mkdirs()
+            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
+        }
     }
 }
 
+// Configure dependencies for ComposeUp tasks
 quickstart_configs.each { taskName, config ->
     if (config.modules) {
-        tasks.getByName("buildImagesFromCache${taskName}").dependsOn(
-            config.modules.collect { it + ':dockerFromCache' }
+        tasks.getByName("${taskName}ComposeUp").dependsOn(
+                tasks.getByName("buildImages${taskName}")
         )
     }
 }
 
-
-quickstart_configs.each { taskName, config ->
-    tasks.register("buildImages${taskName}") {
-        group = 'quickstart-ci'
-    }
-}
-
-quickstart_configs.each { taskName, config ->
-    if (config.modules) {
-        tasks.getByName("buildImages${taskName}").dependsOn(
-            config.modules.collect { it + ':dockerTag' }
-        )
-    }
-}
 
 tasks.register('minDockerCompose2.20', Exec) {
     executable 'bash'
@@ -257,11 +304,29 @@ quickstart_configs.each { taskName, config ->
                 // Only restart containers that had their modules rebuilt
                 if (containersToRestart) {
                     def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['restart'] + containersToRestart
+                    println(cmd.join(" "))
                     commandLine 'bash', '-c', cmd.join(" ")
                 } else {
                     // If no containers need restart, make this a no-op
                     commandLine 'bash', '-c', 'echo "No containers need restarting - all modules are up to date"'
                 }    
+            }
+        }
+        tasks.register("${reloadTaskName}ReloadEnv", Exec) {
+            dependsOn tasks.named("prepareAll${taskName}")
+            group = 'quickstart'
+            description = "Build changed containers but recreate all services for the ${taskName} task"
+            doFirst {
+                def containersToRestart = []
+                moduleToContainer.each { modulePath, containerName ->
+                    // Find which of of the reloadable modules are in used in this task
+                    if (config.modules.contains(modulePath)) {
+                        containersToRestart << "${containerName}-${config.profile}"
+                    }
+                }
+                def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['up', '-d', '--no-deps'] + containersToRestart
+                println(cmd.join(" "))
+                commandLine 'bash', '-c', cmd.join(" ")
             }
         }
     }

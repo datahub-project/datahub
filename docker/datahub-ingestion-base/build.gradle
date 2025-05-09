@@ -12,13 +12,12 @@ ext {
     docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
     docker_version = "${version}${docker_target == 'slim' ? '-slim' : ''}"
 
-    revision = 11 // increment to trigger rebuild
+    revision = 12 // increment to trigger rebuild
 }
 
 docker {
     dependsOn build
-    name "${docker_registry}/${docker_repo}:v${docker_version}"
-    //version "v${docker_version}"
+    name "${docker_registry}/${docker_repo}:${docker_version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
         include '.dockerignore'

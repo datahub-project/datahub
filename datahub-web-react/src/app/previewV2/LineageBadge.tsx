@@ -1,14 +1,17 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Link } from 'react-router-dom';
 import { Popover } from '@components';
-import { EntityType } from '../../types.generated';
-import EntityRegistry from '../entityV2/EntityRegistry';
-import LineageStatusIcon from '../../images/lineage-status.svg?react';
-import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
-import { pluralize } from '../shared/textUtil';
-import { isNullOrUndefined } from './utils';
-import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { isNullOrUndefined } from '@app/previewV2/utils';
+import { pluralize } from '@app/shared/textUtil';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+
+import { EntityType } from '@types';
+
+import LineageStatusIcon from '@images/lineage-status.svg?react';
 
 const Icon = styled(LineageStatusIcon)<{ highlighted?: boolean }>`
     display: flex;

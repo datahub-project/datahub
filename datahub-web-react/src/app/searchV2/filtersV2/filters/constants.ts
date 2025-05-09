@@ -1,0 +1,1 @@
+export const DEBOUNCE_ON_SEARCH_TIMEOUT_MS = 100;

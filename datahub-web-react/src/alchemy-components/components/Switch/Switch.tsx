@@ -1,12 +1,21 @@
 import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
-import { IconContainer, Label, Required, Slider, StyledIcon, StyledInput, SwitchContainer } from './components';
-import { SwitchProps } from './types';
+
+import {
+    IconContainer,
+    Label,
+    Required,
+    Slider,
+    StyledIcon,
+    StyledInput,
+    SwitchContainer,
+} from '@components/components/Switch/components';
+import { SwitchProps } from '@components/components/Switch/types';
 
 export const switchDefaults: SwitchProps = {
     label: 'Label',
     labelPosition: 'left',
-    colorScheme: 'violet',
+    colorScheme: 'primary',
     size: 'md',
     isSquare: false,
     isChecked: false,

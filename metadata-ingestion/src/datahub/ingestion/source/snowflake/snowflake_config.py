@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
 import pydantic
-from pydantic import Field, SecretStr, root_validator, validator
+from pydantic import Field, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
@@ -301,6 +301,7 @@ class SnowflakeV2Config(
         default=AllowDenyPattern.allow_all(),
         description=(
             "List of regex patterns for structured properties to include in ingestion."
+            " Applied to tags with form `<database>.<schema>.<tag_name>`."
             " Only used if `extract_tags` and `extract_tags_as_structured_properties` are enabled."
         ),
     )
@@ -383,17 +384,6 @@ class SnowflakeV2Config(
             )
 
         return values
-
-    def get_sql_alchemy_url(
-        self,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[SecretStr] = None,
-        role: Optional[str] = None,
-    ) -> str:
-        return SnowflakeConnectionConfig.get_sql_alchemy_url(
-            self, database=database, username=username, password=password, role=role
-        )
 
     @validator("shares")
     def validate_shares(
