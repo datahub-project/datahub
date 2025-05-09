@@ -1232,10 +1232,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         views = self.data_dictionary.get_views_for_database(db_name)
         # Some schema may not have any table
         result = views.get(schema_name, [])
-        logger.info(
+        logger.debug(
             f"Number of views in database {db_name} for schema {schema_name}: {len(result)}"
         )
-
         return result
 
     def get_columns_for_table(
