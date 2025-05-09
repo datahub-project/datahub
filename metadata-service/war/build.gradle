@@ -62,6 +62,8 @@ dependencies {
   runtimeOnly externalDependency.log4j2Api
   runtimeOnly externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
 

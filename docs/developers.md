@@ -11,6 +11,7 @@ title: "Local Development"
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)
 - [Docker Compose >=2.20](https://docs.docker.com/compose/)
+- [Yarn >=v1.22](https://yarnpkg.com/en/docs/cli/) for documentation building
 - Docker engine with at least 8GB of memory to run tests.
 
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
