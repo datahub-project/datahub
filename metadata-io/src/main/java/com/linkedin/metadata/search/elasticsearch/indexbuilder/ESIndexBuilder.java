@@ -10,6 +10,7 @@ import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.ObjectMapperContext;
+import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
@@ -27,6 +28,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.Callable;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -94,6 +97,11 @@ public class ESIndexBuilder {
           .build();
 
   private final RetryRegistry retryRegistry;
+  private static RetryRegistry deletionRetryRegistry;
+  private final int initialSecondsDelete = 5;
+  private final int deleteMultiplier = 5;
+  // would wait >3000s for the 5th retry
+  private static final int deleteMaxAttempts = 5;
 
   public ESIndexBuilder(
       RestHighLevelClient searchClient,
@@ -158,6 +166,42 @@ public class ESIndexBuilder {
 
     // Create a RetryRegistry with a custom global configuration
     this.retryRegistry = RetryRegistry.of(config);
+
+    // Configure delete retry behavior
+    RetryConfig deletionRetryConfig =
+        RetryConfig.custom()
+            .maxAttempts(deleteMaxAttempts) // Maximum number of attempts
+            .waitDuration(Duration.ofSeconds(initialSecondsDelete))
+            .retryExceptions(IOException.class) // Retry on IOException
+            .retryOnException(
+                createElasticsearchRetryPredicate()) // Custom predicate for other exceptions
+            .intervalFunction(
+                IntervalFunction.ofExponentialBackoff(
+                    Duration.ofSeconds(initialSecondsDelete),
+                    deleteMultiplier)) // Exponential backoff
+            .failAfterMaxAttempts(true) // Throw exception after max attempts
+            .build();
+    this.deletionRetryRegistry = RetryRegistry.of(deletionRetryConfig);
+  }
+
+  /** Creates a predicate to determine which Elasticsearch exceptions should be retried */
+  private static Predicate<Throwable> createElasticsearchRetryPredicate() {
+    return throwable -> {
+      // Retry on connection issues
+      if (throwable.getMessage() != null
+          && (throwable.getMessage().contains("snapshotted")
+              || throwable.getMessage().contains("Connection refused")
+              || throwable.getMessage().contains("Connection reset")
+              || throwable.getMessage().contains("Connection closed")
+              || throwable.getMessage().contains("timeout")
+              || throwable.getMessage().contains("temporarily unavailable"))) {
+        return true;
+      }
+      // Retry on specific Elasticsearch errors that might be transient
+      // Add any specific Elasticsearch error codes or messages that should be retried
+      // Don't retry if the exception doesn't match any of the criteria
+      return false;
+    };
   }
 
   /**
@@ -579,9 +623,7 @@ public class ESIndexBuilder {
           indexState.name(),
           tempIndexName,
           e.toString());
-      _searchClient
-          .indices()
-          .delete(new DeleteIndexRequest().indices(tempIndexName), RequestOptions.DEFAULT);
+      deleteActionWithRetry(_searchClient, tempIndexName);
       throw e;
     }
 
@@ -593,6 +635,91 @@ public class ESIndexBuilder {
         _searchClient, indexState.name(), indexState.indexPattern(), tempIndexName, true);
     log.info("Finished setting up {}", indexState.name());
     return result;
+  }
+
+  /**
+   * Delete Elasticsearch index with exponential backoff retry using resilience4j
+   *
+   * @param searchClient
+   * @param tempIndexName Index name to delete
+   * @throws Exception If deletion ultimately fails after all retries
+   */
+  private static void deleteActionWithRetry(RestHighLevelClient searchClient, String tempIndexName)
+      throws Exception {
+    Retry retry = deletionRetryRegistry.retry("elasticsearchDeleteIndex");
+    // Wrap the delete operation in a Callable
+    Callable<Void> deleteOperation =
+        () -> {
+          try {
+            log.info("Attempting to delete index: {}", tempIndexName);
+            // Check if index exists before deleting
+            boolean indexExists =
+                searchClient
+                    .indices()
+                    .exists(new GetIndexRequest(tempIndexName), RequestOptions.DEFAULT);
+            if (indexExists) {
+              // Configure delete request with timeout
+              DeleteIndexRequest request = new DeleteIndexRequest(tempIndexName);
+              request.timeout(TimeValue.timeValueSeconds(30));
+              // Execute delete
+              searchClient.indices().delete(request, RequestOptions.DEFAULT);
+              log.info("Successfully deleted index: {}", tempIndexName);
+            } else {
+              log.info("Index {} does not exist, no need to delete", tempIndexName);
+            }
+            return null;
+          } catch (Exception e) {
+            log.warn("Failed to delete index: {}, error: {}", tempIndexName, e.getMessage());
+            throw e;
+          }
+        };
+    executeWithRetry(tempIndexName, retry, deleteOperation);
+  }
+
+  private static void updateAliasWithRetry(
+      RestHighLevelClient searchClient,
+      AliasActions removeAction,
+      AliasActions addAction,
+      String tempIndexName)
+      throws Exception {
+    Retry retry = deletionRetryRegistry.retry("elasticsearchDeleteIndex");
+    Callable<Void> deleteOperation =
+        () -> {
+          try {
+            log.info("Attempting to delete index/indices(behind alias): {}", tempIndexName);
+            // Configure delete request with timeout
+            IndicesAliasesRequest request;
+            request =
+                new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction);
+            request.timeout(TimeValue.timeValueSeconds(30));
+            // Execute delete
+            searchClient.indices().updateAliases(request, RequestOptions.DEFAULT);
+            log.info("Successfully deleted index/indices(behind alias): {}", tempIndexName);
+            return null;
+          } catch (Exception e) {
+            log.warn(
+                "Failed to deleted index/indices(behind alias): {}, error: {}",
+                tempIndexName,
+                e.getMessage());
+            throw e;
+          }
+        };
+    executeWithRetry(tempIndexName, retry, deleteOperation);
+  }
+
+  private static void executeWithRetry(String tempIndexName, Retry retry, Callable<Void> operation)
+      throws Exception {
+    // Execute with retry
+    try {
+      retry.executeCallable(operation);
+    } catch (Exception e) {
+      log.error(
+          "Failed to delete index {} after {} attempts: {}",
+          tempIndexName,
+          deleteMaxAttempts,
+          e.getMessage());
+      throw e;
+    }
   }
 
   private void setReindexOptimalSettings(String tempIndexName) throws IOException {
@@ -611,7 +738,7 @@ public class ESIndexBuilder {
       @Nullable String pattern,
       String newName,
       boolean deleteOld)
-      throws IOException {
+      throws Exception {
     GetAliasesRequest getAliasesRequest = new GetAliasesRequest(originalName);
     if (pattern != null) {
       getAliasesRequest.indices(pattern);
@@ -621,12 +748,15 @@ public class ESIndexBuilder {
 
     // If not aliased, delete the original index
     final Collection<String> aliasedIndexDelete;
+    String delinfo;
     if (aliasesResponse.getAliases().isEmpty()) {
       log.info("Deleting index {} to allow alias creation", originalName);
       aliasedIndexDelete = List.of(originalName);
+      delinfo = originalName;
     } else {
       log.info("Deleting old indices in existing alias {}", aliasesResponse.getAliases().keySet());
       aliasedIndexDelete = aliasesResponse.getAliases().keySet();
+      delinfo = String.join(",", aliasedIndexDelete);
     }
 
     // Add alias for the new index
@@ -634,11 +764,7 @@ public class ESIndexBuilder {
         deleteOld ? AliasActions.removeIndex() : AliasActions.remove().alias(originalName);
     removeAction.indices(aliasedIndexDelete.toArray(new String[0]));
     AliasActions addAction = AliasActions.add().alias(originalName).index(newName);
-    searchClient
-        .indices()
-        .updateAliases(
-            new IndicesAliasesRequest().addAliasAction(removeAction).addAliasAction(addAction),
-            RequestOptions.DEFAULT);
+    updateAliasWithRetry(searchClient, removeAction, addAction, delinfo);
   }
 
   private void setIndexReplicas(String indexName, int numberOfReplicas) throws IOException {
@@ -802,10 +928,8 @@ public class ESIndexBuilder {
             orphanIndex -> {
               log.warn("Deleting orphan index {}.", orphanIndex);
               try {
-                searchClient
-                    .indices()
-                    .delete(new DeleteIndexRequest().indices(orphanIndex), RequestOptions.DEFAULT);
-              } catch (IOException e) {
+                deleteActionWithRetry(searchClient, orphanIndex);
+              } catch (Exception e) {
                 throw new RuntimeException(e);
               }
             });
