@@ -1,5 +1,4 @@
 import datetime
-from enum import Enum
 from typing import Dict, Optional
 
 from pydantic import Field, SecretStr, validator
@@ -15,9 +14,10 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.str_enum import StrEnum
 
 
-class AirbyteDeploymentType(str, Enum):
+class AirbyteDeploymentType(StrEnum):
     """Enumeration of Airbyte deployment types"""
 
     OPEN_SOURCE = "oss"
