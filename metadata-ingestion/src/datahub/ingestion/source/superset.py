@@ -549,7 +549,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                         database_name, is_filtered = self.processed_charts[chart_id]
                         if is_filtered:
                             self.report.warning(
-                                message="Dashboard contains charts using datasets from a filtered database. Include the database to ingest this dashboard.",
+                                message="Dashboard contains charts using datasets from a filtered database. Set the dashboard pattern to deny ingestion.",
                                 context=str(
                                     dict(
                                         dashboard_id=dashboard_id,
@@ -560,7 +560,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                                 ),
                                 title="Incomplete Ingestion",
                             )
-                            return
 
             dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
 
@@ -860,7 +859,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
                         if is_filtered:
                             self.report.warning(
-                                message="Chart uses a dataset from a filtered database. Include the database to ingest this chart.",
+                                message="Chart uses a dataset from a filtered database. Set the chart pattern to deny ingestion.",
                                 context=str(
                                     dict(
                                         chart_id=chart_id,
@@ -870,7 +869,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                                 ),
                                 title="Incomplete Ingestion",
                             )
-                            return
+
                     else:
                         dataset_response = self.get_dataset_info(datasource_id)
                         database_name = (
@@ -897,7 +896,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
                             if is_filtered:
                                 self.report.warning(
-                                    message="Chart uses a dataset from a filtered database. Include the database to ingest this chart.",
+                                    message="Chart uses a dataset from a filtered database. Set the chart pattern to deny ingestion.",
                                     context=str(
                                         dict(
                                             chart_id=chart_id,
@@ -907,7 +906,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                                     ),
                                     title="Incomplete Ingestion",
                                 )
-                                return
 
             if self.config.dataset_pattern != AllowDenyPattern.allow_all():
                 datasource_id = chart_data.get("datasource_id")
