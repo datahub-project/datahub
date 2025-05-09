@@ -63,13 +63,16 @@ describe("create, edit and remove metadata test", () => {
     cy.get(".rc-virtual-list").find("div").contains("Cypress").click();
     // test conditions
     cy.clickOptionWithText("Test Conditions");
-    cy.get('[role="dialog"] [data-testid="search-input"]').type("hdfs");
-    cy.waitTextVisible(datasetName);
-    cy.clickOptionWithText("Run Test");
+    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]').type("hdfs");
+    cy.waitTestIdVisible(`preview-${urn}`)
+      .parent()
+      .contains("Run Test")
+      .click();
     cy.waitTextVisible("Passed");
-    cy.get('[role="dialog"] [data-testid="search-input"]')
+    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]')
       .clear()
       .type("SampleCypressHiveDataset");
+    cy.wait(500);
     cy.get('[href*="/dataset')
       .should("be.visible")
       .contains("SampleCypressHiveDataset");
@@ -99,8 +102,11 @@ describe("create, edit and remove metadata test", () => {
     cy.clickOptionWithText("Edit Metadata Test");
     // test conditions, verify that test fails
     cy.clickOptionWithText("Test Conditions");
-    cy.get('[role="dialog"] [data-testid="search-input"]').type("hdfs");
-    cy.waitTextVisible(datasetName);
+    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]').type("hdfs");
+    cy.waitTestIdVisible(`preview-${urn}`)
+      .parent()
+      .contains("Run Test")
+      .click();
     cy.clickOptionWithText("Run Test");
     cy.waitTextVisible("Failed");
     cy.clickOptionWithText("Close");

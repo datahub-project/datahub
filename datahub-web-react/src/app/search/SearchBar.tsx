@@ -135,6 +135,7 @@ interface Props {
     onBlur?: () => void;
     showViewAllResults?: boolean;
     searchInputRef?: MutableRefObject<any>;
+    dataTestId?: string;
 }
 
 const defaultProps = {
@@ -164,6 +165,7 @@ export const SearchBar = ({
     onFocus,
     onBlur,
     showViewAllResults = false,
+    dataTestId,
     ...props
 }: Props) => {
     const history = useHistory();
@@ -411,7 +413,7 @@ export const SearchBar = ({
                     style={{ ...inputStyle, color: 'red' }}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    data-testid="search-input"
+                    data-testid={dataTestId || 'search-input'}
                     onFocus={handleFocus}
                     onBlur={handleBlur}
                     allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}

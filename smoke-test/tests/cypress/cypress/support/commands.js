@@ -14,7 +14,7 @@
 import dayjs from "dayjs";
 import { hasOperationName } from "../e2e/utils";
 
-function selectorWithtestId(id) {
+export function selectorWithtestId(id) {
   return `[data-testid="${id}"]`;
 }
 

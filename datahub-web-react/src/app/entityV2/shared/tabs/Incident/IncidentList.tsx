@@ -84,7 +84,9 @@ export const IncidentList = () => {
     };
 
     const refetch = () => {
-        refetchEntity();
+        setTimeout(() => {
+            refetchEntity();
+        }, 3000);
         refetchIncidents();
     };
 

@@ -1,4 +1,5 @@
 import { ApolloError } from '@apollo/client';
+import { debounce } from 'lodash';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -25,6 +26,7 @@ import {
 } from '@app/search/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
 import { Message } from '@app/shared/Message';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { useSearchContext } from '@src/app/search/context/SearchContext';
 import useSortInput from '@src/app/search/sorting/useSortInput';
 import { SearchCfg } from '@src/conf';
@@ -307,11 +309,15 @@ export const EmbeddedListSearch = ({
 
     const ErrorMessage = () => <Message type="error" content="Failed to load results! An unexpected error occurred." />;
 
+    const onSearch = debounce((q: string) => {
+        onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string));
+    }, DEBOUNCE_SEARCH_MS);
+
     return (
         <Container>
             {!isLineageTab ? error && <ErrorMessage /> : serverError && !isServerOverloadError && <ErrorMessage />}
             <EmbeddedListSearchHeader
-                onSearch={(q) => onChangeQuery(addFixedQuery(q, fixedQuery as string, emptySearchQuery as string))}
+                onSearch={onSearch}
                 placeholderText={placeholderText}
                 onToggleFilters={onToggleFilters}
                 downloadSearchResults={(input) => refetchForDownload(input)}

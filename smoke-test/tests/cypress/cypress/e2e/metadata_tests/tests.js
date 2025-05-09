@@ -65,11 +65,14 @@ describe("create, edit and remove metadata test", () => {
     // test conditions
     cy.clickOptionWithText("Test Conditions");
     clickFilterAndFacet();
-    cy.get('[role="dialog"] [data-testid="search-input"]').type("hdfs");
+    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]').type("hdfs");
     cy.waitTextVisible(datasetName);
     cy.clickOptionWithText("Run Test");
     cy.waitTextVisible("Passed");
-    cy.get('[role="dialog"] [data-testid="search-input"]').clear().type("hive");
+    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]')
+      .clear()
+      .type("hive");
+    cy.wait(500);
     cy.get('[href^="/dataset')
       .should("be.visible")
       .contains("SampleCypressHiveDataset");
@@ -99,7 +102,7 @@ describe("create, edit and remove metadata test", () => {
     // test conditions, verify that test fails
     cy.clickOptionWithText("Test Conditions");
     clickFilterAndFacet();
-    cy.get('[role="dialog"] [data-testid="search-input"]').type("hdfs");
+    cy.get('[role="dialog"] [data-testid="embedded-search-bar"]').type("hdfs");
     cy.waitTextVisible(datasetName);
     cy.clickOptionWithText("Run Test");
     cy.waitTextVisible("Failed");
