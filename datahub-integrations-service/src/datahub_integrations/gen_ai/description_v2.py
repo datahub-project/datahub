@@ -130,6 +130,7 @@ class ViewInfo(BaseModel):
 
 
 class ExtractedTableInfo(BaseModel):
+    urn: str
     column_names: Dict[str, str] = Field(default_factory=dict)
     column_metadata: Dict[str, SchemaFieldMetadata] = Field(default_factory=dict)
     column_descriptions: Dict[str, Optional[str]] = Field(default_factory=dict)
@@ -215,9 +216,9 @@ def make_schema_field_metadata(
         created=schema_field.created,
         nativeDataType=schema_field.nativeDataType,
         isPartOfKey=schema_field.isPartOfKey if schema_field.isPartOfKey else None,
-        isPartitioningKey=schema_field.isPartitioningKey
-        if schema_field.isPartitioningKey
-        else None,
+        isPartitioningKey=(
+            schema_field.isPartitioningKey if schema_field.isPartitioningKey else None
+        ),
     )
     return field_metadata
 
@@ -659,6 +660,7 @@ def extract_metadata_for_urn(
     column_sample_values = get_sample_values(urn=urn, graph_client=graph_client)
 
     extracted_table_info = ExtractedTableInfo(
+        urn=urn,
         column_names=column_names,
         column_metadata=column_metadata,
         column_descriptions=column_descriptions,
@@ -691,9 +693,11 @@ def transform_table_info_for_llm(
             metadata=extracted_table_info.column_metadata.get(column),
             descriptions=extracted_table_info.column_descriptions.get(column),
             upstream_lineages=extracted_table_info.column_upstream_lineages.get(column),
-            sample_values=extracted_table_info.column_sample_values.get(column)
-            if extracted_table_info.column_sample_values
-            else None,
+            sample_values=(
+                extracted_table_info.column_sample_values.get(column)
+                if extracted_table_info.column_sample_values
+                else None
+            ),
             tags=extracted_table_info.column_tags.get(column),
             glossary_terms=extracted_table_info.column_glossary_terms.get(column),
         )
@@ -713,7 +717,10 @@ def transform_table_info_for_llm(
 
 
 def generate_entity_descriptions_for_urn_eval(
-    urn: str, extracted_entity_info: ExtractedTableInfo, prompt: str
+    urn: str,
+    extracted_entity_info: ExtractedTableInfo,
+    prompt: str,
+    model: BedrockModel | str,
 ) -> EntityDescriptionResult:
     table_info, column_infos = transform_table_info_for_llm(extracted_entity_info)
     if len(column_infos) > _MAX_COLUMNS:
@@ -734,7 +741,7 @@ def generate_entity_descriptions_for_urn_eval(
     entity_descriptions = call_bedrock_llm(
         formatted_prompt,
         max_tokens=5000,
-        model=DESCRIPTION_GENERATION_MODEL,
+        model=model,
     )
 
     table_description, column_descriptions, failure_reason = parse_llm_output(
@@ -760,7 +767,10 @@ def generate_entity_descriptions_for_urn(
     extracted_entity_info = extract_metadata_for_urn(entity, urn, graph_client)
 
     return generate_entity_descriptions_for_urn_eval(
-        urn, extracted_entity_info, prompt=PROMPT_TEMPLATE
+        urn,
+        extracted_entity_info,
+        prompt=PROMPT_TEMPLATE,
+        model=DESCRIPTION_GENERATION_MODEL,
     )
 
 

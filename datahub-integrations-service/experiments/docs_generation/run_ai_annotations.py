@@ -1,121 +1,59 @@
-import mlflow
-import mlflow.metrics
-import mlflow.bedrock
-
-mlflow.bedrock.autolog()
-
-import datetime
-from typing import Optional, List
-from pydantic import BaseModel
 import functools
-import re
+import glob
 import json
-import pandas as pd
-import numpy as np
 import os
+import re
+from typing import Dict, List, Optional
+
+import asyncer
 import dotenv
-import tenacity
-
-dotenv.load_dotenv()
-
+import mlflow
+import mlflow.bedrock
+import mlflow.metrics
 import numpy as np
+import tenacity
 import typer
-
+from eval_common import (
+    METRIC_NAMES,
+    METRICS_CONFIG,
+    AIJudgeVerdict,
+    HumanGuidelines,
+    MetricValue,
+    get_ai_annotation_run_name,
+    get_human_guidelines,
+    get_overall_score,
+)
+from mlflow_common import get_run_or_fail
+from pydantic import BaseModel
 
 from datahub_integrations.gen_ai.bedrock import call_bedrock_llm
 from datahub_integrations.gen_ai.description_v2 import (
-    transform_table_info_for_llm,
-    ExtractedTableInfo,
     DESCRIPTION_GENERATION_MODEL,
+    ColumnMetadataInfo,
+    ExtractedTableInfo,
+    TableInfo,
+    transform_table_info_for_llm,
 )
 
-# TODO: move to common
-METRIC_NAMES = [
-    "has_source_details",
-    "has_downstream_usecases",
-    "has_compliance_insights",
-    "has_usage_tips",
-    "is_confident",
-]
-
-EXPERIMENT_NAME = "docs_generation"
-ANNOTATION_EXAMPLE_RUN_NAME = "human_annotations_initial_run"
+dotenv.load_dotenv()
+EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
-
-
-class MetricValue(BaseModel):
-    reasoning: Optional[str] = None
-    value: Optional[str] = None
-
-    def bool_value(self) -> Optional[bool]:
-        if self.value is not None:
-            return self.value.strip().lower() == "pass"
-        else:
-            return None
-
-
-class IntegerMetricValue(BaseModel):
-    value: Optional[int] = 0
-    reasoning: Optional[str] = None
-
-
-# TODO: move to common, combine with HumanJudgeVerdict
-class AIJudgeVerdict(BaseModel):
-    class Config:
-        extra = "allow"  # Allow extra fields when using parse_obj
-
-    has_source_details: Optional[MetricValue] = None
-    has_downstream_usecases: Optional[MetricValue] = None
-    has_compliance_insights: Optional[MetricValue] = None
-    has_usage_tips: Optional[MetricValue] = None
-    is_confident: Optional[MetricValue] = None
-
-    @property
-    def overall_score(self) -> Optional[IntegerMetricValue]:
-        # Overall score is the sum of all the metrics that are passed (True = 1, False = 0)
-        # In future, we can add weights to each metric and calculate the overall score
-        score = 0
-        metrics = [
-            self.has_source_details,
-            self.has_downstream_usecases,
-            self.has_compliance_insights,
-            self.has_usage_tips,
-            self.is_confident,
-        ]
-        for metric in metrics:
-            if metric is not None and metric.value is not None:
-                score += 1 if metric.bool_value() else 0
-        if all(metric is None or metric.value is None for metric in metrics):
-            return IntegerMetricValue(value=score, reasoning=None)
-        else:
-            return IntegerMetricValue(
-                value=score, reasoning=f"Overall score is {score} out of {len(metrics)}"
-            )
-
-
-# TODO: move to common
-def get_run_or_fail(run_name):
-    return mlflow.search_runs(
-        experiment_names=[EXPERIMENT_NAME],
-        filter_string=f"attributes.run_name='{run_name}'",
-        output_format="list",
-        order_by=["start_time DESC"],
-    )[0]
+mlflow.bedrock.autolog()
 
 
 class FewShotExample(BaseModel):
-    entity_info: ExtractedTableInfo
+    table_info: TableInfo
+    column_infos: Dict[str, ColumnMetadataInfo]
     description: str
-    ai_judge_verdict: AIJudgeVerdict
+    ai_judge_verdict: "AIJudgeVerdict"
 
     def pretty_example(self) -> str:
-        table_info, column_infos = transform_table_info_for_llm(self.entity_info)
         return f"""\
 Provided Information:
 Table Info:
-{json.dumps(table_info.dict(exclude_none=True), indent=4)}
+{json.dumps(self.table_info.dict(exclude_none=True), indent=4)}
 Column Infos:
-{json.dumps({k: v.dict(exclude_none=True) for k, v in column_infos.items()}, indent=4)}
+{json.dumps({k: v.dict(exclude_none=True) for k, v in self.column_infos.items()}, indent=4)}
 
 Generated Description To Evaluate:
 {self.description}
@@ -126,89 +64,59 @@ Output:
 
 
 @functools.cache
-def build_few_shot_examples(run_name: str, limit: int = 3) -> List[FewShotExample]:
-    # TODO: Handpick examples OR add examples that differ from AI eval results
-    human_annotation_run = get_run_or_fail(run_name)
+def build_few_shot_examples(limit: int = 3) -> List[FewShotExample]:
+    """
+    Build few-shot examples for the AI judge by loading examples from JSON files.
 
-    human_eval_df = get_human_evals(human_annotation_run.info.run_id)
+    Args:
+        run_name: The name of the run (not used in this implementation)
+        limit: Maximum number of examples to return
+
+    Returns:
+        List of FewShotExample objects
+    """
 
     examples = []
-    for _, row in human_eval_df.iterrows():
-        few_shot_example = FewShotExample(
-            entity_info=ExtractedTableInfo.parse_obj(row["entity_info"]),
-            description=row["description"],
-            ai_judge_verdict=AIJudgeVerdict.parse_obj(
-                {
-                    metric_name: {
-                        "value": "pass" if row[f"{metric_name}/score"] == 1 else "fail",
-                        "reasoning": row[f"{metric_name}/justification"],
-                    }
-                    for metric_name in METRIC_NAMES
-                }
-            ),
-        )
-        examples.append(few_shot_example)
-        if len(examples) >= limit:
-            break
+    # Find all ai_judge_examples_*.json files
+    example_files = glob.glob("ai_judge_examples_*.json")
+
+    for file_path in example_files[:limit]:
+        try:
+            with open(file_path, "r") as f:
+                example_data = json.load(f)
+
+            # Parse the example data into a FewShotExample
+            example = FewShotExample.parse_obj(example_data)
+            examples.append(example)
+
+        except Exception as e:
+            print(f"Error loading example from {file_path}: {e}")
+            continue
 
     return examples
 
 
-# TODO: move to common
-def get_human_evals(run_id: str) -> pd.DataFrame:
-    artifact_path = "eval_results_table.json"
-    table = mlflow.load_table(
-        artifact_file=artifact_path,
-        run_ids=[run_id],
-    )
-    return table[
-        table["has_source_details/justification"].notna()
-        | table["has_downstream_usecases/justification"].notna()
-        | table["has_compliance_insights/justification"].notna()
-        | table["has_usage_tips/justification"].notna()
-        | table["is_confident/justification"].notna()
-    ]
-
-
 LLM_JUDGE_PROMPT = """
-You are a judge who is tasked with evaluating the quality of auto-generated table description. The description should be based on facts in provided information. You will be given generated table description and facts available about the table. You need to evaluate the quality of the description with respect the pre-defined metrics. Note that you need to provide a single like reasoning for your evaluation and  "Pass" or "Fail" result for each metric.
+You are a judge who is tasked with evaluating the quality of auto-generated table description. The description should be based on facts in provided information. You will be given generated table description and facts available about the table. You need to evaluate the quality of the description with respect the pre-defined metrics. Note that you need to provide a single like reasoning for your evaluation and  "Pass" or "Fail" result for each metric
 
 Metrics:
-<has_source_details> 
-    Whether description contains correct details about upstream source of table and/or transformations applied on source data to create this table, if available in provided information. Fail the metric if preceding criteria is not fulfilled or if description contains source details that are entirely absent in provided information, particularly upstream lineage.
-</has_source_details>
-<has_downstream_usecases> 
-    Whether description contains correct details about downstream usecases of this table, if available in provided information. The description should always supplement each individual usecase mention with actual downstream from provided information. Fail the metric if preceding criteria is not fulfilled or if downstream usecases in description are entirely absent in provided information, particularly downstream lineage.
-</has_downstream_usecases>
-<has_compliance_insights> 
-    Whether description contains correct details about presence or absence of PII(personally identifiable information) in table contents. Presence of person names, emails, addresses, phone numbers, etc must be hilighted as PII and not just mentioned as sensitive columns. Fail the metric if one of above columns is present yet description suggests table contains no PII columns or only hilights them as sensitive columns.
-</has_compliance_insights>
-<has_usage_tips> 
-    Whether description contains correct and concise details about table content and way of its usage ? e.g. does it include grain of table, details about what data does table contain or which table is typically used with this table or which column is usually used for filtering, if available in provided information. Fail the metric if content and usage tips are incorrect or not present in provided information. 
-</has_usage_tips>
-<is_confident> 
-    Whether the tone of description is confident and avoids weak / speculative phrases ? Fail this metric if description includes phrases like 'suggests', 'could be', 'likely', or 'is considered'.
-</is_confident>
+{metric_definitions}
 
 Provide your output in the JSON format:
 
-{{
-    "has_source_details": {{"reasoning": "reasoning for the value", "value": "Pass" or "Fail"}},
-    "has_downstream_usecases": {{"reasoning": "reasoning for the value", "value": "Pass" or "Fail"}},
-    "has_compliance_insights": {{"reasoning": "reasoning for the value", "value": "Pass" or "Fail"}},
-    "has_usage_tips": {{"reasoning": "reasoning for the value", "value": "Pass" or "Fail"}},
-    "is_confident": {{"reasoning": "reasoning for the value", "value": "Pass" or "Fail"}},
-}}
+{response_format}
 
 NOTE:
-- Include all metric evaluations in the output. The metric values should be strictly either "Pass" or "Fail".
-- For Pass value, justification should include critical aspects that can be improved in description with reference to provided metric definition and provided information.
+- Include all metric evaluations in the output. The metric values should be strictly either "Pass" or "Fail" and nothing else.
+- For Pass value, justification should include critical aspects that can be improved in description. Include concrete improvements that can be made to the description with reference to provided metric definition and provided information.
 - For Fail value, justification should include critical aspects that led to failure of the metric.
 - Make sure to not include any special characters (like quotes) in the reasoning string.
 
 {examples}
-Now your turn
 
+
+Now your turn
+{table_level_guidelines}
 Input:
 
 Provided Information:
@@ -223,11 +131,15 @@ Generated Description To Evaluate:
 Output: """
 
 # Additional Evaluation Notes from Human Annotations:
-# 1. Description should not explain why the table is fact table or dimension table.
-# 2. Do we exclude empty lineage arrays from provided information
-# 3. Change schema field urns to column name, table name
-# 4. Looker explores and dashboards are mentioned as tables due to absence of the downstream subtypes.
-# 5. Urn Links are probably not behaving correctly on UI
+# - we probably need to give it some instructions on how interpet dbt siblings stuff
+# - consistency in the output format - use headings or not, multiple vs single paragraph, etc
+# - Description should not explain why the table is fact table or dimension table.
+# - Do we exclude empty lineage arrays from provided information?
+# - Change schema field urns to column name, table name
+# - Looker explores and dashboards are mentioned as tables due to absence of the downstream subtypes.
+# - Urn Links are probably not behaving correctly on UI
+
+# TODO: include Human eval guidelines here
 
 
 def parse_llm_judge_output(text) -> AIJudgeVerdict:
@@ -241,7 +153,7 @@ def parse_llm_judge_output(text) -> AIJudgeVerdict:
             try:
                 fixed_text = try_fix_text_for_error(text, e)
                 return AIJudgeVerdict.parse_obj(json.loads(fixed_text))
-            except (SyntaxError, ValueError) as e1:
+            except (SyntaxError, ValueError):
                 print(f"Dictionary can not be parsed. Text:{text}, Error: {e}")
 
     else:
@@ -275,8 +187,12 @@ def try_fix_text_for_error(text, e):
 
 @functools.cache
 @mlflow.trace(name="llm_judge_common_eval_fn", span_type="function")
-def llm_judge_common_eval_fn(table_description, entity_info_str) -> AIJudgeVerdict:
+def llm_judge_common_eval_fn(
+    table_description, entity_info_str, table_metric_guidelines_str
+) -> AIJudgeVerdict:
     metrics = AIJudgeVerdict()
+
+    metric_definitions, response_format = gen_dynamic_metric_contents()
 
     if table_description is None:
         return metrics
@@ -289,7 +205,7 @@ def llm_judge_common_eval_fn(table_description, entity_info_str) -> AIJudgeVerdi
 
         table_info, column_infos = transform_table_info_for_llm(entity_info)
         try:
-            examples = build_few_shot_examples(ANNOTATION_EXAMPLE_RUN_NAME)
+            examples = build_few_shot_examples()
             examples_str = "Examples:\n" + "\n".join(
                 [example.pretty_example() for example in examples]
             )
@@ -297,7 +213,27 @@ def llm_judge_common_eval_fn(table_description, entity_info_str) -> AIJudgeVerdi
             print(f"Error building few shot examples: {e}")
             examples_str = ""
 
+        table_metric_guidelines = HumanGuidelines.parse_raw(table_metric_guidelines_str)
+        if table_metric_guidelines is None or not table_metric_guidelines.guidelines:
+            table_level_guidelines = ""
+        else:
+            metric_guidelines = "\n".join(
+                [
+                    f"""Metric {metric}:
+{guidelines}"""
+                    for metric, guidelines in table_metric_guidelines.guidelines.items()
+                    if guidelines
+                ]
+            )
+            table_level_guidelines = f"""\
+Here are additional guidelines for evaluating description for this table. These guidelines take precedence over provided information as well as generic metric guidelines.
+Strictly follow these metric specific guidelines and Fail the metric if the description does not meet the guidelines.
+Table Level Guidelines:
+{metric_guidelines}"""
+
         judge_prompt = LLM_JUDGE_PROMPT.format(
+            metric_definitions=metric_definitions,
+            response_format=response_format,
             examples=examples_str,
             table_description=table_description,
             table_info=json.dumps(table_info.dict(exclude_none=True), indent=4),
@@ -305,6 +241,7 @@ def llm_judge_common_eval_fn(table_description, entity_info_str) -> AIJudgeVerdi
                 {k: v.dict(exclude_none=True) for k, v in column_infos.items()},
                 indent=4,
             ),
+            table_level_guidelines=table_level_guidelines,
         )
 
         judge_verdict = call_bedrock_llm(
@@ -320,19 +257,40 @@ def llm_judge_common_eval_fn(table_description, entity_info_str) -> AIJudgeVerdi
     return metrics
 
 
+def gen_dynamic_metric_contents():
+    metric_definitions = "\n".join(
+        [
+            f"""Metric {metric.name}:
+{metric.definition}
+"""
+            for metric in METRICS_CONFIG
+        ]
+    )
+
+    response_format = json.dumps(
+        {
+            metric_name: {
+                "reasoning": "reasoning for the value",
+                "value": "Pass or Fail",
+            }
+            for metric_name in METRIC_NAMES
+        },
+        indent=2,
+    )
+
+    return metric_definitions, response_format
+
+
 def custom_eval_fn_metric(metric, predictions, targets):
-    scores = []
-    justifications = []
-    for prediction, target in zip(predictions, targets):
-        judged_metric: Optional[MetricValue] = getattr(
-            llm_judge_common_eval_fn(prediction, json.dumps(target)), metric
-        )
+    scores = [None] * len(predictions)
+    justifications = [None] * len(predictions)
+    metric_values = asyncer.syncify(eval_metrics, raise_sync_error=False)(
+        metric, predictions, targets
+    )
+    for i, judged_metric in enumerate(metric_values):
         if judged_metric is not None:
-            scores.append(judged_metric.bool_value())
-            justifications.append(judged_metric.reasoning)
-        else:
-            scores.append(None)
-            justifications.append(None)
+            scores[i] = judged_metric.bool_value()
+            justifications[i] = judged_metric.reasoning
 
     return mlflow.metrics.MetricValue(
         scores=scores,
@@ -343,13 +301,40 @@ def custom_eval_fn_metric(metric, predictions, targets):
     )
 
 
+async def eval_metrics(metric, predictions, targets) -> List[Optional[MetricValue]]:
+    results: List[asyncer.SoonValue[MetricValue]] = []
+    async with asyncer.create_task_group() as task_group:
+        for prediction, target in zip(predictions, targets, strict=False):
+            result = task_group.soonify(asyncer.asyncify(eval_metric_value_ai_judge))(
+                metric, prediction, target
+            )
+            results.append(result)
+
+    return [result.value for result in results]
+
+
+def eval_metric_value_ai_judge(metric, prediction, target) -> Optional[MetricValue]:
+    human_guidelines = get_human_guidelines()
+    judged_metric = getattr(
+        llm_judge_common_eval_fn(
+            prediction, json.dumps(target), human_guidelines[target["urn"]].json()
+        ),
+        metric,
+    )
+
+    return judged_metric
+
+
 def overall_score_eval_fn(predictions, targets):
     scores = []
     justifications = []
-    for prediction, target in zip(predictions, targets):
-        judged_metric = llm_judge_common_eval_fn(
-            prediction, json.dumps(target)
-        ).overall_score
+    human_guidelines = get_human_guidelines()
+    for prediction, target in zip(predictions, targets, strict=False):
+        judged_metric = get_overall_score(
+            llm_judge_common_eval_fn(
+                prediction, json.dumps(target), human_guidelines[target["urn"]].json()
+            )
+        )
         if judged_metric is not None:
             scores.append(judged_metric.value)
             justifications.append(judged_metric.reasoning)
@@ -363,7 +348,6 @@ def overall_score_eval_fn(predictions, targets):
         justifications=justifications,
         aggregate_results={
             "mean": np.mean(scores),
-            "variance": np.var(scores),
             "median": np.median(scores),
         },
     )
@@ -388,29 +372,16 @@ def make_custom_metric(metric_name):
     )
 
 
-metric_has_source_details = make_custom_metric("has_source_details")
-metric_has_downstream_usecases = make_custom_metric("has_downstream_usecases")
-metric_has_compliance_insights = make_custom_metric("has_compliance_insights")
-metric_has_usage_tips = make_custom_metric("has_usage_tips")
-metric_is_confident = make_custom_metric("is_confident")
 metric_overall_score = make_overall_score_metric()
 
 ai_metrics = [
-    metric_has_source_details,
-    metric_has_downstream_usecases,
-    metric_has_compliance_insights,
-    metric_has_usage_tips,
-    metric_is_confident,
+    *[make_custom_metric(metric.name) for metric in METRICS_CONFIG],
     metric_overall_score,
 ]
 
 
-# TODO: move to common
-def get_ai_annotation_run_name(run_name):
-    original_run_name = run_name.replace("human_annotations_", "").replace(
-        "ai_annotations_", ""
-    )
-    return f"ai_annotations_{original_run_name}"
+def model_fn(x):
+    return x
 
 
 def run_ai_annotations_experiment(run_name: str):
@@ -430,6 +401,7 @@ def run_ai_annotations_experiment(run_name: str):
         mlflow.set_tag("evaluation_type", "ai_judge")
 
         mlflow.evaluate(
+            model=model_fn,
             data=table_descriptions,
             predictions="description",
             evaluators="default",
@@ -438,6 +410,7 @@ def run_ai_annotations_experiment(run_name: str):
         )
         # log current file as artifact
         mlflow.log_artifact("./run_ai_annotations.py")
+        mlflow.log_artifact("./eval_config/eval_set_guidelines.yaml")
 
 
 if __name__ == "__main__":

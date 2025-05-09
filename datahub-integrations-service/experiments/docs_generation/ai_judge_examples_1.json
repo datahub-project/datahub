@@ -1,0 +1,133 @@
+{
+  "table_info": {
+    "tags": [
+      {
+        "tag_name": "📈 Most Queried",
+        "tag_description": "Assigned to Tables that are among the highest queried inside the data platform within the past 30 days."
+      },
+      {
+        "tag_name": "🔒 Classified",
+        "tag_description": ""
+      },
+      {
+        "tag_name": "📉 Least Changed",
+        "tag_description": "Assigned to Tables that are among the least changed inside the data platform within the past 30 days."
+      }
+    ],
+    "glossary_terms": [
+      {
+        "term_name": "Critical Dependency",
+        "term_definition": "### Definition:\n\nData assets that are essential for creating critical business outputs like dashboards or datasets.\n\n### Key Points:\n\n*   **Types of Dependencies:**\n    - Infrastructure (hardware, networks)\n    - Software systems\n    - Human expertise\n    - Third-party services\n\n*   **Impact of Disruptions:**\n    - Can affect core operations\n    - May stall strategic initiatives\n    - Can impact data availability\n\n*   **Mitigation Strategies:**\n    - Implement redundancy\n    - Diversify vendors\n    - Cross-train staff\n    - Create contingency plans"
+      },
+      {
+        "term_name": "Review Source",
+        "term_definition": "### Definition:\n\nThe method by which a review was collected.\n\n### Common Sources:\n\n*   **Automated:** System-generated invitations\n*   **API:** Programmatic review collection\n*   **Manual:** Direct customer submissions\n*   **Integration:** Connected e-commerce platforms"
+      },
+      {
+        "term_name": "Review Metrics",
+        "term_definition": "### Definition:\n\nKey measurements for analyzing review data.\n\n### Common Metrics:\n\n*   **Volume:** Total number of reviews\n*   **Rating:** Average star rating\n*   **Response Rate:** Percentage of reviews with business responses\n*   **Sentiment:** Overall customer sentiment analysis"
+      }
+    ],
+    "name": "customer_feedback_latest",
+    "description": "",
+    "downstream_lineage_info": [
+      {
+        "downstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,data_warehouse.core.business_unit_dates,PROD)",
+        "downstream_table_name": "int_business_unit_dates",
+        "downstream_table_description": "Business unit date information"
+      },
+      {
+        "downstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:dbt,data_warehouse.reporting.relevancy_quality_score,PROD)",
+        "downstream_table_name": "rep_fct_relevancy_sorting_quality_score",
+        "downstream_table_description": "Review quality and relevancy metrics"
+      },
+      {
+        "downstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:looker,analytics.view.consumer_app_explore,PROD)",
+        "downstream_table_name": "consumer_app_explorev2_abtest",
+        "downstream_table_description": "Consumer app analytics"
+      }
+    ]
+  },
+  "column_infos": {
+    "review_id": {
+      "column_name": "review_id",
+      "metadata": {
+        "nativeDataType": "STRING"
+      },
+      "upstream_lineages": [],
+      "tags": []
+    },
+    "business_unit_id": {
+      "column_name": "business_unit_id",
+      "metadata": {
+        "nativeDataType": "STRING"
+      },
+      "upstream_lineages": [],
+      "tags": []
+    },
+    "star_rating": {
+      "column_name": "star_rating",
+      "metadata": {
+        "nativeDataType": "FLOAT64"
+      },
+      "upstream_lineages": [],
+      "tags": []
+    },
+    "review_source": {
+      "column_name": "review_source",
+      "metadata": {
+        "nativeDataType": "STRING"
+      },
+      "upstream_lineages": [],
+      "tags": []
+    },
+    "created_at": {
+      "column_name": "created_at",
+      "metadata": {
+        "nativeDataType": "TIMESTAMP",
+        "isPartitioningKey": true
+      },
+      "upstream_lineages": [],
+      "tags": []
+    },
+    "review_sentiment": {
+      "column_name": "review_sentiment",
+      "metadata": {
+        "nativeDataType": "STRING"
+      },
+      "upstream_lineages": [],
+      "tags": []
+    },
+    "quality_score": {
+      "column_name": "quality_score",
+      "metadata": {
+        "nativeDataType": "FLOAT64"
+      },
+      "upstream_lineages": [],
+      "tags": []
+    }
+  },
+  "description": "# customer_feedback_latest\n\nThis table contains the latest customer feedback data from our review platform. It serves as a central repository for customer feedback on businesses, providing valuable insights into customer sentiment and experiences.\n\nThe data in this table is sourced from our review platform and undergoes various transformations and enrichments before being made available for downstream analysis and reporting. The upstream lineage includes the [data_warehouse.core.business_unit_dates](urn:li:dataset:(urn:li:dataPlatform:dbt,data_warehouse.core.business_unit_dates,PROD)) table, which provides key date information about each business unit.\n\nThe customer_feedback_latest table is consumed by several downstream tables, including [data_warehouse.reporting.relevancy_quality_score](urn:li:dataset:(urn:li:dataPlatform:dbt,data_warehouse.reporting.relevancy_quality_score,PROD)) and [analytics.view.consumer_app_explore](urn:li:dataset:(urn:li:dataPlatform:looker,analytics.view.consumer_app_explore,PROD)). These downstream tables leverage the review data for various business intelligence and reporting purposes, such as analyzing review sentiment, relevancy sorting, and user mapping.\n\nThis table is a fact table, with a grain of individual reviews. It contains essential information about each review, including the review source, rating, sentiment, and quality metrics. While the table does not directly contain any PII data, it may be possible to infer or derive such information from the available columns.\n\n**Technical Notes:**\n- The table is partitioned by the `created_at` column, which allows for efficient querying and data management.\n- The `review_source` column is designated as a clustering column, which can improve query performance for certain use cases.",
+  "ai_judge_verdict": {
+    "has_source_details": {
+      "reasoning": "The source details mentioned in description are not supported by information present in table info. Table info does not provide any upstream lineage information, so any claims around source transformations to create this table are false",
+      "value": "fail"
+    },
+    "has_downstream_usecases": {
+      "reasoning": "The description clearly outlines several downstream tables that consume the data from this table, and the general use cases for those downstream tables, such as analyzing review sentiment, relevancy sorting, and user mapping.",
+      "value": "pass"
+    },
+    "has_compliance_insights": {
+      "reasoning": "The description acknowledges that while the table does not directly contain any PII data, it may be possible to infer or derive such information from the available columns.",
+      "value": "pass"
+    },
+    "has_usage_tips": {
+      "reasoning": "The description provides some technical details about the table, such as the partitioning and clustering columns, which can be useful for optimizing queries.",
+      "value": "pass"
+    },
+    "is_confident": {
+      "reasoning": "The description is written in a confident and authoritative tone, avoiding weak or speculative phrases.",
+      "value": "pass"
+    }
+  }
+}

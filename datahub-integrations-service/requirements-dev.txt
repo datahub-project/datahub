@@ -684,7 +684,10 @@ marshmallow==3.21.1
     #   -r requirements.txt
     #   acryl-great-expectations
 matplotlib==3.10.1
-    # via mlflow
+    # via
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   mlflow
+    #   seaborn
 matplotlib-inline==0.1.7
     # via
     #   -r requirements.txt
@@ -802,6 +805,7 @@ numpy==1.26.4
     #   pydeck
     #   scikit-learn
     #   scipy
+    #   seaborn
     #   spacy
     #   streamlit
     #   thinc
@@ -853,6 +857,7 @@ pandas==2.2.2
     #   acryl-great-expectations
     #   altair
     #   mlflow
+    #   seaborn
     #   streamlit
 pandocfilters==1.5.1
     # via
@@ -1201,6 +1206,8 @@ scipy==1.13.0
     #   acryl-great-expectations
     #   mlflow
     #   scikit-learn
+seaborn==0.13.2
+    # via acryl-datahub-integrations (pyproject.toml)
 send2trash==1.8.3
     # via
     #   -r requirements.txt

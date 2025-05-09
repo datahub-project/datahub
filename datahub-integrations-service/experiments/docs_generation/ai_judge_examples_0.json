@@ -1,0 +1,206 @@
+{
+  "table_info": {
+    "tags": [
+      {
+        "tag_name": "Most Queried",
+        "tag_description": "Assigned to Tables that are among the highest queried inside the data platform within the past 30 days."
+      },
+      {
+        "tag_name": "Large Table",
+        "tag_description": "Assigned to Tables that are among the largest in terms of storage size footprint inside the data platform within the past 30 days."
+      }
+    ],
+    "glossary_terms": [],
+    "name": "CALL_CENTER_METRICS",
+    "description": "\n\n\n# CALL_CENTER_METRICS\n\nThe `CALL_CENTER_METRICS` table is a critical data asset that captures detailed information about customer service calls handled by the call center platform. This table is marked as one of the most queried and largest tables in the data platform, indicating its high business importance.\n\nThe table is populated by transforming data from the upstream [CALL_CENTER_METRICS_VIEW](urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD)) view. This transformation creates a denormalized, fact-style table that provides a comprehensive record of each call, including details about the agent, call handling, and customer experience metrics.\n\nThe `CALL_CENTER_METRICS` table is widely used throughout the organization, feeding downstream datasets that support a variety of use cases, such as churn analysis, agent performance monitoring, and customer experience reporting. These downstream tables include [CUSTOMER_CHURN_ANALYSIS](urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.test.customer_churn_analysis,PROD)), [AGENT_PERFORMANCE_DASHBOARD](urn:li:dataset:(urn:li:dataPlatform:looker,analytics.view.agent_performance_dashboard,PROD)), and others.\n\nThis table is a fact table, meaning it contains detailed, granular records of individual call events. The grain of the table is one row per call, providing a comprehensive view of call-level metrics and attributes. While the table does not directly contain any personally identifiable information (PII), it does include some potentially sensitive data, such as agent names and call dispositions, that should be handled with appropriate access controls and data governance practices.",
+    "owners_info": [
+      {
+        "owner_name": "data_team",
+        "owner_type": "NONE"
+      }
+    ],
+    "upstream_lineage_info": [
+      {
+        "upstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD)",
+        "upstream_table_name": "CALL_CENTER_METRICS_VIEW",
+        "upstream_table_description": "Managed by Terraform: View for materializing call_center_metrics\n\n\n# call_center_metrics_view\n\nThis view provides a comprehensive dataset of call-related metrics and attributes from the contact center platform. It combines data from multiple source tables and enriches the data with additional context.\n\nThe primary purpose of this view is to enable detailed analysis and reporting on call center performance, agent productivity, and customer experience. It is a critical data asset for the business, as it powers key dashboards and reports used by the operations, quality assurance, and customer service teams.\n\nThe view is constructed by joining the upstream tables and applying various transformations, such as categorizing calls into skill groups and origination types based on the campaign and skill information. This allows for more granular analysis of call handling and resolution.\n\nDownstream, this view is consumed by the [CALL_CENTER_METRICS](urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics,PROD)) table, which serves as the primary source of truth for call center analytics. It is used to generate reports, dashboards, and other insights that help the business optimize its contact center operations and improve customer satisfaction.\n\n**Technical Notes:**\n- This is a fact table, with each row representing a single call or agent event.\n- The grain of the table is at the individual call/event level.\n- The table does not directly contain any PII data, such as names, emails, or addresses. However, it does contain the agent's email and name, which could be considered sensitive information.",
+        "query": {
+          "value": "CREATE OR REPLACE TRANSIENT TABLE analytics.operations.call_center_metrics AS SELECT * FROM analytics.operations.call_center_metrics_view;",
+          "language": "SQL"
+        },
+        "lineage_type": "TRANSFORMED"
+      }
+    ],
+    "downstream_lineage_info": [
+      {
+        "downstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.test.customer_churn_analysis,PROD)",
+        "downstream_table_name": "CUSTOMER_CHURN_ANALYSIS"
+      },
+      {
+        "downstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:looker,analytics.view.agent_performance_dashboard,PROD)",
+        "downstream_table_name": "AGENT_PERFORMANCE_DASHBOARD"
+      }
+    ]
+  },
+  "column_infos": {
+    "call_id": {
+      "column_name": "call_id",
+      "metadata": {
+        "nativeDataType": "NUMBER(38,0)"
+      },
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD),call_id)",
+              "upstream_column_native_type": "NUMBER(38,0)"
+            }
+          ],
+          "transform_operation": "NONE"
+        }
+      ]
+    },
+    "call_type": {
+      "column_name": "call_type",
+      "metadata": {
+        "nativeDataType": "VARCHAR(16777216)"
+      },
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD),call_type)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ],
+          "transform_operation": "NONE"
+        }
+      ]
+    },
+    "agent_name": {
+      "column_name": "agent_name",
+      "metadata": {
+        "nativeDataType": "VARCHAR(16777216)"
+      },
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD),agent_name)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ],
+          "transform_operation": "NONE"
+        }
+      ]
+    },
+    "agent_email": {
+      "column_name": "agent_email",
+      "metadata": {
+        "nativeDataType": "VARCHAR(16777216)"
+      },
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD),agent_email)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ],
+          "transform_operation": "NONE"
+        }
+      ]
+    },
+    "call_duration_seconds": {
+      "column_name": "call_duration_seconds",
+      "metadata": {
+        "nativeDataType": "NUMBER(38,0)"
+      },
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD),call_duration_seconds)",
+              "upstream_column_native_type": "NUMBER(38,0)"
+            }
+          ],
+          "transform_operation": "NONE"
+        }
+      ]
+    },
+    "queue_wait_time_seconds": {
+      "column_name": "queue_wait_time_seconds",
+      "metadata": {
+        "nativeDataType": "NUMBER(38,0)"
+      },
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD),queue_wait_time_seconds)",
+              "upstream_column_native_type": "NUMBER(38,0)"
+            }
+          ],
+          "transform_operation": "NONE"
+        }
+      ]
+    },
+    "disposition": {
+      "column_name": "disposition",
+      "metadata": {
+        "nativeDataType": "VARCHAR(16777216)"
+      },
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD),disposition)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ],
+          "transform_operation": "NONE"
+        }
+      ]
+    },
+    "skill_group": {
+      "column_name": "skill_group",
+      "metadata": {
+        "nativeDataType": "VARCHAR(13)"
+      },
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD),skill_group)",
+              "upstream_column_native_type": "VARCHAR(13)"
+            }
+          ],
+          "transform_operation": "NONE"
+        }
+      ]
+    }
+  },
+  "description": "# CALL_CENTER_METRICS\n\nThe `CALL_CENTER_METRICS` table is a critical data asset that captures detailed information about customer service calls handled by the call center platform. This table is marked as one of the most queried and largest tables in the data platform, indicating its high business importance.\n\nThe table is populated by transforming data from the upstream [CALL_CENTER_METRICS_VIEW](urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.operations.call_center_metrics_view,PROD)) view. This transformation creates a denormalized, fact-style table that provides a comprehensive record of each call, including details about the agent, call handling, and customer experience metrics.\n\nThe `CALL_CENTER_METRICS` table is widely used throughout the organization, feeding downstream datasets that support a variety of use cases, such as churn analysis, agent performance monitoring, and customer experience reporting. These downstream tables include [CUSTOMER_CHURN_ANALYSIS](urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.test.customer_churn_analysis,PROD)), [AGENT_PERFORMANCE_DASHBOARD](urn:li:dataset:(urn:li:dataPlatform:looker,analytics.view.agent_performance_dashboard,PROD)), and others.\n\nThis table is a fact table, meaning it contains detailed, granular records of individual call events. The grain of the table is one row per call, providing a comprehensive view of call-level metrics and attributes. While the table does not directly contain any personally identifiable information (PII), it does include some potentially sensitive data, such as agent names and call dispositions, that should be handled with appropriate access controls and data governance practices.",
+  "ai_judge_verdict": {
+    "has_source_details": {
+      "reasoning": "The description clearly identifies the upstream source of the data, which is the call_center_metrics_view, and the transformation process that creates the denormalized, fact-style table.",
+      "value": "pass"
+    },
+    "has_downstream_usecases": {
+      "reasoning": "Needs more grounding - not sure things are actually accurate.",
+      "value": "fail"
+    },
+    "has_compliance_insights": {
+      "reasoning": "Contains email addresses and names, which are PII.",
+      "value": "fail"
+    },
+    "has_usage_tips": {
+      "reasoning": "The description does not provide any specific usage tips or insights, such as common join keys or filtering approaches.",
+      "value": "fail"
+    },
+    "is_confident": {
+      "reasoning": "The description avoids weak or speculative phrases and is written in a confident, matter-of-fact tone.",
+      "value": "pass"
+    }
+  }
+}

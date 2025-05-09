@@ -1,13 +1,13 @@
 from typing import Optional
 import dotenv
-
+import os
 dotenv.load_dotenv(".env")
 
 import mlflow
 import mlflow.metrics
 
 mlflow.get_tracking_uri()
-EXPERIMENT_NAME = "docs_generation"
+EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 EXPT_RUN_NAME = "initial_run"

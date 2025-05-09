@@ -1,0 +1,237 @@
+{
+  "table_info": {
+    "tags": [
+      {
+        "tag_name": "📉 Least Queried",
+        "tag_description": "Assigned to Tables that are among the least queried inside the data platform within the past 30 days."
+      }
+    ],
+    "glossary_terms": [],
+    "view_properties": {
+      "materialized": false,
+      "view_logic": "select c.id,\n        c.ticket_id,\n        c.agent_id,\n        c.original_timestamp,\n        c.dispute_id,\n        a.name,\n        a.email\n        from data_warehouse.disputes.claims_created c\n        left join data_warehouse.support.agent a\n          on c.agent_id = a.id::string",
+      "view_language": "sql"
+    },
+    "name": "dispute_claims_created",
+    "upstream_lineage_info": [
+      {
+        "upstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.support.agent,PROD)",
+        "upstream_table_name": "AGENT",
+        "lineage_type": "VIEW"
+      },
+      {
+        "upstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.disputes.claims_created,PROD)",
+        "upstream_table_name": "DISPUTES_CLAIM_CREATED",
+        "lineage_type": "VIEW"
+      }
+    ],
+    "downstream_lineage_info": [
+      {
+        "downstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:looker,analytics.explore.disputes_table,PROD)",
+        "downstream_table_name": "Disputes Dashboard"
+      },
+      {
+        "downstream_table_urn": "urn:li:dataset:(urn:li:dataPlatform:looker,analytics.explore.disputes_table_rbac,PROD)",
+        "downstream_table_name": "RBAC Disputes Dashboard"
+      }
+    ]
+  },
+  "column_infos": {
+    "id": {
+      "column_name": "id",
+      "metadata": {
+        "description": "",
+        "nativeDataType": "string",
+        "isPartOfKey": true
+      },
+      "descriptions": "",
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.disputes.claims_created,PROD),id)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        {
+          "tag_name": "Dimension",
+          "tag_description": "A tag that is applied to all dimension fields."
+        }
+      ]
+    },
+    "ticket_id": {
+      "column_name": "ticket_id",
+      "metadata": {
+        "description": "Support Ticket ID",
+        "nativeDataType": "string"
+      },
+      "descriptions": "Support Ticket ID",
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.disputes.claims_created,PROD),ticket_id)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        {
+          "tag_name": "Dimension",
+          "tag_description": "A tag that is applied to all dimension fields."
+        }
+      ]
+    },
+    "agent_id": {
+      "column_name": "agent_id",
+      "metadata": {
+        "description": "Support Agent ID",
+        "nativeDataType": "string"
+      },
+      "descriptions": "Support Agent ID",
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.disputes.claims_created,PROD),agent_id)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        {
+          "tag_name": "Dimension",
+          "tag_description": "A tag that is applied to all dimension fields."
+        }
+      ]
+    },
+    "dispute_id": {
+      "column_name": "dispute_id",
+      "metadata": {
+        "description": "",
+        "nativeDataType": "number"
+      },
+      "descriptions": "",
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.disputes.claims_created,PROD),dispute_id)",
+              "upstream_column_native_type": "NUMBER(38,0)"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        {
+          "tag_name": "Dimension",
+          "tag_description": "A tag that is applied to all dimension fields."
+        }
+      ]
+    },
+    "agent_name": {
+      "column_name": "agent_name",
+      "metadata": {
+        "description": "Support Agent Name",
+        "nativeDataType": "string"
+      },
+      "descriptions": "Support Agent Name",
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.support.agent,PROD),name)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        {
+          "tag_name": "Dimension",
+          "tag_description": "A tag that is applied to all dimension fields."
+        }
+      ]
+    },
+    "agent_email": {
+      "column_name": "agent_email",
+      "metadata": {
+        "description": "Support Agent Email",
+        "nativeDataType": "string"
+      },
+      "descriptions": "Support Agent Email",
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.support.agent,PROD),email)",
+              "upstream_column_native_type": "VARCHAR(16777216)"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        {
+          "tag_name": "Dimension",
+          "tag_description": "A tag that is applied to all dimension fields."
+        }
+      ]
+    },
+    "original_timestamp": {
+      "column_name": "original_timestamp",
+      "metadata": {
+        "description": "",
+        "nativeDataType": "time"
+      },
+      "descriptions": "",
+      "upstream_lineages": [
+        {
+          "lineage": [
+            {
+              "upstream_column_name": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.disputes.claims_created,PROD),original_timestamp)",
+              "upstream_column_native_type": "TIMESTAMP_LTZ"
+            }
+          ]
+        }
+      ],
+      "tags": [
+        {
+          "tag_name": "Dimension",
+          "tag_description": "A tag that is applied to all dimension fields."
+        },
+        {
+          "tag_name": "Temporal",
+          "tag_description": "A tag that is applied to all time-based (temporal) fields such as timestamps or durations."
+        }
+      ]
+    }
+  },
+  "description": "# dispute_claims_created\n\nThis table is a view that combines data from the [DISPUTES_CLAIM_CREATED](urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.disputes.claims_created,PROD)) table in the Customer Service database and the [AGENT](urn:li:dataset:(urn:li:dataPlatform:databricks,data_warehouse.support.agent,PROD)) table in the Analytics database. It provides a consolidated view of dispute claims created, including the associated support ticket information and agent details.\n\nThis view is consumed by two downstream Looker tables: [Disputes Dashboard](urn:li:dataset:(urn:li:dataPlatform:looker,analytics.explore.disputes_table,PROD)) and [RBAC Disputes Dashboard](urn:li:dataset:(urn:li:dataPlatform:looker,analytics.explore.disputes_table_rbac,PROD)). These tables power reporting and analysis related to dispute claims and agent performance.\n\nThis is a dimension table, meaning it contains descriptive information about dispute claims rather than transactional data. The table is marked as one of the \"Least Queried\" tables in the data platform, indicating it may not be a high-priority data source for most users.\n\nThe table contains PII data in the `agent_name` and `agent_email` columns, which should be handled with appropriate access controls and data governance practices.",
+  "ai_judge_verdict": {
+    "has_source_details": {
+      "reasoning": "The description clearly identifies the upstream sources of the data and how they are combined in the view.",
+      "value": "pass"
+    },
+    "has_downstream_usecases": {
+      "reasoning": "The downstreams are Looker explores and dashboards. Due to our prompts not including the downstream subtypes.",
+      "value": "fail"
+    },
+    "has_compliance_insights": {
+      "reasoning": "The description explicitly identifies the PII data in the table and mentions the need for appropriate access controls.",
+      "value": "pass"
+    },
+    "has_usage_tips": {
+      "reasoning": "The description does not provide specific usage tips or insights about how this table is typically used or what it is commonly joined with.",
+      "value": "fail"
+    },
+    "is_confident": {
+      "reasoning": "The description is written in a confident and authoritative tone, avoiding weak or speculative phrases.",
+      "value": "pass"
+    }
+  }
+}

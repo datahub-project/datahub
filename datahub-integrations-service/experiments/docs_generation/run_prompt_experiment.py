@@ -1,43 +1,39 @@
 import json
-import pathlib
 import os
+import pathlib
 import tempfile
-from typing import List, Dict, Tuple
+from typing import Dict, List, Tuple
+
 import asyncer
-
-current_dir = pathlib.Path().resolve()
-
-
-# Create a .env file in eval directory
-# Set env variables BEDROCK_AWS_ACCESS_KEY_ID, BEDROCK_AWS_SECRET_ACCESS_KEY,BEDROCK_AWS_REGION
 import dotenv
-
-dotenv.load_dotenv()
-
+import mlflow
+import mlflow.bedrock
+import mlflow.metrics
+import pandas as pd
 from datahub.utilities.perf_timer import PerfTimer
 
+from datahub_integrations.gen_ai.bedrock import (
+    BedrockModel,
+    get_bedrock_model_env_variable,
+)
 from datahub_integrations.gen_ai.description_v2 import (
-    ExtractedTableInfo,
     PROMPT_TEMPLATE,
     EntityDescriptionResult,
-    parse_llm_output,
-    transform_table_info_for_llm,
-    call_bedrock_llm,
-    DESCRIPTION_GENERATION_MODEL,
+    ExtractedTableInfo,
+    generate_entity_descriptions_for_urn_eval,
 )
-from datahub_integrations.gen_ai.router import DescriptionV2ParsingError
-import pandas as pd
 
-import mlflow
-import mlflow.metrics
-import mlflow.bedrock
-
+current_dir = pathlib.Path().resolve()
+dotenv.load_dotenv()
 
 print("eval directory", current_dir)
 print("parent directory", current_dir.parent)
 print("eval data directory", current_dir / "eval_data")
 
 CURRENT_PROMPT = PROMPT_TEMPLATE
+CURRENT_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
+    "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
+)
 
 
 # This holds main logic for prompt engineering and generation of entity descriptions
@@ -49,27 +45,11 @@ def generate_entity_descriptions_for_urn_eval_wrapper(data):
     )
     # mlflow_prompt = mlflow.load_prompt("prompts:/docs-generation-prompt/1").template
 
-    table_info, column_infos = transform_table_info_for_llm(extracted_entity_info)
-    formatted_prompt = CURRENT_PROMPT.format(
-        table_info=table_info.dict(exclude_none=True),
-        column_info={
-            col: column_info.dict(exclude_none=True)
-            for col, column_info in column_infos.items()
-        },
-    )
-    llm_output = call_bedrock_llm(
-        prompt=formatted_prompt, model=DESCRIPTION_GENERATION_MODEL, max_tokens=5000
-    )
-    table_description, column_descriptions, failure_reason = parse_llm_output(
-        llm_output
-    )
-
-    return EntityDescriptionResult(
-        table_description=table_description,
-        column_descriptions=column_descriptions,
+    return generate_entity_descriptions_for_urn_eval(
+        urn=data["urn"],
         extracted_entity_info=extracted_entity_info,
-        raw_llm_output=llm_output,
-        failure_reason=failure_reason,
+        prompt=CURRENT_PROMPT,
+        model=CURRENT_MODEL,
     )
 
 
@@ -108,6 +88,7 @@ def process_single_file(file) -> Tuple[Dict, List[Dict]]:
             )
             > 0,
             "failure_reason": result.failure_reason,
+            "notes": data["notes"],
         }
 
         column_descs = (
@@ -168,7 +149,8 @@ async def process_files(files):
 
 def has_description_metric_fn(predictions, targets):
     scores = [
-        (desc is not None and desc != "") for desc, target in zip(predictions, targets)
+        (desc is not None and desc != "")
+        for desc, target in zip(predictions, targets, strict=False)
     ]
     return mlflow.metrics.MetricValue(
         scores=scores,
@@ -179,13 +161,13 @@ def has_description_metric_fn(predictions, targets):
 
 
 def run_experiment(files):
-    with mlflow.start_run() as run, tempfile.TemporaryDirectory() as tempdir:
-        mlflow.autolog()
+    with mlflow.start_run(), tempfile.TemporaryDirectory() as tempdir:
         artifact_temp_path = setup_artifact_directory(tempdir)
         table_descriptions, column_descriptions = asyncer.syncify(
             process_files, raise_sync_error=False
         )(files)
         log_artifacts(artifact_temp_path, table_descriptions, column_descriptions)
+        mlflow.log_params({"model": CURRENT_MODEL})
 
         has_description_metric = mlflow.metrics.make_metric(
             eval_fn=has_description_metric_fn,
@@ -210,9 +192,9 @@ def run_experiment(files):
 if __name__ == "__main__":
     # Warning: This experiment may take a long time (~15 minutes - 10 for description generation and 5 for ai evaluation, if enabled) to run as it processes multiple files and logs results to MLflow
     # The experiment will be logged under the 'docs_generation' experiment in MLflow
-    EXPERIMENT_NAME = "docs_generation"
+    EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
     mlflow.set_experiment(EXPERIMENT_NAME)
-
+    mlflow.bedrock.autolog()
     eval_data_path = current_dir / "eval_data"
     eval_files = list(eval_data_path.glob("*.json"))
 

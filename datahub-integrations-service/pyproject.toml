@@ -72,6 +72,8 @@ dev = [
 	"streamlit",
 	"mlflow",
 	"diskcache",
+	"seaborn",
+	"matplotlib",
 ]
 
 [project.entry-points."datahub_actions.source.plugins"]

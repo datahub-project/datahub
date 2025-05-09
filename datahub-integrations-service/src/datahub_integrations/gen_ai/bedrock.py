@@ -47,7 +47,6 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
     # Set up Bedrock client. The cache decorator ensures that this is a singleton,
     # and the serialized decorator ensures that it is only initialized once
     # even if called from multiple threads.
-
     # Increase the read and connect timeouts, since Bedrock can be slow.
     config = botocore.config.Config(read_timeout=300, connect_timeout=60)
 
