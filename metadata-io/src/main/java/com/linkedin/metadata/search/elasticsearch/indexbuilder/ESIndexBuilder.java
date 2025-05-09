@@ -302,20 +302,23 @@ public class ESIndexBuilder {
    * @param indexName index name
    * @param mappings ES mappings
    * @param settings ES settings
+   * @return
    * @throws IOException ES error
    */
   @Deprecated
-  public void buildIndex(
+  public ReindexResult buildIndex(
       String indexName, Map<String, Object> mappings, Map<String, Object> settings)
       throws IOException {
-    buildIndex(buildReindexState(indexName, mappings, settings));
+    return buildIndex(buildReindexState(indexName, mappings, settings));
   }
 
-  public void buildIndex(ReindexConfig indexState) throws IOException {
+  public ReindexResult buildIndex(ReindexConfig indexState) throws IOException {
+    ReindexResult result;
     // If index doesn't exist, create index
     if (!indexState.exists()) {
       createIndex(indexState.name(), indexState);
-      return;
+      result = ReindexResult.CREATED_NEW;
+      return result;
     }
     log.info("Current mappings for index {}", indexState.name());
     log.info("{}", indexState.currentMappings());
@@ -325,11 +328,13 @@ public class ESIndexBuilder {
     // If there are no updates to mappings and settings, return
     if (!indexState.requiresApplyMappings() && !indexState.requiresApplySettings()) {
       log.info("No updates to index {}", indexState.name());
-      return;
+      result = ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
+      return result;
     }
 
     if (!indexState.requiresReindex()) {
       // no need to reindex and only new mappings or dynamic settings
+      result = ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED;
 
       // Just update the additional mappings
       applyMappings(indexState, true);
@@ -353,11 +358,12 @@ public class ESIndexBuilder {
       }
     } else {
       try {
-        reindex(indexState);
+        result = reindex(indexState);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
     }
+    return result;
   }
 
   /**
@@ -417,7 +423,8 @@ public class ESIndexBuilder {
     return base + "_" + startTime;
   }
 
-  private void reindex(ReindexConfig indexState) throws Throwable {
+  private ReindexResult reindex(ReindexConfig indexState) throws Throwable {
+    ReindexResult result = ReindexResult.$UNKNOWN;
     final long startTime = System.currentTimeMillis();
 
     final long initialCheckIntervalMilli = 1000;
@@ -426,7 +433,12 @@ public class ESIndexBuilder {
         maxReindexHours > 0 ? startTime + (1000L * 60 * 60 * maxReindexHours) : Long.MAX_VALUE;
 
     String tempIndexName = getNextIndexName(indexState.name(), startTime);
-    int targetshards = (Integer) indexState.targetSettings().get("number_of_shards");
+    int targetshards = Integer.parseInt(indexState.currentSettings().get("index.number_of_shards"));
+    Object numberOfShards =
+        ((Map) indexState.targetSettings().get("index")).get("number_of_shards");
+    if (numberOfShards != null) {
+      targetshards = (Integer) numberOfShards;
+    }
 
     try {
       Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(indexState.name());
@@ -442,6 +454,7 @@ public class ESIndexBuilder {
         tempIndexName =
             ESUtils.extractTargetIndex(
                 previousTaskInfo.get().getHeaders().get(ESUtils.OPAQUE_ID_HEADER));
+        result = ReindexResult.REINDEXING_ALREADY;
       } else {
         // Create new index
         createIndex(tempIndexName, indexState);
@@ -449,10 +462,12 @@ public class ESIndexBuilder {
         long curDocCount = documentCounts.getSecond();
         if (curDocCount == 0) {
           reindexTaskCompleted = true;
+          result = ReindexResult.REINDEXED_SKIPPED_0DOCS;
           log.info(
               "Reindex skipped for {} -> {} due to 0 docs .", indexState.name(), tempIndexName);
         } else {
           parentTaskId = submitReindex(indexState.name(), tempIndexName, targetshards);
+          result = ReindexResult.REINDEXING;
         }
       }
 
@@ -571,13 +586,23 @@ public class ESIndexBuilder {
     }
 
     log.info("Reindex from {} to {} succeeded", indexState.name(), tempIndexName);
-    // set the original replica nb
-    setIndexReplicas(
-        tempIndexName,
-        Integer.parseInt((String) indexState.targetSettings().get("number_of_replicas")));
+    Integer targetReplicas =
+        (Integer) ((Map) indexState.targetSettings().get("index")).get("number_of_replicas");
+    setReindexOptimalSettingsUndo(tempIndexName, targetReplicas);
     renameReindexedIndices(
         _searchClient, indexState.name(), indexState.indexPattern(), tempIndexName, true);
     log.info("Finished setting up {}", indexState.name());
+    return result;
+  }
+
+  private void setReindexOptimalSettings(String tempIndexName) throws IOException {
+    setIndexReplicas(tempIndexName, 0);
+  }
+
+  private void setReindexOptimalSettingsUndo(String tempIndexName, int indexState)
+      throws IOException {
+    // set the original replica nb
+    setIndexReplicas(tempIndexName, indexState);
   }
 
   public static void renameReindexedIndices(
@@ -648,7 +673,7 @@ public class ESIndexBuilder {
       reindexRequest.setSourceQuery(sourceFilterQuery);
     }
     // make if faster by indexing to 0 replicas
-    setIndexReplicas(destinationIndex, 0);
+    setReindexOptimalSettings(destinationIndex);
     RequestOptions requestOptions =
         ESUtils.buildReindexTaskRequestOptions(
             gitVersion.getVersion(), sourceIndices[0], destinationIndex);
