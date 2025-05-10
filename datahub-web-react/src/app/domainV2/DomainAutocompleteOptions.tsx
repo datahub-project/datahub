@@ -5,9 +5,10 @@ import styled from 'styled-components';
 import { getParentDomains } from '@app/domain/utils';
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '@app/search/filters/ParentEntities';
 
-import { Entity } from '@types';
+import { Domain, Entity } from '@types';
 
 const LoadingWrapper = styled.div`
     padding: 8px;
@@ -19,6 +20,16 @@ const LoadingWrapper = styled.div`
         width: 15px;
         color: ${ANTD_GRAY[8]};
     }
+`;
+const LabelWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+`;
+const LabelContent = styled.div`
+    display: flex;
+    flex-direction: column;
+    margin-left: 8px;
 `;
 
 interface AntOption {
@@ -45,10 +56,13 @@ export default function domainAutocompleteOptions(
     }
     return entities.map((entity) => ({
         label: (
-            <>
-                <ParentEntities parentEntities={getParentDomains(entity, entityRegistry)} />
-                {entityRegistry.getDisplayName(entity.type, entity)}
-            </>
+            <LabelWrapper>
+                <DomainColoredIcon domain={entity as Domain} size={24} fontSize={12} />
+                <LabelContent>
+                    {entityRegistry.getDisplayName(entity.type, entity)}
+                    <ParentEntities hideIcon parentEntities={getParentDomains(entity, entityRegistry)} />
+                </LabelContent>
+            </LabelWrapper>
         ),
         value: entity.urn,
     }));
