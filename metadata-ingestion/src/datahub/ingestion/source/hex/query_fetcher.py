@@ -213,6 +213,7 @@ class HexQueryFetcher:
 
         if not match:
             self.report.filtered_out_queries_no_match += 1
+            logger.debug(f"No match for Hex metadata in SQL statement: {sql_statement}")
             return None
 
         try:
