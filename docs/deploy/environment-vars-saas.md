@@ -8,19 +8,22 @@ This document lists environment variables specific to Acryl DataHub Cloud / SaaS
 
 ## Feature Flags and Controls
 
-| Variable                               | Default | Unit/Type | Components | Description                                                                                                          |
-| -------------------------------------- | ------- | --------- | ---------- | -------------------------------------------------------------------------------------------------------------------- |
-| `SHOW_MANAGE_STRUCTURED_PROPERTIES`    | `true`  | boolean   | [`GMS`]    | Controls whether the Structured Properties page is visible and accessible via the UI.                                |
-| `SCHEMA_FIELD_CLL_ENABLED`             | `true`  | boolean   | [`GMS`]    | Controls whether the Column-level lineage focus view is accessible via the lineage Graph.                            |
-| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`   | `true`  | boolean   | [`GMS`]    | Controls whether lineage ignores the schema field status aspect, reading the parent's status aspect instead.         |
-| `HIDE_DBT_SOURCE_IN_LINEAGE`           | `false` | boolean   | [`GMS`]    | Hides dbt source entities from lineage graphs when used with specific dbt ingestion settings.                        |
-| `LINEAGE_DEFAULT_LAST_DAYS_FILTER`     |         | integer   | [`GMS`]    | Default filter for lineage within the last X days. When set, lineage UI defaults to showing data within this window. |
-| `METADATA_SHARE_ENABLED`               | `false` | boolean   | [`GMS`]    | Enables sharing an entity with another Acryl instance via the share menu on entity profiles.                         |
-| `SHOW_NAV_BAR_REDESIGN`                | `true`  | boolean   | [`GMS`]    | Enables the new navigation bar redesign.                                                                             |
-| `USER_TRACKING_ENABLED`                | `false` | boolean   | [`GMS`]    | Enables Hotjar for user tracking, session recording (with data redacted), and in-app feedback.                       |
-| `SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` | `false` | boolean   | [`GMS`]    | Controls whether to separate siblings when fetching lineage data in search results by default.                       |
-| `SHOW_TASK_CENTER_REDESIGN`            | `false` | boolean   | [`GMS`]    | Flag to enable the new proposals redesign in the app, mostly in the task center.                                     |
-| `SHOW_DEFAULT_EXTERNAL_LINKS`          | `true`  | boolean   | [`GMS`]    | Controls whether or not we show the external links for an entity like "View in Snowflake"                            |
+| Variable                               | Default | Unit/Type | Components | Description                                                                                                           |
+| -------------------------------------- | ------- | --------- | ---------- | --------------------------------------------------------------------------------------------------------------------- |
+| `SHOW_MANAGE_STRUCTURED_PROPERTIES`    | `true`  | boolean   | [`GMS`]    | Controls whether the Structured Properties page is visible and accessible via the UI.                                 |
+| `SCHEMA_FIELD_CLL_ENABLED`             | `true`  | boolean   | [`GMS`]    | Controls whether the Column-level lineage focus view is accessible via the lineage Graph.                             |
+| `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`   | `true`  | boolean   | [`GMS`]    | Controls whether lineage ignores the schema field status aspect, reading the parent's status aspect instead.          |
+| `HIDE_DBT_SOURCE_IN_LINEAGE`           | `false` | boolean   | [`GMS`]    | Hides dbt source entities from lineage graphs when used with specific dbt ingestion settings.                         |
+| `LINEAGE_DEFAULT_LAST_DAYS_FILTER`     |         | integer   | [`GMS`]    | Default filter for lineage within the last X days. When set, lineage UI defaults to showing data within this window.  |
+| `METADATA_SHARE_ENABLED`               | `false` | boolean   | [`GMS`]    | Enables sharing an entity with another Acryl instance via the share menu on entity profiles.                          |
+| `SHOW_NAV_BAR_REDESIGN`                | `true`  | boolean   | [`GMS`]    | Enables the new navigation bar redesign.                                                                              |
+| `USER_TRACKING_ENABLED`                | `false` | boolean   | [`GMS`]    | Enables Hotjar for user tracking, session recording (with data redacted), and in-app feedback.                        |
+| `SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT` | `false` | boolean   | [`GMS`]    | Controls whether to separate siblings when fetching lineage data in search results by default.                        |
+| `SHOW_TASK_CENTER_REDESIGN`            | `false` | boolean   | [`GMS`]    | Flag to enable the new proposals redesign in the app, mostly in the task center.                                      |
+| `SHOW_DEFAULT_EXTERNAL_LINKS`          | `true`  | boolean   | [`GMS`]    | Controls whether or not we show the external links for an entity like "View in Snowflake"                             |
+| `DATASET_HEALTH_DASHBOARD_V2_ENABLED`  | `false` | boolean   | [`GMS`]    | Controls whether the dataset health dashboard redesign is enabled.                                                    |
+| `SHOW_CREATED_AT_FILTER`               | `false` | boolean   | [`GMS`]    | Controls whether we show a "Created At" filter in the main search exprience.                                          |
+| `SERVER_ENV`                           | `cloud` | boolean   | [`GMS`]    | Controls whether the `/config` endpoint reports `core` or `cloud` for the CLI. `cloud` is the default from helm-fork. |
 
 ## Compliance Forms
 
