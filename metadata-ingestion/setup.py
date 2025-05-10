@@ -559,6 +559,16 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas", "neo4j"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0"},
+    "google-sheets": {
+        "google-auth>=2.15.0",
+        "google-api-python-client>=2.70.0",
+        # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
+        # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
+        # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+        "numpy<2",
+        # Constraint needed for compatibility with databricks-sql-connector
+        "pandas<2.2.0",
+        },
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -706,6 +716,7 @@ base_dev_requirements = {
             "cassandra",
             "neo4j",
             "vertexai",
+            "google-sheets",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -831,6 +842,7 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "google-sheets = datahub.ingestion.source.google_sheets:GoogleSheetsSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
