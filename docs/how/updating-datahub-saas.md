@@ -34,6 +34,10 @@ This is over and above updating-datahub.md file
 ### Environment variables
 
 - [datahub-gms] `DATASET_HEALTH_DASHBOARD_V2_ENABLED`: Flag to show the v2 version of the data health dashboard. `DATASET_HEALTH_DASHBOARD_ENABLED` is for v1 of the data health dashboard.
+- [datahub-gms] `SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN`: Flag to show the new search bar experience with updated designs, filters, and the ability to use our search API to show consistent results.
+- [datahub-gms] `SEARCH_BAR_API_VARIANT`: Flag to choose which backend API to use when fetching results to render in the search bar dropdown. `SEARCH_ACROSS_ENTITIES` will use our main search API to have consistent results with main search. `AUTOCOMPLETE_FOR_MULTIPLE` will use the same autoComplete API as before.
+- [datahub-gms] `SHOW_TASK_CENTER_REDESIGN`: Flag to display the new proposals experience with the redesign in the proposals list page as well as showing some new functionality like the proposals task list on entity profile pages.
+- [datahub-gms] `SHOW_CREATED_AT_FILTER`: Flag to display the createdAt filter in the search UI which filters the entities by their source creation time. Not every entity has this source creation time, so the search results might be misleading.
 
 ## v0.3.10.1
 
