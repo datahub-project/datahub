@@ -6,7 +6,6 @@ import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
@@ -36,6 +35,4 @@ public class MaeConsumerApplicationTestConfiguration {
   @MockBean private ElasticSearchSystemMetadataService _elasticSearchSystemMetadataService;
 
   @MockBean private ConfigEntityRegistry _configEntityRegistry;
-
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
 }

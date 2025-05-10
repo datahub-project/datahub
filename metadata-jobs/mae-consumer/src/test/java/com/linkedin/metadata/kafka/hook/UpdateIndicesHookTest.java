@@ -44,7 +44,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -98,11 +98,11 @@ public class UpdateIndicesHookTest {
   private SearchDocumentTransformer searchDocumentTransformer;
   private DataHubUpgradeKafkaListener mockDataHubUpgradeKafkaListener;
   private ConfigurationProvider mockConfigurationProvider;
-  private EntityIndexBuilders mockEntityIndexBuilders;
   private Urn actorUrn;
   private UpdateIndicesService updateIndicesService;
   private UpdateIndicesHook reprocessUIHook;
   private OperationContext opContext;
+  private ElasticSearchService mockElasticSearchService;
 
   @Value("${elasticsearch.index.maxArrayLength}")
   private int maxArrayLength;
@@ -117,9 +117,10 @@ public class UpdateIndicesHookTest {
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 1000);
     mockDataHubUpgradeKafkaListener = mock(DataHubUpgradeKafkaListener.class);
     mockConfigurationProvider = mock(ConfigurationProvider.class);
-    mockEntityIndexBuilders = mock(EntityIndexBuilders.class);
+    mockElasticSearchService = mock(ElasticSearchService.class);
 
-    when(mockEntityIndexBuilders.getIndexConvention()).thenReturn(IndexConventionImpl.noPrefix(""));
+    when(mockElasticSearchService.getIndexConvention())
+        .thenReturn(IndexConventionImpl.noPrefix(""));
 
     ElasticSearchConfiguration elasticSearchConfiguration = new ElasticSearchConfiguration();
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
@@ -132,9 +133,8 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             mockSystemMetadataService,
             searchDocumentTransformer,
-            mockEntityIndexBuilders,
-            "MD5");
-
+            "MD5",
+            mockElasticSearchService);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
@@ -244,8 +244,8 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             mockSystemMetadataService,
             searchDocumentTransformer,
-            mockEntityIndexBuilders,
-            "MD5");
+            "MD5",
+            mockElasticSearchService);
 
     updateIndicesHook = new UpdateIndicesHook(updateIndicesService, true, false);
     updateIndicesHook.init(
