@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
 import ResultNote from '@app/taskCenterV2/proposalsV2/proposalsTable/ResultNote';
 import { updateActionRequestsList } from '@app/taskCenterV2/proposalsV2/proposalsTable/cacheUtils';
@@ -13,7 +14,7 @@ import { Icon, Modal, Pill, TextArea, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestResult, ActionRequestStatus, EntityType } from '@src/types.generated';
+import { ActionRequest, ActionRequestResult, ActionRequestStatus, Entity, EntityType } from '@src/types.generated';
 
 const IconsContainer = styled.div`
     display: flex;
@@ -135,17 +136,17 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
             resultAuthor && entityRegistry.getDisplayName(EntityType.CorpUser, resultAuthor);
         actionResultView = (
             <CompletedContainer>
-                {actionRequest.resultNote && (
-                    <ResultNote resultNote={actionRequest.resultNote} authorDisplayName={resultAuthorDisplayName} />
-                )}
-                <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${resultAuthor?.urn}`}>
-                    <Pill
-                        leftIcon={isAccepted ? 'Check' : 'Close'}
-                        label={resultAuthorDisplayName || ''}
-                        color={isAccepted ? 'green' : 'red'}
-                        size="md"
-                    />
-                </Link>
+                {actionRequest.resultNote && <ResultNote resultNote={actionRequest.resultNote} author={resultAuthor} />}
+                <HoverEntityTooltip entity={resultAuthor as Entity} showArrow={false}>
+                    <Link to={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${resultAuthor?.urn}`}>
+                        <Pill
+                            leftIcon={isAccepted ? 'Check' : 'Close'}
+                            label={resultAuthorDisplayName || ''}
+                            color={isAccepted ? 'green' : 'red'}
+                            size="md"
+                        />
+                    </Link>
+                </HoverEntityTooltip>
             </CompletedContainer>
         );
     } else if (showPendingView) {

@@ -1,9 +1,13 @@
 import { FileText } from 'phosphor-react';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { Avatar, Popover, Text, colors } from '@src/alchemy-components';
+
+import { CorpUser, EntityType, Maybe } from '@types';
 
 const PopoverContainer = styled.div`
     display: flex;
@@ -24,10 +28,15 @@ const IconContainer = styled.div`
 
 interface Props {
     resultNote: string;
-    authorDisplayName?: string | null;
+    author?: Maybe<CorpUser> | undefined;
 }
 
-const ResultNote = ({ resultNote, authorDisplayName }: Props) => {
+const ResultNote = ({ resultNote, author }: Props) => {
+    const entityRegistry = useEntityRegistryV2();
+
+    const authorDisplayName = author && entityRegistry.getDisplayName(EntityType.CorpUser, author);
+    const authorDisplayImage = author && (author.editableInfo?.pictureLink || author.editableProperties?.pictureLink);
+    const authorProfileUrl = author && entityRegistry.getEntityUrl(author?.type, author?.urn);
     return (
         <StopPropagationWrapper>
             {resultNote && (
@@ -36,7 +45,9 @@ const ResultNote = ({ resultNote, authorDisplayName }: Props) => {
                         <PopoverContainer>
                             {authorDisplayName && (
                                 <div>
-                                    <Avatar showInPill name={authorDisplayName} />
+                                    <Link to={authorProfileUrl}>
+                                        <Avatar showInPill name={authorDisplayName} imageUrl={authorDisplayImage} />
+                                    </Link>
                                 </div>
                             )}
                             <Text color="gray">{resultNote}</Text>
