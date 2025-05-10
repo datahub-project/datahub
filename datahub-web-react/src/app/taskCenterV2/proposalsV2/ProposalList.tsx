@@ -3,6 +3,7 @@ import { Typography, message } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { combineOrFilters } from '@app/searchV2/utils/filterUtils';
 import ActionsBar from '@app/taskCenterV2/proposalsV2/ActionsBar';
 import { ProposalsEntitySelect } from '@app/taskCenterV2/proposalsV2/ProposalsEntitySelect';
@@ -93,6 +94,7 @@ export const ProposalList = ({
     const { start, pageSize, setPageSize, page, setPage } = usePagination(DEFAULT_PAGE_SIZE);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [completedProposalUrns, setCompletedProposalUrns] = useState<string[]>([]);
+    const { refetchUnfinishedTaskCount } = useUserContext();
 
     const { filters, orFilters, onChangeFilters } = useGetActionRequestsQueryInputs({
         useUrlParams,
@@ -162,6 +164,10 @@ export const ProposalList = ({
                 refetch();
             }, 3000);
         }
+
+        setTimeout(() => {
+            refetchUnfinishedTaskCount();
+        }, 3000);
     };
 
     const FinalContainer = isShowNavBarRedesign ? Container : React.Fragment;
