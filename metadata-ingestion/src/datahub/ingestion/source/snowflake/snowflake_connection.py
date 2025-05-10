@@ -371,7 +371,16 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     def get_connection(self) -> "SnowflakeConnection":
         try:
-            return SnowflakeConnection(self.get_native_connection())
+            connection = SnowflakeConnection(self.get_native_connection())
+            # Set statement timeout in seconds (default 1 hour)
+            try:
+                connection.set_statement_timeout()
+            except Exception as e:
+                logger.warning(
+                    f"Failed to set statement timeout, queries may take longer than expected: {e}",
+                    exc_info=e,
+                )
+            return connection
         except Exception as e:
             logger.debug(e, exc_info=e)
 
@@ -390,9 +399,14 @@ class SnowflakeConnection(Closeable):
 
     def __init__(self, connection: NativeSnowflakeConnection):
         self._connection = connection
-
         self._query_num_lock = threading.Lock()
         self._query_num = 1
+
+    def set_statement_timeout(self, timeout_secs: int = 3600) -> None:
+        """Set the statement timeout in seconds (default 1 hour)"""
+        self._connection.cursor().execute(
+            f"ALTER SESSION SET STATEMENT_TIMEOUT_IN_SECONDS = {timeout_secs}"
+        )
 
     def native_connection(self) -> NativeSnowflakeConnection:
         return self._connection
