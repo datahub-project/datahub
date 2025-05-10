@@ -1,10 +1,13 @@
+import { useApolloClient } from '@apollo/client';
 import { Form, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
 import StopPropagationWrapper from '@app/sharedV2/StopPropagationWrapper';
 import ResultNote from '@app/taskCenterV2/proposalsV2/proposalsTable/ResultNote';
+import { updateActionRequestsList } from '@app/taskCenterV2/proposalsV2/proposalsTable/cacheUtils';
 import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
 import { Icon, Modal, Pill, TextArea, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
@@ -51,7 +54,7 @@ const modalConfig = {
 
 interface Props {
     actionRequest: ActionRequest;
-    onUpdate: () => void;
+    onUpdate: (completedUrns: string[]) => void;
     showPendingView?: boolean;
 }
 
@@ -63,6 +66,11 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
     const [rejectProposalsMutation] = useRejectProposalsMutation();
 
     const [modalType, setModalType] = useState<ModalType>(null);
+
+    const client = useApolloClient();
+
+    const authenticatedUser = useUserContext();
+    const currentUser = authenticatedUser?.user;
 
     const acceptRequest = () => {
         acceptProposalsMutation({
@@ -79,11 +87,15 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                     });
                 }
                 message.success('Successfully accepted the proposal!');
-                onUpdate();
+                updateActionRequestsList(client, [actionRequest.urn], ActionRequestResult.Accepted, note, currentUser);
+                onUpdate([actionRequest.urn]);
             })
             .catch((err) => {
                 console.log(err);
                 message.error('Failed to accept proposal. An unknown error occurred!');
+            })
+            .finally(() => {
+                setModalType(null);
             });
     };
 
@@ -102,11 +114,15 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
                     });
                 }
                 message.info('Proposal declined.');
-                onUpdate();
+                updateActionRequestsList(client, [actionRequest.urn], ActionRequestResult.Rejected, note, currentUser);
+                onUpdate([actionRequest.urn]);
             })
             .catch((err) => {
                 console.log(err);
                 message.error('Failed to reject proposal. An unknown error occurred!');
+            })
+            .finally(() => {
+                setModalType(null);
             });
     };
 

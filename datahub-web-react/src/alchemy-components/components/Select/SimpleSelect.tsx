@@ -188,13 +188,6 @@ export const SimpleSelect = ({
                                     size={size}
                                 />
                             )}
-                            {isLoading ? (
-                                <LoadingWrapper>
-                                    <LoadingOutlined />
-                                </LoadingWrapper>
-                            ) : (
-                                !filteredOptions.length && <NoResultsFoundPlaceholder />
-                            )}
                             <OptionList style={optionListStyle} data-testid={optionListTestId}>
                                 {showSelectAll && isMultiSelect && (
                                     <DropdownSelectAllOption

@@ -17,7 +17,7 @@ interface Props {
     isLoading: boolean;
     enableSelection?: boolean;
     isRowSelectionDisabled: (record: ActionRequest) => boolean;
-    onActionRequestUpdate: () => void;
+    onActionRequestUpdate: (completedUrns: string[]) => void;
     selectedKeys: string[];
     setSelectedKeys: React.Dispatch<React.SetStateAction<string[]>>;
     onRowClick?: (record: ActionRequest) => void;

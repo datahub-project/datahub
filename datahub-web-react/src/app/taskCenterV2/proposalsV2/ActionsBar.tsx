@@ -1,11 +1,16 @@
+import { useApolloClient } from '@apollo/client';
 import { Divider, Form, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { useUserContext } from '@app/context/useUserContext';
+import { updateActionRequestsList } from '@app/taskCenterV2/proposalsV2/proposalsTable/cacheUtils';
 import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
 import { Button, Modal, Text, TextArea, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
+
+import { ActionRequestResult } from '@types';
 
 const ActionsContainer = styled.div<{ $hasPagination?: boolean }>`
     display: flex;
@@ -61,7 +66,7 @@ const modalConfig = {
 interface Props {
     selectedUrns: string[];
     setSelectedUrns: React.Dispatch<React.SetStateAction<string[]>>;
-    onActionRequestUpdate: () => void;
+    onActionRequestUpdate: (completedUrns: string[]) => void;
     hasPagination?: boolean;
 }
 
@@ -71,6 +76,11 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
 
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
+
+    const client = useApolloClient();
+
+    const authenticatedUser = useUserContext();
+    const currentUser = authenticatedUser?.user;
 
     const acceptSelectedProposals = () => {
         acceptProposalsMutation({
@@ -83,7 +93,8 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
                     entityUrns: selectedUrns,
                 });
                 message.success('Accepted proposals!');
-                onActionRequestUpdate();
+                updateActionRequestsList(client, selectedUrns, ActionRequestResult.Accepted, note, currentUser);
+                onActionRequestUpdate(selectedUrns);
                 setSelectedUrns([]);
             })
             .catch((err) => {
@@ -103,7 +114,8 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
                     entityUrns: selectedUrns,
                 });
                 message.success('Proposals declined.');
-                onActionRequestUpdate();
+                updateActionRequestsList(client, selectedUrns, ActionRequestResult.Rejected, note, currentUser);
+                onActionRequestUpdate(selectedUrns);
                 setSelectedUrns([]);
             })
             .catch((err) => {

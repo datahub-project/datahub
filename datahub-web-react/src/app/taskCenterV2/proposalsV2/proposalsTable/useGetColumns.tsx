@@ -14,7 +14,7 @@ const OverflowText = styled(Typography.Text)`
 `;
 
 interface Props {
-    onActionRequestUpdate: () => void;
+    onActionRequestUpdate: (completedUrns: string[]) => void;
     showPendingView?: boolean;
 }
 

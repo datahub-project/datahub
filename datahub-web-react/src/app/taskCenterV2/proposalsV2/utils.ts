@@ -1,7 +1,7 @@
 import { cloneDeep } from 'lodash';
 
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { ActionRequestAssignee, FacetFilterInput } from '@src/types.generated';
+import { ActionRequestAssignee, ActionRequestStatus, AndFilterInput, FacetFilterInput } from '@src/types.generated';
 
 export const PERSONAL_ACTION_REQUESTS_GROUP_NAME = 'Inbox';
 export const MY_PROPOSALS_GROUP_NAME = 'My Proposals';
@@ -78,3 +78,14 @@ export const replaceFilterValues = (
 
     return filters;
 };
+
+export function isFilteringForPendingProposals(prFilters: AndFilterInput[]) {
+    return !!prFilters.find((or) =>
+        or.and?.find(
+            (filter) =>
+                filter.field === 'status' &&
+                filter.values?.length === 1 &&
+                filter.values[0] === ActionRequestStatus.Pending,
+        ),
+    );
+}

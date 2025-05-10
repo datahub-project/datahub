@@ -1,12 +1,15 @@
+import { NetworkStatus } from '@apollo/client';
 import { Typography, message } from 'antd';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
+import { combineOrFilters } from '@app/searchV2/utils/filterUtils';
 import ActionsBar from '@app/taskCenterV2/proposalsV2/ActionsBar';
 import { ProposalsEntitySelect } from '@app/taskCenterV2/proposalsV2/ProposalsEntitySelect';
 import ProposalsTable from '@app/taskCenterV2/proposalsV2/proposalsTable/ProposalsTable';
 import useGetActionRequestsQueryInputs from '@app/taskCenterV2/proposalsV2/useGetActionRequestsQueryInputs';
 import useGetEntitySuggestions from '@app/taskCenterV2/proposalsV2/useGetEntitySuggestions';
+import { isFilteringForPendingProposals } from '@app/taskCenterV2/proposalsV2/utils';
 import {
     ACTION_REQUEST_DEFAULT_FACETS,
     ACTION_REQUEST_DISPLAY_FACETS,
@@ -88,6 +91,8 @@ export const ProposalList = ({
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
     const { start, pageSize, setPageSize, page, setPage } = usePagination(DEFAULT_PAGE_SIZE);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const [completedProposalUrns, setCompletedProposalUrns] = useState<string[]>([]);
 
     const { filters, orFilters, onChangeFilters } = useGetActionRequestsQueryInputs({
         useUrlParams,
@@ -96,20 +101,26 @@ export const ProposalList = ({
     });
 
     const entitiesSelected = filters?.find((f) => f.field === 'resource')?.values || [];
-    const { loading, error, data, refetch } = useListActionRequestsQuery({
+
+    const input = {
+        start,
+        count: pageSize,
+        orFilters,
+        assignee,
+        resourceUrn,
+        facets: ACTION_REQUEST_DEFAULT_FACETS,
+        allActionRequests: getAllActionRequests,
+    };
+    const { loading, error, data, refetch, networkStatus } = useListActionRequestsQuery({
         variables: {
-            input: {
-                start,
-                count: pageSize,
-                orFilters,
-                assignee,
-                resourceUrn,
-                facets: ACTION_REQUEST_DEFAULT_FACETS,
-                allActionRequests: getAllActionRequests,
-            },
+            input,
         },
         fetchPolicy: 'cache-and-network',
+        nextFetchPolicy: 'cache-first',
+        notifyOnNetworkStatusChange: true,
     });
+
+    const isLoading = loading && networkStatus !== NetworkStatus.refetch && !data;
 
     // Filtering the facets to be shown in the UI
     const facets =
@@ -126,8 +137,31 @@ export const ProposalList = ({
     const totalActionRequests = data?.listActionRequests?.total || 0;
     const hasPagination = totalActionRequests > pageSize;
 
-    const onActionRequestUpdate = () => {
-        refetch();
+    const onActionRequestUpdate = (completedUrns: string[]) => {
+        // if we're bulk accepting or rejecting, filter out the completed urns and show reload
+        // this is necessary for elastic consistency issues with bulk accept/reject more than just a few
+        if (completedUrns.length > 1) {
+            setCompletedProposalUrns((existingUrns) => {
+                const newCompletedUrns = [...existingUrns, ...completedUrns];
+
+                const completedProposalUrnsFilter = [
+                    { and: [{ field: 'urn', values: newCompletedUrns, negated: true }] },
+                ];
+
+                let finalOrFilters = orFilters;
+                if (isFilteringForPendingProposals(orFilters)) {
+                    finalOrFilters = combineOrFilters(finalOrFilters, completedProposalUrnsFilter);
+                    refetch({ input: { ...input, orFilters: finalOrFilters } }); // new input causes loading
+                }
+
+                return newCompletedUrns;
+            });
+        } else {
+            // otherwise normal refetch will help reload the current page without showing loading
+            setTimeout(() => {
+                refetch();
+            }, 3000);
+        }
     };
 
     const FinalContainer = isShowNavBarRedesign ? Container : React.Fragment;
@@ -167,7 +201,7 @@ export const ProposalList = ({
                         />
                         <FilterSection
                             name="proposals"
-                            loading={loading}
+                            loading={isLoading}
                             availableFilters={facets || []}
                             activeFilters={filters}
                             onChangeFilters={handleFiltersChange}
@@ -180,7 +214,7 @@ export const ProposalList = ({
                 <ProposalsTable
                     onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
-                    isLoading={loading}
+                    isLoading={isLoading}
                     enableSelection={enableSelection}
                     isRowSelectionDisabled={(record: ActionRequest) => {
                         return record.status === 'COMPLETED';
@@ -206,7 +240,7 @@ export const ProposalList = ({
                         onPageChange={(newPage) => setPage(newPage)}
                         showSizeChanger
                         onShowSizeChange={(_currNum, newNum) => setPageSize(newNum)}
-                        loading={loading}
+                        loading={isLoading}
                         hideOnSinglePage
                         showLessItems
                     />
