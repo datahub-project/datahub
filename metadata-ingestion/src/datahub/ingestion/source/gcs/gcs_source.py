@@ -20,9 +20,10 @@ from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
+from datahub.ingestion.source.gcs.gcs_utils import strip_gcs_prefix
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
-from datahub.ingestion.source.s3.source import S3Source
+from datahub.ingestion.source.s3.source import S3Source, TableData
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
@@ -145,7 +146,20 @@ class GCSSource(StatefulIngestionSourceBase):
         source.create_s3_path = lambda bucket_name, key: unquote(  # type: ignore
             f"s3://{bucket_name}/{key}"
         )
+        source.get_external_url = self.get_external_url_override.__get__(source)  # type: ignore
         return source
+
+    def get_external_url_override(self, table_data: TableData) -> Optional[str]:
+        """
+        Convert S3 URIs back to GCS URIs for external URLs.
+        This method gets bound to the S3Source instance.
+        """
+        if not table_data.table_path.startswith("s3://"):
+            return None
+
+        # Replace the s3:// with gs:// to create the GCS URI
+        gcs_uri = table_data.table_path.replace("s3://", "gs://")
+        return f"https://console.cloud.google.com/storage/browser/{strip_gcs_prefix(gcs_uri)}"
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
