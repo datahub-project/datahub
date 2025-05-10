@@ -11,7 +11,6 @@ const Container = styled.div`
     display: flex;
     flex-direction: column;
     justify-content: start;
-    gap: 8px;
 `;
 
 export const DiscoveryTab = () => {
