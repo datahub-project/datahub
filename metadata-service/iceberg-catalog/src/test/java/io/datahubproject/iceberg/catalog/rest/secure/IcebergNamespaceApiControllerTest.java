@@ -8,13 +8,19 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.ContainerProperties;
+import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
+import io.datahubproject.iceberg.catalog.DataHubRestCatalog;
 import io.datahubproject.iceberg.catalog.Utils;
 import io.datahubproject.metadata.context.OperationContext;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
+import org.apache.iceberg.rest.CatalogHandlers;
 import org.apache.iceberg.rest.requests.CreateNamespaceRequest;
+import org.apache.iceberg.rest.requests.UpdateNamespacePropertiesRequest;
 import org.apache.iceberg.rest.responses.*;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.*;
 
 public class IcebergNamespaceApiControllerTest
@@ -23,6 +29,8 @@ public class IcebergNamespaceApiControllerTest
   private static final String TEST_PLATFORM = "test-platform";
   private Namespace namespace;
   private String namespaceString;
+  private Urn containerUrn;
+  private DataHubRestCatalog catalog = mock(DataHubRestCatalog.class);
 
   @Override
   public void onSetup() {
@@ -31,7 +39,13 @@ public class IcebergNamespaceApiControllerTest
 
   @Override
   protected IcebergNamespaceApiController newController() {
-    return new IcebergNamespaceApiController();
+    return new IcebergNamespaceApiController() {
+      @Override
+      protected DataHubRestCatalog catalog(
+          OperationContext operationContext, DataHubIcebergWarehouse warehouse) {
+        return catalog;
+      }
+    };
   }
 
   private void setupNamespace() {
@@ -40,9 +54,10 @@ public class IcebergNamespaceApiControllerTest
     namespaceString = "db\u001fschema";
 
     Urn parentContainerUrn = Utils.containerUrn(TEST_PLATFORM, namespaceParent);
-    Urn containerUrn = Utils.containerUrn(TEST_PLATFORM, namespace);
+    containerUrn = Utils.containerUrn(TEST_PLATFORM, namespace);
 
-    doReturn(true).when(entityService).exists(any(OperationContext.class), eq(parentContainerUrn));
+    when(entityService.exists(any(OperationContext.class), eq(parentContainerUrn)))
+        .thenReturn(true);
 
     ContainerProperties containerProperties = new ContainerProperties();
     when(entityService.getLatestAspect(
@@ -51,28 +66,24 @@ public class IcebergNamespaceApiControllerTest
   }
 
   @Test
-  public void testGetNamespace() throws Exception {
-    GetNamespaceResponse response =
-        controller.getNamespace(request, TEST_PLATFORM, namespaceString);
-
-    assertNotNull(response);
-    assertEquals(response.namespace(), namespace);
-  }
-
-  @Test
-  public void testCreateNamespace() throws Exception {
+  public void testCreateNamespace() {
     CreateNamespaceRequest createRequest =
         CreateNamespaceRequest.builder().withNamespace(namespace).build();
 
-    CreateNamespaceResponse response =
-        controller.createNamespace(request, TEST_PLATFORM, createRequest);
-
-    assertNotNull(response);
-    assertEquals(response.namespace(), namespace);
+    CreateNamespaceResponse expectedResponse = mock(CreateNamespaceResponse.class);
+    try (MockedStatic<CatalogHandlers> catalogHandlersMock =
+        Mockito.mockStatic(CatalogHandlers.class)) {
+      catalogHandlersMock
+          .when(() -> CatalogHandlers.createNamespace(same(catalog), same(createRequest)))
+          .thenReturn(expectedResponse);
+      CreateNamespaceResponse actualResponse =
+          controller.createNamespace(request, TEST_PLATFORM, createRequest);
+      assertSame(actualResponse, expectedResponse);
+    }
   }
 
   @Test(expectedExceptions = ForbiddenException.class)
-  public void testCreateNamespaceUnauthorized() throws Exception {
+  public void testCreateNamespaceUnauthorized() {
     setupDefaultAuthorization(false);
     CreateNamespaceRequest createRequest =
         CreateNamespaceRequest.builder().withNamespace(namespace).build();
@@ -80,13 +91,146 @@ public class IcebergNamespaceApiControllerTest
     controller.createNamespace(request, TEST_PLATFORM, createRequest);
   }
 
-  @Test(expectedExceptions = NoSuchNamespaceException.class)
-  public void testGetNamespaceNonexistent() throws Exception {
-    String missingNamespaceString = "db\u001fschema2";
-    Namespace missingNamespace = Namespace.of("db", "schema2");
-    Urn containerUrn = Utils.containerUrn(TEST_PLATFORM, missingNamespace);
+  @Test
+  public void testGetNamespace() {
+    GetNamespaceResponse expectedResponse = mock(GetNamespaceResponse.class);
+    try (MockedStatic<CatalogHandlers> catalogHandlersMock =
+        Mockito.mockStatic(CatalogHandlers.class)) {
+      catalogHandlersMock
+          .when(() -> CatalogHandlers.loadNamespace(same(catalog), eq(namespace)))
+          .thenReturn(expectedResponse);
+      GetNamespaceResponse actualResponse =
+          controller.getNamespace(request, TEST_PLATFORM, namespaceString);
+      assertSame(actualResponse, expectedResponse);
+    }
+  }
 
-    doReturn(false).when(entityService).exists(any(OperationContext.class), eq(containerUrn));
-    controller.getNamespace(request, TEST_PLATFORM, missingNamespaceString);
+  @Test(expectedExceptions = NoSuchNamespaceException.class)
+  public void testGetNamespaceNonexistent() {
+    try (MockedStatic<CatalogHandlers> catalogHandlersMock =
+        Mockito.mockStatic(CatalogHandlers.class)) {
+      catalogHandlersMock
+          .when(() -> CatalogHandlers.loadNamespace(same(catalog), eq(namespace)))
+          .thenThrow(new NoSuchNamespaceException(""));
+      controller.getNamespace(request, TEST_PLATFORM, namespaceString);
+    }
+  }
+
+  @Test
+  public void testGetNamespaceUnauthorized() {
+    setupDefaultAuthorization(false);
+    GetNamespaceResponse expectedResponse = mock(GetNamespaceResponse.class);
+    try (MockedStatic<CatalogHandlers> catalogHandlersMock =
+        Mockito.mockStatic(CatalogHandlers.class)) {
+      catalogHandlersMock
+          .when(() -> CatalogHandlers.loadNamespace(same(catalog), eq(namespace)))
+          .thenReturn(expectedResponse);
+      GetNamespaceResponse actualResponse =
+          controller.getNamespace(request, TEST_PLATFORM, namespaceString);
+      assertSame(actualResponse, expectedResponse);
+    }
+  }
+
+  @Test
+  public void testUpdateNamespace() {
+    UpdateNamespacePropertiesRequest updateRequest = mock(UpdateNamespacePropertiesRequest.class);
+    UpdateNamespacePropertiesResponse expectedResponse =
+        mock(UpdateNamespacePropertiesResponse.class);
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(true);
+
+    when(catalog.updateNamespaceProperties(eq(namespace), same(updateRequest)))
+        .thenReturn(expectedResponse);
+
+    UpdateNamespacePropertiesResponse actualResponse =
+        controller.updateNamespace(request, TEST_PLATFORM, namespaceString, updateRequest);
+    assertSame(actualResponse, expectedResponse);
+  }
+
+  @Test(expectedExceptions = NoSuchNamespaceException.class)
+  public void testUpdateNamespaceNonexistent() {
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(false);
+    controller.updateNamespace(
+        request, TEST_PLATFORM, namespaceString, mock(UpdateNamespacePropertiesRequest.class));
+  }
+
+  @Test(expectedExceptions = ForbiddenException.class)
+  public void testUpdateNamespaceUnauthorized() {
+    setupDefaultAuthorization(false);
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(true);
+    controller.updateNamespace(
+        request, TEST_PLATFORM, namespaceString, mock(UpdateNamespacePropertiesRequest.class));
+  }
+
+  @Test
+  public void testDropNamespace() {
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(true);
+    try (MockedStatic<CatalogHandlers> catalogHandlersMock =
+        Mockito.mockStatic(CatalogHandlers.class)) {
+      controller.dropNamespace(request, TEST_PLATFORM, namespaceString);
+      catalogHandlersMock.verify(
+          () -> CatalogHandlers.dropNamespace(same(catalog), eq(namespace)), times(1));
+    }
+  }
+
+  @Test(expectedExceptions = NoSuchNamespaceException.class)
+  public void testDropNamespaceNonexistent() {
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(false);
+    controller.dropNamespace(request, TEST_PLATFORM, namespaceString);
+  }
+
+  @Test(expectedExceptions = ForbiddenException.class)
+  public void testDropNamespaceUnauthorized() {
+    setupDefaultAuthorization(false);
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(true);
+    controller.dropNamespace(request, TEST_PLATFORM, namespaceString);
+  }
+
+  @Test
+  public void testListNamespacesRoot() {
+    ListNamespacesResponse expectedResponse = mock(ListNamespacesResponse.class);
+
+    try (MockedStatic<CatalogHandlers> catalogHandlersMock =
+        Mockito.mockStatic(CatalogHandlers.class)) {
+      catalogHandlersMock
+          .when(() -> CatalogHandlers.listNamespaces(same(catalog), eq(Namespace.empty())))
+          .thenReturn(expectedResponse);
+      ListNamespacesResponse actualResponse =
+          controller.listNamespaces(request, TEST_PLATFORM, "", null, null);
+      assertSame(actualResponse, expectedResponse);
+    }
+  }
+
+  @Test
+  public void testListNamespaces() {
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(true);
+    ListNamespacesResponse expectedResponse = mock(ListNamespacesResponse.class);
+    try (MockedStatic<CatalogHandlers> catalogHandlersMock =
+        Mockito.mockStatic(CatalogHandlers.class)) {
+      catalogHandlersMock
+          .when(() -> CatalogHandlers.listNamespaces(same(catalog), eq(namespace)))
+          .thenReturn(expectedResponse);
+      ListNamespacesResponse actualResponse =
+          controller.listNamespaces(request, TEST_PLATFORM, namespaceString, null, null);
+      assertSame(actualResponse, expectedResponse);
+    }
+  }
+
+  @Test(expectedExceptions = NoSuchNamespaceException.class)
+  public void testListNamespacesNonexistent() {
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(false);
+    controller.listNamespaces(request, TEST_PLATFORM, namespaceString, null, null);
+  }
+
+  @Test(expectedExceptions = ForbiddenException.class)
+  public void testListNamespacesUnauthorizedRoot() {
+    setupDefaultAuthorization(false);
+    controller.listNamespaces(request, TEST_PLATFORM, "", null, null);
+  }
+
+  @Test(expectedExceptions = ForbiddenException.class)
+  public void testListNamespacesUnauthorized() {
+    setupDefaultAuthorization(false);
+    when(entityService.exists(any(), eq(containerUrn))).thenReturn(true);
+    controller.listNamespaces(request, TEST_PLATFORM, namespaceString, null, null);
   }
 }

@@ -31,4 +31,6 @@ public enum EntityFieldType {
   DATA_PLATFORM_INSTANCE,
   /** Tags of the entity */
   TAG,
+  /** Container of the entity */
+  CONTAINER,
 }
