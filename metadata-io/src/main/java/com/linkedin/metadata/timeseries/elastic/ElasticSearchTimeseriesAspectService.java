@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
@@ -134,6 +135,10 @@ public class ElasticSearchTimeseriesAspectService
             new ThreadPoolExecutor.CallerRunsPolicy());
 
     esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
+  }
+
+  public ESIndexBuilder getIndexBuilder() {
+    return indexBuilders.getIndexBuilder();
   }
 
   private static EnvelopedAspect parseDocument(@Nonnull SearchHit doc) {
