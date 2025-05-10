@@ -3656,7 +3656,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1746710920510,
+                "time": 1746710921749,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -3716,7 +3716,6 @@
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.salesreason,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.temptable,PROD)",
@@ -3724,7 +3723,6 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.age_dist,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.finalitems,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.persons,PROD)",
@@ -3745,29 +3743,7 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD),id)"
-                    ],
-                    "confidenceScore": 0.2
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.items,PROD),itemname)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD),itemname)"
-                    ],
-                    "confidenceScore": 0.2
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,my-instance.demodata.foo.ephemeralitems,PROD),itemname)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [

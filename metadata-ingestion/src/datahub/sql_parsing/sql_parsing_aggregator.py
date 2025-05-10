@@ -1244,6 +1244,27 @@ class SqlParsingAggregator(Closeable):
             self._query_map[query_fingerprint] = new
 
     def gen_metadata(self) -> Iterable[MetadataChangeProposalWrapper]:
+        if logger.isEnabledFor(logging.DEBUG):
+            num_temp_tables_processed = 0
+            temp_tables_processed = {}
+            # Process temp tables and stored procedures before generating metadata
+            for session_id, temp_tables in self._temp_lineage_map.items():
+                for temp_table_urn, query_ids in temp_tables.items():
+                    logger.debug(
+                        f"Processing temp table {temp_table_urn} in session {session_id} with queries {query_ids}"
+                    )
+                    num_temp_tables_processed += 1
+                    temp_tables_processed[(session_id, temp_table_urn)] = [
+                        self._query_map[query_id].formatted_query_string
+                        for query_id in query_ids
+                    ]
+            # Generate debug log
+            logger.debug(
+                f"SQL Parsing Aggregator Debug Info:\n"
+                f"Temp Tables Processed: {num_temp_tables_processed}\n"
+                f"Temp Tables Details: {temp_tables_processed}"
+            )
+
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
