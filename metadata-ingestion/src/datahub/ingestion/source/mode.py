@@ -1418,10 +1418,14 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_reports(self, space_token: str) -> List[dict]:
         reports = []
         try:
-            reports_json = self._get_request_json(
-                f"{self.workspace_uri}/spaces/{space_token}/reports"
-            )
-            reports = reports_json.get("_embedded", {}).get("reports", {})
+            for reports_page in self._get_paged_request_json(
+                f"{self.workspace_uri}/spaces/{space_token}/reports?", "reports", 30
+            ):
+                logger.debug(
+                    f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
+                )
+                reports.extend(reports_page)
+
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Reports for Space",
