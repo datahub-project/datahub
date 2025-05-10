@@ -60,7 +60,7 @@ const EntityWrapper = styled.div<{ $isProposed?: boolean }>`
     `}
 `;
 
-const BorderedContainer = styled.div<{ $isProposed?: boolean }>`
+const BorderedContainer = styled.div<{ $isProposed?: boolean; $isStraightBorder?: boolean }>`
     span {
         color: ${colors.gray[500]};
     }
@@ -72,7 +72,7 @@ const BorderedContainer = styled.div<{ $isProposed?: boolean }>`
         border: 1px dashed ${colors.gray[200]};
         padding: 2px 6px;
         margin: 2px 0;
-        border-radius: 200px;
+        border-radius:  ${props.$isStraightBorder ? '8px' : '200px'};
         background-color: ${colors.white};
         max-width: 100%;
         `}
@@ -170,7 +170,7 @@ export default function StructuredPropertyValue({
             {value.entity ? (
                 valueEntityRender
             ) : (
-                <BorderedContainer $isProposed={isProposed}>
+                <BorderedContainer $isProposed={isProposed} $isStraightBorder={isRichText && !isFieldColumn}>
                     {isRichText ? (
                         <Container>
                             <ViewerContainer>

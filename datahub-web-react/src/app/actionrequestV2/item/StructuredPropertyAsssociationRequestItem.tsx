@@ -133,6 +133,7 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
                                             isRichText={isRichText}
                                             isProposed={!isApproved}
                                             hydratedEntityMap={hydratedEntityMap}
+                                            isFieldColumn
                                         />
                                     </ValueContainer>
                                 )}
@@ -148,6 +149,7 @@ const StructuredPropertyAssociationRequestItem = ({ actionRequest }: Props) => {
                                                             isRichText={isRichText}
                                                             isProposed={!isApproved}
                                                             hydratedEntityMap={hydratedEntityMap}
+                                                            isFieldColumn
                                                         />
                                                     </ValueContainer>
                                                 ))}
