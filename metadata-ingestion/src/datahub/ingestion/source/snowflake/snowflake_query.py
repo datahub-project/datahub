@@ -667,7 +667,15 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         _MAX_QUERIES_PER_DOWNSTREAM = 30
 
         return f"""
-        WITH column_lineage_history AS (
+        WITH filtered_access_history AS (
+            SELECT *
+            FROM snowflake.account_usage.access_history
+            WHERE query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
+                AND OBJECTS_MODIFIED IS NOT NULL AND ARRAY_SIZE(OBJECTS_MODIFIED) > 0
+                AND DIRECT_OBJECTS_ACCESSED IS NOT NULL AND ARRAY_SIZE(DIRECT_OBJECTS_ACCESSED) > 0
+        ),
+        column_lineage_history AS (
             SELECT
                 r.value : "objectName" :: varchar AS upstream_table_name,
                 r.value : "objectDomain" :: varchar AS upstream_table_domain,
@@ -680,7 +688,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 t.query_start_time AS query_start_time,
                 t.query_id AS query_id
             FROM
-                snowflake.account_usage.access_history t,
+                filtered_access_history t,
                 lateral flatten(input => t.DIRECT_OBJECTS_ACCESSED) r,
                 lateral flatten(input => t.OBJECTS_MODIFIED) w,
                 lateral flatten(input => w.value : "columns", outer => true) wcols,
@@ -690,12 +698,10 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND w.value : "objectId" IS NOT NULL
                 AND w.value : "objectName" NOT LIKE '%.GE_TMP_%'
                 AND w.value : "objectName" NOT LIKE '%.GE_TEMP_%'
-                AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-                AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
                 AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
-            ),
+        ),
         column_upstream_jobs AS (
             SELECT
                 downstream_table_name,
@@ -767,14 +773,16 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             UNION
             select distinct downstream_table_name, query_id from column_upstream_jobs_unique
         ),
+        filtered_query_history AS (
+            SELECT *
+            FROM snowflake.account_usage.query_history
+            WHERE start_time >= to_timestamp_ltz({start_time_millis}, 3)
+                AND start_time < to_timestamp_ltz({end_time_millis}, 3)
+        ),
         queries AS (
             select qid.downstream_table_name, qid.query_id, query_history.query_text, query_history.start_time
-            from  query_ids qid
-            LEFT JOIN (
-                SELECT * FROM snowflake.account_usage.query_history
-                WHERE query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
-                    AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
-            ) query_history
+            from query_ids qid
+            LEFT JOIN filtered_query_history query_history
             on qid.query_id = query_history.query_id
             WHERE qid.query_id is not null
               AND query_history.query_text is not null
