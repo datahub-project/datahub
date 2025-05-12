@@ -32,7 +32,7 @@ def hex_mock_api_runner(docker_compose_runner, test_resources_dir):
 
     # Start Docker Compose
     with docker_compose_runner(
-        docker_dir / "docker-compose.yml", "hex-mock"
+        docker_dir / "docker-compose.yml", "hex-mock", parallel=1
     ) as docker_services:
         wait_for_port(
             docker_services,
