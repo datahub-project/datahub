@@ -150,12 +150,13 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
                 and "key" in rows[0]
                 and "value" in rows[0]
             ):
-                # Old format: multiple rows with key, value columns
+                #  https://trino.io/docs/current/connector/iceberg.html#properties-table
                 for row in rows:
                     if row["value"] is not None:
                         properties[row["key"]] = row["value"]
                 return {"text": properties.get("comment"), "properties": properties}
             elif connector_name == "hive" and len(rows[0]) > 1 and len(rows) == 1:
+                #https://trino.io/docs/current/connector/hive.html#properties-table
                 row = rows[0]
                 for col_name, col_value in row.items():
                     if col_value is not None:
