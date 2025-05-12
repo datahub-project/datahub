@@ -156,7 +156,7 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
                         properties[row["key"]] = row["value"]
                 return {"text": properties.get("comment"), "properties": properties}
             elif connector_name == "hive" and len(rows[0]) > 1 and len(rows) == 1:
-                #https://trino.io/docs/current/connector/hive.html#properties-table
+                # https://trino.io/docs/current/connector/hive.html#properties-table
                 row = rows[0]
                 for col_name, col_value in row.items():
                     if col_value is not None:
