@@ -2,18 +2,13 @@ name: Docker Build, Scan, Test
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * *'  # Run at midnight UTC every day
+    - cron: "0 0 * * *" # Run at midnight UTC every day
   push:
     branches:
       - master
   pull_request:
     branches:
       - "**"
-    types:
-      - labeled
-      - opened
-      - synchronize
-      - reopened
   release:
     types: [published]
 
@@ -39,7 +34,7 @@ jobs:
   setup:
     runs-on: depot-ubuntu-24.04-small
     outputs:
-      # TODO: Many of the vars below should not be required anymore. 
+      # TODO: Many of the vars below should not be required anymore.
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
       full_tag: ${{ steps.tag.outputs.full_tag }}
@@ -130,12 +125,12 @@ jobs:
         id: set-runner
         # This needs to handle two scenarios:
         # 1. Running on a PR from a fork. There are some auth issues that prevent us from using depot in that case.
-        #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test. 
+        #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test.
         #    Note, concurrency is lower when using github runners, queue times can be longer, test time is longer due to fewer parallel jobs.
-        # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master. 
-        #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency 
-        #    and hence short queue times and higher parallelism of smoke tests 
-        
+        # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
+        #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency
+        #    and hence short queue times and higher parallelism of smoke tests
+
         run: |
           if [[ "${{ env.DOCKER_CACHE }}" == "DEPOT" && "${{ env.DEPOT_PROJECT_ID }}" != "" ]]; then
             echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"
@@ -186,7 +181,7 @@ jobs:
     name: Build all images
     runs-on: ${{ needs.setup.outputs.build_runner_type }}
     needs: setup
-    if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}   # On fork, smoke test job does the build since depot cache is not available
+    if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
@@ -266,8 +261,6 @@ jobs:
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
 
-
-
   scan_images:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -289,7 +282,7 @@ jobs:
         run: |
           depot pull --project ${{ env.DEPOT_PROJECT_ID }} ${{ needs.base_build.outputs.build_id }} --target ${{ matrix.target}}
           docker images
-          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT 
+          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep ${{ needs.setup.outputs.tag }} )" >> $GITHUB_OUTPUT
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@0.30.0
@@ -313,7 +306,7 @@ jobs:
   smoke_test_matrix:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
     needs: setup
-    if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push') }}
+    if: ${{ (github.event_name == 'pull_request' || github.event_name == 'push' || github.event_name == 'release') }}
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       cypress_batch_count: ${{ steps.set-batch-count.outputs.cypress_batch_count }}
@@ -364,12 +357,7 @@ jobs:
   smoke_test:
     name: Run Smoke Tests (${{ matrix.test_strategy }}, Batch ${{ matrix.batch }}/${{ matrix.batch_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
-    needs:
-      [
-        setup,
-        smoke_test_matrix,
-        base_build,
-      ]
+    needs: [setup, smoke_test_matrix, base_build]
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
@@ -532,7 +520,6 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
-
 
   deploy_datahub_head:
     name: Deploy to Datahub HEAD

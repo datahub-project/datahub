@@ -148,7 +148,6 @@ docker {
     "slim": [suffix: "-slim", args: [APP_ENV: "slim", RELEASE_VERSION: python_docker_version]],
     "full": [suffix: "", args: [APP_ENV: "full", RELEASE_VERSION: python_docker_version]]
   ]
-
 }
 
 build.dependsOn install
