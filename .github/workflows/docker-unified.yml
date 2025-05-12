@@ -9,11 +9,6 @@ on:
   pull_request:
     branches:
       - "**"
-    types:
-      - labeled
-      - opened
-      - synchronize
-      - reopened
   release:
     types: [published]
 
@@ -144,6 +139,10 @@ jobs:
       - name: Determine runner type
         id: set-runner
         # This differs from oss. For fork, we always use depot runner. Retain as is during oss merges.
+        #    So, Its easier to just use the regular github actions cache and build all images for each parallel job running smoke test.
+        # 2. Running on a PR from a branch in the datahub-project org and push/schedule events on master.
+        #    Depot is used here for remote container builds in base_build and also for all runners. Depot runners support unlimited concurrency
+        #    and hence short queue times and higher parallelism of smoke tests
 
         run: |
           echo "build_runner_type=depot-ubuntu-24.04-4" >> "$GITHUB_OUTPUT"

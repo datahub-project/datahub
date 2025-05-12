@@ -91,6 +91,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "trino-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -152,22 +168,6 @@
             "typeNames": [
                 "Schema"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "trino-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:2d206e03e435f48a5b8bacf444bf565c",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ad9f7c5e0d4bf83d6278f62271c28761"
         }
     },
     "systemMetadata": {
@@ -324,8 +324,7 @@
                                 },
                                 "nativeDataType": "ARRAY(INTEGER())",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"ARRAY(INTEGER())\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }

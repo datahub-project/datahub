@@ -1,3 +1,4 @@
+import urllib.parse
 from typing import Optional
 
 import datahub.metadata.urns as urns
@@ -40,14 +41,15 @@ def make_url_for_urn(
 
     Examples:
         >>> make_url_for_urn("https://demo.datahub.com", "urn:li:container:b41c14bc5cb3ccfbb0433c8cbdef2992", tab="Contents")
-        'https://demo.datahub.com/container/urn:li:container:b41c14bc5cb3ccfbb0433c8cbdef2992/Contents'
+        'https://demo.datahub.com/container/urn%3Ali%3Acontainer%3Ab41c14bc5cb3ccfbb0433c8cbdef2992/Contents'
         >>> make_url_for_urn("https://demo.datahub.com", "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.actuating,PROD)")
-        'https://demo.datahub.com/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.actuating,PROD)/'
+        'https://demo.datahub.com/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Clong_tail_companions.adoption.actuating%2CPROD%29/'
     """
     entity_type = guess_entity_type(entity_urn)
+    encoded_entity_urn = urllib.parse.quote(entity_urn, safe="")
 
     url_prefix = _url_prefixes.get(entity_type, entity_type)
-    url = f"{frontend_base_url}/{url_prefix}/{entity_urn}/"
+    url = f"{frontend_base_url}/{url_prefix}/{encoded_entity_urn}/"
     if tab:
         url += f"{tab}"
     return url

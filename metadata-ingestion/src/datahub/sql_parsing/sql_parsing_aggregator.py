@@ -1753,8 +1753,9 @@ class SqlParsingAggregator(Closeable):
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
             actor=query.actor.urn() if query.actor else None,
-            customProperties=(
-                {"query_urn": self._query_urn(query_id)}
+            sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
+            queries=(
+                [self._query_urn(query_id)]
                 if self.can_generate_query(query_id)
                 else None
             ),

@@ -238,7 +238,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735298453"
+                "value": "1746461123"
             },
             {
                 "op": "add",
@@ -268,7 +268,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-27"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -318,8 +318,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "recordid",
@@ -335,7 +334,7 @@
                                 "nativeDataType": "map<int,string>",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"map<int,string>\", \"key_type\": {\"type\": \"int\", \"native_data_type\": \"int\", \"_nullable\": true}, \"key_native_data_type\": \"int\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"int\", \"native_data_type\": \"int\", \"_nullable\": true}, \"key_native_data_type\": \"int\"}"
                             }
                         ]
                     }
@@ -428,7 +427,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735298453"
+                "value": "1746461123"
             },
             {
                 "op": "add",
@@ -463,7 +462,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-27"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -573,8 +572,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=union].[type=struct0].foo.[type=string].b",
@@ -586,8 +584,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -680,7 +677,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735298453"
+                "value": "1746461123"
             },
             {
                 "op": "add",
@@ -715,7 +712,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-27"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -765,8 +762,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "service",
@@ -778,8 +774,7 @@
                                 },
                                 "nativeDataType": "struct<type:string,provider:struct<name:varchar(50),id:tinyint>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:struct<name:varchar(50),id:tinyint>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "service.type",
@@ -791,8 +786,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "service.provider",
@@ -804,8 +798,7 @@
                                 },
                                 "nativeDataType": "struct<name:varchar(50),id:tinyint>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<name:varchar(50),id:tinyint>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "service.provider.name",
@@ -817,8 +810,7 @@
                                 },
                                 "nativeDataType": "varchar(50)",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"varchar(50)\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "service.provider.id",
@@ -830,8 +822,7 @@
                                 },
                                 "nativeDataType": "tinyint",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -949,7 +940,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735298448"
+                "value": "1746461120"
             },
             {
                 "op": "add",
@@ -974,7 +965,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-27"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -1025,8 +1016,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
@@ -1043,8 +1033,7 @@
                                 },
                                 "nativeDataType": "array<struct<type:string,provider:array<int>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<type:string,provider:array<int>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -1056,8 +1045,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -1073,8 +1061,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1167,7 +1154,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735298442"
+                "value": "1746461116"
             },
             {
                 "op": "add",
@@ -1202,7 +1189,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-27"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -1252,8 +1239,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
@@ -1265,8 +1251,7 @@
                                 },
                                 "nativeDataType": "struct<type:string,provider:array<int>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:array<int>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
@@ -1278,8 +1263,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=array].[type=int].provider",
@@ -1295,8 +1279,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1389,7 +1372,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735298441"
+                "value": "1746461116"
             },
             {
                 "op": "add",
@@ -1424,7 +1407,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-27"
+                "value": "2025-05-05"
             }
         ]
     },
@@ -1474,8 +1457,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "bar",
@@ -1487,8 +1469,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1576,7 +1557,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735298433"
+                "value": "1746461113"
             },
             {
                 "op": "add",
@@ -1591,7 +1572,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-27"
+                "value": "2025-05-05"
             },
             {
                 "op": "add",
@@ -1646,8 +1627,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "baz",
@@ -1660,8 +1640,7 @@
                                 "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": true,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartitioningKey": true
                             },
                             {
                                 "fieldPath": "bar",
@@ -1673,8 +1652,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1787,8 +1765,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -1935,8 +1912,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service",
@@ -1952,8 +1928,7 @@
                                 },
                                 "nativeDataType": "array<struct<type:string,provider:array<int>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<type:string,provider:array<int>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=string].type",
@@ -1965,8 +1940,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].service.[type=array].[type=int].provider",
@@ -1982,8 +1956,7 @@
                                 },
                                 "nativeDataType": "array<int>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<int>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }

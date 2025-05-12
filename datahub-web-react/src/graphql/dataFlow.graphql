@@ -65,6 +65,9 @@ fragment dataFlowFields on DataFlow {
     activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
         total
     }
+    subTypes {
+        typeNames
+    }
     assetOrigin {
         ...originFields
     }

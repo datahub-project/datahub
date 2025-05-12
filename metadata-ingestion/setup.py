@@ -105,7 +105,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # We used to maintain an acryl-sqlglot fork: https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
     # but not longer do.
-    "sqlglot[rs]==26.6.0",
+    "sqlglot[rs]==26.16.4",
     "patchy==2.8.0",
 }
 
@@ -227,6 +227,8 @@ clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
     # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
     # Note that there's also a known issue around nested map types: https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/269.
+    # zstd needs to be pinned because the latest version causes issues on arm
+    "zstd<1.5.6.8",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
 }
 

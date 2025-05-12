@@ -163,8 +163,7 @@ def _patch_lineage() -> None:
 -    source_columns = set(find_all_in_scope(select, exp.Column))
 +    source_columns = list(find_all_in_scope(select, exp.Column))
 
--    # If the source is a UDTF find columns used in the UTDF to generate the table
-+    # If the source is a UDTF find columns used in the UDTF to generate the table
+     # If the source is a UDTF find columns used in the UDTF to generate the table
 +    source = scope.expression
      if isinstance(source, exp.UDTF):
 -        source_columns |= set(source.find_all(exp.Column))

@@ -7,7 +7,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
@@ -21,6 +23,7 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -74,6 +77,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   @Autowired private Tracer mockTracer;
   @Autowired private SpanContext mockSpanContext;
   @Autowired private ObjectMapper objectMapper;
+  @Autowired private TrackingService mockTrackingService;
 
   private final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
 
@@ -517,5 +521,137 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals(30000, jsonNode.get("readTimeout").asInt());
     assertTrue(jsonNode.get("extractJwtAccessTokenClaims").asBoolean());
     assertEquals("RS256", jsonNode.get("preferredJwsAlgorithm").asText());
+  }
+
+  @Test
+  public void testTrackSuccess() throws Exception {
+    // Setup
+    String eventPayload = "{\"type\":\"page_view\",\"properties\":{\"page\":\"dashboard\"}}";
+    HttpEntity<String> httpEntity = new HttpEntity<>(eventPayload);
+
+    // Mock tracking service (already @Autowired in the test class)
+    // No need to configure behavior as the method doesn't return anything
+
+    // Execute
+    ResponseEntity<String> response = authServiceController.track(httpEntity).join();
+
+    // Verify
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+
+    // Verify tracking service was called with correct parameters
+    ArgumentCaptor<JsonNode> jsonCaptor = ArgumentCaptor.forClass(JsonNode.class);
+    verify(mockTrackingService)
+        .emitAnalyticsEvent(eq(systemOperationContext), jsonCaptor.capture());
+
+    JsonNode capturedJson = jsonCaptor.getValue();
+    assertTrue(capturedJson.has("type"));
+    assertEquals("page_view", capturedJson.get("type").asText());
+    assertTrue(capturedJson.has("properties"));
+    assertTrue(capturedJson.get("properties").has("page"));
+    assertEquals("dashboard", capturedJson.get("properties").get("page").asText());
+  }
+
+  @Test
+  public void testTrackBadRequest() throws Exception {
+    // Setup - invalid JSON
+    String invalidJson = "{malformed json";
+    HttpEntity<String> httpEntity = new HttpEntity<>(invalidJson);
+
+    // Execute
+    ResponseEntity<String> response = authServiceController.track(httpEntity).join();
+
+    // Verify
+    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+
+    // Verify tracking service was not called
+    verify(mockTrackingService, never()).emitAnalyticsEvent(any(), any());
+  }
+
+  @Test
+  public void testTrackMissingRequiredFields() throws Exception {
+    // Setup - missing type fields
+    String missingFieldsJson = "{\"user\":\"testUser\"}";
+    HttpEntity<String> httpEntity = new HttpEntity<>(missingFieldsJson);
+
+    // Execute
+    ResponseEntity<String> response = authServiceController.track(httpEntity).join();
+
+    // Verify
+    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+
+    // Verify tracking service was not called
+    verify(mockTrackingService, never()).emitAnalyticsEvent(any(), any());
+  }
+
+  @Test
+  public void testTrackServiceException() throws Exception {
+    // Setup
+    String eventPayload = "{\"type\":\"error_event\"}";
+    HttpEntity<String> httpEntity = new HttpEntity<>(eventPayload);
+
+    // Mock tracking service to throw exception
+    doThrow(new RuntimeException("Test exception"))
+        .when(mockTrackingService)
+        .emitAnalyticsEvent(eq(systemOperationContext), any(JsonNode.class));
+
+    // Execute
+    ResponseEntity<String> response = authServiceController.track(httpEntity).join();
+
+    // Verify
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
+  }
+
+  @Test
+  public void testTrackWithComplexPageViewEventPayload() throws Exception {
+    // Setup
+    String complexPayload =
+        "{\n"
+            + "  \"title\" : \"DataHub\",\n"
+            + "  \"url\" : \"http://localhost:9002/\",\n"
+            + "  \"path\" : \"/\",\n"
+            + "  \"hash\" : \"\",\n"
+            + "  \"search\" : \"\",\n"
+            + "  \"width\" : 1785,\n"
+            + "  \"height\" : 857,\n"
+            + "  \"referrer\" : \"http://localhost:9002/\",\n"
+            + "  \"prevPathname\" : \"http://localhost:9002/\",\n"
+            + "  \"type\" : \"PageViewEvent\",\n"
+            + "  \"actorUrn\" : \"urn:li:corpuser:datahub\",\n"
+            + "  \"timestamp\" : 1746475429127,\n"
+            + "  \"date\" : \"Mon May 05 2025 15:03:49 GMT-0500 (Central Daylight Time)\",\n"
+            + "  \"userAgent\" : \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36\",\n"
+            + "  \"browserId\" : \"xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx\",\n"
+            + "  \"origin\" : \"http://localhost:9002\",\n"
+            + "  \"isThemeV2Enabled\" : true,\n"
+            + "  \"userPersona\" : \"urn:li:dataHubPersona:businessUser\",\n"
+            + "  \"serverVersion\" : \"v1.1.0\"\n"
+            + "}";
+
+    HttpEntity<String> httpEntity = new HttpEntity<>(complexPayload);
+
+    // Execute
+    ResponseEntity<String> response = authServiceController.track(httpEntity).join();
+
+    // Verify response status
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+
+    // Verify tracking service was called with correct parameters
+    ArgumentCaptor<JsonNode> jsonCaptor = ArgumentCaptor.forClass(JsonNode.class);
+    verify(mockTrackingService)
+        .emitAnalyticsEvent(eq(systemOperationContext), jsonCaptor.capture());
+
+    // Verify the complex JSON structure was correctly parsed and passed to the tracking service
+    JsonNode capturedJson = jsonCaptor.getValue();
+
+    // Verify key fields from the complex payload
+    assertEquals("DataHub", capturedJson.get("title").asText());
+    assertEquals("http://localhost:9002/", capturedJson.get("url").asText());
+    assertEquals("PageViewEvent", capturedJson.get("type").asText());
+    assertEquals("urn:li:corpuser:datahub", capturedJson.get("actorUrn").asText());
+    assertEquals(1746475429127L, capturedJson.get("timestamp").asLong());
+    assertEquals("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx", capturedJson.get("browserId").asText());
+    assertEquals("urn:li:dataHubPersona:businessUser", capturedJson.get("userPersona").asText());
+    assertEquals("v1.1.0", capturedJson.get("serverVersion").asText());
+    assertTrue(capturedJson.get("isThemeV2Enabled").asBoolean());
   }
 }
