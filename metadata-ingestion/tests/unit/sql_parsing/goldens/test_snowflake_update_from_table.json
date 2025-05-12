@@ -68,8 +68,8 @@
         {
             "join_type": "JOIN",
             "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)"
             ],
             "on_clause": "\"T1\".\"ID\" = \"T2\".\"ID\"",
             "columns_involved": [

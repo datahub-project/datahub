@@ -106,8 +106,8 @@
         {
             "join_type": "JOIN",
             "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)"
             ],
             "on_clause": "`table3`.`col5` = `cte1`.`col2`",
             "columns_involved": [

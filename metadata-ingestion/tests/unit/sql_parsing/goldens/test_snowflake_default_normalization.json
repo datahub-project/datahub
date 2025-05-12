@@ -153,8 +153,8 @@
         {
             "join_type": "JOIN",
             "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.customer_last_purchase_date,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.purchases,PROD)"
             ],
             "on_clause": "\"ACTIVE_CUSTOMERS\".\"USER_FK\" = \"PURCHASES\".\"USER_FK\"",
             "columns_involved": [

@@ -55,6 +55,7 @@ from datahub.utilities.cooperative_timeout import (
     cooperative_timeout,
 )
 from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.ordered_set import OrderedSet
 
 assert SQLGLOT_PATCHED
 
@@ -682,9 +683,9 @@ def _column_level_lineage(
 
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
-) -> Set[_ColumnRef]:
-    # Using a set here to deduplicate upstreams.
-    direct_raw_col_upstreams: Set[_ColumnRef] = set()
+) -> OrderedSet[_ColumnRef]:
+    # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
+    direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
 
     for node in lineage_node.walk():
         if node.downstream:
@@ -771,11 +772,11 @@ def _get_raw_col_upstreams_for_expression(
     select: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
     scope: sqlglot.optimizer.Scope,
-) -> Set[_ColumnRef]:
+) -> OrderedSet[_ColumnRef]:
     if not isinstance(scope.expression, sqlglot.exp.Query):
         # Note that Select, Subquery, SetOperation, etc. are all subclasses of Query.
         # So this line should basically never happen.
-        return set()
+        return OrderedSet()
 
     original_expression = scope.expression
     updated_expression = scope.expression.select(select, append=False, copy=True)
