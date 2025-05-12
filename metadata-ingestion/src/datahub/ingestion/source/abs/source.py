@@ -200,7 +200,29 @@ class ABSSource(StatefulIngestionSourceBase):
                     max_rows=self.source_config.max_rows
                 ).infer_schema(file)
             elif extension == ".json":
-                fields = json.JsonInferrer().infer_schema(file)
+                try:
+                    # First try to parse as regular JSON
+                    fields = json.JsonInferrer().infer_schema(file)
+                except Exception:
+                    # If JSON parsing fails, try as JSONL instead
+                    # Seeking back to the beginning of the file
+                    file.seek(0)
+                    try:
+                        logger.debug(
+                            f"File {table_data.full_path} couldn't be parsed as JSON. Trying JSONL format instead."
+                        )
+                        fields = json.JsonInferrer(
+                            max_rows=self.source_config.max_rows, format="jsonl"
+                        ).infer_schema(file)
+                        logger.debug(
+                            f"Successfully parsed {table_data.full_path} as JSONL."
+                        )
+                    except Exception as e:
+                        self.report.report_warning(
+                            message="Failed to parse file as both JSON and JSONL",
+                            context=table_data.full_path,
+                            exc=e,
+                        )
             elif extension == ".jsonl":
                 fields = json.JsonInferrer(
                     max_rows=self.source_config.max_rows, format="jsonl"
