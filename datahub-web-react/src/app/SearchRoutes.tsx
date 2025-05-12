@@ -62,7 +62,11 @@ export const SearchRoutes = (): JSX.Element => {
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
     if (me.platformPrivileges === undefined) {
-        return <Spin indicator={<LoadingOutlined style={{ color: ANTD_GRAY[7] }} />} />;
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <Spin indicator={<LoadingOutlined style={{ color: ANTD_GRAY[7] }} />} />
+            </div>
+        );
     }
 
     return (
