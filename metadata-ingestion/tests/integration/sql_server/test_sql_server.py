@@ -28,20 +28,18 @@ def mssql_runner(docker_compose_runner, pytestconfig):
         wait_for_port(docker_services, "testsqlserver", 1433)
         time.sleep(5)
 
-        # Run the setup.sql file to populate the database.
-        command = "docker exec testsqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql"
+        # Run the setup.sql file to populate the database; -b and -V 1, to fail on error
+        command = "docker exec testsqlserver /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'test!Password' -d master -i /setup/setup.sql -b -V 1"
         print("\nExecuting SQL setup command:", command)
         ret = subprocess.run(command, shell=True, capture_output=True, text=True)
 
-        # Note: sqlcmd returns 0 even when there are SQL errors in the script.
-        # Developers must check the output for "Msg" entries to identify actual SQL errors.
-
-        print("\nSQL Command Results:")
-        print(f"Return code: {ret.returncode}")
-        print("STDOUT:")
-        print(ret.stdout)
-        print("STDERR:")
-        print(ret.stderr)
+        if ret.returncode != 0:
+            print(f"sqlcmd return code: {ret.returncode}")
+            print(f"sqlcmd stdout:\n{ret.stdout}")
+            print(f"sqlcmd stderr:\n{ret.stderr}")
+            raise Exception(
+                "SQL Server setup failed. Check the output above for details."
+            )
 
         yield docker_services
 
