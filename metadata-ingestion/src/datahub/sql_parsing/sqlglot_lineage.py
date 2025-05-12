@@ -149,12 +149,14 @@ class ColumnLineageInfo(_ParserBaseModel):
 
 
 class _JoinInfo(_ParserBaseModel):
+    join_type: str
     tables: List[_TableName]
     on_clause: str
     columns_involved: List[_ColumnRef]
 
 
 class JoinInfo(_ParserBaseModel):
+    join_type: str
     tables: List[Urn]
     on_clause: str
     columns_involved: List[ColumnRef]
@@ -804,16 +806,16 @@ def _list_joins(
         for join in scope.find_all(sqlglot.exp.Join):
             on_clause = join.args.get("on")
             if not on_clause:
+                # We don't need to check for `using` here because it's normalized to `on`
+                # by the sqlglot optimizer.
                 logger.debug(
                     "Skipping join without ON clause: %s",
                     join.sql(dialect=dialect),
                 )
                 continue
 
-            joined_columns = sorted(
-                _get_raw_col_upstreams_for_expression(
-                    select=on_clause, dialect=dialect, scope=scope
-                )
+            joined_columns = _get_raw_col_upstreams_for_expression(
+                select=on_clause, dialect=dialect, scope=scope
             )
 
             unique_tables = deduplicate_list(col.table for col in joined_columns)
@@ -826,13 +828,39 @@ def _list_joins(
 
             joins.append(
                 _JoinInfo(
+                    join_type=_get_join_type(join),
                     tables=list(unique_tables),
                     on_clause=on_clause.sql(dialect=dialect),
-                    columns_involved=list(joined_columns),
+                    columns_involved=list(sorted(joined_columns)),
                 )
             )
 
     return joins
+
+
+def _get_join_type(join: sqlglot.exp.Join) -> str:
+    # Will return "LEFT JOIN", "RIGHT OUTER JOIN", etc.
+    # This is not really comprehensive - there's a couple other edge
+    # cases (e.g. STRAIGHT_JOIN, anti-join) that we don't handle.
+
+    components = []
+
+    # Add method if present (e.g. "HASH", "MERGE")
+    if method := join.args.get("method"):
+        components.append(method)
+
+    # Add side if present (e.g. "LEFT", "RIGHT")
+    if side := join.args.get("side"):
+        components.append(side)
+
+    # Add kind if present (e.g. "INNER", "OUTER", "SEMI", "ANTI")
+    if kind := join.args.get("kind"):
+        components.append(kind)
+
+    # Join the components and append "JOIN"
+    if not components:
+        return "JOIN"
+    return f"{' '.join(components)} JOIN"
 
 
 def _extract_select_from_create(
@@ -1029,6 +1057,7 @@ def _translate_internal_joins(
     for raw_join in raw_joins:
         joins.append(
             JoinInfo(
+                join_type=raw_join.join_type,
                 tables=[table_name_urn_mapping[table] for table in raw_join.tables],
                 on_clause=raw_join.on_clause,
                 columns_involved=[

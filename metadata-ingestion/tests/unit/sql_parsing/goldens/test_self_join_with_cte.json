@@ -84,6 +84,7 @@
     ],
     "joins": [
         {
+            "join_type": "JOIN",
             "tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
             ],

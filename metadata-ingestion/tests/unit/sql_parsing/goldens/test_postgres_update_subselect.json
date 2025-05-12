@@ -35,6 +35,7 @@
     ],
     "joins": [
         {
+            "join_type": "LEFT JOIN",
             "tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)"

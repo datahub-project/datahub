@@ -45,6 +45,7 @@
     ],
     "joins": [
         {
+            "join_type": "FULL JOIN",
             "tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.external_users,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.main_users,PROD)"

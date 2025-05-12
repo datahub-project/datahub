@@ -77,9 +77,10 @@
     ],
     "joins": [
         {
+            "join_type": "LEFT JOIN",
             "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)"
             ],
             "on_clause": "\"_u_0\".\"_u_1\" = \"table1\".\"id\"",
             "columns_involved": [

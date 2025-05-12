@@ -125,6 +125,7 @@
     ],
     "joins": [
         {
+            "join_type": "JOIN",
             "tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
             ],
@@ -137,6 +138,7 @@
             ]
         },
         {
+            "join_type": "JOIN",
             "tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
             ],
@@ -149,6 +151,7 @@
             ]
         },
         {
+            "join_type": "JOIN",
             "tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
             ],

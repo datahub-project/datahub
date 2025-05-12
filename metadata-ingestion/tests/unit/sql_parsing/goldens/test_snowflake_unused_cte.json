@@ -48,6 +48,7 @@
     ],
     "joins": [
         {
+            "join_type": "JOIN",
             "tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)"

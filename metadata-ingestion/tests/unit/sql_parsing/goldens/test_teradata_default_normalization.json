@@ -51,9 +51,10 @@
     ],
     "joins": [
         {
+            "join_type": "JOIN",
             "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)"
             ],
             "on_clause": "\"ppd\".\"patientid\" = \"ppf\".\"patientid\"",
             "columns_involved": [

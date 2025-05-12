@@ -69,9 +69,10 @@
     ],
     "joins": [
         {
+            "join_type": "JOIN",
             "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)"
             ],
             "on_clause": "\"c\".\"cust_id\" = \"o\".\"customer_id\"",
             "columns_involved": [
