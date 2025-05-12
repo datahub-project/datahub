@@ -13,7 +13,7 @@ This guide outlines how to properly back up both components to ensure complete r
 
 The recommended backup strategy is to periodically dump the `metadata_aspect_v2` table from the `datahub` database. This table contains all versioned aspects and can be restored in case of database failure. Most managed database services (e.g., AWS RDS) provide automated backup capabilities.
 
-#### AWS Managed RDS 
+#### AWS Managed RDS
 
 **Option 1: Automated RDS Snapshots**
 
@@ -27,19 +27,19 @@ The recommended backup strategy is to periodically dump the `metadata_aspect_v2`
 
 For a targeted backup of only the essential metadata:
 
-```mysqldump -h <rds-endpoint> -u <username> -p datahub metadata_aspect_v2 > metadata_aspect_v2_backup.sql```
+`mysqldump -h <rds-endpoint> -u <username> -p datahub metadata_aspect_v2 > metadata_aspect_v2_backup.sql`
 
 To compress the backup:
 
-```mysqldump -h <rds-endpoint> -u <username> -p datahub metadata_aspect_v2 | gzip > metadata_aspect_v2_backup.sql.gz```
+`mysqldump -h <rds-endpoint> -u <username> -p datahub metadata_aspect_v2 | gzip > metadata_aspect_v2_backup.sql.gz`
 
 #### Self-Hosted MySQL
 
-```mysqldump -u <username> -p datahub metadata_aspect_v2 > metadata_aspect_v2_backup.sql```
+`mysqldump -u <username> -p datahub metadata_aspect_v2 > metadata_aspect_v2_backup.sql`
 
 Compressed version:
 
-```mysqldump -u <username> -p datahub metadata_aspect_v2 | gzip > metadata_aspect_v2_backup.sql.gz```
+`mysqldump -u <username> -p datahub metadata_aspect_v2 | gzip > metadata_aspect_v2_backup.sql.gz`
 
 ### Backing Up Time Series Aspects (Elasticsearch/OpenSearch)
 
@@ -52,48 +52,38 @@ Time Series Aspects power important features like usage statistics, dataset prof
    Create an IAM role with permissions to write to an S3 bucket:
 
 ```json
-   {
-      "Version": "2012-10-17",
-      "Statement": [
-         {
-            "Action": [
-              "s3:ListBucket"
-            ],
-            "Effect": "Allow",
-            "Resource": [
-              "arn:aws:s3:::your-backup-bucket"
-            ]
-         },
-         {
-            "Action": [
-               "s3:GetObject",
-               "s3:PutObject",
-               "s3:DeleteObject"
-            ],
-            "Effect": "Allow",
-            "Resource": [
-              "arn:aws:s3:::your-backup-bucket/*"
-            ]
-         }
-      ]
-   }
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": ["s3:ListBucket"],
+      "Effect": "Allow",
+      "Resource": ["arn:aws:s3:::your-backup-bucket"]
+    },
+    {
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Effect": "Allow",
+      "Resource": ["arn:aws:s3:::your-backup-bucket/*"]
+    }
+  ]
+}
 ```
 
-   Ensure the trust relationship allows OpenSearch to assume this role:
-   
+Ensure the trust relationship allows OpenSearch to assume this role:
+
 ```json
-   {
-      "Version": "2012-10-17",
-      "Statement": [
-         {
-            "Effect": "Allow",
-            "Principal": {
-               "Service": "es.amazonaws.com"
-            },
-            "Action": "sts:AssumeRole"
-         }
-      ]
-   }
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "es.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}
 ```
 
 2. **Register a Snapshot Repository**
@@ -110,7 +100,7 @@ Time Series Aspects power important features like usage statistics, dataset prof
    }
 ```
 
-   > ⚠️ **Important**: The S3 bucket must be in the same AWS region as your OpenSearch domain.
+> ⚠️ **Important**: The S3 bucket must be in the same AWS region as your OpenSearch domain.
 
 3. **Create a Regular Snapshot Schedule**
 
@@ -138,15 +128,15 @@ Time Series Aspects power important features like usage statistics, dataset prof
    }
 ```
 
-   This configures daily snapshots with a 15-day retention period.
+This configures daily snapshots with a 15-day retention period.
 
 4. **Take a Manual Snapshot** (if needed)
 
-   ```PUT _snapshot/datahub_s3_backup/snapshot_YYYY_MM_DD?wait_for_completion=true```
+   `PUT _snapshot/datahub_s3_backup/snapshot_YYYY_MM_DD?wait_for_completion=true`
 
 5. **Verify Snapshot Status**
 
-   ```GET _snapshot/datahub_s3_backup/snapshot_YYYY_MM_DD```
+   `GET _snapshot/datahub_s3_backup/snapshot_YYYY_MM_DD`
 
 #### Self-Hosted Elasticsearch
 
@@ -173,11 +163,11 @@ Time Series Aspects power important features like usage statistics, dataset prof
 
 3. **Create a Snapshot**
 
-   PUT _snapshot/datahub_fs_backup/snapshot_YYYY_MM_DD?wait_for_completion=true
+   PUT \_snapshot/datahub_fs_backup/snapshot_YYYY_MM_DD?wait_for_completion=true
 
 4. **Check Snapshot Status**
 
-   GET _snapshot/datahub_fs_backup/snapshot_YYYY_MM_DD
+   GET \_snapshot/datahub_fs_backup/snapshot_YYYY_MM_DD
 
 ## Restoring DataHub from Backups
 
@@ -193,7 +183,7 @@ Time Series Aspects power important features like usage statistics, dataset prof
 
 ### Restoring Elasticsearch/OpenSearch Indices
 
-After restoring the database, you need to restore the search and graph indices using your snapshots. 
+After restoring the database, you need to restore the search and graph indices using your snapshots.
 
 Note that you can also rebuild the index from scratch after restoring the MySQL / Postgres Document Store,
 as outlined [here](./restore-indices.md).

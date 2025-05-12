@@ -1,4 +1,3 @@
-
 # Search and Graph Reindexing
 
 If your search infrastructure (Elasticsearch/OpenSearch) or graph services (Elasticsearch/OpenSearch/Neo4j) become inconsistent or out-of-sync with your primary metadata store, you can **rebuild them from the source of truth**: the `metadata_aspect_v2` table in your relational database (MySQL/Postgres).
@@ -27,36 +26,36 @@ When running the `RestoreIndices` job, you can pass additional arguments to cust
 
 ### 🔄 Pagination & Performance
 
-| Argument           | Description |
-|--------------------|-------------|
+| Argument             | Description                                                                 |
+| -------------------- | --------------------------------------------------------------------------- |
 | `urnBasedPagination` | Use URN-based pagination instead of offset. Recommended for large datasets. |
-| `startingOffset`     | Starting offset for offset-based pagination. |
-| `lastUrn`            | Resume from this URN (used with URN pagination). |
-| `lastAspect`         | Resume from this aspect name (used with `lastUrn`). |
-| `numThreads`         | Number of concurrent threads for reindexing. |
-| `batchSize`          | Number of records per batch. |
-| `batchDelayMs`       | Delay in milliseconds between each batch (throttling). |
+| `startingOffset`     | Starting offset for offset-based pagination.                                |
+| `lastUrn`            | Resume from this URN (used with URN pagination).                            |
+| `lastAspect`         | Resume from this aspect name (used with `lastUrn`).                         |
+| `numThreads`         | Number of concurrent threads for reindexing.                                |
+| `batchSize`          | Number of records per batch.                                                |
+| `batchDelayMs`       | Delay in milliseconds between each batch (throttling).                      |
 
 ### 📅 Time Filtering
 
-| Argument         | Description |
-|------------------|-------------|
-| `gePitEpochMs`   | Only restore aspects created **after** this timestamp (in ms). |
-| `lePitEpochMs`   | Only restore aspects created **before** this timestamp (in ms). |
+| Argument       | Description                                                     |
+| -------------- | --------------------------------------------------------------- |
+| `gePitEpochMs` | Only restore aspects created **after** this timestamp (in ms).  |
+| `lePitEpochMs` | Only restore aspects created **before** this timestamp (in ms). |
 
 ### 🔍 Content Filtering
 
-| Argument      | Description |
-|---------------|-------------|
+| Argument      | Description                                                            |
+| ------------- | ---------------------------------------------------------------------- |
 | `aspectNames` | Comma-separated list of aspects to restore (e.g., `ownership,status`). |
-| `urnLike`     | SQL LIKE pattern to filter URNs (e.g., `urn:li:dataset%`). |
+| `urnLike`     | SQL LIKE pattern to filter URNs (e.g., `urn:li:dataset%`).             |
 
 ### 🧱 Other Options
 
-| Argument             | Description |
-|----------------------|-------------|
+| Argument               | Description                                                                                                 |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `createDefaultAspects` | Whether to create default aspects in SQL & index if missing. **Disable** this if using a read-only replica. |
-| `clean`                | **Deletes existing index documents before restoring.** Use with caution. |
+| `clean`                | **Deletes existing index documents before restoring.** Use with caution.                                    |
 
 ---
 
