@@ -285,15 +285,22 @@ def extract_dbt_entities(
 
 
 def _parse_dbt_timestamp(timestamp: str) -> datetime:
-    try:
-        return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
-            tzinfo=timezone.utc
-        )
-    except ValueError:
-        return datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%SZ").replace(
-            tzinfo=timezone.utc
-        )
-
+    # List of potential timestamp formats
+    formats = [
+        "%Y-%m-%dT%H:%M:%S.%fZ",  # Format with microseconds
+        "%Y-%m-%dT%H:%M:%SZ",     # Format without microseconds
+    ]
+    
+    for fmt in formats:
+        try:
+            parsed_time = datetime.strptime(timestamp, fmt).replace(tzinfo=timezone.utc)
+            # Ensure microseconds are present
+            if not parsed_time.microsecond:
+                parsed_time = parsed_time.replace(microsecond=0)
+            return parsed_time
+        except ValueError:
+            continue 
+    raise ValueError(f"Timestamp '{timestamp}' does not match any known formats.")
 
 class DBTRunTiming(BaseModel):
     name: Optional[str] = None
