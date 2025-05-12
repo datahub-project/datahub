@@ -33,6 +33,10 @@ JSON_RESPONSE_MAP = {
 
 ERROR_URL = "https://app.mode.com/api/acryl/spaces/75737b70402e/reports"
 
+EMBEDDED_KEY_LOOKUP = {
+    "datasets": "reports",
+}
+
 test_resources_dir = pathlib.Path(__file__).parent
 
 
@@ -71,6 +75,8 @@ class MockResponse:
                 data["_links"]["self"]["href"] = base_url
                 endpoint_paths = base_url.rstrip("/").split("/")
                 last_path = endpoint_paths[-1]
+                if last_path in EMBEDDED_KEY_LOOKUP:
+                    last_path = EMBEDDED_KEY_LOOKUP[last_path]
                 data["_embedded"][last_path] = []
                 self.json_data = data
         else:

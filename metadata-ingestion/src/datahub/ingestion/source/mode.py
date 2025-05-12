@@ -114,8 +114,12 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.utilities import config_clean
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
+# Default API limit for items returned per API call
+# Used for the default per_page value for paginated API requests
+DEFAULT_API_ITEMS_PER_PAGE = 30
 
 
 class SpaceKey(ContainerKey):
@@ -194,9 +198,24 @@ class ModeConfig(
         default=True, description="Tag measures and dimensions in the schema"
     )
 
+    items_per_page: int = Field(
+        default=DEFAULT_API_ITEMS_PER_PAGE,
+        description="Number of items per page for paginated API requests.",
+        hidden_from_docs=True,
+    )
+
     @validator("connect_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @validator("items_per_page")
+    def validate_items_per_page(cls, v):
+        if 1 <= v <= DEFAULT_API_ITEMS_PER_PAGE:
+            return v
+        else:
+            raise ValueError(
+                f"items_per_page must be between 1 and {DEFAULT_API_ITEMS_PER_PAGE}"
+            )
 
 
 class HTTPError429(HTTPError):
@@ -224,6 +243,16 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     num_requests_exceeding_rate_limit: int = 0
     num_requests_retried_on_timeout: int = 0
     num_spaces_retrieved: int = 0
+    space_get_api_called: int = 0
+    report_get_api_called: int = 0
+    dataset_get_api_called: int = 0
+    query_get_api_called: int = 0
+    chart_get_api_called: int = 0
+    space_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    report_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    dataset_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    query_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    chart_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     def report_dropped_space(self, ent_name: str) -> None:
         self.filtered_spaces.append(ent_name)
@@ -582,35 +611,39 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
         try:
+            self.report.space_get_api_called += 1
             logger.debug(f"Retrieving spaces for {self.workspace_uri}")
-            for spaces_page in self._get_paged_request_json(
-                f"{self.workspace_uri}/spaces?filter=all", "spaces", 30
-            ):
-                logger.debug(
-                    f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
-                )
-                self.report.num_spaces_retrieved += len(spaces_page)
-                for s in spaces_page:
-                    logger.debug(f"Space: {s.get('name')}")
-                    space_name = s.get("name", "")
-                    # Using both restricted and default_access_level because
-                    # there is a current bug with restricted returning False everytime
-                    # which has been reported to Mode team
-                    if self.config.exclude_restricted and (
-                        s.get("restricted")
-                        or s.get("default_access_level") == "restricted"
-                    ):
-                        logging.debug(
-                            f"Skipping space {space_name} due to exclude restricted"
-                        )
-                        continue
-                    if not self.config.space_pattern.allowed(space_name):
-                        self.report.report_dropped_space(space_name)
-                        logging.debug(
-                            f"Skipping space {space_name} due to space pattern"
-                        )
-                        continue
-                    space_info[s.get("token", "")] = s.get("name", "")
+            with self.report.space_get_timer:
+                for spaces_page in self._get_paged_request_json(
+                    f"{self.workspace_uri}/spaces?filter=all",
+                    "spaces",
+                    self.config.items_per_page,
+                ):
+                    logger.debug(
+                        f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
+                    )
+                    self.report.num_spaces_retrieved += len(spaces_page)
+                    for s in spaces_page:
+                        logger.debug(f"Space: {s.get('name')}")
+                        space_name = s.get("name", "")
+                        # Using both restricted and default_access_level because
+                        # there is a current bug with restricted returning False everytime
+                        # which has been reported to Mode team
+                        if self.config.exclude_restricted and (
+                            s.get("restricted")
+                            or s.get("default_access_level") == "restricted"
+                        ):
+                            logging.debug(
+                                f"Skipping space {space_name} due to exclude restricted"
+                            )
+                            continue
+                        if not self.config.space_pattern.allowed(space_name):
+                            self.report.report_dropped_space(space_name)
+                            logging.debug(
+                                f"Skipping space {space_name} due to space pattern"
+                            )
+                            continue
+                        space_info[s.get("token", "")] = s.get("name", "")
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Spaces",
@@ -1418,16 +1451,17 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_reports(self, space_token: str) -> List[dict]:
         reports = []
         try:
-            for reports_page in self._get_paged_request_json(
-                f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
-                "reports",
-                30,
-            ):
-                logger.debug(
-                    f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
-                )
-                reports.extend(reports_page)
-
+            self.report.report_get_api_called += 1
+            with self.report.report_get_timer:
+                for reports_page in self._get_paged_request_json(
+                    f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
+                    "reports",
+                    self.config.items_per_page,
+                ):
+                    logger.debug(
+                        f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
+                    )
+                    reports.extend(reports_page)
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Reports for Space",
@@ -1443,9 +1477,17 @@ class ModeSource(StatefulIngestionSourceBase):
         """
         datasets = []
         try:
-            url = f"{self.workspace_uri}/spaces/{space_token}/datasets"
-            datasets_json = self._get_request_json(url)
-            datasets = datasets_json.get("_embedded", {}).get("reports", [])
+            self.report.dataset_get_api_called += 1
+            with self.report.dataset_get_timer:
+                for dataset_page in self._get_paged_request_json(
+                    f"{self.workspace_uri}/spaces/{space_token}/datasets?filter=all",
+                    "reports",
+                    self.config.items_per_page,
+                ):
+                    logger.debug(
+                        f"Read {len(dataset_page)} datasets records from workspace {self.workspace_uri} space {space_token}"
+                    )
+                    datasets.extend(dataset_page)
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Datasets for Space",
@@ -1458,10 +1500,17 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_queries(self, report_token: str) -> list:
         queries = []
         try:
-            queries_json = self._get_request_json(
-                f"{self.workspace_uri}/reports/{report_token}/queries"
-            )
-            queries = queries_json.get("_embedded", {}).get("queries", {})
+            self.report.query_get_api_called += 1
+            with self.report.query_get_timer:
+                for query_page in self._get_paged_request_json(
+                    f"{self.workspace_uri}/reports/{report_token}/queries?filter=all",
+                    "queries",
+                    self.config.items_per_page,
+                ):
+                    logger.debug(
+                        f"Read {len(query_page)} queries records from workspace {self.workspace_uri} report {report_token}"
+                    )
+                    queries.extend(query_page)
         except ModeRequestError as e:
             if isinstance(e, HTTPError) and e.response.status_code == 404:
                 self.report.report_warning(
@@ -1478,32 +1527,39 @@ class ModeSource(StatefulIngestionSourceBase):
         return queries
 
     @lru_cache(maxsize=None)
-    def _get_last_query_run(
-        self, report_token: str, report_run_id: str, query_run_id: str
-    ) -> Dict:
+    def _get_last_query_run(self, report_token: str, report_run_id: str) -> list:
+        # This function is unused and may be subject to removal in a future revision of this source
+        query_runs = []
         try:
-            queries_json = self._get_request_json(
-                f"{self.workspace_uri}/reports/{report_token}/runs/{report_run_id}/query_runs{query_run_id}"
-            )
-            queries = queries_json.get("_embedded", {}).get("queries", {})
+            for query_run_page in self._get_paged_request_json(
+                f"{self.workspace_uri}/reports/{report_token}/runs/{report_run_id}/query_runs?filter=all",
+                "query_runs",
+                self.config.items_per_page,
+            ):
+                query_runs.extend(query_run_page)
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Queries for Report",
                 message="Unable to retrieve queries for report token.",
                 context=f"Report Token:{report_token}, Error: {str(e)}",
             )
-            return {}
-        return queries
+        return query_runs
 
     @lru_cache(maxsize=None)
     def _get_charts(self, report_token: str, query_token: str) -> list:
         charts = []
         try:
-            charts_json = self._get_request_json(
-                f"{self.workspace_uri}/reports/{report_token}"
-                f"/queries/{query_token}/charts"
-            )
-            charts = charts_json.get("_embedded", {}).get("charts", {})
+            self.report.chart_get_api_called += 1
+            with self.report.chart_get_timer:
+                for charts_page in self._get_paged_request_json(
+                    f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts?filter=all",
+                    "charts",
+                    self.config.items_per_page,
+                ):
+                    logger.debug(
+                        f"Read {len(charts_page)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
+                    )
+                    charts.extend(charts_page)
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Charts",
