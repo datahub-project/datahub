@@ -11,7 +11,7 @@ from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.utils import wait_for_writes_to_sync
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def sync_elastic() -> None:
