@@ -7,7 +7,7 @@ from datahub.sdk.search_filters import Filter
 
 from datahub_integrations.chat.tool import ToolRegistry, ToolRunError
 
-fake_mcp = ToolRegistry()
+fake_mcp = ToolRegistry(tool_name_prefix="fake_mcp")
 
 
 @fake_mcp.tool(description="Search for stuff")
@@ -18,9 +18,9 @@ def search(query: str, filter: Optional[Filter], num_results: int = 10) -> Filte
 
 
 def test_tool_call() -> None:
-    assert set(fake_mcp.tools.keys()) == {"search"}
+    assert set(fake_mcp.tools.keys()) == {"fake_mcp__search"}
 
-    search_tool = fake_mcp.tools["search"]
+    search_tool = fake_mcp.tools["fake_mcp__search"]
 
     result = search_tool.run(
         {

@@ -83,6 +83,23 @@ If you need to provide more information, focus on the most relevant points and s
 Break down complex information into bullet points for better readability.""",
 )
 
+_SYSTEM_PROMPT = """\
+The assistant is DataHub AI, created by Acryl Data.
+
+DataHub AI is a helpful assistant that can answer questions and help with tasks relating to \
+metadata management, data discovery, data governance, and data quality.
+
+DataHub AI provides thorough responses to more complex and open-ended questions or to anything where a long response is requested, but concise responses to simpler questions and tasks.
+
+DataHub AI makes use of the available tools in order to effectively answer the person's question. DataHub AI will typically make multiple tool calls in order to answer a single question, and will stop asking for more tool calls once it has enough information to answer the question.
+
+DataHub AI provides the shortest answer it can to the person’s message, while respecting any stated length and comprehensiveness preferences given by the person. DataHub AI addresses the specific query or task at hand, avoiding tangential information unless absolutely critical for completing the request.
+
+DataHub AI avoids writing lists, but if it does need to write a list, DataHub AI focuses on key info instead of trying to be comprehensive. If DataHub AI can answer the human in 1-3 sentences or a short paragraph, it does. If DataHub AI can write a natural language list of a few comma separated items instead of a numbered or bullet-pointed list, it does so. DataHub AI tries to stay focused and share fewer, high quality examples or ideas rather than many.
+
+DataHub AI is now being connected with a person.
+"""
+
 
 class ChatSession:
     def __init__(
@@ -99,6 +116,10 @@ class ChatSession:
         self._progress_callback = progress_callback
         self._progress_messages: List[str] = []  # Store progress messages
 
+        # This requires a model that supports prompt caching.
+        # See https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html#prompt-caching-models
+        self._use_prompt_caching = True
+
     @property
     def tool_map(self) -> Dict[str, Tool]:
         return {tool.name: tool for tool in self.tools}
@@ -111,7 +132,7 @@ class ChatSession:
         )
 
     def _add_message(self, message: Message) -> None:
-        logger.info(f"Adding message: {message}")
+        logger.debug(f"Adding message: {message}")
         self.history.add_message(message)
 
         # Add internal messages to progress display
@@ -154,17 +175,65 @@ class ChatSession:
         """Get user-friendly progress message for a tool"""
         return PROGRESS_MESSAGES.get(tool_name, DEFAULT_PROGRESS_MESSAGE)
 
+    def _prepare_messages(self) -> list[dict]:
+        # Message history will have something like this. Potential locations
+        # for cache points are marked with <cachepoint>. In general, potential
+        # locations are after any HumanMessage, AssistantMessage, or ToolResult{,Error}.
+        #
+        # - HumanMessage
+        #    <cachepoint>
+        # - ReasoningMessage #1
+        # - ToolCallRequest  -> model returns
+        # - ToolResult / ToolResultError
+        #    <cachepoint>
+        # - ReasoningMessage #2
+        # - ToolCallRequest  -> model returns
+        # - ToolResult / ToolResultError
+        # - AssistantMessage
+        #    <cachepoint>
+        #
+        # We want there to be at most 2 message cache points in each request to the model.
+        # The first cache point should make the query fast, and the second cache point
+        # sets us up to handle a subsequent request quickly. As long as a cache is used
+        # once, prompt caching will also be cheaper.
+
+        messages = self.history.messages
+        formatted_messages = [message.to_obj() for message in messages]
+
+        if self._use_prompt_caching:
+            potential_cache_point_indexes = [
+                i
+                for i, message in enumerate(messages)
+                if isinstance(
+                    message,
+                    (HumanMessage, AssistantMessage, ToolResult, ToolResultError),
+                )
+            ]
+            if len(potential_cache_point_indexes) > 2:
+                potential_cache_point_indexes = potential_cache_point_indexes[-2:]
+            for index in potential_cache_point_indexes:
+                formatted_messages[index]["content"].append(
+                    {"cachePoint": {"type": "default"}}
+                )
+
+        return formatted_messages
+
     def _generate_tool_call(self) -> None:
         bedrock_client = get_bedrock_client()
 
         self._report_progress("Thinking...")
 
-        # TODO: Add smart truncation / removal of messages if the history is too long.
-        messages = [message.to_obj() for message in self.history.messages]
+        messages = self._prepare_messages()
 
         tools = [tool.to_bedrock_spec() for tool in self.tools]
+        if self._use_prompt_caching:
+            tools.append({"cachePoint": {"type": "default"}})
+
         response = bedrock_client.converse(
             modelId=BedrockModel.CLAUDE_37_SONNET.value,
+            system=[
+                {"text": _SYSTEM_PROMPT},
+            ],
             messages=messages,  # type: ignore
             toolConfig={
                 "tools": tools,  # type: ignore

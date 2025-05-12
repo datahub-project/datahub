@@ -10,7 +10,7 @@ mcp_replaces = {
     """\
 mcp = FastMCP(name="datahub")
 """: """\
-mcp = ToolRegistry()
+mcp = ToolRegistry(tool_name_prefix="datahub")
 """,
 }
 

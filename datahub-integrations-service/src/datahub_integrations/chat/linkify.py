@@ -1,29 +1,14 @@
 import re
-from typing import Callable, Optional
+from typing import Callable
 
+from datahub.ingestion.graph.links import make_url_for_urn
 from datahub.metadata._urns.urn_defs import DatasetUrn
 from datahub.utilities.urns._urn_base import Urn
 from datahub.utilities.urns.error import InvalidUrnError
-from datahub.utilities.urns.urn import guess_entity_type
 
 
-def get_url_for_urn(frontend_url: str, entity_urn: str) -> Optional[str]:
-    entity_type = guess_entity_type(entity_urn)
-
-    url_prefixes = {
-        "dataset": "dataset",
-        "chart": "chart",
-        "dashboard": "dashboard",
-        "task": "tasks",
-        "pipeline": "pipelines",
-        "container": "container",
-        "domain": "domain",
-        "dataProduct": "dataProduct",
-        "glossaryTerm": "glossaryTerm",
-    }
-
-    url_prefix = url_prefixes.get(entity_type, entity_type)
-    return f"{frontend_url}/{url_prefix}/{entity_urn}/"
+def get_url_for_urn(frontend_url: str, entity_urn: str) -> str:
+    return make_url_for_urn(frontend_url, entity_urn)
 
 
 def _get_text_for_urn(urn: str) -> str:

@@ -28,9 +28,10 @@ experiments_dir = pathlib.Path(__file__).parent
 
 @mlflow.trace
 async def run_prompt(case: Prompt, local_results_dir: pathlib.Path) -> dict:
-    span = mlflow.get_current_active_span()
-    assert span is not None
-    span.set_attribute("prompt_id", case.id)
+    mlflow.update_current_trace(tags={"prompt_id": case.id})
+    # span = mlflow.get_current_active_span()
+    # assert span is not None
+    # span.set_attribute("prompt_id", case.id)
 
     try:
         graph = create_uncached_datahub_graph(key=case.instance)

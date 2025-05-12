@@ -1,17 +1,21 @@
 import contextlib
 import contextvars
+import json
 import pathlib
-from typing import Any, Dict, Iterator, Optional
+from typing import Any, Dict, Iterator, List, Optional
 
+import jmespath
+from datahub.errors import ItemNotFoundError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl
+from datahub.utilities.ordered_set import OrderedSet
 from pydantic import BaseModel
 
 from datahub_integrations.chat.tool import ToolRegistry
 
-mcp = ToolRegistry()
+mcp = ToolRegistry(tool_name_prefix="datahub")
 
 
 _mcp_dh_client = contextvars.ContextVar[DataHubClient]("_mcp_dh_client")
@@ -39,6 +43,15 @@ def _enable_cloud_fields(query: str) -> str:
     return query.replace("#[CLOUD]", "")
 
 
+def _is_datahub_cloud(graph: DataHubGraph) -> bool:
+    try:
+        # Only DataHub Cloud has a frontend base url.
+        _ = graph.frontend_base_url
+    except ValueError:
+        return False
+    return True
+
+
 def _execute_graphql(
     graph: DataHubGraph,
     *,
@@ -46,17 +59,28 @@ def _execute_graphql(
     operation_name: Optional[str] = None,
     variables: Optional[Dict[str, Any]] = None,
 ) -> Any:
-    try:
-        # Only DataHub Cloud has a frontend base url.
-        _ = graph.frontend_base_url
-    except ValueError:
-        pass
-    else:
+    if _is_datahub_cloud(graph):
         query = _enable_cloud_fields(query)
 
     return graph.execute_graphql(
         query=query, variables=variables, operation_name=operation_name
     )
+
+
+def _inject_urls_for_urns(
+    graph: DataHubGraph, response: Any, json_paths: List[str]
+) -> None:
+    if not _is_datahub_cloud(graph):
+        return
+
+    for path in json_paths:
+        for item in jmespath.search(path, response) if path else [response]:
+            if isinstance(item, dict) and item.get("urn"):
+                # Update item in place with url, ensuring that urn and url are first.
+                new_item = {"urn": item["urn"], "url": graph.url_for(item["urn"])}
+                new_item.update({k: v for k, v in item.items() if k != "urn"})
+                item.clear()
+                item.update(new_item)
 
 
 search_gql = (pathlib.Path(__file__).parent / "gql/search.gql").read_text()
@@ -87,6 +111,10 @@ def _clean_gql_response(response: Any) -> Any:
 def get_entity(urn: str) -> dict:
     client = get_client()
 
+    if not client._graph.exists(urn):
+        # TODO: Ideally we use the `exists` field to check this, and also deal with soft-deleted entities.
+        raise ItemNotFoundError(f"Entity {urn} not found")
+
     # Execute the GraphQL query
     variables = {"urn": urn}
     result = _execute_graphql(
@@ -94,14 +122,11 @@ def get_entity(urn: str) -> dict:
         query=entity_details_fragment_gql,
         variables=variables,
         operation_name="GetEntity",
-    )
+    )["entity"]
 
-    # Extract the entity data from the response
-    if "entity" in result:
-        return _clean_gql_response(result["entity"])
+    _inject_urls_for_urns(client._graph, result, [""])
 
-    # Return empty dict if entity not found
-    return {}
+    return _clean_gql_response(result)
 
 
 @mcp.tool(
@@ -169,45 +194,69 @@ def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> di
     variables = {"input": {"start": start, "count": count, "datasetUrn": dataset_urn}}
 
     # Execute the GraphQL query
-    result = _execute_graphql(
+    raw_result = _execute_graphql(
         client._graph,
         query=queries_gql,
         variables=variables,
         operation_name="listQueries",
     )
-    return _clean_gql_response(result["listQueries"])
+    result = _clean_gql_response(raw_result["listQueries"])
+
+    for query in result["queries"]:
+        if query.get("subjects"):
+            query["subjects"] = _deduplicate_subjects(query["subjects"])
+
+    return result
+
+
+def _deduplicate_subjects(subjects: list[dict]) -> list[str]:
+    # The "subjects" field returns every dataset and schema field associated with the query.
+    # While this is useful for our backend to have, it's not useful here because
+    # we can just look at the query directly. So we'll narrow it down to the unique
+    # list of dataset urns.
+    updated_subjects: OrderedSet[str] = OrderedSet()
+    for subject in subjects:
+        with contextlib.suppress(KeyError):
+            updated_subjects.add(subject["dataset"]["urn"])
+    return list(updated_subjects)
 
 
 class AssetLineageDirective(BaseModel):
     urn: str
     upstream: bool
     downstream: bool
-    num_hops: int
+    max_hops: int
 
 
 class AssetLineageAPI:
     def __init__(self, graph: DataHubGraph) -> None:
         self.graph = graph
 
-    def get_degree_filter(self, num_hops: int) -> Optional[Filter]:
+    def get_degree_filter(self, max_hops: int) -> Optional[Filter]:
         """
-        num_hops: Number of hops to search for lineage
+        max_hops: Maximum number of hops to search for lineage
         """
-        if num_hops < 1:
-            return None
-        else:
+        if max_hops == 1 or max_hops == 2:
             return FilterDsl.custom_filter(
                 field="degree",
                 condition="EQUAL",
-                values=[str(i) for i in range(1, num_hops + 1)],
+                values=[str(i) for i in range(1, max_hops + 1)],
             )
+        elif max_hops >= 3:
+            return FilterDsl.custom_filter(
+                field="degree",
+                condition="EQUAL",
+                values=["1", "2", "3+"],
+            )
+        else:
+            raise ValueError(f"Invalid number of hops: {max_hops}")
 
     def get_lineage(
         self, asset_lineage_directive: AssetLineageDirective
-    ) -> Dict[str, Dict[str, Any]]:
-        result: Dict[str, Dict[str, Any]] = {asset_lineage_directive.urn: {}}
+    ) -> Dict[str, Any]:
+        result: Dict[str, Any] = {}
 
-        degree_filter = self.get_degree_filter(asset_lineage_directive.num_hops)
+        degree_filter = self.get_degree_filter(asset_lineage_directive.max_hops)
         types, compiled_filters = compile_filters(degree_filter)
         variables = {
             "urn": asset_lineage_directive.urn,
@@ -215,9 +264,10 @@ class AssetLineageAPI:
             "count": 30,
             "types": types,
             "orFilters": compiled_filters,
+            "searchFlags": {"skipHighlighting": True, "maxAggValues": 3},
         }
         if asset_lineage_directive.upstream:
-            result[asset_lineage_directive.urn]["upstreams"] = _clean_gql_response(
+            result["upstreams"] = _clean_gql_response(
                 _execute_graphql(
                     self.graph,
                     query=entity_details_fragment_gql,
@@ -228,10 +278,10 @@ class AssetLineageAPI:
                         }
                     },
                     operation_name="GetEntityLineage",
-                )
+                )["searchAcrossLineage"]
             )
         if asset_lineage_directive.downstream:
-            result[asset_lineage_directive.urn]["downstreams"] = _clean_gql_response(
+            result["downstreams"] = _clean_gql_response(
                 _execute_graphql(
                     self.graph,
                     query=entity_details_fragment_gql,
@@ -242,7 +292,7 @@ class AssetLineageAPI:
                         }
                     },
                     operation_name="GetEntityLineage",
-                )
+                )["searchAcrossLineage"]
             )
 
         return result
@@ -250,16 +300,18 @@ class AssetLineageAPI:
 
 @mcp.tool(
     description="""\
-Use this tool to get upstream or downstream lineage for any entity. \
+Use this tool to get upstream or downstream lineage for any entity, including datasets, schemaFields, dashboards, charts, etc. \
 Set upstream to True for upstream lineage, False for downstream lineage."""
 )
-def get_lineage(urn: str, upstream: bool, num_hops: int = 1) -> dict:
+def get_lineage(urn: str, upstream: bool, max_hops: int = 1) -> dict:
     client = get_client()
     lineage_api = AssetLineageAPI(client._graph)
     asset_lineage_directive = AssetLineageDirective(
-        urn=urn, upstream=upstream, downstream=not upstream, num_hops=num_hops
+        urn=urn, upstream=upstream, downstream=not upstream, max_hops=max_hops
     )
-    return lineage_api.get_lineage(asset_lineage_directive)
+    lineage = lineage_api.get_lineage(asset_lineage_directive)
+    _inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
+    return lineage
 
 
 if __name__ == "__main__":
@@ -282,12 +334,18 @@ if __name__ == "__main__":
         search_data = search()
         for entity in search_data["searchResults"]:
             print(entity["entity"]["urn"])
-            urn = entity["entity"]["urn"]
+        urn = search_data["searchResults"][0]["entity"]["urn"]
     assert urn is not None
 
+    def _divider() -> None:
+        print("\n" + "-" * 80 + "\n")
+
+    _divider()
     print("Getting entity:", urn)
-    print(get_entity(urn))
+    print(json.dumps(get_entity(urn), indent=2))
+    _divider()
     print("Getting lineage:", urn)
-    print(get_lineage(urn, upstream=True))
+    print(json.dumps(get_lineage(urn, upstream=False, max_hops=3), indent=2))
+    _divider()
     print("Getting queries", urn)
-    print(get_dataset_queries(urn))
+    print(json.dumps(get_dataset_queries(urn), indent=2))

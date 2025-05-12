@@ -5,6 +5,7 @@ import pathlib
 import mlflow
 import pydantic
 import yaml
+from datahub.utilities.yaml_sync_utils import YamlFileUpdater
 
 from datahub_integrations.app import ROOT_DIR
 
@@ -41,3 +42,13 @@ prompts = load_prompts_file(prompts_file)
 _prompt_ids = [prompt.id for prompt in prompts]
 
 assert len(_prompt_ids) == len(set(_prompt_ids)), "Prompt ids must be unique"
+
+
+def update_prompt_guidelines(prompt_id: str, new_guidelines: str) -> None:
+    with YamlFileUpdater(prompts_file) as doc:
+        for prompt in doc:
+            if prompt["id"] == prompt_id:
+                prompt["response_guidelines"] = new_guidelines
+                break
+        else:
+            raise ValueError(f"Prompt with id {prompt_id} not found")

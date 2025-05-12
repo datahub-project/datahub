@@ -8,8 +8,6 @@ fragment globalTagsFields on GlobalTags {
   tags {
     tag {
       urn
-      type
-      name
       description
       properties {
         name
@@ -111,10 +109,6 @@ fragment ownershipFields on Ownership {
     }
     __typename
   }
-  lastModified {
-    time
-    __typename
-  }
   __typename
 }
 fragment nonRecursiveDataFlowFields on DataFlow {
@@ -167,7 +161,6 @@ fragment parentNodesFields on ParentNodesResult {
   count
   nodes {
     urn
-    type
     properties {
       name
       __typename
@@ -182,8 +175,6 @@ fragment parentNodesFields on ParentNodesResult {
 }
 fragment glossaryTerm on GlossaryTerm {
   urn
-  name
-  type
   hierarchicalName
   properties {
     name
@@ -527,7 +518,6 @@ fragment entityPreview on Entity {
   ... on Dataset {
     name
     origin
-    uri
     platform {
       ...platformFields
     }
@@ -905,16 +895,16 @@ fragment documentationFields on Documentation {
   documentations {
     documentation
     attribution {
-      time
-      actor {
-        urn
-        type
-        ...entityDisplayNameFields
-      }
-      source {
-        urn
-        type
-      }
+      # time
+      # actor {
+      #   urn
+      #   type
+      #   ...entityDisplayNameFields
+      # }
+      # source {
+      #   urn
+      #   type
+      # }
       sourceDetail {
         key
         value
@@ -1063,12 +1053,13 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
 }
 
 fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
+  # Identity fields are already included outside of this fragment.
+  # urn
+  # fieldPath
+  # type
   deprecation {
     ...deprecationFields
   }
-  urn
-  fieldPath
-  type
   structuredProperties {
     properties {
       ...structuredPropertiesFields
@@ -1090,7 +1081,7 @@ fragment entitySchemaFieldFields on SchemaField {
   jsonPath
   nullable
   description
-  type
+  # type
   nativeDataType
   recursive
   isPartOfKey
@@ -1107,7 +1098,6 @@ fragment entitySchemaFieldFields on SchemaField {
 }
 
 fragment schemaMetadataFields on SchemaMetadata {
-  aspectVersion
   createdAt
   datasetUrn
   name
@@ -1139,7 +1129,6 @@ fragment schemaMetadataFields on SchemaMetadata {
       name
       type
       origin
-      uri
       properties {
         description
       }

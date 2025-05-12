@@ -14,12 +14,12 @@ fragment query on QueryEntity {
       value
       language
     }
-    created {
-      time
-      actor
-    }
+    # created {
+    #   time
+    #   actor
+    # }
     lastModified {
-      time
+      # time
       actor
     }
   }
@@ -29,7 +29,6 @@ fragment query on QueryEntity {
   subjects {
     dataset {
       urn
-      type
       name
     }
     schemaField {

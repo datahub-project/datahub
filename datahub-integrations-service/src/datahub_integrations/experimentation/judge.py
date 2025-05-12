@@ -37,7 +37,7 @@ Does the response meet the criteria?
 You must return your response as a JSON object with the following fields:
 {{
     "choice": true/false,
-    "justification": "detailed explanation of why it passes or fails"
+    "justification": "a critique of the response, plus a detailed explanation of why it passes or fails"
 }}
 """
     ]

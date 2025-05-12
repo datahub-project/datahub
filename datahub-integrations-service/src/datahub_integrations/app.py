@@ -9,11 +9,17 @@ from datahub_integrations._logging_setup import LOGGING_SETUP_COMPLETE
 assert LOGGING_SETUP_COMPLETE
 
 # A global config and graph object that can be used by all routers.
-if os.environ.get("DATAHUB_GMS_PORT") != "":
-    port_fragment = f":{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
+if os.environ.get("DATAHUB_GMS_URL"):
+    DATAHUB_SERVER = os.environ["DATAHUB_GMS_URL"]
 else:
-    port_fragment = ""
-DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}{port_fragment}"
+    # TODO: This is a somewhat legacy code path. We should migrate
+    # to the simpler approach that just uses DATAHUB_GMS_URL.
+    if os.environ.get("DATAHUB_GMS_PORT") != "":
+        port_fragment = f":{os.environ.get('DATAHUB_GMS_PORT', 8080)}"
+    else:
+        port_fragment = ""
+    DATAHUB_SERVER = f"{os.environ.get('DATAHUB_GMS_PROTOCOL', 'http')}://{os.environ.get('DATAHUB_GMS_HOST', 'localhost')}{port_fragment}"
+
 graph = DataHubGraph(
     DatahubClientConfig(
         server=DATAHUB_SERVER,

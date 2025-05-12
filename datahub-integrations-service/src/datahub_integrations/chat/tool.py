@@ -81,14 +81,19 @@ _ToolFn = TypeVar("_ToolFn", bound=Callable)
 
 
 class ToolRegistry:
-    def __init__(self) -> None:
+    def __init__(self, tool_name_prefix: str) -> None:
         self.tools: Dict[str, Tool] = {}
+        self.tool_name_prefix = tool_name_prefix
 
     def tool(self, *, description: str) -> Callable[[_ToolFn], _ToolFn]:
         # Decorator to register a tool with the registry.
         def decorator(fn: _ToolFn) -> _ToolFn:
-            name = fn.__name__
-            tool = Tool(fn=fn, name=name, description=description)
+            name = f"{self.tool_name_prefix}__{fn.__name__}"
+            tool = Tool(
+                fn=fn,
+                name=name,
+                description=description,
+            )
             assert name not in self.tools, f"Tool {name} already registered"
             self.tools[name] = tool
             return fn

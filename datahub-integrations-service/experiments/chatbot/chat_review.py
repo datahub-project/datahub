@@ -1,4 +1,5 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 from typing import Optional
 
 import mlflow
@@ -7,16 +8,18 @@ import mlflow.utils
 import mlflow.utils.databricks_utils
 import pandas as pd
 import streamlit as st
-import typer
 
 from datahub_integrations.chat.chat_history import ChatHistory
-from datahub_integrations.experimentation.chatbot import prompts
+from datahub_integrations.experimentation.chatbot import (
+    Prompt,
+    prompts,
+    update_prompt_guidelines,
+)
 from datahub_integrations.experimentation.st_chat_history import st_chat_history
 from datahub_integrations.experimentation.judge import (
     LLMJudgeResponse,
     chatbot_llm_judge_evaluation,
 )
-from datahub_integrations.gen_ai.description_v2 import DESCRIPTION_GENERATION_MODEL
 
 st.set_page_config(layout="wide")
 
@@ -30,6 +33,7 @@ def load_run_data(run_id: str) -> pd.DataFrame:
     return mlflow.load_table(artifact_file="eval_results_table.json", run_ids=[run_id])
 
 
+@st.cache_data()
 def get_most_recent_run() -> mlflow_entities.Run:
     """Get the most recent MLflow run name."""
     runs = mlflow.search_runs(
@@ -66,15 +70,14 @@ def get_mlflow_run_url(run: mlflow_entities.Run) -> str:
 
 def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
     """Format the run data for table display."""
-    table_data = []
 
     # Create a mapping of prompt IDs to their original prompts
     prompt_map = {p.id: p for p in prompts}
 
-    for _, row in run_data.iterrows():
+    def _process_row(row: pd.Series) -> dict:
         prompt_id = row["prompt_id"]
         if prompt_id not in prompt_map:
-            continue
+            raise ValueError(f"Prompt {prompt_id} not found in prompt map")
 
         prompt = prompt_map[prompt_id]
 
@@ -100,25 +103,28 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
                 justification="No response from model",
             )
 
-        table_data.append(
-            {
-                "Prompt ID": prompt_id,
-                "Prompt": prompt.message,
-                "Response": response,
-                "Pass": {
-                    True: "✅",
-                    False: "❌",
-                    None: "❓",
-                }[evaluation.choice],
-                "Justification": evaluation.justification,
-                "Guidelines": prompt.response_guidelines or "",
-                "Instance": prompt.instance,
-                "Raw Data": {
-                    "prompt": prompt,
-                    "history": history,
-                    "evaluation": evaluation,
-                },
-            }
+        return {
+            "Prompt ID": prompt_id,
+            "Prompt": prompt.message,
+            "Response": response,
+            "Pass": {
+                True: "✅",
+                False: "❌",
+                None: "❓",
+            }[evaluation.choice],
+            "Justification": evaluation.justification,
+            "Guidelines": prompt.response_guidelines or "",
+            "Instance": prompt.instance,
+            "Raw Data": {
+                "prompt": prompt,
+                "history": history,
+                "evaluation": evaluation,
+            },
+        }
+
+    with ThreadPoolExecutor() as executor:
+        table_data = list(
+            executor.map(_process_row, (row for _, row in run_data.iterrows()))
         )
 
     if not table_data:
@@ -131,12 +137,15 @@ def format_table_data(run_data: pd.DataFrame) -> pd.DataFrame:
 def main(run_name: Optional[str] = None):
     """Main Streamlit app function."""
 
+    st.title("Chat Review")
+
     if run_name is None:
         run = get_most_recent_run()
+
+        st.button("Refresh", on_click=get_most_recent_run.clear)
     else:
         run = get_run_or_fail(run_name)
 
-    st.title("Chat Review")
     st.markdown(f"MLflow Run: [{run.info.run_name}]({get_mlflow_run_url(run)})")
 
     # Load and display data
@@ -162,8 +171,12 @@ def main(run_name: Optional[str] = None):
     # Show selected prompt details
     if event.selection["rows"]:
         selected_row = table_data.iloc[event.selection.rows[0]]
-        col1, col2 = st.columns(2)
+        prompt_id = selected_row["Prompt ID"]
+        st.text(f"Prompt ID: {prompt_id}")
 
+        prompt: Prompt = selected_row["Raw Data"]["prompt"]
+
+        col1, col2 = st.columns(2)
         with col1:
             st.markdown("### Conversation History")
             show_thinking = st.toggle("Show Thinking", value=True)
@@ -175,14 +188,21 @@ def main(run_name: Optional[str] = None):
             st.markdown("### Response Guidelines")
             new_guidelines = st.text_area(
                 "Edit Guidelines",
-                value=selected_row["Raw Data"]["prompt"].response_guidelines or "",
+                key=f"guidelines-{prompt_id}",
+                value=prompt.response_guidelines or "",
                 height=200,
             )
 
-            if new_guidelines != selected_row["Raw Data"]["prompt"].response_guidelines:
+            if st.button(
+                "Update Guidelines",
+                disabled=new_guidelines == prompt.response_guidelines,
+            ):
+                update_prompt_guidelines(prompt.id, new_guidelines)
+
+            if new_guidelines != prompt.response_guidelines:
                 st.markdown("### Updated Evaluation")
                 new_evaluation = chatbot_llm_judge_evaluation(
-                    message=selected_row["Prompt"],
+                    message=prompt.message,
                     response=selected_row["Response"],
                     guidelines=new_guidelines,
                 )
