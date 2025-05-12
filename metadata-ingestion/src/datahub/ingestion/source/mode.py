@@ -1419,7 +1419,9 @@ class ModeSource(StatefulIngestionSourceBase):
         reports = []
         try:
             for reports_page in self._get_paged_request_json(
-                f"{self.workspace_uri}/spaces/{space_token}/reports?", "reports", 30
+                f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
+                "reports",
+                30,
             ):
                 logger.debug(
                     f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
