@@ -1,3 +1,5 @@
+import _ from 'lodash';
+
 import { getCronAsText } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getFieldMetricLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils';
 import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
@@ -23,6 +25,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils';
 import { getResultErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { getFieldMetricTypeReadableLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/fieldDescriptionUtils';
+import { NUMBER_DISPLAY_PRECISION } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { toLocalDateString, toLocalTimeString } from '@app/shared/time/timeUtils';
@@ -583,7 +586,7 @@ const getFormattedExpectedTextForFreshnessAssertion = (
     }
 };
 
-const getFormattedExpectedTextForDefaultAssertion = (_: AssertionRunEvent): string | undefined => {
+const getFormattedExpectedTextForDefaultAssertion = (_unused: AssertionRunEvent): string | undefined => {
     return undefined;
 };
 
@@ -611,6 +614,53 @@ export const getFormattedExpectedResultText = (
         case AssertionType.Dataset:
             if (!run) return undefined;
             return getFormattedExpectedTextForDefaultAssertion(run);
+        default:
+            return undefined;
+    }
+};
+
+export const getFormattedActualVsExpectedTextForVolumeAssertion = (
+    run: AssertionRunEvent,
+):
+    | {
+          actualText: string;
+          expectedLowText?: string;
+          expectedHighText?: string;
+          expectedLowTextWithDecimals?: string;
+          expectedHighTextWithDecimals?: string;
+      }
+    | undefined => {
+    const isError = run?.result?.type === AssertionResultType.Error;
+
+    const actualRowCount = tryGetAbsoluteVolumeAssertionNumericalResult(run?.result);
+    const formattedActual = isError
+        ? ''
+        : formatNumberWithoutAbbreviation(actualRowCount ? Math.round(actualRowCount) : 0);
+
+    const volumeAssertion = run?.result?.assertion?.volumeAssertion;
+
+    const range = volumeAssertion?.rowCountTotal
+        ? tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(volumeAssertion.rowCountTotal)
+        : undefined;
+    const expectedLowText = range?.low != null ? formatNumberWithoutAbbreviation(Math.round(range.low)) : '';
+    const expectedHighText = range?.high != null ? formatNumberWithoutAbbreviation(Math.round(range.high)) : '';
+
+    const expectedLowWithDecimals =
+        range?.low != null ? formatNumberWithoutAbbreviation(_.round(range.low, NUMBER_DISPLAY_PRECISION)) : '';
+    const expectedHighWithDecimals =
+        range?.high != null ? formatNumberWithoutAbbreviation(_.round(range.high, NUMBER_DISPLAY_PRECISION)) : '';
+
+    switch (volumeAssertion?.type) {
+        case VolumeAssertionType.RowCountChange:
+            return undefined; // Not supported yet
+        case VolumeAssertionType.RowCountTotal:
+            return {
+                actualText: formattedActual,
+                expectedLowText,
+                expectedHighText,
+                expectedLowTextWithDecimals: expectedLowWithDecimals,
+                expectedHighTextWithDecimals: expectedHighWithDecimals,
+            };
         default:
             return undefined;
     }

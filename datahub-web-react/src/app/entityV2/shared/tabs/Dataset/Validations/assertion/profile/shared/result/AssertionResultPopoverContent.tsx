@@ -1,7 +1,11 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
+import { Text } from '@components';
 import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+
+import { Tooltip } from '@components/components/Tooltip';
+import colors from '@components/theme/foundations/colors';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { PrimaryButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
@@ -12,11 +16,12 @@ import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validatio
 import {
     ResultStatusType,
     getDetailedErrorMessage,
+    getFormattedActualVsExpectedTextForVolumeAssertion,
     getFormattedExpectedResultText,
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 
-import { Assertion, AssertionResultType, AssertionRunEvent, AssertionSourceType } from '@types';
+import { Assertion, AssertionResultType, AssertionRunEvent, AssertionSourceType, VolumeAssertionType } from '@types';
 
 const HeaderRow = styled.div`
     display: flex;
@@ -69,6 +74,8 @@ const LastRunRow = styled.div`
     }
 `;
 
+const ResultRow = styled.div``;
+
 const ReasonRow = styled.div``;
 
 const SecondaryHeader = styled.div`
@@ -77,6 +84,8 @@ const SecondaryHeader = styled.div`
 `;
 
 const ReasonText = styled.div``;
+
+const ActualVsExpectedText = styled.div``;
 
 const ContextRow = styled.div``;
 
@@ -94,12 +103,39 @@ const ThinDivider = styled(Divider)`
     padding: 0px;
 `;
 
+const ColoredActual = styled.span<{ status?: AssertionResultType }>`
+    color: ${(props) => {
+        switch (props.status) {
+            case AssertionResultType.Failure:
+                return colors.red[1000];
+            case AssertionResultType.Success:
+                return colors.green[1000];
+            default:
+                return 'inherit';
+        }
+    }};
+`;
+
+const VerticalDivider = styled.span`
+    display: inline-block;
+    width: 1px;
+    height: 1em;
+    background-color: ${colors.gray[100]};
+    margin: 0 4px;
+    vertical-align: middle;
+`;
+
 type Props = {
     assertion: Assertion;
     run?: AssertionRunEvent;
     showProfileButton?: boolean;
     onClickProfileButton?: () => void;
     resultStatusType?: ResultStatusType;
+};
+
+const RawValueTooltipTitle = ({ value }: { value?: string }) => {
+    if (value === undefined) return null;
+    return <div>Raw Value: {value}</div>;
 };
 
 // TODO: Add this in the assertion list, as hover on the timeline as well.
@@ -110,14 +146,26 @@ export const AssertionResultPopoverContent = ({
     resultStatusType,
     onClickProfileButton,
 }: Props) => {
+    const runResultType = run?.result?.type;
+
     // Last run time
     const timestamp = run && new Date(run?.timestampMillis);
     const reportedTimestamp = run && run?.lastObservedMillis;
+
+    // Result
+    const actualVsExpectedText = run ? getFormattedActualVsExpectedTextForVolumeAssertion(run) : undefined;
+    const hasActualVsExpectedText = !!actualVsExpectedText?.actualText;
+    const isTypeVolumeAbsolute = run?.result?.assertion?.volumeAssertion?.type === VolumeAssertionType.RowCountTotal;
+    const showResult = isTypeVolumeAbsolute && (hasActualVsExpectedText || runResultType === AssertionResultType.Error);
 
     // Reason
     const result = run?.result ? run.result! : undefined;
     const reasonText = run ? getFormattedReasonText(assertion, run) : undefined;
     const hasReason = !!reasonText;
+
+    // Should show reason if it is either NOT a volume absolute assertion or if it is and there is an error
+    const isTypeVolumeAbsoluteWithError = isTypeVolumeAbsolute && runResultType === AssertionResultType.Error;
+    const showReason = hasReason && (!isTypeVolumeAbsolute || isTypeVolumeAbsoluteWithError);
 
     // Context
     const expectedText = run ? getFormattedExpectedResultText(assertion.info, run) : undefined;
@@ -125,7 +173,7 @@ export const AssertionResultPopoverContent = ({
 
     // Error
     const errorMessage = (run && getDetailedErrorMessage(run)) || undefined;
-    const hasDetailedError = run?.result?.type === AssertionResultType.Error && !!errorMessage;
+    const hasDetailedError = runResultType === AssertionResultType.Error && !!errorMessage;
 
     // Platform
     const isExternal = isExternalAssertion(assertion);
@@ -160,7 +208,58 @@ export const AssertionResultPopoverContent = ({
                         undefined}
                 </Actions>
             </HeaderRow>
-            {hasReason && (
+            {showResult && (
+                <>
+                    <ThinDivider />
+                    <ResultRow>
+                        <SecondaryHeader>Result</SecondaryHeader>
+                        <ActualVsExpectedText>
+                            {runResultType !== AssertionResultType.Error && (
+                                <>
+                                    Actual:{' '}
+                                    <Text weight="bold" type="span">
+                                        <ColoredActual status={runResultType}>
+                                            {actualVsExpectedText?.actualText}
+                                        </ColoredActual>
+                                    </Text>
+                                    <VerticalDivider />
+                                </>
+                            )}
+                            {runResultType === AssertionResultType.Init ? (
+                                <>Expected: Training...</>
+                            ) : (
+                                <>
+                                    Expected:{' '}
+                                    <Tooltip
+                                        title={
+                                            <RawValueTooltipTitle
+                                                value={actualVsExpectedText?.expectedLowTextWithDecimals}
+                                            />
+                                        }
+                                    >
+                                        <Text weight="bold" type="span">
+                                            {actualVsExpectedText?.expectedLowText}
+                                        </Text>
+                                    </Tooltip>
+                                    {' - '}
+                                    <Tooltip
+                                        title={
+                                            <RawValueTooltipTitle
+                                                value={actualVsExpectedText?.expectedHighTextWithDecimals}
+                                            />
+                                        }
+                                    >
+                                        <Text weight="bold" type="span">
+                                            {actualVsExpectedText?.expectedHighText}
+                                        </Text>
+                                    </Tooltip>
+                                </>
+                            )}
+                        </ActualVsExpectedText>
+                    </ResultRow>
+                </>
+            )}
+            {showReason && (
                 <>
                     <ThinDivider />
                     <ReasonRow>
@@ -169,7 +268,7 @@ export const AssertionResultPopoverContent = ({
                     </ReasonRow>
                 </>
             )}
-            {hasContext && (
+            {hasContext && !isTypeVolumeAbsolute && (
                 <>
                     <ThinDivider />
                     <ContextRow>
