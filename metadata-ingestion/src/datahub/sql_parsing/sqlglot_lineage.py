@@ -152,14 +152,14 @@ class ColumnLineageInfo(_ParserBaseModel):
 class _JoinInfo(_ParserBaseModel):
     join_type: str
     tables: List[_TableName]
-    on_clause: str
+    on_clause: Optional[str]
     columns_involved: List[_ColumnRef]
 
 
 class JoinInfo(_ParserBaseModel):
     join_type: str
     tables: List[Urn]
-    on_clause: str
+    on_clause: Optional[str]
     columns_involved: List[ColumnRef]
 
 
@@ -804,8 +804,9 @@ def _list_joins(
     joins: List[_JoinInfo] = []
 
     for scope in root_scope.traverse():
+        join: sqlglot.exp.Join
         for join in scope.find_all(sqlglot.exp.Join):
-            on_clause = join.args.get("on")
+            on_clause: Optional[sqlglot.exp.Expression] = join.args.get("on")
             if not on_clause:
                 # We don't need to check for `using` here because it's normalized to `on`
                 # by the sqlglot optimizer.
@@ -813,6 +814,7 @@ def _list_joins(
                     "Skipping join without ON clause: %s",
                     join.sql(dialect=dialect),
                 )
+                # TODO: This skips joins that don't have ON clauses, like cross joins, lateral joins, etc.
                 continue
 
             joined_columns = _get_raw_col_upstreams_for_expression(
@@ -831,7 +833,7 @@ def _list_joins(
                 _JoinInfo(
                     join_type=_get_join_type(join),
                     tables=list(unique_tables),
-                    on_clause=on_clause.sql(dialect=dialect),
+                    on_clause=on_clause.sql(dialect=dialect) if on_clause else None,
                     columns_involved=list(sorted(joined_columns)),
                 )
             )
