@@ -196,6 +196,7 @@ class SQLServerSource(SQLAlchemySource):
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
 
+        self.report = SQLSourceReport()
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
             self.report.warning(
                 title="Potential issue with lineage",
