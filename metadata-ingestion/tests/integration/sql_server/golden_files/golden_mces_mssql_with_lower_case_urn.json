@@ -130,11 +130,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "9df93ebb-17d1-4799-a2c8-3022f2a05d69",
+                "job_id": "3c36dd49-d460-4399-bac4-6e0c5a90526b",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2025-05-08 13:28:35.960000",
-                "date_modified": "2025-05-08 13:28:36.103000",
+                "date_created": "2025-05-12 08:00:41.333000",
+                "date_modified": "2025-05-12 08:00:41.480000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -2597,8 +2597,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2025-05-08 13:28:35.787000",
-                "date_modified": "2025-05-08 13:28:35.787000"
+                "date_created": "2025-05-12 08:00:41.157000",
+                "date_modified": "2025-05-12 08:00:41.157000"
             },
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
@@ -2665,8 +2665,8 @@
                 "depending_on_procedure": "{}",
                 "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n        -- lineage: Foo.Items --> Foo.EphemeralItems\n        insert into Foo.EphemeralItems (ID, ItemName)\n        select ID, ItemName\n        from Foo.Items;\n\n        -- lineage: Foo.EphemeralItems --> Foo.FinalItems\n        UPDATE DemoData.Foo.FinalItems\n        SET ItemName = e.ItemName\n        FROM DemoData.Foo.FinalItems f\n        JOIN DemoData.Foo.EphemeralItems e ON f.ID = e.ID;\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2025-05-08 13:28:35.793000",
-                "date_modified": "2025-05-08 13:28:35.793000"
+                "date_created": "2025-05-12 08:00:41.167000",
+                "date_modified": "2025-05-12 08:00:41.167000"
             },
             "name": "DemoData.Foo.NewProc",
             "type": {
@@ -5374,7 +5374,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1746710924357,
+                "time": 1747036849333,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -5522,7 +5522,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1746710924360,
+                "time": 1747036849337,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
@@ -5597,7 +5597,6 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.finalitems,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.temptable,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD)"
             ],
             "outputDatasets": [
@@ -5605,8 +5604,7 @@
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.ephemeralitems,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.finalitems,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.temptable,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)"
             ],
             "fineGrainedLineages": [
                 {
@@ -5678,33 +5676,11 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.temptable,PROD),age)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),Age)"
-                    ],
-                    "confidenceScore": 0.35
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),ID)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.temptable,PROD),id)"
-                    ],
-                    "confidenceScore": 0.35
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD),Age)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.temptable,PROD),age)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),Age)"
                     ],
                     "confidenceScore": 0.35
                 }

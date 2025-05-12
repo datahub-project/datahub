@@ -9,6 +9,7 @@ source:
     host_port: localhost:21433
     platform_instance: my-instance
     include_containers_for_pipelines: true
+    convert_urns_to_lowercase: true
     temporary_tables_pattern:
       - ".*Ephemeral.*"
 

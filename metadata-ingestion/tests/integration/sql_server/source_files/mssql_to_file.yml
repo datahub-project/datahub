@@ -12,6 +12,7 @@ source:
     # use_odbc: True
     # uri_args:
     #   driver: "ODBC Driver 17 for SQL Server"
+    convert_urns_to_lowercase: true
 
 sink:
   type: file

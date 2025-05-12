@@ -195,6 +195,13 @@ class SQLServerSource(SQLAlchemySource):
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
+
+        if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
+            self.report.warning(
+                title="Potential issue with lineage",
+                message="Lineage may not be linkable since 'convert_urns_to_lowercase' is False. To ensure lineage is properly linked, set 'convert_urns_to_lowercase' to True.",
+            )
+
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
@@ -814,14 +821,8 @@ class SQLServerSource(SQLAlchemySource):
                 self.config.database_pattern.allowed(db_name)
                 and self.config.schema_pattern.allowed(schema_name)
                 and self.config.table_pattern.allowed(name)
-                and False
-                # we are failing the discovered tables validation because of the case
-                # eg. we get 'demodata.foo.items' from sqlgot_lineage even with `convert_urns_to_lowercase=False`
-                # and self.standardize_identifier_case(name)
-                # not in [
-                #     self.standardize_identifier_case(d)
-                #     for d in self.discovered_datasets
-                # ]
+                and self.standardize_identifier_case(name)
+                not in self.discovered_datasets
             ):
                 logger.debug(f"inferred as temp table {name}")
                 return True

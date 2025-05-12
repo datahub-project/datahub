@@ -349,10 +349,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             generate_usage_statistics=False,
             generate_operations=False,
             eager_graph_load=False,
-            # TBC: should is_temp_table function be set here or we only considere it for lineage cases?
-            is_temp_table=self.is_temp_table
-            if hasattr(self, "is_temp_table")
-            else None,
         )
         self.report.sql_aggregator = self.aggregator.report
 
