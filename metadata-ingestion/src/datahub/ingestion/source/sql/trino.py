@@ -69,6 +69,7 @@ KNOWN_CONNECTOR_PLATFORM_MAPPING = {
     "glue": "glue",
     "iceberg": "iceberg",
     "mysql": "mysql",
+    "oracle": "oracle",
     "postgresql": "postgres",
     "redshift": "redshift",
     "bigquery": "bigquery",
