@@ -1430,6 +1430,7 @@ CROSS JOIN my_table2
 
 
 def test_lateral_join() -> None:
+    # Because `lateral join` does not have an `on` clause, we don't generate any joins.
     assert_sql_result(
         """\
 SELECT t1.id, t1.name, t2.value
