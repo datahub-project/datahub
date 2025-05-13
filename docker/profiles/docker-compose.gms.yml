@@ -60,8 +60,8 @@ x-datahub-system-update-service: &datahub-system-update-service
     - SystemUpdate
   env_file:
     - datahub-upgrade/env/docker.env
-    - ${DATAHUB_LOCAL_COMMON_ENV:-datahub-upgrade/env/docker.env}
-    - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-datahub-upgrade/env/docker.env}
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty.env}
   environment: &datahub-system-update-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
     SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
@@ -95,8 +95,8 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
   env_file:
     - datahub-gms/env/docker.env
-    - ${DATAHUB_LOCAL_COMMON_ENV:-datahub-gms/env/docker.env}
-    - ${DATAHUB_LOCAL_GMS_ENV:-datahub-gms/env/docker.env}
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_GMS_ENV:-empty.env}
   environment: &datahub-gms-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
   healthcheck:
@@ -142,8 +142,8 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
     - 9091:9091
   env_file:
     - datahub-mae-consumer/env/docker.env
-    - ${DATAHUB_LOCAL_COMMON_ENV:-datahub-mae-consumer/env/docker.env}
-    - ${DATAHUB_LOCAL_MAE_ENV:-datahub-mae-consumer/env/docker.env}
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_MAE_ENV:-empty.env}
   environment: &datahub-mae-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
 
@@ -168,8 +168,8 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     - 9090:9090
   env_file:
     - datahub-mce-consumer/env/docker.env
-    - ${DATAHUB_LOCAL_COMMON_ENV:-datahub-mce-consumer/env/docker.env}
-    - ${DATAHUB_LOCAL_MCE_ENV:-datahub-mce-consumer/env/docker.env}
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_MCE_ENV:-empty.env}
   environment: &datahub-mce-consumer-env
     <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
 

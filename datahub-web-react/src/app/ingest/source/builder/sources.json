@@ -243,5 +243,12 @@
         "displayName": "Qlik Sense",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/qlik-sense/",
         "recipe": "source:\n    type: qlik-sense\n    config:\n        # Coordinates\n        tenant_hostname: https://xyz12xz.us.qlikcloud.com\n        # Coordinates\n        api_key: QLIK_API_KEY\n\n        # Optional - filter for certain space names instead of ingesting everything.\n        # space_pattern:\n\n        #   allow:\n        #     - space_name\n        ingest_owner: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:cockroachdb",
+        "name": "cockroachdb",
+        "displayName": "CockroachDb",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/cockroachdb/",
+        "recipe": "source: \n    type: cockroachdb\n    config:\n        # Coordinates\n        host_port: # Your CockroachDb host and port, e.g. cockroachdb:5432\n        database: # Your CockroachDb Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your CockroachDb username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     }
 ]

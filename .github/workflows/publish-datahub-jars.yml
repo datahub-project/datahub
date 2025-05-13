@@ -62,7 +62,7 @@ jobs:
       - name: checkout upstream repo
         run: |
           git remote add upstream https://github.com/datahub-project/datahub.git
-          git fetch upstream --tags --force
+          git fetch upstream --tags --force --filter=tree:0
       - name: publish datahub-client jar snapshot
         if: ${{ github.event_name != 'release' }}
         env:

@@ -1,19 +1,20 @@
 ---
 description: >-
-  This page describes the steps required to configure a remote ingestion
-  executor, which allows you to ingest metadata from private metadata sources
+  This page describes the steps required to configure a remote executor,
+  which allows you to ingest metadata from private metadata sources
   using private credentials via the DataHub UI.
 ---
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Setting up Remote Ingestion Executor on AWS
+# Setting up Remote Executor on AWS
 <FeatureAvailability saasOnly />
 
 ## Overview
 
-UI-based Metadata Ingestion reduces the overhead associated with operating DataHub. It allows you to create, schedule, and run batch metadata ingestion on demand in just a few clicks, without requiring custom orchestration. Behind the scenes, a simple ingestion "executor" abstraction makes this possible.
+> [!NOTE]
+> Acryl Remote Executor can now be used to both run ingestions from and monitor ingestion sources that are not publicly accessible via the internet.
 
-Acryl DataHub comes packaged with an Acryl-managed ingestion executor, which is hosted inside of Acryl's environment on your behalf. However, there are certain scenarios in which an Acryl-hosted executor is not sufficient to cover all of an organization's ingestion sources.
+Acryl DataHub comes packaged with an Acryl-managed executor, which is hosted inside of Acryl's environment on your behalf. However, there are certain scenarios in which an Acryl-hosted executor is not sufficient to cover all of an organization's ingestion sources.
 
 For example, if an ingestion source is not publicly accessible via the internet, e.g. hosted privately within a specific AWS account, then the Acryl executor will be unable to extract metadata from it.
 
@@ -23,7 +24,7 @@ For example, if an ingestion source is not publicly accessible via the internet,
 </p>
 
 
-To accommodate these cases, Acryl supports configuring a remote ingestion executor which can be deployed inside of your AWS account. This setup allows you to continue leveraging the Acryl DataHub console to create, schedule, and run metadata ingestion, all while retaining network and credential isolation.
+To accommodate these cases, Acryl supports configuring a remote executor which can be deployed inside of your AWS account. This setup allows you to continue leveraging the Acryl DataHub console to create, schedule, and run both ingestion and assertion monitors, all while retaining network and credential isolation.
 
 
 <p align="center">
@@ -31,23 +32,50 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
 </p>
 
 
-## Deploying a Remote Ingestion Executor
-1. **Provide AWS Account Id**: Provide Acryl Team with the id of the AWS in which the remote executor will be hosted. This will be used to grant access to private Acryl containers and create a unique SQS queue which your remote agent will subscribe to. The account id can be provided to your Acryl representative via Email or [One Time Secret](https://onetimesecret.com/). 
+## Deploying a Remote Executor
 
-2. **Provision an Acryl Executor** (ECS)**:** Acryl team will provide a [Cloudformation Template](https://github.com/acryldata/datahub-cloudformation/blob/master/Ingestion/templates/python.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private SQS queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
+> [!NOTE]
+> Customers migrating from the legacy DataHub Executor: migration to the new executor requires a configuration change on Acryl side. Please contact your Acryl representative for detailed guidance.
+>
+> Steps you will need to perform on your end when instructed by your Acryl representative:
+> 1. Temporarily stop your legacy DataHub Remote Executor instance (e.g. `aws ecs update-service --desired-count 0 --cluster "cluster-name" --service "service-name"`)
+> 2. Deploy new DataHub Executor using steps below.
+> 3. Trigger an ingestion to make sure the new executor is working as expected.
+> 4. Tear down legacy executor ECR deployment.
+
+
+1. **Provide AWS Account Id**: Provide Acryl Team with the id of the AWS in which the remote executor will be hosted. This will be used to grant access to private Acryl ECR registry. The account id can be provided to your Acryl representative via Email or [One Time Secret](https://onetimesecret.com/).
+
+2. **Provision an Acryl Executor** (ECS)**:** Acryl team will provide a [Cloudformation Template](https://raw.githubusercontent.com/acryldata/datahub-cloudformation/master/remote-executor/datahub-executor.ecs.template.yaml) that you can run to provision an ECS cluster with a single remote ingestion task. It will also provision an AWS role for the task which grants the permissions necessary to read and delete from the private SQS queue created for you, along with reading the secrets you've specified. At minimum, the template requires the following parameters:
    1. **Deployment Location:** The AWS VPC + subnet in which the Acryl Executor task is to be provisioned.
-   2. **SQS Queue ARN**: Reference to your private SQS command queue. This is provided by Acryl and is used to configure IAM policies enabling the Task role to read from the shared queue.
-   3. **SQS Queue URL**: The URL referring to your private SQS command queue. This is provided by Acryl and is used to read messages.
-   4. **DataHub Personal Access Token**: A valid DataHub PAT. This can be generated inside of **Settings > Access Tokens** of DataHub web application. You can alternatively create a secret in AWS Secrets Manager and refer to that by ARN.
-   5. **Acryl DataHub URL**: The URL for your DataHub instance, e.g. `<your-company>.acryl.io/gms`. Note that you MUST enter the trailing /gms when configuring the executor.
-   6. **Acryl Remote Executor Version:** The version of the remote executor to deploy. This is converted into a container image tag. It will be set to the latest version of the executor by default.
-   7. **Ingestion Source Secrets:** The template accepts up to 10 named secrets which live inside your environment. Secrets are specified using the **OptionalSecrets** parameter in the following form: `SECRET_NAME=SECRET_ARN` with multiple separated by comma, e.g. `SECRET_NAME_1=SECRET_ARN_1,SECRET_NAME_2,SECRET_ARN_2.`
-   8.  **Environment Variables:** The template accepts up to 10 arbitrary environment variables. These can be used to inject properties into your ingestion recipe from within your environment. Environment variables are specified using the **OptionalEnvVars** parameter in the following form: `ENV_VAR_NAME=ENV_VAR_VALUE` with multiple separated by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2,ENV_VAR_VALUE_2.`
+   2. **DataHub Personal Access Token**: A valid DataHub PAT. This can be generated inside of **Settings > Access Tokens** of DataHub web application. You can alternatively create a secret in AWS Secrets Manager and refer to that by ARN.
+   3. **Acryl DataHub URL**: The URL for your DataHub instance, e.g. `<your-company>.acryl.io/gms`. Note that you MUST enter the trailing /gms when configuring the executor.
+   4. **Acryl Remote Executor Version:** The version of the remote executor to deploy. This is converted into a container image tag. It will be set to the latest version of the executor by default.
+   5. **Source Secrets:** The template accepts up to 10 named secrets which live inside your environment. Secrets are specified using the **OptionalSecrets** parameter in the following form: `SECRET_NAME=SECRET_ARN` with multiple separated by comma, e.g. `SECRET_NAME_1=SECRET_ARN_1,SECRET_NAME_2,SECRET_ARN_2.`
+   6.  **Environment Variables:** The template accepts up to 10 arbitrary environment variables. These can be used to inject properties into your ingestion recipe from within your environment. Environment variables are specified using the **OptionalEnvVars** parameter in the following form: `ENV_VAR_NAME=ENV_VAR_VALUE` with multiple separated by comma, e.g. `ENV_VAR_NAME_1=ENV_VAR_VALUE_1,ENV_VAR_NAME_2,ENV_VAR_VALUE_2.`
        ``
        ``Providing secrets enables you to manage ingestion sources from the DataHub UI without storing credentials inside DataHub. Once defined, secrets can be referenced by name inside of your DataHub Ingestion Source configurations using the usual convention: `${SECRET_NAME}`.
-       
+
        Note that the only external secret provider that is currently supported is AWS Secrets Manager.
 
+   **Alternatively**: if you prefer to deploy Acryl Remote Executor on your private Kubernetes cluster, please use [DataHub Executor Helm chart](https://github.com/acryldata/datahub-executor-helm/tree/main/charts/datahub-executor-worker). Similar to the above, you would need to provide the following parameters when installing the chart:
+   1. **Create a secret with DataHub Access Token**. A valid DataHub PAT. You can create the secret object as follows:
+        ```
+        $ kubectl create secret generic datahub-access-token-secret --from-literal=datahub-access-token-secret-key=<DATAHUB-ACCESS-TOKEN>
+        ```
+   2. **Acryl DataHub URL**: The URL for your DataHub instance, e.g. `<your-company>.acryl.io/gms`. Note that you MUST enter the trailing /gms when configuring the executor.
+   3. **Acryl Remote Executor Version:** The version of the remote executor to deploy. This is converted into a container image tag.
+   4. **Optionally** pass source secrets/environment variables as necessary.
+
+   Install DataHub Executor chart as follows:
+
+   ```
+   $ helm install \
+     --set global.datahub.executor.worker_id="remote" \
+     --set global.datahub.gms.url="https://company.acryl.io/gms" \
+     --set image.tag=v0.3.1 \
+       default datahub-executor-worker
+   ```
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2023-01-19-at-5.12.47-PM.png"/>
@@ -81,7 +109,7 @@ To accommodate these cases, Acryl supports configuring a remote ingestion execut
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2022-03-07-at-10.23.31-AM.png"/>
 </p>
 
-## Updating a Remote Ingestion Executor
+## Updating a Remote Executor
 In order to update the executor, ie. to deploy a new container version, you'll need to update the CloudFormation Stack to re-deploy the CloudFormation template with a new set of parameters.
 ### Steps - AWS Console
 1. Navigate to CloudFormation in AWS Console
@@ -108,20 +136,17 @@ Unfortunately, no. Secrets are wired into the executor container at deployment t
 
 ### I want to deploy multiple Acryl Executors. Is this currently possible?**
 
-This is possible, but requires a new SQS queue is maintained (on per executor). Please contact your Acryl representative for more information.
+This is possible, but currently requires a configuration change on Acryl side. Please contact your Acryl representative for more information.
 
 ### I've run the CloudFormation Template, how can I tell that the container was successfully deployed?**
 
 We recommend verifying in AWS Console by navigating to **ECS > Cluster > Stack Name > Services > Logs.**
 When you first deploy the executor, you should a single log line to indicate success:
 ```
-Starting AWS executor consumer..
+Starting datahub executor worker
 ```
-This indicates that the remote executor has established a successful connection to your DataHub instance and is ready to execute ingestion runs.
+This indicates that the remote executor has established a successful connection to your DataHub instance and is ready to execute ingestion & monitors.
 If you DO NOT see this log line, but instead see something else, please contact your Acryl representative for support.
 
 ## Release Notes
 This is where release notes for the Acryl Remote Executor Container will live.
-
-### v0.0.3.9
-Bumping to the latest version of acryl-executor, which includes smarter messaging around OOM errors.

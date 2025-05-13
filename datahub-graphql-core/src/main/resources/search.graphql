@@ -747,6 +747,11 @@ type SearchAcrossLineageResult {
   """
   explored: Boolean!
 
+  """
+  Whether this relationship was ignored as a hop
+  """
+  ignoredAsHop: Boolean!
+
 }
 
 """

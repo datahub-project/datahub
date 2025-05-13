@@ -10,6 +10,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
@@ -469,10 +470,15 @@ public class LineageSearchService {
         .setFilterValues(new FilterValueArray());
   }
 
-  private String getPlatform(String entityType, Urn entityUrn) {
+  @VisibleForTesting
+  String getPlatform(String entityType, Urn entityUrn) {
     String platform = null;
     if (PLATFORM_ENTITY_TYPES.contains(entityType)) {
-      platform = entityUrn.getEntityKey().get(0);
+      if (DATA_JOB_ENTITY_NAME.equals(entityType)) {
+        platform = UrnUtils.getUrn(entityUrn.getEntityKey().get(0)).getEntityKey().get(0);
+      } else {
+        platform = entityUrn.getEntityKey().get(0);
+      }
     }
     if ((platform != null) && (!platform.startsWith("urn:li:dataPlatform"))) {
       platform = "urn:li:dataPlatform:" + platform;
@@ -739,6 +745,7 @@ public class LineageSearchService {
         entity.setDegrees(lineageRelationship.getDegrees());
       }
       entity.setExplored(Boolean.TRUE.equals(lineageRelationship.isExplored()));
+      entity.setIgnoredAsHop(Boolean.TRUE.equals(lineageRelationship.isIgnoredAsHop()));
     }
     return entity;
   }

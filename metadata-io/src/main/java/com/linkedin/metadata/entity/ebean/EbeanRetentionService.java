@@ -156,7 +156,7 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     return new SimpleExpression(
         EbeanAspectV2.CREATED_ON_COLUMN,
         Op.LT,
-        new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000));
+        new Timestamp(_clock.millis() - retention.getMaxAgeInSeconds() * 1000L));
   }
 
   private void applyRetention(

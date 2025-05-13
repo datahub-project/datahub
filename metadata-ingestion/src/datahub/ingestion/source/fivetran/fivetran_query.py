@@ -25,7 +25,8 @@ class FivetranLogQuery:
         return f"""
         SELECT id as user_id,
         given_name,
-        family_name
+        family_name,
+        email
         FROM {self.db_clause}user
         WHERE id = '{user_id}'"""
 

@@ -23,7 +23,7 @@ class Connector:
     paused: bool
     sync_frequency: int
     destination_id: str
-    user_name: Optional[str]
+    user_email: Optional[str]
     table_lineage: List[TableLineage]
     jobs: List["Job"]
 

@@ -22,7 +22,11 @@ const Count = styled(Typography.Text)`
     padding-left: 4px;
 `;
 
-const EntityNode = () => {
+interface EntityNodeProps {
+    sortBy: string;
+}
+
+const EntityNode: React.FC<EntityNodeProps> = ({ sortBy }) => {
     const isSelected = useIsEntitySelected();
     const entityType = useEntityType();
     const entityAggregation = useEntityAggregation();
@@ -83,7 +87,7 @@ const EntityNode = () => {
                                   entityAggregation={entityAggregation}
                                   environmentAggregation={environmentAggregation}
                               >
-                                  <EnvironmentNode />
+                                  <EnvironmentNode sortBy={sortBy} />
                               </BrowseProvider>
                           ))
                         : platformAggregations?.map((platformAggregation) => (
@@ -92,7 +96,7 @@ const EntityNode = () => {
                                   entityAggregation={entityAggregation}
                                   platformAggregation={platformAggregation}
                               >
-                                  <PlatformNode />
+                                  <PlatformNode sortBy={sortBy} />
                               </BrowseProvider>
                           ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}

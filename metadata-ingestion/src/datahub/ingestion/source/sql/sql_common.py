@@ -48,6 +48,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
+    SAMPLE_SIZE_MULTIPLIER,
     ClassificationHandler,
     ClassificationReportMixin,
 )
@@ -68,7 +69,6 @@ from datahub.ingestion.source.sql.sql_utils import (
     schema_requires_v2,
 )
 from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
-    SAMPLE_SIZE_MULTIPLIER,
     SqlAlchemyTableDataReader,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -1166,6 +1166,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,
+            env=self.config.env,
         )
 
     def get_profile_args(self) -> Dict:

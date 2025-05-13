@@ -30,7 +30,7 @@ RUN sed -i.bak "s/__version__ = \"1\!0.0.0.dev0\"/__version__ = \"$(echo $RELEAS
 
 FROM base as slim-install
 
-RUN uv pip install --no-cache "acryl-datahub[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary] @ ."
+RUN uv pip install --no-cache -e ".[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,hive,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]"
 
 FROM base as full-install-build
 
@@ -40,7 +40,7 @@ RUN apt-get update && apt-get install -y -qq maven
 USER datahub
 COPY ./docker/datahub-ingestion/pyspark_jars.sh .
 
-RUN uv pip install --no-cache "acryl-datahub[base,all] @ ." "acryl-datahub-airflow-plugin[plugin-v2] @ ./airflow-plugin" && \
+RUN uv pip install --no-cache -e ".[base,all]" "./airflow-plugin[plugin-v2]" && \
     datahub --version
 RUN ./pyspark_jars.sh
 

@@ -84,6 +84,9 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import ChartUrn
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 from datahub.utilities.dedup_list import deduplicate_list
+from src.datahub.ingestion.api.incremental_lineage_helper import (
+    convert_dashboard_info_to_patch,
+)
 
 # Logger instance
 logger = logging.getLogger(__name__)
@@ -1300,16 +1303,35 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             # Convert PowerBi Dashboard and child entities to Datahub work unit to ingest into Datahub
             workunits = self.mapper.to_datahub_work_units(dashboard, workspace)
             for workunit in workunits:
-                # Return workunit to Datahub Ingestion framework
-                yield workunit
+                wu = self._get_dashboard_patch_work_unit(workunit)
+                if wu is not None:
+                    yield wu
 
         for report in workspace.reports:
             for work_unit in self.mapper.report_to_datahub_work_units(
                 report, workspace
             ):
-                yield work_unit
+                wu = self._get_dashboard_patch_work_unit(work_unit)
+                if wu is not None:
+                    yield wu
 
         yield from self.extract_independent_datasets(workspace)
+
+    def _get_dashboard_patch_work_unit(
+        self, work_unit: MetadataWorkUnit
+    ) -> MetadataWorkUnit:
+        dashboard_info_aspect: Optional[
+            DashboardInfoClass
+        ] = work_unit.get_aspect_of_type(DashboardInfoClass)
+
+        if dashboard_info_aspect:
+            return convert_dashboard_info_to_patch(
+                work_unit.get_urn(),
+                dashboard_info_aspect,
+                work_unit.metadata.systemMetadata,
+            )
+        else:
+            return work_unit
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id

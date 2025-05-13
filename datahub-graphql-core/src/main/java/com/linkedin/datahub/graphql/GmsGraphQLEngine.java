@@ -130,6 +130,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsR
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
@@ -389,7 +390,7 @@ import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
 /**
- * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the the GMS
+ * A {@link GraphQLEngine} configured to provide access to the entities and aspects on the GMS
  * graph.
  */
 @Slf4j
@@ -716,7 +717,7 @@ public class GmsGraphQLEngine {
     configureVersionedDatasetResolvers(builder);
     configureAccessAccessTokenMetadataResolvers(builder);
     configureTestResultResolvers(builder);
-    configureRoleResolvers(builder);
+    configureDataHubRoleResolvers(builder);
     configureSchemaFieldResolvers(builder);
     configureERModelRelationshipResolvers(builder);
     configureEntityPathResolvers(builder);
@@ -729,6 +730,7 @@ public class GmsGraphQLEngine {
     configureFormResolvers(builder);
     configureIncidentResolvers(builder);
     configureRestrictedResolvers(builder);
+    configureRoleResolvers(builder);
   }
 
   private void configureOrganisationRoleResolvers(RuntimeWiring.Builder builder) {
@@ -973,6 +975,7 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "getAccessTokenMetadata",
                     new GetAccessTokenMetadataResolver(statefulTokenService, this.entityClient))
+                .dataFetcher("debugAccess", new DebugAccessResolver(this.entityClient, graphClient))
                 .dataFetcher("container", getResolver(containerType))
                 .dataFetcher("listDomains", new ListDomainsResolver(this.entityClient))
                 .dataFetcher("listSecrets", new ListSecretsResolver(this.entityClient))
@@ -2690,7 +2693,7 @@ public class GmsGraphQLEngine {
                         })));
   }
 
-  private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
+  private void configureDataHubRoleResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "DataHubRole",
         typeWiring ->
@@ -2924,5 +2927,11 @@ public class GmsGraphQLEngine {
                     new EntityLineageResultResolver(
                         siblingGraphService, restrictedService, this.authorizationConfiguration))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+  }
+
+  private void configureRoleResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Role",
+        typeWiring -> typeWiring.dataFetcher("isAssignedToMe", new IsAssignedToMeResolver()));
   }
 }

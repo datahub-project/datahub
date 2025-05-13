@@ -38,7 +38,7 @@ class AllowedTypes(Enum):
 
 class AllowedValue(ConfigModel):
     value: str
-    description: Optional[str]
+    description: Optional[str] = None
 
 
 class TypeQualifierAllowedTypes(ConfigModel):
@@ -64,17 +64,17 @@ class TypeQualifierAllowedTypes(ConfigModel):
 
 
 class StructuredProperties(ConfigModel):
-    id: Optional[str]
-    urn: Optional[str]
-    qualified_name: Optional[str]
+    id: Optional[str] = None
+    urn: Optional[str] = None
+    qualified_name: Optional[str] = None
     type: str
-    value_entity_types: Optional[List[str]]
-    description: Optional[str]
-    display_name: Optional[str]
-    entity_types: Optional[List[str]]
-    cardinality: Optional[str]
-    allowed_values: Optional[List[AllowedValue]]
-    type_qualifier: Optional[TypeQualifierAllowedTypes]
+    value_entity_types: Optional[List[str]] = None
+    description: Optional[str] = None
+    display_name: Optional[str] = None
+    entity_types: Optional[List[str]] = None
+    cardinality: Optional[str] = None
+    allowed_values: Optional[List[AllowedValue]] = None
+    type_qualifier: Optional[TypeQualifierAllowedTypes] = None
 
     @property
     def fqn(self) -> str:

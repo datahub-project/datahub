@@ -22,6 +22,7 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.SearchRetry;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.SearchTestUtils;
 import java.util.Collections;
@@ -95,7 +96,7 @@ public abstract class GoldenTestBase extends AbstractTestNGSpringContextTests {
     assertTrue(secondResultUrn.toString().contains("pet_profiles"));
   }
 
-  @Test
+  @Test(retryAnalyzer = SearchRetry.class)
   public void testGlossaryTerms() {
     /*
      Searching for "ReturnRate" should return all tables that have the glossary term applied before

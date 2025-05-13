@@ -859,15 +859,21 @@ class DataHubGraph(DatahubRestEmitter):
         results = self._post_generic(self._aspect_count_endpoint, args)
         return results["value"]
 
-    def execute_graphql(self, query: str, variables: Optional[Dict] = None) -> Dict:
+    def execute_graphql(
+        self,
+        query: str,
+        variables: Optional[Dict] = None,
+        operation_name: Optional[str] = None,
+    ) -> Dict:
         url = f"{self.config.server}/api/graphql"
 
         body: Dict = {
             "query": query,
         }
-
         if variables:
             body["variables"] = variables
+        if operation_name:
+            body["operationName"] = operation_name
 
         logger.debug(
             f"Executing graphql query: {query} with variables: {json.dumps(variables)}"
@@ -1086,7 +1092,11 @@ class DataHubGraph(DatahubRestEmitter):
         )
 
     def initialize_schema_resolver_from_datahub(
-        self, platform: str, platform_instance: Optional[str], env: str
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        batch_size: int = 100,
     ) -> "SchemaResolver":
         logger.info("Initializing schema resolver")
         schema_resolver = self._make_schema_resolver(
@@ -1100,6 +1110,7 @@ class DataHubGraph(DatahubRestEmitter):
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
+                batch_size=batch_size,
             ):
                 try:
                     schema_resolver.add_graphql_schema_metadata(urn, schema_info)

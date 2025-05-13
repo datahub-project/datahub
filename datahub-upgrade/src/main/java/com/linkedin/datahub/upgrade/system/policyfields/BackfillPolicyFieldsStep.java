@@ -45,7 +45,7 @@ import org.jetbrains.annotations.NotNull;
  */
 @Slf4j
 public class BackfillPolicyFieldsStep implements UpgradeStep {
-  private static final String UPGRADE_ID = "BackfillPolicyFieldsStep";
+  private static final String UPGRADE_ID = "BackfillPolicyFieldsStep_V2";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
   private final OperationContext opContext;
@@ -174,13 +174,20 @@ public class BackfillPolicyFieldsStep implements UpgradeStep {
   }
 
   private Filter backfillPolicyFieldFilter() {
-    // Condition: Does not have at least 1 of: `privileges`, `editable`, `state` or `type`
+    // Condition: Does not have at least 1 of: `privileges`, `editable`, `state`, `type`, `users`,
+    // `groups`, `allUsers`
+    // `allGroups` or `roles`
     ConjunctiveCriterionArray conjunctiveCriterionArray = new ConjunctiveCriterionArray();
 
     conjunctiveCriterionArray.add(getCriterionForMissingField("privilege"));
     conjunctiveCriterionArray.add(getCriterionForMissingField("editable"));
     conjunctiveCriterionArray.add(getCriterionForMissingField("state"));
     conjunctiveCriterionArray.add(getCriterionForMissingField("type"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("users"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("groups"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("roles"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("allUsers"));
+    conjunctiveCriterionArray.add(getCriterionForMissingField("allGroups"));
 
     Filter filter = new Filter();
     filter.setOr(conjunctiveCriterionArray);

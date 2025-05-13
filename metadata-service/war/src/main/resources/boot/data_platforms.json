@@ -49,6 +49,16 @@
     }
   },
   {
+    "urn": "urn:li:dataPlatform:cockroachdb",
+    "aspect": {
+      "datasetNameDelimiter": ".",
+      "name": "cockroachdb",
+      "displayName": "CockroachDb",
+      "type": "RELATIONAL_DB",
+      "logoUrl": "/assets/platforms/cockroachdblogo.png"
+    }
+  },
+  {
     "urn": "urn:li:dataPlatform:couchbase",
     "aspect": {
       "datasetNameDelimiter": ".",

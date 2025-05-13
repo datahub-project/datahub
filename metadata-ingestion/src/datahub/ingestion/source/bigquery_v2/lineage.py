@@ -17,6 +17,7 @@ from typing import (
 )
 
 import humanfriendly
+import sqlglot
 from google.cloud.datacatalog import lineage_v1
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
 
@@ -58,7 +59,6 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 from datahub.utilities import memory_footprint
@@ -451,29 +451,15 @@ class BigqueryLineageExtractor:
             return
 
         if upstream_lineage is not None:
-            if self.config.incremental_lineage:
-                patch_builder: DatasetPatchBuilder = DatasetPatchBuilder(
-                    urn=dataset_urn
-                )
-                for upstream in upstream_lineage.upstreams:
-                    patch_builder.add_upstream_lineage(upstream)
+            if not self.config.extract_column_lineage:
+                upstream_lineage.fineGrainedLineages = None
 
-                yield from [
-                    MetadataWorkUnit(
-                        id=f"upstreamLineage-for-{dataset_urn}",
-                        mcp_raw=mcp,
-                    )
-                    for mcp in patch_builder.build()
-                ]
-            else:
-                if not self.config.extract_column_lineage:
-                    upstream_lineage.fineGrainedLineages = None
-
-                yield from [
-                    MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn, aspect=upstream_lineage
-                    ).as_workunit()
-                ]
+            # Incremental lineage is handled by the auto_incremental_lineage helper.
+            yield from [
+                MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn, aspect=upstream_lineage
+                ).as_workunit()
+            ]
 
     def lineage_via_catalog_lineage_api(
         self, project_id: str
@@ -752,10 +738,36 @@ class BigqueryLineageExtractor:
 
             # Try the sql parser first.
             if self.config.lineage_use_sql_parser:
+                logger.debug(
+                    f"Using sql parser for lineage extraction for destination table: {destination_table.table_identifier.get_table_name()}, queryType: {e.statementType}, query: {e.query}"
+                )
+                if e.statementType == "SELECT":
+                    # We wrap select statements in a CTE to make them parseable as insert statement.
+                    # This is a workaround for the sql parser to support the case where the user runs a query and inserts the result into a table..
+                    try:
+                        parsed_queries = sqlglot.parse(e.query, "bigquery")
+                        if parsed_queries[-1]:
+                            query = f"""create table `{destination_table.get_sanitized_table_ref().table_identifier.get_table_name()}` AS
+                            (
+                                {parsed_queries[-1].sql(dialect='bigquery')}
+                            )"""
+                        else:
+                            query = e.query
+                    except Exception:
+                        logger.debug(
+                            f"Failed to parse select-based lineage query {e.query} for table {destination_table}."
+                            "Sql parsing will likely fail for this query, which will result in a fallback to audit log."
+                        )
+                        query = e.query
+                else:
+                    query = e.query
                 raw_lineage = sqlglot_lineage(
-                    e.query,
+                    query,
                     schema_resolver=sql_parser_schema_resolver,
                     default_db=e.project_id,
+                )
+                logger.debug(
+                    f"Input tables: {raw_lineage.in_tables}, Output tables: {raw_lineage.out_tables}"
                 )
                 if raw_lineage.debug_info.table_error:
                     logger.debug(

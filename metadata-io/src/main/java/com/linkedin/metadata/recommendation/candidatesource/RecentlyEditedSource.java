@@ -99,7 +99,8 @@ public class RecentlyEditedSource implements EntityRecommendationSource {
   @WithSpan
   public List<RecommendationContent> getRecommendations(
       @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
-    SearchRequest searchRequest = buildSearchRequest(opContext.getActorContext().getActorUrn());
+    SearchRequest searchRequest =
+        buildSearchRequest(opContext.getSessionActorContext().getActorUrn());
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getRecentlyEdited").time()) {
       final SearchResponse searchResponse =
           _searchClient.search(searchRequest, RequestOptions.DEFAULT);

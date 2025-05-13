@@ -909,12 +909,7 @@ def _sqlglot_lineage_inner(
     except CooperativeTimeoutError as e:
         logger.debug(f"Timed out while generating column-level lineage: {e}")
         debug_info.column_error = e
-    except (
-        SqlUnderstandingError,
-        ValueError,
-        IndexError,
-        sqlglot.errors.SqlglotError,
-    ) as e:
+    except Exception as e:
         logger.debug(f"Failed to generate column-level lineage: {e}", exc_info=True)
         debug_info.column_error = e
 

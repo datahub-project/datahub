@@ -1,8 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
 
 import com.datahub.authorization.AuthorizationConfiguration;
+import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
@@ -156,6 +158,11 @@ public class EntityLineageResultResolver
       result.setUpdatedActor(UrnToEntityMapper.map(context, updatedActor));
     }
     result.setIsManual(lineageRelationship.hasIsManual() && lineageRelationship.isIsManual());
+    if (lineageRelationship.getPaths() != null) {
+      UrnArrayArray paths = lineageRelationship.getPaths();
+      result.setPaths(
+          paths.stream().map(path -> mapPath(context, path)).collect(Collectors.toList()));
+    }
 
     return result;
   }

@@ -8,8 +8,6 @@ services:
     env_file: env/docker.env
     ports:
       - '3306:3306'
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   datahub-gms:
     env_file: ../datahub-gms/env/dev.mariadb.env
