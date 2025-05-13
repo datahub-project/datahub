@@ -19,12 +19,36 @@
                         "com.linkedin.pegasus2avro.schema.StringType": {}
                     }
                 },
-                "native_column_type": "VARCHAR"
+                "native_column_type": "VARCHAR(16777216)"
             },
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)",
                     "column": "name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "MAX(\"employees\".\"name\") AS \"name\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "LEFT JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)"
+            ],
+            "on_clause": "\"_u_0\".\"_u_1\" = \"accounts\".\"sales_person_id\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)",
+                    "column": "sales_person_id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)",
+                    "column": "id"
                 }
             ]
         }

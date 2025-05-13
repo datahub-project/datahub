@@ -1,0 +1,105 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "edaf13988bc05438435c3dfebb5f7274e5018b1650882af6f9aed6473cdd8d9e",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table2,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"MY_TABLE1\".\"ID\" AS \"ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "value",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)",
+                    "column": "value"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"MY_TABLE1\".\"VALUE\" AS \"VALUE\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"MY_TABLE1\".\"ID\" AS \"ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "name",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table2,PROD)",
+                    "column": "name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"MY_TABLE2\".\"NAME\" AS \"NAME\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT * FROM my_table1 CROSS JOIN my_table2"
+    }
+}

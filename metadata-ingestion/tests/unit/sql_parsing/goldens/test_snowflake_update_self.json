@@ -25,9 +25,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "orderkey"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "\"ORDERS\".\"ORDERKEY\" + 1 AS \"ORDERKEY\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "UPDATE snowflake_sample_data.tpch_sf1.orders SET orderkey = orderkey + ?"

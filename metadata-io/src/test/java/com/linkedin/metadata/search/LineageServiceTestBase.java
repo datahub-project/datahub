@@ -34,6 +34,7 @@ import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
@@ -129,7 +130,9 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
                         .hashIdAlgo("MD5")
                         .build()))
             .asSession(RequestContext.TEST, Authorizer.EMPTY, TestOperationContexts.TEST_USER_AUTH);
-    settingsBuilder = new SettingsBuilder(null);
+    IndexConfiguration indexConfiguration = new IndexConfiguration();
+    indexConfiguration.setMinSearchFilterLength(3);
+    settingsBuilder = new SettingsBuilder(null, indexConfiguration);
     elasticSearchService = buildEntitySearchService();
     elasticSearchService.reindexAll(Collections.emptySet());
     cacheManager = new ConcurrentMapCacheManager();
