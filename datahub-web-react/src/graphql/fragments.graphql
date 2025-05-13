@@ -1449,6 +1449,7 @@ fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
     createdActor {
         urn
     }
+    cardinality
 }
 
 fragment relationshipFieldMapping on RelationshipFieldMapping {

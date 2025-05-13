@@ -20,7 +20,7 @@ import {
     useUpdateErModelRelationshipMutation,
 } from '@graphql/ermodelrelationship.generated';
 import { EntityType, ErModelRelationship, OwnershipType, SearchResult } from '@types';
-
+import ERModelRelationshipSidebarCardinality from './profile/sidebar/ERModelRelationshipSidebarCardinality';
 import ermodelrelationshipIcon from '@images/ermodelrelationshipIcon.svg';
 
 /**
@@ -90,6 +90,9 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
                     component: SidebarAboutSection,
                 },
                 {
+                    component: ERModelRelationshipSidebarCardinality,
+                },
+                {
                     component: SidebarOwnerSection,
                     properties: {
                         defaultOwnerType: OwnershipType.TechnicalOwner,
@@ -125,6 +128,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
                     owners={data.ownership?.owners}
                     glossaryTerms={data?.glossaryTerms || undefined}
                     globalTags={data?.tags}
+                    cardinality={data?.properties?.cardinality}
                 />
             </>
         );

@@ -383,7 +383,10 @@ type ERModelRelationshipProperties {
   The relationFieldMappings
   """
   relationshipFieldMappings: [RelationshipFieldMapping!]
-
+  """
+  Cardinality of the ERModelRelationship
+  """
+  cardinality: ERModelRelationshipCardinality!
   """
   Created timestamp millis associated with the ERModelRelationship
   """
@@ -393,6 +396,31 @@ type ERModelRelationshipProperties {
   Created actor urn associated with the ERModelRelationship
   """
   createdActor: Entity
+}
+
+"""
+The Cardinality of the ERModelRelationship
+"""
+enum ERModelRelationshipCardinality {
+  """
+  One to One
+  """
+  ONE_ONE
+
+  """
+  One to Many
+  """
+  ONE_N
+
+  """
+  Many to One
+  """
+  N_ONE
+
+  """
+  Many to Many
+  """
+  N_N
 }
 
 """

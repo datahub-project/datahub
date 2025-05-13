@@ -132,6 +132,19 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         },
     ];
 
+    const adjustCardinality = (cardinality) => {
+        // Reverse the cardinality if the source and destination are reversed
+        // Only for one_n and n_one, rest are same
+        if (shuffleFlag && prePageType !== 'ERModelRelationship') {
+            if (cardinality === 'ONE_N') {
+                return 'N_ONE';
+            } else if (cardinality === 'N_ONE') {
+                return 'ONE_N';
+            }
+        }
+        return cardinality;
+    }
+
     return (
         <div className="ERModelRelationPreview">
             {ermodelrelationData?.properties?.relationshipFieldMappings !== undefined && (
@@ -181,6 +194,11 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                     </Button>
                 </div>
             </div>
+            {prePageType === 'Dataset' && (
+                <div className="cardinality-div">
+                    <span><b>Cardinality: </b>{adjustCardinality(ermodelrelationData?.properties?.cardinality)}</span>
+                </div>
+            )}
             <Row>
                 <Table
                     bordered
