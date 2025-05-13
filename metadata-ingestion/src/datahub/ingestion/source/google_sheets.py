@@ -248,7 +248,7 @@ class GoogleSheetsSourceReport(
         self.sheets_profiled += 1
 
 
-@platform_name("Google Sheets")
+@platform_name("Google Sheets", id="google-sheets")
 @config_class(GoogleSheetsSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
