@@ -705,6 +705,7 @@ base_dev_requirements = {
         if plugin
         for dependency in plugins[plugin]
     ),
+    *pydantic_no_v2,
 }
 
 dev_requirements = {
