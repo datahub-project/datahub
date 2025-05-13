@@ -24,7 +24,7 @@ test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
     "TEST",
 )
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def sync_elastic() -> None:
