@@ -68,3 +68,17 @@ def get_key_prefix(s3_uri: str) -> str:
             f"Not an S3 URI. Must start with one of the following prefixes: {str(S3_PREFIXES)}"
         )
     return strip_s3_prefix(s3_uri).split("/", maxsplit=1)[1]
+
+
+def get_object_store_bucket_name(path: str) -> str:
+    """
+    Get the bucket name from an S3 URI.
+
+    DEPRECATED: Use datahub.ingestion.source.data_lake_common.object_store.get_object_store_bucket_name instead
+    for handling multiple object store URI types.
+    """
+    if not is_s3_uri(path):
+        raise ValueError(
+            f"Not an S3 URI. Must start with one of the following prefixes: {str(S3_PREFIXES)}"
+        )
+    return strip_s3_prefix(path).split("/")[0]

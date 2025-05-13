@@ -1,6 +1,5 @@
 import logging
 from typing import Dict, Iterable, List, Optional
-from urllib.parse import unquote
 
 from pydantic import Field, SecretStr, validator
 
@@ -19,8 +18,12 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixin
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
+from datahub.ingestion.source.data_lake_common.object_store import (
+    create_object_store_adapter,
+    get_object_key,
+    get_object_store_bucket_name,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
-from datahub.ingestion.source.gcs.gcs_utils import strip_gcs_prefix
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.s3.source import S3Source, TableData
@@ -137,17 +140,30 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def create_equivalent_s3_source(self, ctx: PipelineContext) -> S3Source:
         config = self.create_equivalent_s3_config()
-        return self.s3_source_overrides(S3Source(config, PipelineContext(ctx.run_id)))
+        s3_source = S3Source(config, PipelineContext(ctx.run_id))
+        return self.s3_source_overrides(s3_source)
 
     def s3_source_overrides(self, source: S3Source) -> S3Source:
-        source.source_config.platform = PLATFORM_GCS
+        """
+        Override S3Source methods with GCS-specific implementations using the adapter pattern.
 
-        source.is_s3_platform = lambda: True  # type: ignore
-        source.create_s3_path = lambda bucket_name, key: unquote(  # type: ignore
-            f"s3://{bucket_name}/{key}"
+        This method customizes the S3Source instance to behave like a GCS source by
+        applying the GCS-specific adapter that replaces the necessary functionality.
+
+        Args:
+            source: The S3Source instance to customize
+
+        Returns:
+            The modified S3Source instance with GCS behavior
+        """
+        # Create a GCS adapter and register our custom URL generator
+        adapter = create_object_store_adapter("gcs")
+        adapter.register_customization(
+            "get_external_url", self.get_external_url_override
         )
-        source.get_external_url = self.get_external_url_override.__get__(source)  # type: ignore
-        return source
+
+        # Apply all customizations to the source
+        return adapter.apply_customizations(source)
 
     def get_external_url_override(self, table_data: TableData) -> Optional[str]:
         """
@@ -157,9 +173,12 @@ class GCSSource(StatefulIngestionSourceBase):
         if not table_data.table_path.startswith("s3://"):
             return None
 
-        # Replace the s3:// with gs:// to create the GCS URI
-        gcs_uri = table_data.table_path.replace("s3://", "gs://")
-        return f"https://console.cloud.google.com/storage/browser/{strip_gcs_prefix(gcs_uri)}"
+        # Get the bucket name and key from the S3 URI
+        bucket_name = get_object_store_bucket_name(table_data.table_path)
+        key = get_object_key(table_data.table_path)
+
+        # Format as GCS external URL
+        return f"https://console.cloud.google.com/storage/browser/{bucket_name}/{key}"
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
