@@ -151,7 +151,6 @@ sql_common = (
         *sqlalchemy_lib,
         # Required for SQL profiling.
         *great_expectations_lib,
-        *pydantic_no_v2,  # keeping this for now, but can be removed eventually
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
@@ -951,10 +950,12 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
                         "datahub-kafka",
                         "sync-file-emitter",
                         "sql-parser",
+                        # Some sources have been manually tested for compatibility with pydantic v2.
                         "iceberg",
                         "feast",
                         "bigquery-slim",
                         "snowflake-slim",
+                        "mysql",  # tested in smoke-test
                     }
                     else set()
                 )
