@@ -130,11 +130,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "689831ba-be05-46ba-bafd-602136ffdd22",
+                "job_id": "8c73c251-0876-48dc-b99a-3860462846e5",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2025-05-12 08:13:08.250000",
-                "date_modified": "2025-05-12 08:13:08.400000",
+                "date_created": "2025-05-13 06:36:20.563000",
+                "date_modified": "2025-05-13 06:36:20.740000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -2597,8 +2597,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2025-05-12 08:13:08.073000",
-                "date_modified": "2025-05-12 08:13:08.073000"
+                "date_created": "2025-05-13 06:36:20.340000",
+                "date_modified": "2025-05-13 06:36:20.340000"
             },
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
@@ -3015,6 +3015,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),ID)"
                     ],
+                    "transformOperation": "COPY: [persons].[id] AS [id]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
                 },
@@ -3027,6 +3028,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),LastName)"
                     ],
+                    "transformOperation": "COPY: [persons].[lastname] AS [lastname]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
                 },
@@ -3039,6 +3041,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),FirstName)"
                     ],
+                    "transformOperation": "COPY: [persons].[firstname] AS [firstname]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
                 },
@@ -3051,6 +3054,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.personsview,PROD),Age)"
                     ],
+                    "transformOperation": "COPY: [persons].[age] AS [age]",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amssql%2Cdemodata.foo.personsview%2CPROD%29"
                 }
@@ -3081,7 +3085,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1747037594326,
+                "time": 1747118187694,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
