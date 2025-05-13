@@ -1,7 +1,7 @@
 import '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal.less';
 
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Modal, Table, message } from 'antd';
+import { Button, Form, Input, Modal, Table, message, Select } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import React, { useState } from 'react';
 
@@ -69,6 +69,9 @@ export const CreateERModelRelationModal = ({
             editERModelRelation?.id ||
             '',
     );
+    const [ermodelrelationCardinality, setERModelRelationCardinality] = useState(
+        editERModelRelation?.properties?.cardinality,
+    );
     const [tableData, setTableData] = useState<ERModelRelationDataType[]>(
         editERModelRelation?.properties?.relationshipFieldMappings?.map((item, index) => {
             return {
@@ -100,6 +103,7 @@ export const CreateERModelRelationModal = ({
             content: `Are you sure you want to exit?  The changes made to the erModelRelationship will not be applied.`,
             onOk() {
                 setERModelRelationName(editERModelRelation?.properties?.name || '');
+                setERModelRelationCardinality(editERModelRelation?.properties?.cardinality);
                 setDetails(editERModelRelation?.editableProperties?.description || '');
                 setTableData(
                     editERModelRelation?.properties?.relationshipFieldMappings?.map((item, index) => {
@@ -136,6 +140,7 @@ export const CreateERModelRelationModal = ({
                                 destinationField: r.field2Name,
                             };
                         }),
+                        cardinality: ermodelrelationCardinality,
                         created: true,
                     },
                     editableProperties: {
@@ -183,6 +188,7 @@ export const CreateERModelRelationModal = ({
                         source: table1Dataset?.urn || '',
                         destination: table2Dataset?.urn || '',
                         name: originalERModelRelationName || '',
+                        cardinality: ermodelrelationCardinality,
                         createdBy: editERModelRelation?.properties?.createdActor?.urn || user?.urn,
                         createdAt: editERModelRelation?.properties?.createdTime || 0,
                         relationshipFieldmappings: tableData.map((r) => {
@@ -234,6 +240,7 @@ export const CreateERModelRelationModal = ({
         } else {
             createERModelRelationship();
             setERModelRelationName('');
+            setERModelRelationCardinality(undefined);
             setDetails('');
             setTableData([
                 { key: '0', field1Name: '', field2Name: '' },
@@ -374,6 +381,7 @@ export const CreateERModelRelationModal = ({
                     layout="vertical"
                     fields={[
                         { name: 'ermodelrelationNameForm', value: ermodelrelationName },
+                        { name: 'ermodelrelationCardinality', value: ermodelrelationCardinality },
                         { name: 'ermodelrelationDetails', value: details },
                     ]}
                     onFinish={onSubmit}
@@ -407,6 +415,18 @@ export const CreateERModelRelationModal = ({
                             className="ermodelrelation-name"
                             onChange={(e) => setERModelRelationName(e.target.value)}
                         />
+                    </Form.Item>
+                    <p className="all-content-heading">Cardinality</p>
+                    <Form.Item
+                        style={{ margin: 0 }}
+                        name="ermodelrelationCardinality"
+                    >
+                        <Select className="cardinality-select" onChange={(e) => setERModelRelationCardinality(e)}>
+                            <Select.Option value="ONE_ONE">ONE_ONE</Select.Option>
+                            <Select.Option value="ONE_N">ONE_N</Select.Option>
+                            <Select.Option value="N_ONE">N_ONE</Select.Option>
+                            <Select.Option value="N_N">N_N</Select.Option>
+                        </Select>
                     </Form.Item>
                     <p className="all-content-heading">Fields</p>
                     <Table

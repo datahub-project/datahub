@@ -5272,6 +5272,10 @@ input ERModelRelationshipPropertiesInput {
   """
   relationshipFieldmappings: [RelationshipFieldMappingInput!]
   """
+  optional field to store cardinality of the ERModelRelationship
+  """
+  cardinality: String
+  """
   optional flag about the ERModelRelationship is getting create
   """
   created: Boolean
