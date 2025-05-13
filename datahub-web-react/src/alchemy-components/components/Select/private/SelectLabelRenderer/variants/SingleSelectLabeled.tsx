@@ -17,6 +17,8 @@ export default function SingleSelectLabeled<OptionType extends SelectOption>({
     showDescriptions,
     label,
 }: SelectLabelVariantProps<OptionType>) {
+    const value = selectedOptions[0]?.value;
+
     return (
         <LabelsWrapper shouldShowGap={false}>
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
@@ -24,7 +26,12 @@ export default function SingleSelectLabeled<OptionType extends SelectOption>({
             {!!selectedValues.length && (
                 <ActionButtonsContainer>
                     <SelectValue>{label}</SelectValue>
-                    <Pill label={selectedOptions[0]?.label} size="sm" variant="filled" />
+                    <Pill
+                        label={selectedOptions[0]?.label}
+                        size="sm"
+                        variant="filled"
+                        dataTestId={value ? `value-${value}` : undefined}
+                    />
                 </ActionButtonsContainer>
             )}
 

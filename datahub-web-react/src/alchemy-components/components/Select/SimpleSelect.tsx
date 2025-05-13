@@ -80,6 +80,7 @@ export const SimpleSelect = ({
     applyHoverWidth,
     ignoreMaxHeight = selectDefaults.ignoreMaxHeight,
     isLoading = false,
+    dataTestId,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -171,6 +172,7 @@ export const SimpleSelect = ({
             width={props.width || 255}
             $selectLabelVariant={selectLabelProps?.variant}
             isSelected={selectedValues.length > 0}
+            data-testid={dataTestId}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             {isVisible && (
@@ -207,6 +209,7 @@ export const SimpleSelect = ({
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}
+                                        data-testid={`option-${option.value}`}
                                         onClick={() => {
                                             if (!isMultiSelect) {
                                                 if (optionSwitchable && selectedValues.includes(option.value)) {
