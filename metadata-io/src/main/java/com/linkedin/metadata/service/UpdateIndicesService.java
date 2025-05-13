@@ -52,6 +52,7 @@ import lombok.extern.slf4j.Slf4j;
 public class UpdateIndicesService implements SearchIndicesService {
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
+  private final EntitySearchService entitySearchService;
   private final ElasticSearchService elasticSearchService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final SystemMetadataService systemMetadataService;
@@ -108,6 +109,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       boolean structuredPropertiesHookEnabled,
       boolean structuredPropertiesWriteEnabled) {
     this.updateGraphIndicesService = updateGraphIndicesService;
+    this.entitySearchService = entitySearchService;
     this.elasticSearchService = elasticSearchService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.systemMetadataService = systemMetadataService;
