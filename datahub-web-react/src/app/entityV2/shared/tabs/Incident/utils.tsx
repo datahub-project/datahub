@@ -49,7 +49,7 @@ const getIncidentGroupTypeIcon = () => {
 };
 
 const mapLinkedAssetData = (incident) => {
-    return incident?.linkedAssets?.relationships.map((item) => item.entity);
+    return incident?.linkedAssets?.relationships?.map((item) => item.entity);
 };
 
 const mapIncidentData = (incidents: Incident[]): IncidentTableRow[] => {
@@ -549,7 +549,7 @@ export const useSiblingOptionsForIncidentBuilder = (
             urn: sibling.urn,
             title:
                 getPlatformName(sibling) ??
-                sibling?.dataPlatformInstance?.platform.name ??
+                sibling?.dataPlatformInstance?.platform?.name ??
                 sibling?.platform?.urn ??
                 sibling.urn,
             platform: sibling?.platform ?? sibling?.dataPlatformInstance?.platform,

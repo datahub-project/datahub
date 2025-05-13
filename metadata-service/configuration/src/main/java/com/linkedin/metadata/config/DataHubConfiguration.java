@@ -11,5 +11,7 @@ public class DataHubConfiguration {
    */
   public String serverType;
 
+  public String serverEnv;
+
   private PluginConfiguration plugin;
 }

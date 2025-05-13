@@ -23,7 +23,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,scott.emp,PROD)",
                     "column": "deptno"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`emp`.`deptno` AS `deptno`"
+            }
         },
         {
             "downstream": {
@@ -36,7 +40,11 @@
                 },
                 "native_column_type": "DOUBLE"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`a`.`num_emp` / `b`.`total_count` AS `Employees`"
+            }
         },
         {
             "downstream": {
@@ -50,9 +58,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:mysql,scott.emp,PROD)",
                     "column": "sal"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "`a`.`sal_sum` / `b`.`total_sal` AS `Salary`"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "CREATE VIEW vsal AS SELECT a.deptno AS `Department`, a.num_emp / b.total_count AS `Employees`, a.sal_sum / b.total_sal AS `Salary` FROM (SELECT deptno, COUNT() AS num_emp, SUM(sal) AS sal_sum FROM scott.emp WHERE city = ? GROUP BY deptno) AS a, (SELECT COUNT() AS total_count, SUM(sal) AS total_sal FROM scott.emp WHERE city = ?) AS b"

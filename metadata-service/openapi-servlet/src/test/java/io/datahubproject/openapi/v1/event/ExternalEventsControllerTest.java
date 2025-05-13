@@ -19,6 +19,13 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.datahubusage.DataHubUsageService;
+import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchRequest;
+import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchResponse;
+import com.linkedin.metadata.datahubusage.event.EventSource;
+import com.linkedin.metadata.datahubusage.event.LogInEvent;
+import com.linkedin.metadata.datahubusage.event.LoginSource;
+import com.linkedin.metadata.datahubusage.event.UsageEventResult;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.event.ExternalEventsService;
 import io.datahubproject.event.models.v1.ExternalEvent;
@@ -64,7 +71,9 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   @Autowired private ExternalEventsService mockEventsService;
   @Autowired private AuthorizerChain mockAuthorizerChain;
   @Autowired private OperationContext opContext;
+  @Autowired private DataHubUsageService mockDataHubUsageService;
   @MockBean private ConfigurationProvider configurationProvider;
+  @Autowired private ObjectMapper objectMapper;
 
   private static final String ACTOR_URN = "urn:li:corpuser:testuser";
   private static final String TEST_OFFSET_ID = "test-offset-id";
@@ -290,11 +299,48 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
         .andExpect(status().isForbidden());
   }
 
+  @Test
+  public void testAuditEventsSearch() throws Exception {
+    LogInEvent usageEventResult =
+        LogInEvent.builder()
+            .eventType("LogInEvent")
+            .loginSource(LoginSource.PASSWORD_LOGIN)
+            .actorUrn("urn:li:corpuser:datahub")
+            .sourceIP("123.123.123")
+            .timestamp(0L)
+            .telemetryTraceId("123")
+            .userAgent("browser")
+            .eventSource(EventSource.GRAPHQL)
+            .build();
+    List<UsageEventResult> results = List.of(usageEventResult);
+    ExternalAuditEventsSearchResponse searchResponse =
+        ExternalAuditEventsSearchResponse.builder().count(1).total(1).usageEvents(results).build();
+    when(mockDataHubUsageService.externalAuditEventsSearch(
+            any(OperationContext.class), any(ExternalAuditEventsSearchRequest.class)))
+        .thenReturn(searchResponse);
+
+    ExternalAuditEventsSearchRequest searchRequest =
+        ExternalAuditEventsSearchRequest.builder().build();
+    String json = objectMapper.writeValueAsString(searchRequest);
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v1/events/audit/search")
+                .param("startTime", "-1")
+                .param("endTime", "-1")
+                .param("size", "10")
+                .param("includeRaw", "false")
+                .content(json)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+  }
+
   @TestConfiguration
   public static class ExternalEventsControllerTestConfig {
     @MockBean public ExternalEventsService eventsService;
     @MockBean public AuthorizerChain authorizerChain;
     @MockBean public TraceContext traceContext;
+    @MockBean public DataHubUsageService dataHubUsageService;
 
     @Bean
     public ObjectMapper objectMapper() {

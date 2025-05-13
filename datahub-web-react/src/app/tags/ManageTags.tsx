@@ -1,4 +1,4 @@
-import { Button, PageTitle, Pagination, SearchBar, Tooltip2 } from '@components';
+import { Button, PageTitle, Pagination, SearchBar, StructuredPopover } from '@components';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -122,7 +122,7 @@ const ManageTags = () => {
     const renderCreateTagButton = () => {
         if (!canCreateTags) {
             return (
-                <Tooltip2
+                <StructuredPopover
                     title="You do not have permission to create tags"
                     placement="left"
                     showArrow
@@ -134,7 +134,7 @@ const ManageTags = () => {
                             Create Tag
                         </Button>
                     </span>
-                </Tooltip2>
+                </StructuredPopover>
             );
         }
 

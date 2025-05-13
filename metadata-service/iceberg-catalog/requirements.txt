@@ -3,6 +3,6 @@ pytest-dependency>=0.5.1
 pyspark==3.5.3
 -e ../../metadata-ingestion[iceberg-catalog]
 # libaries for linting below this
-mypy==1.12.1
-ruff==0.11.6
+mypy==1.14.1
+ruff==0.11.7
 

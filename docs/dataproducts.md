@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
 
 **🤝 Version compatibility**
 
-> Open Source DataHub: **0.10.3** | Acryl: **0.2.8**
+> DataHub Core: **0.10.3** | DataHub Cloud: **0.2.8**
 
 ## What are Data Products?
 
