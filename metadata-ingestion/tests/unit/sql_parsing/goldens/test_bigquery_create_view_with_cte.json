@@ -29,7 +29,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
                     "column": "col5"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`table3`.`col5` AS `col5`"
+            }
         },
         {
             "downstream": {
@@ -47,7 +51,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)",
                     "column": "col1"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`table1`.`col1` AS `col1`"
+            }
         },
         {
             "downstream": {
@@ -65,7 +73,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`table1`.`col2` AS `col2`"
+            }
         },
         {
             "downstream": {
@@ -82,6 +94,48 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)",
                     "column": "col3"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`table2`.`col3` AS `col3`"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)"
+            ],
+            "on_clause": "`table3`.`col5` = `cte1`.`col2`",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)",
+                    "column": "col2"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
+                    "column": "col5"
+                }
+            ]
+        },
+        {
+            "join_type": "JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)"
+            ],
+            "on_clause": "`table3`.`join_key` = `cte2`.`join_key`",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)",
+                    "column": "col4"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
+                    "column": "join_key"
                 }
             ]
         }
