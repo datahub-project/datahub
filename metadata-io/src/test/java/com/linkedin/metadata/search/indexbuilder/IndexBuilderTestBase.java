@@ -186,6 +186,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   }
 
   @Test
+  protected abstract void testCodec() throws Exception;
+
+  @Test
   public void testMappingReindex() throws Exception {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     ESIndexBuilder enabledMappingReindex =

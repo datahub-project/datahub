@@ -85,28 +85,28 @@ If you want to:
 
 - Exact match on term or phrase
 
-  - `"pet profile"` [Sample results](https://demo.datahubproject.io/search?page=1&query=%22pet%20profile%22)
-  - `pet profile` [Sample results](https://demo.datahubproject.io/search?page=1&query=pet%20profile)
+  - `"pet profile"` [Sample results](https://demo.datahub.com/search?page=1&query=%22pet%20profile%22)
+  - `pet profile` [Sample results](https://demo.datahub.com/search?page=1&query=pet%20profile)
   - Enclosing one or more terms with double quotes will enforce exact matching on these terms, preventing further tokenization.
 
 - Exclude terms
 
-  - `logging -snowflake` [Sample results](https://demo.datahubproject.io/search?page=1&query=logging%20-snowflake)
+  - `logging -snowflake` [Sample results](https://demo.datahub.com/search?page=1&query=logging%20-snowflake)
   - Results can be excluded by term using `-` to negate the term.
 
 - Term boolean logic with precedence
 
-  - `logging + (-snowflake | os_audit_log)` [Sample results](https://demo.datahubproject.io/search?page=1&query=logging%20%2B%20%28-snowflake%20%7C%20os_audit_log%29)
+  - `logging + (-snowflake | os_audit_log)` [Sample results](https://demo.datahub.com/search?page=1&query=logging%20%2B%20%28-snowflake%20%7C%20os_audit_log%29)
   - `(` `)` can be used to set precedence of boolean term expressions
 
 - Find a dataset with the word **mask** in the name:
 
-  - `/q name: *mask*` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20name%253A%2520%2Amask%2A)
+  - `/q name: *mask*` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20name%253A%2520%2Amask%2A)
   - This will return entities with **mask** in the name. Names tends to be connected by other symbols, hence the wildcard symbols before and after the word.
 
 - Find a dataset with a property, **encoding**
 
-  - `/q customProperties: encoding*` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20customProperties%3A%20encoding%2A)
+  - `/q customProperties: encoding*` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20customProperties%3A%20encoding%2A)
   - Dataset Properties are indexed in ElasticSearch the manner of key=value. Hence if you know the precise key-value pair, you can search using `"key=value"`. However, if you only know the key, you can use wildcards to replace the value and that is what is being done here.
 
 - Find an entity with an **unversioned** structured property
@@ -127,26 +127,26 @@ If you want to:
 
 - Find a dataset with a column name, **latitude**
 
-  - `/q fieldPaths: latitude` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20fieldPaths%3A%20latitude)
+  - `/q fieldPaths: latitude` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20fieldPaths%3A%20latitude)
   - fieldPaths is the name of the attribute that holds the column name in Datasets.
 
 - Find a dataset with the term **latitude** in the field description
 
-  - `/q editedFieldDescriptions: latitude OR fieldDescriptions: latitude` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20editedFieldDescriptions%3A%20latitude%20OR%20fieldDescriptions%3A%20latitude)
+  - `/q editedFieldDescriptions: latitude OR fieldDescriptions: latitude` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20editedFieldDescriptions%3A%20latitude%20OR%20fieldDescriptions%3A%20latitude)
   - Datasets has 2 attributes that contains field description. fieldDescription comes from the SchemaMetadata aspect, while editedFieldDescriptions comes from the EditableSchemaMetadata aspect. EditableSchemaMetadata holds information that comes from UI edits, while SchemaMetadata holds data from ingestion of the dataset.
 
 - Find a dataset with the term **logical** in the dataset description
 
-  - `/q editedDescription: *logical* OR description: *logical*` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)
+  - `/q editedDescription: *logical* OR description: *logical*` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20editedDescription%3A%20%2Alogical%2A%20OR%20description%3A%20%2Alogical%2A)
   - Similar to field descriptions, dataset descriptions can be found in 2 aspects, hence the need to search 2 attributes.
 
 - Find a dataset which resides in one of the browsing folders, for instance, the **hive** folder
 
-  - `/q browsePaths: *hive*` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20browsePaths%3A%20%2Ahive%2A)
+  - `/q browsePaths: *hive*` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20browsePaths%3A%20%2Ahive%2A)
   - BrowsePath is stored as a complete string, for instance `/datasets/prod/hive/SampleKafkaDataset`, hence the need for wildcards on both ends of the term to return a result.
 
 - Find a dataset without the **name** field
-  - `/q -_exists_:name` [Sample results](https://demo.datahubproject.io/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
+  - `/q -_exists_:name` [Sample results](https://demo.datahub.com/search?filter_entity___false___EQUAL___0=DATASET&page=1&query=%252Fq%2520-_exists_%253Aname&unionType=0)
   - the `-` is negating the existence of the field name.
 
 <!--
@@ -164,8 +164,8 @@ If you want to:
 
 ### GraphQL
 
-- [searchAcrossEntities](https://datahubproject.io/docs/graphql/queries/#searchacrossentities)
-- You can try out the API on the demo instance's public GraphQL interface: [here](https://demo.datahubproject.io/api/graphiql)
+- [searchAcrossEntities](https://docs.datahub.com/docs/graphql/queries/#searchacrossentities)
+- You can try out the API on the demo instance's public GraphQL interface: [here](https://demo.datahub.com/api/graphiql)
 
 The same GraphQL API that powers the Search UI can be used
 for integrations and programmatic use-cases.
@@ -216,7 +216,7 @@ query searchEntities {
 
 ### Searching at Scale
 
-For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://datahubproject.io/docs/graphql/queries/#scrollacrossentities) GraphQL API:
+For queries that return more than 10k entities we recommend using the [scrollAcrossEntities](https://docs.datahub.com/docs/graphql/queries/#scrollacrossentities) GraphQL API:
 
 ```
 # Example query
@@ -272,7 +272,7 @@ In order to complete scrolling through all of the results, continue to request d
 
 ### DataHub Blog
 
-- [Using DataHub for Search & Discovery](https://blog.datahubproject.io/using-datahub-for-search-discovery-fa309089be22)
+- [Using DataHub for Search & Discovery](https://medium.com/datahub-project/using-datahub-for-search-discovery-fa309089be22)
 
 ## Customizing Search
 
@@ -549,7 +549,7 @@ The order of the search results is based on the weight what Datahub gives them b
 
 **Where to find more information?**
 
-The sample queries here are non exhaustive. [The link here](https://demo.datahubproject.io/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
+The sample queries here are non exhaustive. [The link here](https://demo.datahub.com/tag/urn:li:tag:Searchable) shows the current list of indexed fields for each entity inside Datahub. Click on the fields inside each entity and see which field has the tag `Searchable`.  
 However, it does not tell you the specific attribute name to use for specialized searches. One way to do so is to inspect the ElasticSearch indices, for example:  
 `curl http://localhost:9200/_cat/indices` returns all the ES indices in the ElasticSearch container.
 

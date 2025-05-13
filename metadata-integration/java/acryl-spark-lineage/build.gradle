@@ -203,7 +203,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'acryl-spark-lineage'
         description = 'Library to push data lineage from spark to datahub'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [shadowJar, javadocJar, sourcesJar]
 
         scm {

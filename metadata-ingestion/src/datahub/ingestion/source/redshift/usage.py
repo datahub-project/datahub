@@ -182,15 +182,16 @@ class RedshiftUsageExtractor:
         self.report.num_operational_stats_filtered = 0
 
         if self.config.include_operational_stats:
-            with self.report.new_stage(USAGE_EXTRACTION_OPERATIONAL_STATS):
-                with PerfTimer() as timer:
-                    # Generate operation aspect workunits
-                    yield from self._gen_operation_aspect_workunits(
-                        self.connection, all_tables
-                    )
-                    self.report.operational_metadata_extraction_sec[
-                        self.config.database
-                    ] = timer.elapsed_seconds(digits=2)
+            with self.report.new_stage(
+                USAGE_EXTRACTION_OPERATIONAL_STATS
+            ), PerfTimer() as timer:
+                # Generate operation aspect workunits
+                yield from self._gen_operation_aspect_workunits(
+                    self.connection, all_tables
+                )
+                self.report.operational_metadata_extraction_sec[
+                    self.config.database
+                ] = timer.elapsed_seconds(digits=2)
 
         # Generate aggregate events
         with self.report.new_stage(USAGE_EXTRACTION_USAGE_AGGREGATION):

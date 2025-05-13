@@ -42,6 +42,14 @@ ext {
             'quickstartDebug': [
                     profile: 'debug',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartDebugMin': [
+                    profile: 'debug-min',
+                    modules: backend_profile_modules + [':datahub-frontend'],
                     isDebug: true
             ],
             'quickstartDebugConsumers': [
@@ -50,7 +58,10 @@ ext {
                                                                           ':metadata-jobs:mce-consumer-job',
                                                                           ':metadata-jobs:mae-consumer-job',
                                                                           ':datahub-actions'],
-                    isDebug: true
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
             ],
             'quickstartPg': [
                     profile: 'quickstart-postgres',
@@ -83,18 +94,27 @@ ext {
             'quickstartStorage': [
                     profile: 'quickstart-storage',
                     preserveVolumes: true
+            ],
+            'allImages': [ //This is a special task just to include all images as dependencies - and is useful when CI needs to publish all images
+                    profile: 'quickstart-consumers',
+                    modules: python_services_modules + backend_profile_modules + [
+                        ':datahub-frontend',
+                        ':metadata-jobs:mce-consumer-job',
+                        ':metadata-jobs:mae-consumer-job',
+                        ':datahub-actions',
+                        ':docker:datahub-ingestion'
+                    ]
             ]
     ]
 
-    //  only for debug variants of quickstart to enable <variant>Reload tasks. 
+    // only for debug variants of quickstart to enable <variant>Reload tasks. 
     // The actual service name needs the profile to be appended,  <container-name>-<profile>
+    // This list only contains modules that can be reloaded via the reloadTask. If other modules need to be reloaded, quickstart* needs to be used.
     moduleToContainer = [
         ':metadata-service:war': 'datahub-gms',
         ':datahub-frontend': 'frontend',
-        ':datahub-upgrade': 'system-update',
         ':metadata-jobs:mce-consumer-job': 'datahub-mce-consumer',
         ':metadata-jobs:mae-consumer-job': 'datahub-mae-consumer',
-        ':datahub-actions': 'datahub-actions',
     ]
 }
 
@@ -183,7 +203,8 @@ quickstart_configs.each { taskName, config ->
             bakeSpec = [:]
         }
         group = 'quickstart-ci'
-        dependsOn(config.modules.collect { it + ':generateBakeSnippet' })
+        def taskSuffix = config.isDebug? 'debug' : ''
+        dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
         dependsOn(tasks.getByName("prepareAll${taskName}"))
 
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
@@ -194,6 +215,9 @@ quickstart_configs.each { taskName, config ->
             buildCmd << "depot"
             buildCmd += bakeCmdArgs
             buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
+            if (project.properties.getOrDefault("dockerPush", false)){
+                buildCmd << "--push"
+            }
         } else {
             buildCmd += ["docker",  "buildx" ]
             buildCmd +=bakeCmdArgs
@@ -207,7 +231,7 @@ quickstart_configs.each { taskName, config ->
 
             config.modules.each { module ->
                 def moduleProject = project.project(module)
-                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet")
+                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet${taskSuffix}")
                 bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
                 targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
             }
@@ -220,64 +244,6 @@ quickstart_configs.each { taskName, config ->
         }
     }
 }
-
-//TODO This is a copy of buildImages* tasks but without the prepareAll dependency. Need to refactor to avoid code duplication.
-/*
-quickstart_configs.each { taskName, config ->
-    tasks.register("buildImagesFromCache${taskName}", Exec) {
-        ext{
-            bakeSpec = [:]
-        }
-        group = 'quickstart-ci'
-        dependsOn(config.modules.collect { it + ':generateBakeSnippet' })
-
-        def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
-
-        bakeCmdArgs = ["bake", "-f",  "${jsonFile.absolutePath}"]
-        def buildCmd = []
-        if (System.getenv("DOCKER_CACHE") == "GITHUB") {
-            buildCmd += ["docker",  "buildx" ]
-            buildCmd += bakeCmdArgs
-            def githubToken = System.getenv("GITHUB_TOKEN")
-            if (githubToken) {
-                dockerCmd += ["--cache-from", "type=gha,token=${githubToken}"]
-                dockerCmd += ["--cache-to", "type=gha,mode=max,token=${githubToken}"]
-            } else {
-                dockerCmd += ["--cache-from", "type=gha"]
-                dockerCmd += ["--cache-to", "type=gha,mode=max"]
-            }
-        } else if (System.getenv("DOCKER_CACHE") == "DEPOT") {
-            buildCmd << "depot"
-            buildCmd += bakeCmdArgs
-            buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
-        } else {
-            buildCmd += ["docker",  "buildx" ]
-            buildCmd +=bakeCmdArgs
-        }
-        println(buildCmd.join(" "))
-        commandLine buildCmd
-        workingDir rootProject.projectDir
-
-        doFirst {
-            def bakeSnippets = [:]
-            def targets = []
-
-            config.modules.each { module ->
-                def moduleProject = project.project(module)
-                def generateBakeSnippetsTask = moduleProject.tasks.getByName("generateBakeSnippet")
-                bakeSnippets.putAll(generateBakeSnippetsTask.bakeSpec.target)
-                targets.addAll(generateBakeSnippetsTask.bakeSpec.target.keySet())
-            }
-
-            ext.bakeSpec.group = [ "default": ["targets": targets] ]
-            ext.bakeSpec.target = bakeSnippets
-
-            jsonFile.parentFile.mkdirs()
-            jsonFile.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(ext.bakeSpec))
-        }
-    }
-}
-*/
 
 // Configure dependencies for ComposeUp tasks
 quickstart_configs.each { taskName, config ->
@@ -344,6 +310,23 @@ quickstart_configs.each { taskName, config ->
                     // If no containers need restart, make this a no-op
                     commandLine 'bash', '-c', 'echo "No containers need restarting - all modules are up to date"'
                 }    
+            }
+        }
+        tasks.register("${reloadTaskName}ReloadEnv", Exec) {
+            dependsOn tasks.named("prepareAll${taskName}")
+            group = 'quickstart'
+            description = "Build changed containers but recreate all services for the ${taskName} task"
+            doFirst {
+                def containersToRestart = []
+                moduleToContainer.each { modulePath, containerName ->
+                    // Find which of of the reloadable modules are in used in this task
+                    if (config.modules.contains(modulePath)) {
+                        containersToRestart << "${containerName}-${config.profile}"
+                    }
+                }
+                def cmd = ["docker compose -p datahub --profile ${config.profile}"] + ['-f', compose_base] + ['up', '-d', '--no-deps'] + containersToRestart
+                println(cmd.join(" "))
+                commandLine 'bash', '-c', cmd.join(" ")
             }
         }
     }

@@ -4,6 +4,7 @@ import {
     getCheckboxColor,
     getCheckboxHoverBackgroundColor,
     getCheckboxSize,
+    getCheckmarkPosition,
 } from '@components/components/Checkbox/utils';
 import { formLabelTextStyles } from '@components/components/commonStyles';
 import { borders, colors, radius, spacing, transform, zIndices } from '@components/theme';
@@ -54,28 +55,35 @@ export const Checkmark = styled.div<{
     checked: boolean;
     disabled: boolean;
     size: SizeOptions;
-}>(({ intermediate, checked, error, disabled, size }) => ({
+}>(({ theme, intermediate, checked, error, disabled, size }) => ({
     ...getCheckboxSize(size),
+    ...getCheckmarkPosition(size),
     position: 'absolute',
-    top: '4px',
-    left: '11px',
     zIndex: zIndices.docked,
-    borderRadius: '3px',
-    border: `${borders['2px']} ${getCheckboxColor(checked, error, disabled, undefined)}`,
+    borderRadius: '4px',
+    border: `${borders['1px']} ${getCheckboxColor(checked, error, disabled, undefined)}`,
     transition: 'all 0.2s ease-in-out',
-    cursor: 'pointer',
+    cursor: disabled ? 'normal' : 'pointer',
+    ':hover': {
+        ...(!disabled && {
+            borderColor: theme.styles['primary-color'],
+        }),
+    },
     '&:after': {
         content: '""',
         position: 'absolute',
         display: 'none',
-        top: !intermediate ? '10%' : '20%',
-        left: !intermediate ? '30%' : '40%',
+        top: !intermediate ? '10%' : '25%',
+        left: !intermediate ? '30%' : '45%',
         width: !intermediate ? '35%' : '0px',
         height: !intermediate ? '60%' : '50%',
         border: 'solid white',
-        borderWidth: '0 3px 3px 0',
+        borderWidth: '0 2px 2px 0',
         transform: !intermediate ? 'rotate(45deg)' : transform.rotate[90],
     },
+    ...(disabled && {
+        backgroundColor: colors.gray[1500],
+    }),
 }));
 
 export const HoverState = styled.div<{ isHovering: boolean; error: string; checked: boolean; disabled: boolean }>(

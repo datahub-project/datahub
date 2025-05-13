@@ -37,8 +37,8 @@ RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
     fi && \
     # Create and set proper permissions for datahub directories
     mkdir -p $HOME && \
-    chown -R datahub:datahub $HOME
-
+    chown -R datahub:datahub $HOME && \
+    chmod g-s $HOME
 
 # Setup the PPA for alternative Python versions.
 # TODO: Eventually we should switch to using uv's support for python-build-standalone.
@@ -139,6 +139,7 @@ RUN chmod a+x /start_datahub_actions.sh && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 # Add other default configurations into this!
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
@@ -148,13 +149,14 @@ USER datahub
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"  # RELEASE_VERSION is a required build arg
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
 # For the datahub-actions build, we explicitly want to retain the uv cache.
 # This speeds up the process of creating venvs at runtime.
 # Because uv uses hardlinks for installing packages, keeping the cache around does not
 # really impact image size.
-RUN uv pip install -e "/datahub-actions/[all]"
+RUN uv pip install -e '/metadata-ingestion/' -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
 CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
