@@ -200,7 +200,7 @@ class SQLServerSource(SQLAlchemySource):
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
             self.report.warning(
                 title="Potential issue with lineage",
-                message="Lineage may not be linkable since 'convert_urns_to_lowercase' is False. To ensure lineage is properly linked, set 'convert_urns_to_lowercase' to True.",
+                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
             )
 
         if self.config.include_descriptions:
