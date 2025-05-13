@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import os
 import re
 import time
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from json import JSONDecodeError
 from typing import Dict, Iterable, Iterator, List, Optional, Set, Tuple, Union
 
 import dateutil.parser as dp
+import psutil
 import pydantic
 import requests
 import sqlglot
@@ -248,6 +250,10 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     dataset_get_api_called: int = 0
     query_get_api_called: int = 0
     chart_get_api_called: int = 0
+    get_cache_hits: int = 0
+    get_cache_misses: int = 0
+    get_cache_size: int = 0
+    process_memory_used_mb: float = 0
     space_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     report_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     dataset_get_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
@@ -595,18 +601,16 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def _get_chart_urns(self, report_token: str) -> list:
         chart_urns = []
-        for query_page in self._get_queries(report_token):
-            for query in query_page:
-                for chart_page in self._get_charts(
-                    report_token, query.get("token", "")
-                ):
-                    # build chart urns
-                    for chart in chart_page:
-                        logger.debug(f"Chart: {chart.get('token')}")
-                        chart_urn = builder.make_chart_urn(
-                            self.platform, chart.get("token", "")
-                        )
-                        chart_urns.append(chart_urn)
+        queries = self._get_queries(report_token)
+        for query in queries:
+            charts = self._get_charts(report_token, query.get("token", ""))
+            # build chart urns
+            for chart in charts:
+                logger.debug(f"Chart: {chart.get('token')}")
+                chart_urn = builder.make_chart_urn(
+                    self.platform, chart.get("token", "")
+                )
+                chart_urns.append(chart_urn)
 
         return chart_urns
 
@@ -1492,19 +1496,18 @@ class ModeSource(StatefulIngestionSourceBase):
                 context=f"Error: {str(e)}",
             )
 
-    def _get_queries(self, report_token: str) -> Iterator[List[dict]]:
+    def _get_queries(self, report_token: str) -> List[dict]:
         try:
             with self.report.query_get_timer:
-                for query_page in self._get_paged_request_json(
-                    f"{self.workspace_uri}/reports/{report_token}/queries?filter=all",
-                    "queries",
-                    self.config.items_per_page,
-                ):
-                    self.report.query_get_api_called += 1
-                    logger.debug(
-                        f"Read {len(query_page)} queries records from workspace {self.workspace_uri} report {report_token}"
-                    )
-                    yield query_page
+                # This endpoint does not handle pagination properly
+                queries = self._get_request_json(
+                    f"{self.workspace_uri}/reports/{report_token}/queries"
+                )
+                self.report.query_get_api_called += 1
+                logger.debug(
+                    f"Read {len(queries)} queries records from workspace {self.workspace_uri} report {report_token}"
+                )
+                return queries.get("_embedded", {}).get("queries", [])
         except ModeRequestError as e:
             if isinstance(e, HTTPError) and e.response.status_code == 404:
                 self.report.report_warning(
@@ -1518,6 +1521,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     message="Unable to retrieve queries for report token.",
                     context=f"Report Token: {report_token}, Error: {str(e)}",
                 )
+            return []
 
     @lru_cache(maxsize=None)
     def _get_last_query_run(self, report_token: str, report_run_id: str) -> list:
@@ -1538,19 +1542,18 @@ class ModeSource(StatefulIngestionSourceBase):
             )
         return query_runs
 
-    def _get_charts(self, report_token: str, query_token: str) -> Iterator[List[dict]]:
+    def _get_charts(self, report_token: str, query_token: str) -> List[dict]:
         try:
             with self.report.chart_get_timer:
-                for charts_page in self._get_paged_request_json(
-                    f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts?filter=all",
-                    "charts",
-                    self.config.items_per_page,
-                ):
-                    self.report.chart_get_api_called += 1
-                    logger.debug(
-                        f"Read {len(charts_page)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
-                    )
-                    yield charts_page
+                # This endpoint does not handle pagination properly
+                charts = self._get_request_json(
+                    f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
+                )
+                self.report.chart_get_api_called += 1
+                logger.debug(
+                    f"Read {len(charts)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
+                )
+                return charts.get("_embedded", {}).get("charts", [])
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Charts",
@@ -1559,6 +1562,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"Query token: {query_token}, "
                 f"Error: {str(e)}",
             )
+            return []
 
     def _get_paged_request_json(
         self, url: str, key: str, per_page: int
@@ -1573,7 +1577,7 @@ class ModeSource(StatefulIngestionSourceBase):
             yield data
             page += 1
 
-    @lru_cache(maxsize=1024)
+    @lru_cache(maxsize=20480)
     def _get_request_json(self, url: str) -> Dict:
         r = tenacity.Retrying(
             wait=wait_exponential(
@@ -1620,6 +1624,17 @@ class ModeSource(StatefulIngestionSourceBase):
                 raise http_error
 
         return get_request()
+
+    @staticmethod
+    def _get_process_memory():
+        process = psutil.Process(os.getpid())
+        mem_info = process.memory_info()
+        return {
+            "rss": mem_info.rss / (1024 * 1024),
+            "vms": mem_info.vms / (1024 * 1024),
+            "shared": getattr(mem_info, "shared", 0) / (1024 * 1024),
+            "data": getattr(mem_info, "data", 0) / (1024 * 1024),
+        }
 
     @staticmethod
     def create_embed_aspect_mcp(
@@ -1714,42 +1729,38 @@ class ModeSource(StatefulIngestionSourceBase):
                 for report in report_page:
                     report_token = report.get("token", "")
 
-                    for query_page in self._get_queries(report_token):
-                        for query in query_page:
-                            query_mcps = self.construct_query_or_dataset(
-                                report_token,
+                    queries = self._get_queries(report_token)
+                    for query in queries:
+                        query_mcps = self.construct_query_or_dataset(
+                            report_token,
+                            query,
+                            space_token=space_token,
+                            report_info=report,
+                            is_mode_dataset=False,
+                        )
+                        chart_fields: Dict[str, SchemaFieldClass] = {}
+                        for wu in query_mcps:
+                            if isinstance(
+                                wu.metadata, MetadataChangeProposalWrapper
+                            ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
+                                schema_metadata = wu.metadata.aspect
+                                for field in schema_metadata.fields:
+                                    chart_fields.setdefault(field.fieldPath, field)
+
+                            yield wu
+
+                        charts = self._get_charts(report_token, query.get("token", ""))
+                        # build charts
+                        for i, chart in enumerate(charts):
+                            yield from self.construct_chart_from_api_data(
+                                i,
+                                chart,
+                                chart_fields,
                                 query,
                                 space_token=space_token,
                                 report_info=report,
-                                is_mode_dataset=False,
+                                query_name=query["name"],
                             )
-                            chart_fields: Dict[str, SchemaFieldClass] = {}
-                            for wu in query_mcps:
-                                if isinstance(
-                                    wu.metadata, MetadataChangeProposalWrapper
-                                ) and isinstance(
-                                    wu.metadata.aspect, SchemaMetadataClass
-                                ):
-                                    schema_metadata = wu.metadata.aspect
-                                    for field in schema_metadata.fields:
-                                        chart_fields.setdefault(field.fieldPath, field)
-
-                                yield wu
-
-                            for chart_page in self._get_charts(
-                                report_token, query.get("token", "")
-                            ):
-                                # build charts
-                                for i, chart in enumerate(chart_page):
-                                    yield from self.construct_chart_from_api_data(
-                                        i,
-                                        chart,
-                                        chart_fields,
-                                        query,
-                                        space_token=space_token,
-                                        report_info=report,
-                                        query_name=query["name"],
-                                    )
 
     def emit_dataset_mces(self):
         """
@@ -1759,17 +1770,17 @@ class ModeSource(StatefulIngestionSourceBase):
             for dataset_page in self._get_datasets(space_token):
                 for report in dataset_page:
                     report_token = report.get("token", "")
-                    for query_page in self._get_queries(report_token):
-                        for query in query_page:
-                            query_mcps = self.construct_query_or_dataset(
-                                report_token,
-                                query,
-                                space_token=space_token,
-                                report_info=report,
-                                is_mode_dataset=True,
-                            )
-                            for wu in query_mcps:
-                                yield wu
+                    queries = self._get_queries(report_token)
+                    for query in queries:
+                        query_mcps = self.construct_query_or_dataset(
+                            report_token,
+                            query,
+                            space_token=space_token,
+                            report_info=report,
+                            is_mode_dataset=True,
+                        )
+                        for wu in query_mcps:
+                            yield wu
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
@@ -1788,6 +1799,12 @@ class ModeSource(StatefulIngestionSourceBase):
         yield from self.emit_dashboard_mces()
         yield from self.emit_dataset_mces()
         yield from self.emit_chart_mces()
+        cache_info = self._get_request_json.cache_info()
+        self.report.get_cache_hits = cache_info.hits
+        self.report.get_cache_misses = cache_info.misses
+        self.report.get_cache_size = cache_info.currsize
+        memory_used = self._get_process_memory()
+        self.report.process_memory_used_mb = round(memory_used["rss"], 2)
 
     def get_report(self) -> SourceReport:
         return self.report
