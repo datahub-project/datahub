@@ -106,7 +106,6 @@ function CreateGlossaryEntityModal(props: Props) {
                             const dataKey =
                                 entityType === EntityType.GlossaryTerm ? 'createGlossaryTerm' : 'createGlossaryNode';
                             const newEntityUrn = res.data[dataKey];
-                            console.log('HERE3', { res, newEntityUrn, selectedParentUrn });
                             setNodeToNewEntity((currData) => ({
                                 ...currData,
                                 [selectedParentUrn]: {

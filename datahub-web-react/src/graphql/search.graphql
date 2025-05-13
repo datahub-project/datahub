@@ -171,6 +171,9 @@ fragment autoCompleteFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        subTypes {
+            typeNames
+        }
     }
     ... on DataJob {
         dataFlow {
@@ -191,6 +194,9 @@ fragment autoCompleteFields on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on GlossaryTerm {
@@ -316,6 +322,19 @@ fragment autoCompleteFields on Entity {
         properties {
             name
             description
+        }
+    }
+    ... on SchemaFieldEntity {
+        fieldPath
+        parent {
+            ... on Dataset {
+                urn
+                type
+                ...entityDisplayNameFields
+                platform {
+                    ...platformFields
+                }
+            }
         }
     }
 }
@@ -756,6 +775,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on DataJob {
