@@ -595,16 +595,18 @@ class ModeSource(StatefulIngestionSourceBase):
 
     def _get_chart_urns(self, report_token: str) -> list:
         chart_urns = []
-        queries = self._get_queries(report_token)
-        for query in queries:
-            charts = self._get_charts(report_token, query.get("token", ""))
-            # build chart urns
-            for chart in charts:
-                logger.debug(f"Chart: {chart.get('token')}")
-                chart_urn = builder.make_chart_urn(
-                    self.platform, chart.get("token", "")
-                )
-                chart_urns.append(chart_urn)
+        for query_page in self._get_queries(report_token):
+            for query in query_page:
+                for chart_page in self._get_charts(
+                    report_token, query.get("token", "")
+                ):
+                    # build chart urns
+                    for chart in chart_page:
+                        logger.debug(f"Chart: {chart.get('token')}")
+                        chart_urn = builder.make_chart_urn(
+                            self.platform, chart.get("token", "")
+                        )
+                        chart_urns.append(chart_urn)
 
         return chart_urns
 
@@ -1447,70 +1449,62 @@ class ModeSource(StatefulIngestionSourceBase):
         mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
         yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
-    @lru_cache(maxsize=None)
-    def _get_reports(self, space_token: str) -> List[dict]:
-        reports = []
+    def _get_reports(self, space_token: str) -> Iterator[List[dict]]:
         try:
-            self.report.report_get_api_called += 1
             with self.report.report_get_timer:
                 for reports_page in self._get_paged_request_json(
                     f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
                     "reports",
                     self.config.items_per_page,
                 ):
+                    self.report.report_get_api_called += 1
                     logger.debug(
                         f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
                     )
-                    reports.extend(reports_page)
+                    yield reports_page
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Reports for Space",
                 message="Unable to retrieve reports for space token.",
                 context=f"Space Token: {space_token}, Error: {str(e)}",
             )
-        return reports
 
-    @lru_cache(maxsize=None)
-    def _get_datasets(self, space_token: str) -> List[dict]:
+    def _get_datasets(self, space_token: str) -> Iterator[List[dict]]:
         """
         Retrieves datasets for a given space token.
         """
-        datasets = []
         try:
-            self.report.dataset_get_api_called += 1
             with self.report.dataset_get_timer:
                 for dataset_page in self._get_paged_request_json(
                     f"{self.workspace_uri}/spaces/{space_token}/datasets?filter=all",
                     "reports",
                     self.config.items_per_page,
                 ):
+                    self.report.dataset_get_api_called += 1
                     logger.debug(
                         f"Read {len(dataset_page)} datasets records from workspace {self.workspace_uri} space {space_token}"
                     )
-                    datasets.extend(dataset_page)
+                    yield dataset_page
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Datasets for Space",
                 message=f"Unable to retrieve datasets for space token {space_token}.",
                 context=f"Error: {str(e)}",
             )
-        return datasets
 
-    @lru_cache(maxsize=None)
-    def _get_queries(self, report_token: str) -> list:
-        queries = []
+    def _get_queries(self, report_token: str) -> Iterator[List[dict]]:
         try:
-            self.report.query_get_api_called += 1
             with self.report.query_get_timer:
                 for query_page in self._get_paged_request_json(
                     f"{self.workspace_uri}/reports/{report_token}/queries?filter=all",
                     "queries",
                     self.config.items_per_page,
                 ):
+                    self.report.query_get_api_called += 1
                     logger.debug(
                         f"Read {len(query_page)} queries records from workspace {self.workspace_uri} report {report_token}"
                     )
-                    queries.extend(query_page)
+                    yield query_page
         except ModeRequestError as e:
             if isinstance(e, HTTPError) and e.response.status_code == 404:
                 self.report.report_warning(
@@ -1524,7 +1518,6 @@ class ModeSource(StatefulIngestionSourceBase):
                     message="Unable to retrieve queries for report token.",
                     context=f"Report Token: {report_token}, Error: {str(e)}",
                 )
-        return queries
 
     @lru_cache(maxsize=None)
     def _get_last_query_run(self, report_token: str, report_run_id: str) -> list:
@@ -1545,21 +1538,19 @@ class ModeSource(StatefulIngestionSourceBase):
             )
         return query_runs
 
-    @lru_cache(maxsize=None)
-    def _get_charts(self, report_token: str, query_token: str) -> list:
-        charts = []
+    def _get_charts(self, report_token: str, query_token: str) -> Iterator[List[dict]]:
         try:
-            self.report.chart_get_api_called += 1
             with self.report.chart_get_timer:
                 for charts_page in self._get_paged_request_json(
                     f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts?filter=all",
                     "charts",
                     self.config.items_per_page,
                 ):
+                    self.report.chart_get_api_called += 1
                     logger.debug(
                         f"Read {len(charts_page)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
                     )
-                    charts.extend(charts_page)
+                    yield charts_page
         except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Charts",
@@ -1568,7 +1559,6 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"Query token: {query_token}, "
                 f"Error: {str(e)}",
             )
-        return charts
 
     def _get_paged_request_json(
         self, url: str, key: str, per_page: int
@@ -1583,6 +1573,7 @@ class ModeSource(StatefulIngestionSourceBase):
             yield data
             page += 1
 
+    @lru_cache(maxsize=1024)
     def _get_request_json(self, url: str) -> Dict:
         r = tenacity.Retrying(
             wait=wait_exponential(
@@ -1665,115 +1656,120 @@ class ModeSource(StatefulIngestionSourceBase):
             yield from self.construct_space_container(space_token, space_name)
             space_container_key = self.gen_space_key(space_token)
 
-            reports = self._get_reports(space_token)
-            for report in reports:
-                logger.debug(
-                    f"Report: name: {report.get('name')} token: {report.get('token')}"
-                )
-                dashboard_tuple_from_report = self.construct_dashboard(
-                    space_token=space_token, report_info=report
-                )
+            for report_page in self._get_reports(space_token):
+                for report in report_page:
+                    logger.debug(
+                        f"Report: name: {report.get('name')} token: {report.get('token')}"
+                    )
+                    dashboard_tuple_from_report = self.construct_dashboard(
+                        space_token=space_token, report_info=report
+                    )
 
-                if dashboard_tuple_from_report is None:
-                    continue
-                (
-                    dashboard_snapshot_from_report,
-                    browse_mcpw,
-                ) = dashboard_tuple_from_report
+                    if dashboard_tuple_from_report is None:
+                        continue
+                    (
+                        dashboard_snapshot_from_report,
+                        browse_mcpw,
+                    ) = dashboard_tuple_from_report
 
-                mce = MetadataChangeEvent(
-                    proposedSnapshot=dashboard_snapshot_from_report
-                )
+                    mce = MetadataChangeEvent(
+                        proposedSnapshot=dashboard_snapshot_from_report
+                    )
 
-                mcpw = MetadataChangeProposalWrapper(
-                    entityUrn=dashboard_snapshot_from_report.urn,
-                    aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MODE_REPORT]),
-                )
-                yield mcpw.as_workunit()
-                yield from add_dataset_to_container(
-                    container_key=space_container_key,
-                    dataset_urn=dashboard_snapshot_from_report.urn,
-                )
-                yield browse_mcpw.as_workunit()
+                    mcpw = MetadataChangeProposalWrapper(
+                        entityUrn=dashboard_snapshot_from_report.urn,
+                        aspect=SubTypesClass(typeNames=[BIAssetSubTypes.MODE_REPORT]),
+                    )
+                    yield mcpw.as_workunit()
+                    yield from add_dataset_to_container(
+                        container_key=space_container_key,
+                        dataset_urn=dashboard_snapshot_from_report.urn,
+                    )
+                    yield browse_mcpw.as_workunit()
 
-                usage_statistics = DashboardUsageStatisticsClass(
-                    timestampMillis=round(datetime.now().timestamp() * 1000),
-                    viewsCount=report.get("view_count", 0),
-                )
+                    usage_statistics = DashboardUsageStatisticsClass(
+                        timestampMillis=round(datetime.now().timestamp() * 1000),
+                        viewsCount=report.get("view_count", 0),
+                    )
 
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=dashboard_snapshot_from_report.urn,
-                    aspect=usage_statistics,
-                ).as_workunit()
-
-                if self.config.ingest_embed_url is True:
-                    yield self.create_embed_aspect_mcp(
-                        entity_urn=dashboard_snapshot_from_report.urn,
-                        embed_url=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report.get('token')}/embed",
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=dashboard_snapshot_from_report.urn,
+                        aspect=usage_statistics,
                     ).as_workunit()
 
-                yield MetadataWorkUnit(id=dashboard_snapshot_from_report.urn, mce=mce)
+                    if self.config.ingest_embed_url is True:
+                        yield self.create_embed_aspect_mcp(
+                            entity_urn=dashboard_snapshot_from_report.urn,
+                            embed_url=f"{self.config.connect_uri}/{self.config.workspace}/reports/{report.get('token')}/embed",
+                        ).as_workunit()
+
+                    yield MetadataWorkUnit(
+                        id=dashboard_snapshot_from_report.urn, mce=mce
+                    )
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
         # Space/collection -> report -> query -> Chart
         for space_token in self.space_tokens:
-            reports = self._get_reports(space_token)
-            for report in reports:
-                report_token = report.get("token", "")
+            for report_page in self._get_reports(space_token):
+                for report in report_page:
+                    report_token = report.get("token", "")
 
-                queries = self._get_queries(report_token)
-                for query in queries:
-                    query_mcps = self.construct_query_or_dataset(
-                        report_token,
-                        query,
-                        space_token=space_token,
-                        report_info=report,
-                        is_mode_dataset=False,
-                    )
-                    chart_fields: Dict[str, SchemaFieldClass] = {}
-                    for wu in query_mcps:
-                        if isinstance(
-                            wu.metadata, MetadataChangeProposalWrapper
-                        ) and isinstance(wu.metadata.aspect, SchemaMetadataClass):
-                            schema_metadata = wu.metadata.aspect
-                            for field in schema_metadata.fields:
-                                chart_fields.setdefault(field.fieldPath, field)
+                    for query_page in self._get_queries(report_token):
+                        for query in query_page:
+                            query_mcps = self.construct_query_or_dataset(
+                                report_token,
+                                query,
+                                space_token=space_token,
+                                report_info=report,
+                                is_mode_dataset=False,
+                            )
+                            chart_fields: Dict[str, SchemaFieldClass] = {}
+                            for wu in query_mcps:
+                                if isinstance(
+                                    wu.metadata, MetadataChangeProposalWrapper
+                                ) and isinstance(
+                                    wu.metadata.aspect, SchemaMetadataClass
+                                ):
+                                    schema_metadata = wu.metadata.aspect
+                                    for field in schema_metadata.fields:
+                                        chart_fields.setdefault(field.fieldPath, field)
 
-                        yield wu
+                                yield wu
 
-                    charts = self._get_charts(report_token, query.get("token", ""))
-                    # build charts
-                    for i, chart in enumerate(charts):
-                        yield from self.construct_chart_from_api_data(
-                            i,
-                            chart,
-                            chart_fields,
-                            query,
-                            space_token=space_token,
-                            report_info=report,
-                            query_name=query["name"],
-                        )
+                            for chart_page in self._get_charts(
+                                report_token, query.get("token", "")
+                            ):
+                                # build charts
+                                for i, chart in enumerate(chart_page):
+                                    yield from self.construct_chart_from_api_data(
+                                        i,
+                                        chart,
+                                        chart_fields,
+                                        query,
+                                        space_token=space_token,
+                                        report_info=report,
+                                        query_name=query["name"],
+                                    )
 
     def emit_dataset_mces(self):
         """
         Emits MetadataChangeEvents (MCEs) for datasets within each space.
         """
         for space_token, _ in self.space_tokens.items():
-            datasets = self._get_datasets(space_token)
-
-            for report in datasets:
-                report_token = report.get("token", "")
-                queries = self._get_queries(report_token)
-                for query in queries:
-                    query_mcps = self.construct_query_or_dataset(
-                        report_token,
-                        query,
-                        space_token=space_token,
-                        report_info=report,
-                        is_mode_dataset=True,
-                    )
-                    for wu in query_mcps:
-                        yield wu
+            for dataset_page in self._get_datasets(space_token):
+                for report in dataset_page:
+                    report_token = report.get("token", "")
+                    for query_page in self._get_queries(report_token):
+                        for query in query_page:
+                            query_mcps = self.construct_query_or_dataset(
+                                report_token,
+                                query,
+                                space_token=space_token,
+                                report_info=report,
+                                is_mode_dataset=True,
+                            )
+                            for wu in query_mcps:
+                                yield wu
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "ModeSource":
