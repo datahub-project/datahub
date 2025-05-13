@@ -758,10 +758,12 @@ class LookerUtil:
             for tag_name in field.tags
         ]
 
-        tag_urns = LookerUtil.type_to_tag_map.get(field.field_type, [])
-        if tag_urns:
+        if field.field_type in LookerUtil.type_to_tag_map:
             schema_field_tags.extend(
-                [TagAssociationClass(tag=tag_urn) for tag_urn in tag_urns]
+                [
+                    TagAssociationClass(tag=tag_name)
+                    for tag_name in LookerUtil.type_to_tag_map[field.field_type]
+                ]
             )
         else:
             reporter.report_warning(
