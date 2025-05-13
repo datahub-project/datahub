@@ -518,6 +518,120 @@ const searchResultWithGhostSiblings = [
     },
 ];
 
+// --- Test data for DBT/Snowflake sibling handling ---
+const dbtSnowflakeCommonName = 'dbt_plus_snowflake_asset';
+const dbtPlatformName = 'dbt';
+const snowflakePlatformName = 'snowflake';
+
+const dbtUrn = `urn:li:dataset:(urn:li:dataPlatform:${dbtPlatformName},${dbtSnowflakeCommonName},PROD)`;
+const snowflakeUrn = `urn:li:dataset:(urn:li:dataPlatform:${snowflakePlatformName},${dbtSnowflakeCommonName},PROD)`;
+
+const dbtSiblingEntityData = {
+    urn: dbtUrn,
+    exists: true,
+    type: 'DATASET',
+    name: dbtSnowflakeCommonName,
+    platform: {
+        urn: `urn:li:dataPlatform:${dbtPlatformName}`,
+        type: 'DATA_PLATFORM',
+        name: dbtPlatformName,
+        properties: {
+            type: 'OTHERS',
+            displayName: 'dbt',
+            datasetNameDelimiter: '.',
+            logoUrl: '/assets/platforms/dbtlogo.png',
+            __typename: 'DataPlatformProperties',
+        },
+        __typename: 'DataPlatform',
+    },
+    properties: { name: 'dbt_plus_snowflake_asset', __typename: 'DatasetProperties' }, // Simplified properties
+    __typename: 'Dataset',
+};
+
+const snowflakeSiblingEntityData = {
+    urn: snowflakeUrn,
+    exists: true,
+    type: 'DATASET',
+    name: dbtSnowflakeCommonName,
+    platform: {
+        urn: `urn:li:dataPlatform:${snowflakePlatformName}`,
+        type: 'DATA_PLATFORM',
+        name: snowflakePlatformName,
+        properties: {
+            type: 'WAREHOUSE',
+            displayName: 'Snowflake',
+            datasetNameDelimiter: '.',
+            logoUrl: '/assets/platforms/snowflakelogo.png',
+            __typename: 'DataPlatformProperties',
+        },
+        __typename: 'DataPlatform',
+    },
+    properties: { name: 'dbt_plus_snowflake_asset', __typename: 'DatasetProperties' }, // Simplified properties
+    __typename: 'Dataset',
+};
+
+const dbtSearchResultItem = {
+    entity: {
+        urn: dbtUrn,
+        exists: true,
+        type: 'DATASET',
+        name: dbtSnowflakeCommonName,
+        platform: {
+            urn: `urn:li:dataPlatform:${dbtPlatformName}`,
+            type: 'DATA_PLATFORM',
+            name: dbtPlatformName,
+            properties: {
+                type: 'OTHERS',
+                displayName: 'dbt',
+                datasetNameDelimiter: '.',
+                logoUrl: '/assets/platforms/dbtlogo.png',
+                __typename: 'DataPlatformProperties',
+            },
+            __typename: 'DataPlatform',
+        },
+        properties: { name: 'dbt_plus_snowflake_asset', __typename: 'DatasetProperties' },
+        siblingsSearch: {
+            searchResults: [{ entity: snowflakeSiblingEntityData }],
+        },
+        __typename: 'Dataset',
+    },
+    matchedFields: [{ name: 'name', value: dbtSnowflakeCommonName, __typename: 'MatchedField' }],
+    __typename: 'SearchResult',
+};
+
+const snowflakeSearchResultItem = {
+    entity: {
+        urn: snowflakeUrn,
+        exists: true,
+        type: 'DATASET',
+        name: dbtSnowflakeCommonName,
+        platform: {
+            urn: `urn:li:dataPlatform:${snowflakePlatformName}`,
+            type: 'DATA_PLATFORM',
+            name: snowflakePlatformName,
+            properties: {
+                type: 'WAREHOUSE',
+                displayName: 'Snowflake',
+                datasetNameDelimiter: '.',
+                logoUrl: '/assets/platforms/snowflakelogo.png',
+                __typename: 'DataPlatformProperties',
+            },
+            __typename: 'DataPlatform',
+        },
+        properties: { name: 'dbt_plus_snowflake_asset', __typename: 'DatasetProperties' },
+        siblingsSearch: {
+            searchResults: [{ entity: dbtSiblingEntityData }],
+        },
+        __typename: 'Dataset',
+    },
+    matchedFields: [{ name: 'name', value: dbtSnowflakeCommonName, __typename: 'MatchedField' }],
+    __typename: 'SearchResult',
+};
+
+const searchResultsDbtFirstSnowflakeSecond = [dbtSearchResultItem, snowflakeSearchResultItem];
+const searchResultsSnowflakeFirstDbtSecond = [snowflakeSearchResultItem, dbtSearchResultItem];
+// --- End of test data for DBT/Snowflake ---
+
 describe('siblingUtils', () => {
     describe('combineSiblingsInSearchResults', () => {
         it('combines search results to deduplicate siblings', () => {
@@ -546,6 +660,54 @@ describe('siblingUtils', () => {
             expect(result?.[0]?.matchedEntities).toHaveLength(1);
 
             expect(result?.[0]?.matchedFields).toHaveLength(2);
+        });
+
+        describe('dbt and snowflake sibling handling', () => {
+            describe('when showSeparateSiblings is false (siblings combined)', () => {
+                it('handles DBT entity first, then Snowflake sibling: result uses Snowflake URN, DBT platform, includes both in matchedEntities', () => {
+                    const result = combineSiblingsInSearchResults(false, searchResultsDbtFirstSnowflakeSecond as any);
+
+                    expect(result).toHaveLength(1);
+                    expect((result[0] as any).entity.urn).toEqual(snowflakeUrn); // Combined entity uses Snowflake URN
+                    expect((result[0] as any).entity.platform?.name).toEqual(dbtPlatformName); // Platform is from the (modified) DBT entity
+                });
+
+                it('handles Snowflake entity first, then DBT sibling: result uses Snowflake URN and platform, includes both in matchedEntities', () => {
+                    const result = combineSiblingsInSearchResults(false, searchResultsSnowflakeFirstDbtSecond as any);
+
+                    expect(result).toHaveLength(1);
+                    expect((result[0] as any).entity.urn).toEqual(snowflakeUrn); // Combined entity uses Snowflake URN
+                    expect((result[0] as any).entity.platform?.name).toEqual(snowflakePlatformName); // Platform is from the Snowflake entity
+                });
+            });
+
+            describe('when showSeparateSiblings is true (siblings not combined)', () => {
+                it('handles DBT entity first, then Snowflake sibling: keeps both entities as is', () => {
+                    const result = combineSiblingsInSearchResults(true, searchResultsDbtFirstSnowflakeSecond as any);
+
+                    expect(result).toHaveLength(2);
+                    // First entity should be the original DBT entity
+                    expect((result[0] as any).urn).toEqual(dbtUrn);
+                    expect((result[0] as any).platform?.name).toEqual(dbtPlatformName);
+
+                    // Second entity should be the original Snowflake entity
+                    expect((result[1] as any).urn).toEqual(snowflakeUrn);
+                    expect((result[1] as any).platform?.name).toEqual(snowflakePlatformName);
+                });
+
+                it('handles Snowflake entity first, then DBT sibling: keeps both entities as is', () => {
+                    const result = combineSiblingsInSearchResults(true, searchResultsSnowflakeFirstDbtSecond as any);
+
+                    expect(result).toHaveLength(2);
+                    // First entity should be the original Snowflake entity
+                    expect((result[0] as any).urn).toEqual(snowflakeUrn);
+                    expect((result[0] as any).platform?.name).toEqual(snowflakePlatformName);
+
+                    // Second entity should be the original DBT entity
+                    expect((result[1] as any).urn).toEqual(dbtUrn);
+                    expect((result[1] as any).platform?.name).toEqual(dbtPlatformName);
+                });
+            });
         });
     });
 });

@@ -2,14 +2,13 @@ import { CombinedEntity, createSiblingEntityCombiner } from '@app/entity/shared/
 
 import { Entity, EntityPath, MatchedField } from '@types';
 
-// Restore type hints for safety
 type MaybeEntityWithPlatform = Entity & { platform?: { name?: string }; urn?: string };
 type MaybeEntityWithSiblings = Entity & { platform?: { name?: string }; urn?: string } & {
     siblingsSearch?: { searchResults?: { entity?: MaybeEntityWithPlatform }[] };
 };
 
 type UncombinedSeaerchResults = {
-    entity: MaybeEntityWithSiblings; // Restore specific type
+    entity: MaybeEntityWithSiblings;
     matchedFields: Array<MatchedField>;
     paths?: EntityPath[];
 };
@@ -25,7 +24,6 @@ export function combineSiblingsInSearchResults(
     const combine = createSiblingEntityCombiner();
     const combinedSearchResults: Array<CombinedSearchResult> = [];
 
-    // Create a list of URNs from the original search results, preserving order
     const originalUrnList = searchResults.map((result) => result.entity.urn);
 
     searchResults.forEach((searchResult) => {
@@ -38,7 +36,7 @@ export function combineSiblingsInSearchResults(
         const isSiblingAheadInTheList =
             originalUrnList.indexOf(siblingUrn) < originalUrnList.indexOf(entityToProcess?.urn);
 
-        if (hasSiblingInList) {
+        if (hasSiblingInList && !showSeparateSiblings) {
             if (entityPlatform === 'dbt' && isSiblingAheadInTheList) {
                 // skip this- the snowflake will render
                 return;
