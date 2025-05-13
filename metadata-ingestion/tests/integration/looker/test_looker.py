@@ -1679,9 +1679,9 @@ def test_group_label_tags(pytestconfig, tmp_path, mock_time):
 
         # First, manually check that group labels are present in the output
         expected_group_labels = [
-            "looker:group_label:Createdon Date",
-            "looker:group_label:User Info",
-            "looker:group_label:Metrics",
+            "Createdon Date",
+            "User Info",
+            "Metrics",
         ]
 
         # Read the output file line by line, searching for the group_label tags

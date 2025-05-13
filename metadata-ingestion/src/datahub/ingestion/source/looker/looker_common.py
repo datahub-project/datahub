@@ -771,10 +771,8 @@ class LookerUtil:
 
         # Add group_label as tags if present
         if field.group_label:
-            # Format the group_label tag to clearly indicate it's from Looker
-            group_label_tag = f"looker:group_label:{field.group_label}"
             schema_field_tags.append(
-                TagAssociationClass(tag=builder.make_tag_urn(group_label_tag))
+                TagAssociationClass(tag=builder.make_tag_urn(field.group_label))
             )
 
         if schema_field_tags:

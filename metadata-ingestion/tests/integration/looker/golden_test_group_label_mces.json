@@ -338,7 +338,7 @@
                                     "tag": "urn:li:tag:Dimension"
                                 },
                                 {
-                                    "tag": "urn:li:tag:looker:group_label:Createdon Date"
+                                    "tag": "urn:li:tag:Createdon Date"
                                 }
                             ]
                         },
@@ -399,7 +399,7 @@
                                     "tag": "urn:li:tag:Dimension"
                                 },
                                 {
-                                    "tag": "urn:li:tag:looker:group_label:Createdon Date"
+                                    "tag": "urn:li:tag:Createdon Date"
                                 }
                             ]
                         },
@@ -591,7 +591,7 @@
                                             "tag": "urn:li:tag:Dimension"
                                         },
                                         {
-                                            "tag": "urn:li:tag:looker:group_label:Createdon Date"
+                                            "tag": "urn:li:tag:Createdon Date"
                                         }
                                     ]
                                 },
@@ -615,7 +615,7 @@
                                             "tag": "urn:li:tag:Dimension"
                                         },
                                         {
-                                            "tag": "urn:li:tag:looker:group_label:User Info"
+                                            "tag": "urn:li:tag:User Info"
                                         }
                                     ]
                                 },
@@ -639,7 +639,7 @@
                                             "tag": "urn:li:tag:Measure"
                                         },
                                         {
-                                            "tag": "urn:li:tag:looker:group_label:Metrics"
+                                            "tag": "urn:li:tag:Metrics"
                                         }
                                     ]
                                 },
@@ -895,12 +895,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:looker:group_label:Createdon Date",
+    "entityUrn": "urn:li:tag:Createdon Date",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "looker:group_label:Createdon Date"
+            "name": "Createdon Date"
         }
     },
     "systemMetadata": {
@@ -911,12 +911,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:looker:group_label:Metrics",
+    "entityUrn": "urn:li:tag:Metrics",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "looker:group_label:Metrics"
+            "name": "Metrics"
         }
     },
     "systemMetadata": {
@@ -927,12 +927,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:looker:group_label:User Info",
+    "entityUrn": "urn:li:tag:User Info",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "looker:group_label:User Info"
+            "name": "User Info"
         }
     },
     "systemMetadata": {
