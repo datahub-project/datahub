@@ -216,7 +216,7 @@ quickstart_configs.each { taskName, config ->
             buildCmd += bakeCmdArgs
             buildCmd += ['--save', '--metadata-file', "${rootProject.buildDir}/build-metadata.json"]
             if (project.properties.getOrDefault("dockerPush", false)){
-                buildCmd << "--push"
+                buildCmd += [ "--push", "--no-cache"]
             }
         } else {
             buildCmd += ["docker",  "buildx" ]
