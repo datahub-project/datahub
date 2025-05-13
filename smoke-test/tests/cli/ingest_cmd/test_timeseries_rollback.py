@@ -9,7 +9,7 @@ from datahub.entrypoints import datahub
 from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.utils import ingest_file_via_rest, wait_for_writes_to_sync
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def sync_elastic() -> None:

@@ -11,7 +11,7 @@ from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.entrypoints import datahub
 from tests.consistency_utils import wait_for_writes_to_sync
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def datahub_upsert_user(auth_session, user: CorpUser) -> None:
