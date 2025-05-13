@@ -32,7 +32,8 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         window.open(entityUrl, '_blank');
     };
     const [modalVisible, setModalVisible] = useState(false);
-    const shuffleFlag = !(prePageType === 'Dataset' && baseEntityUrn === ermodelrelationData?.properties?.source?.urn);
+    const shuffleFlag =
+        prePageType === 'Dataset' ? !(baseEntityUrn === ermodelrelationData?.properties?.source?.urn) : false;
     const table1EditableName = shuffleFlag
         ? getDatasetName(ermodelrelationData?.properties?.destination)
         : getDatasetName(ermodelrelationData?.properties?.source);
