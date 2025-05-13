@@ -49,8 +49,10 @@
     "joins": [
         {
             "join_type": "JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)"
             ],
             "on_clause": "\"TABLE3\".\"COL5\" = \"CTE1\".\"COL2\"",

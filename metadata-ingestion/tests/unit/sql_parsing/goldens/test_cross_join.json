@@ -100,8 +100,10 @@
     "joins": [
         {
             "join_type": "CROSS JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table2,PROD)"
             ],
             "on_clause": null,

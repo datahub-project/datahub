@@ -36,8 +36,10 @@
     "joins": [
         {
             "join_type": "LEFT JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.accounts,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.employees,PROD)"
             ],
             "on_clause": "\"_u_0\".\"_u_1\" = \"accounts\".\"sales_person_id\"",
