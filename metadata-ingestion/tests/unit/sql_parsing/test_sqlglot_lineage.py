@@ -7,6 +7,14 @@ from datahub.testing.check_sql_parser_result import assert_sql_result
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
 
+@pytest.fixture(scope="function", autouse=True)
+def _disable_cooperative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    # When interactively debugging tests with breakpoint(), this gets annoying.
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", False
+    )
+
+
 def test_invalid_sql() -> None:
     assert_sql_result(
         """
