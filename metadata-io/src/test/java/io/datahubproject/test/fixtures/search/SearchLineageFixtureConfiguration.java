@@ -127,7 +127,9 @@ public class SearchLineageFixtureConfiguration {
             false,
             new ElasticSearchConfiguration(),
             gitVersion);
-    SettingsBuilder settingsBuilder = new SettingsBuilder(null);
+    IndexConfiguration indexConfiguration = new IndexConfiguration();
+    indexConfiguration.setMinSearchFilterLength(3);
+    SettingsBuilder settingsBuilder = new SettingsBuilder(null, indexConfiguration);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClient,
