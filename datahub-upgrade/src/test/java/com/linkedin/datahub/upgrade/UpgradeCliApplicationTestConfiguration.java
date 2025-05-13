@@ -1,7 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
-import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -33,8 +32,6 @@ public class UpgradeCliApplicationTestConfiguration {
   @MockBean public ConfigEntityRegistry configEntityRegistry;
 
   @MockBean public EntityIndexBuilders entityIndexBuilders;
-
-  @MockBean public ConfigurationProvider configurationProvider;
 
   @Bean
   public SchemaRegistryService schemaRegistryService() {
