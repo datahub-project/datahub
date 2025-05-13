@@ -15,7 +15,7 @@ import elasticsearchLogo from '@images/elasticsearchlogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import glueLogo from '@images/gluelogo.png';
-import gSheetLogo from '@images/gsheet.png';
+import gSheetLogo from '@images/gsheet.svg';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';

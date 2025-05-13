@@ -2,7 +2,7 @@ import { get } from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
 
-import { FieldType, RecipeField, setFieldValueOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
 
 const TipSection = styled.div`
     margin-bottom: 12px;
@@ -16,11 +16,20 @@ export const GOOGLE_SHEETS_CREDENTIALS: RecipeField = {
     tooltip: (
         <span>
             <TipSection>
-                Path to the Google service account credentials JSON file. This service account must have access to the Google Sheets and Google Drive APIs.
+                Path to the Google service account credentials JSON file. This service account must have access to the
+                Google Sheets and Google Drive APIs.
             </TipSection>
             <TipSection>
                 Learn more about creating Google service accounts
-                <a href="https://developers.google.com/identity/protocols/oauth2/service-account#creatinganaccount" target="_blank" rel="noopener noreferrer"> here</a>.
+                <a
+                    href="https://developers.google.com/identity/protocols/oauth2/service-account#creatinganaccount"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    {' '}
+                    here
+                </a>
+                .
             </TipSection>
         </span>
     ),
@@ -64,7 +73,8 @@ const extractLineagePath = 'source.config.extract_lineage_from_formulas';
 export const EXTRACT_LINEAGE: RecipeField = {
     name: 'extract_lineage_from_formulas',
     label: 'Extract Lineage from Formulas',
-    tooltip: 'Whether to extract lineage information from sheet formulas. This includes connections to other Google Sheets and external data sources.',
+    tooltip:
+        'Whether to extract lineage information from sheet formulas. This includes connections to other Google Sheets and external data sources.',
     type: FieldType.BOOLEAN,
     fieldPath: extractLineagePath,
     required: false,
@@ -82,7 +92,8 @@ const enableCrossPlatformLineagePath = 'source.config.enable_cross_platform_line
 export const ENABLE_CROSS_PLATFORM_LINEAGE: RecipeField = {
     name: 'enable_cross_platform_lineage',
     label: 'Enable Cross-Platform Lineage',
-    tooltip: 'Whether to extract cross-platform lineage (e.g., connections to BigQuery, etc.). Only applicable if extract_lineage_from_formulas is True.',
+    tooltip:
+        'Whether to extract cross-platform lineage (e.g., connections to BigQuery, etc.). Only applicable if extract_lineage_from_formulas is True.',
     type: FieldType.BOOLEAN,
     fieldPath: enableCrossPlatformLineagePath,
     required: false,
@@ -118,7 +129,7 @@ const scanSharedDrivesPath = 'source.config.scan_shared_drives';
 export const SCAN_SHARED_DRIVES: RecipeField = {
     name: 'scan_shared_drives',
     label: 'Scan Shared Drives',
-    tooltip: 'Whether to scan sheets in shared drives in addition to \'My Drive\'.',
+    tooltip: "Whether to scan sheets in shared drives in addition to 'My Drive'.",
     type: FieldType.BOOLEAN,
     fieldPath: scanSharedDrivesPath,
     required: false,
@@ -143,12 +154,12 @@ export const SHEETS_AS_DATASETS: RecipeField = {
                 The Google Sheets document itself will be represented as a container (similar to a database or schema).
             </TipSection>
             <TipSection>
-                If disabled, each Google Sheets document will be treated as a dataset,
-                with individual sheets represented as fields within that dataset.
+                If disabled, each Google Sheets document will be treated as a dataset, with individual sheets
+                represented as fields within that dataset.
             </TipSection>
             <TipSection>
-                Enable this option for more granular metadata and lineage when your individual sheets represent
-                distinct logical datasets.
+                Enable this option for more granular metadata and lineage when your individual sheets represent distinct
+                logical datasets.
             </TipSection>
         </span>
     ),
@@ -169,7 +180,8 @@ const sheetAllowFieldPath = 'source.config.sheet_patterns.allow';
 export const SHEET_ALLOW: RecipeField = {
     name: 'sheet_patterns.allow',
     label: 'Allow Patterns',
-    tooltip: 'Only include specific Google Sheets by providing their name, or a Regular Expression (REGEX). If not provided, all sheets will be included.',
+    tooltip:
+        'Only include specific Google Sheets by providing their name, or a Regular Expression (REGEX). If not provided, all sheets will be included.',
     placeholder: 'sheet_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -182,7 +194,8 @@ const sheetDenyFieldPath = 'source.config.sheet_patterns.deny';
 export const SHEET_DENY: RecipeField = {
     name: 'sheet_patterns.deny',
     label: 'Deny Patterns',
-    tooltip: 'Exclude specific Google Sheets by providing their name, or a Regular Expression (REGEX). If not provided, all sheets will be included. Deny patterns always take precedence over Allow patterns.',
+    tooltip:
+        'Exclude specific Google Sheets by providing their name, or a Regular Expression (REGEX). If not provided, all sheets will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'sheet_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -195,7 +208,8 @@ const folderAllowFieldPath = 'source.config.folder_patterns.allow';
 export const FOLDER_ALLOW: RecipeField = {
     name: 'folder_patterns.allow',
     label: 'Allow Patterns',
-    tooltip: 'Only include Google Drive folders by providing their name, or a Regular Expression (REGEX). If not provided, all folders will be included.',
+    tooltip:
+        'Only include Google Drive folders by providing their name, or a Regular Expression (REGEX). If not provided, all folders will be included.',
     placeholder: 'folder_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -208,7 +222,8 @@ const folderDenyFieldPath = 'source.config.folder_patterns.deny';
 export const FOLDER_DENY: RecipeField = {
     name: 'folder_patterns.deny',
     label: 'Deny Patterns',
-    tooltip: 'Exclude Google Drive folders by providing their name, or a Regular Expression (REGEX). If not provided, all folders will be included. Deny patterns always take precedence over Allow patterns.',
+    tooltip:
+        'Exclude Google Drive folders by providing their name, or a Regular Expression (REGEX). If not provided, all folders will be included. Deny patterns always take precedence over Allow patterns.',
     placeholder: 'folder_name',
     type: FieldType.LIST,
     buttonLabel: 'Add pattern',
@@ -249,7 +264,8 @@ export const MAX_PROFILING_ROWS: RecipeField = {
 export const MAX_NUMBER_OF_FIELDS_TO_PROFILE: RecipeField = {
     name: 'profiling.max_number_of_fields_to_profile',
     label: 'Max Number of Fields to Profile',
-    tooltip: 'A positive integer that specifies the maximum number of columns to profile for any sheet. Leave empty to profile all columns.',
+    tooltip:
+        'A positive integer that specifies the maximum number of columns to profile for any sheet. Leave empty to profile all columns.',
     type: FieldType.NUMBER,
     fieldPath: 'source.config.profiling.max_number_of_fields_to_profile',
     placeholder: 'Leave empty to profile all columns',
