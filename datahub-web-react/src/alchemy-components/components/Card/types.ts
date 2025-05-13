@@ -13,4 +13,5 @@ export interface CardProps {
     maxWidth?: string;
     height?: string;
     isEmpty?: boolean;
+    dataTestId?: string;
 }

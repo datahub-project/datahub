@@ -23,6 +23,7 @@ export interface PillProps extends Partial<PillPropsDefaults>, Omit<HTMLAttribut
     onClickLeftIcon?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
     onPillClick?: (e: React.MouseEvent<HTMLElement, MouseEvent>) => void;
     className?: string;
+    dataTestId?: string;
 }
 
 export type PillStyleProps = PillPropsDefaults & Pick<PillProps, 'color'>;

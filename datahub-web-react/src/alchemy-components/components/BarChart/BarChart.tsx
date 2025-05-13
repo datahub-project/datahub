@@ -45,6 +45,8 @@ export function BarChart({
     gridProps = barChartDefault.gridProps,
 
     popoverRenderer,
+
+    dataTestId,
 }: BarChartProps) {
     const wrapperRef = useRef<HTMLDivElement>(null);
     const [selectedBarIndex, setSelectedBarIndex] = useState<number | null>(null);
@@ -143,11 +145,18 @@ export function BarChart({
     // but they don't render at all without any data.
     // To handle this case we will render the same graph with fake data and hide bars
     if (!data.length) {
-        return <BarChart {...getMockedProps()} margin={margin} isEmpty />;
+        return (
+            <BarChart
+                {...getMockedProps()}
+                margin={margin}
+                isEmpty
+                dataTestId={dataTestId ? `${dataTestId}-empty` : undefined}
+            />
+        );
     }
 
     return (
-        <ChartWrapper ref={wrapperRef}>
+        <ChartWrapper ref={wrapperRef} data-testid={dataTestId}>
             <ParentSize>
                 {({ width, height }) => {
                     return (

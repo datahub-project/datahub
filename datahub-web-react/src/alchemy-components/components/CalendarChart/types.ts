@@ -46,6 +46,7 @@ export type CalendarChartProps<ValueType> = {
     maxHeight?: number;
     selectedDay?: string | null;
     onDayClick?: (day: DayData<ValueType>) => void;
+    dataTestId?: string;
 };
 
 export type CalendarProps<ValueType> = {
