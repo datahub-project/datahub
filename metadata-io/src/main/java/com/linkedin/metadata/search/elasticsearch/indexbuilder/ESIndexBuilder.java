@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBu
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.utils.ESUtils;
+// import com.linkedin.metadata.search.utils.OpenSearchJvmInfo;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.util.Pair;
@@ -90,6 +91,7 @@ public class ESIndexBuilder {
   @Getter private final GitVersion gitVersion;
 
   @Getter private final int maxReindexHours;
+  //  private final OpenSearchJvmInfo jvminfo;
 
   private static final RequestOptions REQUEST_OPTIONS =
       RequestOptions.DEFAULT.toBuilder()
@@ -182,6 +184,7 @@ public class ESIndexBuilder {
             .failAfterMaxAttempts(true) // Throw exception after max attempts
             .build();
     this.deletionRetryRegistry = RetryRegistry.of(deletionRetryConfig);
+    //    jvminfo = new OpenSearchJvmInfo(_searchClient);
   }
 
   /** Creates a predicate to determine which Elasticsearch exceptions should be retried */
@@ -628,8 +631,8 @@ public class ESIndexBuilder {
     }
 
     log.info("Reindex from {} to {} succeeded", indexState.name(), tempIndexName);
-    Integer targetReplicas =
-        (Integer) ((Map) indexState.targetSettings().get("index")).get("number_of_replicas");
+    String targetReplicas =
+        String.valueOf(((Map) indexState.targetSettings().get("index")).get("number_of_replicas"));
     setReindexOptimalSettingsUndo(tempIndexName, targetReplicas);
     renameReindexedIndices(
         _searchClient, indexState.name(), indexState.indexPattern(), tempIndexName, true);
@@ -722,14 +725,42 @@ public class ESIndexBuilder {
     }
   }
 
-  private void setReindexOptimalSettings(String tempIndexName) throws IOException {
-    setIndexReplicas(tempIndexName, 0);
+  private int setReindexOptimalSettings(String tempIndexName, int targetShards) throws IOException {
+    setIndexSettings(tempIndexName, "0", "index.number_of_replicas");
+    setIndexSettings(tempIndexName, "-1", "index.refresh_interval");
+    // these depend on jvm max heap...
+    // flush_threshold_size: 512MB by def. Increasing to 1gb, if heap at least 16gb (this is more
+    // conservative than
+    // %25 mentioned https://docs.opensearch.org/docs/2.11/tuning-your-cluster/performance/
+    //    "index.translog.flush_threshold_size": "512mb",
+    //    double jvmheapgb = jvminfo.getAverageDataNodeMaxHeapSizeGB();
+    double jvmheapgb = 32.0;
+    String optimValue = "1024mb";
+    if (jvmheapgb >= 15) {
+      setIndexSettings(tempIndexName, optimValue, "index.translog.flush_threshold_size");
+    }
+    // this is a cluster setting "index_buffer_size": "10%",
+    // GET _cluster/settings?include_defaults&filter_path=defaults.indices.memory
+    optimValue = "25%";
+    if (jvmheapgb >= 15) {
+      setClusterSettings(optimValue, "indices.memory.index_buffer_size");
+    }
+
+    // calculate best slices number..., by def == primary shards
+    int slices = targetShards;
+    // but if too large, tone it done
+    // we have max of 60 shards as of now in some huge index, and this sounds fine regarding nb of
+    // slices, ES sets the max of slices at 1024, so hour number is quite conservative, just cap it
+    // lower, like 256
+    slices = Math.min(256, slices);
+    return slices;
   }
 
-  private void setReindexOptimalSettingsUndo(String tempIndexName, int indexState)
+  private void setReindexOptimalSettingsUndo(String tempIndexName, String indexState)
       throws IOException {
-    // set the original replica nb
-    setIndexReplicas(tempIndexName, indexState);
+    // set the original values
+    setIndexSettings(tempIndexName, indexState, "index.number_of_replicas");
+    setIndexSettings(tempIndexName, indexState, "index.refresh_interval");
   }
 
   public static void renameReindexedIndices(
@@ -767,12 +798,19 @@ public class ESIndexBuilder {
     updateAliasWithRetry(searchClient, removeAction, addAction, delinfo);
   }
 
-  private void setIndexReplicas(String indexName, int numberOfReplicas) throws IOException {
+  private void setIndexSettings(String indexName, String value, String setting) throws IOException {
     UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
-    Settings settings =
-        Settings.builder().put("index.number_of_replicas", numberOfReplicas).build();
+    Settings settings = Settings.builder().put(setting, value).build();
     request.settings(settings);
     _searchClient.indices().putSettings(request, RequestOptions.DEFAULT);
+  }
+
+  private void setClusterSettings(String value, String setting) throws IOException {
+    //    UpdateSettingsRequest request = new UpdateSettingsRequest(indexName);
+    //    Settings settings =
+    //        Settings.builder().put(setting, value).build();
+    //    request.settings(settings);
+    //    _searchClient.indices().putSettings(request, RequestOptions.DEFAULT);
   }
 
   private String submitReindex(
@@ -783,6 +821,7 @@ public class ESIndexBuilder {
       @Nullable QueryBuilder sourceFilterQuery,
       int targetShards)
       throws IOException {
+    int slices = setReindexOptimalSettings(destinationIndex, targetShards);
     ReindexRequest reindexRequest =
         new ReindexRequest()
             .setSourceIndices(sourceIndices)
@@ -790,7 +829,7 @@ public class ESIndexBuilder {
             .setMaxRetries(numRetries)
             .setAbortOnVersionConflict(false)
             // we cannot set to 'auto', so explicitely set to the number of target number_of_shards
-            .setSlices(targetShards)
+            .setSlices(slices)
             .setSourceBatchSize(batchSize);
     if (timeout != null) {
       reindexRequest.setTimeout(timeout);
@@ -798,8 +837,6 @@ public class ESIndexBuilder {
     if (sourceFilterQuery != null) {
       reindexRequest.setSourceQuery(sourceFilterQuery);
     }
-    // make if faster by indexing to 0 replicas
-    setReindexOptimalSettings(destinationIndex);
     RequestOptions requestOptions =
         ESUtils.buildReindexTaskRequestOptions(
             gitVersion.getVersion(), sourceIndices[0], destinationIndex);
