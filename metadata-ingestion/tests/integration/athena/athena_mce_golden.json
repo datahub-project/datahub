@@ -978,6 +978,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_id)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"employee_id\" AS \"employee_id\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -990,6 +991,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),annual_salary)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"annual_salary\" AS \"annual_salary\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1002,6 +1004,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_name)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"employee_name\" AS \"employee_name\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1014,6 +1017,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),job_history)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"job_history\" AS \"job_history\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1026,6 +1030,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),department_budgets)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"department_budgets\" AS \"department_budgets\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1038,6 +1043,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),skills)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"skills\" AS \"skills\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 }
@@ -1186,6 +1192,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_id)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"employee_id\" AS \"employee_id\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 },
@@ -1198,6 +1205,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_name)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"employee_name\" AS \"employee_name\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 },
@@ -1210,6 +1218,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),skills)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"skills\" AS \"skills\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 }
