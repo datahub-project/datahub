@@ -158,6 +158,10 @@ class GCSSource(StatefulIngestionSourceBase):
         """
         # Create a GCS adapter and register our custom URL generator
         adapter = create_object_store_adapter("gcs")
+
+        # Dynamically bind get_external_url_override to the source instance so it behaves as if
+        # it were defined on the S3Source class, but with the implementation from GCSSource.
+        # This allows us to override S3Source's URL generation with GCS-specific logic.
         adapter.register_customization(
             "get_external_url", self.get_external_url_override
         )
