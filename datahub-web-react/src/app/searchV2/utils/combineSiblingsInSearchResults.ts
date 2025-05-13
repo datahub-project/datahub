@@ -4,7 +4,9 @@ import { Entity, EntityPath, MatchedField } from '@types';
 
 // Restore type hints for safety
 type MaybeEntityWithPlatform = Entity & { platform?: { name?: string }; urn?: string };
-type MaybeEntityWithSiblings = Entity & { siblingsSearch?: { searchResults?: { entity?: MaybeEntityWithPlatform }[] } };
+type MaybeEntityWithSiblings = Entity & { platform?: { name?: string }; urn?: string } & {
+    siblingsSearch?: { searchResults?: { entity?: MaybeEntityWithPlatform }[] };
+};
 
 type UncombinedSeaerchResults = {
     entity: MaybeEntityWithSiblings; // Restore specific type
@@ -23,29 +25,39 @@ export function combineSiblingsInSearchResults(
     const combine = createSiblingEntityCombiner();
     const combinedSearchResults: Array<CombinedSearchResult> = [];
 
-    // Create a set of URNs from the original search results for quick lookup
-    const originalUrns = new Set(searchResults.map((result) => result.entity.urn));
+    // Create a list of URNs from the original search results, preserving order
+    const originalUrnList = searchResults.map((result) => result.entity.urn);
 
     searchResults.forEach((searchResult) => {
         let entityToProcess = searchResult.entity;
 
-        // Check if there is exactly one sibling search result and it's from snowflake
-        const siblingsSearch = entityToProcess?.siblingsSearch;
-        const siblingEntity = siblingsSearch?.searchResults?.[0]?.entity;
+        // properly handle cases where snowflake and dbt siblings are both present in results.
+        const siblingUrn = entityToProcess?.siblingsSearch?.searchResults?.[0]?.entity?.urn || 'not-available';
+        const hasSiblingInList = originalUrnList.includes(siblingUrn);
+        const entityPlatform = entityToProcess?.platform?.name;
+        const isSiblingAheadInTheList =
+            originalUrnList.indexOf(siblingUrn) < originalUrnList.indexOf(entityToProcess?.urn);
 
-        if (
-            siblingsSearch?.searchResults?.length === 1 &&
-            siblingEntity && // Ensure sibling entity exists
-            'platform' in siblingEntity && // Type guard: Check for platform property
-            siblingEntity.platform?.name === 'snowflake' &&
-            siblingEntity.urn &&
-            originalUrns.has(siblingEntity.urn) // Check if snowflake sibling URN is in original results
-        ) {
-            // Use the snowflake sibling's URN
-            entityToProcess = {
-                ...entityToProcess,
-                urn: siblingEntity.urn,
-            };
+        if (hasSiblingInList) {
+            if (entityPlatform === 'dbt' && isSiblingAheadInTheList) {
+                // skip this- the snowflake will render
+                return;
+            }
+            if (entityPlatform === 'dbt' && !isSiblingAheadInTheList) {
+                // Use the snowflake sibling's URN
+                // render with snowflake urn and skip dbt result
+                entityToProcess = {
+                    ...entityToProcess,
+                    urn: siblingUrn,
+                };
+            }
+            if (entityPlatform === 'snowflake' && !isSiblingAheadInTheList) {
+                // do nothing - render as normal
+            }
+            if (entityPlatform === 'snowflake' && isSiblingAheadInTheList) {
+                // hide this because dbt will render above with snowflake urn
+                return;
+            }
         }
 
         const combinedResult = showSeparateSiblings
