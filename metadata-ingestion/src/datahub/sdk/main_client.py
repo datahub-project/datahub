@@ -15,7 +15,7 @@ try:
         AssertionsClient,
     )
 except ImportError:
-    AssertionsClient = None
+    AssertionsClient = None  # type: ignore
 
 
 class DataHubClient:
