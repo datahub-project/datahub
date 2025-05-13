@@ -1,0 +1,653 @@
+[
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:961617059ed22f99bfbc085f24c77baa-containerProperties",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:961617059ed22f99bfbc085f24c77baa",
+      "changeType": "UPSERT",
+      "aspectName": "containerProperties",
+      "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"googlesheets\", \"description\": \"googlesheets Root Container\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799502,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:961617059ed22f99bfbc085f24c77baa-subTypes",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:961617059ed22f99bfbc085f24c77baa",
+      "changeType": "UPSERT",
+      "aspectName": "subTypes",
+      "aspect": {
+        "value": "{\"typeNames\": [\"Platform\"]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:961617059ed22f99bfbc085f24c77baa-browsePathsV2",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:961617059ed22f99bfbc085f24c77baa",
+      "changeType": "UPSERT",
+      "aspectName": "browsePathsV2",
+      "aspect": {
+        "value": "{\"path\": []}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:6bf5e5d659906826a602719de646d988-containerProperties",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:6bf5e5d659906826a602719de646d988",
+      "changeType": "UPSERT",
+      "aspectName": "containerProperties",
+      "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"Test Folder\", \"description\": \"Google Drive Test Folder\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:6bf5e5d659906826a602719de646d988-status",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:6bf5e5d659906826a602719de646d988",
+      "changeType": "UPSERT",
+      "aspectName": "status",
+      "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:6bf5e5d659906826a602719de646d988-subTypes",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:6bf5e5d659906826a602719de646d988",
+      "changeType": "UPSERT",
+      "aspectName": "subTypes",
+      "aspect": {
+        "value": "{\"typeNames\": [\"Folder\"]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:6bf5e5d659906826a602719de646d988-browsePathsV2",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:6bf5e5d659906826a602719de646d988",
+      "changeType": "UPSERT",
+      "aspectName": "browsePathsV2",
+      "aspect": {
+        "value": "{\"path\": []}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78-containerProperties",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78",
+      "changeType": "UPSERT",
+      "aspectName": "containerProperties",
+      "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"Test Sheet 1\", \"description\": \"Google Drive Test Sheet 1\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78-status",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78",
+      "changeType": "UPSERT",
+      "aspectName": "status",
+      "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78-subTypes",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78",
+      "changeType": "UPSERT",
+      "aspectName": "subTypes",
+      "aspect": {
+        "value": "{\"typeNames\": [\"Folder\"]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78-browsePathsV2",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78",
+      "changeType": "UPSERT",
+      "aspectName": "browsePathsV2",
+      "aspect": {
+        "value": "{\"path\": []}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799503,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-datasetProperties",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "datasetProperties",
+      "aspect": {
+        "value": "{\"customProperties\": {\"createdTime\": \"2023-01-01T00:00:00.000Z\", \"modifiedTime\": \"2023-01-02T00:00:00.000Z\", \"webViewLink\": \"https://docs.google.com/spreadsheets/d/test_sheet_id_1\", \"shared\": \"True\"}, \"name\": \"Test Sheet 1\", \"description\": \"Source sheet\", \"tags\": []}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799505,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-ownership",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "ownership",
+      "aspect": {
+        "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:test@example.com\", \"type\": \"DATAOWNER\"}], \"ownerTypes\": {}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799505,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-schemaMetadata",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "schemaMetadata",
+      "aspect": {
+        "value": "{\"schemaName\": \"Test Sheet 1\", \"platform\": \"urn:li:dataPlatform:googlesheets\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.OtherSchema\": {\"rawSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"Sheet1.Name\", \"nullable\": false, \"description\": \"Column Name from sheet Sheet1\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"STRING\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"Sheet1.Age\", \"nullable\": false, \"description\": \"Column Age from sheet Sheet1\", \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"NUMBER\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"Sheet1.City\", \"nullable\": false, \"description\": \"Column City from sheet Sheet1\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"STRING\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-container",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "container",
+      "aspect": {
+        "value": "{\"container\": \"urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-subTypes",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "subTypes",
+      "aspect": {
+        "value": "{\"typeNames\": [\"Google Sheet\"]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-status",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "status",
+      "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)-browsePathsV2",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "browsePathsV2",
+      "aspect": {
+        "value": "{\"path\": [{\"id\": \"Test Folder\", \"urn\": \"urn:li:container:6bf5e5d659906826a602719de646d988\"}, {\"id\": \"Test Sheet 1\", \"urn\": \"urn:li:container:4176ec5ba8e5d2da9d639c3f107cab78\"}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd-containerProperties",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd",
+      "changeType": "UPSERT",
+      "aspectName": "containerProperties",
+      "aspect": {
+        "value": "{\"customProperties\": {}, \"name\": \"Test Sheet 2\", \"description\": \"Google Drive Test Sheet 2\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd-status",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd",
+      "changeType": "UPSERT",
+      "aspectName": "status",
+      "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd-subTypes",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd",
+      "changeType": "UPSERT",
+      "aspectName": "subTypes",
+      "aspect": {
+        "value": "{\"typeNames\": [\"Folder\"]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd-browsePathsV2",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd",
+      "changeType": "UPSERT",
+      "aspectName": "browsePathsV2",
+      "aspect": {
+        "value": "{\"path\": []}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799506,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-datasetProperties",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "datasetProperties",
+      "aspect": {
+        "value": "{\"customProperties\": {\"createdTime\": \"2023-01-01T00:00:00.000Z\", \"modifiedTime\": \"2023-01-02T00:00:00.000Z\", \"webViewLink\": \"https://docs.google.com/spreadsheets/d/test_sheet_id_2\", \"shared\": \"True\"}, \"name\": \"Test Sheet 2\", \"description\": \"Destination sheet with IMPORTRANGE formula\", \"tags\": []}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799508,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-ownership",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "ownership",
+      "aspect": {
+        "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:test@example.com\", \"type\": \"DATAOWNER\"}], \"ownerTypes\": {}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799508,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-schemaMetadata",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "schemaMetadata",
+      "aspect": {
+        "value": "{\"schemaName\": \"Test Sheet 2\", \"platform\": \"urn:li:dataPlatform:googlesheets\", \"version\": 0, \"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"hash\": \"\", \"platformSchema\": {\"com.linkedin.schema.OtherSchema\": {\"rawSchema\": \"\"}}, \"fields\": [{\"fieldPath\": \"Sheet1.Name\", \"nullable\": false, \"description\": \"Column Name from sheet Sheet1\", \"type\": {\"type\": {\"com.linkedin.schema.ArrayType\": {}}}, \"nativeDataType\": \"ARRAY\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"Sheet1.Age\", \"nullable\": false, \"description\": \"Column Age from sheet Sheet1\", \"type\": {\"type\": {\"com.linkedin.schema.NumberType\": {}}}, \"nativeDataType\": \"NUMBER\", \"recursive\": false, \"isPartOfKey\": false}, {\"fieldPath\": \"Sheet1.City\", \"nullable\": false, \"description\": \"Column City from sheet Sheet1\", \"type\": {\"type\": {\"com.linkedin.schema.StringType\": {}}}, \"nativeDataType\": \"STRING\", \"recursive\": false, \"isPartOfKey\": false}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799508,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-container",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "container",
+      "aspect": {
+        "value": "{\"container\": \"urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd\"}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799508,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-subTypes",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "subTypes",
+      "aspect": {
+        "value": "{\"typeNames\": [\"Google Sheet\"]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799509,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-status",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "status",
+      "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799509,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-upstreamLineage",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "upstreamLineage",
+      "aspect": {
+        "value": "{\"upstreams\": [{\"auditStamp\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"dataset\": \"urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD)\", \"type\": \"TRANSFORMED\"}], \"fineGrainedLineages\": [{\"upstreamType\": \"FIELD_SET\", \"upstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_1,PROD),Sheet1.A)\"], \"downstreamType\": \"FIELD\", \"downstreams\": [\"urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD),Sheet1.Name)\"], \"transformOperation\": \"IMPORTRANGE\", \"confidenceScore\": 1.0}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799509,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)-browsePathsV2",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "dataset",
+      "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:googlesheets,test_sheet_id_2,PROD)",
+      "changeType": "UPSERT",
+      "aspectName": "browsePathsV2",
+      "aspect": {
+        "value": "{\"path\": [{\"id\": \"Test Folder\", \"urn\": \"urn:li:container:6bf5e5d659906826a602719de646d988\"}, {\"id\": \"Test Sheet 2\", \"urn\": \"urn:li:container:8b4d6eec44b0ec9420ec46048ae44fbd\"}]}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799509,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  },
+  {
+    "type": "MetadataWorkUnit",
+    "id": "urn:li:container:961617059ed22f99bfbc085f24c77baa-status",
+    "is_primary_source": true,
+    "metadata": {
+      "entityType": "container",
+      "entityUrn": "urn:li:container:961617059ed22f99bfbc085f24c77baa",
+      "changeType": "UPSERT",
+      "aspectName": "status",
+      "aspect": {
+        "value": "{\"removed\": false}",
+        "contentType": "application/json"
+      },
+      "systemMetadata": {
+        "lastObserved": 1747177799509,
+        "runId": "google-sheets-lineage_test",
+        "lastRunId": "no-run-id-provided"
+      }
+    },
+    "treat_errors_as_warnings": false
+  }
+]
