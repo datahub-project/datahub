@@ -2,7 +2,7 @@
 
 This source pulls metadata directly from Google Sheets and enables data profiling, lineage extraction, and usage statistics collection.
 
-#### Prerequisites
+#### Steps to Get the Required Information
 
 1. **Create a Google Cloud Project**:
 
@@ -29,55 +29,6 @@ This source pulls metadata directly from Google Sheets and enables data profilin
    - Share your Google Sheets or Drive folders with the service account email address
    - The service account email will look like: `service-account-name@project-id.iam.gserviceaccount.com`
    - For proper lineage extraction, ensure the service account has access to all linked sheets
-
-#### Key Features
-
-1. **Schema Extraction**:
-
-   - Extracts sheet names and column information
-   - Infers data types from column values
-
-2. **Lineage Tracking**:
-
-   - Detects connections between sheets using IMPORTRANGE formulas
-   - Identifies cross-platform references (e.g., to BigQuery tables)
-   - Supports column-level lineage
-
-3. **Data Profiling**:
-
-   - Row counts and column statistics
-   - Value distributions and patterns
-   - Null values and uniqueness metrics
-
-4. **Usage Statistics**:
-   - Tracks sheet view counts
-   - Monitors unique user access
-
-#### Metadata Extracted
-
-- **Sheet Properties**: Name, description, creation time, last modified time
-- **Sheet Structure**: Worksheets, columns, data types
-- **Ownership Information**: Sheet owners
-- **Lineage Data**: Upstream and downstream dependencies
-- **Usage Metrics**: View counts, unique user counts
-- **Data Profiles**: Statistical information about data in each sheet
-
-#### Metadata Structure Options
-
-The connector supports two different ways of modeling Google Sheets metadata:
-
-1. **Default Mode (sheets_as_datasets = False)**:
-
-   - Each Google Sheets document is represented as a dataset
-   - Individual sheets within the document are treated as fields or components of that dataset
-   - Lineage is tracked between Google Sheets documents
-
-2. **Granular Mode (sheets_as_datasets = True)**:
-   - Each Google Sheets document is represented as a container (similar to a database or schema)
-   - Individual sheets within the document are treated as separate datasets
-   - Lineage is tracked between individual sheets
-   - Schema and profiling information is more granular
-   - This mode is recommended when your individual sheets represent distinct logical datasets
 
 #### Troubleshooting
 
