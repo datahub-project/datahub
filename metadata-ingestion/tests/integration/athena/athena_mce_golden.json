@@ -158,8 +158,7 @@
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=long].annual_salary",
@@ -173,8 +172,7 @@
                                 "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"BIGINT\", \"_nullable\": true}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].employee_name",
@@ -188,8 +186,7 @@
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
@@ -207,7 +204,7 @@
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
@@ -219,8 +216,7 @@
                                 },
                                 "nativeDataType": "INTEGER",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"INTEGER\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
@@ -232,8 +228,7 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
@@ -245,8 +240,7 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
@@ -264,7 +258,7 @@
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"MapType(String(), BIGINT())\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
@@ -282,8 +276,7 @@
                                 "nativeDataType": "array<VARCHAR>",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<VARCHAR>\"}"
+                                "isPartitioningKey": false
                             }
                         ]
                     }
@@ -407,8 +400,7 @@
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=long].annual_salary",
@@ -422,8 +414,7 @@
                                 "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"BIGINT\", \"_nullable\": true}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].employee_name",
@@ -437,8 +428,7 @@
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
@@ -456,7 +446,7 @@
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
@@ -468,8 +458,7 @@
                                 },
                                 "nativeDataType": "INTEGER",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"INTEGER\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
@@ -481,8 +470,7 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
@@ -494,8 +482,7 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
@@ -513,7 +500,7 @@
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"MapType(String(), BIGINT())\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
@@ -531,8 +518,7 @@
                                 "nativeDataType": "array<VARCHAR>",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<VARCHAR>\"}"
+                                "isPartitioningKey": false
                             }
                         ]
                     }
@@ -674,8 +660,7 @@
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=long].annual_salary",
@@ -689,8 +674,7 @@
                                 "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"BIGINT\", \"_nullable\": true}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].employee_name",
@@ -704,8 +688,7 @@
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": false}"
+                                "isPartitioningKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history",
@@ -723,7 +706,7 @@
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"MapType(String(), STRUCT(year=INTEGER(), company=String(), role=String()))\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=int].year",
@@ -735,8 +718,7 @@
                                 },
                                 "nativeDataType": "INTEGER",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"INTEGER\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].company",
@@ -748,8 +730,7 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=struct].job_history.[type=string].role",
@@ -761,8 +742,7 @@
                                 },
                                 "nativeDataType": "VARCHAR",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"VARCHAR\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=map].[type=long].department_budgets",
@@ -780,7 +760,7 @@
                                 "recursive": false,
                                 "isPartOfKey": false,
                                 "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"MapType(String(), BIGINT())\", \"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
+                                "jsonProps": "{\"key_type\": {\"type\": \"string\", \"native_data_type\": \"VARCHAR\", \"_nullable\": true}, \"key_native_data_type\": \"VARCHAR\"}"
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=string].skills",
@@ -798,8 +778,7 @@
                                 "nativeDataType": "array<VARCHAR>",
                                 "recursive": false,
                                 "isPartOfKey": false,
-                                "isPartitioningKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<VARCHAR>\"}"
+                                "isPartitioningKey": false
                             }
                         ]
                     }
@@ -999,6 +978,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_id)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"employee_id\" AS \"employee_id\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1011,6 +991,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),annual_salary)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"annual_salary\" AS \"annual_salary\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1023,6 +1004,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),employee_name)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"employee_name\" AS \"employee_name\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1035,6 +1017,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),job_history)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"job_history\" AS \"job_history\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1047,6 +1030,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),department_budgets)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"department_budgets\" AS \"department_budgets\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 },
@@ -1059,6 +1043,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_1,PROD),skills)"
                     ],
+                    "transformOperation": "COPY: \"test_table\".\"skills\" AS \"skills\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_1%2CPROD%29"
                 }
@@ -1078,6 +1063,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW \"test_schema\".test_view_1 AS\nSELECT\n  *\nFROM \"test_schema\".\"test_table\"",
                 "language": "SQL"
@@ -1206,6 +1192,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_id)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"employee_id\" AS \"employee_id\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 },
@@ -1218,6 +1205,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),employee_name)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"employee_name\" AS \"employee_name\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 },
@@ -1230,6 +1218,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_view_2,PROD),skills)"
                     ],
+                    "transformOperation": "COPY: \"test_view_1\".\"skills\" AS \"skills\"",
                     "confidenceScore": 0.9,
                     "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Aathena%2Ctest_schema.test_view_2%2CPROD%29"
                 }
@@ -1249,6 +1238,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW \"test_schema\".test_view_2 AS\nSELECT\n  employee_id,\n  employee_name,\n  skills\nFROM \"test_schema\".\"test_view_1\"",
                 "language": "SQL"

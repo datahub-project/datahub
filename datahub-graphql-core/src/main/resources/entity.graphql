@@ -6534,6 +6534,11 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Sub Types that this entity implements
+  """
+  subTypes: SubTypes
 }
 
 """

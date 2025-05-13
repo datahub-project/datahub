@@ -4,27 +4,32 @@ import difflib
 import logging
 from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
 
+from typing_extensions import assert_never
+
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.schema_classes import SchemaMetadataClass
-from datahub.metadata.urns import DatasetUrn, QueryUrn
-from datahub.sdk._shared import DatasetUrnOrStr
+from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn
+from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
+from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.utilities.ordered_set import OrderedSet
+from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
 
-logger = logging.getLogger(__name__)
 
 _empty_audit_stamp = models.AuditStampClass(
     time=0,
     actor=DEFAULT_ACTOR_URN,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class LineageClient:
@@ -33,10 +38,10 @@ class LineageClient:
 
     def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> Set[str]:
         schema_metadata = self._client._graph.get_aspect(
-            str(dataset_urn), SchemaMetadataClass
+            str(dataset_urn), models.SchemaMetadataClass
         )
         if schema_metadata is None:
-            return Set()
+            return set()
 
         return {field.fieldPath for field in schema_metadata.fields}
 
@@ -122,7 +127,7 @@ class LineageClient:
 
         if column_lineage is None:
             cll = None
-        elif column_lineage in ["auto_fuzzy", "auto_strict"]:
+        elif column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
             upstream_schema = self._get_fields_from_dataset_urn(upstream)
             downstream_schema = self._get_fields_from_dataset_urn(downstream)
             if column_lineage == "auto_fuzzy":
@@ -144,6 +149,8 @@ class LineageClient:
                 downstream=downstream,
                 cll_mapping=column_lineage,
             )
+        else:
+            assert_never(column_lineage)
 
         updater = DatasetPatchBuilder(str(downstream))
         updater.add_upstream_lineage(
@@ -227,9 +234,129 @@ class LineageClient:
             raise SdkUsageError(
                 f"Dataset {updater.urn} does not exist, and hence cannot be updated."
             )
+
         mcps: List[
             Union[MetadataChangeProposalWrapper, models.MetadataChangeProposalClass]
         ] = list(updater.build())
         if query_entity:
             mcps.extend(query_entity)
         self._client._graph.emit_mcps(mcps)
+
+    def add_dataset_lineage_from_sql(
+        self,
+        *,
+        query_text: str,
+        platform: str,
+        platform_instance: Optional[str] = None,
+        env: str = "PROD",
+        default_db: Optional[str] = None,
+        default_schema: Optional[str] = None,
+    ) -> None:
+        """Add lineage by parsing a SQL query."""
+        from datahub.sql_parsing.sqlglot_lineage import (
+            create_lineage_sql_parsed_result,
+        )
+
+        # Parse the SQL query to extract lineage information
+        parsed_result = create_lineage_sql_parsed_result(
+            query=query_text,
+            default_db=default_db,
+            default_schema=default_schema,
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            graph=self._client._graph,
+        )
+
+        if parsed_result.debug_info.table_error:
+            raise SdkUsageError(
+                f"Failed to parse SQL query: {parsed_result.debug_info.error}"
+            )
+        elif parsed_result.debug_info.column_error:
+            logger.warning(
+                f"Failed to parse SQL query: {parsed_result.debug_info.error}",
+            )
+
+        if not parsed_result.out_tables:
+            raise SdkUsageError(
+                "No output tables found in the query. Cannot establish lineage."
+            )
+
+        # Use the first output table as the downstream
+        downstream_urn = parsed_result.out_tables[0]
+
+        # Process all upstream tables found in the query
+        for upstream_table in parsed_result.in_tables:
+            # Skip self-lineage
+            if upstream_table == downstream_urn:
+                continue
+
+            # Extract column-level lineage for this specific upstream table
+            column_mapping = {}
+            if parsed_result.column_lineage:
+                for col_lineage in parsed_result.column_lineage:
+                    if not (col_lineage.downstream and col_lineage.downstream.column):
+                        continue
+
+                    # Filter upstreams to only include columns from current upstream table
+                    upstream_cols = [
+                        ref.column
+                        for ref in col_lineage.upstreams
+                        if ref.table == upstream_table and ref.column
+                    ]
+
+                    if upstream_cols:
+                        column_mapping[col_lineage.downstream.column] = upstream_cols
+
+            # Add lineage, including query text
+            self.add_dataset_transform_lineage(
+                upstream=upstream_table,
+                downstream=downstream_urn,
+                column_lineage=column_mapping or None,
+                query_text=query_text,
+            )
+
+    def add_datajob_lineage(
+        self,
+        *,
+        datajob: DatajobUrnOrStr,
+        upstreams: Optional[List[Union[DatasetUrnOrStr, DatajobUrnOrStr]]] = None,
+        downstreams: Optional[List[DatasetUrnOrStr]] = None,
+    ) -> None:
+        """
+        Add lineage between a datajob and datasets/datajobs.
+
+        Args:
+            datajob: The datajob URN to connect lineage with
+            upstreams: List of upstream datasets or datajobs that serve as inputs to the datajob
+            downstreams: List of downstream datasets that are outputs of the datajob
+        """
+
+        if not upstreams and not downstreams:
+            raise SdkUsageError("No upstreams or downstreams provided")
+
+        datajob_urn = DataJobUrn.from_string(datajob)
+
+        # Initialize the patch builder for the datajob
+        patch_builder = DataJobPatchBuilder(str(datajob_urn))
+
+        # Process upstream connections (inputs to the datajob)
+        if upstreams:
+            for upstream in upstreams:
+                # try converting to dataset urn
+                try:
+                    dataset_urn = DatasetUrn.from_string(upstream)
+                    patch_builder.add_input_dataset(dataset_urn)
+                except InvalidUrnError:
+                    # try converting to datajob urn
+                    datajob_urn = DataJobUrn.from_string(upstream)
+                    patch_builder.add_input_datajob(datajob_urn)
+
+        # Process downstream connections (outputs from the datajob)
+        if downstreams:
+            for downstream in downstreams:
+                downstream_urn = DatasetUrn.from_string(downstream)
+                patch_builder.add_output_dataset(downstream_urn)
+
+        # Apply the changes to the entity
+        self._client.entities.update(patch_builder)

@@ -138,11 +138,11 @@ public class DescriptionUtils {
                 entityService,
                 null);
     if (tagProperties == null) {
-      // If there are no properties for the tag already, then we should throw since the properties
-      // model also requires a name.
-      throw new IllegalArgumentException("Properties for this Tag do not yet exist!");
+      tagProperties =
+          new TagProperties().setName(resourceUrn.getId()).setDescription(newDescription);
+    } else {
+      tagProperties.setDescription(newDescription);
     }
-    tagProperties.setDescription(newDescription);
     persistAspect(
         opContext,
         resourceUrn,

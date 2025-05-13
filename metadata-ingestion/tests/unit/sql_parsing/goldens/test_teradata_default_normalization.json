@@ -24,7 +24,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)",
                     "column": "PatientId"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ppd\".\"patientid\" AS \"patientid\""
+            }
         },
         {
             "downstream": {
@@ -37,6 +41,30 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)",
                     "column": "BMI"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ppf\".\"bmi\" AS \"bmi\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)"
+            ],
+            "on_clause": "\"ppd\".\"patientid\" = \"ppf\".\"patientid\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_diagnoses,PROD)",
+                    "column": "patientid"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,myteradata.demo_user.pima_patient_features,PROD)",
+                    "column": "patientid"
                 }
             ]
         }

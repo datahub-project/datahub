@@ -10,7 +10,7 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
 import { toLocalDateString } from '@app/shared/time/timeUtils';
-import { Tooltip2 } from '@src/alchemy-components/components/Tooltip2';
+import { StructuredPopover } from '@src/alchemy-components/components/StructuredPopover';
 import CompactMarkdownViewer from '@src/app/entity/shared/tabs/Documentation/components/CompactMarkdownViewer';
 
 import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated';
@@ -157,7 +157,7 @@ export const DeprecationIcon = ({
     const entityTypeDisplayName = subResourceType === SubResourceType.DatasetField ? 'column' : 'asset';
 
     return (
-        <Tooltip2
+        <StructuredPopover
             zIndex={zIndexOverride || 999} // set to 999 to ensure it is below the 1000 mark of the entity popover if on the entity level
             placement={popoverPlacement}
             width={340}
@@ -221,6 +221,6 @@ export const DeprecationIcon = ({
                 <StyledDeprecatedIcon />
                 {showText ? 'Deprecated' : null}
             </DeprecatedContainer>
-        </Tooltip2>
+        </StructuredPopover>
     );
 };

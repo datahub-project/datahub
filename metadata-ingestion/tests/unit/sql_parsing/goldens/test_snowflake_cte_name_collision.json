@@ -25,7 +25,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TABLE2\".\"COL2\" AS \"COL2\""
+            }
         },
         {
             "downstream": {
@@ -42,6 +46,25 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)",
                     "column": "col1"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"CTE_ALIAS\".\"COL1\" AS \"COL1\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)"
+            ],
+            "on_clause": "\"CTE_ALIAS\".\"COL2\" = \"CTE_ALIAS\".\"COL2\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)",
+                    "column": "COL2"
                 }
             ]
         }

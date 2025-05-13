@@ -71,6 +71,7 @@ dependencies {
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springCore
   implementation externalDependency.springKafka
+  implementation externalDependency.kafkaClients
   runtimeOnly externalDependency.opentelemetryExporter
   runtimeOnly externalDependency.openTelemetryExporterLogging
   runtimeOnly externalDependency.openTelemetryExporterCommon

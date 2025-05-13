@@ -44,7 +44,6 @@ Definition of the test
 type TestDefinition {
   """
   JSON-based def for the test
-  Deprecated! JSON representation is no longer supported.
   """
   json: String
 }

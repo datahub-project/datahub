@@ -24,7 +24,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
                     "column": "a"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"table1\".\"a\" AS \"a\""
+            }
         },
         {
             "downstream": {
@@ -42,7 +46,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
                     "column": "b"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"table1\".\"b\" AS \"b\""
+            }
         },
         {
             "downstream": {
@@ -59,6 +67,30 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)",
                     "column": "c"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "MAX(\"table2\".\"c\") AS \"c\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "LEFT JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)"
+            ],
+            "on_clause": "\"_u_0\".\"_u_1\" = \"table1\".\"id\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table1,PROD)",
+                    "column": "id"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.table2,PROD)",
+                    "column": "id"
                 }
             ]
         }

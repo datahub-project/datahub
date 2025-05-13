@@ -1375,3 +1375,129 @@ FROM ABC.employees ;
             },
         },
     )
+
+
+def test_self_join_with_cte() -> None:
+    assert_sql_result(
+        """\
+WITH table_1_day_ago AS (
+    SELECT * FROM my_table
+    WHERE ts < CURRENT_TIMESTAMP() - INTERVAL '1 DAY'
+)
+SELECT
+    my_table.id,
+    LAST_VALUE(my_table.value) OVER (PARTITION BY my_table.id ORDER BY my_table.ts) as current_value,
+    LAST_VALUE(table_1_day_ago.value) OVER (PARTITION BY table_1_day_ago.id ORDER BY table_1_day_ago.ts) as value_1_day_ago 
+FROM my_table
+JOIN table_1_day_ago ON my_table.id = table_1_day_ago.id
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_self_join_with_cte.json",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)": {
+                "id": "INTEGER",
+                "value": "VARIANT",
+                "ts": "TIMESTAMP",
+            },
+        },
+    )
+
+
+def test_cross_join() -> None:
+    # Because `cross join` does not have an `on` clause, we don't generate any joins.
+    assert_sql_result(
+        """\
+SELECT * FROM my_table1
+CROSS JOIN my_table2
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_cross_join.json",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)": {
+                "id": "INTEGER",
+                "value": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table2,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+            },
+        },
+    )
+
+
+def test_lateral_join() -> None:
+    # Because `lateral join` does not have an `on` clause, we don't generate any joins.
+    assert_sql_result(
+        """\
+SELECT t1.id, t1.name, t2.value
+FROM my_table1 t1,
+LATERAL (SELECT value FROM my_table2 WHERE t1.id = my_table2.id LIMIT 1) t2
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)": {
+                "id": "INTEGER",
+                "value": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_lateral_join.json",
+    )
+
+
+def test_right_join() -> None:
+    assert_sql_result(
+        """\
+SELECT t1.id, t1.name, t2.value
+FROM my_table1 t1
+RIGHT JOIN my_table2 t2 ON t1.id = t2.id
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)": {
+                "id": "INTEGER",
+                "value": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_right_join.json",
+    )
+
+
+def test_natural_join() -> None:
+    # Because `natural join` does not have an `on` clause, we don't generate any joins.
+    assert_sql_result(
+        """\
+SELECT t1.id, t1.name, t2.value
+FROM my_table1 t1
+NATURAL JOIN my_table2 t2
+""",
+        dialect="postgres",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table1,PROD)": {
+                "id": "INTEGER",
+                "name": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,my_db.my_schema.my_table2,PROD)": {
+                "id": "INTEGER",
+                "value": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_natural_join.json",
+    )

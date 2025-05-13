@@ -18,6 +18,7 @@ import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.typesafe.config.Config;
@@ -25,6 +26,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -33,7 +35,6 @@ import org.apache.commons.httpclient.InvalidRedirectLocationException;
 import org.apache.commons.lang3.StringUtils;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.context.CallContext;
-import org.pac4j.core.context.Cookie;
 import org.pac4j.core.context.WebContext;
 import org.pac4j.core.exception.http.FoundAction;
 import org.pac4j.core.exception.http.RedirectionAction;
@@ -70,9 +71,9 @@ public class AuthenticationController extends Controller {
 
   @Inject private org.pac4j.core.config.Config ssoConfig;
 
-  @Inject private PlayCookieSessionStore playCookieSessionStore;
+  @VisibleForTesting @Inject protected PlayCookieSessionStore playCookieSessionStore;
 
-  @Inject private SsoManager ssoManager;
+  @VisibleForTesting @Inject protected SsoManager ssoManager;
 
   @Inject AuthServiceClient authClient;
 
@@ -101,6 +102,10 @@ public class AuthenticationController extends Controller {
     final Optional<String> maybeRedirectPath =
         Optional.ofNullable(request.getQueryString(AUTH_REDIRECT_URI_PARAM));
     String redirectPath = maybeRedirectPath.orElse("/");
+    // If the redirect path is /logOut, we do not want to redirect to the logout page after login.
+    if (redirectPath.equals("/logOut")) {
+      redirectPath = "/";
+    }
     try {
       URI redirectUri = new URI(redirectPath);
       if (redirectUri.getScheme() != null || redirectUri.getAuthority() != null) {
@@ -333,15 +338,37 @@ public class AuthenticationController extends Controller {
     return createSession(userUrnString, accessToken);
   }
 
+  @VisibleForTesting
+  protected Result addRedirectCookie(Result result, CallContext ctx, String redirectPath) {
+    // Set the originally requested path for post-auth redirection. We split off into a separate
+    // cookie from the session
+    // to reduce size of the session cookie
+    FoundAction foundAction = new FoundAction(redirectPath);
+    byte[] javaSerBytes =
+        ((PlayCookieSessionStore) ctx.sessionStore()).getSerializer().serializeToBytes(foundAction);
+    String serialized = Base64.getEncoder().encodeToString(compressBytes(javaSerBytes));
+    Http.CookieBuilder redirectCookieBuilder =
+        Http.Cookie.builder(REDIRECT_URL_COOKIE_NAME, serialized);
+    redirectCookieBuilder.withPath("/");
+    redirectCookieBuilder.withSecure(true);
+    redirectCookieBuilder.withHttpOnly(true);
+    redirectCookieBuilder.withMaxAge(Duration.ofSeconds(86400));
+    redirectCookieBuilder.withSameSite(Http.Cookie.SameSite.NONE);
+
+    return result.withCookies(redirectCookieBuilder.build());
+  }
+
   private Optional<Result> redirectToIdentityProvider(
       Http.RequestHeader request, String redirectPath) {
     CallContext ctx = buildCallContext(request);
 
     final Client client = ssoManager.getSsoProvider().client();
-    configurePac4jSessionStore(ctx, client, redirectPath);
+    configurePac4jSessionStore(ctx, client);
     try {
       final Optional<RedirectionAction> action = client.getRedirectionAction(ctx);
-      return action.map(act -> new PlayHttpActionAdapter().adapt(act, ctx.webContext()));
+      final Optional<Result> maybeResult =
+          action.map(act -> new PlayHttpActionAdapter().adapt(act, ctx.webContext()));
+      return maybeResult.map(result -> addRedirectCookie(result, ctx, redirectPath));
     } catch (Exception e) {
       if (verbose) {
         logger.error(
@@ -370,17 +397,9 @@ public class AuthenticationController extends Controller {
     return new CallContext(webContext, playCookieSessionStore);
   }
 
-  private void configurePac4jSessionStore(CallContext ctx, Client client, String redirectPath) {
+  private void configurePac4jSessionStore(CallContext ctx, Client client) {
     WebContext context = ctx.webContext();
 
-    // Set the originally requested path for post-auth redirection. We split off into a separate
-    // cookie from the session
-    // to reduce size of the session cookie
-    FoundAction foundAction = new FoundAction(redirectPath);
-    byte[] javaSerBytes =
-        ((PlayCookieSessionStore) ctx.sessionStore()).getSerializer().serializeToBytes(foundAction);
-    String serialized = Base64.getEncoder().encodeToString(compressBytes(javaSerBytes));
-    context.addResponseCookie(new Cookie(REDIRECT_URL_COOKIE_NAME, serialized));
     // This is to prevent previous login attempts from being cached.
     // We replicate the logic here, which is buried in the Pac4j client.
     Optional<Object> attempt =

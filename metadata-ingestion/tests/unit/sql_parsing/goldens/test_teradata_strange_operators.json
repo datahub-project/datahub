@@ -24,7 +24,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,dbc.table2,PROD)",
                     "column": "col1"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "\"table1\".\"col1\" AS \"col1\""
+            }
         },
         {
             "downstream": {
@@ -42,9 +46,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:teradata,dbc.table2,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "\"table1\".\"col2\" AS \"col2\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.2,
         "generalized_statement": "SELECT col1, col2 FROM dbc.table1 WHERE col1 = ? EXCEPT SELECT col1, col2 FROM dbc.table2"

@@ -31,7 +31,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
                     "column": "col2"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "\"T1\".\"COL1\" || \"T1\".\"COL2\" AS \"COL1\""
+            }
         },
         {
             "downstream": {
@@ -52,6 +56,30 @@
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
                     "column": "col2"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "\"T1\".\"COL1\" || \"T2\".\"COL2\" AS \"COL2\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)"
+            ],
+            "on_clause": "\"T1\".\"ID\" = \"T2\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)",
+                    "column": "ID"
                 }
             ]
         }
