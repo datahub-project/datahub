@@ -776,4 +776,4 @@
     name: gsheet
     displayName: Google Sheets
     type: OTHERS
-    logoUrl: "/assets/platforms/googlesheet.png"
+    logoUrl: "/assets/platforms/gsheet.svg"
