@@ -8,8 +8,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "pipelineName": "lookml_stateful",
             "platformInstanceId": "",
@@ -17,7 +17,7 @@
             "state": {
                 "formatVersion": "1.0",
                 "serde": "base85-bz2-json",
-                "payload": "LRx4!F+o`-Q&~#{&0hcld7pq#Wq$Ak0@Mn>@BivB0eX}Hku^iqXlbU@Jx0_4p`nlr28@P-2nK*@pa2m`G6{*G)il~PYIz={dVumtfMrBIAT*cfPb)w>+K+-afLMQ`=?8gKT0vk6kWvxl%`1$fQp%;yle0;yeK!zk>}(_%3jUFk?2bl=^GB*b2+!?~XB@qD8>uPnucdH|<tVPr)JIOdc}>D1x0*brj;q9QM*ljn%x{=O3qNasU_ozT=GXC{Zd{6!*+<AA^6UY^;tbGLb4lEctwwmA0V6o^iB^nmZmwK)3gQVIKNjk<3~b)!tdXZ}sLPr-c1M7(uJ2@OM=h20GDh;;_IRT-eJ&?ptVW{Jk<uqoNH|GYop<K0F|ix>qux9)K&Bj`rV)^=qCEAvMM&#MXtb48&PdMerjBgnjWIRUjkeoi-*(cPc192^y0-&bU@S-zY&$ofKR@wzBvXY61h7oi@B"
+                "payload": "LRx4!F+o`-Q&}z?qeB1!lAnN3Wq$Ak0@Mn>@BivB0h*Km$r_>RGBGxwdXFdrMuv?B14ctZgabe{&;SUenF*5<BA6$WQ)xXT8ko{dLn<M{1Dw72`}*&=L#@d7BY=g6%wHhuCX0wF0bvC+!>3fT5`<YOvpP_#C9&1OgI{tjBzOQF5t4q<$@E8(KFI$Onfk+Vzb_qzl$7(Y&bUT$lvieyN7LJX8K$_3*?A+zNZei{IR<U5o#TAL_|?&93J5FkINa_v2{S7ai$z~vf!!x-GvyoLs^*iq8BbC)z~l)Vqq-$xF``{ux849?2_664ny<GEZOz=Qk*C&(%gG!%Bi;ab?ej*Ya@k+0k~fy{?9Q(QXe~7qumFg-u%vQ{)Y1<LD-*8$%HbOkzi7Q<vswi;@rbFCG5{qJzZWQ}98t_#N}{=wsTkFi(cF`rNYeuvk+zoDb<;A3Kcrzo%~iV0Q&_PeOySwI`}_Zkxgwk>NEZ%Kp@0"
             },
             "runId": "lookml-test"
         }

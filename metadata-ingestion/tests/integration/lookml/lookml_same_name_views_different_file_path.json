@@ -333,6 +333,9 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:Timestamp"
                                         }
                                     ]
                                 },
@@ -354,6 +357,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Measure"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:Measurement"
                                         }
                                     ]
                                 },
@@ -622,6 +628,9 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:Timestamp"
                                         }
                                     ]
                                 },
@@ -643,6 +652,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Measure"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:Measurement"
                                         }
                                     ]
                                 },
@@ -801,6 +813,38 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Measurement",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Measurement"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Timestamp",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Timestamp"
         }
     },
     "systemMetadata": {

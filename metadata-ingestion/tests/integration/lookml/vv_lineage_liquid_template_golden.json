@@ -223,6 +223,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Dimension"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:IDs"
                                         }
                                     ]
                                 },
@@ -1713,6 +1716,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Dimension"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:IDs"
                                         }
                                     ]
                                 },
@@ -2835,6 +2841,22 @@
     "aspect": {
         "json": {
             "name": "Dimension"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:IDs",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "IDs"
         }
     },
     "systemMetadata": {
