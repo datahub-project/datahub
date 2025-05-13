@@ -617,7 +617,6 @@ class ModeSource(StatefulIngestionSourceBase):
     def _get_space_name_and_tokens(self) -> dict:
         space_info = {}
         try:
-            self.report.space_get_api_called += 1
             logger.debug(f"Retrieving spaces for {self.workspace_uri}")
             with self.report.space_get_timer:
                 for spaces_page in self._get_paged_request_json(
@@ -625,6 +624,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     "spaces",
                     self.config.items_per_page,
                 ):
+                    self.report.space_get_api_called += 1
                     logger.debug(
                         f"Read {len(spaces_page)} spaces records from workspace {self.workspace_uri}"
                     )
