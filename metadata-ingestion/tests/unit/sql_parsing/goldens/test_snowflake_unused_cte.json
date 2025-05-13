@@ -50,8 +50,8 @@
         {
             "join_type": "JOIN",
             "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)"
             ],
             "on_clause": "\"TABLE3\".\"COL5\" = \"CTE1\".\"COL2\"",
             "columns_involved": [

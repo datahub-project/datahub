@@ -5,7 +5,18 @@ import functools
 import logging
 import traceback
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
+from typing import (
+    AbstractSet,
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import pydantic.dataclasses
 import sqlglot
@@ -218,13 +229,19 @@ class SqlParsingResult(_ParserBaseModel):
         )
 
 
+def _extract_table_names(
+    iterable: Iterable[sqlglot.exp.Table],
+) -> OrderedSet[_TableName]:
+    return OrderedSet(_TableName.from_sqlglot_table(table) for table in iterable)
+
+
 def _table_level_lineage(
     statement: sqlglot.Expression, dialect: sqlglot.Dialect
-) -> Tuple[Set[_TableName], Set[_TableName]]:
+) -> Tuple[AbstractSet[_TableName], AbstractSet[_TableName]]:
     # Generate table-level lineage.
     modified = (
-        {
-            _TableName.from_sqlglot_table(expr.this)
+        _extract_table_names(
+            expr.this
             for expr in statement.find_all(
                 sqlglot.exp.Create,
                 sqlglot.exp.Insert,
@@ -236,36 +253,36 @@ def _table_level_lineage(
             # In some cases like "MERGE ... then INSERT (col1, col2) VALUES (col1, col2)",
             # the `this` on the INSERT part isn't a table.
             if isinstance(expr.this, sqlglot.exp.Table)
-        }
-        | {
+        )
+        | _extract_table_names(
             # For statements that include a column list, like
             # CREATE DDL statements and `INSERT INTO table (col1, col2) SELECT ...`
             # the table name is nested inside a Schema object.
-            _TableName.from_sqlglot_table(expr.this.this)
+            expr.this.this
             for expr in statement.find_all(
                 sqlglot.exp.Create,
                 sqlglot.exp.Insert,
             )
             if isinstance(expr.this, sqlglot.exp.Schema)
             and isinstance(expr.this.this, sqlglot.exp.Table)
-        }
-        | {
+        )
+        | _extract_table_names(
             # For drop statements, we only want it if a table/view is being dropped.
             # Other "kinds" will not have table.name populated.
-            _TableName.from_sqlglot_table(expr.this)
+            expr.this
             for expr in ([statement] if isinstance(statement, sqlglot.exp.Drop) else [])
             if isinstance(expr.this, sqlglot.exp.Table)
             and expr.this.this
             and expr.this.name
-        }
+        )
     )
 
     tables = (
-        {
-            _TableName.from_sqlglot_table(table)
+        _extract_table_names(
+            table
             for table in statement.find_all(sqlglot.exp.Table)
             if not isinstance(table.parent, sqlglot.exp.Drop)
-        }
+        )
         # ignore references created in this query
         - modified
         # ignore CTEs created in this statement
@@ -803,9 +820,19 @@ def _list_joins(
 
     joins: List[_JoinInfo] = []
 
+    scope: sqlglot.optimizer.Scope
     for scope in root_scope.traverse():
         join: sqlglot.exp.Join
         for join in scope.find_all(sqlglot.exp.Join):
+            right_side_tables = (
+                _extract_table_names(join.find_all(sqlglot.exp.Table))
+                # ignore CTEs created in this statement
+                - {
+                    _TableName(database=None, db_schema=None, table=cte.alias_or_name)
+                    for cte in scope.find_all(sqlglot.exp.CTE)
+                }
+            )
+
             on_clause: Optional[sqlglot.exp.Expression] = join.args.get("on")
             if not on_clause:
                 # We don't need to check for `using` here because it's normalized to `on`
@@ -828,6 +855,15 @@ def _list_joins(
                     join.sql(dialect=dialect),
                 )
                 continue
+
+            # The ordering of the tables is significant. On a mostly best-effort basis,
+            # we want the left side of the join to be first and the right side to come after.
+            # If we could extract a true table name from the right side, that takes precedence.
+            # Because Python's sort is stable, we'll keep the original order for ties.
+            # The original order is based on the order columns are referenced - so as long
+            # as a column from the left side is referenced before any columns from the right side,
+            # the left side table will come first.
+            unique_tables.sort(key=lambda t: t in right_side_tables)
 
             joins.append(
                 _JoinInfo(
