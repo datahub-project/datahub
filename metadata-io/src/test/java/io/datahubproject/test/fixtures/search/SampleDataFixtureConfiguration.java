@@ -14,6 +14,7 @@ import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
@@ -154,7 +155,9 @@ public class SampleDataFixtureConfiguration {
             false,
             new ElasticSearchConfiguration(),
             gitVersion);
-    SettingsBuilder settingsBuilder = new SettingsBuilder(null);
+    IndexConfiguration indexConfiguration = new IndexConfiguration();
+    indexConfiguration.setMinSearchFilterLength(3);
+    SettingsBuilder settingsBuilder = new SettingsBuilder(null, indexConfiguration);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             _searchClient,
