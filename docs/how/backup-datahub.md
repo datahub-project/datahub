@@ -163,11 +163,11 @@ This configures daily snapshots with a 15-day retention period.
 
 3. **Create a Snapshot**
 
-   PUT \_snapshot/datahub_fs_backup/snapshot_YYYY_MM_DD?wait_for_completion=true
+   `PUT \_snapshot/datahub_fs_backup/snapshot_YYYY_MM_DD?wait_for_completion=true`
 
 4. **Check Snapshot Status**
 
-   GET \_snapshot/datahub_fs_backup/snapshot_YYYY_MM_DD
+   `GET \_snapshot/datahub_fs_backup/snapshot_YYYY_MM_DD`
 
 ## Restoring DataHub from Backups
 
@@ -179,7 +179,7 @@ This configures daily snapshots with a 15-day retention period.
 
 2. **Restore from SQL Dump**
 
-   mysql -h <host> -u <user> -p datahub < metadata_aspect_v2_backup.sql
+   `mysql -h <host> -u <user> -p datahub < metadata_aspect_v2_backup.sql`
 
 ### Restoring Elasticsearch/OpenSearch Indices
 
