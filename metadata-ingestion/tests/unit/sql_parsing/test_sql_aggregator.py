@@ -326,7 +326,7 @@ def test_aggregate_operations() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=False,
-        generate_queries=False,
+        generate_queries=True,
         generate_usage_statistics=False,
         generate_operations=True,
     )
