@@ -82,6 +82,15 @@
                     "column": "ID"
                 }
             ]
+        },
+        {
+            "join_type": "JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
+            ],
+            "on_clause": null,
+            "columns_involved": []
         }
     ],
     "debug_info": {

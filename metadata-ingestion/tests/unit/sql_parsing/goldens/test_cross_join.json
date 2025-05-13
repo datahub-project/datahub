@@ -97,7 +97,17 @@
             }
         }
     ],
-    "joins": [],
+    "joins": [
+        {
+            "join_type": "CROSS JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table2,PROD)"
+            ],
+            "on_clause": null,
+            "columns_involved": []
+        }
+    ],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT * FROM my_table1 CROSS JOIN my_table2"

@@ -824,46 +824,76 @@ def _list_joins(
     for scope in root_scope.traverse():
         join: sqlglot.exp.Join
         for join in scope.find_all(sqlglot.exp.Join):
+            cte_tables = {
+                _TableName(database=None, db_schema=None, table=cte.alias_or_name)
+                for cte in scope.find_all(sqlglot.exp.CTE)
+            }
+
             right_side_tables = (
                 _extract_table_names(join.find_all(sqlglot.exp.Table))
                 # ignore CTEs created in this statement
-                - {
-                    _TableName(database=None, db_schema=None, table=cte.alias_or_name)
-                    for cte in scope.find_all(sqlglot.exp.CTE)
-                }
+                - cte_tables
             )
 
+            # We don't need to check for `using` here because it's normalized to `on`
+            # by the sqlglot optimizer.
             on_clause: Optional[sqlglot.exp.Expression] = join.args.get("on")
-            if not on_clause:
-                # We don't need to check for `using` here because it's normalized to `on`
-                # by the sqlglot optimizer.
-                logger.debug(
-                    "Skipping join without ON clause: %s",
-                    join.sql(dialect=dialect),
+            if on_clause:
+                joined_columns = _get_raw_col_upstreams_for_expression(
+                    select=on_clause, dialect=dialect, scope=scope
                 )
-                # TODO: This skips joins that don't have ON clauses, like cross joins, lateral joins, etc.
-                continue
 
-            joined_columns = _get_raw_col_upstreams_for_expression(
-                select=on_clause, dialect=dialect, scope=scope
-            )
+                unique_tables = deduplicate_list(col.table for col in joined_columns)
+                if not unique_tables:
+                    logger.debug(
+                        "Skipping join because we couldn't resolve the tables from the join condition: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
 
-            unique_tables = deduplicate_list(col.table for col in joined_columns)
-            if not unique_tables:
-                logger.debug(
-                    "Skipping join because we couldn't resolve the tables: %s",
-                    join.sql(dialect=dialect),
+                # The ordering of the tables is significant. On a mostly best-effort basis,
+                # we want the left side of the join to be first and the right side to come after.
+                # If we could extract a true table name from the right side, that takes precedence.
+                # Because Python's sort is stable, we'll keep the original order for ties.
+                # The original order is based on the order columns are referenced - so as long
+                # as a column from the left side is referenced before any columns from the right side,
+                # the left side table will come first.
+                unique_tables.sort(key=lambda t: t in right_side_tables)
+            else:
+                # Some joins (cross join, lateral join, etc.) don't have an ON clause.
+                # In those cases, we have some best-effort logic at least extract the
+                # tables involved.
+                from_clauses = list(scope.find_all(sqlglot.exp.From))
+                left_side_tables = (
+                    _extract_table_names(
+                        table
+                        for from_clause in from_clauses
+                        if isinstance(from_clause.this, sqlglot.exp.Expression)
+                        for table in from_clause.this.find_all(sqlglot.exp.Table)
+                    )
+                    - cte_tables
                 )
-                continue
 
-            # The ordering of the tables is significant. On a mostly best-effort basis,
-            # we want the left side of the join to be first and the right side to come after.
-            # If we could extract a true table name from the right side, that takes precedence.
-            # Because Python's sort is stable, we'll keep the original order for ties.
-            # The original order is based on the order columns are referenced - so as long
-            # as a column from the left side is referenced before any columns from the right side,
-            # the left side table will come first.
-            unique_tables.sort(key=lambda t: t in right_side_tables)
+                unique_tables = deduplicate_list(
+                    list(left_side_tables | right_side_tables)
+                )
+                joined_columns = OrderedSet()
+
+                if not unique_tables:
+                    logger.debug(
+                        "Skipping join because we couldn't resolve any tables from the join operands: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
+                elif len(unique_tables) == 1:
+                    # When we don't have an ON clause, we're more strict about the
+                    # minimum number of tables we need to resolve to avoid false positives.
+                    # On the off chance someone is doing a self-cross-join, we'll miss it.
+                    logger.debug(
+                        "Skipping join because we couldn't resolve enough tables from the join operands: %s",
+                        join.sql(dialect=dialect),
+                    )
+                    continue
 
             joins.append(
                 _JoinInfo(
@@ -878,28 +908,45 @@ def _list_joins(
 
 
 def _get_join_type(join: sqlglot.exp.Join) -> str:
-    # Will return "LEFT JOIN", "RIGHT OUTER JOIN", etc.
-    # This is not really comprehensive - there's a couple other edge
-    # cases (e.g. STRAIGHT_JOIN, anti-join) that we don't handle.
+    """Returns the type of join as a string.
 
+    Args:
+        join: A sqlglot Join expression.
+
+    Returns:
+        Stringified join type e.g. "LEFT JOIN", "RIGHT OUTER JOIN", "LATERAL JOIN", etc.
+    """
+    # This logic was derived from the sqlglot join_sql method.
+    # https://github.com/tobymao/sqlglot/blob/07bf71bae5d2a5c381104a86bb52c06809c21174/sqlglot/generator.py#L2248
+
+    # Special case for lateral joins
+    if isinstance(join.this, sqlglot.exp.Lateral):
+        if join.this.args.get("cross_apply") is not None:
+            return "CROSS APPLY"
+        return "LATERAL JOIN"
+
+    # Special case for STRAIGHT_JOIN (MySQL)
+    if join.args.get("kind") == "STRAIGHT":
+        return "STRAIGHT_JOIN"
+
+    # <method> <global> <side> <kind> JOIN
+    #  - method = "HASH", "MERGE"
+    #  - global = "GLOBAL"
+    #  - side = "LEFT", "RIGHT"
+    #  - kind = "INNER", "OUTER", "SEMI", "ANTI"
     components = []
-
-    # Add method if present (e.g. "HASH", "MERGE")
     if method := join.args.get("method"):
         components.append(method)
-
-    # Add side if present (e.g. "LEFT", "RIGHT")
+    if join.args.get("global"):
+        components.append("GLOBAL")
     if side := join.args.get("side"):
+        # For SEMI/ANTI joins, side is optional
         components.append(side)
-
-    # Add kind if present (e.g. "INNER", "OUTER", "SEMI", "ANTI")
     if kind := join.args.get("kind"):
         components.append(kind)
 
-    # Join the components and append "JOIN"
-    if not components:
-        return "JOIN"
-    return f"{' '.join(components)} JOIN"
+    components.append("JOIN")
+    return " ".join(components)
 
 
 def _extract_select_from_create(

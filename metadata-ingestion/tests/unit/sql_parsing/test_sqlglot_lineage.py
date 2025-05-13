@@ -1406,7 +1406,6 @@ JOIN table_1_day_ago ON my_table.id = table_1_day_ago.id
 
 
 def test_cross_join() -> None:
-    # Because `cross join` does not have an `on` clause, we don't generate any joins.
     assert_sql_result(
         """\
 SELECT * FROM my_table1
@@ -1430,7 +1429,7 @@ CROSS JOIN my_table2
 
 
 def test_lateral_join() -> None:
-    # Because `lateral join` does not have an `on` clause, we don't generate any joins.
+    # We don't fully support extracting the columns involved in a lateral join.
     assert_sql_result(
         """\
 SELECT t1.id, t1.name, t2.value
@@ -1479,7 +1478,6 @@ RIGHT JOIN my_table2 t2 ON t1.id = t2.id
 
 
 def test_natural_join() -> None:
-    # Because `natural join` does not have an `on` clause, we don't generate any joins.
     assert_sql_result(
         """\
 SELECT t1.id, t1.name, t2.value
