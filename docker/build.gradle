@@ -108,7 +108,8 @@ ext {
                         ':metadata-jobs:mce-consumer-job',
                         ':metadata-jobs:mae-consumer-job',
                         ':datahub-actions',
-                        ':docker:datahub-ingestion'
+                        ':docker:datahub-ingestion',
+                        ':docker:postgres-setup'
                     ]
             ]
     ]
