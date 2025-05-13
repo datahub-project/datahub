@@ -165,8 +165,8 @@ public class SettingsBuilder {
 
   public SettingsBuilder(String mainTokenizer, IndexConfiguration indexConfiguration) {
     try {
-      settings = buildSettings(mainTokenizer);
       this.indexConfiguration = indexConfiguration;
+      settings = buildSettings(mainTokenizer);
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
