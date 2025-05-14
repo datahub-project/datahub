@@ -20,13 +20,11 @@ from datahub.ingestion.source.data_lake_common.config import PathSpecsConfigMixi
 from datahub.ingestion.source.data_lake_common.data_lake_utils import PLATFORM_GCS
 from datahub.ingestion.source.data_lake_common.object_store import (
     create_object_store_adapter,
-    get_object_key,
-    get_object_store_bucket_name,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec, is_gcs_uri
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
-from datahub.ingestion.source.s3.source import S3Source, TableData
+from datahub.ingestion.source.s3.source import S3Source
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StatefulStaleMetadataRemovalConfig,
@@ -156,33 +154,13 @@ class GCSSource(StatefulIngestionSourceBase):
         Returns:
             The modified S3Source instance with GCS behavior
         """
-        # Create a GCS adapter and register our custom URL generator
-        adapter = create_object_store_adapter("gcs")
-
-        # Dynamically bind get_external_url_override to the source instance so it behaves as if
-        # it were defined on the S3Source class, but with the implementation from GCSSource.
-        # This allows us to override S3Source's URL generation with GCS-specific logic.
-        adapter.register_customization(
-            "get_external_url", self.get_external_url_override
+        # Create a GCS adapter with project ID and region from our config
+        adapter = create_object_store_adapter(
+            "gcs",
         )
 
         # Apply all customizations to the source
         return adapter.apply_customizations(source)
-
-    def get_external_url_override(self, table_data: TableData) -> Optional[str]:
-        """
-        Convert S3 URIs back to GCS URIs for external URLs.
-        This method gets bound to the S3Source instance.
-        """
-        if not table_data.table_path.startswith("s3://"):
-            return None
-
-        # Get the bucket name and key from the S3 URI
-        bucket_name = get_object_store_bucket_name(table_data.table_path)
-        key = get_object_key(table_data.table_path)
-
-        # Format as GCS external URL
-        return f"https://console.cloud.google.com/storage/browser/{bucket_name}/{key}"
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
