@@ -1,8 +1,9 @@
-import React from 'react';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
-import { CalendarChart } from './CalendarChart';
-import { getMockedProps } from './utils';
+import React from 'react';
+
+import { CalendarChart } from '@components/components/CalendarChart/CalendarChart';
+import { getMockedProps } from '@components/components/CalendarChart/utils';
 
 const meta = {
     title: 'Charts / CalendarChart',
@@ -45,6 +46,9 @@ const meta = {
         },
         leftAxisLabelProps: {
             description: 'Props for label of left axis',
+        },
+        showLeftAxisLine: {
+            description: 'Enable to show left vertical line',
         },
         bottomAxisLabelProps: {
             description: 'Props for label of bottom axis',

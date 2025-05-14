@@ -67,7 +67,7 @@ WHERE
     `date` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
 """.strip()
 
-    assert "20200101" == query[0]
+    assert query[0] == "20200101"
     assert query[1]
     assert expected_query == query[1].strip()
 
@@ -110,7 +110,7 @@ WHERE
     `date` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
 """.strip()
 
-    assert "20200101" == query[0]
+    assert query[0] == "20200101"
     assert query[1]
     assert expected_query == query[1].strip()
 
@@ -153,7 +153,7 @@ WHERE
     `partition_column` BETWEEN TIMESTAMP('2020-01-01 03:00:00') AND TIMESTAMP('2020-01-01 04:00:00')
 """.strip()
 
-    assert "2020010103" == query[0]
+    assert query[0] == "2020010103"
     assert query[1]
     assert expected_query == query[1].strip()
 
@@ -186,7 +186,7 @@ WHERE
     `_PARTITIONTIME` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
 """.strip()
 
-    assert "20200101" == query[0]
+    assert query[0] == "20200101"
     assert query[1]
     assert expected_query == query[1].strip()
 
@@ -208,5 +208,5 @@ def test_generate_sharded_table_profiler_query():
         table=test_table,
     )
 
-    assert "20200101" == query[0]
+    assert query[0] == "20200101"
     assert query[1] is None

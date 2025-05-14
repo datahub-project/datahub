@@ -1,7 +1,5 @@
 package com.linkedin.metadata.utils;
 
-import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
-
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -10,7 +8,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -30,13 +27,6 @@ public class EntityApiUtils {
     final EntitySpec spec = entityRegistry.getEntitySpec(PegasusUtils.urnToEntityName(urn));
     final AspectSpec keySpec = spec.getKeyAspectSpec();
     return EntityKeyUtils.convertUrnToEntityKey(urn, keySpec);
-  }
-
-  public static SystemMetadata parseSystemMetadata(String jsonSystemMetadata) {
-    if (jsonSystemMetadata == null || jsonSystemMetadata.equals("")) {
-      return createDefaultSystemMetadata();
-    }
-    return RecordUtils.toRecordTemplate(SystemMetadata.class, jsonSystemMetadata);
   }
 
   public static <T extends RecordTemplate> MetadataChangeProposal buildMCP(

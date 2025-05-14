@@ -464,9 +464,10 @@ def process_lookml_template_language(
     source_config: LookMLSourceConfig,
     view_lkml_file_dict: dict,
     reporter: LookMLSourceReport,
-    manifest_constants: Dict[str, "LookerConstant"] = {},
+    manifest_constants: Optional[Dict[str, "LookerConstant"]] = None,
     resolve_constants: bool = False,
 ) -> None:
+    manifest_constants = manifest_constants or {}
     if "views" not in view_lkml_file_dict:
         return
 
@@ -507,9 +508,10 @@ def load_and_preprocess_file(
     path: Union[str, pathlib.Path],
     source_config: LookMLSourceConfig,
     reporter: LookMLSourceReport,
-    manifest_constants: Dict[str, "LookerConstant"] = {},
+    manifest_constants: Optional[Dict[str, "LookerConstant"]] = None,
     resolve_constants: bool = False,
 ) -> dict:
+    manifest_constants = manifest_constants or {}
     parsed = load_lkml(path)
 
     process_lookml_template_language(

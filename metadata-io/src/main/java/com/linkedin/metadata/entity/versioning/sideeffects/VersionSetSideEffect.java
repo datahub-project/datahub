@@ -124,21 +124,26 @@ public class VersionSetSideEffect extends MCPSideEffect {
               .getEntitySpec(newLatest.getEntityType());
       VersionProperties newLatestProperties =
           RecordUtils.toRecordTemplate(VersionProperties.class, newLatestEntity.data());
-      GenericJsonPatch.PatchOp currentPatch = new GenericJsonPatch.PatchOp();
-      currentPatch.setOp(PatchOperationType.ADD.getValue());
-      currentPatch.setPath("/isLatest");
-      currentPatch.setValue(true);
-      mcpItems.add(
-          PatchItemImpl.builder()
-              .urn(newLatest)
-              .entitySpec(entitySpec)
-              .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
-              .aspectSpec(entitySpec.getAspectSpec(VERSION_PROPERTIES_ASPECT_NAME))
-              .patch(GenericJsonPatch.builder().patch(List.of(currentPatch)).build().getJsonPatch())
-              .auditStamp(changeMCP.getAuditStamp())
-              .systemMetadata(changeMCP.getSystemMetadata())
-              .build(retrieverContext.getAspectRetriever().getEntityRegistry())
-              .applyPatch(newLatestProperties, retrieverContext.getAspectRetriever()));
+
+      if (Boolean.FALSE.equals(newLatestProperties.isIsLatest())) {
+        GenericJsonPatch.PatchOp currentPatch = new GenericJsonPatch.PatchOp();
+        currentPatch.setOp(PatchOperationType.ADD.getValue());
+        currentPatch.setPath("/isLatest");
+        currentPatch.setValue(true);
+        mcpItems.add(
+            PatchItemImpl.builder()
+                .urn(newLatest)
+                .entitySpec(entitySpec)
+                .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+                .aspectSpec(entitySpec.getAspectSpec(VERSION_PROPERTIES_ASPECT_NAME))
+                .patch(
+                    GenericJsonPatch.builder().patch(List.of(currentPatch)).build().getJsonPatch())
+                .auditStamp(changeMCP.getAuditStamp())
+                .systemMetadata(changeMCP.getSystemMetadata())
+                .build(retrieverContext.getAspectRetriever().getEntityRegistry())
+                .applyPatch(newLatestProperties, retrieverContext.getAspectRetriever()));
+      }
+
       return mcpItems.stream();
     }
     return Stream.empty();

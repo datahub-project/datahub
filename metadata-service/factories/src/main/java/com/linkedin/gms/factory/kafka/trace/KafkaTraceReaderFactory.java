@@ -8,6 +8,7 @@ import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPFailedTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
 import com.linkedin.mxe.Topics;
+import jakarta.annotation.Nonnull;
 import jakarta.annotation.PreDestroy;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -161,7 +162,7 @@ public class KafkaTraceReaderFactory {
 
   private Consumer<String, GenericRecord> createConsumerWithUniqueId(
       DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
-      String baseClientId) {
+      @Nonnull String baseClientId) {
     Properties consumerProps = new Properties();
     consumerProps.putAll(TRACE_CONSUMER_PROPERTIES);
     // Add a unique suffix to the client.id

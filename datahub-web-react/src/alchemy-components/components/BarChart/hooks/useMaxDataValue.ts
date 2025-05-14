@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { YAccessor } from '../types';
 
-export default function useMaxDataValue<T>(data: T[], yAccessor: YAccessor<T>): number {
+import { BaseDatum, YAccessor } from '@components/components/BarChart/types';
+
+export default function useMaxDataValue(data: BaseDatum[], yAccessor: YAccessor): number {
     return useMemo(() => Math.max(...data.map(yAccessor)) ?? 0, [data, yAccessor]);
 }

@@ -1,17 +1,19 @@
 import { LayoutOutlined } from '@ant-design/icons';
-import React, { useContext } from 'react';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
 import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
-import styled from 'styled-components';
 import { BookmarkSimple } from '@phosphor-icons/react';
-import { useMatchedFieldsForList } from '../search/context/SearchResultContext';
-import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '../../types.generated';
-import { EntityCapabilityType } from '../entityV2/Entity';
-import MatchesContext, { PreviewSection } from '../shared/MatchesContext';
-import SearchPill from './SearchPill';
-import { entityHasCapability, getHighlightedTag } from './utils';
-import { LineageTabContext } from '../entityV2/shared/tabs/Lineage/LineageTabContext';
+import React, { useContext } from 'react';
+import styled from 'styled-components';
+
+import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import SearchPill from '@app/previewV2/SearchPill';
+import { entityHasCapability, getHighlightedTag } from '@app/previewV2/utils';
+import { useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
+import MatchesContext, { PreviewSection } from '@app/shared/MatchesContext';
+
+import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '@types';
 
 const PillsContainer = styled.div`
     gap: 5px;

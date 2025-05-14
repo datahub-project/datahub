@@ -1,8 +1,8 @@
-import { Button } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import ShieldExclamation from '../../../../../../../images/shield-exclamation.svg';
 
+import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
 import {
     CTAWrapper,
     Content,
@@ -13,26 +13,10 @@ import {
     StyledReadOutlined,
     Title,
     TitleWrapper,
-} from './components';
-import OptionalPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import RequiredPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
-import { REDESIGN_COLORS } from '../../../../constants';
+} from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
+import { Button } from '@src/alchemy-components';
 
-const StyledButtonV2 = styled(Button)`
-    margin-top: 16px;
-    font-size: 12px;
-    line-height: 14px;
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    padding: 9px 17px;
-    border-radius: 6px;
-    &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-`;
+import ShieldExclamation from '@images/shield-exclamation.svg';
 
 const Text = styled.div`
     text-wrap: wrap;
@@ -93,14 +77,15 @@ export default function IncompleteView({
             </FlexWrapper>
             {!!openFormModal && isUserAssigned && isOpen && (
                 <StyledButtonWrapper>
-                    <StyledButtonV2
+                    <Button
+                        variant="outline"
                         onClick={openFormModal}
                         data-testid={
                             showVerificationStyles ? 'complete-verification-button' : 'complete-documentation-button'
                         }
                     >
                         {showVerificationStyles ? 'Complete Verification' : 'Complete Documentation'}
-                    </StyledButtonV2>
+                    </Button>
                 </StyledButtonWrapper>
             )}
         </CTAWrapper>

@@ -1,22 +1,9 @@
-import { EditOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
+import { Button, Tooltip, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 
 const StyledButton = styled(Button)`
-    font-size: 8px;
-    padding-left: 12px;
-    padding-right: 12px;
-    background-color: ${SEARCH_COLORS.TITLE_PURPLE};
-    color: #ffffff;
-    :hover {
-        background-color: #ffffff;
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
-        border: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
-    }
-    height: 28px;
+    border: 1px solid ${colors.gray[100]};
 `;
 
 type Props = {
@@ -27,9 +14,16 @@ type Props = {
 export default function EditButton({ setShowSelectMode, disabled }: Props) {
     return (
         <Tooltip title="Edit..." showArrow={false} placement="top">
-            <StyledButton type="text" onClick={() => setShowSelectMode(true)} disabled={disabled}>
-                <EditOutlined />
-            </StyledButton>
+            <StyledButton
+                onClick={() => setShowSelectMode(true)}
+                disabled={disabled}
+                data-testid="search-results-edit-button"
+                isCircle
+                icon={{ icon: 'PencilSimple', source: 'phosphor' }}
+                variant="text"
+                color="gray"
+                size="sm"
+            />
         </Tooltip>
     );
 }

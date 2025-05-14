@@ -2,13 +2,13 @@
 
 ## What is an MCP?
 
-A `MetadataChangeProposal` (MCP) represents an atomic unit of change in the DataHub Metadata Graph. Each MCP carries a single aspect in its payload and is used to propose changes to DataHub's metadata. 
+A `MetadataChangeProposal` (MCP) represents an atomic unit of change in the DataHub Metadata Graph. Each MCP carries a single aspect in its payload and is used to propose changes to DataHub's metadata.
 
 - Represents a single aspect change
 - Used for proposing metadata changes to DataHub
 - Serves as the basic building block for metadata ingestion
 
-For more information, please see guides on [DataHub Metadata Events](../what/mxe.md) and [MCPs](mcp-mcl.md). 
+For more information, please see guides on [DataHub Metadata Events](../what/mxe.md) and [MCPs](mcp-mcl.md).
 
 ## Why Write MCPs as Files?
 
@@ -19,11 +19,9 @@ MCPs in JSON file format are particularly valuable because they represent the lo
 MCPs allow you to easily ingest metadata. You can:
 
 - Use it for entity ingestion by running a simple command, without a dependency on a ingestion connector:
-    
-    ```bash
-    datahub ingest mcps <file_name>.json
-    ```
-    
+  ```bash
+  datahub ingest mcps <file_name>.json
+  ```
 - Create reproducible test cases for metadata ingestion
 - Write and run tests when contributing to DataHub (see DataHub Testing Guide for more details)
 
@@ -39,15 +37,46 @@ For example, if you want to understand the structure of entities in your DataHub
 
 ## Saving MCPs to a file
 
-### Exporting rom DataHub Instance
+### Exporting from Ingestion Source
 
-You can export MCPs directly from your DataHub instance using a recipe file. This is useful when you want to:
+You can export MCPs from an ingestion source (such as BigQuery, Snowflake, etc.) to a file using the `file` sink type in your recipe. This approach is useful when you want to:
 
-- Examine existing entities in your DataHub instance
+- Save MCPs for later ingestion
+- Examine existing entities in the source
+- Debug ingestion issues
+
+To get started, create a recipe file (e.g., `export_mcps.yaml`) specifying your target source and the file `sink` type:
+
+```yaml
+source:
+  type: bigquery # Replace with your source type
+  config: ... # Add your source configuration here
+sink:
+  type: "file"
+  config:
+    filename: "mcps.json"
+```
+
+Run the ingestion with the following command:
+
+```python
+datahub ingest -c export_mcps.yaml
+```
+
+This command will extract all entities from your source and write them to `mcps.json` in MCP format.
+
+For more details about the `file` sink type, please refer to [Metadata File](../../metadata-ingestion/sink_docs/metadata-file.md)
+
+### Exporting from DataHub Instance
+
+You can also export MCPs directly from an existing DataHub instance using a similar recipe approach. This method is particularly useful when you need to:
+
+- Examine entities already in your DataHub instance
 - Create test cases based on real data
 - Debug entity relationships
 
-First, create a recipe file (e.g., `export_mcps.yaml`):
+The process is similar to exporting from an ingestion source, with the only difference being that you'll use `datahub` as the source type.
+Create a recipe file (e.g., `export_mcps.yaml`) with this configuration:
 
 ```yaml
 source:
@@ -55,7 +84,7 @@ source:
   config:
     # Add your DataHub connection configuration here
     server: "http://localhost:8080"
-    token: "your-access-token"  # If authentication is required
+    token: "your-access-token" # If authentication is required
 
 sink:
   type: "file"
@@ -69,7 +98,7 @@ Run the ingestion:
 datahub ingest -c export_mcps.yaml
 ```
 
-This will write all the entities from your DataHub instance to `mcps.json` in MCP format.
+This will extract all entities from your DataHub instance and save them to `mcps.json` in MCP format.
 
 ### Creating MCPs with Python SDK
 
@@ -111,20 +140,20 @@ For example, the above script will generate an MCP file with a single dataset en
 
 ```json
 [
-{
+  {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,example_dataset,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": {
-            "customProperties": {
-                "encoding": "utf-8"
-            },
-            "description": "Example dataset description",
-            "tags": []
-        }
+      "json": {
+        "customProperties": {
+          "encoding": "utf-8"
+        },
+        "description": "Example dataset description",
+        "tags": []
+      }
     }
-}
+  }
 ]
 ```

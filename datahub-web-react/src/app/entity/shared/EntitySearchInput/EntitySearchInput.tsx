@@ -1,9 +1,11 @@
 import { Select, Tag, Tooltip } from 'antd';
 import React from 'react';
-import { useGetSearchResultsForMultipleLazyQuery } from '../../../../graphql/search.generated';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntitySearchInputResult } from './EntitySearchInputResult';
+
+import { EntitySearchInputResult } from '@app/entity/shared/EntitySearchInput/EntitySearchInputResult';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 type Props = {
     selectedUrns: string[];

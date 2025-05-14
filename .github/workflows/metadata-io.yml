@@ -30,9 +30,9 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
-      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
-      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name == 'release' }}
+      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' || github.event_name == 'release' }}
+      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name == 'release' }}
       docker_change: ${{ steps.ci-optimize.outputs.docker-change == 'true' }}
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}

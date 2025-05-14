@@ -1,16 +1,18 @@
-import { Typography, Table } from 'antd';
+import { Table, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { colors } from '@src/alchemy-components/theme';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { EmptyTab } from '@app/entity/shared/components/styled/EmptyTab';
+import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
+import { notEmpty } from '@app/entity/shared/utils';
+import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Pill } from '@src/alchemy-components/components/Pills';
-import moment from 'moment';
-import { GetMlModelGroupQuery } from '../../../../graphql/mlModelGroup.generated';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useBaseEntity } from '../../shared/EntityContext';
-import { notEmpty } from '../../shared/utils';
-import { EmptyTab } from '../../shared/components/styled/EmptyTab';
-import { InfoItem } from '../../shared/components/styled/InfoItem';
+import { colors } from '@src/alchemy-components/theme';
+
+import { GetMlModelGroupQuery } from '@graphql/mlModelGroup.generated';
+import { EntityType } from '@types';
 
 const InfoItemContainer = styled.div<{ justifyContent }>`
     display: flex;
@@ -33,6 +35,7 @@ const NameLink = styled.a`
     font-weight: 700;
     color: inherit;
     font-size: 0.9rem;
+
     &:hover {
         color: ${colors.blue[400]} !important;
     }
@@ -101,11 +104,7 @@ export default function MLGroupModels() {
             key: 'createdAt',
             width: 150,
             render: (_: any, record: any) => (
-                <Typography.Text>
-                    {record.properties?.createdTS?.time
-                        ? moment(record.properties.createdTS.time).format('YYYY-MM-DD HH:mm:ss')
-                        : '-'}
-                </Typography.Text>
+                <TimestampPopover timestamp={record.properties?.createdTS?.time} title="Created At" showPopover />
             ),
         },
         {
@@ -125,8 +124,8 @@ export default function MLGroupModels() {
             },
         },
         {
-            title: 'Tags',
-            key: 'tags',
+            title: 'Properties',
+            key: 'properties',
             width: 200,
             render: (_: any, record: any) => {
                 const tags = record.properties?.tags || [];
@@ -159,18 +158,10 @@ export default function MLGroupModels() {
             <Typography.Title level={3}>Model Group Details</Typography.Title>
             <InfoItemContainer justifyContent="left">
                 <InfoItem title="Created At">
-                    <InfoItemContent>
-                        {modelGroup?.properties?.created?.time
-                            ? moment(modelGroup.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
-                            : '-'}
-                    </InfoItemContent>
+                    <TimestampPopover timestamp={modelGroup?.properties?.created?.time} title="Created At" />
                 </InfoItem>
                 <InfoItem title="Last Modified At">
-                    <InfoItemContent>
-                        {modelGroup?.properties?.lastModified?.time
-                            ? moment(modelGroup.properties.lastModified.time).format('YYYY-MM-DD HH:mm:ss')
-                            : '-'}
-                    </InfoItemContent>
+                    <TimestampPopover timestamp={modelGroup?.properties?.lastModified?.time} title="Last Modified At" />
                 </InfoItem>
                 {modelGroup?.properties?.created?.actor && (
                     <InfoItem title="Created By">

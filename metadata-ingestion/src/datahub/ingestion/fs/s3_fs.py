@@ -48,12 +48,12 @@ class S3ListIterator(Iterator):
     def __next__(self) -> FileInfo:
         try:
             return next(self._file_statuses)
-        except StopIteration:
+        except StopIteration as e:
             if self._token:
                 self.fetch()
                 return next(self._file_statuses)
             else:
-                raise StopIteration()
+                raise e
 
     def fetch(self):
         params = dict(Bucket=self._bucket, Prefix=self._prefix, MaxKeys=self._max_keys)

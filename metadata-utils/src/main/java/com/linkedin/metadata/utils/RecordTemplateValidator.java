@@ -21,6 +21,12 @@ public class RecordTemplateValidator {
           CoercionMode.NORMAL,
           UnrecognizedFieldMode.DISALLOW);
 
+  private static final ValidationOptions TRIM_VALIDATION_OPTIONS =
+      new ValidationOptions(
+          RequiredMode.CAN_BE_ABSENT_IF_HAS_DEFAULT,
+          CoercionMode.NORMAL,
+          UnrecognizedFieldMode.TRIM);
+
   private static final UrnValidator URN_VALIDATOR = new UrnValidator();
 
   /**
@@ -38,14 +44,44 @@ public class RecordTemplateValidator {
   }
 
   /**
+   * Validates a {@link RecordTemplate} and applies a function if validation fails. Extra fields are
+   * trimmed.
+   *
+   * @param record record to be validated.failure.
+   */
+  public static void validateTrim(
+      RecordTemplate record, Consumer<ValidationResult> onValidationFailure) {
+    final ValidationResult result =
+        ValidateDataAgainstSchema.validate(record, TRIM_VALIDATION_OPTIONS, URN_VALIDATOR);
+    if (!result.isValid()) {
+      onValidationFailure.accept(result);
+    }
+  }
+
+  /**
    * Validates a {@link RecordTemplate} and applies a function if validation fails
    *
-   * @param record record to be validated.ailure.
+   * @param record record to be validated.failure.
    */
   public static void validate(
       RecordTemplate record, Consumer<ValidationResult> onValidationFailure, Validator validator) {
     final ValidationResult result =
         ValidateDataAgainstSchema.validate(record, DEFAULT_VALIDATION_OPTIONS, validator);
+    if (!result.isValid()) {
+      onValidationFailure.accept(result);
+    }
+  }
+
+  /**
+   * Validates a {@link RecordTemplate} and applies a function if validation fails Extra fields are
+   * trimmed.
+   *
+   * @param record record to be validated.failure.
+   */
+  public static void validateTrim(
+      RecordTemplate record, Consumer<ValidationResult> onValidationFailure, Validator validator) {
+    final ValidationResult result =
+        ValidateDataAgainstSchema.validate(record, TRIM_VALIDATION_OPTIONS, validator);
     if (!result.isValid()) {
       onValidationFailure.accept(result);
     }

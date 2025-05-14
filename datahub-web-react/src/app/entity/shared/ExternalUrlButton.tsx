@@ -1,11 +1,13 @@
 import React from 'react';
-import { EntityType } from '../../../types.generated';
-import analytics, { EventType, EntityActionType } from '../../analytics';
-import UrlButton from './UrlButton';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import UrlButton from '@app/entity/shared/UrlButton';
+
+import { EntityType } from '@types';
 
 const GITHUB_LINK = 'github.com';
 const GITHUB = 'GitHub';
-const GITLAB_LINK = 'gitlab.com';
+const GITLAB_LINK = 'gitlab.';
 const GITLAB = 'GitLab';
 
 interface Props {

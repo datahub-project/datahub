@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect.batch;
 
+import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -15,6 +17,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -47,13 +50,16 @@ public interface AspectsBatch {
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.
    *
-   * @param latestAspects latest version in the database
+   * @param latestAspects latest aspect in the database
+   * @param nextVersions next version for the aspect
+   * @param databaseUpsert function which upserts a given change MCP
    * @return The new urn/aspectnames and the uniform upserts, possibly expanded/mutated by the
    *     various hooks
    */
   Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
       Map<String, Map<String, SystemAspect>> latestAspects,
-      Map<String, Map<String, Long>> nextVersions);
+      Map<String, Map<String, Long>> nextVersions,
+      BiFunction<ChangeMCP, SystemAspect, SystemAspect> databaseUpsert);
 
   /**
    * Apply read mutations to batch
@@ -247,33 +253,38 @@ public interface AspectsBatch {
    * Increment aspect within a batch, tracking both the next aspect version and the most recent
    *
    * @param changeMCP changeMCP to be incremented
-   * @param latestAspects lastest aspects within the batch
+   * @param latestAspects latest aspects within the batch
    * @param nextVersions next version for the aspects in the batch
    * @return the incremented changeMCP
    */
-  static ChangeMCP incrementBatchVersion(
+  static <T extends SystemAspect> ChangeMCP incrementBatchVersion(
       ChangeMCP changeMCP,
-      Map<String, Map<String, SystemAspect>> latestAspects,
-      Map<String, Map<String, Long>> nextVersions) {
+      Map<String, Map<String, T>> latestAspects,
+      Map<String, Map<String, Long>> nextVersions,
+      BiFunction<ChangeMCP, T, T> databaseUpsert) {
+
+    // This is the current version of row 0
+    // or in other words the next insertion row when the version 0 is rotated
     long nextVersion =
         nextVersions
             .getOrDefault(changeMCP.getUrn().toString(), Collections.emptyMap())
-            .getOrDefault(changeMCP.getAspectName(), 0L);
+            .getOrDefault(changeMCP.getAspectName(), ASPECT_LATEST_VERSION);
 
-    changeMCP.setPreviousSystemAspect(
+    T currentSystemAspect =
         latestAspects
             .getOrDefault(changeMCP.getUrn().toString(), Collections.emptyMap())
-            .getOrDefault(changeMCP.getAspectName(), null));
+            .getOrDefault(changeMCP.getAspectName(), null);
 
-    changeMCP.setNextAspectVersion(nextVersion);
+    // A new changeMCP would be versioned with the version after the current row 0
+    changeMCP.setNextAspectVersion(nextVersion + 1);
 
     // support inner-batch upserts
     latestAspects
         .computeIfAbsent(changeMCP.getUrn().toString(), key -> new HashMap<>())
-        .put(changeMCP.getAspectName(), changeMCP.getSystemAspect(nextVersion));
+        .put(changeMCP.getAspectName(), databaseUpsert.apply(changeMCP, currentSystemAspect));
     nextVersions
         .computeIfAbsent(changeMCP.getUrn().toString(), key -> new HashMap<>())
-        .put(changeMCP.getAspectName(), nextVersion + 1);
+        .put(changeMCP.getAspectName(), changeMCP.getNextAspectVersion());
 
     return changeMCP;
   }

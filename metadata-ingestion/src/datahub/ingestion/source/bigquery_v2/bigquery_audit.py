@@ -165,7 +165,7 @@ class BigQueryTableRef:
     @classmethod
     def from_spec_obj(cls, spec: dict) -> "BigQueryTableRef":
         for key in ["projectId", "datasetId", "tableId"]:
-            if key not in spec.keys():
+            if key not in spec:
                 raise ValueError(f"invalid BigQuery table reference dict: {spec}")
 
         return cls(

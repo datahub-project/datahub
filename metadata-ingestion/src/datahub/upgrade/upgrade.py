@@ -13,7 +13,9 @@ from pydantic import BaseModel
 from datahub._version import __version__
 from datahub.cli.config_utils import load_client_config
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.server_config_util import RestServiceConfig
 
 log = logging.getLogger(__name__)
 
@@ -109,7 +111,7 @@ async def get_github_stats():
             return (latest_server_version, latest_server_date)
 
 
-async def get_server_config(gms_url: str, token: Optional[str]) -> dict:
+async def get_server_config(gms_url: str, token: Optional[str]) -> RestServiceConfig:
     import aiohttp
 
     headers = {
@@ -124,7 +126,7 @@ async def get_server_config(gms_url: str, token: Optional[str]) -> dict:
         config_endpoint = f"{gms_url}/config"
         async with session.get(config_endpoint, headers=headers) as dh_response:
             dh_response_json = await dh_response.json()
-            return dh_response_json
+            return RestServiceConfig(raw_config=dh_response_json)
 
 
 async def get_server_version_stats(
@@ -132,11 +134,12 @@ async def get_server_version_stats(
 ) -> Tuple[Optional[str], Optional[Version], Optional[datetime]]:
     import aiohttp
 
-    server_config = None
+    server_config: Optional[RestServiceConfig] = None
     if not server:
         try:
             # let's get the server from the cli config
             client_config = load_client_config()
+            client_config.client_mode = ClientMode.CLI
             host = client_config.server
             token = client_config.token
             server_config = await get_server_config(host, token)
@@ -150,15 +153,10 @@ async def get_server_version_stats(
     server_version: Optional[Version] = None
     current_server_release_date = None
     if server_config:
-        server_version_string = (
-            server_config.get("versions", {})
-            .get("acryldata/datahub", {})
-            .get("version")
-        )
-        commit_hash = (
-            server_config.get("versions", {}).get("acryldata/datahub", {}).get("commit")
-        )
-        server_type = server_config.get("datahub", {}).get("serverType", "unknown")
+        server_version_string = server_config.service_version
+        commit_hash = server_config.commit_hash
+        server_type = server_config.server_type
+
         if server_type == "quickstart" and commit_hash:
             async with aiohttp.ClientSession(
                 headers={"Accept": "application/vnd.github.v3+json"}

@@ -87,7 +87,7 @@ public class SearchService {
     }
     SearchResult result =
         _cachingEntitySearchService.search(
-            opContext, entitiesToSearch, input, postFilters, sortCriteria, from, size, null);
+            opContext, entitiesToSearch, input, postFilters, sortCriteria, from, size, List.of());
 
     try {
       return result
@@ -141,18 +141,8 @@ public class SearchService {
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriterion: %s, from: %s, size: %s",
             entities, input, postFilters, sortCriteria, from, size));
-    // DEPRECATED
-    // This is the legacy version of `_entityType`-- it operates as a special case and does not
-    // support ORs, Unions, etc.
-    // We will still provide it for backwards compatibility but when sending filters to the backend
-    // use the new
-    // filter name `_entityType` that we provide above. This is just provided to prevent a breaking
-    // change for old clients.
-    boolean aggregateByLegacyEntityFacet = facets != null && facets.contains("entity");
-    if (aggregateByLegacyEntityFacet) {
-      facets = new ArrayList<>(facets);
-      facets.add(INDEX_VIRTUAL_FIELD);
-    }
+
+    final List<String> finalFacets = facetInput(facets);
     List<String> nonEmptyEntities = getEntitiesToSearch(opContext, entities, size);
     if (nonEmptyEntities.isEmpty()) {
       // Optimization: If the indices are all empty, return empty result
@@ -160,49 +150,12 @@ public class SearchService {
     }
     SearchResult result =
         _cachingEntitySearchService.search(
-            opContext, nonEmptyEntities, input, postFilters, sortCriteria, from, size, facets);
-    if (facets == null || facets.contains("entity") || facets.contains("_entityType")) {
-      Optional<AggregationMetadata> entityTypeAgg =
-          result.getMetadata().getAggregations().stream()
-              .filter(aggMeta -> aggMeta.getName().equals(INDEX_VIRTUAL_FIELD))
-              .findFirst();
-      if (entityTypeAgg.isPresent()) {
-        LongMap numResultsPerEntity = entityTypeAgg.get().getAggregations();
-        result
-            .getMetadata()
-            .getAggregations()
-            .add(
-                new AggregationMetadata()
-                    .setName("entity")
-                    .setDisplayName("Type")
-                    .setAggregations(numResultsPerEntity)
-                    .setFilterValues(
-                        new FilterValueArray(
-                            SearchUtil.convertToFilters(
-                                numResultsPerEntity, Collections.emptySet()))));
-      } else {
-        // Should not happen due to the adding of the _entityType aggregation before, but if it
-        // does, best-effort count of entity types
-        // Will not include entity types that had 0 results
-        Map<String, Long> numResultsPerEntity =
-            result.getEntities().stream()
-                .collect(
-                    Collectors.groupingBy(
-                        entity -> entity.getEntity().getEntityType(), Collectors.counting()));
-        result
-            .getMetadata()
-            .getAggregations()
-            .add(
-                new AggregationMetadata()
-                    .setName("entity")
-                    .setDisplayName("Type")
-                    .setAggregations(new LongMap(numResultsPerEntity))
-                    .setFilterValues(
-                        new FilterValueArray(
-                            SearchUtil.convertToFilters(
-                                numResultsPerEntity, Collections.emptySet()))));
-      }
-    }
+            opContext, nonEmptyEntities, input, postFilters, sortCriteria, from, size, finalFacets);
+    result
+        .getMetadata()
+        .setAggregations(
+            withAdditionalAggregates(
+                result.getEntities(), result.getMetadata().getAggregations(), finalFacets));
     return result;
   }
 
@@ -242,7 +195,6 @@ public class SearchService {
    * @return a {@link ScrollResult} that contains a list of matched documents and related search
    *     result metadata
    */
-  @Nonnull
   public ScrollResult scrollAcrossEntities(
       @Nonnull OperationContext opContext,
       @Nonnull Collection<String> entities,
@@ -252,6 +204,46 @@ public class SearchService {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size) {
+    return scrollAcrossEntities(
+        opContext,
+        entities,
+        input,
+        postFilters,
+        sortCriteria,
+        scrollId,
+        keepAlive,
+        size,
+        List.of());
+  }
+
+  /**
+   * Gets a list of documents that match given search request across multiple entities. The results
+   * are aggregated and filters are applied to the search hits and not the aggregation results.
+   *
+   * @param entities list of entities to search (If empty, searches across all entities)
+   * @param input the search input text
+   * @param postFilters the request map with fields and values as filters to be applied to search
+   *     hits
+   * @param sortCriteria list of {@link SortCriterion} to be applied to search results
+   * @param scrollId opaque scroll identifier for passing to search backend
+   * @param size the number of search hits to return
+   * @param facets list of facets we want aggregations for
+   * @return a {@link ScrollResult} that contains a list of matched documents and related search
+   *     result metadata
+   */
+  @Nonnull
+  public ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entities,
+      @Nonnull String input,
+      @Nullable Filter postFilters,
+      List<SortCriterion> sortCriteria,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      int size,
+      @Nullable List<String> facets) {
+
+    final List<String> finalFacets = facetInput(facets);
     log.debug(
         String.format(
             "Searching Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
@@ -261,8 +253,86 @@ public class SearchService {
       // No indices with non-zero entries: skip querying and return empty result
       return getEmptyScrollResult(size);
     }
-    return _cachingEntitySearchService.scroll(
-        opContext, entitiesToSearch, input, postFilters, sortCriteria, scrollId, keepAlive, size);
+    ScrollResult result =
+        _cachingEntitySearchService.scroll(
+            opContext,
+            entitiesToSearch,
+            input,
+            postFilters,
+            sortCriteria,
+            scrollId,
+            keepAlive,
+            size,
+            finalFacets);
+
+    result
+        .getMetadata()
+        .setAggregations(
+            withAdditionalAggregates(
+                result.getEntities(), result.getMetadata().getAggregations(), finalFacets));
+    return result;
+  }
+
+  @Nonnull
+  private static List<String> facetInput(@Nullable List<String> facets) {
+    // DEPRECATED
+    // This is the legacy version of `_entityType`-- it operates as a special case and does not
+    // support ORs, Unions, etc.
+    // We will still provide it for backwards compatibility but when sending filters to the backend
+    // use the new
+    // filter name `_entityType` that we provide above. This is just provided to prevent a breaking
+    // change for old clients.
+    boolean aggregateByLegacyEntityFacet = facets != null && facets.contains("entity");
+    if (aggregateByLegacyEntityFacet) {
+      facets = new ArrayList<>(facets);
+      facets.add(INDEX_VIRTUAL_FIELD);
+    }
+    return facets == null ? List.of() : facets;
+  }
+
+  @Nonnull
+  private static AggregationMetadataArray withAdditionalAggregates(
+      @Nonnull SearchEntityArray entities,
+      @Nullable AggregationMetadataArray aggregates,
+      @Nonnull List<String> facets) {
+    AggregationMetadataArray aggregationMetadata =
+        aggregates == null ? new AggregationMetadataArray() : aggregates;
+
+    if (facets.isEmpty() || facets.contains("entity") || facets.contains("_entityType")) {
+      Optional<AggregationMetadata> entityTypeAgg =
+          aggregationMetadata.stream()
+              .filter(aggMeta -> aggMeta.getName().equals(INDEX_VIRTUAL_FIELD))
+              .findFirst();
+      if (entityTypeAgg.isPresent()) {
+        LongMap numResultsPerEntity = entityTypeAgg.get().getAggregations();
+        aggregationMetadata.add(
+            new AggregationMetadata()
+                .setName("entity")
+                .setDisplayName("Type")
+                .setAggregations(numResultsPerEntity)
+                .setFilterValues(
+                    new FilterValueArray(
+                        SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
+      } else {
+        // Should not happen due to the adding of the _entityType aggregation before, but if it
+        // does, best-effort count of entity types
+        // Will not include entity types that had 0 results
+        Map<String, Long> numResultsPerEntity =
+            entities.stream()
+                .collect(
+                    Collectors.groupingBy(
+                        entity -> entity.getEntity().getEntityType(), Collectors.counting()));
+        aggregationMetadata.add(
+            new AggregationMetadata()
+                .setName("entity")
+                .setDisplayName("Type")
+                .setAggregations(new LongMap(numResultsPerEntity))
+                .setFilterValues(
+                    new FilterValueArray(
+                        SearchUtil.convertToFilters(numResultsPerEntity, Collections.emptySet()))));
+      }
+    }
+    return aggregationMetadata;
   }
 
   private static SearchResult getEmptySearchResult(int from, int size) {

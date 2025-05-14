@@ -2,6 +2,7 @@ namespace com.linkedin.incident
 
 import com.linkedin.common.AuditStamp
 import com.linkedin.common.EntityReference
+import com.linkedin.common.Time
 import com.linkedin.common.Urn
 
 /**
@@ -57,12 +58,19 @@ record IncidentInfo {
 
   /**
   * A numeric severity or priority for the incident. On the UI we will translate this into something easy to understand.
+  * Currently supported: 0 - CRITICAL, 1 - HIGH, 2 - MED, 3 - LOW
+  * (We probably should have modeled as an enum)
   */
   @Searchable = {
     "addToFilters": true,
     "filterNameOverride": "Priority"
   }
   priority: optional int = 0
+
+  /**
+   * The parties assigned with resolving the incident
+   */
+  assignees: optional array[IncidentAssignee]
 
   /**
    * The current status of an incident, i.e. active or inactive.
@@ -73,6 +81,17 @@ record IncidentInfo {
    * The source of an incident, i.e. how it was generated.
    */
   source: optional IncidentSource
+
+  /**
+   * The time at which the incident actually started (may be before the date it was raised).
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "startedAt",
+        "fieldType": "COUNT"
+      }
+  }
+  startedAt: optional Time
 
   /**
    * The time at which the request was initially created

@@ -13,6 +13,7 @@ query getMLModelGroup($urn: String!) {
                 time
                 actor
             }
+            externalUrl
         }
         ...nonRecursiveMLModelGroupFields
         incoming: relationships(

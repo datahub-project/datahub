@@ -45,12 +45,12 @@ def test_generate_foreign_key():
     )
 
     assert fk_dict.get("name") == foreign_key.name
-    assert [
+    assert foreign_key.foreignFields == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_referred_schema.test_table,PROD),test_referred_column)"
-    ] == foreign_key.foreignFields
-    assert [
+    ]
+    assert foreign_key.sourceFields == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD),test_column)"
-    ] == foreign_key.sourceFields
+    ]
 
 
 def test_use_source_schema_for_foreign_key_if_not_specified():
@@ -69,12 +69,12 @@ def test_use_source_schema_for_foreign_key_if_not_specified():
     )
 
     assert fk_dict.get("name") == foreign_key.name
-    assert [
+    assert foreign_key.foreignFields == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.test_table,PROD),test_referred_column)"
-    ] == foreign_key.foreignFields
-    assert [
+    ]
+    assert foreign_key.sourceFields == [
         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:TEST,test_schema.base_urn,PROD),test_column)"
-    ] == foreign_key.sourceFields
+    ]
 
 
 PLATFORM_FROM_SQLALCHEMY_URI_TEST_CASES: Dict[str, str] = {

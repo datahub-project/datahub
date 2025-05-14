@@ -1,13 +1,15 @@
+import { Button, Collapse, Form, Input, Modal, Tag, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { message, Button, Input, Modal, Typography, Form, Collapse, Tag } from 'antd';
-import { useCreateDomainMutation } from '../../graphql/domain.generated';
-import { useEnterKeyListener } from '../shared/useEnterKeyListener';
-import { validateCustomUrnId } from '../shared/textUtil';
-import analytics, { EventType } from '../analytics';
-import DomainParentSelect from '../entity/shared/EntityDropdown/DomainParentSelect';
-import { useIsNestedDomainsEnabled } from '../useAppConfig';
-import { useDomainsContext } from './DomainsContext';
+
+import analytics, { EventType } from '@app/analytics';
+import { useDomainsContext } from '@app/domain/DomainsContext';
+import DomainParentSelect from '@app/entity/shared/EntityDropdown/DomainParentSelect';
+import { validateCustomUrnId } from '@app/shared/textUtil';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useIsNestedDomainsEnabled } from '@app/useAppConfig';
+
+import { useCreateDomainMutation } from '@graphql/domain.generated';
 
 const SuggestedNamesGroup = styled.div`
     margin-top: 8px;

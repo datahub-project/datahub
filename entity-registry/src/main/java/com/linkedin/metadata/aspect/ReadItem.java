@@ -65,13 +65,6 @@ public interface ReadItem {
   SystemMetadata getSystemMetadata();
 
   /**
-   * Set system metadata on the item
-   *
-   * @param systemMetadata
-   */
-  void setSystemMetadata(@Nonnull SystemMetadata systemMetadata);
-
-  /**
    * The entity's schema
    *
    * @return entity specification

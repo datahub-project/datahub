@@ -1,14 +1,20 @@
+import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Empty, Typography } from 'antd';
-import { EMPTY_MESSAGES } from '../../constants';
-import NoDocs from '../../../../../images/no-docs.svg';
+
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+
+import NoDocs from '@images/no-docs.svg';
 
 const StyledEmpty = styled(Empty)<{ $hideImage?: boolean }>`
     padding: 40px;
     ${({ $hideImage }) => ($hideImage ? '.ant-empty-image { margin: 0; }' : '.ant-empty-image { height: 86px; }')}
 
     .ant-empty-footer {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        justify-content: center;
         .ant-btn:not(:last-child) {
             margin-right: 8px;
         }

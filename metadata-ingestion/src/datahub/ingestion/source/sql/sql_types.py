@@ -317,10 +317,10 @@ def resolve_snowflake_modified_type(type_string: str) -> Any:
     match = re.match(r"([a-zA-Z_]+)\(\d+,\s\d+\)", type_string)
     if match:
         modified_type_base = match.group(1)  # Extract the base type
-        return SNOWFLAKE_TYPES_MAP.get(modified_type_base, None)
+        return SNOWFLAKE_TYPES_MAP.get(modified_type_base)
 
     # Fallback for types without precision/scale
-    return SNOWFLAKE_TYPES_MAP.get(type_string, None)
+    return SNOWFLAKE_TYPES_MAP.get(type_string)
 
 
 # see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/_types.py#L32

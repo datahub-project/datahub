@@ -43,6 +43,8 @@ def test_container_basic() -> None:
     assert c.platform.platform_name == "bigquery"
     assert c.platform_instance is None
     assert c.browse_path == []
+    assert c.owners is None
+    assert c.links is None
     assert c.tags is None
     assert c.terms is None
     assert c.created is None
@@ -95,6 +97,7 @@ def test_container_complex() -> None:
         owners=[
             CorpUserUrn("admin@datahubproject.io"),
         ],
+        links=["https://example.com/doc1"],
         tags=[
             TagUrn("tag1"),
             TagUrn("tag2"),
@@ -134,12 +137,10 @@ def test_container_complex() -> None:
 
     # Check standard aspects.
     assert c.subtype == "Schema"
+    assert c.owners is not None and len(c.owners) == 1
+    assert c.links is not None and len(c.links) == 1
+    assert c.tags is not None and len(c.tags) == 2
+    assert c.terms is not None and len(c.terms) == 1
     assert c.domain == DomainUrn("Marketing")
-    assert c.tags is not None
-    assert len(c.tags) == 2
-    assert c.terms is not None
-    assert len(c.terms) == 1
-    assert c.owners is not None
-    assert len(c.owners) == 1
 
     assert_entity_golden(c, _GOLDEN_DIR / "test_container_complex_golden.json")

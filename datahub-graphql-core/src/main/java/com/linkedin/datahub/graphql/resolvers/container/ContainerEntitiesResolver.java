@@ -91,8 +91,7 @@ public class ContainerEntitiesResolver implements DataFetcher<CompletableFuture<
                                         new CriterionArray(ImmutableList.of(filterCriterion))))),
                     start,
                     count,
-                    Collections.emptyList(),
-                    null));
+                    Collections.emptyList()));
 
           } catch (Exception e) {
             throw new RuntimeException(

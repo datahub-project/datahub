@@ -22,6 +22,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.collections.CollectionUtils;
+import org.javatuples.Octet;
 import org.javatuples.Septet;
 import org.javatuples.Sextet;
 import org.springframework.cache.Cache;
@@ -29,10 +30,10 @@ import org.springframework.cache.CacheManager;
 
 @RequiredArgsConstructor
 public class CachingEntitySearchService {
-  private static final String ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME = "entitySearchServiceSearch";
-  private static final String ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME =
+  public static final String ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME = "entitySearchServiceSearch";
+  public static final String ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME =
       "entitySearchServiceAutoComplete";
-  private static final String ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME = "entitySearchServiceBrowse";
+  public static final String ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME = "entitySearchServiceBrowse";
   public static final String ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME = "entitySearchServiceScroll";
 
   private final CacheManager cacheManager;
@@ -63,7 +64,7 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     return getCachedSearchResults(
         opContext, entityNames, query, filters, sortCriteria, from, size, facets);
   }
@@ -131,9 +132,10 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      int size,
+      @Nonnull List<String> facets) {
     return getCachedScrollResults(
-        opContext, entities, query, filters, sortCriteria, scrollId, keepAlive, size);
+        opContext, entities, query, filters, sortCriteria, scrollId, keepAlive, size, facets);
   }
 
   /**
@@ -150,7 +152,7 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
             batchSize,
@@ -276,7 +278,8 @@ public class CachingEntitySearchService {
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      int size,
+      @Nonnull List<String> facets) {
 
     return opContext.withSpan(
         "getScrollResults",
@@ -291,13 +294,14 @@ public class CachingEntitySearchService {
           if (enableCache(opContext.getSearchContext().getSearchFlags())) {
 
             Object cacheKey =
-                Septet.with(
+                Octet.with(
                     opContext.getSearchContextId(),
                     entities,
                     query,
                     filters != null ? toJsonString(filters) : null,
                     CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
                     scrollId,
+                    facets,
                     size);
             String json = cache.get(cacheKey, String.class);
             result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
@@ -313,7 +317,8 @@ public class CachingEntitySearchService {
                       scrollId,
                       keepAlive,
                       size,
-                      isFullText);
+                      isFullText,
+                      facets);
               cache.put(cacheKey, toJsonString(result));
               Span.current().setAttribute(CACHE_HIT_ATTR, false);
               MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
@@ -332,7 +337,8 @@ public class CachingEntitySearchService {
                     scrollId,
                     keepAlive,
                     size,
-                    isFullText);
+                    isFullText,
+                    facets);
           }
           return result;
         },
@@ -349,7 +355,7 @@ public class CachingEntitySearchService {
       final List<SortCriterion> sortCriteria,
       final int start,
       final int count,
-      @Nullable final List<String> facets) {
+      @Nonnull final List<String> facets) {
     return entitySearchService.search(
         opContext, entityNames, input, filters, sortCriteria, start, count, facets);
   }
@@ -386,13 +392,14 @@ public class CachingEntitySearchService {
       @Nullable final String scrollId,
       @Nullable final String keepAlive,
       final int count,
-      final boolean fulltext) {
+      final boolean fulltext,
+      @Nonnull List<String> facets) {
     if (fulltext) {
       return entitySearchService.fullTextScroll(
-          opContext, entities, input, filters, sortCriteria, scrollId, keepAlive, count);
+          opContext, entities, input, filters, sortCriteria, scrollId, keepAlive, count, facets);
     } else {
       return entitySearchService.structuredScroll(
-          opContext, entities, input, filters, sortCriteria, scrollId, keepAlive, count);
+          opContext, entities, input, filters, sortCriteria, scrollId, keepAlive, count, facets);
     }
   }
 

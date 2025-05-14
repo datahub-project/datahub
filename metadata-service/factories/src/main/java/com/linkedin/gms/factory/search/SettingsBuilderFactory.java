@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
@@ -21,7 +22,7 @@ public class SettingsBuilderFactory {
   private String mainTokenizer;
 
   @Bean("settingsBuilder")
-  protected SettingsBuilder getInstance() {
-    return new SettingsBuilder(mainTokenizer);
+  protected SettingsBuilder getInstance(ConfigurationProvider configProvider) {
+    return new SettingsBuilder(mainTokenizer, configProvider.getElasticSearch().getIndex());
   }
 }

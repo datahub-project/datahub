@@ -1,15 +1,15 @@
 import React from 'react';
 import styled from 'styled-components';
-import Form from './Form';
-import { ANTD_GRAY_V2 } from '../constants';
-import ProfileSidebar from '../containers/profile/sidebar/ProfileSidebar';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityContext, useEntityContext } from '../EntityContext';
-import EntityInfo from '../containers/profile/sidebar/EntityInfo/EntityInfo';
-import { useEntityFormContext } from './EntityFormContext';
-import ProgressBar from './ProgressBar';
 
-import { useIsThemeV2 } from '../../../useIsThemeV2';
+import { EntityContext, useEntityContext } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import EntityInfo from '@app/entity/shared/containers/profile/sidebar/EntityInfo/EntityInfo';
+import ProfileSidebar from '@app/entity/shared/containers/profile/sidebar/ProfileSidebar';
+import { useEntityFormContext } from '@app/entity/shared/entityForm/EntityFormContext';
+import Form from '@app/entity/shared/entityForm/Form';
+import ProgressBar from '@app/entity/shared/entityForm/ProgressBar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
 
 const ContentWrapper = styled.div`
     background-color: ${ANTD_GRAY_V2[1]};
@@ -63,13 +63,14 @@ export default function FormByEntity({ formUrn }: Props) {
             <ContentWrapper>
                 <ProgressBar formUrn={formUrn} />
                 <FlexWrapper>
-                    <ProfileSidebar
-                        sidebarSections={loading ? [] : sections}
-                        topSection={{ component: () => <EntityInfo formUrn={formUrn} /> }}
-                        backgroundColor="white"
-                        alignLeft
-                    />
                     <Form formUrn={formUrn} />
+                    {selectedEntityData && (
+                        <ProfileSidebar
+                            sidebarSections={loading ? [] : sections}
+                            topSection={{ component: () => <EntityInfo formUrn={formUrn} /> }}
+                            backgroundColor="white"
+                        />
+                    )}
                 </FlexWrapper>
             </ContentWrapper>
         </EntityContext.Provider>
