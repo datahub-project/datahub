@@ -58,7 +58,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
 
     getPathName = () => 'erModelRelationship';
 
-    getCollectionName = () => '';
+    getCollectionName = () => 'ER-Model-Relationships';
 
     getEntityName = () => 'ER-Model-Relationship';
 
@@ -73,7 +73,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
-                    name: 'ER-Model-Relationship',
+                    name: this.getEntityName(),
                     component: ERModelRelationshipTab,
                 },
                 {

@@ -12,6 +12,7 @@ import { ERModelRelationPreview } from '@app/entity/shared/components/styled/ERM
 import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import { useEntityRegistry } from '../../../../../useEntityRegistry';
 
 import { GetDatasetQuery, useGetDatasetLazyQuery, useGetDatasetSchemaLazyQuery } from '@graphql/dataset.generated';
 import { useGetSearchResultsQuery } from '@graphql/search.generated';
@@ -50,10 +51,12 @@ export const RelationshipsTab = () => {
     const { entityWithSchema } = useGetEntityWithSchema();
     const [modalVisible, setModalVisible] = useState(false);
     const [ermodelrelationModalVisible, setermodelrelationModalVisible] = useState(false);
+    const entityRegistry = useEntityRegistry();
+    const entityName = entityRegistry.getEntityName(EntityType.ErModelRelationship);
     const tabs = [
         {
             key: 'ermodelrelationsTab',
-            tab: 'ER-Model-Relationships',
+            tab: entityRegistry.getCollectionName(EntityType.ErModelRelationship),
         },
     ];
     const {
@@ -131,7 +134,7 @@ export const RelationshipsTab = () => {
                     )}
                     {loadingERModelRelation && (
                         <div>
-                            ER-Model-Relationships <LoadingOutlined />
+                            {entityName} <LoadingOutlined />
                         </div>
                     )}
                 </>
@@ -162,7 +165,7 @@ export const RelationshipsTab = () => {
                 <div>
                     <ThinDivider />
                     <p className="msg-div-inner">
-                        A schema was not ingested for the dataset selected. ERModelRelation cannot be created.
+                        A schema was not ingested for the dataset selected. {entityName} cannot be created.
                     </p>
                     <ThinDivider />
                 </div>
@@ -226,6 +229,7 @@ export const RelationshipsTab = () => {
                         setModalVisible(false);
                     }}
                     refetch={refetch}
+                    entityName={entityName}
                 />
             )}
             <Card
@@ -240,7 +244,7 @@ export const RelationshipsTab = () => {
                 <div className="search-header-div">
                     <StyledInput
                         defaultValue={filterText}
-                        placeholder="Find erModelRelationship..."
+                        placeholder={`Find ${entityName}...`}
                         onChange={(e) => setFilterText(e.target.value)}
                         allowClear
                         autoFocus
@@ -254,7 +258,7 @@ export const RelationshipsTab = () => {
                             setermodelrelationModalVisible(true);
                         }}
                     >
-                        <PlusOutlined /> Add ER-Model-Relationship
+                        <PlusOutlined /> Add {entityName}
                     </Button>
                 </div>{' '}
                 <br />

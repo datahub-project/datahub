@@ -31,6 +31,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
         const entityUrl = entityRegistry.getEntityUrl(entityType, urn);
         window.open(entityUrl, '_blank');
     };
+    const entityName = entityRegistry.getEntityName(EntityType.ErModelRelationship);
     const [modalVisible, setModalVisible] = useState(false);
     const shuffleFlag =
         prePageType === 'Dataset' ? !(baseEntityUrn === ermodelrelationData?.properties?.source?.urn) : false;
@@ -158,6 +159,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                     editERModelRelation={ermodelrelationData}
                     isEditing
                     refetch={refetch}
+                    entityName={entityName}
                 />
             )}
             <div className="preview-main-div">
@@ -166,16 +168,17 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                         <Row>
                             <p className="all-table-heading">{ermodelrelationHeader}</p>
                             {prePageType === 'Dataset' && (
-                                <Button
-                                    type="link"
-                                    onClick={() =>
-                                        handleViewEntity(EntityType.ErModelRelationship, ermodelrelationData?.urn)
-                                    }
-                                >
-                                    <div className="div-view">
-                                        View ER-Model-Relationship <RightOutlined />{' '}
-                                    </div>
-                                </Button>
+                                <div className="div-view">
+                                    <Button
+                                        type="link"
+                                        onClick={() =>
+                                            handleViewEntity(EntityType.ErModelRelationship, ermodelrelationData?.urn)
+                                        }
+                                    >
+                                        View {entityName}{' '}
+                                        <RightOutlined/>{' '}
+                                    </Button>
+                                </div>
                             )}
                         </Row>
                     )}
@@ -189,7 +192,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
                         }}
                     >
                         <div className="div-edit-img">
-                            <img src={editIcon} alt="" /> <div className="div-edit">Edit ER-Model-Relationship</div>
+                            <img src={editIcon} alt="" /> <div className="div-edit">Edit {entityName}</div>
                             {prePageType === 'ERModelRelationship' && <div className="extra-margin-rev" />}
                         </div>
                     </Button>
@@ -211,7 +214,7 @@ export const ERModelRelationPreview = ({ ermodelrelationData, baseEntityUrn, pre
             </Row>
             {prePageType === 'Dataset' && (
                 <div>
-                    <p className="all-content-heading">ER-Model-Relationship details</p>
+                    <p className="all-content-heading">{entityName} details</p>
                     <p className="all-content-info">{ermodelrelationData?.editableProperties?.description}</p>
                 </div>
             )}
