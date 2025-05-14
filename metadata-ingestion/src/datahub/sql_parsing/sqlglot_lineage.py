@@ -65,7 +65,6 @@ from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
     cooperative_timeout,
 )
-from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.ordered_set import OrderedSet
 
 assert SQLGLOT_PATCHED
@@ -162,14 +161,16 @@ class ColumnLineageInfo(_ParserBaseModel):
 
 class _JoinInfo(_ParserBaseModel):
     join_type: str
-    tables: List[_TableName]
+    left_tables: List[_TableName]
+    right_tables: List[_TableName]
     on_clause: Optional[str]
     columns_involved: List[_ColumnRef]
 
 
 class JoinInfo(_ParserBaseModel):
     join_type: str
-    tables: List[Urn]
+    left_tables: List[Urn]
+    right_tables: List[Urn]
     on_clause: Optional[str]
     columns_involved: List[ColumnRef]
 
@@ -785,6 +786,22 @@ def _get_column_transformation(
         )
 
 
+def _get_join_side_tables(
+    table_name_or_alias: sqlglot.exp.Identifier | str,
+    dialect: sqlglot.Dialect,
+    scope: sqlglot.optimizer.Scope,
+) -> OrderedSet[_TableName]:
+    if isinstance(table_name_or_alias, str):
+        table_name_or_alias = sqlglot.exp.Identifier(this=table_name_or_alias)
+    column = sqlglot.exp.Column(this=sqlglot.exp.Star(), table=table_name_or_alias)
+    columns_used = _get_raw_col_upstreams_for_expression(
+        select=column,
+        dialect=dialect,
+        scope=scope,
+    )
+    return OrderedSet(col.table for col in columns_used)
+
+
 def _get_raw_col_upstreams_for_expression(
     select: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
@@ -824,16 +841,36 @@ def _list_joins(
     for scope in root_scope.traverse():
         join: sqlglot.exp.Join
         for join in scope.find_all(sqlglot.exp.Join):
-            cte_tables = {
-                _TableName(database=None, db_schema=None, table=cte.alias_or_name)
-                for cte in scope.find_all(sqlglot.exp.CTE)
-            }
+            left_side_tables: OrderedSet[_TableName] = OrderedSet()
+            from_clause: sqlglot.exp.From
+            for from_clause in scope.find_all(sqlglot.exp.From):
+                left_side_tables.update(
+                    _get_join_side_tables(
+                        table_name_or_alias=from_clause.alias_or_name,
+                        dialect=dialect,
+                        scope=scope,
+                    )
+                )
 
-            right_side_tables = (
-                _extract_table_names(join.find_all(sqlglot.exp.Table))
-                # ignore CTEs created in this statement
-                - cte_tables
-            )
+            right_side_tables: OrderedSet[_TableName] = OrderedSet()
+            if join_target := join.this:
+                right_side_tables = _get_join_side_tables(
+                    table_name_or_alias=join_target.alias_or_name,
+                    dialect=dialect,
+                    scope=scope,
+                )
+
+            # cte_tables = OrderedSet(
+            #     _TableName(database=None, db_schema=None, table=cte.alias_or_name)
+            #     for cte in scope.find_all(sqlglot.exp.CTE)
+            # )
+
+            # raw_right_side_tables: OrderedSet[_TableName] = OrderedSet(
+            #     _extract_table_names(join.find_all(sqlglot.exp.Table))
+            #     # ignore CTEs created in this statement
+            #     - cte_tables
+            # )
+            # TODO ensure that order is preserved through the subtraction
 
             # We don't need to check for `using` here because it's normalized to `on`
             # by the sqlglot optimizer.
@@ -843,7 +880,7 @@ def _list_joins(
                     select=on_clause, dialect=dialect, scope=scope
                 )
 
-                unique_tables = deduplicate_list(col.table for col in joined_columns)
+                unique_tables = OrderedSet(col.table for col in joined_columns)
                 if not unique_tables:
                     logger.debug(
                         "Skipping join because we couldn't resolve the tables from the join condition: %s",
@@ -851,41 +888,23 @@ def _list_joins(
                     )
                     continue
 
-                # The ordering of the tables is significant. On a mostly best-effort basis,
-                # we want the left side of the join to be first and the right side to come after.
-                # If we could extract a true table name from the right side, that takes precedence.
-                # Because Python's sort is stable, we'll keep the original order for ties.
-                # The original order is based on the order columns are referenced - so as long
-                # as a column from the left side is referenced before any columns from the right side,
-                # the left side table will come first.
-                unique_tables.sort(key=lambda t: t in right_side_tables)
+                # When we have an `on` clause, we only want to include tables whose columns are
+                # involved in the join condition.
+                left_side_tables = OrderedSet(left_side_tables & unique_tables)
+                right_side_tables = OrderedSet(right_side_tables & unique_tables)
             else:
                 # Some joins (cross join, lateral join, etc.) don't have an ON clause.
                 # In those cases, we have some best-effort logic at least extract the
                 # tables involved.
-                from_clauses = list(scope.find_all(sqlglot.exp.From))
-                left_side_tables = (
-                    _extract_table_names(
-                        table
-                        for from_clause in from_clauses
-                        if isinstance(from_clause.this, sqlglot.exp.Expression)
-                        for table in from_clause.this.find_all(sqlglot.exp.Table)
-                    )
-                    - cte_tables
-                )
-
-                unique_tables = deduplicate_list(
-                    list(left_side_tables | right_side_tables)
-                )
                 joined_columns = OrderedSet()
 
-                if not unique_tables:
+                if not left_side_tables and not right_side_tables:
                     logger.debug(
                         "Skipping join because we couldn't resolve any tables from the join operands: %s",
                         join.sql(dialect=dialect),
                     )
                     continue
-                elif len(unique_tables) == 1:
+                elif len(left_side_tables | right_side_tables) == 1:
                     # When we don't have an ON clause, we're more strict about the
                     # minimum number of tables we need to resolve to avoid false positives.
                     # On the off chance someone is doing a self-cross-join, we'll miss it.
@@ -898,7 +917,8 @@ def _list_joins(
             joins.append(
                 _JoinInfo(
                     join_type=_get_join_type(join),
-                    tables=list(unique_tables),
+                    left_tables=list(left_side_tables),
+                    right_tables=list(right_side_tables),
                     on_clause=on_clause.sql(dialect=dialect) if on_clause else None,
                     columns_involved=list(sorted(joined_columns)),
                 )
@@ -1144,7 +1164,12 @@ def _translate_internal_joins(
         joins.append(
             JoinInfo(
                 join_type=raw_join.join_type,
-                tables=[table_name_urn_mapping[table] for table in raw_join.tables],
+                left_tables=[
+                    table_name_urn_mapping[table] for table in raw_join.left_tables
+                ],
+                right_tables=[
+                    table_name_urn_mapping[table] for table in raw_join.right_tables
+                ],
                 on_clause=raw_join.on_clause,
                 columns_involved=[
                     ColumnRef(
