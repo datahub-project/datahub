@@ -389,6 +389,14 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             key = key.lower()
             res[key] = value
 
+        timestamp: datetime = res["query_start_time"]
+        timestamp = timestamp.astimezone(timezone.utc)
+
+        # TODO need to map snowflake query types to ours
+        query_type = SNOWFLAKE_QUERY_TYPE_MAPPING.get(
+            res["query_type"], QueryType.UNKNOWN
+        )
+
         direct_objects_accessed = res["direct_objects_accessed"]
         objects_modified = res["objects_modified"]
         object_modified_by_ddl = res["object_modified_by_ddl"]
@@ -419,19 +427,25 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             )
         )
 
-        # Use direct_objects_accessed instead objects_modified
-        # objects_modified returns $SYS_VIEW_X with no mapping
+        # There are a couple cases when we'd want to prefer our own SQL parsing
+        # over Snowflake's metadata.
+        # 1. For queries that use a stream, objects_modified returns $SYS_VIEW_X with no mapping.
+        #    We can check direct_objects_accessed to see if there is a stream used, and if so,
+        #    prefer doing SQL parsing over Snowflake's metadata.
+        # 2. For queries that create a view, objects_modified is empty and object_modified_by_ddl
+        #    contains the view name and columns. Because `object_modified_by_ddl` doesn't contain
+        #    source columns e.g. lineage information, we must do our own SQL parsing.
+
         has_stream_objects = any(
             obj.get("objectDomain") == "Stream" for obj in direct_objects_accessed
         )
+        is_create_view = query_type == QueryType.CREATE_VIEW
 
-        # If a stream is used, default to query parsing.
-        if has_stream_objects:
-            logger.debug("Found matching stream object")
+        if has_stream_objects or is_create_view:
             return ObservedQuery(
                 query=res["query_text"],
                 session_id=res["session_id"],
-                timestamp=res["query_start_time"].astimezone(timezone.utc),
+                timestamp=timestamp,
                 user=user,
                 default_db=res["default_db"],
                 default_schema=res["default_schema"],
@@ -501,14 +515,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         ],
                     )
                 )
-
-        timestamp: datetime = res["query_start_time"]
-        timestamp = timestamp.astimezone(timezone.utc)
-
-        # TODO need to map snowflake query types to ours
-        query_type = SNOWFLAKE_QUERY_TYPE_MAPPING.get(
-            res["query_type"], QueryType.UNKNOWN
-        )
 
         entry = PreparsedQuery(
             # Despite having Snowflake's fingerprints available, our own fingerprinting logic does a better
