@@ -161,6 +161,7 @@ jobs:
           flags: backend
           name: ${{ matrix.command }}
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload frontend coverage to Codecov
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         uses: codecov/codecov-action@v5
@@ -173,6 +174,7 @@ jobs:
           flags: frontend
           name: ${{ matrix.command }}
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload integration-service coverage to Codecov
         if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
         uses: codecov/codecov-action@v5
@@ -185,6 +187,7 @@ jobs:
           flags: integration-service
           name: ${{ matrix.command }}
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload executor coverage to Codecov
         if: ${{  matrix.command == 'executor' && needs.setup.outputs.backend_change == 'true' }}
         uses: codecov/codecov-action@v5
@@ -197,11 +200,13 @@ jobs:
           flags: executor
           name: ${{ matrix.command }}
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
   docker-codegen-validation:
     runs-on: depot-ubuntu-22.04-small

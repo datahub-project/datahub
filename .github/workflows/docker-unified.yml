@@ -548,6 +548,7 @@ jobs:
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
