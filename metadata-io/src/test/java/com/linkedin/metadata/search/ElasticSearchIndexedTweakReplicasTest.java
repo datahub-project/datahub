@@ -1,8 +1,8 @@
 package com.linkedin.metadata.search;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -18,10 +18,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.SneakyThrows;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 public class ElasticSearchIndexedTweakReplicasTest {
 
@@ -74,7 +74,7 @@ public class ElasticSearchIndexedTweakReplicasTest {
   private Set<Pair<Urn, StructuredPropertyDefinition>> properties;
   private TestElasticSearchIndexed testService;
 
-  @BeforeEach
+  @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
 
@@ -125,21 +125,16 @@ public class ElasticSearchIndexedTweakReplicasTest {
   public void testTweakReplicasAll_IOExceptionInBuildReindexConfigs() {
     // Set up the test service to throw an IOException
     testService.setThrowOnBuildReindexConfigs(true);
-
-    // Execute the method and expect a RuntimeException
-    RuntimeException exception =
-        assertThrows(
-            RuntimeException.class,
-            () -> {
-              testService.tweakReplicasAll(properties, false);
-            });
-
-    // Verify the cause of the exception
-    assertEquals(IOException.class, exception.getCause().getClass());
-    assertEquals("Test exception in buildReindexConfigs", exception.getCause().getMessage());
-
-    // Verify that tweakReplicas was not called
-    verify(mockIndexBuilder, never()).tweakReplicas(any(), anyBoolean());
+    try {
+      testService.tweakReplicasAll(properties, false);
+      fail("Expected RuntimeException was not thrown");
+    } catch (RuntimeException exception) {
+      // Verify the cause of the exception
+      assertEquals(IOException.class, exception.getCause().getClass());
+      assertEquals("Test exception in buildReindexConfigs", exception.getCause().getMessage());
+      // Verify that tweakReplicas was not called
+      verify(mockIndexBuilder, never()).tweakReplicas(any(), anyBoolean());
+    }
   }
 
   @Test
@@ -148,21 +143,16 @@ public class ElasticSearchIndexedTweakReplicasTest {
     doThrow(new RuntimeException("Tweak replicas failed"))
         .when(mockIndexBuilder)
         .tweakReplicas(mockReindexConfig1, false);
-
-    // Execute the method and expect a RuntimeException
-    RuntimeException exception =
-        assertThrows(
-            RuntimeException.class,
-            () -> {
-              testService.tweakReplicasAll(properties, false);
-            });
-
-    // Verify the exception message
-    assertEquals("Tweak replicas failed", exception.getMessage());
-
-    // Verify that tweakReplicas was called for the first config but not the second
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
-    verify(mockIndexBuilder, never()).tweakReplicas(mockReindexConfig2, false);
+    try {
+      testService.tweakReplicasAll(properties, false);
+      fail("Expected RuntimeException was not thrown");
+    } catch (RuntimeException exception) {
+      // Verify the exception message
+      assertEquals("Tweak replicas failed", exception.getMessage());
+      // Verify that tweakReplicas was called for the first config but not the second
+      verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
+      verify(mockIndexBuilder, never()).tweakReplicas(mockReindexConfig2, false);
+    }
   }
 
   @Test
@@ -207,21 +197,16 @@ public class ElasticSearchIndexedTweakReplicasTest {
     doThrow(new RuntimeException("Error on second config"))
         .when(mockIndexBuilder)
         .tweakReplicas(mockReindexConfig2, false);
-
-    // Execute the method and expect a RuntimeException
-    RuntimeException exception =
-        assertThrows(
-            RuntimeException.class,
-            () -> {
-              testService.tweakReplicasAll(properties, false);
-            });
-
-    // Verify the exception message
-    assertEquals("Error on second config", exception.getMessage());
-
-    // Verify that tweakReplicas was called for both configs
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
-    verify(mockIndexBuilder).tweakReplicas(mockReindexConfig2, false);
+    try {
+      testService.tweakReplicasAll(properties, false);
+      fail("Expected RuntimeException was not thrown");
+    } catch (RuntimeException exception) {
+      // Verify the exception message
+      assertEquals("Error on second config", exception.getMessage());
+      // Verify that tweakReplicas was called for both configs
+      verify(mockIndexBuilder).tweakReplicas(mockReindexConfig1, false);
+      verify(mockIndexBuilder).tweakReplicas(mockReindexConfig2, false);
+    }
   }
 
   @Test

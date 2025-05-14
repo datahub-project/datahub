@@ -1,6 +1,6 @@
 package com.linkedin.datahub.upgrade.system.cron;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
@@ -17,13 +17,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 public class TweakReplicasStepTest {
 
@@ -39,7 +38,7 @@ public class TweakReplicasStepTest {
   private Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
   private TweakReplicasStep tweakReplicasStep;
 
-  @BeforeEach
+  @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
 
@@ -54,7 +53,7 @@ public class TweakReplicasStepTest {
 
   @Test
   public void testId() {
-    Assertions.assertEquals("TweakReplicasStep", tweakReplicasStep.id());
+    assertEquals("TweakReplicasStep", tweakReplicasStep.id());
   }
 
   @Test
@@ -66,8 +65,8 @@ public class TweakReplicasStepTest {
 
     CronArgs args = tweakReplicasStep.createArgs(mockContext);
 
-    Assertions.assertNotNull(args);
-    Assertions.assertTrue(args.dryRun);
+    assertNotNull(args);
+    assertTrue(args.dryRun);
   }
 
   @Test
@@ -79,8 +78,8 @@ public class TweakReplicasStepTest {
 
     CronArgs args = tweakReplicasStep.createArgs(mockContext);
 
-    Assertions.assertNotNull(args);
-    Assertions.assertFalse(args.dryRun);
+    assertNotNull(args);
+    assertFalse(args.dryRun);
   }
 
   @Test
@@ -91,8 +90,8 @@ public class TweakReplicasStepTest {
 
     CronArgs args = tweakReplicasStep.createArgs(mockContext);
 
-    Assertions.assertNotNull(args);
-    Assertions.assertFalse(args.dryRun);
+    assertNotNull(args);
+    assertFalse(args.dryRun);
   }
 
   @Test
@@ -105,9 +104,9 @@ public class TweakReplicasStepTest {
 
     CronArgs args = tweakReplicasStep.createArgs(mockContext);
 
-    Assertions.assertNotNull(args);
-    Assertions.assertEquals(existingArgs, args);
-    Assertions.assertTrue(args.dryRun);
+    assertNotNull(args);
+    assertEquals(existingArgs, args);
+    assertTrue(args.dryRun);
 
     // Verify that context.parsedArgs() was not called
     Mockito.verify(mockContext, Mockito.never()).parsedArgs();
@@ -122,7 +121,7 @@ public class TweakReplicasStepTest {
 
     UpgradeStepResult result = tweakReplicasStep.executable().apply(mockContext);
 
-    Assertions.assertNotNull(result);
+    assertNotNull(result);
     assertEquals(DataHubUpgradeState.SUCCEEDED, result.result());
     assertEquals("TweakReplicasStep", result.stepId());
 
@@ -142,7 +141,7 @@ public class TweakReplicasStepTest {
 
     UpgradeStepResult result = tweakReplicasStep.executable().apply(mockContext);
 
-    Assertions.assertNotNull(result);
+    assertNotNull(result);
     assertEquals(DataHubUpgradeState.FAILED, result.result());
     assertEquals("TweakReplicasStep", result.stepId());
   }
@@ -159,7 +158,7 @@ public class TweakReplicasStepTest {
 
     UpgradeStepResult result = tweakReplicasStep.executable().apply(mockContext);
 
-    Assertions.assertNotNull(result);
+    assertNotNull(result);
     assertEquals(DataHubUpgradeState.SUCCEEDED, result.result());
 
     // Verify that tweakReplicasAll was called on both services

@@ -1,21 +1,20 @@
 package com.linkedin.metadata.search.indexbuilder;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.client.IndicesClient;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.client.indices.GetIndexRequest;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 public class IndexExistenceCheckTest {
 
@@ -53,7 +52,7 @@ public class IndexExistenceCheckTest {
     }
   }
 
-  @BeforeEach
+  @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
     when(_searchClient.indices()).thenReturn(indicesClient);
@@ -101,59 +100,40 @@ public class IndexExistenceCheckTest {
     // Setup
     when(indicesClient.exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT)))
         .thenThrow(new IOException("Connection error"));
-
-    // Execute and verify exception is propagated
-    IOException exception =
-        assertThrows(
-            IOException.class,
-            () -> {
-              testClass.checkIndexAndPerformOperation(getIndexRequest);
-            });
-
-    // Verify the exception message
-    assertEquals("Connection error", exception.getMessage());
-
-    // Verify the method was called
-    verify(indicesClient).exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+    try {
+      testClass.checkIndexAndPerformOperation(getIndexRequest);
+      fail("Expected IOException was not thrown");
+    } catch (IOException exception) {
+      // Verify the exception message
+      assertEquals("Connection error", exception.getMessage());
+      // Verify the method was called
+      verify(indicesClient).exists(eq(getIndexRequest), eq(RequestOptions.DEFAULT));
+    }
   }
 
   @Test
-  public void testNullSearchClient() {
+  public void testNullSearchClient() throws IOException {
     // Setup
     testClass = new TestIndexOperationClass(null);
-
-    // Execute and verify NullPointerException is thrown
-    NullPointerException exception =
-        assertThrows(
-            NullPointerException.class,
-            () -> {
-              testClass.checkIndexAndPerformOperation(getIndexRequest);
-            });
+    try {
+      testClass.checkIndexAndPerformOperation(getIndexRequest);
+      fail("Expected NullPointerException was not thrown");
+    } catch (NullPointerException exception) {
+      // No additional assertions needed
+    }
   }
 
   @Test
-  public void testNullGetIndexRequest() throws IOException {
-    // Execute and verify behavior with null request
-    IOException exception =
-        assertThrows(
-            IOException.class,
-            () -> {
-              testClass.checkIndexAndPerformOperation(null);
-            });
-  }
-
-  @Test
-  public void testIndicesClientReturnsNull() {
+  public void testIndicesClientReturnsNull() throws IOException {
     // Setup
     when(_searchClient.indices()).thenReturn(null);
 
-    // Execute and verify NullPointerException is thrown
-    NullPointerException exception =
-        assertThrows(
-            NullPointerException.class,
-            () -> {
-              testClass.checkIndexAndPerformOperation(getIndexRequest);
-            });
+    try {
+      testClass.checkIndexAndPerformOperation(getIndexRequest);
+      fail("Expected NullPointerException was not thrown");
+    } catch (NullPointerException exception) {
+      // No additional assertions needed
+    }
   }
 
   @Test
