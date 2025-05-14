@@ -192,7 +192,7 @@ jobs:
           distribution: "zulu"
           java-version: 17
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
@@ -200,7 +200,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/yarn
@@ -370,7 +370,7 @@ jobs:
           sudo rm -rf /usr/local/lib/android/ || true
           sudo docker image prune -a -f || true
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
@@ -378,7 +378,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.npm
