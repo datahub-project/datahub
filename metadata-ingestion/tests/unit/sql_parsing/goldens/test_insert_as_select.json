@@ -126,7 +126,8 @@
     "joins": [
         {
             "join_type": "JOIN",
-            "tables": [
+            "left_tables": [],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
             ],
             "on_clause": "(`cs_sold_date_sk` = `d1`.`d_date_sk`)",
@@ -139,7 +140,8 @@
         },
         {
             "join_type": "JOIN",
-            "tables": [
+            "left_tables": [],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
             ],
             "on_clause": "(`inv_date_sk` = `d2`.`d_date_sk`)",
@@ -152,7 +154,8 @@
         },
         {
             "join_type": "JOIN",
-            "tables": [
+            "left_tables": [],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
             ],
             "on_clause": "(`cs_ship_date_sk` = `d3`.`d_date_sk`)",

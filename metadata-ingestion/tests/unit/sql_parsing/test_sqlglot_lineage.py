@@ -153,6 +153,8 @@ AS
 
 def test_insert_as_select() -> None:
     # Note: this also tests lineage with case statements.
+    # The join extraction on this is going to be poor quality because
+    # we're not providing schemas.
 
     assert_sql_result(
         """
@@ -710,7 +712,7 @@ LIMIT 10
 
 
 def test_snowflake_unused_cte() -> None:
-    # For this, we expect table level lineage to include table1, but CLL should not.
+    # For this, we expect table level lineage to include table1, but CLL/joins should not.
     assert_sql_result(
         """
 WITH cte1 AS (
@@ -728,6 +730,20 @@ JOIN table3 ON table3.col5 = cte1.col2
 """,
         dialect="snowflake",
         expected_file=RESOURCE_DIR / "test_snowflake_unused_cte.json",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,table1,PROD)": {
+                "col1": "VARCHAR(16777216)",
+                "col2": "NUMBER(38,0)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,table2,PROD)": {
+                "col3": "NUMBER(38,0)",
+                "col4": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,table3,PROD)": {
+                "col5": "NUMBER(38,0)",
+                "col6": "VARCHAR(16777216)",
+            },
+        },
     )
 
 
@@ -742,7 +758,7 @@ WITH cte_alias AS (
 )
 SELECT table2.col2, cte_alias.col1
 FROM table2
-JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2
+JOIN table3 AS cte_alias ON table2.col2 = cte_alias.col2
 """,
         dialect="snowflake",
         default_db="my_db",
@@ -761,6 +777,42 @@ JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2
             },
         },
         expected_file=RESOURCE_DIR / "test_snowflake_cte_name_collision.json",
+    )
+
+
+def test_snowflake_join_with_cte_involved_tables() -> None:
+    # The main thing we're checking here is that the second extracted join
+    # does not include table2, and is purely between table1.user_id and users.id.
+    assert_sql_result(
+        """
+WITH cte_alias AS (
+    SELECT t1.id as t1_id_alias, t1.user_id, t2.other_col
+    FROM my_db.my_schema.table1 t1
+    JOIN my_db.my_schema.table2 t2 ON t1.id = t2.id
+)
+SELECT users.name, cte_alias.user_id, cte_alias.other_col
+FROM my_db.my_schema.users_table users
+JOIN cte_alias ON users.id = cte_alias.user_id
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": {
+                "ID": "NUMBER",
+                "USER_ID": "NUMBER",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": {
+                "ID": "NUMBER",
+                "OTHER_COL": "VARCHAR",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.users_table,PROD)": {
+                "ID": "NUMBER",
+                "NAME": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_join_with_cte_involved_tables.json",
     )
 
 

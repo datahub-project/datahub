@@ -787,13 +787,21 @@ def _get_column_transformation(
 
 
 def _get_join_side_tables(
-    table_name_or_alias: sqlglot.exp.Identifier | str,
+    target: sqlglot.exp.Expression,
     dialect: sqlglot.Dialect,
     scope: sqlglot.optimizer.Scope,
 ) -> OrderedSet[_TableName]:
-    if isinstance(table_name_or_alias, str):
-        table_name_or_alias = sqlglot.exp.Identifier(this=table_name_or_alias)
-    column = sqlglot.exp.Column(this=sqlglot.exp.Star(), table=table_name_or_alias)
+    target_alias_or_name = target.alias_or_name
+    if (source := scope.sources.get(target_alias_or_name)) and isinstance(
+        source, sqlglot.exp.Table
+    ):
+        # If the source is a Scope, we need to do some resolution work.
+        return OrderedSet([_TableName.from_sqlglot_table(source)])
+
+    column = sqlglot.exp.Column(
+        this=sqlglot.exp.Star(),
+        table=sqlglot.exp.Identifier(this=target.alias_or_name),
+    )
     columns_used = _get_raw_col_upstreams_for_expression(
         select=column,
         dialect=dialect,
@@ -846,7 +854,7 @@ def _list_joins(
             for from_clause in scope.find_all(sqlglot.exp.From):
                 left_side_tables.update(
                     _get_join_side_tables(
-                        table_name_or_alias=from_clause.alias_or_name,
+                        target=from_clause.this,
                         dialect=dialect,
                         scope=scope,
                     )
@@ -855,22 +863,10 @@ def _list_joins(
             right_side_tables: OrderedSet[_TableName] = OrderedSet()
             if join_target := join.this:
                 right_side_tables = _get_join_side_tables(
-                    table_name_or_alias=join_target.alias_or_name,
+                    target=join_target,
                     dialect=dialect,
                     scope=scope,
                 )
-
-            # cte_tables = OrderedSet(
-            #     _TableName(database=None, db_schema=None, table=cte.alias_or_name)
-            #     for cte in scope.find_all(sqlglot.exp.CTE)
-            # )
-
-            # raw_right_side_tables: OrderedSet[_TableName] = OrderedSet(
-            #     _extract_table_names(join.find_all(sqlglot.exp.Table))
-            #     # ignore CTEs created in this statement
-            #     - cte_tables
-            # )
-            # TODO ensure that order is preserved through the subtraction
 
             # We don't need to check for `using` here because it's normalized to `on`
             # by the sqlglot optimizer.
@@ -889,7 +885,11 @@ def _list_joins(
                     continue
 
                 # When we have an `on` clause, we only want to include tables whose columns are
-                # involved in the join condition.
+                # involved in the join condition. Without this, a statement like this:
+                #   WITH cte_alias AS (select t1.id, t1.user_id, t2.other_col from t1 join t2 on t1.id = t2.id)
+                #   SELECT * FROM users
+                #   JOIN cte_alias ON users.id = cte_alias.user_id
+                # would incorrectly include t2 as part of the left side tables.
                 left_side_tables = OrderedSet(left_side_tables & unique_tables)
                 right_side_tables = OrderedSet(right_side_tables & unique_tables)
             else:
