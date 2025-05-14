@@ -10,7 +10,7 @@ export default function useGetUserGroupUrns(userUrn?: string) {
     });
 
     const groupUrns: string[] =
-        data?.corpUser?.relationships?.relationships.map((r) => r.entity?.urn || '').filter((u) => !!u) || [];
+        data?.corpUser?.relationships?.relationships?.map((r) => r.entity?.urn || '').filter((u) => !!u) || [];
 
     return { groupUrns, data, loading };
 }
