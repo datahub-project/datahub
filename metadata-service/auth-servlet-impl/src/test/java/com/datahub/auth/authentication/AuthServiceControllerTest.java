@@ -5,8 +5,10 @@ import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_SETTINGS_URN;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,12 +25,14 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
+import com.datahub.plugins.auth.authentication.Authenticator;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -541,7 +545,13 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     // Verify tracking service was called with correct parameters
     ArgumentCaptor<JsonNode> jsonCaptor = ArgumentCaptor.forClass(JsonNode.class);
     verify(mockTrackingService)
-        .emitAnalyticsEvent(eq(systemOperationContext), jsonCaptor.capture());
+        .track(
+            anyString(),
+            eq(systemOperationContext),
+            nullable(Authenticator.class),
+            nullable(EntityClient.class),
+            jsonCaptor.capture(),
+            anySet());
 
     JsonNode capturedJson = jsonCaptor.getValue();
     assertTrue(capturedJson.has("type"));
@@ -564,7 +574,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 
     // Verify tracking service was not called
-    verify(mockTrackingService, never()).emitAnalyticsEvent(any(), any());
+    verify(mockTrackingService, never())
+        .track(any(String.class), any(), any(Authenticator.class), any(EntityClient.class), any());
   }
 
   @Test
@@ -580,7 +591,8 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
 
     // Verify tracking service was not called
-    verify(mockTrackingService, never()).emitAnalyticsEvent(any(), any());
+    verify(mockTrackingService, never())
+        .track(any(String.class), any(), any(Authenticator.class), any(EntityClient.class), any());
   }
 
   @Test
@@ -592,7 +604,13 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     // Mock tracking service to throw exception
     doThrow(new RuntimeException("Test exception"))
         .when(mockTrackingService)
-        .emitAnalyticsEvent(eq(systemOperationContext), any(JsonNode.class));
+        .track(
+            anyString(),
+            eq(systemOperationContext),
+            nullable(Authenticator.class),
+            nullable(EntityClient.class),
+            any(JsonNode.class),
+            anySet());
 
     // Execute
     ResponseEntity<String> response = authServiceController.track(httpEntity).join();
@@ -638,7 +656,13 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     // Verify tracking service was called with correct parameters
     ArgumentCaptor<JsonNode> jsonCaptor = ArgumentCaptor.forClass(JsonNode.class);
     verify(mockTrackingService)
-        .emitAnalyticsEvent(eq(systemOperationContext), jsonCaptor.capture());
+        .track(
+            anyString(),
+            eq(systemOperationContext),
+            nullable(Authenticator.class),
+            nullable(EntityClient.class),
+            jsonCaptor.capture(),
+            anySet());
 
     // Verify the complex JSON structure was correctly parsed and passed to the tracking service
     JsonNode capturedJson = jsonCaptor.getValue();
