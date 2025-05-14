@@ -599,8 +599,62 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "",
             "name": "northwind.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Procedures Container"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:28f59a8ed3158e3de8e6fbae912a8335"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:28f59a8ed3158e3de8e6fbae912a8335",
+                    "urn": "urn:li:container:28f59a8ed3158e3de8e6fbae912a8335"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -616,15 +670,7 @@
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
-            "customProperties": {
-                "security_type": "DEFINER",
-                "sql_data_access": "CONTAINS SQL",
-                "created": "2025-02-19 14:12:13",
-                "last_altered": "2025-02-19 14:12:13",
-                "definer": "root@localhost",
-                "parameters": "IN min_priority float",
-                "code": "BEGIN\n    CREATE TEMPORARY TABLE IF NOT EXISTS temp_priority_customers\n    SELECT\n        c.company,\n        c.priority\n    FROM customers c\n    WHERE c.priority >= min_priority;\n\n    INSERT INTO customer_stats (company, total_orders)\n    SELECT\n        t.company,\n        COUNT(o.id) as total_orders\n    FROM temp_priority_customers t\n    LEFT JOIN customers c ON c.company = t.company\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY t.company;\n\n    DROP TEMPORARY TABLE IF EXISTS temp_priority_customers;\nEND"
-            },
+            "customProperties": {},
             "externalUrl": "",
             "name": "northwind.analyze_customer_priority",
             "type": {
@@ -640,24 +686,63 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),analyze_customer_priority)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "BEGIN\n    CREATE TEMPORARY TABLE IF NOT EXISTS temp_priority_customers\n    SELECT\n        c.company,\n        c.priority\n    FROM customers c\n    WHERE c.priority >= min_priority;\n\n    INSERT INTO customer_stats (company, total_orders)\n    SELECT\n        t.company,\n        COUNT(o.id) as total_orders\n    FROM temp_priority_customers t\n    LEFT JOIN customers c ON c.company = t.company\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY t.company;\n\n    DROP TEMPORARY TABLE IF EXISTS temp_priority_customers;\nEND",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
-            "customProperties": {
-                "security_type": "DEFINER",
-                "sql_data_access": "CONTAINS SQL",
-                "created": "2025-02-19 14:12:13",
-                "last_altered": "2025-02-19 14:12:13",
-                "definer": "root@localhost",
-                "code": "BEGIN\n    TRUNCATE TABLE customer_stats;\n\n    INSERT INTO customer_stats (company, total_orders, last_order_date)\n    SELECT\n        c.company,\n        COUNT(o.id) as total_orders,\n        MAX(o.order_date) as last_order_date\n    FROM customers c\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY c.company;\nEND"
-            },
+            "customProperties": {},
             "externalUrl": "",
             "name": "northwind.calculate_customer_stats",
             "type": {
                 "string": "MYSQL_STORED_PROCEDURE"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),calculate_customer_stats)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "BEGIN\n    TRUNCATE TABLE customer_stats;\n\n    INSERT INTO customer_stats (company, total_orders, last_order_date)\n    SELECT\n        c.company,\n        COUNT(o.id) as total_orders,\n        MAX(o.order_date) as last_order_date\n    FROM customers c\n    LEFT JOIN orders o ON c.id = o.customer_id\n    GROUP BY c.company;\nEND",
+                        "language": "SQL"
+                    }
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -918,6 +1003,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
                     ],
+                    "transformOperation": "COPY: `t`.`company` AS `company`",
                     "confidenceScore": 0.425
                 },
                 {
@@ -929,6 +1015,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
                     ],
+                    "transformOperation": "SQL: COUNT(`o`.`id`) AS `total_orders`",
                     "confidenceScore": 0.425
                 }
             ]
@@ -964,6 +1051,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),company)"
                     ],
+                    "transformOperation": "COPY: `c`.`company` AS `company`",
                     "confidenceScore": 0.9
                 },
                 {
@@ -975,6 +1063,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),total_orders)"
                     ],
+                    "transformOperation": "SQL: COUNT(`o`.`id`) AS `total_orders`",
                     "confidenceScore": 0.9
                 },
                 {
@@ -986,6 +1075,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,northwind.customer_stats,PROD),last_order_date)"
                     ],
+                    "transformOperation": "SQL: MAX(`o`.`order_date`) AS `last_order_date`",
                     "confidenceScore": 0.9
                 }
             ]
