@@ -2,14 +2,18 @@ import json
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
+import click
+import click.testing
 import requests
 import tenacity
 from joblib import Parallel, delayed
+from packaging import version
 from requests.structures import CaseInsensitiveDict
 
 from datahub.cli import cli_utils, env_utils
+from datahub.entrypoints import datahub
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.consistency_utils import wait_for_writes_to_sync
 
@@ -97,6 +101,19 @@ def check_endpoint(auth_session, url):
             return f"{url}: is Not reachable, status_code: {get.status_code}"
     except requests.exceptions.RequestException as e:
         raise SystemExit(f"{url}: is Not reachable \nErr: {e}")
+
+
+def run_datahub_cmd(
+    command: List[str], env: Optional[Dict[str, str]] = None
+) -> click.testing.Result:
+    # TODO: Unify this with the run_datahub_cmd in the metadata-ingestion directory.
+    click_version: str = click.__version__  # type: ignore
+    if version.parse(click_version) >= version.parse("8.2.0"):
+        runner = click.testing.CliRunner()
+    else:
+        # Once we're pinned to click >= 8.2.0, we can remove this.
+        runner = click.testing.CliRunner(mix_stderr=False)  # type: ignore
+    return runner.invoke(datahub, command)
 
 
 def ingest_file_via_rest(

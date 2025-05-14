@@ -5,14 +5,15 @@ import tempfile
 from json import JSONDecodeError
 from typing import Any, Dict, List, Optional
 
-from click.testing import CliRunner, Result
-
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.entrypoints import datahub
 from datahub.metadata.schema_classes import DatasetProfileClass
 from tests.aspect_generators.timeseries.dataset_profile_gen import gen_dataset_profiles
-from tests.utils import get_strftime_from_timestamp_millis, wait_for_writes_to_sync
+from tests.utils import (
+    get_strftime_from_timestamp_millis,
+    run_datahub_cmd,
+    wait_for_writes_to_sync,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +24,6 @@ test_dataset_urn: str = builder.make_dataset_urn_with_platform_instance(
     "test_platform_instance",
     "TEST",
 )
-
-runner = CliRunner()
 
 
 def sync_elastic() -> None:
@@ -45,8 +44,7 @@ def datahub_put_profile(auth_session, dataset_profile: DatasetProfileClass) -> N
             "-d",
             aspect_file.name,
         ]
-        put_result = runner.invoke(
-            datahub,
+        put_result = run_datahub_cmd(
             put_args,
             env={
                 "DATAHUB_GMS_URL": auth_session.gms_url(),
@@ -63,8 +61,7 @@ def datahub_get_and_verify_profile(
     # Wait for writes to stabilize in elastic
     sync_elastic()
     get_args: List[str] = ["get", "--urn", test_dataset_urn, "-a", test_aspect_name]
-    get_result: Result = runner.invoke(
-        datahub,
+    get_result = run_datahub_cmd(
         get_args,
         env={
             "DATAHUB_GMS_URL": auth_session.gms_url(),
@@ -98,10 +95,8 @@ def datahub_delete(auth_session, params: List[str]) -> None:
     args.extend(params)
     args.append("--hard")
     logger.info(f"Running delete command with args: {args}")
-    delete_result: Result = runner.invoke(
-        datahub,
+    delete_result = run_datahub_cmd(
         args,
-        input="y\ny\n",
         env={
             "DATAHUB_GMS_URL": auth_session.gms_url(),
             "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
