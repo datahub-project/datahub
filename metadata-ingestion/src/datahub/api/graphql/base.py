@@ -48,7 +48,7 @@ class BaseApi:
         for key, value in filters.items():
             if value is None:
                 continue
-            filter.append({"field": key, "value": value})
+            filter.append({"field": key, "values": [value]})
 
         filter_expression = {"and": filter}
         return filter_expression
