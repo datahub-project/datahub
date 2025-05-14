@@ -775,8 +775,62 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "externalUrl": "",
             "name": "test_db.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Procedures Container"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:09e8f326fe025df1dc4548cb4d3fcb19"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:09e8f326fe025df1dc4548cb4d3fcb19",
+                    "urn": "urn:li:container:09e8f326fe025df1dc4548cb4d3fcb19"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -792,15 +846,7 @@
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
-            "customProperties": {
-                "security_type": "DEFINER",
-                "sql_data_access": "CONTAINS SQL",
-                "created": "2025-01-24 22:43:42",
-                "last_altered": "2025-01-24 22:43:42",
-                "definer": "root@localhost",
-                "parameters": "IN min_order_total decimal",
-                "code": "CREATE DEFINER=`root`@`localhost` PROCEDURE `generate_order_summaries`(IN min_order_total DECIMAL(10,2))\nBEGIN\n    \n    DELETE FROM customer_order_summary;\n\n    \n    INSERT INTO customer_order_summary (\n        customer_id,\n        total_orders,\n        total_spent,\n        last_order_date\n    )\n    SELECT\n        rc.id as customer_id,\n        COUNT(ro.id) as total_orders,\n        SUM(ro.order_total) as total_spent,\n        MAX(ro.created_at) as last_order_date\n    FROM raw_customer_data rc\n    LEFT JOIN raw_order_data ro ON rc.id = ro.customer_id\n    GROUP BY rc.id\n    HAVING SUM(ro.order_total) >= min_order_total;\nEND"
-            },
+            "customProperties": {},
             "externalUrl": "",
             "name": "test_db.generate_order_summaries",
             "type": {
@@ -816,19 +862,35 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "CREATE DEFINER=`root`@`localhost` PROCEDURE `generate_order_summaries`(IN min_order_total DECIMAL(10,2))\nBEGIN\n    \n    DELETE FROM customer_order_summary;\n\n    \n    INSERT INTO customer_order_summary (\n        customer_id,\n        total_orders,\n        total_spent,\n        last_order_date\n    )\n    SELECT\n        rc.id as customer_id,\n        COUNT(ro.id) as total_orders,\n        SUM(ro.order_total) as total_spent,\n        MAX(ro.created_at) as last_order_date\n    FROM raw_customer_data rc\n    LEFT JOIN raw_order_data ro ON rc.id = ro.customer_id\n    GROUP BY rc.id\n    HAVING SUM(ro.order_total) >= min_order_total;\nEND",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
-            "customProperties": {
-                "security_type": "DEFINER",
-                "sql_data_access": "CONTAINS SQL",
-                "created": "2025-01-24 22:43:42",
-                "last_altered": "2025-01-24 22:43:42",
-                "definer": "root@localhost",
-                "code": "CREATE DEFINER=`root`@`localhost` PROCEDURE `process_customer_data`()\nBEGIN\n    \n    DELETE FROM processed_customers;\n\n    \n    INSERT INTO processed_customers (customer_id, full_name, email_domain)\n    SELECT\n        id as customer_id,\n        name as full_name,\n        SUBSTRING_INDEX(email, '@', -1) as email_domain\n    FROM raw_customer_data;\nEND"
-            },
+            "customProperties": {},
             "externalUrl": "",
             "name": "test_db.process_customer_data",
             "type": {
@@ -844,24 +906,63 @@
 },
 {
     "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "CREATE DEFINER=`root`@`localhost` PROCEDURE `process_customer_data`()\nBEGIN\n    \n    DELETE FROM processed_customers;\n\n    \n    INSERT INTO processed_customers (customer_id, full_name, email_domain)\n    SELECT\n        id as customer_id,\n        name as full_name,\n        SUBSTRING_INDEX(email, '@', -1) as email_domain\n    FROM raw_customer_data;\nEND",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),refresh_customer_analytics)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {
-            "customProperties": {
-                "security_type": "DEFINER",
-                "sql_data_access": "CONTAINS SQL",
-                "created": "2025-01-24 22:43:42",
-                "last_altered": "2025-01-24 22:43:42",
-                "definer": "root@localhost",
-                "code": "CREATE DEFINER=`root`@`localhost` PROCEDURE `refresh_customer_analytics`()\nBEGIN\n    \n    CALL process_customer_data();\n\n    \n    CALL generate_order_summaries(100.00);\nEND"
-            },
+            "customProperties": {},
             "externalUrl": "",
             "name": "test_db.refresh_customer_analytics",
             "type": {
                 "string": "MARIADB_STORED_PROCEDURE"
             }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),refresh_customer_analytics)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "CREATE DEFINER=`root`@`localhost` PROCEDURE `refresh_customer_analytics`()\nBEGIN\n    \n    CALL process_customer_data();\n\n    \n    CALL generate_order_summaries(100.00);\nEND",
+                        "language": "SQL"
+                    }
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -1035,18 +1136,18 @@
                     "uniqueProportion": 0.3333333333333333,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2025-01-24T22:43:42",
-                    "max": "2025-01-24T22:43:42",
+                    "min": "2025-05-14T23:36:49",
+                    "max": "2025-05-14T23:36:49",
                     "distinctValueFrequencies": [
                         {
-                            "value": "2025-01-24 22:43:42",
+                            "value": "2025-05-14 23:36:49",
                             "frequency": 3
                         }
                     ],
                     "sampleValues": [
-                        "2025-01-24 22:43:42",
-                        "2025-01-24 22:43:42",
-                        "2025-01-24 22:43:42"
+                        "2025-05-14 23:36:49",
+                        "2025-05-14 23:36:49",
+                        "2025-05-14 23:36:49"
                     ]
                 }
             ]
@@ -1150,20 +1251,20 @@
                     "uniqueProportion": 0.2,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2025-01-24T22:43:42",
-                    "max": "2025-01-24T22:43:42",
+                    "min": "2025-05-14T23:36:49",
+                    "max": "2025-05-14T23:36:49",
                     "distinctValueFrequencies": [
                         {
-                            "value": "2025-01-24 22:43:42",
+                            "value": "2025-05-14 23:36:49",
                             "frequency": 5
                         }
                     ],
                     "sampleValues": [
-                        "2025-01-24 22:43:42",
-                        "2025-01-24 22:43:42",
-                        "2025-01-24 22:43:42",
-                        "2025-01-24 22:43:42",
-                        "2025-01-24 22:43:42"
+                        "2025-05-14 23:36:49",
+                        "2025-05-14 23:36:49",
+                        "2025-05-14 23:36:49",
+                        "2025-05-14 23:36:49",
+                        "2025-05-14 23:36:49"
                     ]
                 }
             ]
@@ -1199,6 +1300,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),customer_id)"
                     ],
+                    "transformOperation": "COPY: `rc`.`id` AS `id`",
                     "confidenceScore": 0.9
                 },
                 {
@@ -1210,6 +1312,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),total_orders)"
                     ],
+                    "transformOperation": "SQL: COUNT(`ro`.`id`) AS `total_orders`",
                     "confidenceScore": 0.9
                 },
                 {
@@ -1221,6 +1324,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),total_spent)"
                     ],
+                    "transformOperation": "SQL: SUM(`ro`.`order_total`) AS `total_spent`",
                     "confidenceScore": 0.9
                 },
                 {
@@ -1232,6 +1336,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),last_order_date)"
                     ],
+                    "transformOperation": "SQL: MAX(`ro`.`created_at`) AS `last_order_date`",
                     "confidenceScore": 0.9
                 }
             ]
@@ -1266,6 +1371,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),customer_id)"
                     ],
+                    "transformOperation": "COPY: `raw_customer_data`.`id` AS `customer_id`",
                     "confidenceScore": 0.9
                 },
                 {
@@ -1277,6 +1383,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),full_name)"
                     ],
+                    "transformOperation": "COPY: `raw_customer_data`.`name` AS `full_name`",
                     "confidenceScore": 0.9
                 },
                 {
@@ -1288,6 +1395,138 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),email_domain)"
                     ],
+                    "transformOperation": "SQL: SUBSTRING_INDEX(`raw_customer_data`.`email`, '@', -1) AS `email_domain`",
+                    "confidenceScore": 0.9
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),customer_id)"
+                    ],
+                    "transformOperation": "COPY: `rc`.`id` AS `id`",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),total_orders)"
+                    ],
+                    "transformOperation": "SQL: COUNT(`ro`.`id`) AS `total_orders`",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD),order_total)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),total_spent)"
+                    ],
+                    "transformOperation": "SQL: SUM(`ro`.`order_total`) AS `total_spent`",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_order_data,PROD),created_at)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.customer_order_summary,PROD),last_order_date)"
+                    ],
+                    "transformOperation": "SQL: MAX(`ro`.`created_at`) AS `last_order_date`",
+                    "confidenceScore": 0.9
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713078000000,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),customer_id)"
+                    ],
+                    "transformOperation": "COPY: `raw_customer_data`.`id` AS `customer_id`",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),full_name)"
+                    ],
+                    "transformOperation": "COPY: `raw_customer_data`.`name` AS `full_name`",
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.raw_customer_data,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mariadb,test_db.processed_customers,PROD),email_domain)"
+                    ],
+                    "transformOperation": "SQL: SUBSTRING_INDEX(`raw_customer_data`.`email`, '@', -1) AS `email_domain`",
                     "confidenceScore": 0.9
                 }
             ]

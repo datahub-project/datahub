@@ -1,10 +1,11 @@
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from pydantic.fields import Field
 from sqlalchemy.engine import Inspector
 from sqlalchemy.engine.base import Connection
+from sqlalchemy.sql import text
 
 from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.ingestion.api.decorators import (
@@ -53,8 +54,7 @@ class MariaDBSource(MySQLSource):
         db_name: str,
         schema: str,
     ) -> List[Dict[str, str]]:
-        stored_procedures_data = conn.execute(  # type: ignore
-            f"""
+        query = text(f"""
 SELECT
     ROUTINE_SCHEMA,
     ROUTINE_NAME,
@@ -68,37 +68,73 @@ SELECT
 FROM information_schema.ROUTINES
 WHERE ROUTINE_TYPE = 'PROCEDURE'
 AND ROUTINE_SCHEMA = '{schema}'
-            """
-        )
+        """)
 
         procedures_list = []
-        for row in stored_procedures_data:
-            # For MariaDB, always try to get the procedure definition using SHOW CREATE
-            # as it's more reliable for large procedures
+
+        for row in conn.execute(query):  # type: ignore
             try:
-                create_proc = conn.execute(  # type: ignore
-                    f"SHOW CREATE PROCEDURE `{schema}`.`{row['ROUTINE_NAME']}`"
-                ).fetchone()
-                code = (
-                    create_proc[2] if create_proc else row["ROUTINE_DEFINITION"]
-                )  # MariaDB returns (Procedure, body, something)
+                routine_name = row["ROUTINE_NAME"]
+                if not routine_name:
+                    logger.warning(f"Skipping procedure with empty name in {schema}")
+                    continue
+
+                code = self._extract_procedure_definition(
+                    conn, schema, routine_name, row
+                )
+
+                # Helper function to safely access columns that might not exist
+                def safe_get(row_obj: Any, column: str) -> Optional[str]:
+                    try:
+                        return row_obj[column]
+                    except (KeyError, IndexError):
+                        return None
+
+                procedures_list.append(
+                    {
+                        "routine_schema": schema,
+                        "routine_name": routine_name,
+                        "code": code,
+                        "comment": safe_get(row, "ROUTINE_COMMENT"),
+                        "created": safe_get(row, "CREATED"),
+                        "last_altered": safe_get(row, "LAST_ALTERED"),
+                        "sql_data_access": safe_get(row, "SQL_DATA_ACCESS"),
+                        "security_type": safe_get(row, "SECURITY_TYPE"),
+                        "definer": safe_get(row, "DEFINER"),
+                    }
+                )
             except Exception as e:
                 logger.warning(
-                    f"Failed to get procedure definition for {schema}.{row['ROUTINE_NAME']}: {e}"
+                    f"Error processing procedure {schema}.{routine_name if 'routine_name' in locals() else 'unknown'}: {e}"
                 )
-                code = row["ROUTINE_DEFINITION"]
 
-            procedures_list.append(
-                dict(
-                    routine_schema=schema,
-                    routine_name=row["ROUTINE_NAME"],
-                    code=code,
-                    comment=row.get("ROUTINE_COMMENT"),
-                    created=row.get("CREATED"),
-                    last_altered=row.get("LAST_ALTERED"),
-                )
-            )
         return procedures_list
+
+    def _extract_procedure_definition(
+        self, conn: Connection, schema: str, routine_name: str, row: Any
+    ) -> str:
+        """Extract a stored procedure definition with SHOW CREATE PROCEDURE fallback."""
+        try:
+            # Escape identifiers for SQL safety
+            escaped_schema = schema.replace("`", "``")
+            escaped_routine = routine_name.replace("`", "``")
+            show_query = text(
+                f"SHOW CREATE PROCEDURE `{escaped_schema}`.`{escaped_routine}`"
+            )
+
+            create_proc = conn.execute(show_query).fetchone()  # type: ignore
+
+            # MariaDB typically returns procedure definition at position 2
+            if create_proc and len(create_proc) > 2:
+                return create_proc[2]
+
+            # Fall back to ROUTINE_DEFINITION
+            return row["ROUTINE_DEFINITION"]
+        except Exception as e:
+            logger.warning(
+                f"Failed to get procedure definition for {schema}.{routine_name}: {e}"
+            )
+            return row["ROUTINE_DEFINITION"]
 
     def loop_stored_procedures(
         self,
@@ -111,6 +147,7 @@ AND ROUTINE_SCHEMA = '{schema}'
         """
         db_name = self.get_db_name(inspector)
         procedure_flow_name = f"{db_name}.stored_procedures"
+
         mariadb_procedure_container = MySQLProcedureContainer(
             name=procedure_flow_name,
             env=sql_config.env,
@@ -119,7 +156,6 @@ AND ROUTINE_SCHEMA = '{schema}'
             source="mariadb",
         )
 
-        # Define database key for the base procedure implementation
         database_key = DatabaseKey(
             database=db_name,
             platform=self.get_platform(),
@@ -139,7 +175,6 @@ AND ROUTINE_SCHEMA = '{schema}'
                     self.report.report_dropped(procedure_full_name)
                     continue
 
-                # Create a procedure
                 procedure = MySQLStoredProcedure(
                     name=procedure_data["routine_name"],
                     code=procedure_data.get("code"),
@@ -153,23 +188,19 @@ AND ROUTINE_SCHEMA = '{schema}'
                 )
                 procedures.append(procedure)
 
-                # Also add to stored_procedures list for lineage processing
                 if self.config.include_lineage:
                     self.stored_procedures.append(procedure)
 
             if procedures:
-                # Use the base container workunit generator
                 yield from generate_procedure_container_workunits(
                     database_key=database_key,
                     schema_key=schema_key,
                 )
 
             for procedure in procedures:
-                # Get a data job for this procedure
-                data_job = MySQLDataJob(entity=procedure)
-
-                # Generate basic metadata
-                yield from self.construct_job_workunits(data_job)
+                yield from self.construct_job_workunits(
+                    data_job=MySQLDataJob(entity=procedure)
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
