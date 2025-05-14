@@ -63,12 +63,6 @@ pydantic_no_v2 = {
     "pydantic<2",
 }
 
-plugin_common = {
-    # While pydantic v2 support is experimental, require that all plugins
-    # continue to use v1. This will ensure that no ingestion recipes break.
-    *pydantic_no_v2,
-}
-
 rest_common = {"requests", "requests_file"}
 
 kafka_common = {
@@ -157,7 +151,6 @@ sql_common = (
         *sqlalchemy_lib,
         # Required for SQL profiling.
         *great_expectations_lib,
-        "pydantic<2",  # keeping this for now, but can be removed eventually
         # scipy version restricted to reduce backtracking, used by great-expectations,
         "scipy>=1.7.2",
         # GE added handling for higher version of jinja2
@@ -363,7 +356,7 @@ databricks = {
     "pandas<2.2.0",
 }
 
-mysql = sql_common | {"pymysql>=1.0.2"}
+mysql = {"pymysql>=1.0.2"}
 
 sac = {
     "requests",
@@ -395,7 +388,9 @@ plugins: Dict[str, Set[str]] = {
         "gql>=3.3.0",
         "gql[requests]>=3.3.0",
     },
-    "datahub": mysql | kafka_common,
+    # TODO: Eventually we should reorganize our imports so that this depends on sqlalchemy_lib
+    # but not the full sql_common.
+    "datahub": sql_common | mysql | kafka_common,
     "great-expectations": {
         f"acryl-datahub-gx-plugin{_self_pin}",
     },
@@ -496,7 +491,7 @@ plugins: Dict[str, Set[str]] = {
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
-    "mysql": mysql,
+    "mysql": sql_common | mysql,
     # mariadb should have same dependency as mysql
     "mariadb": sql_common | mysql,
     "okta": {"okta~=1.7.0", "nest-asyncio"},
@@ -710,6 +705,7 @@ base_dev_requirements = {
         if plugin
         for dependency in plugins[plugin]
     ),
+    *pydantic_no_v2,
 }
 
 dev_requirements = {
@@ -945,7 +941,9 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
             plugin: list(
                 framework_common
                 | (
-                    plugin_common
+                    # While pydantic v2 support is experimental, require that all plugins
+                    # continue to use v1. This will ensure that no ingestion recipes break.
+                    pydantic_no_v2
                     if plugin
                     not in {
                         "airflow",
@@ -953,10 +951,12 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
                         "datahub-kafka",
                         "sync-file-emitter",
                         "sql-parser",
+                        # Some sources have been manually tested for compatibility with pydantic v2.
                         "iceberg",
                         "feast",
                         "bigquery-slim",
                         "snowflake-slim",
+                        "mysql",  # tested in smoke-test
                     }
                     else set()
                 )
