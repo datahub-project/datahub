@@ -491,11 +491,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 64,
+          "maxLength" : 128,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 81,
+        "maxLength" : 145,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -1264,7 +1264,7 @@
           "CUSTOM" : "Set when ownership type is unknown or a when new one is specified as an ownership type entity for which we have no\nenum value for. This is used for backwards compatibility",
           "DATAOWNER" : "A person or group that is owning the data\nDeprecated! Use TECHNICAL_OWNER instead.",
           "DATA_STEWARD" : "A steward, expert, or delegate responsible for the asset.",
-          "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
+          "DELEGATE" : "A person or a group that oversees the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
           "DEVELOPER" : "A person or group that is in charge of developing the code\nDeprecated! Use TECHNICAL_OWNER instead.",
           "NONE" : "No specific type associated to the owner.",
           "PRODUCER" : "A person, group, or service that produces/generates the data\nDeprecated! Use TECHNICAL_OWNER instead.",
@@ -4675,7 +4675,8 @@
             "keyAspect" : "mlPrimaryKeyKey",
             "name" : "mlPrimaryKey"
           }
-        }, {
+        }
+        } }, {
           "type" : "record",
           "name" : "MLFeatureSnapshot",
           "fields" : [ {
