@@ -1,9 +1,11 @@
 import { cloneDeep } from 'lodash';
-import { EntityType } from '../../../../../../types.generated';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
-import { useGetDatasetSchemaQuery } from '../../../../../../graphql/dataset.generated';
-import { combineEntityDataWithSiblings } from '../../../../../entity/shared/siblingUtils';
-import { useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+
+import { useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
+import { EntityType } from '@types';
 
 // Whether to dynamically load the schema from the backend.
 const shouldLoadSchema = (entityType, entityData) => {

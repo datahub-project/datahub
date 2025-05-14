@@ -1,13 +1,5 @@
 import { CloseOutlined } from '@ant-design/icons';
-import { useEntityContext } from '@app/entity/shared/EntityContext';
-import { VersionPill } from '@app/entityV2/shared/versioning/common';
-import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors, Icon, Input, Table, Text } from '@components';
-import { Tooltip2 } from '@components/components/Tooltip2';
-import { useSearchAcrossVersionsQuery } from '@graphql/versioning.generated';
-import LinkOut from '@images/link-out.svg?react';
-import { FilterOperator } from '@types';
+import { Icon, Input, Table, Text, colors } from '@components';
 import { Drawer, Dropdown, Pagination, Typography } from 'antd';
 import { ItemType } from 'antd/es/menu/hooks/useItems';
 import moment from 'moment';
@@ -15,6 +7,18 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
+
+import { StructuredPopover } from '@components/components/StructuredPopover';
+
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { VersionPill } from '@app/entityV2/shared/versioning/common';
+import { SimpleCopyLinkMenuItem } from '@app/shared/share/v2/items/CopyLinkMenuItem';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useSearchAcrossVersionsQuery } from '@graphql/versioning.generated';
+import { FilterOperator } from '@types';
+
+import LinkOut from '@images/link-out.svg?react';
 
 const PAGE_SIZE = 10;
 
@@ -76,7 +80,7 @@ const MenuIcon = styled(Icon)`
     }
 
     :hover {
-        border: ${colors.violet[500]} 1px solid;
+        border: ${(props) => props.theme.styles['primary-color']} 1px solid;
     }
 `;
 
@@ -159,7 +163,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
             ),
             comment: <Typography.Text ellipsis={{ tooltip: true }}>{versionProperties?.comment}</Typography.Text>,
             createdAt: (
-                <Tooltip2
+                <StructuredPopover
                     width={250}
                     placement="topRight"
                     sections={[
@@ -174,7 +178,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                     ]}
                 >
                     {moment(versionProperties?.created?.time).fromNow()}
-                </Tooltip2>
+                </StructuredPopover>
             ),
             menu: (
                 <StyledDropdown
@@ -207,7 +211,7 @@ export default function VersionsDrawer({ versionSetUrn, open }: Props) {
                 <Input
                     label=""
                     placeholder="Search versions by name..."
-                    icon={{ name: 'MagnifyingGlass', source: 'phosphor' }}
+                    icon={{ icon: 'MagnifyingGlass', source: 'phosphor' }}
                     value={searchInput}
                     setValue={setSearchInput}
                 />

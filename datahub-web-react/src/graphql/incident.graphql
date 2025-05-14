@@ -44,7 +44,9 @@ fragment incidentsFields on EntityIncidentsResult {
                 }
             }
         }
-        linkedAssets: relationships(input: { types: ["IncidentOn"], direction: OUTGOING, start: 0, count: 1000 }) {
+        linkedAssets: relationships(
+            input: { types: ["IncidentOn"], direction: OUTGOING, start: 0, count: 1000, includeSoftDelete: false }
+        ) {
             relationships {
                 entity {
                     ...entityPreview

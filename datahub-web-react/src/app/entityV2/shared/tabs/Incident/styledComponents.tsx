@@ -1,7 +1,7 @@
 import { Form } from 'antd';
 import styled from 'styled-components';
 
-import { colors } from '@src/alchemy-components';
+import { Button, colors } from '@src/alchemy-components';
 import radius from '@src/alchemy-components/theme/foundations/radius';
 import spacing from '@src/alchemy-components/theme/foundations/spacing';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
@@ -13,7 +13,7 @@ export const StyledTableContainer = styled.div`
     margin: 0px 12px 12px 12px;
 `;
 
-export const LinkedAssetsContainer = styled.div<{ hasButton?: boolean; width?: string }>(({ hasButton }) => ({
+export const LinkedAssetsContainer = styled.div<{ hasButton?: boolean; width?: string }>(({ hasButton, theme }) => ({
     border: `1px solid ${colors.gray[100]}`,
     borderRadius: radius.lg,
     padding: spacing.xxsm,
@@ -25,7 +25,7 @@ export const LinkedAssetsContainer = styled.div<{ hasButton?: boolean; width?: s
 
     '&:hover': hasButton
         ? {
-              border: `1px solid ${colors.violet[500]}`,
+              border: `1px solid ${theme.styles['primary-color']}`,
               cursor: 'pointer',
           }
         : {},
@@ -149,4 +149,23 @@ export const CategoryType = styled.div`
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 100px;
+`;
+
+export const CreateButton = styled(Button)`
+    height: 40px;
+`;
+
+export const SiblingSelectionDropdownLink = styled.div`
+    margin-bottom: 4px;
+    padding: 4px 8px;
+    font-size: 0.75rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    color: black;
+    border-radius: 8px;
+    &:disabled {
+        opacity: 0.6;
+        background-color: transparent;
+    }
 `;

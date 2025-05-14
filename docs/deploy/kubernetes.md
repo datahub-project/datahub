@@ -17,22 +17,22 @@ This doc is a guide to deploy an instance of DataHub on a kubernetes cluster usi
 ## Setup
 
 1. Set up a kubernetes cluster
-    - In a cloud platform of choice like [Amazon EKS](https://aws.amazon.com/eks),
-      [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine),
-      and [Azure Kubernetes Service](https://azure.microsoft.com/en-us/services/kubernetes-service/) OR
-    - In local environment using [Minikube](https://minikube.sigs.k8s.io/docs/). Note, more than 7GB of RAM is required
-      to run Datahub and it's dependencies
+   - In a cloud platform of choice like [Amazon EKS](https://aws.amazon.com/eks),
+     [Google Kubernetes Engine](https://cloud.google.com/kubernetes-engine),
+     and [Azure Kubernetes Service](https://azure.microsoft.com/en-us/services/kubernetes-service/) OR
+   - In local environment using [Minikube](https://minikube.sigs.k8s.io/docs/). Note, more than 7GB of RAM is required
+     to run Datahub and it's dependencies
 2. Install the following tools:
-    - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
-    - [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support
-      Helm 3.
+   - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
+   - [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support
+     Helm 3.
 
 ## Components
 
-Datahub consists of 4 main components: [GMS](https://datahubproject.io/docs/metadata-service),
-[MAE Consumer](https://datahubproject.io/docs/metadata-jobs/mae-consumer-job) (optional),
-[MCE Consumer](https://datahubproject.io/docs/metadata-jobs/mce-consumer-job) (optional), and
-[Frontend](https://datahubproject.io/docs/datahub-frontend). Kubernetes deployment for each of the components are
+Datahub consists of 4 main components: [GMS](https://docs.datahub.com/docs/metadata-service),
+[MAE Consumer](https://docs.datahub.com/docs/metadata-jobs/mae-consumer-job) (optional),
+[MCE Consumer](https://docs.datahub.com/docs/metadata-jobs/mce-consumer-job) (optional), and
+[Frontend](https://docs.datahub.com/docs/datahub-frontend). Kubernetes deployment for each of the components are
 defined as subcharts under the main
 [Datahub](https://github.com/acryldata/datahub-helm/tree/master/charts/datahub)
 helm chart.
@@ -147,8 +147,8 @@ the public.
 
 ## Other useful commands
 
-| Command | Description | 
-|-----|------|
-| helm uninstall datahub | Remove DataHub |
-| helm ls | List of Helm charts |
-| helm history | Fetch a release history | 
+| Command                | Description             |
+| ---------------------- | ----------------------- |
+| helm uninstall datahub | Remove DataHub          |
+| helm ls                | List of Helm charts     |
+| helm history           | Fetch a release history |

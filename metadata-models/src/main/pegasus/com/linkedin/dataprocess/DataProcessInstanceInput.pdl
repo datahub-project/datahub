@@ -40,10 +40,10 @@ record DataProcessInstanceInput {
       "name": "DataProcessInstanceConsumes",
       "entityTypes": [ "dataset", "mlModel", "dataProcessInstance" ],
       "isLineage": true,
-      "createdOn": "inputEdges/*/created/time"
-      "createdActor": "inputEdges/*/created/actor"
-      "updatedOn": "inputEdges/*/lastModified/time"
-      "updatedActor": "inputEdges/*/lastModified/actor"
+      "createdOn": "inputEdges/*/created/time",
+      "createdActor": "inputEdges/*/created/actor",
+      "updatedOn": "inputEdges/*/lastModified/time",
+      "updatedActor": "inputEdges/*/lastModified/actor",
       "properties": "inputEdges/*/properties"
     }
   }

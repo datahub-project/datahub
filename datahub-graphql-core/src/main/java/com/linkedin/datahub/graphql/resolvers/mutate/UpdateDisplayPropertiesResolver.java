@@ -10,6 +10,7 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DisplayPropertiesUpdateInput;
 import com.linkedin.metadata.Constants;
@@ -43,7 +44,7 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
           String.format("Failed to update %s. %s does not exist.", targetUrn, targetUrn));
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthorizationUtils.canManageDomains(context)) {
             throw new AuthorizationException(
@@ -101,6 +102,8 @@ public class UpdateDisplayPropertiesResolver implements DataFetcher<CompletableF
                     input.toString(),
                     e.getMessage()));
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

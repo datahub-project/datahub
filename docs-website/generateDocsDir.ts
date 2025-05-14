@@ -9,7 +9,7 @@ import { retry } from "@octokit/plugin-retry";
 // Note: this must be executed within the docs-website directory.
 
 // Constants.
-const HOSTED_SITE_URL = "https://datahubproject.io";
+const HOSTED_SITE_URL = "https://docs.datahub.com";
 const GITHUB_EDIT_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 const GITHUB_BROWSE_URL =
@@ -283,6 +283,10 @@ function markdown_add_slug(
 //   );
 // }
 
+function preprocess_url(url: string): string {
+  return url.trim().replace(/^<(.+)>$/, "$1");
+}
+
 function trim_anchor_link(url: string): string {
   return url.replace(/#.+$/, "");
 }
@@ -382,7 +386,7 @@ function markdown_rewrite_urls(
       // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
       /\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
-        const updated = new_url(url.trim(), filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}](${updated})`;
       }
     )
@@ -390,7 +394,7 @@ function markdown_rewrite_urls(
       // Also look for the [text]: url syntax.
       /^\[([^^\n\r]+?)\]\s*:\s*(.+?)\s*$/gm,
       (_, text, url) => {
-        const updated = new_url(url, filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}]: ${updated}`;
       }
     );
@@ -519,10 +523,13 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
 
 ## Summary\n\n`);
 
-  const releases_list = await octokit.rest.repos.listReleases({
+  const releases_list_full = await octokit.rest.repos.listReleases({
     owner: "datahub-project",
     repo: "datahub",
   });
+  const releases_list = releases_list_full.data.filter(
+    (release) => !release.prerelease && !release.draft
+  );
 
   // We only embed release notes for releases in the last 3 months.
   const release_notes_date_cutoff = new Date(
@@ -533,10 +540,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   const releaseNoteVersions = new Set();
   contents.content += "| Version | Release Date | Links |\n";
   contents.content += "| ------- | ------------ | ----- |\n";
-  for (const release of releases_list.data) {
-    if (release.prerelease || release.draft) {
-      continue;
-    }
+  for (const release of releases_list) {
     const release_date = new Date(Date.parse(release.created_at));
 
     let row = `| **${release.tag_name}** | ${pretty_format_date(
@@ -553,7 +557,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   contents.content += "\n\n";
 
   // Full details
-  for (const release of releases_list.data) {
+  for (const release of releases_list) {
     let body: string;
     if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";

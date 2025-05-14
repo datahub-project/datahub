@@ -15,6 +15,7 @@ dependencies {
   implementation spec.product.pegasus.restliServer
   implementation externalDependency.opentelemetryApi
   implementation externalDependency.opentelemetrySdkTrace
+  implementation externalDependency.opentelemetrySdkMetrics
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok

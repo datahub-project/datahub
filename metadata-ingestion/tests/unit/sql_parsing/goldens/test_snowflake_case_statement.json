@@ -23,7 +23,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "totalprice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN \"O\".\"TOTALPRICE\" > 1000 THEN 'high' WHEN \"O\".\"TOTALPRICE\" > 100 THEN 'medium' ELSE 'low' END AS \"TOTAL_PRICE_CATEGORY\""
+            }
         },
         {
             "downstream": {
@@ -45,9 +49,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "totalprice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CASE WHEN \"O\".\"IS_PAYMENT_SUCCESSFUL\" THEN \"O\".\"TOTALPRICE\" ELSE 0 END AS \"TOTAL_PRICE_SUCCESS\" /* Also add a case where the column is in the THEN clause. */"
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT CASE WHEN o.\"totalprice\" > ? THEN ? WHEN o.\"totalprice\" > ? THEN ? ELSE ? END AS total_price_category, CASE WHEN o.\"is_payment_successful\" THEN o.\"totalprice\" ELSE ? END AS total_price_success FROM snowflake_sample_data.tpch_sf1.orders AS o"

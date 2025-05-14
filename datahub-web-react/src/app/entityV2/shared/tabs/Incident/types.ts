@@ -1,6 +1,13 @@
+import { Dispatch, SetStateAction } from 'react';
+
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
 import {
     AuditStamp,
     CorpUser,
+    DataPlatform,
+    EntityPrivileges,
+    EntityType,
     Incident,
     IncidentPriority,
     IncidentSource,
@@ -9,8 +16,6 @@ import {
     IncidentType,
     OwnerType,
 } from '@src/types.generated';
-import { BaseItemType } from '@src/alchemy-components/components/Timeline/types';
-import { IncidentAction } from './constant';
 
 export type IncidentListFilter = {
     sortBy: string;
@@ -19,7 +24,7 @@ export type IncidentListFilter = {
         searchText: string;
         priority: string[];
         stage: string[];
-        type: string[];
+        category: string[];
         state: string[];
     };
 };
@@ -27,7 +32,7 @@ export type IncidentListFilter = {
 export type IncidentGroupBy = {
     priority: IncidentGroup[];
     stage: IncidentGroup[];
-    type: IncidentGroup[];
+    category: IncidentGroup[];
     state: IncidentGroup[];
 };
 
@@ -56,7 +61,7 @@ export type IncidentGroup = {
 
 export type IncidentFilterOptions = {
     filterGroupOptions: {
-        type: IncidentType[];
+        category: IncidentType[];
         stage: IncidentStage[];
         priority: IncidentPriority[];
         state: IncidentState[];
@@ -90,6 +95,7 @@ export type IncidentTableRow = {
 };
 
 export type IncidentEditorProps = {
+    entity: EntityStagedForIncident;
     incidentUrn?: string;
     refetch?: () => void;
     onSubmit?: (incident?: Incident) => void;
@@ -99,17 +105,20 @@ export type IncidentEditorProps = {
 };
 
 export type IncidentLinkedAssetsListProps = {
+    initialUrn?: string;
     form: any;
     data?: IncidentTableRow;
     mode: IncidentAction;
     setCachedLinkedAssets: React.Dispatch<React.SetStateAction<any[]>>;
     setIsLinkedAssetsLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    urn?: string;
 };
 
 export interface TimelineContentDetails extends BaseItemType {
     action: string;
     actor: CorpUser;
     time: number;
+    message?: string;
 }
 
 export enum IncidentConstant {
@@ -118,3 +127,30 @@ export enum IncidentConstant {
     CATEGORY = 'category',
     STATE = 'state',
 }
+
+export type EntityStagedForIncident = {
+    urn: string;
+    platform?: DataPlatform;
+    entityType?: EntityType; // TODO remove this.
+};
+
+export type IncidentBuilderSiblingOptions = {
+    title: string;
+    disabled?: boolean;
+} & Partial<EntityStagedForIncident>;
+
+export type IncidentHandlerProps = {
+    mode: IncidentAction;
+    onSubmit?: () => void;
+    incidentUrn: string | undefined;
+    user: CorpUser | null | undefined;
+    entity: EntityStagedForIncident | undefined;
+    assignees: CorpUser[];
+    linkedAssets: string[];
+};
+
+export type CreateIncidentButtonProps = {
+    privileges: EntityPrivileges;
+    setShowIncidentBuilder: Dispatch<SetStateAction<boolean>>;
+    setEntity: Dispatch<SetStateAction<EntityStagedForIncident>>;
+};

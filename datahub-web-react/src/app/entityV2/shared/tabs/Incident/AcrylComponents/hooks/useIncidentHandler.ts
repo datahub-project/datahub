@@ -1,14 +1,15 @@
+import { useApolloClient } from '@apollo/client';
+import { Form, message } from 'antd';
+import _ from 'lodash';
 import { useState } from 'react';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
+import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
+import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpdateIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
-import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import _ from 'lodash';
-import { Form, message } from 'antd';
-import { useApolloClient } from '@apollo/client';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
-import { IncidentAction } from '../../constant';
-import { PAGE_SIZE, updateActiveIncidentInCache } from '../../incidentUtils';
 
 export const getCacheIncident = ({
     values,
@@ -22,6 +23,7 @@ export const getCacheIncident = ({
     incidentUrn?: string;
 }) => {
     const newIncident = {
+        __typename: 'Incident',
         urn: incidentUrn ?? responseData?.data?.raiseIncident,
         type: EntityType.Incident,
         incidentType: values.type,
@@ -31,6 +33,7 @@ export const getCacheIncident = ({
         startedAt: null,
         tags: null,
         status: {
+            __typename: 'IncidentStatus',
             state: values?.state,
             stage: values?.stage,
             message: values?.message || null,
@@ -41,18 +44,12 @@ export const getCacheIncident = ({
             },
         },
         source: {
+            __typename: 'IncidentSource',
             type: IncidentSourceType.Manual,
-            source: {
-                urn: '',
-                type: 'Assertion',
-                platform: {
-                    urn: '',
-                    name: '',
-                    properties: { displayName: '', logoUrl: '' },
-                },
-            },
+            source: null,
         },
         linkedAssets: {
+            __typename: 'EntityRelationshipsResult',
             relationships: values.linkedAssets?.map((linkedAsset) => ({
                 entity: {
                     ...linkedAsset,
@@ -62,7 +59,8 @@ export const getCacheIncident = ({
 
         priority: values.priority,
         created: {
-            time: Date.now(),
+            __typename: 'AuditStamp',
+            time: values.created || Date.now(),
             actor: user?.urn,
         },
         assignees: values.assignees,
@@ -70,13 +68,15 @@ export const getCacheIncident = ({
     return newIncident;
 };
 
-export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, onClose, user, assignees, linkedAssets }) => {
+export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, user, assignees, linkedAssets, entity }) => {
+    // Important: Here we are trying to fetch the URN of the sibling whose "profile" we are currently viewing.
+    // We then insert any new incidents into this cache as well so that it immediately updates the page for the asset.
+    const { urn: maybeCacheEntityUrn } = useEntityData();
     const [raiseIncidentMutation] = useRaiseIncidentMutation();
     const [updateIncidentMutation] = useUpdateIncidentMutation();
     const [form] = Form.useForm();
-    const { urn, entityType } = useEntityData();
     const client = useApolloClient();
-    const isAddIncidentMode = mode === IncidentAction.ADD;
+    const isAddIncidentMode = mode === IncidentAction.CREATE;
 
     const handleAddIncident = async (input: any) => {
         return raiseIncidentMutation({
@@ -118,7 +118,6 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, onClose, user,
 
     const finalizeSubmission = () => {
         onSubmit?.();
-        onClose?.();
     };
 
     const handleSubmissionError = (error: any) => {
@@ -138,7 +137,6 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, onClose, user,
             const values = form.getFieldsValue();
             const baseInput = {
                 ...values,
-                resourceUrn: urn,
                 status: {
                     stage: values.status,
                     state: values.state || IncidentState.Active,
@@ -146,7 +144,7 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, onClose, user,
                 },
             };
             const newInput = _.omit(baseInput, ['state', 'message']);
-            const newUpdateInput = _.omit(newInput, ['resourceUrn', 'type']);
+            const newUpdateInput = _.omit(newInput, ['resourceUrn', 'type', 'resourceUrns', 'customType']);
             const input = !isAddIncidentMode ? newUpdateInput : newInput;
 
             if (isAddIncidentMode) {
@@ -158,39 +156,31 @@ export const useIncidentHandler = ({ mode, onSubmit, incidentUrn, onClose, user,
                     values: {
                         ...values,
                         state: baseInput.status.state,
-                        stage: baseInput.status.stage,
+                        stage: baseInput.status.stage || '',
                         message: baseInput.status.message,
+                        priority: values.priority || null,
                         assignees,
                         linkedAssets,
                     },
                     incidentUrn: responseData?.data?.raiseIncident,
                     user,
                 });
-                updateActiveIncidentInCache(client, urn, newIncident, PAGE_SIZE);
+                // Add new incident to core entity's cache.
+                if (!entity) return;
+                updateActiveIncidentInCache(client, entity.urn, newIncident, PAGE_SIZE);
+
+                if (maybeCacheEntityUrn) {
+                    // Optional: Also add into the cache of the sibling whose page we are viewing.
+                    updateActiveIncidentInCache(client, maybeCacheEntityUrn, newIncident, PAGE_SIZE);
+                }
                 analytics.event({
                     type: EventType.EntityActionEvent,
-                    entityType,
-                    entityUrn: urn,
+                    entityType: entity?.entityType,
+                    entityUrn: entity.urn,
                     actionType: EntityActionType.AddIncident,
                 });
             } else if (incidentUrn) {
-                const updatedIncidentResponse: any = await handleUpdateIncident(input, incidentUrn);
-                if (updatedIncidentResponse?.data?.updateIncident) {
-                    const updatedIncident = getCacheIncident({
-                        values: {
-                            ...values,
-                            state: baseInput.status.state,
-                            stage: baseInput.status.stage || '',
-                            message: baseInput.status.message,
-                            priority: values.priority || null,
-                            assignees,
-                            linkedAssets,
-                        },
-                        user,
-                        incidentUrn,
-                    });
-                    updateActiveIncidentInCache(client, urn, updatedIncident, PAGE_SIZE);
-                }
+                await handleUpdateIncident(input, incidentUrn);
                 showMessage('Incident Updated');
             }
 

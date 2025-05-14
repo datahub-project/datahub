@@ -119,7 +119,7 @@
       "failures": 0,
       "message": null,
       "relation_name": null,
-      "status": "pass",
+      "status": "success",
       "thread_id": "Thread-1 (worker)",
       "timing": [
         {

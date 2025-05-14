@@ -1,7 +1,8 @@
 import { Form, Table } from 'antd';
 import styled, { keyframes } from 'styled-components';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+
 import { Button, colors } from '@src/alchemy-components';
+import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 
 export const IncidentListStyledTable = styled(Table)`
     max-width: none;
@@ -150,7 +151,6 @@ export const ActivityStatusText = styled.div`
 export const Header = styled.div`
     display: flex;
     align-items: center;
-    cursor: pointer;
     margin-bottom: 1rem;
 `;
 
@@ -225,8 +225,8 @@ export const SaveButton = styled(Button)<{ disabled: boolean }>`
     width: 100%;
     height: 36px;
     border-radius: 4px;
-    border: 1px solid ${colors.violet[500]};
-    background-color: ${({ disabled }) => (disabled ? '#f9fafc' : colors.violet[500])};
+    border: 1px solid ${(props) => props.theme.styles['primary-color']};
+    background-color: ${({ disabled, theme }) => (disabled ? '#f9fafc' : theme.styles['primary-color'])};
     font-size: 16px;
     font-weight: 600;
     line-height: 22.59px;
@@ -292,6 +292,11 @@ export const StyledHeader = styled.div`
     box-shadow: 0px 0px 6px 0px #5d668b33;
 `;
 
+export const StyledHeaderTitleContainer = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
 export const StyledHeaderActions = styled.div`
     display: flex;
     gap: 20px;
@@ -324,4 +329,14 @@ export const StyledSpinner = styled.div`
     border-radius: 50%;
     animation: ${spin} 0.8s linear infinite;
     display: inline-block;
+`;
+
+export const ForPlatformWrapper = styled.div`
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    font-size: 0.75rem;
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 0.5px solid #ddd;
 `;

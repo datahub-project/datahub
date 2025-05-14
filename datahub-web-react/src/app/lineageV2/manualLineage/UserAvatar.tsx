@@ -1,12 +1,13 @@
 import { PartitionOutlined } from '@ant-design/icons';
-import { Avatar } from 'antd';
-import { Popover } from '@components';
+import { Avatar, Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { CorpUser, EntityType } from '../../../types.generated';
-import getAvatarColor from '../../shared/avatar/getAvatarColor';
-import { toLocalDateTimeString } from '../../shared/time/timeUtils';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import getAvatarColor from '@app/shared/avatar/getAvatarColor';
+import { toLocalDateTimeString } from '@app/shared/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, EntityType } from '@types';
 
 const StyledAvatar = styled(Avatar)<{ $backgroundColor: string }>`
     color: #fff;
@@ -54,9 +55,9 @@ export default function UserAvatar({ createdActor, createdOn }: Props) {
                 </PopoverWrapper>
             }
         >
-            <StyledAvatar src={avatarPhotoUrl} $backgroundColor={getAvatarColor(userName)}>
-                {userName.charAt(0).toUpperCase()}
-            </StyledAvatar>
+            <div>
+                <StyledAvatar imageUrl={avatarPhotoUrl} $backgroundColor={getAvatarColor(userName)} name={userName} />
+            </div>
         </Popover>
     );
 }

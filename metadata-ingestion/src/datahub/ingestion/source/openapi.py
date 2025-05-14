@@ -102,7 +102,7 @@ class OpenApiConfig(ConfigModel):
                 # details there once, and then use that session for all requests.
                 self.token = f"Bearer {self.bearer_token}"
             else:
-                assert "url_complement" in self.get_token.keys(), (
+                assert "url_complement" in self.get_token, (
                     "When 'request_type' is set to 'get', an url_complement is needed for the request."
                 )
                 if self.get_token["request_type"] == "get":
@@ -317,7 +317,7 @@ class APISource(Source, ABC):
                 yield wu
 
             # Handle schema metadata if available
-            if "data" in endpoint_dets.keys():
+            if "data" in endpoint_dets:
                 # we are lucky! data is defined in the swagger for this endpoint
                 schema_metadata = set_metadata(dataset_name, endpoint_dets["data"])
                 wu = MetadataWorkUnit(
@@ -371,7 +371,7 @@ class APISource(Source, ABC):
                 else:
                     self.report_bad_responses(response.status_code, type=endpoint_k)
             else:
-                if endpoint_k not in config.forced_examples.keys():
+                if endpoint_k not in config.forced_examples:
                     # start guessing...
                     url_guess = try_guessing(endpoint_k, root_dataset_samples)
                     tot_url = clean_url(config.url + self.url_basepath + url_guess)

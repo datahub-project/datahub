@@ -1,14 +1,16 @@
+import { Tooltip } from '@components';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { DefaultEmptyEntityList } from '@app/homeV2/reference/sections/DefaultEmptyEntityList';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+import { EntityLinkListSkeleton } from '@app/homeV2/reference/sections/EntityLinkListSkeleton';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { Entity, EntityType } from '../../../../types.generated';
-import { EntityLink } from './EntityLink';
-import { EntityLinkListSkeleton } from './EntityLinkListSkeleton';
-import { DefaultEmptyEntityList } from './DefaultEmptyEntityList';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { GenericEntityProperties } from '../../../entity/shared/types';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
+
+import { Entity, EntityType } from '@types';
 
 const Title = styled.div<{ hasAction: boolean }>`
     ${(props) => props.hasAction && `:hover { cursor: pointer; }`}
@@ -49,9 +51,11 @@ type Props = {
     showMoreComponent?: React.ReactNode;
     showMoreCount?: number;
     showHealthIcon?: boolean;
+    showDeprecatedIcon?: boolean;
     empty?: React.ReactNode;
     onClickMore?: () => void;
     onClickTitle?: () => void;
+    onClickEntity?: (urn?: string) => void;
     render?: (entity: GenericEntityProperties) => React.ReactNode;
 };
 
@@ -64,9 +68,11 @@ export const EntityLinkList = ({
     showMore = false,
     showMoreCount,
     showHealthIcon = false,
+    showDeprecatedIcon = false,
     empty,
     onClickMore,
     onClickTitle,
+    onClickEntity,
     render,
 }: Props) => {
     const entityRegistry = useEntityRegistryV2();
@@ -90,16 +96,22 @@ export const EntityLinkList = ({
                 {(!isEmpty &&
                     entities.map((entity) => {
                         return (
-                            <EntityLink
-                                key={`${title}-${entity?.urn}`}
-                                entity={
-                                    entity
-                                        ? entityRegistry.getGenericEntityProperties(entity.type as EntityType, entity)
-                                        : null
-                                }
-                                render={render}
-                                showHealthIcon={showHealthIcon}
-                            />
+                            // eslint-disable-next-line
+                            <span key={`${title}-${entity?.urn}`} onClick={() => onClickEntity?.(entity?.urn || '')}>
+                                <EntityLink
+                                    entity={
+                                        entity
+                                            ? entityRegistry.getGenericEntityProperties(
+                                                  entity.type as EntityType,
+                                                  entity,
+                                              )
+                                            : null
+                                    }
+                                    render={render}
+                                    showHealthIcon={showHealthIcon}
+                                    showDeprecatedIcon={showDeprecatedIcon}
+                                />
+                            </span>
                         );
                     })) || <>{empty || <DefaultEmptyEntityList />}</>}
             </List>

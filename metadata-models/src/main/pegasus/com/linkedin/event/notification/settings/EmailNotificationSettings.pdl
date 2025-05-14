@@ -1,0 +1,11 @@
+namespace com.linkedin.event.notification.settings
+
+/**
+ * Email Notification settings for an actor.
+ */
+record EmailNotificationSettings {
+    /**
+    * Optional user or group email address
+    */
+    email: string
+}

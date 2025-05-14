@@ -14,6 +14,7 @@ from datahub.ingestion.source.snowflake.snowflake_query import (
     SnowflakeQuery,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseColumn, BaseTable, BaseView
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.prefix_batch_builder import PrefixGroup, build_prefix_batches
 from datahub.utilities.serialized_lru_cache import serialized_lru_cache
@@ -714,3 +715,31 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 stream_pagination_marker = stream_name
 
         return streams
+
+    @serialized_lru_cache(maxsize=1)
+    def get_procedures_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[BaseProcedure]]:
+        procedures: Dict[str, List[BaseProcedure]] = {}
+        cur = self.connection.query(
+            SnowflakeQuery.procedures_for_database(db_name),
+        )
+
+        for procedure in cur:
+            if procedure["PROCEDURE_SCHEMA"] not in procedures:
+                procedures[procedure["PROCEDURE_SCHEMA"]] = []
+
+            procedures[procedure["PROCEDURE_SCHEMA"]].append(
+                BaseProcedure(
+                    name=procedure["PROCEDURE_NAME"],
+                    language=procedure["PROCEDURE_LANGUAGE"],
+                    argument_signature=procedure["ARGUMENT_SIGNATURE"],
+                    return_type=procedure["PROCEDURE_RETURN_TYPE"],
+                    procedure_definition=procedure["PROCEDURE_DEFINITION"],
+                    created=procedure["CREATED"],
+                    last_altered=procedure["LAST_ALTERED"],
+                    comment=procedure["COMMENT"],
+                    extra_properties=None,
+                )
+            )
+        return procedures

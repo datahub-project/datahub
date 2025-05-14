@@ -637,8 +637,13 @@ def get_view_definition_patched(self, connection, view_name, schema=None, **kw):
             self.identifier_preparer.quote_identifier(schema),
             self.identifier_preparer.quote_identifier(view_name),
         )
-    row = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchone()
-    return row[0]
+    # Hive responds to the SHOW CREATE TABLE with the full view DDL,
+    # including the view definition. However, for multiline view definitions,
+    # it returns multiple rows (of one column each), each with a part of the definition.
+    # Any whitespace at the beginning/end of each view definition line is lost.
+    rows = connection.execute(f"SHOW CREATE TABLE {full_table}").fetchall()
+    parts = [row[0] for row in rows]
+    return "\n".join(parts)
 
 
 HiveDialect.get_view_names = get_view_names_patched
@@ -862,3 +867,18 @@ class HiveSource(TwoTierSQLAlchemySource):
                 return partition_column.get("column_names")
 
         return []
+
+    def get_table_properties(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        (description, properties, location) = super().get_table_properties(
+            inspector, schema, table
+        )
+
+        new_properties = {}
+        for key, value in properties.items():
+            if key and key[-1] == ":":
+                new_properties[key[:-1]] = value
+            else:
+                new_properties[key] = value
+        return (description, new_properties, location)

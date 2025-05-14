@@ -12,6 +12,7 @@ from click_default_group import DefaultGroup
 from datahub.api.entities.dataset.dataset import Dataset, DatasetRetrievalConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -29,13 +30,16 @@ def dataset() -> None:
     name="upsert",
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
+@click.option(
+    "-n", "--dry-run", type=bool, is_flag=True, default=False, help="Perform a dry run"
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def upsert(file: Path) -> None:
+def upsert(file: Path, dry_run: bool) -> None:
     """Upsert attributes to a Dataset in DataHub."""
     # Call the sync command with to_datahub=True to perform the upsert operation
     ctx = click.get_current_context()
-    ctx.invoke(sync, file=str(file), to_datahub=True)
+    ctx.invoke(sync, file=str(file), dry_run=dry_run, to_datahub=True)
 
 
 @dataset.command(
@@ -51,7 +55,7 @@ def get(urn: str, to_file: str) -> None:
     if not urn.startswith("urn:li:dataset:"):
         urn = f"urn:li:dataset:{urn}"
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if graph.exists(urn):
             dataset: Dataset = Dataset.from_datahub(graph=graph, urn=urn)
             click.secho(
@@ -79,7 +83,7 @@ def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
     all_urns.add(urn)
     for sibling_urn in sibling_urns:
         all_urns.add(sibling_urn)
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         for _urn in all_urns:
             _emit_sibling(graph, urn, _urn, all_urns)
 
@@ -167,13 +171,18 @@ def file(lintcheck: bool, lintfix: bool, file: str) -> None:
 )
 @click.option("-f", "--file", required=True, type=click.Path(exists=True))
 @click.option("--to-datahub/--from-datahub", required=True, is_flag=True)
+@click.option(
+    "-n", "--dry-run", type=bool, is_flag=True, default=False, help="Perform a dry run"
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def sync(file: str, to_datahub: bool) -> None:
+def sync(file: str, to_datahub: bool, dry_run: bool) -> None:
     """Sync a Dataset file to/from DataHub"""
 
+    dry_run_prefix = "[dry-run]: " if dry_run else ""  # prefix to use in messages
+
     failures: List[str] = []
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         datasets = Dataset.from_yaml(file)
         for dataset in datasets:
             assert (
@@ -189,7 +198,7 @@ def sync(file: str, to_datahub: bool) -> None:
                     click.secho(
                         "\n\t- ".join(
                             [
-                                f"Skipping Dataset {dataset.urn} due to missing entity references: "
+                                f"{dry_run_prefix}Skipping Dataset {dataset.urn} due to missing entity references: "
                             ]
                             + missing_entity_references
                         ),
@@ -199,13 +208,18 @@ def sync(file: str, to_datahub: bool) -> None:
                     continue
                 try:
                     for mcp in dataset.generate_mcp():
-                        graph.emit(mcp)
-                    click.secho(f"Update succeeded for urn {dataset.urn}.", fg="green")
+                        if not dry_run:
+                            graph.emit(mcp)
+                    click.secho(
+                        f"{dry_run_prefix}Update succeeded for urn {dataset.urn}.",
+                        fg="green",
+                    )
                 except Exception as e:
                     click.secho(
-                        f"Update failed for id {id}. due to {e}",
+                        f"{dry_run_prefix}Update failed for id {id}. due to {e}",
                         fg="red",
                     )
+                    failures.append(dataset.urn)
             else:
                 # Sync from DataHub
                 if graph.exists(dataset.urn):
@@ -215,13 +229,16 @@ def sync(file: str, to_datahub: bool) -> None:
                     existing_dataset: Dataset = Dataset.from_datahub(
                         graph=graph, urn=dataset.urn, config=dataset_get_config
                     )
-                    existing_dataset.to_yaml(Path(file))
+                    if not dry_run:
+                        existing_dataset.to_yaml(Path(file))
+                    else:
+                        click.secho(f"{dry_run_prefix}Will update file {file}")
                 else:
-                    click.secho(f"Dataset {dataset.urn} does not exist")
+                    click.secho(f"{dry_run_prefix}Dataset {dataset.urn} does not exist")
                     failures.append(dataset.urn)
     if failures:
         click.secho(
-            f"\nFailed to sync the following Datasets: {', '.join(failures)}",
+            f"\n{dry_run_prefix}Failed to sync the following Datasets: {', '.join(failures)}",
             fg="red",
         )
         raise click.Abort()

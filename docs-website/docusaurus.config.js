@@ -4,7 +4,7 @@ const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
   tagline: "The #1 Open Source Metadata Platform",
-  url: process.env.DOCUSAURUS_CONFIG_URL || "https://datahubproject.io",
+  url: process.env.DOCUSAURUS_CONFIG_URL || "https://docs.datahub.com",
   baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "throw",
@@ -42,12 +42,28 @@ module.exports = {
     },
     {
       src: "/scripts/reo.js",
-    }
+    },
+    {
+      id: "runllm-widget-script",
+      type: "module",
+      src: "https://widget.runllm.com",
+      crossorigin: "true",
+      "runllm-name": "DataHub",
+      "runllm-assistant-id": "81",
+      "runllm-position": "BOTTOM_RIGHT",
+      "runllm-keyboard-shortcut": "Mod+j",
+      "runllm-preset": "docusaurus",
+      "runllm-theme-color": "#1890FF",
+      "runllm-brand-logo": "https://docs.datahub.com/img/datahub-logo-color-mark.svg",
+      "runllm-community-url": "https://datahub.com/slack",
+      "runllm-community-type": "slack",
+      "runllm-disable-ask-a-person": "true",
+      async: true,
+    },
   ],
   noIndex: isSaas,
   customFields: {
     isSaas: isSaas,
-    markpromptProjectKey: process.env.DOCUSAURUS_MARKPROMPT_PROJECT_KEY || "0U6baUoEdHVV4fyPpr5pxcX3dFlAMEu9",
   },
 
   // See https://github.com/facebook/docusaurus/issues/4765
@@ -75,20 +91,20 @@ module.exports = {
     //   announcementBar: {
     //     id: "announcement",
     //     content:
-    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;Acryl Data delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
+    //       '<div><img src="/img/acryl-logo-white-mark.svg" /><p><strong>DataHub Cloud</strong><span> &nbsp;DataHub delivers an easy to consume DataHub platform for the enterprise</span></p></div> <a href="https://www.datahub.com/demo?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup" target="_blank" class="button button--primary">Sign Up for DataHub Cloud&nbsp;→</a>',
     //     backgroundColor: "#070707",
     //     textColor: "#ffffff",
     //     isCloseable: false,
     //   },
     // }),
     announcementBar: {
-          id: "announcement-3",
-          content:
-            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Learn about DataHub 1.0</p><a href="https://youtu.be/B3IA6cLaKEk" target="_blank" class="button">Watch Now<span> →</span></a></div>',
-          backgroundColor: "#111",
-          textColor: "#ffffff",
-          isCloseable: false,
-        },
+      id: "announcement-3",
+      content:
+        '<div class="shimmer-banner"><p>DataHub now supports the Model Context Protocol (MCP)</p><a href="https://pages.acryl.io/datahub-mcp-server?utm_source=docs-website&utm_medium=announcement_banner&utm_campaign=mcp_announcement" target="_blank" class="button"><div>Read the announcement<span> →</span></div></a></div>',
+      backgroundColor: "transparent",
+      textColor: "#ffffff",
+      isCloseable: false,
+    },
     colorMode: {
       // Only support light mode.
       defaultMode: 'light',
@@ -101,35 +117,11 @@ module.exports = {
         alt: "DataHub Logo",
         src: `img/${isSaas ? "acryl" : "datahub"}-logo-color-light-horizontal.svg`,
         srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
+        href: "https://datahub.com",
       },
       items: [
         {
-          type: "dropdown",
-          label: "Solutions",
-          position: "right",
-          items: [
-            {
-              to: "/solutions/discovery",
-              label: "Discovery",
-            },
-            {
-              to: "/solutions/observability",
-              label: "Observability",
-            },
-            {
-              to: "/solutions/governance",
-              label: "Governance",
-            },
-          ]
-        },
-        {
-          to: "/cloud",
-          activeBasePath: "cloud",
-          label: "Cloud",
-          position: "right",
-        },
-        {
-          to: "docs/",
+          to: "/docs",
           activeBasePath: "docs",
           label: "Docs",
           position: "right",
@@ -140,63 +132,160 @@ module.exports = {
           label: "Integrations",
           position: "right",
         },
+        // {
+        //   type: "dropdown",
+        //   activeBasePath: "learn",
+        //   label: "Learn",
+        //   position: "right",
+        //   items: [
+        //     {
+        //       to: "https://pages.acryl.io/webinar-governance-ai-5",
+        //       label: "Weekly Demo",
+        //     },
+        //     {
+        //       to: "/learn",
+        //       label: "Use Cases",
+        //     },
+        //     {
+        //       to: "/adoption-stories",
+        //       label: "Adoption Stories",
+        //     },
+        //     {
+        //       href: "https://medium.com/datahub-project",
+        //       label: "Blog",
+        //     },
+        //     {
+        //       href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
+        //       label: "YouTube",
+        //     },
+        //   ],
+        // },
+        // {
+        //   type: "dropdown",
+        //   label: "Community",
+        //   position: "right",
+        //   items: [
+        //     {
+        //       href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+        //       label: "Join Slack",
+        //     },
+        //     {
+        //       to: "/events",
+        //       label: "Events",
+        //     },
+        //     {
+        //       to: "/champions",
+        //       label: "Champions",
+        //     },
+        //     {
+        //       label: "Share Your Journey",
+        //       href: "/customer-stories-survey",
+        //     },
+        //   ],
+        // },
         {
-          type: "dropdown",
-          activeBasePath: "learn",
-          label: "Learn",
+          href: "https://datahub.com/products/why-datahub-cloud/",
+          html: `
+            <style>
+              .cloud-cta {
+                color: var(--ifm-menu-color-active);
+                font-weight: 600;
+                background: linear-gradient(40deg, var(--ifm-menu-color-active), var(--ifm-menu-color-active));
+                background-size: 200% 100%;
+                -webkit-background-clip: text;
+                background-clip: text;
+                transition: background-image 0.3s ease;
+              }
+              .cloud-cta:hover {
+                color: transparent;
+                background: linear-gradient(40deg, var(--ifm-menu-color-active), #ff1493);
+                background-size: 200% 100%;
+                -webkit-background-clip: text;
+                background-clip: text;
+                animation: gradientShift 3s ease infinite;
+              }
+              @keyframes gradientShift {
+                0%, 100% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+              }
+            </style>
+            <div class='cloud-cta'>Get Cloud</div>
+          `,
           position: "right",
-          items: [
+        },
+        {
+          type: "docsVersionDropdown",
+          position: "left",
+          dropdownActiveClassDisabled: true,
+          dropdownItemsAfter: [
             {
-              to: "https://www.acryldata.io/webinars/weekly-live-demo",
-              label: "Weekly Demo",
+              type: 'html',
+              value: '<hr class="dropdown-separator" style="margin: 0.4rem;">',
             },
             {
-              to: "/learn",
-              label: "Use Cases",
+              type: 'html',
+              value: '<div class="dropdown__link"><b>Archived versions</b></div>',
             },
             {
-              to: "/adoption-stories",
-              label: "Adoption Stories",
+              value: `
+                     <a class="dropdown__link" href="https://docs-website-8jkm4uler-acryldata.vercel.app/docs/0.14.1/features">0.14.1
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+              type: "html",
             },
             {
-              href: "https://medium.com/datahub-project",
-              label: "Blog",
+              value: `
+                     <a class="dropdown__link" href="https://docs-website-eue2qafvn-acryldata.vercel.app/docs/features">0.14.0
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+              type: "html",
             },
             {
-              href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-              label: "YouTube",
+              value: `
+                   <a class="dropdown__link" href="https://docs-website-psat3nzgi-acryldata.vercel.app/docs/features">0.13.1
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+              type: "html",
+            },
+            {
+              value: `
+                     <a class="dropdown__link" href="https://docs-website-lzxh86531-acryldata.vercel.app/docs/features">0.13.0
+                     <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                     </a>
+                     `,
+              type: "html",
+            },
+            {
+              value: `
+                   <a class="dropdown__link" href="https://docs-website-2uuxmgza2-acryldata.vercel.app/docs/features">0.12.1
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+              type: "html",
+            },
+            {
+              value: `
+                   <a class="dropdown__link" href="https://docs-website-irpoe2osc-acryldata.vercel.app/docs/features">0.11.0
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+              type: "html",
+            },
+            {
+              value: `
+                   <a class="dropdown__link" href="https://docs-website-1gv2yzn9d-acryldata.vercel.app/docs/features">0.10.5
+                   <svg width="12" height="12" aria-hidden="true" viewBox="0 0 24 24"><path fill="currentColor" d="M21 13v10h-21v-19h12v2h-10v15h17v-8h2zm3-12h-10.988l4.035 4-6.977 7.07 2.828 2.828 6.977-7.07 4.125 4.172v-11z"></path></svg>
+                   </a>
+                   `,
+              type: "html",
             },
           ],
         },
         {
-          type: "dropdown",
-          label: "Community",
-          position: "right",
-          items: [
-            {
-              href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
-              label: "Join Slack",
-            },
-            {
-              href: "https://forum.datahubproject.io/",
-              label: "Community Forum",
-            },
-            {
-              to: "/events",
-              label: "Events",
-            },
-            {
-              to: "/champions",
-              label: "Champions",
-            },
-            {
-              label: "Share Your Journey",
-              href: "/customer-stories-survey",
-            },
-          ],
-        },
-        {
-          href: "https://pages.acryl.io/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
+          href: "https://datahub.com/slack?utm_source=docs&utm_medium=header&utm_campaign=docs_header",
           html: `
             <style>
               .slack-logo:hover {
@@ -207,18 +296,6 @@ module.exports = {
           `,
           position: "right",
         },
-        {
-          href: "/cloud",
-          html: `
-            <style>
-              .cloud-cta:hover {
-                opacity: 0.8;
-              }
-            </style>
-            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Get DataHub Cloud</div>
-          `,
-          position: "right",
-        }
       ],
     },
     footer: {
@@ -242,7 +319,7 @@ module.exports = {
           items: [
             {
               label: "Slack",
-              href: "https://slack.datahubproject.io",
+              href: "https://datahub.com/slack",
             },
             {
               label: "YouTube",
@@ -258,7 +335,7 @@ module.exports = {
             },
             {
               label: "Adoption",
-              href: "/adoption-stories",
+              href: "https://datahub.com/adoption-stories/",
             },
           ],
         },
@@ -267,7 +344,7 @@ module.exports = {
           items: [
             {
               label: "Demo",
-              to: "https://demo.datahubproject.io/",
+              to: "https://demo.datahub.com/",
             },
             {
               label: "Roadmap",
@@ -311,13 +388,13 @@ module.exports = {
       "@docusaurus/preset-classic",
       {
         docs: {
-            lastVersion: "current",
-              versions: {
-                current: {
-                  label: "Next",
-                  banner: 'none',
-                },
-              },
+          lastVersion: "current",
+          versions: {
+            current: {
+              label: "Next",
+              banner: 'none',
+            },
+          },
           path: "genDocs",
           sidebarPath: require.resolve("./sidebars.js"),
           ...(!isSaas && {
@@ -343,8 +420,6 @@ module.exports = {
             require.resolve("./src/styles/global.scss"),
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
-            require.resolve("./src/components/SecondNavbar/styles.module.scss"),
-            require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
           ],
         },
         pages: {
@@ -352,7 +427,10 @@ module.exports = {
           mdxPageComponent: "@theme/MDXPage",
         },
         googleTagManager: {
-          containerId: 'GTM-WK28RLTG',
+          containerId: 'GTM-5M8T9HNN',
+        },
+        gtag: {
+          trackingID: "G-PKGVLETT4C",
         },
       },
     ],
@@ -373,6 +451,12 @@ module.exports = {
           }
           return undefined; // Return a falsy value: no redirect created
         },
+        redirects: [
+          {
+            from: '/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor',
+            to: '/docs/managed-datahub/remote-executor/about',
+          },
+        ],
       },
     ],
     ["@docusaurus/plugin-ideal-image", { quality: 100, sizes: [320, 640, 1280, 1440, 1600] }],

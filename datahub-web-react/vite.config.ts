@@ -1,9 +1,31 @@
+import react from '@vitejs/plugin-react';
 import * as path from 'path';
 import { defineConfig, loadEnv } from 'vite';
-import react from '@vitejs/plugin-react';
-import svgr from 'vite-plugin-svgr';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import svgr from 'vite-plugin-svgr';
+
+const injectMeticulous = () => {
+    if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
+        return null;
+    }
+
+    return {
+        name: 'inject-meticulous',
+        transformIndexHtml: {
+            transform(html) {
+                const scriptTag = `
+                    <script
+                        data-recording-token=${process.env.REACT_APP_METICULOUS_PROJECT_TOKEN}
+                        src="https://snippet.meticulous.ai/v1/meticulous.js">
+                    </script>
+                `;
+
+                return html.replace('</head>', `${scriptTag}\n</head>`);
+            },
+        },
+    };
+};
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -26,9 +48,12 @@ export default defineConfig(({ mode }) => {
         '/track': frontendProxy,
     };
 
+    const devPlugins = mode === 'development' ? [injectMeticulous()] : [];
+
     return {
         appType: 'spa',
         plugins: [
+            ...devPlugins,
             react(),
             svgr(),
             macrosPlugin(),
@@ -117,17 +142,6 @@ export default defineConfig(({ mode }) => {
                 '@images': path.resolve(__dirname, 'src/images'),
                 '@providers': path.resolve(__dirname, 'src/providers'),
                 '@utils': path.resolve(__dirname, 'src/utils'),
-
-                // App Specific Directories
-                '@app/entityV1': path.resolve(__dirname, 'src/app/entity'),
-                '@app/entityV2': path.resolve(__dirname, 'src/app/entityV2'),
-                '@app/searchV2': path.resolve(__dirname, 'src/app/searchV2'),
-                '@app/domainV2': path.resolve(__dirname, 'src/app/domainV2'),
-                '@app/glossaryV2': path.resolve(__dirname, 'src/app/glossaryV2'),
-                '@app/homeV2': path.resolve(__dirname, 'src/app/homeV2'),
-                '@app/lineageV2': path.resolve(__dirname, 'src/app/lineageV2'),
-                '@app/previewV2': path.resolve(__dirname, 'src/app/previewV2'),
-                '@app/sharedV2': path.resolve(__dirname, 'src/app/sharedV2'),
 
                 // Specific Files
                 '@types': path.resolve(__dirname, 'src/types.generated.ts'),

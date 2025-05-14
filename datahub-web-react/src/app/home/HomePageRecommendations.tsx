@@ -1,28 +1,30 @@
+import { Divider, Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Divider, Empty, Typography } from 'antd';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { HomePagePosts } from '@app/home/HomePagePosts';
+import {
+    HOME_PAGE_DOMAINS_ID,
+    HOME_PAGE_MOST_POPULAR_ID,
+    HOME_PAGE_PLATFORMS_ID,
+} from '@app/onboarding/config/HomePageOnboardingConfig';
+import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
+import { RecommendationModule } from '@app/recommendations/RecommendationModule';
+import { BrowseEntityCard } from '@app/search/BrowseEntityCard';
+import { useBusinessAttributesFlag } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetEntityCountsQuery } from '@graphql/app.generated';
+import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
 import {
     CorpUser,
     EntityType,
     RecommendationModule as RecommendationModuleType,
     RecommendationRenderType,
     ScenarioType,
-} from '../../types.generated';
-import { useListRecommendationsQuery } from '../../graphql/recommendations.generated';
-import { RecommendationModule } from '../recommendations/RecommendationModule';
-import { BrowseEntityCard } from '../search/BrowseEntityCard';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useGetEntityCountsQuery } from '../../graphql/app.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { HomePagePosts } from './HomePagePosts';
-import {
-    HOME_PAGE_DOMAINS_ID,
-    HOME_PAGE_MOST_POPULAR_ID,
-    HOME_PAGE_PLATFORMS_ID,
-} from '../onboarding/config/HomePageOnboardingConfig';
-import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
-import { useBusinessAttributesFlag } from '../useAppConfig';
-import { useUserContext } from '../context/useUserContext';
+} from '@types';
 
 const PLATFORMS_MODULE_ID = 'Platforms';
 const MOST_POPULAR_MODULE_ID = 'HighUsageEntities';
