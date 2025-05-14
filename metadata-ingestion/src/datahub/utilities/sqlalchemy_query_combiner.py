@@ -160,12 +160,12 @@ class SQLAlchemyQueryCombiner:
     _greenlets_by_thread_lock: threading.Lock = dataclasses.field(
         default_factory=lambda: threading.Lock()
     )
-    _queries_by_thread: Dict[
-        greenlet.greenlet, Dict[str, _QueryFuture]
-    ] = dataclasses.field(default_factory=lambda: collections.defaultdict(dict))
-    _greenlets_by_thread: Dict[
-        greenlet.greenlet, Set[greenlet.greenlet]
-    ] = dataclasses.field(default_factory=lambda: collections.defaultdict(set))
+    _queries_by_thread: Dict[greenlet.greenlet, Dict[str, _QueryFuture]] = (
+        dataclasses.field(default_factory=lambda: collections.defaultdict(dict))
+    )
+    _greenlets_by_thread: Dict[greenlet.greenlet, Set[greenlet.greenlet]] = (
+        dataclasses.field(default_factory=lambda: collections.defaultdict(set))
+    )
 
     @staticmethod
     def _generate_sql_safe_identifier() -> str:
@@ -272,11 +272,10 @@ class SQLAlchemyQueryCombiner:
                     self.report.uncombined_queries_issued += 1
                     return _sa_execute_underlying_method(conn, query, *args, **kwargs)
 
-        with _sa_execute_method_patching_lock:
-            with unittest.mock.patch(
-                "sqlalchemy.engine.Connection.execute", _sa_execute_fake
-            ):
-                yield self
+        with _sa_execute_method_patching_lock, unittest.mock.patch(
+            "sqlalchemy.engine.Connection.execute", _sa_execute_fake
+        ):
+            yield self
 
     def run(self, method: Callable[[], None]) -> None:
         """

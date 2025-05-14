@@ -12,10 +12,12 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
+import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataFlowEditableProperties;
 import com.linkedin.datahub.graphql.generated.DataFlowInfo;
@@ -29,6 +31,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -106,6 +109,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         (dataset, dataMap) ->
             dataset.setDataPlatformInstance(
                 DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
+    mappingHelper.mapToResult(context, CONTAINER_ASPECT_NAME, DataFlowMapper::mapContainers);
     mappingHelper.mapToResult(
         BROWSE_PATHS_V2_ASPECT_NAME,
         (dataFlow, dataMap) ->
@@ -114,11 +118,16 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        SUB_TYPES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setSubTypes(SubTypesMapper.map(context, new SubTypes(dataMap))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), DataFlow.class);
@@ -203,6 +212,17 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn);
     dataFlow.setGlobalTags(globalTags);
     dataFlow.setTags(globalTags);
+  }
+
+  private static void mapContainers(
+      @Nullable final QueryContext context, @Nonnull DataFlow dataFlow, @Nonnull DataMap dataMap) {
+    final com.linkedin.container.Container gmsContainer =
+        new com.linkedin.container.Container(dataMap);
+    dataFlow.setContainer(
+        Container.builder()
+            .setType(EntityType.CONTAINER)
+            .setUrn(gmsContainer.getContainer().toString())
+            .build());
   }
 
   private static void mapDomains(

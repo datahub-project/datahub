@@ -2,11 +2,8 @@ import logging
 from abc import abstractmethod
 from typing import Any, Dict, Optional
 
-import cachetools
-import cachetools.keys
 import pydantic
 from pydantic import Field
-from sqlalchemy.engine import URL
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -22,6 +19,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -29,7 +27,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
-from datahub.utilities.cachetools_keys import self_methodkey
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -118,13 +115,6 @@ class SQLCommonConfig(
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
-    # TRICKY: The operation_config is time-dependent. Because we don't want to change
-    # whether or not we're running profiling mid-ingestion, we cache the result of this method.
-    # TODO: This decorator should be moved to the is_profiling_enabled(operation_config) method.
-    @cachetools.cached(
-        cache=cachetools.LRUCache(maxsize=1),
-        key=self_methodkey,
-    )
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
@@ -194,36 +184,3 @@ class SQLAlchemyConnectionConfig(ConfigModel):
 
 class BasicSQLAlchemyConfig(SQLAlchemyConnectionConfig, SQLCommonConfig):
     pass
-
-
-def make_sqlalchemy_uri(
-    scheme: str,
-    username: Optional[str],
-    password: Optional[str],
-    at: Optional[str],
-    db: Optional[str],
-    uri_opts: Optional[Dict[str, Any]] = None,
-) -> str:
-    host: Optional[str] = None
-    port: Optional[int] = None
-    if at:
-        try:
-            host, port_str = at.rsplit(":", 1)
-            port = int(port_str)
-        except ValueError:
-            host = at
-            port = None
-    if uri_opts:
-        uri_opts = {k: v for k, v in uri_opts.items() if v is not None}
-
-    return str(
-        URL.create(
-            drivername=scheme,
-            username=username,
-            password=password,
-            host=host,
-            port=port,
-            database=db,
-            query=uri_opts or {},
-        )
-    )

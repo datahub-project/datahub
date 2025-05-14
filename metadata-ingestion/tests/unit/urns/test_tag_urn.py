@@ -2,7 +2,6 @@ import unittest
 
 import pytest
 
-from datahub.utilities.urns.error import InvalidUrnError
 from datahub.utilities.urns.tag_urn import TagUrn
 
 
@@ -17,10 +16,3 @@ class TestTagUrn(unittest.TestCase):
         assert str(tag_urn) == tag_urn_str
         assert tag_urn == TagUrn("abc")
         assert tag_urn == TagUrn.create_from_id("abc")
-
-    def test_invalid_urn(self) -> None:
-        with self.assertRaises(InvalidUrnError):
-            TagUrn.create_from_string("urn:li:abc:tag_id")
-
-        with self.assertRaises(InvalidUrnError):
-            TagUrn.create_from_string("urn:li:tag:(part1,part2)")

@@ -1,6 +1,8 @@
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
+
+from datahub.emitter.mce_builder import make_ts_millis, parse_ts_millis
 
 
 def get_current_time_in_seconds() -> int:
@@ -9,12 +11,15 @@ def get_current_time_in_seconds() -> int:
 
 def ts_millis_to_datetime(ts_millis: int) -> datetime:
     """Converts input timestamp in milliseconds to a datetime object with UTC timezone"""
-    return datetime.fromtimestamp(ts_millis / 1000, tz=timezone.utc)
+    return parse_ts_millis(ts_millis)
 
 
 def datetime_to_ts_millis(dt: datetime) -> int:
     """Converts a datetime object to timestamp in milliseconds"""
-    return int(round(dt.timestamp() * 1000))
+    # TODO: Deprecate these helpers in favor of make_ts_millis and parse_ts_millis.
+    # The other ones support None with a typing overload.
+    # Also possibly move those helpers to this file.
+    return make_ts_millis(dt)
 
 
 @dataclass

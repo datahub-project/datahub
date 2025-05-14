@@ -70,6 +70,9 @@ public class MapperUtils {
         aggregationFacets.stream()
             .map(facet -> facet.equals("entity") || facet.contains("_entityType"))
             .collect(Collectors.toList());
+    if (aggregationMetadata.getEntity() != null) {
+      facetMetadata.setEntity(UrnToEntityMapper.map(context, aggregationMetadata.getEntity()));
+    }
     facetMetadata.setField(aggregationMetadata.getName());
     facetMetadata.setDisplayName(
         Optional.ofNullable(aggregationMetadata.getDisplayName())
@@ -83,7 +86,8 @@ public class MapperUtils {
                         filterValue.getFacetCount(),
                         filterValue.getEntity() == null
                             ? null
-                            : UrnToEntityMapper.map(context, filterValue.getEntity())))
+                            : UrnToEntityMapper.map(context, filterValue.getEntity()),
+                        null))
             .collect(Collectors.toList()));
     return facetMetadata;
   }

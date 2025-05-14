@@ -1,38 +1,44 @@
 import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import React, { useCallback, useEffect, useState } from 'react';
+import { Button, Modal, Pagination, Select, message } from 'antd';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
-import { Button, message, Modal, Pagination, Select } from 'antd';
 import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ONE_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
+import IngestionSourceTable from '@app/ingest/source/IngestionSourceTable';
+import RecipeViewerModal from '@app/ingest/source/RecipeViewerModal';
+import { IngestionSourceBuilderModal } from '@app/ingest/source/builder/IngestionSourceBuilderModal';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingest/source/builder/types';
+import { ExecutionDetailsModal } from '@app/ingest/source/executions/ExecutionRequestDetailsModal';
+import { isExecutionRequestActive } from '@app/ingest/source/executions/IngestionSourceExecutionList';
+import useRefreshIngestionData from '@app/ingest/source/executions/useRefreshIngestionData';
+import { useCommandS } from '@app/ingest/source/hooks';
+import {
+    CLI_EXECUTOR_ID,
+    addToListIngestionSourcesCache,
+    removeFromListIngestionSourcesCache,
+} from '@app/ingest/source/utils';
+import {
+    INGESTION_CREATE_SOURCE_ID,
+    INGESTION_REFRESH_SOURCES_ID,
+} from '@app/onboarding/config/IngestionOnboardingConfig';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
     useDeleteIngestionSourceMutation,
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
-} from '../../../graphql/ingestion.generated';
-import { Message } from '../../shared/Message';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
-import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
-import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '../../../types.generated';
-import { SearchBar } from '../../search/SearchBar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ExecutionDetailsModal } from './executions/ExecutionRequestDetailsModal';
-import RecipeViewerModal from './RecipeViewerModal';
-import IngestionSourceTable from './IngestionSourceTable';
-import { scrollToTop } from '../../shared/searchUtils';
-import useRefreshIngestionData from './executions/useRefreshIngestionData';
-import { isExecutionRequestActive } from './executions/IngestionSourceExecutionList';
-import analytics, { EventType } from '../../analytics';
-import {
-    INGESTION_CREATE_SOURCE_ID,
-    INGESTION_REFRESH_SOURCES_ID,
-} from '../../onboarding/config/IngestionOnboardingConfig';
-import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
-import { useCommandS } from './hooks';
+} from '@graphql/ingestion.generated';
+import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -80,7 +86,14 @@ export const IngestionSourceList = () => {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
-    useEffect(() => setQuery(paramsQuery), [paramsQuery]);
+    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    // highlight search input if user arrives with a query preset for salience
+    useEffect(() => {
+        if (paramsQuery?.length) {
+            setQuery(paramsQuery);
+            searchInputRef.current?.focus();
+        }
+    }, [paramsQuery]);
 
     const [page, setPage] = useState(1);
 
@@ -98,6 +111,11 @@ export const IngestionSourceList = () => {
     const [sort, setSort] = useState<SortCriterion>();
     const [hideSystemSources, setHideSystemSources] = useState(true);
 
+    // When source filter changes, reset page to 1
+    useEffect(() => {
+        setPage(1);
+    }, [sourceFilter]);
+
     /**
      * Show or hide system ingestion sources using a hidden command S command.
      */
@@ -106,7 +124,7 @@ export const IngestionSourceList = () => {
     // Ingestion Source Default Filters
     const filters = hideSystemSources
         ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
-        : [];
+        : [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] }];
     if (sourceFilter !== IngestionSourceType.ALL) {
         filters.push({
             field: 'sourceExecutorId',
@@ -153,7 +171,7 @@ export const IngestionSourceList = () => {
 
     function hasActiveExecution() {
         return !!filteredSources.find((source) =>
-            source.executions?.executionRequests.find((request) => isExecutionRequestActive(request)),
+            source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
         );
     }
     useRefreshIngestionData(onRefresh, hasActiveExecution);
@@ -186,14 +204,16 @@ export const IngestionSourceList = () => {
     };
 
     const onCreateOrUpdateIngestionSourceSuccess = () => {
-        setTimeout(() => refetch(), 2000);
+        setTimeout(() => refetch(), 3000);
         setIsBuildingSource(false);
         setFocusSourceUrn(undefined);
     };
 
     const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
         if (extraArgs === null || extraArgs === undefined) return [];
-        return extraArgs.map((entry) => ({ key: entry.key, value: entry.value }));
+        return extraArgs
+            .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== '')
+            .map((entry) => ({ key: entry.key, value: entry.value }));
     };
 
     const createOrUpdateIngestionSource = (
@@ -362,6 +382,7 @@ export const IngestionSourceList = () => {
             },
             onCancel() {},
             okText: 'Yes',
+            okButtonProps: { ['data-testid' as any]: 'confirm-delete-ingestion-source' },
             maskClosable: true,
             closable: true,
         });
@@ -416,6 +437,7 @@ export const IngestionSourceList = () => {
                         </StyledSelect>
 
                         <SearchBar
+                            searchInputRef={searchInputRef}
                             initialQuery={query || ''}
                             placeholderText="Search sources..."
                             suggestions={[]}
@@ -450,7 +472,7 @@ export const IngestionSourceList = () => {
                 />
                 <SourcePaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
+                        style={{ margin: 15 }}
                         current={page}
                         pageSize={pageSize}
                         total={totalSources}
@@ -466,7 +488,7 @@ export const IngestionSourceList = () => {
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
-            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config.recipe} onCancel={onCancel} />}
+            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
                 <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
             )}

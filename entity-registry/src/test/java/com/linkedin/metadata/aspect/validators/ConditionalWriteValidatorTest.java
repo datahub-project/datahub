@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.google.common.net.HttpHeaders;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -734,8 +735,10 @@ public class ConditionalWriteValidatorTest {
                                   .getEntitySpec(testEntityUrn.getEntityType())
                                   .getAspectSpec("status"))
                           // Previous / actual
-                          .createdOn(modified)
-                          .createdBy("urn:li:corpuser:test")
+                          .auditStamp(
+                              new AuditStamp()
+                                  .setTime(modified.getTime())
+                                  .setActor(UrnUtils.getUrn("urn:li:corpuser:test")))
                           .build())
                   .build();
           break;
@@ -771,8 +774,10 @@ public class ConditionalWriteValidatorTest {
                 Map.of(
                     "status",
                     TestSystemAspect.builder()
-                        .createdOn(modified)
-                        .createdBy("urn:li:corpuser:test")
+                        .auditStamp(
+                            new AuditStamp()
+                                .setTime(modified.getTime())
+                                .setActor(UrnUtils.getUrn("urn:li:corpuser:test")))
                         .build())));
 
     for (ChangeType changeType : supportedChangeTypes) {
@@ -884,8 +889,10 @@ public class ConditionalWriteValidatorTest {
                                   .getEntitySpec(testEntityUrn.getEntityType())
                                   .getAspectSpec("status"))
                           // Previous / actual
-                          .createdOn(modified)
-                          .createdBy("urn:li:corpuser:test")
+                          .auditStamp(
+                              new AuditStamp()
+                                  .setTime(modified.getTime())
+                                  .setActor(UrnUtils.getUrn("urn:li:corpuser:test")))
                           .build())
                   .build();
           break;
@@ -971,8 +978,10 @@ public class ConditionalWriteValidatorTest {
                                   .getEntitySpec(testEntityUrn.getEntityType())
                                   .getAspectSpec("status"))
                           // Previous / actual
-                          .createdOn(modified)
-                          .createdBy("urn:li:corpuser:test")
+                          .auditStamp(
+                              new AuditStamp()
+                                  .setTime(modified.getTime())
+                                  .setActor(UrnUtils.getUrn("urn:li:corpuser:test")))
                           .build())
                   .build();
           break;
@@ -1020,8 +1029,10 @@ public class ConditionalWriteValidatorTest {
                 Map.of(
                     "status",
                     TestSystemAspect.builder()
-                        .createdOn(modified)
-                        .createdBy("urn:li:corpuser:test")
+                        .auditStamp(
+                            new AuditStamp()
+                                .setTime(modified.getTime())
+                                .setActor(UrnUtils.getUrn("urn:li:corpuser:test")))
                         .build())));
 
     for (ChangeType changeType : supportedChangeTypes) {
@@ -1107,8 +1118,10 @@ public class ConditionalWriteValidatorTest {
                 Map.of(
                     "status",
                     TestSystemAspect.builder()
-                        .createdOn(modified)
-                        .createdBy("urn:li:corpuser:test")
+                        .auditStamp(
+                            new AuditStamp()
+                                .setTime(modified.getTime())
+                                .setActor(UrnUtils.getUrn("urn:li:corpuser:test")))
                         .build())));
 
     for (ChangeType changeType : supportedChangeTypes) {

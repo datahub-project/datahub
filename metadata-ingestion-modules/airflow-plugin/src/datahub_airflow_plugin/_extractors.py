@@ -3,17 +3,11 @@ import logging
 import unittest.mock
 from typing import TYPE_CHECKING, Optional
 
-import datahub.emitter.mce_builder as builder
-from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
-    get_platform_from_sqlalchemy_uri,
+from openlineage.airflow.extractors import (
+    BaseExtractor,
+    ExtractorManager as OLExtractorManager,
+    TaskMetadata,
 )
-from datahub.sql_parsing.sqlglot_lineage import (
-    SqlParsingResult,
-    create_lineage_sql_parsed_result,
-)
-from openlineage.airflow.extractors import BaseExtractor
-from openlineage.airflow.extractors import ExtractorManager as OLExtractorManager
-from openlineage.airflow.extractors import TaskMetadata
 from openlineage.airflow.extractors.snowflake_extractor import SnowflakeExtractor
 from openlineage.airflow.extractors.sql_extractor import SqlExtractor
 from openlineage.airflow.utils import get_operator_class, try_import_from_string
@@ -23,11 +17,20 @@ from openlineage.client.facet import (
     SqlJobFacet,
 )
 
+import datahub.emitter.mce_builder as builder
+from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
+    get_platform_from_sqlalchemy_uri,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
+)
 from datahub_airflow_plugin._airflow_shims import Operator
 from datahub_airflow_plugin._datahub_ol_adapter import OL_SCHEME_TWEAKS
 
 if TYPE_CHECKING:
     from airflow.models import DagRun, TaskInstance
+
     from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
@@ -50,7 +53,6 @@ class ExtractorManager(OLExtractorManager):
             "BigQueryOperator",
             "BigQueryExecuteQueryOperator",
             # Athena also does something similar.
-            "AthenaOperator",
             "AWSAthenaOperator",
             # Additional types that OL doesn't support. This is only necessary because
             # on older versions of Airflow, these operators don't inherit from SQLExecuteQueryOperator.
@@ -59,9 +61,11 @@ class ExtractorManager(OLExtractorManager):
         for operator in _sql_operator_overrides:
             self.task_to_extractor.extractors[operator] = GenericSqlExtractor
 
-        self.task_to_extractor.extractors[
-            "BigQueryInsertJobOperator"
-        ] = BigQueryInsertJobOperatorExtractor
+        self.task_to_extractor.extractors["AthenaOperator"] = AthenaOperatorExtractor
+
+        self.task_to_extractor.extractors["BigQueryInsertJobOperator"] = (
+            BigQueryInsertJobOperatorExtractor
+        )
 
         self._graph: Optional["DataHubGraph"] = None
 
@@ -273,6 +277,27 @@ class BigQueryInsertJobOperatorExtractor(BaseExtractor):
             platform="bigquery",
             default_database=operator.project_id,
             default_schema=None,
+        )
+
+
+class AthenaOperatorExtractor(BaseExtractor):
+    def extract(self) -> Optional[TaskMetadata]:
+        from airflow.providers.amazon.aws.operators.athena import (
+            AthenaOperator,  # type: ignore
+        )
+
+        operator: "AthenaOperator" = self.operator
+        sql = operator.query
+        if not sql:
+            self.log.warning("No query found in AthenaOperator")
+            return None
+
+        return _parse_sql_into_task_metadata(
+            self,
+            sql,
+            platform="athena",
+            default_database=None,
+            default_schema=self.operator.database,
         )
 
 

@@ -1,20 +1,6 @@
 package com.linkedin.metadata.aspect.patch.template;
 
-import static com.linkedin.metadata.Constants.CHART_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.UPSTREAM_LINEAGE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.data.template.RecordTemplate;
@@ -50,7 +36,9 @@ public class AspectTemplateEngine {
               DASHBOARD_INFO_ASPECT_NAME,
               STRUCTURED_PROPERTIES_ASPECT_NAME,
               STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
-              FORM_INFO_ASPECT_NAME)
+              FORM_INFO_ASPECT_NAME,
+              UPSTREAM_LINEAGE_ASPECT_NAME,
+              VERSION_PROPERTIES_ASPECT_NAME)
           .collect(Collectors.toSet());
 
   private final Map<String, Template<? extends RecordTemplate>> _aspectTemplateMap;

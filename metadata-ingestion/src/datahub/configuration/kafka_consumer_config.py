@@ -1,3 +1,4 @@
+import inspect
 import logging
 from typing import Any, Dict, Optional
 
@@ -34,5 +35,34 @@ class CallableConsumerConfig:
             "oauth_cb must be a string representing python function reference "
             "in the format <python-module>:<function-name>."
         )
+
+        call_back_fn = import_path(call_back)
+        self._validate_call_back_fn_signature(call_back_fn)
+
         # Set the callback
-        self._config[CallableConsumerConfig.CALLBACK_ATTRIBUTE] = import_path(call_back)
+        self._config[CallableConsumerConfig.CALLBACK_ATTRIBUTE] = call_back_fn
+
+    def _validate_call_back_fn_signature(self, call_back_fn: Any) -> None:
+        sig = inspect.signature(call_back_fn)
+
+        num_positional_args = len(
+            [
+                param
+                for param in sig.parameters.values()
+                if param.kind
+                in (
+                    inspect.Parameter.POSITIONAL_ONLY,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                )
+                and param.default == inspect.Parameter.empty
+            ]
+        )
+
+        has_variadic_args = any(
+            param.kind == inspect.Parameter.VAR_POSITIONAL
+            for param in sig.parameters.values()
+        )
+
+        assert num_positional_args == 1 or (
+            has_variadic_args and num_positional_args <= 1
+        ), "oauth_cb function must accept single positional argument."

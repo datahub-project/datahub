@@ -1,12 +1,16 @@
 import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 
 export const ShowMoreButton = styled.div`
-    margin-top: 12px;
-    padding: 0px;
-    color: ${ANTD_GRAY[7]};
+    padding: 4px;
+    color: ${colors.gray[1700]};
     text-align: left;
+    font-weight: 700;
+    font-size: 12px;
+    font-family: 'Mulish';
     :hover {
         cursor: pointer;
         color: ${ANTD_GRAY[8]};

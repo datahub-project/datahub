@@ -76,7 +76,7 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
     mappingHelper.mapToResult(ML_FEATURE_TABLE_KEY_ASPECT_NAME, this::mapMLFeatureTableKey);
     mappingHelper.mapToResult(
         ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME,
-        (entity, dataMap) -> this.mapMLFeatureTableProperties(context, entity, dataMap, entityUrn));
+        (entity, dataMap) -> mapMLFeatureTableProperties(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (mlFeatureTable, dataMap) ->
@@ -117,7 +117,8 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((mlFeatureTable, dataMap) ->
             mlFeatureTable.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
@@ -145,10 +146,10 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
       @Nonnull DataMap dataMap,
       Urn entityUrn) {
     MLFeatureTableProperties featureTableProperties = new MLFeatureTableProperties(dataMap);
-    mlFeatureTable.setFeatureTableProperties(
-        MLFeatureTablePropertiesMapper.map(context, featureTableProperties, entityUrn));
-    mlFeatureTable.setProperties(
-        MLFeatureTablePropertiesMapper.map(context, featureTableProperties, entityUrn));
+    com.linkedin.datahub.graphql.generated.MLFeatureTableProperties graphqlProperties =
+        MLFeatureTablePropertiesMapper.map(context, featureTableProperties, entityUrn);
+    mlFeatureTable.setFeatureTableProperties(graphqlProperties);
+    mlFeatureTable.setProperties(graphqlProperties);
     mlFeatureTable.setDescription(featureTableProperties.getDescription());
   }
 

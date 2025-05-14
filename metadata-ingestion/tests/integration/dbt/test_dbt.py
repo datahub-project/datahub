@@ -11,12 +11,6 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.ingestion.source.dbt.dbt_common import DBTEntitiesEnabled, EmitDirective
 from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
-from datahub.ingestion.source.sql.sql_types import (
-    ATHENA_SQL_TYPES_MAP,
-    TRINO_SQL_TYPES_MAP,
-    resolve_athena_modified_type,
-    resolve_trino_modified_type,
-)
 from tests.test_helpers import mce_helpers, test_connection_helpers
 
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -359,69 +353,6 @@ def test_dbt_tests(test_resources_dir, pytestconfig, tmp_path, mock_time, **kwar
         output_path=output_file,
         golden_path=golden_path,
         ignore_paths=[],
-    )
-
-
-@pytest.mark.parametrize(
-    "data_type, expected_data_type",
-    [
-        ("boolean", "boolean"),
-        ("tinyint", "tinyint"),
-        ("smallint", "smallint"),
-        ("int", "int"),
-        ("integer", "integer"),
-        ("bigint", "bigint"),
-        ("real", "real"),
-        ("double", "double"),
-        ("decimal(10,0)", "decimal"),
-        ("varchar(20)", "varchar"),
-        ("char", "char"),
-        ("varbinary", "varbinary"),
-        ("json", "json"),
-        ("date", "date"),
-        ("time", "time"),
-        ("time(12)", "time"),
-        ("timestamp", "timestamp"),
-        ("timestamp(3)", "timestamp"),
-        ("row(x bigint, y double)", "row"),
-        ("array(row(x bigint, y double))", "array"),
-        ("map(varchar, varchar)", "map"),
-    ],
-)
-def test_resolve_trino_modified_type(data_type, expected_data_type):
-    assert (
-        resolve_trino_modified_type(data_type)
-        == TRINO_SQL_TYPES_MAP[expected_data_type]
-    )
-
-
-@pytest.mark.parametrize(
-    "data_type, expected_data_type",
-    [
-        ("boolean", "boolean"),
-        ("tinyint", "tinyint"),
-        ("smallint", "smallint"),
-        ("int", "int"),
-        ("integer", "integer"),
-        ("bigint", "bigint"),
-        ("float", "float"),
-        ("double", "double"),
-        ("decimal(10,0)", "decimal"),
-        ("varchar(20)", "varchar"),
-        ("char", "char"),
-        ("binary", "binary"),
-        ("date", "date"),
-        ("timestamp", "timestamp"),
-        ("timestamp(3)", "timestamp"),
-        ("struct<x timestamp(3), y timestamp>", "struct"),
-        ("array<struct<x bigint, y double>>", "array"),
-        ("map<varchar, varchar>", "map"),
-    ],
-)
-def test_resolve_athena_modified_type(data_type, expected_data_type):
-    assert (
-        resolve_athena_modified_type(data_type)
-        == ATHENA_SQL_TYPES_MAP[expected_data_type]
     )
 
 

@@ -2,7 +2,6 @@ import contextlib
 import dataclasses
 import enum
 import functools
-import itertools
 import json
 import logging
 import os
@@ -31,7 +30,9 @@ from datahub.metadata.urns import (
     DatasetUrn,
     QueryUrn,
     SchemaFieldUrn,
+    Urn,
 )
+from datahub.sql_parsing.fingerprint_utils import generate_hash
 from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverInterface,
@@ -49,7 +50,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.sql_parsing.sqlglot_utils import (
     _parse_statement,
-    generate_hash,
     get_query_fingerprint,
     try_format_query,
 )
@@ -63,6 +63,7 @@ from datahub.utilities.file_backed_collections import (
     FileBackedDict,
     FileBackedList,
 )
+from datahub.utilities.groupby import groupby_unsorted
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.ordered_set import OrderedSet
 from datahub.utilities.perf_timer import PerfTimer
@@ -139,6 +140,8 @@ class QueryMetadata:
 
     used_temp_tables: bool = True
 
+    origin: Optional[Urn] = None
+
     def make_created_audit_stamp(self) -> models.AuditStampClass:
         return models.AuditStampClass(
             time=make_ts_millis(self.latest_timestamp) or 0,
@@ -151,6 +154,47 @@ class QueryMetadata:
             or 0,
             actor=(self.actor or _DEFAULT_USER_URN).urn(),
         )
+
+    def get_subjects(
+        self,
+        downstream_urn: Optional[str],
+        include_fields: bool,
+    ) -> List[UrnStr]:
+        query_subject_urns = OrderedSet[UrnStr]()
+        for upstream in self.upstreams:
+            query_subject_urns.add(upstream)
+            if include_fields:
+                for column in sorted(self.column_usage.get(upstream, [])):
+                    query_subject_urns.add(
+                        builder.make_schema_field_urn(upstream, column)
+                    )
+        if downstream_urn:
+            query_subject_urns.add(downstream_urn)
+            if include_fields:
+                for column_lineage in self.column_lineage:
+                    query_subject_urns.add(
+                        builder.make_schema_field_urn(
+                            downstream_urn, column_lineage.downstream.column
+                        )
+                    )
+        return list(query_subject_urns)
+
+    def make_query_properties(self) -> models.QueryPropertiesClass:
+        return models.QueryPropertiesClass(
+            statement=models.QueryStatementClass(
+                value=self.formatted_query_string,
+                language=models.QueryLanguageClass.SQL,
+            ),
+            source=models.QuerySourceClass.SYSTEM,
+            created=self.make_created_audit_stamp(),
+            lastModified=self.make_last_modified_audit_stamp(),
+        )
+
+
+def make_query_subjects(urns: List[UrnStr]) -> models.QuerySubjectsClass:
+    return models.QuerySubjectsClass(
+        subjects=[models.QuerySubjectClass(entity=urn) for urn in urns]
+    )
 
 
 @dataclasses.dataclass
@@ -165,6 +209,7 @@ class KnownQueryLineageInfo:
     timestamp: Optional[datetime] = None
     session_id: Optional[str] = None
     query_type: QueryType = QueryType.UNKNOWN
+    query_id: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -198,7 +243,7 @@ class TableSwap:
 
 @dataclasses.dataclass
 class PreparsedQuery:
-    # If not provided, we will generate one using the fast fingerprint generator.
+    # If not provided, we will generate one using the fingerprint generator.
     query_id: Optional[QueryId]
 
     query_text: str
@@ -220,6 +265,7 @@ class PreparsedQuery:
     )
     # Use this to store addtitional key-value information about query for debugging
     extra_info: Optional[dict] = None
+    origin: Optional[Urn] = None
 
 
 @dataclasses.dataclass
@@ -283,6 +329,7 @@ class SqlAggregatorReport(Report):
 
     # Queries.
     num_queries_entities_generated: int = 0
+    num_queries_used_in_lineage: Optional[int] = None
     num_queries_skipped_due_to_filters: int = 0
 
     # Usage-related.
@@ -490,7 +537,7 @@ class SqlParsingAggregator(Closeable):
             self._exit_stack.push(self._query_usage_counts)
 
         # Tool Extractor
-        self._tool_meta_extractor = ToolMetaExtractor()
+        self._tool_meta_extractor = ToolMetaExtractor.create(graph)
         self.report.tool_meta_report = self._tool_meta_extractor.report
 
     def close(self) -> None:
@@ -618,12 +665,13 @@ class SqlParsingAggregator(Closeable):
         self.report.num_known_query_lineage += 1
 
         # Generate a fingerprint for the query.
-        with self.report.sql_fingerprinting_timer:
-            query_fingerprint = get_query_fingerprint(
-                known_query_lineage.query_text,
-                platform=self.platform.platform_name,
-                fast=True,
-            )
+        query_fingerprint = known_query_lineage.query_id
+        if not query_fingerprint:
+            with self.report.sql_fingerprinting_timer:
+                query_fingerprint = get_query_fingerprint(
+                    known_query_lineage.query_text,
+                    platform=self.platform.platform_name,
+                )
         formatted_query = self._maybe_format_query(known_query_lineage.query_text)
 
         # Register the query.
@@ -679,10 +727,10 @@ class SqlParsingAggregator(Closeable):
         query_id = self._known_lineage_query_id()
 
         # Generate CLL if schema of downstream is known
-        column_lineage: List[
-            ColumnLineageInfo
-        ] = self._generate_identity_column_lineage(
-            upstream_urn=upstream_urn, downstream_urn=downstream_urn
+        column_lineage: List[ColumnLineageInfo] = (
+            self._generate_identity_column_lineage(
+                upstream_urn=upstream_urn, downstream_urn=downstream_urn
+            )
         )
 
         # Register the query.
@@ -848,7 +896,6 @@ class SqlParsingAggregator(Closeable):
             query_fingerprint = get_query_fingerprint(
                 parsed.query_text,
                 platform=self.platform.platform_name,
-                fast=True,
             )
 
         # Format the query.
@@ -901,6 +948,7 @@ class SqlParsingAggregator(Closeable):
                 column_usage=parsed.column_usage or {},
                 confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
+                origin=parsed.origin,
             )
         )
 
@@ -1042,9 +1090,9 @@ class SqlParsingAggregator(Closeable):
             temp_table_schemas: Dict[str, Optional[List[models.SchemaFieldClass]]] = {}
             for temp_table_urn, query_ids in self._temp_lineage_map[session_id].items():
                 for query_id in query_ids:
-                    temp_table_schemas[
-                        temp_table_urn
-                    ] = self._inferred_temp_schemas.get(query_id)
+                    temp_table_schemas[temp_table_urn] = (
+                        self._inferred_temp_schemas.get(query_id)
+                    )
                     if temp_table_schemas:
                         break
 
@@ -1071,9 +1119,9 @@ class SqlParsingAggregator(Closeable):
             schema_resolver=self._schema_resolver,
         )
         if parsed.debug_info.error:
-            self.report.views_parse_failures[
-                view_urn
-            ] = f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            self.report.views_parse_failures[view_urn] = (
+                f"{parsed.debug_info.error} on query: {view_definition.view_definition[:100]}"
+            )
         if parsed.debug_info.table_error:
             self.report.num_views_failed += 1
             return  # we can't do anything with this query
@@ -1199,6 +1247,7 @@ class SqlParsingAggregator(Closeable):
         queries_generated: Set[QueryId] = set()
 
         yield from self._gen_lineage_mcps(queries_generated)
+        self.report.num_queries_used_in_lineage = len(queries_generated)
         yield from self._gen_usage_statistics_mcps()
         yield from self._gen_operation_mcps(queries_generated)
         yield from self._gen_remaining_queries(queries_generated)
@@ -1311,12 +1360,19 @@ class SqlParsingAggregator(Closeable):
         upstream_aspect.fineGrainedLineages = []
         for downstream_column, all_upstream_columns in cll.items():
             # Group by query ID.
-            for query_id, upstream_columns_for_query in itertools.groupby(
-                sorted(all_upstream_columns.items(), key=lambda x: x[1]),
+            for query_id, upstream_columns_for_query in groupby_unsorted(
+                all_upstream_columns.items(),
                 key=lambda x: x[1],
             ):
                 upstream_columns = [x[0] for x in upstream_columns_for_query]
                 required_queries.add(query_id)
+                query = queries_map[query_id]
+
+                column_logic = None
+                for lineage_info in query.column_lineage:
+                    if lineage_info.downstream.column == downstream_column:
+                        column_logic = lineage_info.logic
+                        break
 
                 upstream_aspect.fineGrainedLineages.append(
                     models.FineGrainedLineageClass(
@@ -1334,7 +1390,16 @@ class SqlParsingAggregator(Closeable):
                             if self.can_generate_query(query_id)
                             else None
                         ),
-                        confidenceScore=queries_map[query_id].confidence_score,
+                        confidenceScore=query.confidence_score,
+                        transformOperation=(
+                            (
+                                f"COPY: {column_logic.column_logic}"
+                                if column_logic.is_direct_copy
+                                else f"SQL: {column_logic.column_logic}"
+                            )
+                            if column_logic
+                            else None
+                        ),
                     )
                 )
 
@@ -1383,8 +1448,7 @@ class SqlParsingAggregator(Closeable):
         return QueryUrn(query_id).urn()
 
     @classmethod
-    def _composite_query_id(cls, composed_of_queries: Iterable[QueryId]) -> str:
-        composed_of_queries = list(composed_of_queries)
+    def _composite_query_id(cls, composed_of_queries: List[QueryId]) -> str:
         combined = json.dumps(composed_of_queries)
         return f"composite_{generate_hash(combined)}"
 
@@ -1433,41 +1497,15 @@ class SqlParsingAggregator(Closeable):
             self.report.num_queries_skipped_due_to_filters += 1
             return
 
-        query_subject_urns = OrderedSet[UrnStr]()
-        for upstream in query.upstreams:
-            query_subject_urns.add(upstream)
-            if self.generate_query_subject_fields:
-                for column in sorted(query.column_usage.get(upstream, [])):
-                    query_subject_urns.add(
-                        builder.make_schema_field_urn(upstream, column)
-                    )
-        if downstream_urn:
-            query_subject_urns.add(downstream_urn)
-            if self.generate_query_subject_fields:
-                for column_lineage in query.column_lineage:
-                    query_subject_urns.add(
-                        builder.make_schema_field_urn(
-                            downstream_urn, column_lineage.downstream.column
-                        )
-                    )
-
         yield from MetadataChangeProposalWrapper.construct_many(
             entityUrn=self._query_urn(query_id),
             aspects=[
-                models.QueryPropertiesClass(
-                    statement=models.QueryStatementClass(
-                        value=query.formatted_query_string,
-                        language=models.QueryLanguageClass.SQL,
-                    ),
-                    source=models.QuerySourceClass.SYSTEM,
-                    created=query.make_created_audit_stamp(),
-                    lastModified=query.make_last_modified_audit_stamp(),
-                ),
-                models.QuerySubjectsClass(
-                    subjects=[
-                        models.QuerySubjectClass(entity=urn)
-                        for urn in query_subject_urns
-                    ]
+                query.make_query_properties(),
+                make_query_subjects(
+                    query.get_subjects(
+                        downstream_urn=downstream_urn,
+                        include_fields=self.generate_query_subject_fields,
+                    )
                 ),
                 models.DataPlatformInstanceClass(
                     platform=self.platform.urn(),
@@ -1581,9 +1619,9 @@ class SqlParsingAggregator(Closeable):
                                     temp_query_lineage_info
                                 )
                             else:
-                                temp_upstream_queries[
-                                    upstream
-                                ] = temp_query_lineage_info
+                                temp_upstream_queries[upstream] = (
+                                    temp_query_lineage_info
+                                )
 
             # Compute merged upstreams.
             new_upstreams = OrderedSet[UrnStr]()
@@ -1663,9 +1701,9 @@ class SqlParsingAggregator(Closeable):
         composed_of_queries_truncated: LossyList[str] = LossyList()
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
-        self.report.queries_with_temp_upstreams[
-            composite_query_id
-        ] = composed_of_queries_truncated
+        self.report.queries_with_temp_upstreams[composite_query_id] = (
+            composed_of_queries_truncated
+        )
 
         merged_query_text = ";\n\n".join(
             [q.formatted_query_string for q in ordered_queries]
@@ -1731,8 +1769,9 @@ class SqlParsingAggregator(Closeable):
             operationType=operation_type,
             lastUpdatedTimestamp=make_ts_millis(query.latest_timestamp),
             actor=query.actor.urn() if query.actor else None,
-            customProperties=(
-                {"query_urn": self._query_urn(query_id)}
+            sourceType=models.OperationSourceTypeClass.DATA_PLATFORM,
+            queries=(
+                [self._query_urn(query_id)]
                 if self.can_generate_query(query_id)
                 else None
             ),

@@ -1,0 +1,48 @@
+namespace com.linkedin.dataplatforminstance
+
+import com.linkedin.common.Urn
+import com.linkedin.common.FabricType
+
+/**
+ * An Iceberg warehouse location and credentails whose read/writes are governed by datahub catalog.
+ */
+@Aspect = {
+  "name": "icebergWarehouseInfo"
+}
+record  IcebergWarehouseInfo {
+
+  /**
+   * Path of the root for the backing store of the tables in the warehouse.
+   */
+  dataRoot: string
+
+  /**
+   * clientId to be used to authenticate with storage hosting this warehouse
+   */
+  clientId: Urn
+
+  /**
+   * client secret to authenticate with storage hosting this warehouse
+   */
+  clientSecret: Urn
+
+  /**
+   * region where the warehouse is located.
+   */
+  region: string
+
+  /*
+   * Role to be used when vending credentials to writers.
+   */
+  role: optional string
+
+  /*
+   * Expiration for temporary credentials created to access this warehouse.
+   */
+  tempCredentialExpirationSeconds: optional int
+
+  /*
+   * Environment where all assets stored in this warehouse belong to
+   */
+  env: FabricType
+}

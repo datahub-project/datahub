@@ -1,0 +1,27 @@
+namespace com.linkedin.common
+
+/**
+ * Standardized dataset identifier.
+ */
+@java.class = "com.linkedin.common.urn.DataPlatformInstanceUrn"
+@validate.`com.linkedin.common.validator.TypedUrnValidator` = {
+  "accessible" : true,
+  "owningTeam" : "urn:li:internalTeam:datahub",
+  "entityType" : "dataPlatformInstance",
+  "constructable" : true,
+  "namespace" : "li",
+  "name" : "DataPlatformInstance",
+  "doc" : "Standardized data platform instance identifier.",
+  "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
+  "fields" : [ {
+    "type" : "com.linkedin.common.urn.DataPlatformUrn",
+    "name" : "platform",
+    "doc" : "Standardized platform urn."
+  }, {
+    "name" : "instance",
+    "doc" : "Instance of the data platform (e.g. db instance)",
+    "type" : "string",
+  } ],
+  "maxLength" : 100
+}
+typeref DataPlatformInstanceUrn = string

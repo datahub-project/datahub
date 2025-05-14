@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
 
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.config.cache.EntityDocCountCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchCacheConfiguration;
 import com.linkedin.metadata.config.cache.SearchLineageCacheConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -26,7 +28,6 @@ import com.linkedin.metadata.search.cache.EntityDocCountCache;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -108,9 +109,10 @@ public class SearchLineageFixtureConfiguration {
     return conf;
   }
 
-  @Bean(name = "searchLineageEntityIndexBuilders")
-  protected EntityIndexBuilders entityIndexBuilders(
-      @Qualifier("searchLineageOperationContext") OperationContext opContext) {
+  @Bean(name = "searchLineageEntitySearchService")
+  protected ElasticSearchService entitySearchService(
+      @Qualifier("searchLineageOperationContext") OperationContext opContext,
+      final QueryFilterRewriteChain queryFilterRewriteChain) {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     ESIndexBuilder indexBuilder =
         new ESIndexBuilder(
@@ -125,18 +127,9 @@ public class SearchLineageFixtureConfiguration {
             false,
             new ElasticSearchConfiguration(),
             gitVersion);
-    SettingsBuilder settingsBuilder = new SettingsBuilder(null);
-    return new EntityIndexBuilders(
-        indexBuilder,
-        opContext.getEntityRegistry(),
-        opContext.getSearchContext().getIndexConvention(),
-        settingsBuilder);
-  }
-
-  @Bean(name = "searchLineageEntitySearchService")
-  protected ElasticSearchService entitySearchService(
-      @Qualifier("searchLineageEntityIndexBuilders") EntityIndexBuilders indexBuilders,
-      final QueryFilterRewriteChain queryFilterRewriteChain) {
+    IndexConfiguration indexConfiguration = new IndexConfiguration();
+    indexConfiguration.setMinSearchFilterLength(3);
+    SettingsBuilder settingsBuilder = new SettingsBuilder(null, indexConfiguration);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             searchClient,
@@ -150,7 +143,14 @@ public class SearchLineageFixtureConfiguration {
             searchClient, searchConfiguration, customSearchConfiguration, queryFilterRewriteChain);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClient, bulkProcessor, 1);
 
-    return new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
+    return new ElasticSearchService(
+        indexBuilder,
+        opContext.getEntityRegistry(),
+        opContext.getSearchContext().getIndexConvention(),
+        settingsBuilder,
+        searchDAO,
+        browseDAO,
+        writeDAO);
   }
 
   @Bean(name = "searchLineageOperationContext")
@@ -161,7 +161,7 @@ public class SearchLineageFixtureConfiguration {
 
     return testOpContext.toBuilder()
         .searchContext(SearchContext.builder().indexConvention(indexConvention).build())
-        .build(testOpContext.getSessionAuthentication());
+        .build(testOpContext.getSessionAuthentication(), true);
   }
 
   @Bean(name = "searchLineageESIndexBuilder")
@@ -229,8 +229,7 @@ public class SearchLineageFixtureConfiguration {
   @Nonnull
   protected SearchService searchService(
       @Qualifier("searchLineageOperationContext") OperationContext opContext,
-      @Qualifier("searchLineageEntitySearchService") ElasticSearchService entitySearchService,
-      @Qualifier("searchLineageEntityIndexBuilders") EntityIndexBuilders indexBuilders)
+      @Qualifier("searchLineageEntitySearchService") ElasticSearchService entitySearchService)
       throws IOException {
 
     int batchSize = 100;
@@ -250,7 +249,7 @@ public class SearchLineageFixtureConfiguration {
             ranker);
 
     // Build indices
-    indexBuilders.reindexAll(Collections.emptySet());
+    entitySearchService.reindexAll(Collections.emptySet());
 
     return service;
   }
@@ -276,6 +275,6 @@ public class SearchLineageFixtureConfiguration {
         null,
         null,
         null,
-        1);
+        EntityClientConfig.builder().batchGetV2Size(1).build());
   }
 }

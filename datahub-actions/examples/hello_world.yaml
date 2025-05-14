@@ -1,0 +1,12 @@
+# hello_world.yaml
+name: "hello_world"
+# 1. Event Source: Where to source event from.
+source:
+  type: "kafka"
+  config:
+    connection:
+      bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
+      schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
+# 2. Action: What action to take on events. 
+action:
+  type: "hello_world"

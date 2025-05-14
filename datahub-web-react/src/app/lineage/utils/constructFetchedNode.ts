@@ -1,5 +1,6 @@
-import { EntityType } from '../../../types.generated';
-import { Direction, EntityAndType, FetchedEntities, FetchedEntity, NodeData } from '../types';
+import { Direction, EntityAndType, FetchedEntities, FetchedEntity, NodeData } from '@app/lineage/types';
+
+import { EntityType } from '@types';
 
 // If there are nodes A, B, C and A -> B, B -> C, A -> C, where A and C are Datasets and B is a DataJob, we don't want to show edge A -> C
 export function shouldIncludeChildEntity(
@@ -68,6 +69,7 @@ export default function constructFetchedNode(
             upstreamRelationships: fetchedNode?.upstreamRelationships || [],
             downstreamRelationships: fetchedNode?.downstreamRelationships || [],
             health: fetchedNode?.health,
+            structuredProperties: fetchedNode?.structuredProperties,
         };
 
         // eslint-disable-next-line no-param-reassign

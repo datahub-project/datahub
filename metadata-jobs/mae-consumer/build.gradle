@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
 }
-
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply plugin: 'pegasus'
 
 configurations {
@@ -33,6 +33,8 @@ dependencies {
 
     implementation externalDependency.springKafka
     implementation externalDependency.annotationApi
+    implementation externalDependency.opentelemetrySdkTrace
+    implementation externalDependency.opentelemetrySdkMetrics
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
@@ -43,6 +45,8 @@ dependencies {
 
     testImplementation externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
+    implementation externalDependency.azureIdentityExtensions
+    implementation externalDependency.azureIdentity
 
     testImplementation externalDependency.testng
     testImplementation externalDependency.springBootTest
@@ -63,5 +67,5 @@ compileJava.dependsOn avroSchemaSources
 processResources.dependsOn avroSchemaSources
 
 clean {
-    project.delete("src/main/resources/avro")
+    delete "src/main/resources/avro"
 }

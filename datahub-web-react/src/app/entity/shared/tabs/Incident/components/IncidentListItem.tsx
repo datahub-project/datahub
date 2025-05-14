@@ -1,20 +1,22 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
-import { Button, Dropdown, List, message, Popover, Tag, Tooltip, Typography } from 'antd';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
+import { Button, Dropdown, List, Popover, Tag, Tooltip, Typography, message } from 'antd';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';
-import { FAILURE_COLOR_HEX, getNameFromType, SUCCESS_COLOR_HEX } from '../incidentUtils';
-import { useGetUserQuery } from '../../../../../../graphql/user.generated';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../shared/time/timeUtils';
-import { useEntityData, useRefetch } from '../../../EntityContext';
-import analytics, { EntityActionType, EventType } from '../../../../../analytics';
-import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutations.generated';
-import { ResolveIncidentModal } from './ResolveIncidentModal';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import { MenuItemStyle } from '../../../../view/menu/item/styledComponent';
-import MarkdownViewer from '../../../components/legacy/MarkdownViewer';
+import styled from 'styled-components';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import MarkdownViewer from '@app/entity/shared/components/legacy/MarkdownViewer';
+import { ResolveIncidentModal } from '@app/entity/shared/tabs/Incident/components/ResolveIncidentModal';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX, getNameFromType } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useUpdateIncidentStatusMutation } from '@graphql/mutations.generated';
+import { useGetUserQuery } from '@graphql/user.generated';
+import { EntityType, IncidentState, IncidentType } from '@types';
 
 type Props = {
     incident: any;
@@ -233,7 +235,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
                                         <IncidentDescriptionText>
-                                            {incident?.status.message || 'No additional details'}
+                                            {incident?.status?.message || 'No additional details'}
                                         </IncidentDescriptionText>
                                     </>
                                 ) : null}
@@ -264,15 +266,15 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 placement="left"
                                 title={<Typography.Text strong>Note</Typography.Text>}
                                 content={
-                                    incident?.status.message === null ? (
+                                    incident?.status?.message === null ? (
                                         <Typography.Text type="secondary">No additional details</Typography.Text>
                                     ) : (
-                                        <Typography.Text type="secondary">{incident?.status.message}</Typography.Text>
+                                        <Typography.Text type="secondary">{incident?.status?.message}</Typography.Text>
                                     )
                                 }
                             >
                                 <IncidentResolvedText>
-                                    {incident?.status.lastUpdated && (
+                                    {incident?.status?.lastUpdated && (
                                         <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
                                             Resolved {toRelativeTimeString(lastModifiedDate)} by{' '}
                                         </Tooltip>

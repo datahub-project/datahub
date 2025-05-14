@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import AppLogoLink from '../../../../shared/AppLogoLink';
+
+import AppLogoLink from '@app/shared/AppLogoLink';
 
 const Header = styled.div`
     padding: 12px 24px;

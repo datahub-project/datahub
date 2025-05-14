@@ -3,9 +3,11 @@ description: >-
   This guide details the Entity Events API, which allows you to take action when
   things change on DataHub.
 ---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Entity Events API
+
 <FeatureAvailability saasOnly />
 
 ## Introduction
@@ -14,17 +16,18 @@ The Events API allows you to integrate changes happening on the DataHub Metadata
 
 ### Supported Integrations
 
-* [AWS EventBridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
+- [AWS EventBridge](docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md)
+- [DataHub Cloud Event Source](docs/actions/sources/datahub-cloud-event-source.md)
 
 ### Use Cases
 
 Real-time use cases broadly fall into the following categories:
 
-* **Workflow Integration:** Integrate DataHub flows into your organization's internal workflow management system. For example, create a Jira ticket when specific Tags or Terms are proposed on a Dataset.
-* **Notifications**: Generate organization-specific notifications when a change is made on DataHub. For example, send an email to the governance team when a "PII" tag is added to any data asset.
-* **Metadata Enrichment**: Trigger downstream metadata changes when an upstream change occurs. For example, propagating glossary terms or tags to downstream entities.
-* **Synchronization**: Syncing changes made in DataHub into a 3rd party system. For example, reflecting Tag additions in DataHub into Snowflake.
-* **Auditing:** Audit **** _who_ is making _what changes_ on DataHub through time.
+- **Workflow Integration:** Integrate DataHub flows into your organization's internal workflow management system. For example, create a Jira ticket when specific Tags or Terms are proposed on a Dataset.
+- **Notifications**: Generate organization-specific notifications when a change is made on DataHub. For example, send an email to the governance team when a "PII" tag is added to any data asset.
+- **Metadata Enrichment**: Trigger downstream metadata changes when an upstream change occurs. For example, propagating glossary terms or tags to downstream entities.
+- **Synchronization**: Syncing changes made in DataHub into a 3rd party system. For example, reflecting Tag additions in DataHub into Snowflake.
+- **Auditing:** Audit \*\*\*\* _who_ is making _what changes_ on DataHub through time.
 
 ## Event Structure
 
@@ -32,16 +35,16 @@ Each entity event is serialized to JSON & follows a common base structure.
 
 **Common Fields**
 
-| Name                 | Type   | Description                                                                                                                                                                                             | Optional  |
-| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| **entityUrn**        | String | The unique identifier for the Entity being changed. For example, a Dataset's urn.                                                                                                                       | Fals**e** |
-| **entityType**       | String | The type of the entity being changed. Supported values include `dataset`, `chart`, `dashboard`, `dataFlow (Pipeline)`, `dataJob` (Task), `domain`, `tag`, `glossaryTerm`, `corpGroup`, & `corpUser.`    | False     |
-| **category**         | String | The category of the change, related to the kind of operation that was performed. Examples include `TAG`, `GLOSSARY_TERM`, `DOMAIN`, `LIFECYCLE`, and more.                                              | False     |
-| **operation**        | String | The operation being performed on the entity given the category. For example, `ADD` ,`REMOVE`, `MODIFY`. For the set of valid operations, see the full catalog below.                                    | False     |
-| **modifier**         | String | The modifier that has been applied to the entity. The value depends on the category. An example includes the URN of a tag being applied to a Dataset or Schema Field.                                   | True      |
-| **parameters**       | Dict   | Additional key-value parameters used to provide specific context. The precise contents depends on the category + operation of the event. See the catalog below for a full summary of the combinations.  | True      |
-| **auditStamp.actor** | String | The urn of the actor who triggered the change.                                                                                                                                                          | False     |
-| **auditStamp.time**  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                               | False     |  
+| Name                 | Type   | Description                                                                                                                                                                                            | Optional  |
+| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
+| **entityUrn**        | String | The unique identifier for the Entity being changed. For example, a Dataset's urn.                                                                                                                      | Fals**e** |
+| **entityType**       | String | The type of the entity being changed. Supported values include `dataset`, `chart`, `dashboard`, `dataFlow (Pipeline)`, `dataJob` (Task), `domain`, `tag`, `glossaryTerm`, `corpGroup`, & `corpUser.`   | False     |
+| **category**         | String | The category of the change, related to the kind of operation that was performed. Examples include `TAG`, `GLOSSARY_TERM`, `DOMAIN`, `LIFECYCLE`, and more.                                             | False     |
+| **operation**        | String | The operation being performed on the entity given the category. For example, `ADD` ,`REMOVE`, `MODIFY`. For the set of valid operations, see the full catalog below.                                   | False     |
+| **modifier**         | String | The modifier that has been applied to the entity. The value depends on the category. An example includes the URN of a tag being applied to a Dataset or Schema Field.                                  | True      |
+| **parameters**       | Dict   | Additional key-value parameters used to provide specific context. The precise contents depends on the category + operation of the event. See the catalog below for a full summary of the combinations. | True      |
+| **auditStamp.actor** | String | The urn of the actor who triggered the change.                                                                                                                                                         | False     |
+| **auditStamp.time**  | Number | The timestamp in milliseconds corresponding to the event.                                                                                                                                              | False     |
 
 For example, an event indicating that a Tag has been added to a particular Dataset would populate each of these fields:
 
@@ -57,7 +60,7 @@ For example, an event indicating that a Tag has been added to a particular Datas
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -78,11 +81,11 @@ This event is emitted when a Tag has been added to an entity on DataHub.
 
 #### Parameters
 
-| Name      | Type   | Description                                                                                                                                                  | Optional |
-| --------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| tagUrn    | String | The urn of the tag that has been added.                                                                                                                      | False    |
-| fieldPath | String | The path of the schema field which the tag is being added to. This field is **only** present if the entity type is `schemaField`.                            | True     |
-| parentUrn | String | The urn of a parent entity. This field is only present if the entity type is `schemaField`, and will contain the parent Dataset to which the field belongs.  | True     |
+| Name      | Type   | Description                                                                                                                                                 | Optional |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| tagUrn    | String | The urn of the tag that has been added.                                                                                                                     | False    |
+| fieldPath | String | The path of the schema field which the tag is being added to. This field is **only** present if the entity type is `schemaField`.                           | True     |
+| parentUrn | String | The urn of a parent entity. This field is only present if the entity type is `schemaField`, and will contain the parent Dataset to which the field belongs. | True     |
 
 #### Sample Event
 
@@ -98,12 +101,10 @@ This event is emitted when a Tag has been added to an entity on DataHub.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
-
 
 ### Remove Tag Event
 
@@ -115,11 +116,11 @@ This event is emitted when a Tag has been removed from an entity on DataHub.
 
 #### Parameters
 
-| Name      | Type   | Description                                                                                                                                                  | Optional |
-| --------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| tagUrn    | String | The urn of the tag that has been removed.                                                                                                                    | False    |
-| fieldPath | String | The path of the schema field which the tag is being removed from. This field is **only** present if the entity type is `schemaField`.                        | True     |
-| parentUrn | String | The urn of a parent entity. This field is only present if the entity type is `schemaField`, and will contain the parent Dataset to which the field belongs.  | True     |
+| Name      | Type   | Description                                                                                                                                                 | Optional |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| tagUrn    | String | The urn of the tag that has been removed.                                                                                                                   | False    |
+| fieldPath | String | The path of the schema field which the tag is being removed from. This field is **only** present if the entity type is `schemaField`.                       | True     |
+| parentUrn | String | The urn of a parent entity. This field is only present if the entity type is `schemaField`, and will contain the parent Dataset to which the field belongs. | True     |
 
 #### Sample Event
 
@@ -135,7 +136,7 @@ This event is emitted when a Tag has been removed from an entity on DataHub.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -150,11 +151,11 @@ This event is emitted when a Glossary Term has been added to an entity on DataHu
 
 #### Parameters
 
-| Name      |   | Type   | Description                                                                                                                                                  | Optional |
-| --------- | - | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| termUrn   |   | String | The urn of the glossary term that has been added.                                                                                                            | False    |
-| fieldPath |   | String | The path of the schema field to which the term is being added. This field is **only** present if the entity type is `schemaField`.                           | True     |
-| parentUrn |   | String | The urn of a parent entity. This field is only present if the entity type is `schemaField`, and will contain the parent Dataset to which the field belongs.  | True     |
+| Name      |     | Type   | Description                                                                                                                                                 | Optional |
+| --------- | --- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| termUrn   |     | String | The urn of the glossary term that has been added.                                                                                                           | False    |
+| fieldPath |     | String | The path of the schema field to which the term is being added. This field is **only** present if the entity type is `schemaField`.                          | True     |
+| parentUrn |     | String | The urn of a parent entity. This field is only present if the entity type is `schemaField`, and will contain the parent Dataset to which the field belongs. | True     |
 
 #### Sample Event
 
@@ -170,7 +171,7 @@ This event is emitted when a Glossary Term has been added to an entity on DataHu
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -185,11 +186,11 @@ This event is emitted when a Glossary Term has been removed from an entity on Da
 
 #### Parameters
 
-| Name      | Type   | Description                                                                                                                                                  | Optional |
-| --------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| termUrn   | String | The urn of the glossary term that has been removed.                                                                                                          | False    |
-| fieldPath | String | The path of the schema field from which the term is being removed. This field is **only** present if the entity type is `schemaField`.                       | True     |
-| parentUrn | String | The urn of a parent entity. This field is only present if the entity type is `schemaField`, and will contain the parent Dataset to which the field belongs.  | True     |
+| Name      | Type   | Description                                                                                                                                                 | Optional |
+| --------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| termUrn   | String | The urn of the glossary term that has been removed.                                                                                                         | False    |
+| fieldPath | String | The path of the schema field from which the term is being removed. This field is **only** present if the entity type is `schemaField`.                      | True     |
+| parentUrn | String | The urn of a parent entity. This field is only present if the entity type is `schemaField`, and will contain the parent Dataset to which the field belongs. | True     |
 
 #### Sample Event
 
@@ -205,7 +206,7 @@ This event is emitted when a Glossary Term has been removed from an entity on Da
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -220,9 +221,9 @@ This event is emitted when Domain has been added to an entity on DataHub.
 
 #### Parameters
 
-| Name      | Type   | Description                                 | Optional |
-| --------- | ------ | ------------------------------------------- | -------- |
-| domainUrn | String | The urn of the domain that has been added.  | False    |
+| Name      | Type   | Description                                | Optional |
+| --------- | ------ | ------------------------------------------ | -------- |
+| domainUrn | String | The urn of the domain that has been added. | False    |
 
 #### Sample Event
 
@@ -238,7 +239,7 @@ This event is emitted when Domain has been added to an entity on DataHub.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -253,9 +254,9 @@ This event is emitted when Domain has been removed from an entity on DataHub.
 
 #### Parameters
 
-| Name      | Type   | Description                                   | Optional |
-| --------- | ------ | --------------------------------------------- | -------- |
-| domainUrn | String | The urn of the domain that has been removed.  | False    |
+| Name      | Type   | Description                                  | Optional |
+| --------- | ------ | -------------------------------------------- | -------- |
+| domainUrn | String | The urn of the domain that has been removed. | False    |
 
 #### Sample Event
 
@@ -271,7 +272,7 @@ This event is emitted when Domain has been removed from an entity on DataHub.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -286,10 +287,10 @@ This event is emitted when a new owner has been assigned to an entity on DataHub
 
 #### Parameters
 
-| Name      | Type   | Description                                                                                                   | Optional |
-| --------- | ------ | ------------------------------------------------------------------------------------------------------------- | -------- |
-| ownerUrn  | String | The urn of the owner that has been added.                                                                     | False    |
-| ownerType | String | The type of the owner that has been added. `TECHNICAL_OWNER`, `BUSINESS_OWNER`, `DATA_STEWARD`, `NONE`, etc.  | False    |
+| Name      | Type   | Description                                                                                                  | Optional |
+| --------- | ------ | ------------------------------------------------------------------------------------------------------------ | -------- |
+| ownerUrn  | String | The urn of the owner that has been added.                                                                    | False    |
+| ownerType | String | The type of the owner that has been added. `TECHNICAL_OWNER`, `BUSINESS_OWNER`, `DATA_STEWARD`, `NONE`, etc. | False    |
 
 #### Sample Event
 
@@ -306,7 +307,7 @@ This event is emitted when a new owner has been assigned to an entity on DataHub
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -321,10 +322,10 @@ This event is emitted when an existing owner has been removed from an entity on 
 
 #### Parameters
 
-| Name      | Type   | Description                                                                                                     | Optional |
-| --------- | ------ | --------------------------------------------------------------------------------------------------------------- | -------- |
-| ownerUrn  | String | The urn of the owner that has been removed.                                                                     | False    |
-| ownerType | String | The type of the owner that has been removed. `TECHNICAL_OWNER`, `BUSINESS_OWNER`, `DATA_STEWARD`, `NONE`, etc.  | False    |
+| Name      | Type   | Description                                                                                                    | Optional |
+| --------- | ------ | -------------------------------------------------------------------------------------------------------------- | -------- |
+| ownerUrn  | String | The urn of the owner that has been removed.                                                                    | False    |
+| ownerType | String | The type of the owner that has been removed. `TECHNICAL_OWNER`, `BUSINESS_OWNER`, `DATA_STEWARD`, `NONE`, etc. | False    |
 
 #### Sample Event
 
@@ -341,7 +342,7 @@ This event is emitted when an existing owner has been removed from an entity on 
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -356,9 +357,9 @@ This event is emitted when a description has been added to an entity on DataHub.
 
 #### Parameters
 
-| Name        | Type   | Description                                                                                                  | Optional |
-|-------------| ------ |--------------------------------------------------------------------------------------------------------------| -------- |
-| description | String | The description that has been added.                                                                         | False    |
+| Name        | Type   | Description                          | Optional |
+| ----------- | ------ | ------------------------------------ | -------- |
+| description | String | The description that has been added. | False    |
 
 #### Sample Event
 
@@ -389,7 +390,7 @@ This event is emitted when an existing description has been removed from an enti
 #### Parameters
 
 | Name        | Type   | Description                            | Optional |
-|-------------| ------ |----------------------------------------| -------- |
+| ----------- | ------ | -------------------------------------- | -------- |
 | description | String | The description that has been removed. | False    |
 
 #### Sample Event
@@ -420,9 +421,9 @@ This event is emitted when the deprecation status of an entity has been modified
 
 #### Parameters
 
-| Name   | Type   | Description                                                                 | Optional |
-| ------ | ------ | --------------------------------------------------------------------------- | -------- |
-| status | String | The new deprecation status of the entity, either `DEPRECATED` or `ACTIVE`.  | False    |
+| Name   | Type   | Description                                                                | Optional |
+| ------ | ------ | -------------------------------------------------------------------------- | -------- |
+| status | String | The new deprecation status of the entity, either `DEPRECATED` or `ACTIVE`. | False    |
 
 #### Sample Event
 
@@ -438,7 +439,7 @@ This event is emitted when the deprecation status of an entity has been modified
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -453,11 +454,11 @@ This event is emitted when a new field has been added to a **Dataset** **Schema*
 
 #### Parameters
 
-| Name      | Type    | Description                                                                                                                                                                | Optional |
-| --------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| fieldUrn  | String  | The urn of the new schema field.                                                                                                                                           | False    |
+| Name      | Type    | Description                                                                                                                                                                      | Optional |
+| --------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| fieldUrn  | String  | The urn of the new schema field.                                                                                                                                                 | False    |
 | fieldPath | String  | The path of the new field. For more information about field paths, check out [Dataset Field Paths Explained](docs/generated/metamodel/entities/dataset.md#field-paths-explained) | False    |
-| nullable  | Boolean | Whether the new field is nullable.                                                                                                                                         | False    |
+| nullable  | Boolean | Whether the new field is nullable.                                                                                                                                               | False    |
 
 #### Sample Event
 
@@ -475,7 +476,7 @@ This event is emitted when a new field has been added to a **Dataset** **Schema*
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -490,11 +491,11 @@ This event is emitted when a new field has been remove from a **Dataset** **Sche
 
 #### Parameters
 
-| Name      | Type    | Description                                                                                                                                                                    | Optional |
-| --------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
-| fieldUrn  | String  | The urn of the removed schema field.                                                                                                                                           | False    |
+| Name      | Type    | Description                                                                                                                                                                          | Optional |
+| --------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- |
+| fieldUrn  | String  | The urn of the removed schema field.                                                                                                                                                 | False    |
 | fieldPath | String  | The path of the removed field. For more information about field paths, check out [Dataset Field Paths Explained](docs/generated/metamodel/entities/dataset.md#field-paths-explained) | False    |
-| nullable  | Boolean | Whether the removed field is nullable.                                                                                                                                         | False    |
+| nullable  | Boolean | Whether the removed field is nullable.                                                                                                                                               | False    |
 
 #### Sample Event
 
@@ -512,7 +513,7 @@ This event is emitted when a new field has been remove from a **Dataset** **Sche
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -539,7 +540,7 @@ _None_
   "operation": "CREATE",
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -566,7 +567,7 @@ _None_
   "operation": "SOFT_DELETE",
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -593,7 +594,7 @@ _None_
   "operation": "HARD_DELETE",
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -631,7 +632,7 @@ This event is emitted when an Assertion has been run has succeeded on DataHub.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -668,7 +669,7 @@ This event is emitted when a Data Process Instance Run has STARTED on DataHub.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -685,7 +686,7 @@ This event is emitted when a Data Process Instance Run has been COMPLETED on Dat
 
 | Name              | Type    | Description                                                                                     | Optional |
 | ----------------- | ------- | ----------------------------------------------------------------------------------------------- | -------- |
-| runResult         | String  | The result of the run, one of  `SUCCESS` , `FAILURE`, `SKIPPED`, or `UP_FOR_RETRY` .            | False    |
+| runResult         | String  | The result of the run, one of `SUCCESS` , `FAILURE`, `SKIPPED`, or `UP_FOR_RETRY` .             | False    |
 | attempt           | Integer | The number of attempts that have been made.                                                     | True     |
 | dataFlowUrn       | String  | The urn of the associated Data Flow. Only filled in if this run is associated with a Data Flow. | True     |
 | dataJobUrn        | String  | The urn of the associated Data Flow. Only filled in if this run is associated with a Data Job.  | True     |
@@ -706,12 +707,10 @@ This event is emitted when a Data Process Instance Run has been COMPLETED on Dat
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
-
-
 
 ### Action Request Created Event
 
@@ -755,7 +754,7 @@ Parameters specific to different proposal types are listed below.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -780,7 +779,7 @@ Parameters specific to different proposal types are listed below.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -808,7 +807,7 @@ Parameters specific to different proposal types are listed below.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -832,7 +831,7 @@ Parameters specific to different proposal types are listed below.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -848,7 +847,6 @@ This event is emitted when an existing Action Request (proposal) changes status.
 #### Parameters
 
 These are the common parameters for all parameters.
-
 
 | Name                | Type   | Description                                                                               | Optional |
 | ------------------- | ------ | ----------------------------------------------------------------------------------------- | -------- |
@@ -869,7 +867,7 @@ These are the common parameters for all parameters.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```
@@ -884,9 +882,9 @@ This event is emitted when an Incident has been created or it's status changes.
 
 #### Parameters
 
-| Name         | Type   | Description                                       | Optional |
-|--------------| ------ |---------------------------------------------------| -------- |
-| entities     | String | The list of entities associated with the incident | False    |
+| Name     | Type   | Description                                       | Optional |
+| -------- | ------ | ------------------------------------------------- | -------- |
+| entities | String | The list of entities associated with the incident | False    |
 
 #### Sample Event
 
@@ -901,7 +899,7 @@ This event is emitted when an Incident has been created or it's status changes.
   },
   "auditStamp": {
     "actor": "urn:li:corpuser:jdoe",
-    "time": 1649953100653   
+    "time": 1649953100653
   }
 }
 ```

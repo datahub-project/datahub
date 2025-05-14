@@ -27,6 +27,7 @@ import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -205,7 +206,8 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine graphQLEngine(
       @Qualifier("entityClient") final EntityClient entityClient,
-      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
+      final EntityVersioningService entityVersioningService) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
@@ -234,6 +236,8 @@ public class GraphQLEngineFactory {
     args.setTestsConfiguration(configProvider.getMetadataTests());
     args.setDatahubConfiguration(configProvider.getDatahub());
     args.setViewsConfiguration(configProvider.getViews());
+    args.setSearchBarConfiguration(configProvider.getSearchBar());
+    args.setHomePageConfiguration(configProvider.getHomePage());
     args.setSiblingGraphService(siblingGraphService);
     args.setGroupService(groupService);
     args.setRoleService(roleService);
@@ -255,6 +259,8 @@ public class GraphQLEngineFactory {
         configProvider.getGraphQL().getQuery().isIntrospectionEnabled());
     args.setGraphQLQueryDepthLimit(configProvider.getGraphQL().getQuery().getDepthLimit());
     args.setBusinessAttributeService(businessAttributeService);
+    args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
+    args.setEntityVersioningService(entityVersioningService);
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
     return new GmsGraphQLEngine(args).builder().build();

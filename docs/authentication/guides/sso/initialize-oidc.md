@@ -26,7 +26,6 @@ Within this project, we will configure the OAuth2.0 screen and credentials.
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google/google-setup-1-create-project.png"/>
 </p>
 
-
 #### 2. Create OAuth2.0 consent screen
 
 Navigate to **OAuth consent screen**. This is where you'll configure the screen your users see when attempting to log in to DataHub. Select **Internal** (if you only want your company users to have access) and then click **Create**.
@@ -86,7 +85,6 @@ https://accounts.google.com/.well-known/openid-configuration`
 
 </TabItem>
 
-
 <TabItem value="okta" label="Okta Identity">
 
 ### Step 1. Create and Register your App
@@ -124,8 +122,8 @@ If you plan to enable DataHub login as an Okta tile, configure the Initiate Logi
 
 After registering your app, navigate to the **General** tab to find the following Client Credential values:
 
-* **Client ID**: Public identifier for the client that is required for all OAuth flows.
-* **Client Secret**: Secret used by the client to exchange an authorization code for a token.
+- **Client ID**: Public identifier for the client that is required for all OAuth flows.
+- **Client Secret**: Secret used by the client to exchange an authorization code for a token.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/okta-setup-1.png"/>
@@ -138,7 +136,6 @@ https://your-okta-domain.com/.well-known/openid-configuration
 ```
 
 </TabItem>
-
 
 <TabItem value="azure" label="Azure AD">
 
@@ -172,7 +169,6 @@ Once registration is complete, you will need to configure the Logout URL, which 
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-authentication.png"/>
 </p>
 
-
 ### Step 2. Client Credentials and Discovery URI
 
 #### 1. Generate a Client Secret
@@ -197,11 +193,11 @@ Next, you will configure the appropriate API permissions to enable SSO with Data
 2. Click **Add a permission**.
 3. Under the **Microsoft APIs** tab, select **Microsoft Graph**, then **Delegated permissions**.
 4. Under the **OpenId permissions** category, select the following:
-  
-  - `User.Read`
-  - `profile`
-  - `email`
-  - `openid`
+
+- `User.Read`
+- `profile`
+- `email`
+- `openid`
 
 5. Click **Add permissions**.
 
@@ -211,7 +207,7 @@ Next, you will configure the appropriate API permissions to enable SSO with Data
 
 #### 3. Locate Client Credentials and Discovery URI
 
-Now that you have registered your app, generated a client secret, and configured the appropriate permissions, you are now ready to enable Azure AD SSO with DataHub. 
+Now that you have registered your app, generated a client secret, and configured the appropriate permissions, you are now ready to enable Azure AD SSO with DataHub.
 
 You will need the following values in the next step:
 
@@ -231,8 +227,9 @@ You will need the following values in the next step:
 Once you have your **Client ID**, **Client Secret**, and **Discovery URI**, you may proceed with next steps.
 
 ### DataHub Cloud
+
 If you're deployed with DataHub Cloud, you can enable OIDC SSO with a few clicks. [👉 See the guide here](../../../managed-datahub/integrations/oidc-sso-integration.md).
 
 ### Open Source
-If you're self-deployed with DataHub Core, you'll need to configure your frontend server within your deployment environment. [👉 See the guide here](./configure-oidc-react.md).
 
+If you're self-deployed with DataHub Core, you'll need to configure your frontend server within your deployment environment. [👉 See the guide here](./configure-oidc-react.md).

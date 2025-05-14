@@ -68,6 +68,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UnionTypeClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 MAX_ITEMS_TO_RETRIEVE = 100
@@ -120,7 +121,7 @@ class DynamoDBConfig(
 
 @dataclass
 class DynamoDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
@@ -163,6 +164,10 @@ _attribute_type_to_field_type_mapping: Dict[str, Type] = {
 @capability(
     SourceCapability.PLATFORM_INSTANCE,
     "By default, platform_instance will use the AWS account id",
+)
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
 )
 class DynamoDBSource(StatefulIngestionSourceBase):
     """
@@ -241,8 +246,10 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             platform=self.platform,
             platform_instance=platform_instance,
             name=dataset_name,
+            env=self.config.env,
         )
         dataset_properties = DatasetPropertiesClass(
+            name=table_name,
             tags=[],
             customProperties={
                 "table.arn": table_info["TableArn"],
@@ -355,7 +362,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
         if self.config.include_table_item is None:
             return
         dataset_name = f"{region}.{table_name}"
-        if dataset_name not in self.config.include_table_item.keys():
+        if dataset_name not in self.config.include_table_item:
             return
         primary_key_list = self.config.include_table_item.get(dataset_name)
         assert isinstance(primary_key_list, List)
@@ -467,6 +474,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             dataset_properties.customProperties["schema.downsampled"] = "True"
             dataset_properties.customProperties["schema.totalFields"] = f"{schema_size}"
         # append each schema field, schema will be sorted by count descending and delimited_name ascending and sliced to only include MAX_SCHEMA_SIZE items
+        primary_keys = []
         for schema_field in sorted(
             table_fields,
             key=lambda x: (
@@ -477,22 +485,23 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             field_path = schema_field["delimited_name"]
             native_data_type = self.get_native_type(schema_field["type"], table_name)
             type = self.get_field_type(schema_field["type"], table_name)
-            description = None
             nullable = True
             if field_path in primary_key_dict:
-                description = (
+                # primary key should not be nullable
+                type_key = (
                     "Partition Key"
                     if primary_key_dict.get(field_path) == "HASH"
                     else "Sort Key"
                 )
-                # primary key should not be nullable
+                dataset_properties.customProperties[type_key] = field_path
                 nullable = False
+                primary_keys.append(field_path)
 
             field = SchemaField(
                 fieldPath=field_path,
                 nativeDataType=native_data_type,
                 type=type,
-                description=description,
+                description=None,
                 nullable=nullable,
                 recursive=False,
             )
@@ -506,6 +515,7 @@ class DynamoDBSource(StatefulIngestionSourceBase):
             hash="",
             platformSchema=SchemalessClass(),
             fields=canonical_schema,
+            primaryKeys=primary_keys,
         )
         return schema_metadata
 

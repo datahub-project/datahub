@@ -1,15 +1,17 @@
+import { DeleteOutlined, EditOutlined, LinkOutlined } from '@ant-design/icons';
+import { Button, Form, Input, List, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { message, Button, List, Typography, Modal, Form, Input } from 'antd';
-import { LinkOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
-import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
-import { useEntityData, useMutationUrn } from '../../../EntityContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../constants';
-import { formatDateString } from '../../../containers/profile/utils';
-import { useAddLinkMutation, useRemoveLinkMutation } from '../../../../../../graphql/mutations.generated';
-import analytics, { EntityActionType, EventType } from '../../../../../analytics';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useMutationUrn } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { formatDateString } from '@app/entity/shared/containers/profile/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useAddLinkMutation, useRemoveLinkMutation } from '@graphql/mutations.generated';
+import { InstitutionalMemoryMetadata } from '@types';
 
 const LinkListItem = styled(List.Item)`
     border-radius: 5px;
@@ -103,6 +105,20 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         }
     };
 
+    const onConfirmDelete = (link) => {
+        Modal.confirm({
+            title: `Delete Link '${link?.description}'`,
+            content: `Are you sure you want to remove this Link?`,
+            onOk() {
+                handleDeleteLink(link);
+            },
+            onCancel() {},
+            okText: 'Yes',
+            maskClosable: true,
+            closable: true,
+        });
+    };
+
     return entityData ? (
         <>
             <Modal
@@ -162,7 +178,7 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                     <Button onClick={() => handleEditLink(link)} type="text" shape="circle">
                                         <EditOutlined />
                                     </Button>
-                                    <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
+                                    <Button onClick={() => onConfirmDelete(link)} type="text" shape="circle" danger>
                                         <DeleteOutlined />
                                     </Button>
                                 </>

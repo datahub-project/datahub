@@ -1,6 +1,4 @@
-import logging
-import sys
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest import mock
 
 import pytest
@@ -51,7 +49,11 @@ def admin_datasets_response(request, context):
         }
 
 
-def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None:
+def register_mock_admin_api(
+    request_mock: Any, override_data: Optional[dict] = None
+) -> None:
+    if override_data is None:
+        override_data = {}
     api_vs_response = {
         "https://api.powerbi.com/v1.0/myorg/admin/groups/64ED5CAD-7C10-4684-8180-826122881108/datasets": {
             "method": "GET",
@@ -474,19 +476,13 @@ def register_mock_admin_api(request_mock: Any, override_data: dict = {}) -> None
 
     api_vs_response.update(override_data)
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
             json=api_vs_response[url]["json"],
             status_code=api_vs_response[url]["status_code"],
         )
-
-
-def enable_logging():
-    # set logging to console
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.DEBUG)
 
 
 def mock_msal_cca(*args, **kwargs):
@@ -527,8 +523,6 @@ def default_source_config():
 @freeze_time(FROZEN_TIME)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_mock):
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_admin_api(request_mock=requests_mock)
@@ -567,8 +561,6 @@ def test_admin_only_apis(mock_msal, pytestconfig, tmp_path, mock_time, requests_
 def test_most_config_and_modified_since(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_admin_api(request_mock=requests_mock)

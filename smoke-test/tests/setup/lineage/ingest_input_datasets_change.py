@@ -11,7 +11,6 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     StringTypeClass,
 )
-
 from tests.setup.lineage.constants import (
     AIRFLOW_DATA_PLATFORM,
     BQ_DATA_PLATFORM,

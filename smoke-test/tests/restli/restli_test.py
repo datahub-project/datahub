@@ -4,9 +4,11 @@ import time
 from typing import List
 
 import pytest
+
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mce_builder import make_dashboard_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -16,7 +18,6 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
 )
 from datahub.utilities.urns.urn import guess_entity_type
-
 from tests.utils import delete_urns
 
 generated_urns: List[str] = []
@@ -51,7 +52,7 @@ class MetadataChangeProposalInvalidWrapper(MetadataChangeProposalWrapper):
         return mcp
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def ingest_cleanup_data(auth_session, graph_client, request):
     yield
     delete_urns(graph_client, generated_urns)
@@ -86,7 +87,7 @@ def test_gms_ignore_unknown_dashboard_info(graph_client):
     assert "notAValidField" in str(mcp)
     assert "invalid field value" in str(mcp)
 
-    graph_client.emit_mcp(mcpw, async_flag=False)
+    graph_client.emit_mcp(mcpw, emit_mode=EmitMode.SYNC_PRIMARY)
 
     dashboard_info = graph_client.get_aspect(
         entity_urn=dashboard_urn,

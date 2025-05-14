@@ -20,5 +20,6 @@ query getMLPrimaryKey($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }

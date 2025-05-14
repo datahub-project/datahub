@@ -1,0 +1,125 @@
+{
+  "values": [
+    {
+      "id": "0496a2c2-8656-475d-9946-6402320779e2",
+      "title": "Pet Profiles",
+      "description": "this is a component to get pet profiles at glance\n\n",
+      "type": "COMPONENT",
+      "creator": {
+        "email": "user5@example.com"
+      },
+      "owner": {
+        "email": "user5@example.com"
+      },
+      "status": null,
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": "2024-12-16T10:43:52.474Z"
+      },
+      "lastEditedAt": "2025-01-23T17:00:07.922Z",
+      "lastPublishedAt": "2024-12-16T10:44:09.990Z",
+      "createdAt": "2024-12-16T10:41:55.531Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user5@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [
+          {
+            "collection": {
+              "name": "First Collection"
+            },
+            "access": "NONE"
+          }
+        ],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    },
+    {
+      "id": "2ef730de-25ec-4131-94af-3517e743a738",
+      "title": "Welcome to Hex!",
+      "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
+      "type": "PROJECT",
+      "creator": {
+        "email": "user6@example.com"
+      },
+      "owner": {
+        "email": "user6@example.com"
+      },
+      "status": {
+        "name": "In development"
+      },
+      "categories": [],
+      "reviews": {
+        "required": false
+      },
+      "analytics": {
+        "appViews": {
+          "allTime": 0,
+          "lastSevenDays": 0,
+          "lastFourteenDays": 0,
+          "lastThirtyDays": 0
+        },
+        "lastViewedAt": null,
+        "publishedResultsUpdatedAt": null
+      },
+      "lastEditedAt": "2025-03-17T14:44:00.614Z",
+      "lastPublishedAt": null,
+      "createdAt": "2025-03-17T09:27:30.585Z",
+      "archivedAt": null,
+      "trashedAt": null,
+      "schedules": [],
+      "sharing": {
+        "users": [
+          {
+            "user": {
+              "email": "user6@example.com"
+            },
+            "access": "FULL_ACCESS"
+          }
+        ],
+        "collections": [],
+        "groups": [],
+        "workspace": {
+          "access": "NONE"
+        },
+        "publicWeb": {
+          "access": "NONE"
+        },
+        "support": {
+          "access": "NONE"
+        }
+      }
+    }
+  ],
+  "pagination": {
+    "after": null,
+    "before": "djI6WyIyMDI0LTEyLTE2VDEwOjQxOjU1LjUzMVoiLCIwNDk2YTJjMi04NjU2LTQ3NWQtOTk0Ni02NDAyMzIwNzc5ZTIiXQ"
+  }
+}

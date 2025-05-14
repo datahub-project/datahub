@@ -38,16 +38,16 @@ def merge_parent_and_child_fields(
     # Create a map field-name vs field
     child_field_map: dict = {}
     for field in child_fields:
-        assert (
-            NAME in field
-        ), "A lookml view must have a name field"  # name is required field of lookml field array
+        assert NAME in field, (
+            "A lookml view must have a name field"
+        )  # name is required field of lookml field array
 
         child_field_map[field[NAME]] = field
 
     for field in parent_fields:
-        assert (
-            NAME in field
-        ), "A lookml view must have a name field"  # name is required field of lookml field array
+        assert NAME in field, (
+            "A lookml view must have a name field"
+        )  # name is required field of lookml field array
 
         if field[NAME] in child_field_map:
             # Fields defined in the child view take higher precedence.
@@ -88,8 +88,7 @@ class LookerFieldContext:
         for upstream_field_match in re.finditer(r"\${TABLE}\.[\"]*([\.\w]+)", sql):
             matched_field = upstream_field_match.group(1)
             # Remove quotes from field names
-            matched_field = matched_field.replace('"', "").replace("`", "").lower()
-            column_names.append(matched_field)
+            column_names.append(matched_field.replace('"', "").replace("`", "").lower())
 
         return column_names
 

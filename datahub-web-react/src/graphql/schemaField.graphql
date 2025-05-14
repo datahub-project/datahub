@@ -1,0 +1,61 @@
+query getSchemaField($urn: String!) {
+    entity(urn: $urn) {
+        urn
+        type
+        ... on SchemaFieldEntity {
+            ...schemaFieldEntityFields
+        }
+    }
+}
+
+fragment schemaFieldEntityFields on SchemaFieldEntity {
+    urn
+    fieldPath
+    type
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+    documentation {
+        ...documentationFields
+    }
+    parent {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+            privileges {
+                ...entityPrivileges
+            }
+        }
+        ... on Dashboard {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+        }
+        ... on Chart {
+            platform {
+                ...platformFields
+            }
+            subTypes {
+                typeNames
+            }
+        }
+    }
+    ...notes
+}

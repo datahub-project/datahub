@@ -72,7 +72,10 @@ public class MockEntityService extends EntityServiceImpl {
 
   @Override
   public @NotNull Map<String, RecordTemplate> getLatestAspectsForUrn(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull Set<String> aspectNames) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull Set<String> aspectNames,
+      boolean forUpdate) {
     return Collections.emptyMap();
   }
 
@@ -229,7 +232,8 @@ public class MockEntityService extends EntityServiceImpl {
       @Nonnull OperationContext opContext,
       List<AspectRowSummary> aspectRows,
       Map<String, String> conditions,
-      boolean hardDelete) {
+      boolean hardDelete,
+      boolean preProcessHooks) {
     return null;
   }
 

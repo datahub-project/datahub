@@ -34,13 +34,13 @@ You can create a new Data Contract, which is simply bundle of "important" assert
 <Tabs>
 <TabItem value="graphql" label="GraphQL" default>
 
-To create or update a Data Contract, simply use the `upsertDataContract` GraphQL Mutation. 
+To create or update a Data Contract, simply use the `upsertDataContract` GraphQL Mutation.
 
 ```graphql
 mutation upsertDataContract {
     upsertDataContract(
       input: {
-        entityUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,purchases,PROD)", # Table to Create Contract for 
+        entityUrn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,purchases,PROD)", # Table to Create Contract for
         freshness: [
             {
                 assertionUrn: "urn:li:assertion:your-freshness-assertion-id",
@@ -128,90 +128,91 @@ by the last status of the assertions associated with the contract.
 
 ```graphql
 query getTableContractStatus {
-    dataset(urn: "urn:li:dataset(urn:li:dataPlatform:snowflake,purchases,PROD") {
-        contract {
-           result {
-              type # Passing or Failing.
-              assertionResults { # Results of each contract assertion. 
-                  assertion {
-                     urn
-                  }
-                  result {
-                      type
-                      nativeResults {
-                          key
-                          value
-                      }
-                  }
-              }
-           }
+  dataset(urn: "urn:li:dataset(urn:li:dataPlatform:snowflake,purchases,PROD") {
+    contract {
+      result {
+        type # Passing or Failing.
+        assertionResults {
+          # Results of each contract assertion.
+          assertion {
+            urn
+          }
+          result {
+            type
+            nativeResults {
+              key
+              value
+            }
+          }
         }
+      }
     }
+  }
 }
 ```
 
 You can also _force refresh_ all of the Contract Assertions by evaluating them on-demand by providing the `refresh` argument
-in your query. 
+in your query.
 
 ```graphql
 query getTableContractStatus {
-    dataset(urn: "urn:li:dataset(urn:li:dataPlatform:snowflake,purchases,PROD") {
-        contract(refresh: true) {
-           ... same
-        }
+  dataset(urn: "urn:li:dataset(urn:li:dataPlatform:snowflake,purchases,PROD") {
+    contract(refresh: true) {
+      ...same
     }
+  }
 }
 ```
 
-This will run any native Acryl assertions comprising the Data Contract. Be careful! This can take a while depending on how many native assertions are part of the contract.
+This will run any native DataHub Cloud assertions comprising the Data Contract. Be careful! This can take a while depending on how many native assertions are part of the contract.
 
-If you're successful, you'll get the latest status for the Table Contract: 
+If you're successful, you'll get the latest status for the Table Contract:
 
 ```json
 {
   "data": {
     "dataset": {
-       "contract": {
-           "result": {
-              "type": "PASSING",
-              "assertionResults": [
+      "contract": {
+        "result": {
+          "type": "PASSING",
+          "assertionResults": [
+            {
+              "assertion": {
+                "urn": "urn:li:assertion:your-freshness-assertion-id"
+              },
+              "result": {
+                "type": "SUCCESS",
+                "nativeResults": [
                   {
-                      "assertion": {
-                         "urn": "urn:li:assertion:your-freshness-assertion-id"
-                      },
-                      "result": {
-                          "type": "SUCCESS",
-                          "nativeResults": [
-                              {
-                                  "key": "Value",
-                                  "value": "1382"
-                              }
-                          ]
-                      }
-                  },
-                  {
-                     "assertion": {
-                        "urn": "urn:li:assertion:your-volume-assertion-id"
-                     },
-                      "result": {
-                          "type": "SUCCESS",
-                          "nativeResults": [
-                              {
-                                  "key": "Value",
-                                  "value": "12323"
-                              }
-                          ]
-                      }
+                    "key": "Value",
+                    "value": "1382"
                   }
-              ]
-           }
+                ]
+              }
+            },
+            {
+              "assertion": {
+                "urn": "urn:li:assertion:your-volume-assertion-id"
+              },
+              "result": {
+                "type": "SUCCESS",
+                "nativeResults": [
+                  {
+                    "key": "Value",
+                    "value": "12323"
+                  }
+                ]
+              }
+            }
+          ]
         }
+      }
     }
   },
   "extensions": {}
 }
 ```
+
 </TabItem>
 
 </Tabs>
-

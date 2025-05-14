@@ -70,8 +70,9 @@ class CassandraProfiler:
     ) -> Iterable[MetadataWorkUnit]:
         for keyspace_name in cassandra_data.keyspaces:
             tables = cassandra_data.tables.get(keyspace_name, [])
-            self.report.set_ingestion_stage(keyspace_name, PROFILING)
-            with ThreadPoolExecutor(
+            with self.report.new_stage(
+                f"{keyspace_name}: {PROFILING}"
+            ), ThreadPoolExecutor(
                 max_workers=self.config.profiling.max_workers
             ) as executor:
                 future_to_dataset = {

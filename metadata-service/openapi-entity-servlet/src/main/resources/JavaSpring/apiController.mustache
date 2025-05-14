@@ -80,7 +80,7 @@ import java.util.concurrent.Callable;
 {{/useOas2}}
 {{#operations}}
 @RestController
-@RequestMapping("/v2/entity")
+@RequestMapping("/openapi/v2/entity")
 public class {{classname}}Controller implements {{classname}} {
 
     private static final Logger log = LoggerFactory.getLogger({{classname}}Controller.class);

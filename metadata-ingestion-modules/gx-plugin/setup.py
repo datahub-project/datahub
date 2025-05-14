@@ -4,7 +4,7 @@ import pathlib
 import setuptools
 
 package_metadata: dict = {}
-with open("./src/datahub_gx_plugin/__init__.py") as fp:
+with open("./src/datahub_gx_plugin/_version.py") as fp:
     exec(fp.read(), package_metadata)
 
 
@@ -14,15 +14,6 @@ def get_long_description():
 
 
 rest_common = {"requests", "requests_file"}
-
-# TODO: Can we move away from sqllineage and use sqlglot ??
-sqllineage_lib = {
-    "sqllineage==1.3.8",
-    # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
-    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
-    "sqlparse==0.4.4",
-}
 
 _version: str = package_metadata["__version__"]
 _self_pin = (
@@ -43,8 +34,7 @@ base_requirements = {
     # https://github.com/ipython/traitlets/issues/741
     "traitlets<5.2.2",
     *rest_common,
-    *sqllineage_lib,
-    f"acryl-datahub[datahub-rest]{_self_pin}",
+    f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
 
 mypy_stubs = {
@@ -68,13 +58,9 @@ mypy_stubs = {
 base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
-    "black==22.12.0",
     "coverage>=5.1",
-    "flake8>=6.0.0",
-    "flake8-tidy-imports>=4.3.0",
-    "flake8-bugbear==23.3.12",
-    "isort>=5.7.0",
-    "mypy>=1.4.0",
+    "ruff==0.11.7",
+    "mypy==1.14.1",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
     # See https://github.com/samuelcolvin/pydantic/pull/3175#issuecomment-995382910.
     "pydantic>=1.10.0,!=1.10.3",
@@ -113,9 +99,9 @@ setuptools.setup(
     # Package metadata.
     name=package_metadata["__package_name__"],
     version=package_metadata["__version__"],
-    url="https://datahubproject.io/",
+    url="https://docs.datahub.com/",
     project_urls={
-        "Documentation": "https://datahubproject.io/docs/",
+        "Documentation": "https://docs.datahub.com/docs/",
         "Source": "https://github.com/datahub-project/datahub",
         "Changelog": "https://github.com/datahub-project/datahub/releases",
     },
@@ -128,9 +114,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

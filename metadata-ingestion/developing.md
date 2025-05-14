@@ -89,6 +89,7 @@ cd metadata-ingestion-modules/gx-plugin
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
+
 ### (Optional) Set up your Python environment for developing on Dagster Plugin
 
 From the repository root:
@@ -99,6 +100,7 @@ cd metadata-ingestion-modules/dagster-plugin
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
 ```
+
 ### Common setup issues
 
 Common issues (click to expand):
@@ -153,8 +155,8 @@ Instead, we recommend using UI-based ingestion or isolating the ingestion pipeli
 The syntax for installing plugins is slightly different in development. For example:
 
 ```diff
-- pip install 'acryl-datahub[bigquery,datahub-rest]'
-+ pip install -e '.[bigquery,datahub-rest]'
+- uv pip install 'acryl-datahub[bigquery,datahub-rest]'
++ uv pip install -e '.[bigquery,datahub-rest]'
 ```
 
 ## Architecture
@@ -175,19 +177,20 @@ The architecture of this metadata ingestion framework is heavily inspired by [Ap
 
 ## Code style
 
-We use black, isort, flake8, and mypy to ensure consistent code style and quality.
+We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
-# Assumes: pip install -e '.[dev]' and venv is activated
-black src/ tests/
-isort src/ tests/
-flake8 src/ tests/
+# Assumes: ../gradlew :metadata-ingestion:installDev and venv is activated
+ruff check src/ tests/
 mypy src/ tests/
 ```
 
 or you can run from root of the repository
 
 ```shell
+./gradlew :metadata-ingestion:lint
+
+# This will auto-fix some linting issues.
 ./gradlew :metadata-ingestion:lintFix
 ```
 
@@ -244,11 +247,8 @@ In order to ensure that the configs are consistent and easy to use, we have a fe
 ```shell
 # Follow standard install from source procedure - see above.
 
-# Install, including all dev requirements.
-pip install -e '.[dev]'
-
-# For running integration tests, you can use
-pip install -e '.[integration-tests]'
+# Install all dev and test requirements.
+../gradlew :metadata-ingestion:installDevTest
 
 # Run the full testing suite
 pytest -vv

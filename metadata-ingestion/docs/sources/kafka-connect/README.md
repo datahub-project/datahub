@@ -10,11 +10,11 @@ This plugin extracts the following:
 
 This ingestion source maps the following Source System Concepts to DataHub Concepts:
 
-| Source Concept              | DataHub Concept                                                                            | Notes                                                                       |
-| --------------------------- |--------------------------------------------------------------------------------------------| --------------------------------------------------------------------------- |
-| `"kafka-connect"`                 | [Data Platform](https://datahubproject.io/docs/generated/metamodel/entities/dataplatform/) |                                                                             |
-| [Connector](https://kafka.apache.org/documentation/#connect_connectorsandtasks)         | [DataFlow](https://datahubproject.io/docs/generated/metamodel/entities/dataflow/)          | |
-| Kafka Topic         | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)            | |
+| Source Concept                                                                  | DataHub Concept                                                                           | Notes |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ----- |
+| `"kafka-connect"`                                                               | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |       |
+| [Connector](https://kafka.apache.org/documentation/#connect_connectorsandtasks) | [DataFlow](https://docs.datahub.com/docs/generated/metamodel/entities/dataflow/)          |       |
+| Kafka Topic                                                                     | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)            |       |
 
 ## Current limitations
 

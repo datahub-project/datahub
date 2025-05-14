@@ -1,7 +1,19 @@
-import { DataHubViewType, EntityType, RecommendationRenderType, ScenarioType } from '../../types.generated';
-import { EmbedLookupNotFoundReason } from '../embed/lookup/constants';
-import { Direction } from '../lineage/types';
-import { FilterMode } from '../search/utils/constants';
+import { EmbedLookupNotFoundReason } from '@app/embed/lookup/constants';
+import { PersonaType } from '@app/homeV2/shared/types';
+import { Direction } from '@app/lineage/types';
+import { FilterMode } from '@app/search/utils/constants';
+
+import {
+    AllowedValue,
+    DataHubViewType,
+    EntityType,
+    LineageDirection,
+    PropertyCardinality,
+    PropertyValueInput,
+    RecommendationRenderType,
+    ScenarioType,
+    SearchBarApi,
+} from '@types';
 
 /**
  * Valid event types.
@@ -56,6 +68,8 @@ export enum EventType {
     ActivatePolicyEvent,
     ShowSimplifiedHomepageEvent,
     ShowStandardHomepageEvent,
+    ShowV2ThemeEvent,
+    RevertV2ThemeEvent,
     CreateGlossaryEntityEvent,
     CreateDomainEvent,
     MoveDomainEvent,
@@ -82,6 +96,29 @@ export enum EventType {
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
     CreateBusinessAttributeEvent,
+    CreateStructuredPropertyClickEvent,
+    CreateStructuredPropertyEvent,
+    EditStructuredPropertyEvent,
+    DeleteStructuredPropertyEvent,
+    ViewStructuredPropertyEvent,
+    ApplyStructuredPropertyEvent,
+    UpdateStructuredPropertyOnAssetEvent,
+    RemoveStructuredPropertyEvent,
+    ClickDocRequestCTA,
+    IntroduceYourselfViewEvent,
+    IntroduceYourselfSubmitEvent,
+    IntroduceYourselfSkipEvent,
+    ExpandLineageEvent,
+    ContractLineageEvent,
+    ShowHideLineageColumnsEvent,
+    SearchLineageColumnsEvent,
+    FilterLineageColumnsEvent,
+    DrillDownLineageEvent,
+    LinkAssetVersionEvent,
+    UnlinkAssetVersionEvent,
+    ShowAllVersionsEvent,
+    HomePageClick,
+    SearchBarFilter,
 }
 
 /**
@@ -93,6 +130,14 @@ interface BaseEvent {
     date?: string;
     userAgent?: string;
     browserId?: string;
+    /** whether DataHub 2.0 UI is enabled or not at the time of this event */
+    isThemeV2Enabled?: boolean;
+    /** the persona urn for this user - groups users based on their titles */
+    userPersona?: PersonaType;
+    /** the selected title of this user ie. "Data Analyst" */
+    userTitle?: string;
+    /** the current server version when this event happened */
+    serverVersion?: string;
 }
 
 /**
@@ -101,6 +146,29 @@ interface BaseEvent {
 export interface PageViewEvent extends BaseEvent {
     type: EventType.PageViewEvent;
     originPath: string;
+}
+
+/**
+ * Viewed the Introduce Yourself page on the UI.
+ */
+export interface IntroduceYourselfViewEvent extends BaseEvent {
+    type: EventType.IntroduceYourselfViewEvent;
+}
+
+/**
+ * Submitted the "Introduce Yourself" page through the UI.
+ */
+export interface IntroduceYourselfSubmitEvent extends BaseEvent {
+    type: EventType.IntroduceYourselfSubmitEvent;
+    role: string;
+    platformUrns: Array<string>;
+}
+
+/**
+ * Skipped the "Introduce Yourself" page through the UI.
+ */
+export interface IntroduceYourselfSkipEvent extends BaseEvent {
+    type: EventType.IntroduceYourselfSkipEvent;
 }
 
 /**
@@ -458,6 +526,14 @@ export interface ShowStandardHomepageEvent extends BaseEvent {
     type: EventType.ShowStandardHomepageEvent;
 }
 
+export interface ShowV2ThemeEvent extends BaseEvent {
+    type: EventType.ShowV2ThemeEvent;
+}
+
+export interface RevertV2ThemeEvent extends BaseEvent {
+    type: EventType.RevertV2ThemeEvent;
+}
+
 export interface HomePageExploreAllClickEvent extends BaseEvent {
     type: EventType.HomePageExploreAllClickEvent;
 }
@@ -603,6 +679,8 @@ export interface SelectAutoCompleteOption extends BaseEvent {
     optionType: string;
     entityType?: EntityType;
     entityUrn?: string;
+    showSearchBarAutocompleteRedesign?: boolean;
+    apiVariant?: SearchBarApi;
 }
 
 export interface SelectQuickFilterEvent extends BaseEvent {
@@ -640,12 +718,177 @@ export interface CreateBusinessAttributeEvent extends BaseEvent {
     name: string;
 }
 
+export enum DocRequestCTASource {
+    TaskCenter = 'TaskCenter',
+    AssetPage = 'AssetPage',
+}
+
+export interface ClickDocRequestCTA extends BaseEvent {
+    type: EventType.ClickDocRequestCTA;
+    source: DocRequestCTASource;
+}
+
+export interface ExpandLineageEvent extends BaseEvent {
+    type: EventType.ExpandLineageEvent;
+    direction: LineageDirection;
+    levelsExpanded: '1' | 'all';
+    entityUrn: string;
+    entityType: EntityType;
+}
+
+export interface ContractLineageEvent extends BaseEvent {
+    type: EventType.ContractLineageEvent;
+    direction: LineageDirection;
+    entityUrn: string;
+    entityType?: EntityType;
+}
+
+export interface ShowHideLineageColumnsEvent extends BaseEvent {
+    type: EventType.ShowHideLineageColumnsEvent;
+    action: 'show' | 'hide';
+    entityUrn: string;
+    entityType: EntityType;
+    entityPlatformUrn?: string;
+}
+
+export interface SearchLineageColumnsEvent extends BaseEvent {
+    type: EventType.SearchLineageColumnsEvent;
+    entityUrn: string;
+    entityType: EntityType;
+    searchTextLength: number;
+}
+
+export interface FilterLineageColumnsEvent extends BaseEvent {
+    type: EventType.FilterLineageColumnsEvent;
+    action: 'enable' | 'disable';
+    entityUrn: string;
+    entityType: EntityType;
+    shownCount: number;
+}
+
+export interface DrillDownLineageEvent extends BaseEvent {
+    type: EventType.DrillDownLineageEvent;
+    action: 'select' | 'deselect';
+    entityUrn: string;
+    entityType: EntityType;
+    parentUrn: string;
+    parentEntityType: EntityType;
+    dataType?: string;
+}
+
+export interface CreateStructuredPropertyClickEvent extends BaseEvent {
+    type: EventType.CreateStructuredPropertyClickEvent;
+}
+
+interface StructuredPropertyEvent extends BaseEvent {
+    propertyType: string;
+    appliesTo: string[];
+    qualifiedName?: string;
+    allowedAssetTypes?: string[];
+    allowedValues?: AllowedValue[];
+    cardinality?: PropertyCardinality;
+    showInFilters?: boolean;
+    isHidden: boolean;
+    showInSearchFilters: boolean;
+    showAsAssetBadge: boolean;
+    showInAssetSummary: boolean;
+    showInColumnsTable: boolean;
+}
+
+export interface CreateStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.CreateStructuredPropertyEvent;
+}
+
+export interface EditStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.EditStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+export interface DeleteStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.DeleteStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+export interface ViewStructuredPropertyEvent extends BaseEvent {
+    type: EventType.ViewStructuredPropertyEvent;
+    propertyUrn: string;
+}
+
+interface StructuredPropertyOnAssetEvent extends BaseEvent {
+    propertyUrn: string;
+    propertyType: string;
+    assetUrn: string;
+    assetType: EntityType;
+}
+export interface ApplyStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.ApplyStructuredPropertyEvent;
+    values: PropertyValueInput[];
+}
+
+export interface UpdateStructuredPropertyOnAssetEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.UpdateStructuredPropertyOnAssetEvent;
+    values: PropertyValueInput[];
+}
+
+export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.RemoveStructuredPropertyEvent;
+}
+
+export interface LinkAssetVersionEvent extends BaseEvent {
+    type: EventType.LinkAssetVersionEvent;
+    newAssetUrn: string;
+    oldAssetUrn?: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface UnlinkAssetVersionEvent extends BaseEvent {
+    type: EventType.UnlinkAssetVersionEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+}
+
+export interface ShowAllVersionsEvent extends BaseEvent {
+    type: EventType.ShowAllVersionsEvent;
+    assetUrn: string;
+    versionSetUrn?: string;
+    entityType: EntityType;
+    numVersions?: number;
+    uiLocation: 'preview' | 'more-options';
+}
+
+export enum HomePageModule {
+    YouRecentlyViewed = 'YouRecentlyViewed',
+    Discover = 'Discover',
+    Announcements = 'Announcements',
+    PersonalSidebar = 'PersonalSidebar',
+    SidebarAnnouncements = 'SidebarAnnouncements',
+}
+
+export interface HomePageClickEvent extends BaseEvent {
+    type: EventType.HomePageClick;
+    module: HomePageModule;
+    section?: string;
+    subSection?: string;
+    value?: string; // what was actually clicked ie. an entity urn to go to a page, or "View all" for a section
+}
+
+export interface SearchBarFilterEvent extends BaseEvent {
+    type: EventType.SearchBarFilter;
+    field: string; // the filter field
+    values: string[]; // the values being filtered for
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
 export type Event =
     | PageViewEvent
     | HomePageViewEvent
+    | IntroduceYourselfViewEvent
+    | IntroduceYourselfSubmitEvent
+    | IntroduceYourselfSkipEvent
     | SignUpEvent
     | LogInEvent
     | LogOutEvent
@@ -700,6 +943,8 @@ export type Event =
     | DeleteIngestionSourceEvent
     | ExecuteIngestionSourceEvent
     | ShowStandardHomepageEvent
+    | ShowV2ThemeEvent
+    | RevertV2ThemeEvent
     | SsoEvent
     | CreateViewEvent
     | UpdateViewEvent
@@ -718,4 +963,24 @@ export type Event =
     | EmbedProfileViewEvent
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
-    | CreateBusinessAttributeEvent;
+    | CreateBusinessAttributeEvent
+    | ExpandLineageEvent
+    | ContractLineageEvent
+    | ShowHideLineageColumnsEvent
+    | SearchLineageColumnsEvent
+    | FilterLineageColumnsEvent
+    | DrillDownLineageEvent
+    | CreateStructuredPropertyClickEvent
+    | CreateStructuredPropertyEvent
+    | EditStructuredPropertyEvent
+    | DeleteStructuredPropertyEvent
+    | ViewStructuredPropertyEvent
+    | ApplyStructuredPropertyEvent
+    | UpdateStructuredPropertyOnAssetEvent
+    | RemoveStructuredPropertyEvent
+    | ClickDocRequestCTA
+    | LinkAssetVersionEvent
+    | UnlinkAssetVersionEvent
+    | ShowAllVersionsEvent
+    | HomePageClickEvent
+    | SearchBarFilterEvent;

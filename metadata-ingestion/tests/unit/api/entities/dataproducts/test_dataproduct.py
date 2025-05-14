@@ -26,7 +26,7 @@ def base_entity_metadata():
 
 @pytest.fixture
 def base_mock_graph(
-    base_entity_metadata: Dict[str, Dict[str, Any]]
+    base_entity_metadata: Dict[str, Dict[str, Any]],
 ) -> MockDataHubGraph:
     return MockDataHubGraph(entity_graph=base_entity_metadata)
 

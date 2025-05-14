@@ -3,7 +3,6 @@ package com.linkedin.metadata.timeseries.elastic;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
-import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -13,13 +12,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
@@ -32,8 +34,8 @@ import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
-import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
@@ -45,16 +47,15 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.SearchContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -99,22 +100,39 @@ public class ElasticSearchTimeseriesAspectService
 
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
-  private final TimeseriesAspectIndexBuilders indexBuilders;
   private final RestHighLevelClient searchClient;
   private final ESAggregatedStatsDAO esAggregatedStatsDAO;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
+  private final ExecutorService queryPool;
+  @Nonnull private final EntityRegistry entityRegistry;
+  @Nonnull private final IndexConvention indexConvention;
+  @Nonnull private final ESIndexBuilder indexBuilder;
 
   public ElasticSearchTimeseriesAspectService(
       @Nonnull RestHighLevelClient searchClient,
-      @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
       @Nonnull ESBulkProcessor bulkProcessor,
       int numRetries,
-      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
-    this.indexBuilders = indexBuilders;
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull IndexConvention indexConvention,
+      @Nonnull ESIndexBuilder indexBuilder) {
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.numRetries = numRetries;
     this.queryFilterRewriteChain = queryFilterRewriteChain;
+    this.queryPool =
+        new ThreadPoolExecutor(
+            timeseriesAspectServiceConfig.getQuery().getConcurrency(), // core threads
+            timeseriesAspectServiceConfig.getQuery().getConcurrency(), // max threads
+            timeseriesAspectServiceConfig.getQuery().getKeepAlive(),
+            TimeUnit.SECONDS, // thread keep-alive time
+            new ArrayBlockingQueue<>(
+                timeseriesAspectServiceConfig.getQuery().getQueueSize()), // fixed size queue
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    this.entityRegistry = entityRegistry;
+    this.indexConvention = indexConvention;
+    this.indexBuilder = indexBuilder;
 
     esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
   }
@@ -208,19 +226,75 @@ public class ElasticSearchTimeseriesAspectService
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
-      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
-    return indexBuilders.buildReindexConfigs(properties);
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    return entityRegistry.getEntitySpecs().values().stream()
+        .flatMap(
+            entitySpec ->
+                entitySpec.getAspectSpecs().stream()
+                    .map(aspectSpec -> Pair.of(entitySpec, aspectSpec)))
+        .filter(pair -> pair.getSecond().isTimeseries())
+        .map(
+            pair -> {
+              try {
+                return indexBuilder.buildReindexState(
+                    indexConvention.getTimeseriesAspectIndexName(
+                        pair.getFirst().getName(), pair.getSecond().getName()),
+                    MappingsBuilder.getMappings(pair.getSecond()),
+                    Collections.emptyMap());
+              } catch (IOException e) {
+                log.error(
+                    "Issue while building timeseries field index for entity {} aspect {}",
+                    pair.getFirst().getName(),
+                    pair.getSecond().getName());
+                throw new RuntimeException(e);
+              }
+            })
+        .collect(Collectors.toList());
   }
 
   public String reindexAsync(
       String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
       throws Exception {
-    return indexBuilders.reindexAsync(index, filterQuery, options);
+    Optional<Pair<String, String>> entityAndAspect = indexConvention.getEntityAndAspectName(index);
+    if (entityAndAspect.isEmpty()) {
+      throw new IllegalArgumentException("Could not extract entity and aspect from index " + index);
+    }
+    String entityName = entityAndAspect.get().getFirst();
+    String aspectName = entityAndAspect.get().getSecond();
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    for (String aspect : entitySpec.getAspectSpecMap().keySet()) {
+      if (aspect.toLowerCase().equals(aspectName)) {
+        aspectName = aspect;
+        break;
+      }
+    }
+    if (!entitySpec.hasAspect(aspectName)) {
+      throw new IllegalArgumentException(
+          String.format("Could not find aspect %s of entity %s", aspectName, entityName));
+    }
+    ReindexConfig config =
+        indexBuilder.buildReindexState(
+            index,
+            MappingsBuilder.getMappings(
+                entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName)),
+            Collections.emptyMap());
+    return indexBuilder.reindexInPlaceAsync(index, filterQuery, options, config);
   }
 
   @Override
   public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    indexBuilders.reindexAll(properties);
+    for (ReindexConfig config : buildReindexConfigs(properties)) {
+      try {
+        indexBuilder.buildIndex(config);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return indexBuilder;
   }
 
   @Override
@@ -385,19 +459,87 @@ public class ElasticSearchTimeseriesAspectService
     searchRequest.indices(indexName);
 
     log.debug("Search request is: " + searchRequest);
-    SearchHits hits;
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "searchAspectValues_search").time()) {
-      final SearchResponse searchResponse =
-          searchClient.search(searchRequest, RequestOptions.DEFAULT);
-      hits = searchResponse.getHits();
-    } catch (Exception e) {
-      log.error("Search query failed:", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
-    return Arrays.stream(hits.getHits())
-        .map(ElasticSearchTimeseriesAspectService::parseDocument)
-        .collect(Collectors.toList());
+    return opContext.withSpan(
+        "searchAspectValues_search",
+        () -> {
+          SearchHits hits;
+          try {
+            final SearchResponse searchResponse =
+                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            hits = searchResponse.getHits();
+          } catch (Exception e) {
+            log.error("Search query failed:", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+          return Arrays.stream(hits.getHits())
+              .map(ElasticSearchTimeseriesAspectService::parseDocument)
+              .collect(Collectors.toList());
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "searchAspectValues_search"));
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Map<String, Long> endTimeMillis) {
+    Map<Urn, List<Future<Pair<String, EnvelopedAspect>>>> futures =
+        urns.stream()
+            .map(
+                urn -> {
+                  List<Future<Pair<String, EnvelopedAspect>>> aspectFutures =
+                      aspectNames.stream()
+                          .map(
+                              aspectName ->
+                                  queryPool.submit(
+                                      () -> {
+                                        List<EnvelopedAspect> oneResultList =
+                                            getAspectValues(
+                                                opContext,
+                                                urn,
+                                                urn.getEntityType(),
+                                                aspectName,
+                                                null,
+                                                endTimeMillis == null
+                                                    ? null
+                                                    : endTimeMillis.get(aspectName),
+                                                1,
+                                                null,
+                                                null);
+                                        return !oneResultList.isEmpty()
+                                            ? Pair.of(aspectName, oneResultList.get(0))
+                                            : null;
+                                      }))
+                          .collect(Collectors.toList());
+
+                  return Map.entry(urn, aspectFutures);
+                })
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    return futures.entrySet().stream()
+        .map(
+            e ->
+                Map.entry(
+                    e.getKey(),
+                    e.getValue().stream()
+                        .map(
+                            f -> {
+                              try {
+                                return f.get();
+                              } catch (InterruptedException | ExecutionException ex) {
+                                throw new RuntimeException(ex);
+                              }
+                            })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList())))
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                e ->
+                    e.getValue().stream().collect(Collectors.toMap(Pair::getKey, Pair::getValue))));
   }
 
   @Override
@@ -599,13 +741,7 @@ public class ElasticSearchTimeseriesAspectService
 
     SearchResponse response =
         executeScrollSearchQuery(
-            opContext.getSearchContext(),
-            entityName,
-            aspectName,
-            filterQueryBuilder,
-            sortCriteria,
-            scrollId,
-            count);
+            opContext, entityName, aspectName, filterQueryBuilder, sortCriteria, scrollId, count);
     int totalCount = (int) response.getHits().getTotalHits().value;
 
     List<Pair<EnvelopedAspect, GenericTimeseriesDocument>> resultPairs =
@@ -622,7 +758,7 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   private SearchResponse executeScrollSearchQuery(
-      @Nonnull SearchContext searchContext,
+      @Nonnull OperationContext opContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       @Nonnull final QueryBuilder query,
@@ -647,14 +783,22 @@ public class ElasticSearchTimeseriesAspectService
     ESUtils.setSearchAfter(searchSourceBuilder, sort, null, null);
 
     searchRequest.indices(
-        searchContext.getIndexConvention().getTimeseriesAspectIndexName(entityName, aspectName));
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(entityName, aspectName));
 
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "scrollAspects_search").time()) {
-      return searchClient.search(searchRequest, RequestOptions.DEFAULT);
-    } catch (Exception e) {
-      log.error("Search query failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+    return opContext.withSpan(
+        "scrollAspects_search",
+        () -> {
+          try {
+            return searchClient.search(searchRequest, RequestOptions.DEFAULT);
+          } catch (Exception e) {
+            log.error("Search query failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "scrollAspects_search"));
   }
 }

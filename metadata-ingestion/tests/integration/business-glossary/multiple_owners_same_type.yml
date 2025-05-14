@@ -1,0 +1,37 @@
+version: "1"
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/datahub-project/datahub/"
+
+nodes:
+  - name: Multiple Owners
+    description: Testing multiple owners with same type
+    owners:
+      - type: DEVELOPER
+        users:
+          - dev1
+          - dev2
+        groups:
+          - engineering
+      - type: DEVELOPER
+        users:
+          - dev3
+        groups:
+          - qa
+    terms:
+      - name: Multiple Dev Owners
+        description: Term owned by multiple developers
+        owners:
+          - type: DEVELOPER
+            users:
+              - dev4
+              - dev5
+            groups:
+              - platform
+          - type: DEVELOPER
+            users:
+              - dev6
+            groups:
+              - infra

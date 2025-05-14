@@ -31,6 +31,10 @@ from looker_sdk.sdk.api40.models import (
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.entities.platformresource.platform_resource import (
+    PlatformResource,
+    PlatformResourceKey,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
@@ -106,7 +110,7 @@ from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
 
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
-
+LOOKER = "looker"
 logger = logging.getLogger(__name__)
 
 
@@ -295,6 +299,7 @@ class ViewField:
     view_name: Optional[str] = None
     is_primary_key: bool = False
     tags: List[str] = dataclasses_field(default_factory=list)
+    group_label: Optional[str] = None
 
     # It is the list of ColumnRef for derived view defined using SQL otherwise simple column name
     upstream_fields: Union[List[ColumnRef]] = dataclasses_field(default_factory=list)
@@ -322,6 +327,7 @@ class ViewField:
         description = field_dict.get("description", default_description)
 
         label = field_dict.get("label", "")
+        group_label = field_dict.get("group_label")
 
         return ViewField(
             name=name,
@@ -332,6 +338,7 @@ class ViewField:
             field_type=type_cls,
             tags=field_dict.get("tags") or [],
             upstream_fields=upstream_column_ref,
+            group_label=group_label,
         )
 
 
@@ -467,7 +474,10 @@ def get_view_file_path(
     logger.debug("Entered")
 
     for field in lkml_fields:
-        if field.view == view_name:
+        if (
+            LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
+            == view_name
+        ):
             # This path is relative to git clone directory
             logger.debug(f"Found view({view_name}) file-path {field.source_file}")
             return field.source_file
@@ -592,9 +602,9 @@ class LookerUtil:
 
     @staticmethod
     def _extract_view_from_field(field: str) -> str:
-        assert (
-            field.count(".") == 1
-        ), f"Error: A field must be prefixed by a view name, field is: {field}"
+        assert field.count(".") == 1, (
+            f"Error: A field must be prefixed by a view name, field is: {field}"
+        )
         return field.split(".")[0]
 
     @staticmethod
@@ -697,14 +707,47 @@ class LookerUtil:
         ),
     }
 
+    # Add a pattern-based regex for checking if a tag is a group_label tag
+    GROUP_LABEL_TAG_PATTERN = re.compile(r"^looker\:group_label\:(.+)$")
+
     @staticmethod
     def _get_tag_mce_for_urn(tag_urn: str) -> MetadataChangeEvent:
-        assert tag_urn in LookerUtil.tag_definitions
-        return MetadataChangeEvent(
-            proposedSnapshot=TagSnapshotClass(
-                urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
+        # Check if this is a group_label tag
+        tag_name = tag_urn[len("urn:li:tag:") :]
+        match = LookerUtil.GROUP_LABEL_TAG_PATTERN.match(tag_name)
+
+        if match:
+            # This is a group_label tag, create tag definition on the fly
+            group_label_value = match.group(1)
+            tag_properties = TagPropertiesClass(
+                name=f"looker:group_label:{group_label_value}",
+                description=f"Fields with Looker group label: {group_label_value}",
             )
-        )
+
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(urn=tag_urn, aspects=[tag_properties])
+            )
+        elif tag_urn in LookerUtil.tag_definitions:
+            # This is a predefined tag
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(
+                    urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
+                )
+            )
+        else:
+            # Should not happen, but handle gracefully
+            logger.warning(f"No tag definition found for tag URN: {tag_urn}")
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(
+                    urn=tag_urn,
+                    aspects=[
+                        TagPropertiesClass(
+                            name=tag_name,
+                            description=f"Tag: {tag_name}",
+                        )
+                    ],
+                )
+            )
 
     @staticmethod
     def _get_tags_from_field_type(
@@ -726,6 +769,14 @@ class LookerUtil:
             reporter.report_warning(
                 title="Failed to Map View Field Type",
                 message=f"Failed to map view field type {field.field_type}. Won't emit tags for measure and dimension",
+            )
+
+        # Add group_label as tags if present
+        if field.group_label:
+            schema_field_tags.append(
+                TagAssociationClass(
+                    tag=builder.make_tag_urn(f"looker:group_label:{field.group_label}")
+                )
             )
 
         if schema_field_tags:
@@ -811,9 +862,9 @@ class LookerExplore:
     project_name: Optional[str] = None
     label: Optional[str] = None
     description: Optional[str] = None
-    upstream_views: Optional[
-        List[ProjectInclude]
-    ] = None  # captures the view name(s) this explore is derived from
+    upstream_views: Optional[List[ProjectInclude]] = (
+        None  # captures the view name(s) this explore is derived from
+    )
     upstream_views_file_path: Dict[str, Optional[str]] = dataclasses_field(
         default_factory=dict
     )  # view_name is key and file_path is value. A single file may contains multiple views
@@ -885,7 +936,7 @@ class LookerExplore:
                     upstream_views.extend(parsed_explore.upstream_views or [])
                 else:
                     logger.warning(
-                        f'Could not find extended explore {extended_explore} for explore {dict["name"]} in model {model_name}'
+                        f"Could not find extended explore {extended_explore} for explore {dict['name']} in model {model_name}"
                     )
         else:
             # we only fallback to the view_names list if this is not an extended explore
@@ -899,7 +950,7 @@ class LookerExplore:
                 )
                 if not info:
                     logger.warning(
-                        f'Could not resolve view {view_name} for explore {dict["name"]} in model {model_name}'
+                        f"Could not resolve view {view_name} for explore {dict['name']} in model {model_name}"
                     )
                 else:
                     upstream_views.append(
@@ -919,7 +970,7 @@ class LookerExplore:
             tags=cast(List, dict.get("tags")) if dict.get("tags") is not None else [],
         )
 
-    @classmethod  # noqa: C901
+    @classmethod
     def from_api(  # noqa: C901
         cls,
         model: str,
@@ -927,13 +978,13 @@ class LookerExplore:
         client: LookerAPI,
         reporter: SourceReport,
         source_config: LookerDashboardSourceConfig,
-    ) -> Optional["LookerExplore"]:  # noqa: C901
+    ) -> Optional["LookerExplore"]:
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
-            lkml_fields: List[
-                LookmlModelExploreField
-            ] = explore_field_set_to_lkml_fields(explore)
+            lkml_fields: List[LookmlModelExploreField] = (
+                explore_field_set_to_lkml_fields(explore)
+            )
 
             if explore.view_name is not None and explore.view_name != explore.name:
                 # explore is not named after a view and is instead using a from field, which is modeled as view_name.
@@ -1023,6 +1074,7 @@ class LookerExplore:
                                         else False
                                     ),
                                     upstream_fields=[],
+                                    group_label=dim_field.field_group_label,
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -1030,9 +1082,9 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
-                            field_name_vs_raw_explore_field[
-                                measure_field.name
-                            ] = measure_field
+                            field_name_vs_raw_explore_field[measure_field.name] = (
+                                measure_field
+                            )
 
                             view_fields.append(
                                 ViewField(
@@ -1061,6 +1113,7 @@ class LookerExplore:
                                         else False
                                     ),
                                     upstream_fields=[],
+                                    group_label=measure_field.field_group_label,
                                 )
                             )
 
@@ -1068,11 +1121,11 @@ class LookerExplore:
             if view_project_map:
                 logger.debug(f"views and their projects: {view_project_map}")
 
-            upstream_views_file_path: Dict[
-                str, Optional[str]
-            ] = create_upstream_views_file_path_map(
-                lkml_fields=lkml_fields,
-                view_names=views,
+            upstream_views_file_path: Dict[str, Optional[str]] = (
+                create_upstream_views_file_path_map(
+                    lkml_fields=lkml_fields,
+                    view_names=views,
+                )
             )
             if upstream_views_file_path:
                 logger.debug(f"views and their file-paths: {upstream_views_file_path}")
@@ -1099,7 +1152,7 @@ class LookerExplore:
                     [column_ref] if column_ref is not None else []
                 )
 
-            return cls(
+            looker_explore = cls(
                 name=explore_name,
                 model_name=model,
                 project_name=explore.project_name,
@@ -1117,6 +1170,8 @@ class LookerExplore:
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
             )
+            logger.debug(f"Created LookerExplore from API: {looker_explore}")
+            return looker_explore
         except SDKError as e:
             if "<title>Looker Not Found (404)</title>" in str(e):
                 logger.info(
@@ -1157,6 +1212,9 @@ class LookerExplore:
         dataset_name = config.explore_naming_pattern.replace_variables(
             self.get_mapping(config)
         )
+        logger.debug(
+            f"Generated dataset_name={dataset_name} for explore with model_name={self.model_name}, name={self.name}"
+        )
 
         return builder.make_dataset_urn_with_platform_instance(
             platform=config.platform_name,
@@ -1179,7 +1237,7 @@ class LookerExplore:
         base_url = remove_port_from_url(base_url)
         return f"{base_url}/embed/explore/{self.model_name}/{self.name}"
 
-    def _to_metadata_events(  # noqa: C901
+    def _to_metadata_events(
         self,
         config: LookerCommonConfig,
         reporter: SourceReport,
@@ -1358,6 +1416,7 @@ class LookerExploreRegistry:
 
     @lru_cache(maxsize=200)
     def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
+        logger.debug(f"Retrieving explore: model={model}, explore={explore}")
         looker_explore = LookerExplore.from_api(
             model,
             explore,
@@ -1365,6 +1424,12 @@ class LookerExploreRegistry:
             self.report,
             self.source_config,
         )
+        if looker_explore is not None:
+            logger.debug(
+                f"Found explore with model_name={looker_explore.model_name}, name={looker_explore.name}"
+            )
+        else:
+            logger.debug(f"No explore found for model={model}, explore={explore}")
         return looker_explore
 
     def compute_stats(self) -> Dict:
@@ -1404,6 +1469,15 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
+
+    # Entities that don't seem to exist, so we don't emit usage aspects for them despite having usage data
+    dashboards_skipped_for_usage: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+    charts_skipped_for_usage: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+
     stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
     _looker_explore_registry: Optional[LookerExploreRegistry] = None
     total_explores: int = 0
@@ -1411,6 +1485,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     resolved_user_ids: int = 0
     email_ids_missing: int = 0  # resolved users with missing email addresses
+    looker_user_count: int = 0
 
     _looker_api: Optional[LookerAPI] = None
     query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
@@ -1614,15 +1689,30 @@ class LookerDashboard:
 class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
+    _user_cache: Dict[str, LookerUser] = {}
 
-    def __init__(self, looker_api: LookerAPI):
+    def __init__(self, looker_api: LookerAPI, report: LookerDashboardSourceReport):
         self.looker_api_wrapper = looker_api
+        self.report = report
+        self._initialize_user_cache()
+
+    def _initialize_user_cache(self) -> None:
+        raw_users: Sequence[User] = self.looker_api_wrapper.all_users(
+            user_fields=self.fields
+        )
+
+        for raw_user in raw_users:
+            looker_user = LookerUser.create_looker_user(raw_user)
+            self._user_cache[str(looker_user.id)] = looker_user
 
     def get_by_id(self, id_: str) -> Optional[LookerUser]:
         if not id_:
             return None
 
         logger.debug(f"Will get user {id_}")
+
+        if str(id_) in self._user_cache:
+            return self._user_cache.get(str(id_))
 
         raw_user: Optional[User] = self.looker_api_wrapper.get_user(
             str(id_), user_fields=self.fields
@@ -1632,3 +1722,36 @@ class LookerUserRegistry:
 
         looker_user = LookerUser.create_looker_user(raw_user)
         return looker_user
+
+    def to_platform_resource(
+        self, platform_instance: Optional[str]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        try:
+            platform_resource_key = PlatformResourceKey(
+                platform=LOOKER,
+                resource_type="USER_ID_MAPPING",
+                platform_instance=platform_instance,
+                primary_key="",
+            )
+
+            # Extract user email mappings.
+            # Sort it to ensure the order is deterministic.
+            user_email_cache = {
+                user_id: user.email
+                for user_id, user in sorted(self._user_cache.items())
+                if user.email
+            }
+
+            platform_resource = PlatformResource.create(
+                key=platform_resource_key,
+                value=user_email_cache,
+            )
+
+            self.report.looker_user_count = len(user_email_cache)
+            yield from platform_resource.to_mcps()
+
+        except Exception as exc:
+            self.report.warning(
+                message="Failed to generate platform resource for looker id mappings",
+                exc=exc,
+            )

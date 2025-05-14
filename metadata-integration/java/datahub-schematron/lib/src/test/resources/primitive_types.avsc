@@ -1,0 +1,62 @@
+{
+  "type": "record",
+  "name": "PrimitiveType",
+  "fields": [
+    {
+      "name": "intField",
+      "type": "int"
+    },
+    {
+      "name": "intFieldV2",
+      "type": ["int"]
+    },
+    {
+      "name": "nullField",
+      "type": "null"
+    },
+    {
+      "name": "nullFieldV2",
+      "type": ["null"]
+    },
+    {
+      "name": "longField",
+      "type": "long"
+    },
+    {
+      "name": "floatField",
+      "type": "float"
+    },
+    {
+      "name": "doubleField",
+      "type": "double"
+    },
+    {
+      "name": "stringField",
+      "type": "string"
+    },
+    {
+      "name": "booleanField",
+      "type": "boolean"
+    },
+    {
+      "name": "nullableIntField",
+      "type": ["null", "int"]
+    },
+    {
+      "name": "nullableLongField",
+      "type": ["null", "long"]
+    },
+    {
+      "name": "nullableStringField",
+      "type": ["null", "string"]
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "StatusEnum",
+        "symbols": ["ACTIVE", "INACTIVE", "PENDING"]
+      }
+    }
+  ]
+}

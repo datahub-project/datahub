@@ -1,12 +1,14 @@
+import { Button, Form, Modal, Select, Tag, message } from 'antd';
 import React, { useRef, useState } from 'react';
-import { message, Modal, Button, Form, Select, Tag } from 'antd';
 import styled from 'styled-components';
-import { useAddGroupMembersMutation } from '../../../graphql/group.generated';
-import { CorpUser, Entity, EntityType } from '../../../types.generated';
-import { useGetSearchResultsLazyQuery } from '../../../graphql/search.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetRecommendations } from '../../shared/recommendation';
-import { OwnerLabel } from '../../shared/OwnerLabel';
+
+import { OwnerLabel } from '@app/shared/OwnerLabel';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useAddGroupMembersMutation } from '@graphql/group.generated';
+import { useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { CorpUser, Entity, EntityType } from '@types';
 
 type Props = {
     urn: string;
@@ -36,7 +38,7 @@ export const AddGroupMembersModal = ({ urn, open, onCloseModal, onSubmit }: Prop
     const [addGroupMembersMutation] = useAddGroupMembersMutation();
     const [userSearch, { data: userSearchData }] = useGetSearchResultsLazyQuery();
     const searchResults = userSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
-    const [recommendedData] = useGetRecommendations([EntityType.CorpUser]);
+    const { recommendedData } = useGetRecommendations([EntityType.CorpUser]);
     const inputEl = useRef(null);
 
     const handleUserSearch = (text: string) => {

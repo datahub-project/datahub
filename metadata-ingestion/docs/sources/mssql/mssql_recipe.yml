@@ -9,6 +9,9 @@ source:
     username: user
     password: pass
 
+    # This is recommended to improve lineage quality. Ignores case-sensitivity when constructing internal identifiers.
+    convert_urns_to_lowercase: True
+
     # Options
     # Uncomment if you need to use encryption with pytds
     # See https://python-tds.readthedocs.io/en/latest/pytds.html#pytds.connect

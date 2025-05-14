@@ -8,7 +8,7 @@ from sqllineage.utils.constant import EdgeType
 
 # Patch based on sqllineage v1.3.3
 def end_of_query_cleanup_patch(self, holder: SubQueryLineageHolder) -> None:  # type: ignore
-    for i, tbl in enumerate(self.tables):
+    for tbl in self.tables:
         holder.add_read(tbl)
     self.union_barriers.append((len(self.columns), len(self.tables)))
 

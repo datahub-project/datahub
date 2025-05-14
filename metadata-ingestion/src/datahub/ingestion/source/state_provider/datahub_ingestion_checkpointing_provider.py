@@ -10,7 +10,8 @@ from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import (
     IngestionCheckpointingProviderConfig,
     JobId,
 )
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.metadata.schema_classes import DatahubIngestionCheckpointClass
 
 logger = logging.getLogger(__name__)
@@ -70,20 +71,20 @@ class DatahubIngestionCheckpointingProvider(IngestionCheckpointingProviderBase):
             self.orchestrator_name, pipeline_name, job_name
         )
 
-        latest_checkpoint: Optional[
-            DatahubIngestionCheckpointClass
-        ] = self.graph.get_latest_timeseries_value(
-            entity_urn=data_job_urn,
-            aspect_type=DatahubIngestionCheckpointClass,
-            filter_criteria_map={
-                "pipelineName": pipeline_name,
-            },
+        latest_checkpoint: Optional[DatahubIngestionCheckpointClass] = (
+            self.graph.get_latest_timeseries_value(
+                entity_urn=data_job_urn,
+                aspect_type=DatahubIngestionCheckpointClass,
+                filter_criteria_map={
+                    "pipelineName": pipeline_name,
+                },
+            )
         )
         if latest_checkpoint:
             logger.debug(
                 f"The last committed ingestion checkpoint for pipelineName:'{pipeline_name}',"
                 f" job_name:'{job_name}' found with start_time:"
-                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis/1000)}"
+                f" {datetime.utcfromtimestamp(latest_checkpoint.timestampMillis / 1000)}"
             )
             return latest_checkpoint
         else:

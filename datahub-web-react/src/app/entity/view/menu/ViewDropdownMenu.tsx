@@ -1,25 +1,27 @@
+import { MoreOutlined } from '@ant-design/icons';
+import { useApolloClient } from '@apollo/client';
+import { Dropdown, Modal, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useApolloClient } from '@apollo/client';
-import { MoreOutlined } from '@ant-design/icons';
-import { Dropdown, message, Modal } from 'antd';
-import { DataHubView, DataHubViewType } from '../../../../types.generated';
-import { useUserContext } from '../../../context/useUserContext';
-import { useUpdateCorpUserViewsSettingsMutation } from '../../../../graphql/user.generated';
-import { useUpdateGlobalViewsSettingsMutation } from '../../../../graphql/app.generated';
-import { useDeleteViewMutation } from '../../../../graphql/view.generated';
-import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '../cacheUtils';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '../utils';
-import { ViewBuilderMode } from '../builder/types';
-import { ViewBuilder } from '../builder/ViewBuilder';
-import { EditViewItem } from './item/EditViewItem';
-import { PreviewViewItem } from './item/PreviewViewItem';
-import { RemoveUserDefaultItem } from './item/RemoveUserDefaultItem';
-import { SetUserDefaultItem } from './item/SetUserDefaultItem';
-import { RemoveGlobalDefaultItem } from './item/RemoveGlobalDefaultItem';
-import { SetGlobalDefaultItem } from './item/SetGlobalDefaultItem';
-import { DeleteViewItem } from './item/DeleteViewItem';
-import analytics, { EventType } from '../../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { removeFromListMyViewsCache, removeFromViewSelectCaches } from '@app/entity/view/cacheUtils';
+import { DeleteViewItem } from '@app/entity/view/menu/item/DeleteViewItem';
+import { EditViewItem } from '@app/entity/view/menu/item/EditViewItem';
+import { PreviewViewItem } from '@app/entity/view/menu/item/PreviewViewItem';
+import { RemoveGlobalDefaultItem } from '@app/entity/view/menu/item/RemoveGlobalDefaultItem';
+import { RemoveUserDefaultItem } from '@app/entity/view/menu/item/RemoveUserDefaultItem';
+import { SetGlobalDefaultItem } from '@app/entity/view/menu/item/SetGlobalDefaultItem';
+import { SetUserDefaultItem } from '@app/entity/view/menu/item/SetUserDefaultItem';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE } from '@app/entity/view/utils';
+
+import { useUpdateGlobalViewsSettingsMutation } from '@graphql/app.generated';
+import { useUpdateCorpUserViewsSettingsMutation } from '@graphql/user.generated';
+import { useDeleteViewMutation } from '@graphql/view.generated';
+import { DataHubView, DataHubViewType } from '@types';
 
 const MenuButton = styled(MoreOutlined)`
     width: 20px;

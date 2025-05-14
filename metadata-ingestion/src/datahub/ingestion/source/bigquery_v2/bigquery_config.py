@@ -1,13 +1,9 @@
-import json
 import logging
 import os
 import re
-import tempfile
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
-from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
-from google.cloud.logging_v2.client import Client as GCPLoggingClient
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -17,9 +13,11 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
-from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
@@ -105,106 +103,6 @@ class BigQueryUsageConfig(BaseUsageConfig):
         "usage to views / tables mentioned in the query. If set to True, usage is applied to base tables "
         "only.",
     )
-
-
-class BigQueryCredential(ConfigModel):
-    project_id: str = Field(description="Project id to set the credentials")
-    private_key_id: str = Field(description="Private key id")
-    private_key: str = Field(
-        description="Private key in a form of '-----BEGIN PRIVATE KEY-----\\nprivate-key\\n-----END PRIVATE KEY-----\\n'"
-    )
-    client_email: str = Field(description="Client email")
-    client_id: str = Field(description="Client Id")
-    auth_uri: str = Field(
-        default="https://accounts.google.com/o/oauth2/auth",
-        description="Authentication uri",
-    )
-    token_uri: str = Field(
-        default="https://oauth2.googleapis.com/token", description="Token uri"
-    )
-    auth_provider_x509_cert_url: str = Field(
-        default="https://www.googleapis.com/oauth2/v1/certs",
-        description="Auth provider x509 certificate url",
-    )
-    type: str = Field(default="service_account", description="Authentication type")
-    client_x509_cert_url: Optional[str] = Field(
-        default=None,
-        description="If not set it will be default to https://www.googleapis.com/robot/v1/metadata/x509/client_email",
-    )
-
-    _fix_private_key_newlines = pydantic_multiline_string("private_key")
-
-    @root_validator(skip_on_failure=True)
-    def validate_config(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        if values.get("client_x509_cert_url") is None:
-            values[
-                "client_x509_cert_url"
-            ] = f'https://www.googleapis.com/robot/v1/metadata/x509/{values["client_email"]}'
-        return values
-
-    def create_credential_temp_file(self) -> str:
-        with tempfile.NamedTemporaryFile(delete=False) as fp:
-            cred_json = json.dumps(self.dict(), indent=4, separators=(",", ": "))
-            fp.write(cred_json.encode())
-            return fp.name
-
-
-class BigQueryConnectionConfig(ConfigModel):
-    credential: Optional[BigQueryCredential] = Field(
-        default=None, description="BigQuery credential informations"
-    )
-
-    _credentials_path: Optional[str] = PrivateAttr(None)
-
-    extra_client_options: Dict[str, Any] = Field(
-        default={},
-        description="Additional options to pass to google.cloud.logging_v2.client.Client.",
-    )
-
-    project_on_behalf: Optional[str] = Field(
-        default=None,
-        description="[Advanced] The BigQuery project in which queries are executed. Will be passed when creating a job. If not passed, falls back to the project associated with the service account.",
-    )
-
-    def __init__(self, **data: Any):
-        super().__init__(**data)
-
-        if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
-            )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-
-    def get_bigquery_client(self) -> bigquery.Client:
-        client_options = self.extra_client_options
-        return bigquery.Client(self.project_on_behalf, **client_options)
-
-    def get_projects_client(self) -> resourcemanager_v3.ProjectsClient:
-        return resourcemanager_v3.ProjectsClient()
-
-    def get_policy_tag_manager_client(self) -> datacatalog_v1.PolicyTagManagerClient:
-        return datacatalog_v1.PolicyTagManagerClient()
-
-    def make_gcp_logging_client(
-        self, project_id: Optional[str] = None
-    ) -> GCPLoggingClient:
-        # See https://github.com/googleapis/google-cloud-python/issues/2674 for
-        # why we disable gRPC here.
-        client_options = self.extra_client_options.copy()
-        client_options["_use_grpc"] = False
-        if project_id is not None:
-            return GCPLoggingClient(**client_options, project=project_id)
-        else:
-            return GCPLoggingClient(**client_options)
-
-    def get_sql_alchemy_url(self) -> str:
-        if self.project_on_behalf:
-            return f"bigquery://{self.project_on_behalf}"
-        # When project_id is not set, we will attempt to detect the project ID
-        # based on the credentials or environment variables.
-        # See https://github.com/mxmzdlv/pybigquery#authentication.
-        return "bigquery://"
 
 
 class GcsLineageProviderConfig(ConfigModel):
@@ -447,6 +345,14 @@ class BigQueryV2Config(
         default=False,
         description="If enabled, uses the new queries extractor to extract queries from bigquery.",
     )
+    include_queries: bool = Field(
+        default=True,
+        description="If enabled, generate query entities associated with lineage edges. Only applicable if `use_queries_v2` is enabled.",
+    )
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
+    )
 
     @property
     def have_table_data_read_permission(self) -> bool:
@@ -462,10 +368,6 @@ class BigQueryV2Config(
     lineage_use_sql_parser: bool = Field(
         default=True,
         description="Use sql parser to resolve view/table lineage.",
-    )
-    lineage_parse_view_ddl: bool = Field(
-        default=True,
-        description="Sql parse view ddl to get lineage.",
     )
 
     lineage_sql_parser_use_raw_names: bool = Field(
@@ -572,11 +474,9 @@ class BigQueryV2Config(
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
-    # include_view_lineage and include_view_column_lineage are inherited from SQLCommonConfig
-    # but not used in bigquery so we hide them from docs.
-    include_view_lineage: bool = Field(default=True, hidden_from_docs=True)
-
-    include_view_column_lineage: bool = Field(default=True, hidden_from_docs=True)
+    _include_view_lineage = pydantic_removed_field("include_view_lineage")
+    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
+    _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")
 
     @root_validator(pre=True)
     def set_include_schema_metadata(cls, values: Dict) -> Dict:
@@ -609,9 +509,9 @@ class BigQueryV2Config(
         cls, v: Optional[List[str]], values: Dict
     ) -> Optional[List[str]]:
         if values.get("use_exported_bigquery_audit_metadata"):
-            assert (
-                v and len(v) > 0
-            ), "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+            assert v and len(v) > 0, (
+                "`bigquery_audit_metadata_datasets` should be set if using `use_exported_bigquery_audit_metadata: True`."
+            )
 
         return v
 

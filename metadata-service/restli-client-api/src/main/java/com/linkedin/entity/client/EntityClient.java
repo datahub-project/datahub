@@ -45,12 +45,34 @@ import javax.annotation.Nullable;
 // Consider renaming this to datahub client.
 public interface EntityClient {
 
+  /**
+   * This version follows the legacy behavior of returning key aspects regardless of whether they
+   * exist
+   *
+   * @param opContext operation context
+   * @param entityName entity type
+   * @param urn urn id for the entity
+   * @param aspectNames set of aspects
+   * @return requested entity/aspects
+   */
+  @Deprecated
+  @Nullable
+  default EntityResponse getV2(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull final Urn urn,
+      @Nullable final Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException {
+    return getV2(opContext, entityName, urn, aspectNames, true);
+  }
+
   @Nullable
   EntityResponse getV2(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException;
 
   @Nonnull
@@ -58,12 +80,34 @@ public interface EntityClient {
   Entity get(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException;
 
+  /**
+   * This version follows the legacy behavior of returning key aspects regardless of whether they
+   * exist
+   *
+   * @param opContext operation context
+   * @param entityName entity type
+   * @param urns urn ids for the entities
+   * @param aspectNames set of aspects
+   * @return requested entity/aspects
+   */
+  @Deprecated
+  @Nonnull
+  default Map<Urn, EntityResponse> batchGetV2(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull final Set<Urn> urns,
+      @Nullable final Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException {
+    return batchGetV2(opContext, entityName, urns, aspectNames, true);
+  }
+
   @Nonnull
   Map<Urn, EntityResponse> batchGetV2(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException;
 
   @Nonnull
@@ -264,7 +308,7 @@ public interface EntityClient {
    * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
-  SearchResult searchAcrossEntities(
+  default SearchResult searchAcrossEntities(
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
       @Nonnull String input,
@@ -272,7 +316,10 @@ public interface EntityClient {
       int start,
       int count,
       List<SortCriterion> sortCriteria)
-      throws RemoteInvocationException;
+      throws RemoteInvocationException {
+    return searchAcrossEntities(
+        opContext, entities, input, filter, start, count, sortCriteria, List.of());
+  }
 
   /**
    * Searches for entities matching to a given query and filters across multiple entity types
@@ -294,7 +341,7 @@ public interface EntityClient {
       int start,
       int count,
       List<SortCriterion> sortCriteria,
-      List<String> facets)
+      @Nonnull List<String> facets)
       throws RemoteInvocationException;
 
   /**
@@ -305,11 +352,38 @@ public interface EntityClient {
    * @param filter search filters
    * @param scrollId opaque scroll ID indicating offset
    * @param keepAlive string representation of time to keep point in time alive, ex: 5m
+   * @param sortCriteria sort criteria
    * @param count max number of search results requested
    * @return Snapshot key
    * @throws RemoteInvocationException when unable to execute request
    */
   @Nonnull
+  default ScrollResult scrollAcrossEntities(
+      @Nonnull OperationContext opContext,
+      @Nonnull List<String> entities,
+      @Nonnull String input,
+      @Nullable Filter filter,
+      @Nullable String scrollId,
+      @Nullable String keepAlive,
+      List<SortCriterion> sortCriteria,
+      int count)
+      throws RemoteInvocationException {
+    return scrollAcrossEntities(
+        opContext, entities, input, filter, scrollId, keepAlive, sortCriteria, count, List.of());
+  }
+
+  /**
+   * Searches for entities matching to a given query and filters across multiple entity types
+   *
+   * @param entities entity types to search (if empty, searches all entities)
+   * @param input search query
+   * @param filter search filters
+   * @param scrollId opaque scroll ID indicating offset
+   * @param keepAlive string representation of time to keep point in time alive, ex: 5m
+   * @param facets list of facets we want aggregations for
+   * @return Snapshot key
+   * @throws RemoteInvocationException when unable to execute request
+   */
   ScrollResult scrollAcrossEntities(
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entities,
@@ -317,7 +391,9 @@ public interface EntityClient {
       @Nullable Filter filter,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int count)
+      List<SortCriterion> sortCriteria,
+      int count,
+      List<String> facets)
       throws RemoteInvocationException;
 
   /**
@@ -589,27 +665,38 @@ public interface EntityClient {
 
   @Nullable
   default Aspect getLatestAspectObject(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName)
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
-    return getLatestAspects(opContext, Set.of(urn), Set.of(aspectName))
+    return getLatestAspects(opContext, Set.of(urn), Set.of(aspectName), alwaysIncludeKeyAspect)
         .getOrDefault(urn, Map.of())
         .get(aspectName);
   }
 
   @Nonnull
   default Map<Urn, Map<String, Aspect>> getLatestAspects(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
-    return entityResponseToAspectMap(batchGetV2(opContext, entityName, urns, aspectNames));
+    return entityResponseToAspectMap(
+        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect));
   }
 
   @Nonnull
   default Map<Urn, Map<String, SystemAspect>> getLatestSystemAspect(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
     return entityResponseToSystemAspectMap(
-        batchGetV2(opContext, entityName, urns, aspectNames), opContext.getEntityRegistry());
+        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect),
+        opContext.getEntityRegistry());
   }
 }

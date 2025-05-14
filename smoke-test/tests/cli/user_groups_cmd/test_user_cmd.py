@@ -1,14 +1,17 @@
 import json
 import sys
 import tempfile
+import time
 from typing import Any, Dict, Iterable, List
 
 import yaml
 from click.testing import CliRunner, Result
+
 from datahub.api.entities.corpuser.corpuser import CorpUser
 from datahub.entrypoints import datahub
+from tests.consistency_utils import wait_for_writes_to_sync
 
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 def datahub_upsert_user(auth_session, user: CorpUser) -> None:
@@ -71,21 +74,59 @@ def datahub_get_user(auth_session: Any, user_urn: str):
 
 def test_user_upsert(auth_session: Any) -> None:
     num_user_profiles: int = 10
-    for i, datahub_user in enumerate(gen_datahub_users(num_user_profiles)):
+    max_retries: int = 3
+    backoff_seconds: float = 1.0
+
+    # Create users first
+    for _i, datahub_user in enumerate(gen_datahub_users(num_user_profiles)):
         datahub_upsert_user(auth_session, datahub_user)
-        user_dict = datahub_get_user(auth_session, f"urn:li:corpuser:user_{i}")
-        assert user_dict == {
-            "corpUserEditableInfo": {
-                "aboutMe": f"The User {i}",
-                "displayName": f"User {i}",
-                "email": f"user_{i}@datahubproject.io",
-                "phone": f"1-800-USER-{i}",
-                "pictureLink": f"https://images.google.com/user{i}.jpg",
-                "skills": [],
-                "slack": f"@user{i}",
-                "teams": [],
-            },
-            "corpUserKey": {"username": f"user_{i}"},
-            "groupMembership": {"groups": [f"urn:li:corpGroup:group_{i}"]},
-            "status": {"removed": False},
-        }
+
+    # Initial wait for writes
+    wait_for_writes_to_sync()
+
+    # Retry logic for getting all users and assertion
+    for attempt in range(max_retries):
+        try:
+            actual = []
+            expected = []
+
+            # Collect all user data
+            for _i in range(num_user_profiles):
+                user_dict = datahub_get_user(auth_session, f"urn:li:corpuser:user_{_i}")
+                actual.append(user_dict)
+                expected.append(
+                    {
+                        "corpUserEditableInfo": {
+                            "aboutMe": f"The User {_i}",
+                            "displayName": f"User {_i}",
+                            "email": f"user_{_i}@datahubproject.io",
+                            "phone": f"1-800-USER-{_i}",
+                            "pictureLink": f"https://images.google.com/user{_i}.jpg",
+                            "skills": [],
+                            "slack": f"@user{_i}",
+                            "teams": [],
+                        },
+                        "corpUserKey": {"username": f"user_{_i}"},
+                        "groupMembership": {"groups": [f"urn:li:corpGroup:group_{_i}"]},
+                        "status": {"removed": False},
+                    }
+                )
+
+            # Try assertion
+            assert actual == expected
+            # If assertion passes, we're done
+            return
+
+        except AssertionError:
+            if attempt < max_retries - 1:
+                wait_time = backoff_seconds * (2**attempt)
+                print(
+                    f"Assertion failed on attempt {attempt + 1}, waiting {wait_time} seconds before retrying..."
+                )
+                # Wait before retrying
+                time.sleep(wait_time)
+                # Additional sync wait
+                wait_for_writes_to_sync()
+            else:
+                # On last attempt, let the assertion error propagate
+                raise

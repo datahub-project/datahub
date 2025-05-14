@@ -1,10 +1,11 @@
-import { useGetSearchResultsForMultipleQuery } from '../../../graphql/search.generated';
-import { FilterOperator } from '../../../types.generated';
-import { UnionType } from '../../search/utils/constants';
-import { generateOrFilters } from '../../search/utils/generateOrFilters';
-import { PageRoutes } from '../../../conf/Global';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { urlEncodeUrn } from '../../entity/shared/utils';
+import { urlEncodeUrn } from '@app/entity/shared/utils';
+import { UnionType } from '@app/search/utils/constants';
+import { generateOrFilters } from '@app/search/utils/generateOrFilters';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { FilterOperator } from '@types';
 
 const URL_FIELDS = ['externalUrl', 'chartUrl', 'dashboardUrl'] as const;
 
@@ -31,7 +32,7 @@ const useGetEntityByUrl = (externalUrl: string) => {
     const getLookupData = () => {
         if (!data) return {} as const;
 
-        const entities = data.searchAcrossEntities?.searchResults.map((result) => result.entity) ?? [];
+        const entities = data.searchAcrossEntities?.searchResults?.map((result) => result.entity) ?? [];
         const notFound = entities.length === 0;
         const foundMultiple = entities.length > 1;
         const entity = entities.length === 1 ? entities[0] : null;

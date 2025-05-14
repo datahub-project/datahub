@@ -43,7 +43,24 @@ public class KafkaEventConsumerFactory {
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
-        buildCustomizedProperties(baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig);
+        buildCustomizedProperties(
+            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true);
+
+    return new DefaultKafkaConsumerFactory<>(customizedProperties);
+  }
+
+  @Bean(name = "kafkaConsumerPoolConsumerFactory")
+  protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerPoolConsumerFactory(
+      @Qualifier("configurationProvider") ConfigurationProvider provider,
+      KafkaProperties baseKafkaProperties,
+      @Qualifier("schemaRegistryConfig")
+          KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
+    kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+
+    KafkaConfiguration kafkaConfiguration = provider.getKafka();
+    Map<String, Object> customizedProperties =
+        buildCustomizedProperties(
+            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, false);
 
     return new DefaultKafkaConsumerFactory<>(customizedProperties);
   }
@@ -57,7 +74,8 @@ public class KafkaEventConsumerFactory {
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
-        buildCustomizedProperties(baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig);
+        buildCustomizedProperties(
+            baseKafkaProperties, kafkaConfiguration, schemaRegistryConfig, true);
 
     return new DefaultKafkaConsumerFactory<>(customizedProperties);
   }
@@ -65,12 +83,17 @@ public class KafkaEventConsumerFactory {
   private static Map<String, Object> buildCustomizedProperties(
       KafkaProperties baseKafkaProperties,
       KafkaConfiguration kafkaConfiguration,
-      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
+      KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
+      boolean enableAutoCommit) {
     KafkaProperties.Consumer consumerProps = baseKafkaProperties.getConsumer();
 
-    // Records will be flushed every 10 seconds.
-    consumerProps.setEnableAutoCommit(true);
-    consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
+    if (enableAutoCommit) {
+      // Records will be flushed every 10 seconds.
+      consumerProps.setEnableAutoCommit(true);
+      consumerProps.setAutoCommitInterval(Duration.ofSeconds(10));
+    } else {
+      consumerProps.setEnableAutoCommit(false);
+    }
 
     // KAFKA_BOOTSTRAP_SERVER has precedence over SPRING_KAFKA_BOOTSTRAP_SERVERS
     if (kafkaConfiguration.getBootstrapServers() != null
@@ -172,11 +195,16 @@ public class KafkaEventConsumerFactory {
     factory.setConsumerFactory(factoryWithOverrides);
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(kafkaEventConsumerConcurrency);
+    factory.setAutoStartup(false);
 
-    /* Sets up a delegating error handler for Deserialization errors, if disabled will
-     use DefaultErrorHandler (does back-off retry and then logs) rather than stopping the container. Stopping the container
-     prevents lost messages until the error can be examined, disabling this will allow progress, but may lose data
-    */
+    /*
+     * Sets up a delegating error handler for Deserialization errors, if disabled
+     * will
+     * use DefaultErrorHandler (does back-off retry and then logs) rather than
+     * stopping the container. Stopping the container
+     * prevents lost messages until the error can be examined, disabling this will
+     * allow progress, but may lose data
+     */
     if (isStopOnDeserializationError) {
       CommonDelegatingErrorHandler delegatingErrorHandler =
           new CommonDelegatingErrorHandler(new DefaultErrorHandler());
@@ -202,6 +230,7 @@ public class KafkaEventConsumerFactory {
     factory.setConsumerFactory(kafkaConsumerFactory);
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(1);
+    factory.setAutoStartup(false);
 
     log.info(
         "Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");

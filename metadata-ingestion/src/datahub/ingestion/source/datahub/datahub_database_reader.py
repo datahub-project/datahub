@@ -147,6 +147,35 @@ class DataHubDatabaseReader:
             version
         """
 
+    def execute_server_cursor(
+        self, query: str, params: Dict[str, Any]
+    ) -> Iterable[Dict[str, Any]]:
+        with self.engine.connect() as conn:
+            if self.engine.dialect.name in ["postgresql", "mysql", "mariadb"]:
+                with (
+                    conn.begin()
+                ):  # Transaction required for PostgreSQL server-side cursor
+                    # Note that stream_results=True is mainly supported by PostgreSQL and MySQL-based dialects.
+                    # https://docs.sqlalchemy.org/en/14/core/connections.html#sqlalchemy.engine.Connection.execution_options.params.stream_results
+                    conn = conn.execution_options(
+                        stream_results=True,
+                        yield_per=self.config.database_query_batch_size,
+                    )
+                    result = conn.execute(query, params)
+                    for row in result:
+                        yield dict(row)
+            else:
+                raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
+
+    def _get_rows(
+        self, from_createdon: datetime, stop_time: datetime
+    ) -> Iterable[Dict[str, Any]]:
+        params = {
+            "exclude_aspects": list(self.config.exclude_aspects),
+            "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
+        }
+        yield from self.execute_server_cursor(self.query, params)
+
     def get_aspects(
         self, from_createdon: datetime, stop_time: datetime
     ) -> Iterable[Tuple[MetadataChangeProposalWrapper, datetime]]:
@@ -159,27 +188,6 @@ class DataHubDatabaseReader:
             if mcp:
                 yield mcp, row["createdon"]
 
-    def _get_rows(
-        self, from_createdon: datetime, stop_time: datetime
-    ) -> Iterable[Dict[str, Any]]:
-        with self.engine.connect() as conn:
-            with contextlib.closing(conn.connection.cursor()) as cursor:
-                cursor.execute(
-                    self.query,
-                    {
-                        "exclude_aspects": list(self.config.exclude_aspects),
-                        "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
-                    },
-                )
-
-                columns = [desc[0] for desc in cursor.description]
-                while True:
-                    rows = cursor.fetchmany(self.config.database_query_batch_size)
-                    if not rows:
-                        return
-                    for row in rows:
-                        yield dict(zip(columns, row))
-
     def get_soft_deleted_rows(self) -> Iterable[Dict[str, Any]]:
         """
         Fetches all soft-deleted entities from the database.
@@ -187,17 +195,18 @@ class DataHubDatabaseReader:
         Yields:
             Row objects containing URNs of soft-deleted entities
         """
-        with self.engine.connect() as conn:
-            with contextlib.closing(conn.connection.cursor()) as cursor:
-                logger.debug("Polling soft-deleted urns from database")
-                cursor.execute(self.soft_deleted_urns_query)
-                columns = [desc[0] for desc in cursor.description]
-                while True:
-                    rows = cursor.fetchmany(self.config.database_query_batch_size)
-                    if not rows:
-                        return
-                    for row in rows:
-                        yield dict(zip(columns, row))
+        with self.engine.connect() as conn, contextlib.closing(
+            conn.connection.cursor()
+        ) as cursor:
+            logger.debug("Polling soft-deleted urns from database")
+            cursor.execute(self.soft_deleted_urns_query)
+            columns = [desc[0] for desc in cursor.description]
+            while True:
+                rows = cursor.fetchmany(self.config.database_query_batch_size)
+                if not rows:
+                    return
+                for row in rows:
+                    yield dict(zip(columns, row))
 
     def _parse_row(
         self, row: Dict[str, Any]
@@ -216,7 +225,7 @@ class DataHubDatabaseReader:
             )
         except Exception as e:
             logger.warning(
-                f'Failed to parse metadata for {row["urn"]}: {e}', exc_info=True
+                f"Failed to parse metadata for {row['urn']}: {e}", exc_info=True
             )
             self.report.num_database_parse_errors += 1
             self.report.database_parse_errors.setdefault(

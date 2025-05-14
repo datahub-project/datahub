@@ -231,7 +231,7 @@ def _docker_compose_v2() -> List[str]:
             # docker-compose v1 is not installed either.
             raise DockerComposeVersionError(
                 "You don't have Docker Compose installed. Please install Docker Compose. See https://docs.docker.com/compose/install/.",
-            )
+            ) from None
 
 
 def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
@@ -296,9 +296,9 @@ def _restore(
     restore_indices: Optional[bool],
     primary_restore_file: Optional[str],
 ) -> int:
-    assert (
-        restore_primary or restore_indices
-    ), "Either restore_primary or restore_indices must be set"
+    assert restore_primary or restore_indices, (
+        "Either restore_primary or restore_indices must be set"
+    )
     msg = "datahub> "
     if restore_primary:
         msg += f"Will restore primary database from {primary_restore_file}. "
@@ -314,9 +314,9 @@ def _restore(
         assert primary_restore_file
         resolved_restore_file = os.path.expanduser(primary_restore_file)
         logger.info(f"Restoring primary db from backup at {resolved_restore_file}")
-        assert os.path.exists(
-            resolved_restore_file
-        ), f"File {resolved_restore_file} does not exist"
+        assert os.path.exists(resolved_restore_file), (
+            f"File {resolved_restore_file} does not exist"
+        )
         with open(resolved_restore_file) as fp:
             result = subprocess.run(
                 [
@@ -430,7 +430,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     return quickstart_arch
 
 
-@docker.command()  # noqa: C901
+@docker.command()
 @click.option(
     "--version",
     type=str,
@@ -592,7 +592,7 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
         "arch",
     ]
 )
-def quickstart(  # noqa: C901
+def quickstart(
     version: Optional[str],
     build_locally: bool,
     pull_images: bool,
@@ -811,7 +811,7 @@ def quickstart(  # noqa: C901
         raise status.to_exception(
             header="Unable to run quickstart - the following issues were detected:",
             footer="If you think something went wrong, please file an issue at https://github.com/datahub-project/datahub/issues\n"
-            "or send a message in our Slack https://slack.datahubproject.io/\n"
+            "or send a message in our Slack https://datahub.com/slack/\n"
             f"Be sure to attach the logs from {log_file.name}",
         )
 
@@ -824,7 +824,7 @@ def quickstart(  # noqa: C901
         fg="green",
     )
     click.secho(
-        "Need support? Get in touch on Slack: https://slack.datahubproject.io/",
+        "Need support? Get in touch on Slack: https://datahub.com/slack/",
         fg="magenta",
     )
 

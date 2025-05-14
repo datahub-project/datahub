@@ -8,4 +8,18 @@ source:
     client_id: ${LOOKER_CLIENT_ID}
     client_secret: ${LOOKER_CLIENT_SECRET}
 
+    # Liquid variables
+    # liquid_variables:
+    #   _user_attributes:
+    #     looker_env: "dev"
+    #     dev_database_prefix: "employee"
+    #     dev_schema_prefix: "public"
+    #   dw_eff_dt_date:
+    #     _is_selected: true
+    #   source_region: "ap-south-1"
+    #   db: "test-db"
+
+    # LookML Constants
+    # lookml_constants:
+    #   star_award_winner_year: "public.winner_2025"
 # sink configs

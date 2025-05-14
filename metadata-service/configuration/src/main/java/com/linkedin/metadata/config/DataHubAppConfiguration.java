@@ -29,6 +29,12 @@ public class DataHubAppConfiguration {
   /** Views feature related configs */
   private ViewsConfiguration views;
 
+  /** Search bar related configs */
+  private SearchBarConfiguration searchBar;
+
+  /** Home page related configs */
+  private HomePageConfiguration homePage;
+
   /** Feature flags indicating what is turned on vs turned off */
   private FeatureFlags featureFlags;
 
@@ -50,6 +56,9 @@ public class DataHubAppConfiguration {
   /** Configuration for caching */
   private CacheConfiguration cache;
 
+  /** Configuration for the chrome extension */
+  private ChromeExtensionConfiguration chromeExtension;
+
   /** Ebean related configuration */
   private EbeanConfiguration ebean;
 
@@ -58,4 +67,7 @@ public class DataHubAppConfiguration {
 
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
+
+  /** Timeseries Aspect Service configuration */
+  private TimeseriesAspectServiceConfig timeseriesAspectService;
 }

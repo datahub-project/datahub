@@ -55,15 +55,9 @@ def convert_chart_info_to_patch(
         aspect.externalUrl
     ).set_type(aspect.type).set_title(aspect.title).set_access(
         aspect.access
-    ).set_last_modified(
-        aspect.lastModified
-    ).set_last_refreshed(
+    ).set_last_modified(aspect.lastModified).set_last_refreshed(
         aspect.lastRefreshed
-    ).set_description(
-        aspect.description
-    ).add_inputs(
-        aspect.inputs
-    )
+    ).set_description(aspect.description).add_inputs(aspect.inputs)
 
     values = patch_builder.build()
     if values:
@@ -107,6 +101,10 @@ def convert_dashboard_info_to_patch(
 
     if aspect.datasets:
         patch_builder.add_datasets(aspect.datasets)
+
+    if aspect.dashboards:
+        for dashboard in aspect.dashboards:
+            patch_builder.add_dashboard(dashboard)
 
     if aspect.access:
         patch_builder.set_access(aspect.access)

@@ -1,14 +1,16 @@
-import React, { useMemo } from 'react';
-import styled from 'styled-components';
 import { AxisScaleOutput } from '@visx/axis';
-import { Axis, LineSeries, XYChart, Tooltip, GlyphSeries } from '@visx/xychart';
 import { curveMonotoneX } from '@visx/curve';
 import { ScaleConfig, scaleOrdinal } from '@visx/scale';
-import { TimeSeriesChart as TimeSeriesChartType, NumericDataPoint, NamedLine } from '../../../types.generated';
-import { lineColors } from './lineColors';
-import Legend from './Legend';
-import { addInterval } from '../../shared/time/timeUtils';
-import { formatNumber } from '../../shared/formatNumber';
+import { Axis, GlyphSeries, LineSeries, Tooltip, XYChart } from '@visx/xychart';
+import React, { useMemo } from 'react';
+import styled from 'styled-components';
+
+import Legend from '@app/analyticsDashboard/components/Legend';
+import { lineColors } from '@app/analyticsDashboard/components/lineColors';
+import { formatNumber } from '@app/shared/formatNumber';
+import { addInterval } from '@app/shared/time/timeUtils';
+
+import { NamedLine, NumericDataPoint, TimeSeriesChart as TimeSeriesChartType } from '@types';
 
 type AxisConfig = {
     formatter: (tick: number) => string;
@@ -84,6 +86,38 @@ export function computeLines(chartData: TimeSeriesChartType, insertBlankPoints: 
     return returnLines;
 }
 
+const formatAxisDate = (value: number, chartData: TimeSeriesChartType) => {
+    const date = new Date(value);
+
+    switch (chartData.interval) {
+        case 'MONTH':
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                year: 'numeric',
+                timeZone: 'UTC',
+            });
+        case 'WEEK':
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                timeZone: 'UTC',
+            });
+        case 'DAY':
+            return date.toLocaleDateString('en-US', {
+                weekday: 'short',
+                day: 'numeric',
+                timeZone: 'UTC',
+            });
+        default:
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric',
+                timeZone: 'UTC',
+            });
+    }
+};
+
 export const TimeSeriesChart = ({
     chartData,
     width,
@@ -117,6 +151,7 @@ export const TimeSeriesChart = ({
                     strokeWidth={style?.axisWidth}
                     tickLabelProps={{ fill: 'black', fontFamily: 'inherit', fontSize: 10 }}
                     numTicks={3}
+                    tickFormat={(value) => formatAxisDate(value, chartData)}
                 />
                 <Axis
                     orientation="right"
@@ -151,9 +186,7 @@ export const TimeSeriesChart = ({
                         tooltipData?.nearestDatum && (
                             <div>
                                 <div>
-                                    {new Date(
-                                        Number(accessors.xAccessor(tooltipData.nearestDatum.datum)),
-                                    ).toDateString()}
+                                    {formatAxisDate(accessors.xAccessor(tooltipData.nearestDatum.datum), chartData)}
                                 </div>
                                 <div>{accessors.yAccessor(tooltipData.nearestDatum.datum)}</div>
                             </div>

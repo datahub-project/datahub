@@ -34,7 +34,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @AllArgsConstructor
-@RequestMapping("/v2/timeline/v1")
+@RequestMapping("/openapi/v2/timeline/v1")
 @Tag(
     name = "Timeline",
     description =

@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.incident;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.ALL_PRIVILEGES_GROUP;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
+import static com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
@@ -21,8 +22,6 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.incident.IncidentSource;
 import com.linkedin.incident.IncidentSourceType;
-import com.linkedin.incident.IncidentState;
-import com.linkedin.incident.IncidentStatus;
 import com.linkedin.incident.IncidentType;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.key.IncidentKey;
@@ -30,12 +29,16 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /** Resolver used for creating (raising) a new asset incident. */
+// TODO: Add an incident impact summary that is computed here (or in a hook)
 @Slf4j
 @RequiredArgsConstructor
 public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<String>> {
@@ -48,13 +51,27 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
     final QueryContext context = environment.getContext();
     final RaiseIncidentInput input =
         bindArgument(environment.getArgument("input"), RaiseIncidentInput.class);
-    final Urn resourceUrn = Urn.createFromString(input.getResourceUrn());
+    final Urn resourceUrn =
+        input.getResourceUrn() != null ? Urn.createFromString(input.getResourceUrn()) : null;
+    final List<Urn> resourceUrns =
+        new ArrayList<>(
+            input.getResourceUrns() != null
+                ? stringsToUrns(input.getResourceUrns())
+                : Collections.emptyList());
+    if (resourceUrn != null && !resourceUrns.contains(resourceUrn)) {
+      resourceUrns.add(resourceUrn);
+    }
+    if (resourceUrns.isEmpty()) {
+      throw new RuntimeException("At least 1 resource urn must be defined to raise an incident.");
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!isAuthorizedToCreateIncidentForResource(resourceUrn, context)) {
-            throw new AuthorizationException(
-                "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          for (Urn urn : resourceUrns) {
+            if (!isAuthorizedToCreateIncidentForResource(urn, context)) {
+              throw new AuthorizationException(
+                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
+            }
           }
 
           try {
@@ -71,19 +88,24 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
                     key,
                     INCIDENT_ENTITY_NAME,
                     INCIDENT_INFO_ASPECT_NAME,
-                    mapIncidentInfo(input, context));
+                    mapIncidentInfo(input, resourceUrns, context));
             return _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
           } catch (Exception e) {
             log.error("Failed to create incident. {}", e.getMessage());
-            throw new RuntimeException("Failed to incident", e);
+            throw new RuntimeException(e.getMessage());
           }
         },
         this.getClass().getSimpleName(),
         "get");
   }
 
-  private IncidentInfo mapIncidentInfo(final RaiseIncidentInput input, final QueryContext context)
+  private IncidentInfo mapIncidentInfo(
+      final RaiseIncidentInput input, List<Urn> resourceUrns, final QueryContext context)
       throws URISyntaxException {
+    final AuditStamp actorStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString(context.getActorUrn()))
+            .setTime(System.currentTimeMillis());
     final IncidentInfo result = new IncidentInfo();
     result.setType(
         IncidentType.valueOf(
@@ -91,25 +113,28 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
                 .getType()
                 .name())); // Assumption Alert: This assumes that GMS incident type === GraphQL
     // incident type.
+    if (IncidentType.CUSTOM.name().equals(input.getType().name())
+        && input.getCustomType() == null) {
+      throw new URISyntaxException("Failed to create incident.", "customType is required");
+    }
     result.setCustomType(input.getCustomType(), SetMode.IGNORE_NULL);
     result.setTitle(input.getTitle(), SetMode.IGNORE_NULL);
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
-    result.setEntities(
-        new UrnArray(ImmutableList.of(Urn.createFromString(input.getResourceUrn()))));
+    result.setEntities(new UrnArray(resourceUrns));
     result.setCreated(
         new AuditStamp()
             .setActor(Urn.createFromString(context.getActorUrn()))
             .setTime(System.currentTimeMillis()));
+    if (input.getStartedAt() != null) {
+      result.setStartedAt(input.getStartedAt());
+    }
     // Create the incident in the 'active' state by default.
-    result.setStatus(
-        new IncidentStatus()
-            .setState(IncidentState.ACTIVE)
-            .setLastUpdated(
-                new AuditStamp()
-                    .setActor(Urn.createFromString(context.getActorUrn()))
-                    .setTime(System.currentTimeMillis())));
     result.setSource(new IncidentSource().setType(IncidentSourceType.MANUAL), SetMode.IGNORE_NULL);
-    result.setPriority(input.getPriority(), SetMode.IGNORE_NULL);
+    result.setPriority(IncidentUtils.mapIncidentPriority(input.getPriority()), SetMode.IGNORE_NULL);
+    result.setAssignees(
+        IncidentUtils.mapIncidentAssignees(input.getAssigneeUrns(), actorStamp),
+        SetMode.IGNORE_NULL);
+    result.setStatus(IncidentUtils.mapIncidentStatus(input.getStatus(), actorStamp));
     return result;
   }
 

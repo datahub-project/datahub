@@ -1,46 +1,35 @@
 import json
-import logging
 import pathlib
-import sys
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Union
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
+from pydantic import ValidationError
 from requests.adapters import ConnectionError
-from tableauserverclient import PermissionsRule, Server
+from tableauserverclient import PermissionsRule
 from tableauserverclient.models import (
     DatasourceItem,
     GroupItem,
     ProjectItem,
     SiteItem,
+    UserItem,
     ViewItem,
     WorkbookItem,
 )
 from tableauserverclient.models.reference_item import ResourceReference
+from tableauserverclient.server.endpoint.exceptions import (
+    NonXMLResponseError,
+    TableauError,
+)
 
-from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
     TableauSiteSource,
-    TableauSource,
     TableauSourceReport,
 )
-from datahub.ingestion.source.tableau.tableau_common import (
-    TableauLineageOverrides,
-    TableauUpstreamReference,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetLineageType,
-    FineGrainedLineage,
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
-    UpstreamLineage,
-)
-from datahub.metadata.schema_classes import UpstreamClass
-from tests.test_helpers import mce_helpers, test_connection_helpers
+from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -60,7 +49,8 @@ config_source_default = {
     "site": "acryl",
     "projects": ["default", "Project 2", "Samples"],
     "extract_project_hierarchy": False,
-    "page_size": 10,
+    "page_size": 1000,
+    "workbook_page_size": None,
     "ingest_tags": True,
     "ingest_owner": True,
     "ingest_tables_external": True,
@@ -80,12 +70,6 @@ config_source_default = {
         },
     },
 }
-
-
-def enable_logging():
-    # set logging to console
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.DEBUG)
 
 
 def read_response(file_name):
@@ -272,7 +256,7 @@ def side_effect_site_get_by_id(id, *arg, **kwargs):
 
 
 def mock_sdk_client(
-    side_effect_query_metadata_response: List[dict],
+    side_effect_query_metadata_response: List[Union[dict, TableauError]],
     datasources_side_effect: List[dict],
     sign_out_side_effect: List[dict],
 ) -> mock.MagicMock:
@@ -370,7 +354,6 @@ def tableau_ingest_common(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
     tableau_ingest_common(
@@ -403,25 +386,6 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_tableau_test_connection_success():
-    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
-        report = test_connection_helpers.run_test_connection(
-            TableauSource, config_source_default
-        )
-        test_connection_helpers.assert_basic_connectivity_success(report)
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_tableau_test_connection_failure():
-    report = test_connection_helpers.run_test_connection(
-        TableauSource, config_source_default
-    )
-    test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
-
-
 def mock_data() -> List[dict]:
     return [
         read_response("workbooksConnection_all.json"),
@@ -448,7 +412,6 @@ def mock_data() -> List[dict]:
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces_cll.json"
     golden_file_name: str = "tableau_cll_mces_golden.json"
 
@@ -475,7 +438,6 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_project_pattern_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
 
@@ -499,7 +461,6 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_project_path_mces.json"
     golden_file_name: str = "tableau_project_path_mces_golden.json"
 
@@ -523,8 +484,6 @@ def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
-
     output_file_name: str = "tableau_nested_project_mces.json"
     golden_file_name: str = "tableau_nested_project_mces_golden.json"
 
@@ -548,7 +507,6 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_extract_all_project_mces.json"
     golden_file_name: str = "tableau_extract_all_project_mces_golden.json"
 
@@ -566,58 +524,6 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
         pipeline_config=new_config,
     )
-
-
-def test_value_error_projects_and_project_pattern(
-    pytestconfig, tmp_path, mock_datahub_graph
-):
-    # Ingestion should raise ValueError
-    output_file_name: str = "tableau_project_pattern_precedence_mces.json"
-    golden_file_name: str = "tableau_project_pattern_precedence_mces_golden.json"
-
-    new_config = config_source_default.copy()
-    new_config["projects"] = ["default"]
-    new_config["project_pattern"] = {"allow": ["^Samples$"]}
-
-    try:
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            mock_data(),
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
-    except Exception as e:
-        assert "projects is deprecated. Please use project_path_pattern only" in str(e)
-
-
-def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
-    # Ingestion should raise ValueError
-    output_file_name: str = "tableau_project_pattern_deprecation_mces.json"
-    golden_file_name: str = "tableau_project_pattern_deprecation_mces_golden.json"
-
-    new_config = config_source_default.copy()
-    del new_config["projects"]
-    new_config["project_pattern"] = {"allow": ["^Samples$"]}
-    new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
-
-    try:
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            mock_data(),
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
-    except Exception as e:
-        assert (
-            "project_pattern is deprecated. Please use project_path_pattern only"
-            in str(e)
-        )
 
 
 def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
@@ -663,7 +569,6 @@ def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
 def test_tableau_ingest_with_platform_instance(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
-    enable_logging()
     output_file_name: str = "tableau_with_platform_instance_mces.json"
     golden_file_name: str = "tableau_with_platform_instance_mces_golden.json"
 
@@ -674,7 +579,8 @@ def test_tableau_ingest_with_platform_instance(
         "site": "acryl",
         "platform_instance": "acryl_site1",
         "projects": ["default", "Project 2"],
-        "page_size": 10,
+        "page_size": 1000,
+        "workbook_page_size": None,
         "ingest_tags": True,
         "ingest_owner": True,
         "ingest_tables_external": True,
@@ -705,94 +611,6 @@ def test_tableau_ingest_with_platform_instance(
         mock_datahub_graph,
         config_source,
         pipeline_name="test_tableau_ingest_with_platform_instance",
-    )
-
-
-def test_lineage_overrides():
-    enable_logging()
-    # Simple - specify platform instance to presto table
-    assert (
-        TableauUpstreamReference(
-            "presto_catalog",
-            "test-database-id",
-            "test-schema",
-            "test-table",
-            "presto",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV, platform_instance_map={"presto": "my_presto_instance"}
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
-
-    # Transform presto urn to hive urn
-    # resulting platform instance for hive = mapped platform instance + presto_catalog
-    assert (
-        TableauUpstreamReference(
-            "presto_catalog",
-            "test-database-id",
-            "test-schema",
-            "test-table",
-            "presto",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV,
-            platform_instance_map={"presto": "my_instance"},
-            lineage_overrides=TableauLineageOverrides(
-                platform_override_map={"presto": "hive"},
-            ),
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
-
-    # transform hive urn to presto urn
-    assert (
-        TableauUpstreamReference(
-            None,
-            None,
-            "test-schema",
-            "test-table",
-            "hive",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV,
-            platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
-            lineage_overrides=TableauLineageOverrides(
-                platform_override_map={"hive": "presto"},
-            ),
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
-
-
-def test_database_hostname_to_platform_instance_map():
-    enable_logging()
-    # Simple - snowflake table
-    assert (
-        TableauUpstreamReference(
-            "test-database-name",
-            "test-database-id",
-            "test-schema",
-            "test-table",
-            "snowflake",
-        ).make_dataset_urn(env=DEFAULT_ENV, platform_instance_map={})
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-database-name.test-schema.test-table,PROD)"
-    )
-
-    # Finding platform instance based off hostname to platform instance mappings
-    assert (
-        TableauUpstreamReference(
-            "test-database-name",
-            "test-database-id",
-            "test-schema",
-            "test-table",
-            "snowflake",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV,
-            platform_instance_map={},
-            database_hostname_to_platform_instance_map={
-                "test-hostname": "test-platform-instance"
-            },
-            database_server_hostname_map={"test-database-id": "test-hostname"},
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-platform-instance.test-database-name.test-schema.test-table,PROD)"
     )
 
 
@@ -933,33 +751,9 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
 
 
-def test_tableau_no_verify():
-    enable_logging()
-    # This test ensures that we can connect to a self-signed certificate
-    # when ssl_verify is set to False.
-
-    source = TableauSource.create(
-        {
-            "connect_uri": "https://self-signed.badssl.com/",
-            "ssl_verify": False,
-            "site": "bogus",
-            # Credentials
-            "username": "bogus",
-            "password": "bogus",
-        },
-        PipelineContext(run_id="0"),
-    )
-    list(source.get_workunits())
-
-    report = source.get_report().as_string()
-    assert "SSL" not in report
-    assert "Unable to login" in report
-
-
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_2
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_signout_timeout_mces.json"
     golden_file_name: str = "tableau_signout_timeout_mces_golden.json"
     tableau_ingest_common(
@@ -971,103 +765,6 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
         sign_out_side_effect=ConnectionError,
         pipeline_name="test_tableau_signout_timeout",
-    )
-
-
-def test_tableau_unsupported_csql():
-    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
-    config_dict = config_source_default.copy()
-    del config_dict["stateful_ingestion"]
-    config = TableauConfig.parse_obj(config_dict)
-    config.extract_lineage_from_unsupported_custom_sql_queries = True
-    config.lineage_overrides = TableauLineageOverrides(
-        database_override_map={"production database": "prod"}
-    )
-
-    def check_lineage_metadata(
-        lineage, expected_entity_urn, expected_upstream_table, expected_cll
-    ):
-        mcp = cast(MetadataChangeProposalWrapper, list(lineage)[0].metadata)
-
-        expected = UpstreamLineage(
-            upstreams=[
-                UpstreamClass(
-                    dataset=expected_upstream_table,
-                    type=DatasetLineageType.TRANSFORMED,
-                )
-            ],
-            fineGrainedLineages=[
-                FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(expected_upstream_table, upstream_column)
-                    ],
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                    downstreams=[
-                        make_schema_field_urn(expected_entity_urn, downstream_column)
-                    ],
-                )
-                for upstream_column, downstream_column in expected_cll.items()
-            ],
-        )
-        assert mcp.entityUrn == expected_entity_urn
-
-        actual_aspect = mcp.aspect
-        assert actual_aspect == expected
-
-    csql_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
-    expected_upstream_table = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.UserDetail,PROD)"
-    expected_cll = {
-        "user_id": "user_id",
-        "source": "source",
-        "user_source": "user_source",
-    }
-
-    site_source = TableauSiteSource(
-        config=config,
-        ctx=context,
-        platform="tableau",
-        site=SiteItem(name="Site 1", content_url="site1"),
-        report=TableauSourceReport(),
-        server=Server("https://test-tableau-server.com"),
-    )
-
-    lineage = site_source._create_lineage_from_unsupported_csql(
-        csql_urn=csql_urn,
-        csql={
-            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
-            "isUnsupportedCustomSql": "true",
-            "connectionType": "bigquery",
-            "database": {
-                "name": "my_bigquery_project",
-                "connectionType": "bigquery",
-            },
-        },
-        out_columns=[],
-    )
-    check_lineage_metadata(
-        lineage=lineage,
-        expected_entity_urn=csql_urn,
-        expected_upstream_table=expected_upstream_table,
-        expected_cll=expected_cll,
-    )
-
-    # With database as None
-    lineage = site_source._create_lineage_from_unsupported_csql(
-        csql_urn=csql_urn,
-        csql={
-            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM my_bigquery_project.invent_dw.UserDetail ) source_user WHERE rank_ = 1",
-            "isUnsupportedCustomSql": "true",
-            "connectionType": "bigquery",
-            "database": None,
-        },
-        out_columns=[],
-    )
-    check_lineage_metadata(
-        lineage=lineage,
-        expected_entity_urn=csql_urn,
-        expected_upstream_table=expected_upstream_table,
-        expected_cll=expected_cll,
     )
 
 
@@ -1091,7 +788,6 @@ def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph)
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces_multiple_sites.json"
     golden_file_name: str = "tableau_multiple_sites_mces_golden.json"
 
@@ -1153,7 +849,6 @@ def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_grap
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_mces_ingest_sites_as_container.json"
     golden_file_name: str = "tableau_sites_as_container_mces_golden.json"
 
@@ -1177,7 +872,6 @@ def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_site_name_pattern_mces.json"
     golden_file_name: str = "tableau_site_name_pattern_mces_golden.json"
 
@@ -1201,7 +895,6 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
-    enable_logging()
     output_file_name: str = "tableau_permission_ingestion_mces.json"
     golden_file_name: str = "tableau_permission_ingestion_mces_golden.json"
 
@@ -1226,7 +919,151 @@ def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
+def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_no_hidden_assets_mces.json"
+    golden_file_name: str = "tableau_no_hidden_assets_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["ingest_hidden_assets"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_no_hidden_assets_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_ingest_hidden_worksheets(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_ingest_hidden_worksheets_mces.json"
+    golden_file_name: str = "tableau_ingest_hidden_worksheets_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["ingest_hidden_assets"] = ["worksheet"]
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_no_hidden_assets_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_ingest_tags_disabled(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_ingest_tags_disabled_mces.json"
+    golden_file_name: str = "tableau_ingest_tags_disabled_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["ingest_tags"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_ingest_tags_disabled",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_hidden_asset_tags_mces.json"
+    golden_file_name: str = "tableau_hidden_asset_tags_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["tags_for_hidden_assets"] = ["hidden", "private"]
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_hidden_asset_tags_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_graph):
+    new_config = config_source_default.copy()
+    new_config["tags_for_hidden_assets"] = ["hidden", "private"]
+    new_config["ingest_tags"] = False
+
+    with pytest.raises(
+        ValidationError,
+        match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
+    ):
+        TableauConfig.parse_obj(new_config)
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_filtered_upstream_asset.json"
+    golden_file_name: str = "tableau_filtered_upstream_asset_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["project_path_pattern"] = {"deny": ["^Samples$"]}
+    new_config["extract_project_hierarchy"] = True
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        [  # sequence of json file matters. They are arranged as per graphql api call
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            read_response("customSQLTablesConnection_all.json"),
+            read_response(
+                "databaseTablesConnection_excluding_upstream_of_sample_published_ds.json"
+            ),
+        ],
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_name="test_tableau_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
@@ -1247,7 +1084,7 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 platform="tableau",
                 config=mock.MagicMock(),
                 ctx=mock.MagicMock(),
-                site=mock.MagicMock(),
+                site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
                 server=mock_sdk.return_value,
                 report=reporter,
             )
@@ -1258,15 +1095,73 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 query_filter=mock.MagicMock(),
                 current_cursor=None,
                 retries_remaining=1,
+                fetch_size=10,
             )
 
             warnings = list(reporter.warnings)
 
-            assert len(warnings) == 1
+            assert len(warnings) == 2
 
-            assert warnings[0].title == "Derived Permission Error"
+            assert warnings[0].title == "Insufficient Permissions"
 
-            assert warnings[0].message == (
+            assert warnings[1].title == "Derived Permission Error"
+
+            assert warnings[1].message == (
                 "Turn on your derived permissions. See for details "
                 "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
             )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_sdk:
+            mock_client = mock_sdk_client(
+                side_effect_query_metadata_response=[
+                    NonXMLResponseError(
+                        """{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}"""
+                    ),
+                    *mock_data(),
+                ],
+                sign_out_side_effect=[{}],
+                datasources_side_effect=[{}],
+            )
+            mock_client.users = mock.Mock()
+            mock_client.users.get_by_id.side_effect = [
+                UserItem(
+                    name="name", site_role=UserItem.Roles.SiteAdministratorExplorer
+                )
+            ]
+            mock_sdk.return_value = mock_client
+
+            reporter = TableauSourceReport()
+            tableau_source = TableauSiteSource(
+                platform="tableau",
+                config=mock.MagicMock(),
+                ctx=mock.MagicMock(),
+                site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
+                server=mock_sdk.return_value,
+                report=reporter,
+            )
+
+            tableau_source.get_connection_object_page(
+                query=mock.MagicMock(),
+                connection_type=mock.MagicMock(),
+                query_filter=mock.MagicMock(),
+                current_cursor=None,
+                retries_remaining=1,
+                fetch_size=10,
+            )
+
+            assert reporter.num_actual_tableau_metadata_queries == 2
+            assert reporter.tableau_server_error_stats
+            assert reporter.tableau_server_error_stats["NonXMLResponseError"] == 1
+
+            assert reporter.warnings == []
+            assert reporter.failures == []

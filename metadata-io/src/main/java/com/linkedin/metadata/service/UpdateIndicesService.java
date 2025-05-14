@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
@@ -20,8 +21,7 @@ import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -30,6 +30,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -42,6 +43,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,11 +51,10 @@ import lombok.extern.slf4j.Slf4j;
 public class UpdateIndicesService implements SearchIndicesService {
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
-  private final EntitySearchService entitySearchService;
+  private final ElasticSearchService elasticSearchService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final SystemMetadataService systemMetadataService;
   private final SearchDocumentTransformer searchDocumentTransformer;
-  private final EntityIndexBuilders entityIndexBuilders;
   @Nonnull private final String idHashAlgo;
 
   @Getter private final boolean searchDiffMode;
@@ -75,19 +76,17 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   public UpdateIndicesService(
       UpdateGraphIndicesService updateGraphIndicesService,
-      EntitySearchService entitySearchService,
+      ElasticSearchService elasticSearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityIndexBuilders entityIndexBuilders,
       @Nonnull String idHashAlgo) {
     this(
         updateGraphIndicesService,
-        entitySearchService,
+        elasticSearchService,
         timeseriesAspectService,
         systemMetadataService,
         searchDocumentTransformer,
-        entityIndexBuilders,
         idHashAlgo,
         true,
         true,
@@ -96,21 +95,19 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   public UpdateIndicesService(
       UpdateGraphIndicesService updateGraphIndicesService,
-      EntitySearchService entitySearchService,
+      ElasticSearchService elasticSearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      EntityIndexBuilders entityIndexBuilders,
       @Nonnull String idHashAlgo,
       boolean searchDiffMode,
       boolean structuredPropertiesHookEnabled,
       boolean structuredPropertiesWriteEnabled) {
     this.updateGraphIndicesService = updateGraphIndicesService;
-    this.entitySearchService = entitySearchService;
+    this.elasticSearchService = elasticSearchService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.systemMetadataService = systemMetadataService;
     this.searchDocumentTransformer = searchDocumentTransformer;
-    this.entityIndexBuilders = entityIndexBuilders;
     this.idHashAlgo = idHashAlgo;
     this.searchDiffMode = searchDiffMode;
     this.structuredPropertiesHookEnabled = structuredPropertiesHookEnabled;
@@ -121,23 +118,32 @@ public class UpdateIndicesService implements SearchIndicesService {
   public void handleChangeEvent(
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
-      MCLItemImpl batch =
-          MCLItemImpl.builder().build(event, opContext.getAspectRetrieverOpt().get());
+      MCLItemImpl batch = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
 
       Stream<MCLItem> sideEffects =
-          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext().get());
+          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext());
 
       for (MCLItem mclItem :
           Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
         MetadataChangeLog hookEvent = mclItem.getMetadataChangeLog();
         if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
-          handleUpdateChangeEvent(opContext, mclItem);
+          // non-system metadata
+          handleUpdateChangeEvent(opContext, mclItem, false);
+          // graph update
+          updateGraphIndicesService.handleChangeEvent(opContext, event);
+          // system metadata is last for tracing
+          handleUpdateChangeEvent(opContext, mclItem, true);
         } else if (hookEvent.getChangeType() == ChangeType.DELETE) {
-          handleDeleteChangeEvent(opContext, mclItem);
-        }
+          Pair<EntitySpec, AspectSpec> specPair = extractSpecPair(mclItem);
+          boolean isDeletingKey = isDeletingKey(specPair);
 
-        // graph update
-        updateGraphIndicesService.handleChangeEvent(opContext, event);
+          // non-system metadata
+          handleNonSystemMetadataDeleteChangeEvent(opContext, specPair, mclItem, isDeletingKey);
+          // graph update
+          updateGraphIndicesService.handleChangeEvent(opContext, event);
+          // system metadata is last for tracing
+          handleSystemMetadataDeleteChangeEvent(mclItem.getUrn(), specPair, isDeletingKey);
+        }
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -154,7 +160,8 @@ public class UpdateIndicesService implements SearchIndicesService {
    * @param event the change event to be processed.
    */
   private void handleUpdateChangeEvent(
-      @Nonnull OperationContext opContext, @Nonnull final MCLItem event) throws IOException {
+      @Nonnull OperationContext opContext, @Nonnull final MCLItem event, boolean forSystemMetadata)
+      throws IOException {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final AspectSpec aspectSpec = event.getAspectSpec();
@@ -163,32 +170,34 @@ public class UpdateIndicesService implements SearchIndicesService {
     RecordTemplate aspect = event.getRecordTemplate();
     RecordTemplate previousAspect = event.getPreviousRecordTemplate();
 
-    // Step 0. If the aspect is timeseries, add to its timeseries index.
-    if (aspectSpec.isTimeseries()) {
-      updateTimeseriesFields(
-          opContext,
-          urn.getEntityType(),
-          event.getAspectName(),
-          urn,
-          aspect,
-          aspectSpec,
-          event.getSystemMetadata());
-    } else {
+    if (!forSystemMetadata) {
+      // Step 0. If the aspect is timeseries, add to its timeseries index.
+      if (aspectSpec.isTimeseries()) {
+        updateTimeseriesFields(
+            opContext,
+            urn.getEntityType(),
+            event.getAspectName(),
+            urn,
+            aspect,
+            aspectSpec,
+            event.getSystemMetadata());
+      }
+
+      try {
+        // Step 1. Handle StructuredProperties Index Mapping changes
+        updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
+      } catch (Exception e) {
+        log.error("Issue with updating index mappings for structured property change", e);
+      }
+
+      // Step 2. For all aspects, attempt to update Search
+      updateSearchService(opContext, event);
+    } else if (forSystemMetadata && !aspectSpec.isTimeseries()) {
       // Inject into the System Metadata Index when an aspect is non-timeseries only.
       // TODO: Verify whether timeseries aspects can be dropped into System Metadata as well
       // without impacting rollbacks.
       updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
     }
-
-    try {
-      // Step 1. Handle StructuredProperties Index Mapping changes
-      updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
-    } catch (Exception e) {
-      log.error("Issue with updating index mappings for structured property change", e);
-    }
-
-    // Step 2. For all aspects, attempt to update Search
-    updateSearchService(opContext, event);
   }
 
   public void updateIndexMappings(
@@ -214,7 +223,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       newDefinition.getEntityTypes().removeAll(oldEntityTypes);
 
       if (newDefinition.getEntityTypes().size() > 0) {
-        entityIndexBuilders
+        elasticSearchService
             .buildReindexConfigsWithNewStructProp(urn, newDefinition)
             .forEach(
                 reindexState -> {
@@ -223,13 +232,32 @@ public class UpdateIndicesService implements SearchIndicesService {
                         "Applying new structured property {} to index {}",
                         newDefinition,
                         reindexState.name());
-                    entityIndexBuilders.getIndexBuilder().applyMappings(reindexState, false);
+                    elasticSearchService.getIndexBuilder().applyMappings(reindexState, false);
                   } catch (IOException e) {
                     throw new RuntimeException(e);
                   }
                 });
       }
     }
+  }
+
+  private static Pair<EntitySpec, AspectSpec> extractSpecPair(@Nonnull final MCLItem event) {
+    final EntitySpec entitySpec = event.getEntitySpec();
+    final Urn urn = event.getUrn();
+
+    AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
+    if (aspectSpec == null) {
+      throw new RuntimeException(
+          String.format(
+              "Failed to retrieve Aspect Spec for entity with name %s, aspect with name %s. Cannot update indices for MCL.",
+              urn.getEntityType(), event.getAspectName()));
+    }
+
+    return Pair.of(entitySpec, aspectSpec);
+  }
+
+  private static boolean isDeletingKey(Pair<EntitySpec, AspectSpec> specPair) {
+    return specPair.getSecond().getName().equals(specPair.getFirst().getKeyAspectName());
   }
 
   /**
@@ -242,28 +270,40 @@ public class UpdateIndicesService implements SearchIndicesService {
    * <p>Note that if an entity's key aspect is deleted, the entire entity will be purged from
    * search, graph, timeseries, etc.
    *
+   * @param opContext operation's context
+   * @param specPair entity & aspect spec
    * @param event the change event to be processed.
+   * @param isDeletingKey whether the key aspect is being deleted
    */
-  private void handleDeleteChangeEvent(
-      @Nonnull OperationContext opContext, @Nonnull final MCLItem event) {
+  private void handleNonSystemMetadataDeleteChangeEvent(
+      @Nonnull OperationContext opContext,
+      Pair<EntitySpec, AspectSpec> specPair,
+      @Nonnull final MCLItem event,
+      boolean isDeletingKey) {
 
-    final EntitySpec entitySpec = event.getEntitySpec();
-    final Urn urn = event.getUrn();
-
-    AspectSpec aspectSpec = entitySpec.getAspectSpec(event.getAspectName());
-    if (aspectSpec == null) {
-      throw new RuntimeException(
-          String.format(
-              "Failed to retrieve Aspect Spec for entity with name %s, aspect with name %s. Cannot update indices for MCL.",
-              urn.getEntityType(), event.getAspectName()));
+    if (!specPair.getSecond().isTimeseries()) {
+      deleteSearchData(
+          opContext,
+          event.getUrn(),
+          specPair.getFirst().getName(),
+          specPair.getSecond(),
+          event.getRecordTemplate(),
+          isDeletingKey,
+          event.getAuditStamp());
     }
+  }
 
-    RecordTemplate aspect = event.getRecordTemplate();
-    Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
-
-    if (!aspectSpec.isTimeseries()) {
-      deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
-      deleteSearchData(opContext, urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
+  /**
+   * Handle the system metadata separately for tracing
+   *
+   * @param urn delete urn
+   * @param specPair entity & aspect spec
+   * @param isDeletingKey whether the key aspect is being deleted
+   */
+  private void handleSystemMetadataDeleteChangeEvent(
+      @Nonnull Urn urn, Pair<EntitySpec, AspectSpec> specPair, boolean isDeletingKey) {
+    if (!specPair.getSecond().isTimeseries()) {
+      deleteSystemMetadata(urn, specPair.getSecond(), isDeletingKey);
     }
   }
 
@@ -281,7 +321,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     try {
       searchDocument =
           searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, false)
+              .transformAspect(opContext, urn, aspect, aspectSpec, false, event.getAuditStamp())
               .map(
                   objectNode ->
                       withSystemCreated(
@@ -302,7 +342,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       return;
     }
 
-    final String docId = entityIndexBuilders.getIndexConvention().getEntityDocumentId(urn);
+    final String docId = elasticSearchService.getIndexConvention().getEntityDocumentId(urn);
 
     if (searchDiffMode
         && (systemMetadata == null
@@ -312,7 +352,7 @@ public class UpdateIndicesService implements SearchIndicesService {
         try {
           previousSearchDocument =
               searchDocumentTransformer.transformAspect(
-                  opContext, urn, previousAspect, aspectSpec, false);
+                  opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
         } catch (Exception e) {
           log.error(
               "Error in getting documents from previous aspect state for urn: {} for aspect {}, continuing without diffing.",
@@ -341,7 +381,7 @@ public class UpdateIndicesService implements SearchIndicesService {
                 searchDocument.get(), previousSearchDocument.orElse(null))
             .toString();
 
-    entitySearchService.upsertDocument(opContext, entityName, finalDocument, docId);
+    elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
   }
 
   /** Process snapshot and update time-series index */
@@ -400,8 +440,9 @@ public class UpdateIndicesService implements SearchIndicesService {
       Urn urn,
       String entityName,
       AspectSpec aspectSpec,
-      RecordTemplate aspect,
-      Boolean isKeyAspect) {
+      @Nullable RecordTemplate aspect,
+      Boolean isKeyAspect,
+      AuditStamp auditStamp) {
     String docId;
     try {
       docId = URLEncoder.encode(urn.toString(), "UTF-8");
@@ -411,7 +452,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
 
     if (isKeyAspect) {
-      entitySearchService.deleteDocument(opContext, entityName, docId);
+      elasticSearchService.deleteDocument(opContext, entityName, docId);
       return;
     }
 
@@ -419,7 +460,7 @@ public class UpdateIndicesService implements SearchIndicesService {
     try {
       searchDocument =
           searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, true)
+              .transformAspect(opContext, urn, aspect, aspectSpec, true, auditStamp)
               .map(Objects::toString); // TODO
     } catch (Exception e) {
       log.error(
@@ -431,6 +472,6 @@ public class UpdateIndicesService implements SearchIndicesService {
       return;
     }
 
-    entitySearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
+    elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
   }
 }

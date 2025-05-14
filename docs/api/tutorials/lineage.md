@@ -72,7 +72,7 @@ mutation updateLineage {
 
 ```
 
-For more information about the `updateLineage` mutation, please refer to [updateLineage](https://datahubproject.io/docs/graphql/mutations/#updatelineage).
+For more information about the `updateLineage` mutation, please refer to [updateLineage](https://docs.datahub.com/docs/graphql/mutations/#updatelineage).
 
 If you see the following response, the operation was successful:
 
@@ -118,7 +118,6 @@ You can now see the lineage between `fct_users_deleted` and `logging_events`.
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/lineage-added.png"/>
 </p>
 
-
 ## Add Column-level Lineage
 
 <Tabs>
@@ -144,13 +143,12 @@ You can now see the column-level lineage between datasets. Note that you have to
 You can also add lineage to non-dataset entities, such as DataJobs, Charts, and Dashboards.
 Please refer to the following examples.
 
-| Connection          | Examples         | A.K.A           |
-|---------------------|-------------------|-----------------|
-| DataJob to DataFlow | - [lineage_job_dataflow.py](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)    | | 
+| Connection          | Examples                                                                                                               | A.K.A            |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------- |
+| DataJob to DataFlow | - [lineage_job_dataflow.py](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)                      |                  |
 | DataJob to Dataset  | - [lineage_dataset_job_dataset.py](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py) <br /> | Pipeline Lineage |
-| Chart to Dashboard  | - [lineage_chart_dashboard.py](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py) |  |
-| Chart to Dataset    | - [lineage_dataset_chart.py](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py) |  |
-
+| Chart to Dashboard  | - [lineage_chart_dashboard.py](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)                |                  |
+| Chart to Dataset    | - [lineage_dataset_chart.py](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)                    |                  |
 
 ## Read Lineage (Lineage Impact Analysis)
 
@@ -189,13 +187,13 @@ query scrollAcrossLineage {
   }
 }
 ```
+
 :::info Degree
 Note that `degree` means the number of hops in the lineage. For example, `degree: 1` means the immediate downstream entities, `degree: 2` means the entities that are two hops away, and so on.
 :::
 
 The GraphQL example shows using lineage degrees as a filter, but additional search filters can be included here as well.
-This will perform a multi-hop lineage search on the urn specified. For more information about the `scrollAcrossLineage` mutation, please refer to [scrollAcrossLineage](https://datahubproject.io/docs/graphql/queries/#scrollacrosslineage).
-
+This will perform a multi-hop lineage search on the urn specified. For more information about the `scrollAcrossLineage` mutation, please refer to [scrollAcrossLineage](https://docs.datahub.com/docs/graphql/queries/#scrollacrosslineage).
 
 </TabItem>
 <TabItem value="curl" label="Curl">
@@ -213,21 +211,21 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 ```python
 {{ inline /metadata-ingestion/examples/library/read_lineage_execute_graphql.py show_path_as_comment }}
 ```
-The Python SDK example shows how to read lineage of a dataset. Please note that the `aspect_type` parameter can vary depending on the entity type. 
+
+The Python SDK example shows how to read lineage of a dataset. Please note that the `aspect_type` parameter can vary depending on the entity type.
 Below is a few examples of `aspect_type` for different entities.
 
-|Entity|Aspect_type| Reference                                                                |
-|-------|------------|--------------------------------------------------------------------------|
-|Dataset|`UpstreamLineageClass`| [Link](/docs/generated/metamodel/entities/dataset.md#upstreamlineage)    |
-|Datajob|`DataJobInputOutputClass`| [Link](/docs/generated/metamodel/entities/dataJob.md#datajobinputoutput) |
-|Dashboard|`DashboardInfoClass`| [Link](/docs/generated/metamodel/entities/dashboard.md#dashboardinfo)    |
-|DataFlow|`DataFlowInfoClass`| [Link](/docs/generated/metamodel/entities/dataFlow.md#dataflowinfo)      |
+| Entity    | Aspect_type               | Reference                                                                |
+| --------- | ------------------------- | ------------------------------------------------------------------------ |
+| Dataset   | `UpstreamLineageClass`    | [Link](/docs/generated/metamodel/entities/dataset.md#upstreamlineage)    |
+| Datajob   | `DataJobInputOutputClass` | [Link](/docs/generated/metamodel/entities/dataJob.md#datajobinputoutput) |
+| Dashboard | `DashboardInfoClass`      | [Link](/docs/generated/metamodel/entities/dashboard.md#dashboardinfo)    |
+| DataFlow  | `DataFlowInfoClass`       | [Link](/docs/generated/metamodel/entities/dataFlow.md#dataflowinfo)      |
 
 Learn more about lineages of different entities in the [Add Lineage to Non-Dataset Entities](#add-lineage-to-non-dataset-entities) Section.
 
 </TabItem>
 </Tabs>
-
 
 ### Expected Outcome
 
@@ -260,10 +258,9 @@ As an outcome, you should see the downstream entities of `logging_events`.
 }
 ```
 
-## Read Column-level Lineage 
+## Read Column-level Lineage
 
-You can also read column-level lineage via Python SDK. 
-
+You can also read column-level lineage via Python SDK.
 
 <Tabs>
 <TabItem value="python" label="Python">
@@ -278,7 +275,7 @@ You can also read column-level lineage via Python SDK.
 
 ### Expected Outcome
 
-As a response, you will get the full lineage information like this. 
+As a response, you will get the full lineage information like this.
 
 ```graphql
 {
@@ -323,4 +320,3 @@ As a response, you will get the full lineage information like this.
   }
 }
 ```
-

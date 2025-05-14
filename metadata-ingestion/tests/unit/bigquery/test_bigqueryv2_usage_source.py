@@ -114,7 +114,7 @@ AND
     )
     OR
     protoPayload.metadata.tableDataRead.reason = "JOB"
-)"""  # noqa: W293
+)"""
 
     corrected_start_time = config.start_time - config.max_query_duration
     corrected_end_time = config.end_time + config.max_query_duration

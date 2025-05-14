@@ -100,7 +100,7 @@ class GenericAspectTransformer(
                         )
                         if transformed_aspect:
                             # for end of stream records, we modify the workunit-id
-                            structured_urn = Urn.create_from_string(urn)
+                            structured_urn = Urn.from_string(urn)
                             simple_name = "-".join(structured_urn.get_entity_id())
                             record_metadata = envelope.metadata.copy()
                             record_metadata.update(

@@ -2,6 +2,8 @@ plugins {
     id 'base'
 }
 
+apply from: "../../gradle/coverage/python-coverage.gradle"
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
@@ -31,7 +33,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
   def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
-  commandLine 'bash', '-x', '-c',
+  commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${pip_install_command} -e . ${extra_pip_requirements} &&" +
     "touch ${sentinel_file}"
@@ -43,7 +45,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
   inputs.file file('setup.py')
   outputs.file("${sentinel_file}")
-  commandLine 'bash', '-x', '-c',
+  commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "${pip_install_command} -e .[dev]  ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
@@ -52,18 +54,15 @@ task installDev(type: Exec, dependsOn: [install]) {
 task lint(type: Exec, dependsOn: installDev) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "black --check --diff src/ tests/ && " +
-    "isort --check --diff src/ tests/ && " +
-    "flake8 --count --statistics src/ tests/ && " +
+    "ruff check src/ tests/ && " +
+    "ruff format --check src/ tests/ && " +
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && " +
-    "black src/ tests/ && " +
-    "isort src/ tests/ && " +
-    "flake8 src/ tests/ && " +
-    "mypy src/ tests/ "
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "ruff check --fix src/ tests/ && " +
+    "ruff format src/ tests/ "
 }
 
 task installDevTest(type: Exec, dependsOn: [installDev]) {
@@ -71,8 +70,10 @@ task installDevTest(type: Exec, dependsOn: [installDev]) {
   inputs.file file('setup.py')
   outputs.dir("${venv_name}")
   outputs.file("${sentinel_file}")
-  commandLine 'bash', '-x', '-c',
-    "${pip_install_command} -e .[dev,integration-tests] && touch ${sentinel_file}"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e .[dev,integration-tests] && " +
+    "touch ${sentinel_file}"
 }
 
 task testQuick(type: Exec, dependsOn: installDevTest) {
@@ -82,14 +83,14 @@ task testQuick(type: Exec, dependsOn: installDevTest) {
   outputs.dir("${venv_name}")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest --cov-config=setup.cfg --cov-report xml:coverage_quick.xml -vv --continue-on-collection-errors --junit-xml=junit.quick.xml -s"
+    "pytest --cov-config=setup.cfg ${get_coverage_args('quick')} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml -s"
 }
 
 
 task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest -m 'not slow_integration' -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "pytest -m 'not slow_integration' -vv ${get_coverage_args('full')} --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 
 
@@ -111,5 +112,8 @@ clean {
   delete venv_name
   delete 'build'
   delete 'dist'
+  delete '.ruff_cache'
+  delete '.mypy_cache'
+  delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache

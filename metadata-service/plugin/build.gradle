@@ -2,6 +2,8 @@ plugins {
   id 'java'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
 
   implementation 'org.apache.commons:commons-lang3:3.12.0'

@@ -21,8 +21,7 @@ LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
 
 @runtime_checkable
 class SupportsAsObj(Protocol):
-    def as_obj(self) -> dict:
-        ...
+    def as_obj(self) -> dict: ...
 
 
 @dataclass
@@ -42,7 +41,10 @@ class Report(SupportsAsObj):
             return some_val.as_obj()
         elif isinstance(some_val, pydantic.BaseModel):
             return Report.to_pure_python_obj(some_val.dict())
-        elif dataclasses.is_dataclass(some_val):
+        elif dataclasses.is_dataclass(some_val) and not isinstance(some_val, type):
+            # The `is_dataclass` function returns `True` for both instances and classes.
+            # We need an extra check to ensure an instance was passed in.
+            # https://docs.python.org/3/library/dataclasses.html#dataclasses.is_dataclass
             return dataclasses.asdict(some_val)
         elif isinstance(some_val, list):
             return [Report.to_pure_python_obj(v) for v in some_val if v is not None]

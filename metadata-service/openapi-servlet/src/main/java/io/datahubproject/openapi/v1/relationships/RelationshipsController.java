@@ -5,7 +5,6 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Timer;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
@@ -30,6 +29,8 @@ import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -50,7 +51,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Deprecated
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/relationships/v1")
+@RequestMapping("/openapi/relationships/v1")
 @Slf4j
 @Tag(name = "Relationships", description = "APIs for accessing relationships of entities")
 public class RelationshipsController {
@@ -73,7 +74,7 @@ public class RelationshipsController {
   private RelatedEntitiesResult getRelatedEntities(
       @Nonnull final OperationContext opContext,
       String rawUrn,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection direction,
       @Nullable Integer start,
       @Nullable Integer count) {
@@ -157,7 +158,7 @@ public class RelationshipsController {
           @RequestParam(name = "count", defaultValue = "200")
           @Nullable
           Integer count) {
-    Timer.Context context = MetricUtils.timer("getRelationships").time();
+
     // Have to decode here because of frontend routing, does No-op for already unencoded through
     // direct API access
     final Urn entityUrn = UrnUtils.getUrn(URLDecoder.decode(urn, Charset.forName("UTF-8")));
@@ -184,7 +185,7 @@ public class RelationshipsController {
           getRelatedEntities(
               opContext,
               entityUrn.toString(),
-              Arrays.asList(relationshipTypes),
+              Arrays.stream(relationshipTypes).collect(Collectors.toSet()),
               direction,
               start,
               count));
@@ -201,7 +202,6 @@ public class RelationshipsController {
       } else {
         MetricUtils.counter(MetricRegistry.name("getRelationships", "success")).inc();
       }
-      context.stop();
     }
   }
 }

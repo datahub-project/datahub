@@ -50,7 +50,7 @@ public class JavaEntityClientFactory {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        entityClientConfig.getBatchGetV2Size());
+        entityClientConfig);
   }
 
   @Bean("systemEntityClient")
@@ -79,6 +79,6 @@ public class JavaEntityClientFactory {
         rollbackService,
         _eventProducer,
         entityClientCacheConfig,
-        entityClientConfig.getBatchGetV2Size());
+        entityClientConfig);
   }
 }

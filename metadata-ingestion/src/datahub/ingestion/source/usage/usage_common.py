@@ -12,11 +12,9 @@ from typing import (
     Optional,
     Tuple,
     TypeVar,
-    Union,
 )
 
 import pydantic
-from deprecated import deprecated
 from pydantic.fields import Field
 
 import datahub.emitter.mce_builder as builder
@@ -28,19 +26,13 @@ from datahub.configuration.time_window_config import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetUsageStatistics
 from datahub.metadata.schema_classes import (
-    CalendarIntervalClass,
     DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
-    UsageAggregationClass,
-    WindowDurationClass,
 )
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
-from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.urn import guess_entity_type
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +44,20 @@ DEFAULT_QUERIES_CHARACTER_LIMIT = 24000
 
 def default_user_urn_builder(email: str) -> str:
     return builder.make_user_urn(email.split("@")[0])
+
+
+def extract_user_email(user: str) -> Optional[str]:
+    """Extracts user email from user input
+
+    >>> extract_user_email('urn:li:corpuser:abc@xyz.com')
+    'abc@xyz.com'
+    >>> extract_user_email('urn:li:corpuser:abc')
+    >>> extract_user_email('abc@xyz.com')
+    'abc@xyz.com'
+    """
+    if user.startswith(("urn:li:corpuser:", "urn:li:corpGroup:")):
+        user = user.split(":")[-1]
+    return user if "@" in user else None
 
 
 def make_usage_workunit(
@@ -75,7 +81,7 @@ def make_usage_workunit(
     top_sql_queries: Optional[List[str]] = None
     if query_freq is not None:
         if top_n_queries < len(query_freq):
-            logger.warn(
+            logger.warning(
                 f"Top N query limit exceeded on {str(resource)}.  Max number of queries {top_n_queries} <  {len(query_freq)}. Truncating top queries to {top_n_queries}."
             )
             query_freq = query_freq[0:top_n_queries]
@@ -104,7 +110,7 @@ def make_usage_workunit(
             DatasetUserUsageCountsClass(
                 user=user_urn_builder(user),
                 count=count,
-                userEmail=user if "@" in user else None,
+                userEmail=extract_user_email(user),
             )
             for user, count in user_freq
         ],
@@ -281,60 +287,3 @@ class UsageAggregator(Generic[ResourceType]):
                     user_urn_builder=user_urn_builder,
                     queries_character_limit=self.config.queries_character_limit,
                 )
-
-
-@deprecated
-def convert_usage_aggregation_class(
-    obj: UsageAggregationClass,
-) -> MetadataChangeProposalWrapper:
-    # Legacy usage aggregation only supported dataset usage stats
-    if guess_entity_type(obj.resource) == DatasetUrn.ENTITY_TYPE:
-        aspect = DatasetUsageStatistics(
-            timestampMillis=obj.bucket,
-            eventGranularity=TimeWindowSizeClass(
-                unit=convert_window_to_interval(obj.duration)
-            ),
-            uniqueUserCount=obj.metrics.uniqueUserCount,
-            totalSqlQueries=obj.metrics.totalSqlQueries,
-            topSqlQueries=obj.metrics.topSqlQueries,
-            userCounts=(
-                [
-                    DatasetUserUsageCountsClass(
-                        user=u.user, count=u.count, userEmail=u.userEmail
-                    )
-                    for u in obj.metrics.users
-                    if u.user is not None
-                ]
-                if obj.metrics.users
-                else None
-            ),
-            fieldCounts=(
-                [
-                    DatasetFieldUsageCountsClass(fieldPath=f.fieldName, count=f.count)
-                    for f in obj.metrics.fields
-                ]
-                if obj.metrics.fields
-                else None
-            ),
-        )
-        return MetadataChangeProposalWrapper(entityUrn=obj.resource, aspect=aspect)
-    else:
-        raise Exception(
-            f"Skipping unsupported usage aggregation - invalid entity type: {obj}"
-        )
-
-
-@deprecated
-def convert_window_to_interval(window: Union[str, WindowDurationClass]) -> str:
-    if window == WindowDurationClass.YEAR:
-        return CalendarIntervalClass.YEAR
-    elif window == WindowDurationClass.MONTH:
-        return CalendarIntervalClass.MONTH
-    elif window == WindowDurationClass.WEEK:
-        return CalendarIntervalClass.WEEK
-    elif window == WindowDurationClass.DAY:
-        return CalendarIntervalClass.DAY
-    elif window == WindowDurationClass.HOUR:
-        return CalendarIntervalClass.HOUR
-    else:
-        raise Exception(f"Unsupported window duration: {window}")

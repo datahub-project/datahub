@@ -1,5 +1,6 @@
 package config;
 
+import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.cache.CacheConfiguration;
@@ -30,4 +31,7 @@ public class ConfigurationProvider {
 
   /** Configuration for authorization */
   private AuthorizationConfiguration authorization;
+
+  /** Configuration for authentication */
+  private AuthenticationConfiguration authentication;
 }

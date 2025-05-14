@@ -57,9 +57,9 @@ queryConfigurations:
       boost_mode: replace
 
   # Criteria for exact-match only
-  # Contains quotes, is a single term with `_`, `.`, or `-` (normally consider for tokenization) then use exact match query
+  # Contains quotes
   - queryRegex: >-
-      ^["'].+["']$|^[a-zA-Z0-9]\S+[_.-]\S+[a-zA-Z0-9]$
+      ^["'].+["']$
     simpleQuery: false
     prefixMatchQuery: true
     exactMatchQuery: true

@@ -2,6 +2,12 @@
 
 <FeatureAvailability saasOnly />
 
+:::info
+
+This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
+
+:::
+
 ## Introduction
 
 Glossary Term Propagation is an automation feature that propagates classification labels (Glossary Terms) across column and assets based on downstream lineage and sibling relationships.
@@ -11,7 +17,7 @@ This automation simplifies metadata management by ensuring consistent term class
 
 - **Column-Level Glossary Term Propagation**: Automatically propagate Glossary Terms to all downstream lineage columns and sibling columns.
 - **Asset-Level Glossary Term Propagation**: Automatically propagate Glossary Terms to all downstream lineage assets & sibling assets.
-- **Select Terms & Term Groups**: Select specific Glossary Terms & Term Groups to propagate, e.g. to propagate only sensitive or important labels. 
+- **Select Terms & Term Groups**: Select specific Glossary Terms & Term Groups to propagate, e.g. to propagate only sensitive or important labels.
 
 Note that Asset-level propagation is currently only support for **Datasets** (Tables, Views, Topics, etc), and not for other asset types including
 Charts, Dashboards, Data Pipelines, Data Tasks.
@@ -23,7 +29,6 @@ Charts, Dashboards, Data Pipelines, Data Tasks.
 <p align="center">
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png"/>
 </p>
-
 
 2. **Create An Automation**: Select 'Glossary Term Propagation' from the automation types.
 
@@ -50,7 +55,6 @@ and then click "Initialize".
 <p align="left">
   <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-initialize.png"/>
 </p>
-
 
 ## Viewing Propagated Glossary Terms
 

@@ -462,12 +462,17 @@ public class SearchAcrossEntitiesResolverTest {
     Mockito.when(
             client.searchAcrossEntities(
                 any(),
-                Mockito.eq(entityTypes),
+                Mockito.argThat(
+                    argument ->
+                        argument != null
+                            && argument.containsAll(entityTypes)
+                            && entityTypes.containsAll(argument)),
                 Mockito.eq(query),
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(Collections.emptyList())))
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null)))
         .thenReturn(result);
     return client;
   }
@@ -483,12 +488,17 @@ public class SearchAcrossEntitiesResolverTest {
     Mockito.verify(mockClient, Mockito.times(1))
         .searchAcrossEntities(
             any(),
-            Mockito.eq(entityTypes),
+            Mockito.argThat(
+                argument ->
+                    argument != null
+                        && argument.containsAll(entityTypes)
+                        && entityTypes.containsAll(argument)),
             Mockito.eq(query),
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
-            Mockito.eq(Collections.emptyList()));
+            Mockito.eq(Collections.emptyList()),
+            Mockito.eq(null));
   }
 
   private static void verifyMockViewService(ViewService mockService, Urn viewUrn) {

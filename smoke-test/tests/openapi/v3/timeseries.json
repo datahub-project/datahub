@@ -1,0 +1,156 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29",
+      "description": "Remove test dataset",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29/datasetProfile",
+      "description": "Create timeseries old",
+      "params": {
+        "createIfNotExists": "false",
+        "async": "false"
+      },
+      "json": {
+        "value": {
+          "rowCount": 100,
+          "messageId": "old profile",
+          "timestampMillis": 100
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimeseriesV3,PROD)",
+        "datasetProfile": {
+          "value": {
+            "messageId": "old profile",
+            "timestampMillis": 100,
+            "rowCount": 100
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29/datasetProfile",
+      "description": "Create timeseries new",
+      "params": {
+        "createIfNotExists": "false",
+        "async": "false"
+      },
+      "json": {
+        "value": {
+          "rowCount": 200,
+          "messageId": "new profile",
+          "timestampMillis": 200
+        }
+      }
+    },
+    "response": {
+      "json": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimeseriesV3,PROD)",
+        "datasetProfile": {
+          "value": {
+            "messageId": "new profile",
+            "timestampMillis": 200,
+            "rowCount": 200
+          }
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29/datasetProfile",
+      "method": "get",
+      "description": "Get latest profile"
+    },
+    "response": {
+      "json": {
+        "value": {
+          "messageId": "new profile",
+          "rowCount": 200,
+          "timestampMillis": 200
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29/datasetProfile",
+      "method": "get",
+      "description": "Get older profile",
+      "params": {
+        "version": "150"
+      }
+    },
+    "response": {
+      "json": {
+        "value": {
+          "messageId": "old profile",
+          "rowCount": 100,
+          "timestampMillis": 100
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29/datasetProfile",
+      "description": "Remove test profile",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "description": "Elasticsearch refresh interval",
+      "wait": 2
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29/datasetProfile",
+      "method": "get",
+      "description": "Get older profile after delete of new profile"
+    },
+    "response": {
+      "json": {
+        "value": {
+          "messageId": "old profile",
+          "rowCount": 100,
+          "timestampMillis": 100
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29/datasetProfile",
+      "description": "Remove test profile",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "description": "Elasticsearch refresh interval",
+      "wait": 2
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimeseriesV3%2CPROD%29/datasetProfile",
+      "method": "get",
+      "description": "Expected no remaining values after timeseries aspect removals"
+    },
+    "response": {
+      "status_codes": [
+        404
+      ]
+    }
+  }
+]

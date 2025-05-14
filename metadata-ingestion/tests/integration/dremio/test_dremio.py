@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from typing import Dict
 
 import boto3
 import pytest
@@ -75,9 +76,10 @@ def create_spaces_and_folders(headers):
 
 
 def create_sample_source(headers):
-    url = f"{DREMIO_HOST}/apiv2/source/Samples"
+    url = f"{DREMIO_HOST}/api/v3/catalog"
 
     payload = {
+        "entityType": "source",
         "config": {
             "externalBucketList": ["samples.dremio.com"],
             "credentialType": "NONE",
@@ -95,14 +97,15 @@ def create_sample_source(headers):
         "type": "S3",
     }
 
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to add dataset: {response.text}"
 
 
 def create_s3_source(headers):
-    url = f"{DREMIO_HOST}/apiv2/source/s3"
+    url = f"{DREMIO_HOST}/api/v3/catalog"
 
     payload = {
+        "entityType": "source",
         "name": "s3",
         "config": {
             "credentialType": "ACCESS_KEY",
@@ -139,24 +142,25 @@ def create_s3_source(headers):
         "metadataPolicy": {
             "deleteUnavailableDatasets": True,
             "autoPromoteDatasets": False,
-            "namesRefreshMillis": 3600000,
-            "datasetDefinitionRefreshAfterMillis": 3600000,
-            "datasetDefinitionExpireAfterMillis": 10800000,
-            "authTTLMillis": 86400000,
-            "updateMode": "PREFETCH_QUERIED",
+            "namesRefreshMs": 3600000,
+            "datasetRefreshAfterMs": 3600000,
+            "datasetExpireAfterMs": 10800000,
+            "authTTLMs": 86400000,
+            "datasetUpdateMode": "PREFETCH_QUERIED",
         },
         "type": "S3",
         "accessControlList": {"userControls": [], "roleControls": []},
     }
 
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to add s3 datasource: {response.text}"
 
 
 def create_mysql_source(headers):
-    url = f"{DREMIO_HOST}/apiv2/source/mysql"
+    url = f"{DREMIO_HOST}/api/v3/catalog"
 
     payload = {
+        "entityType": "source",
         "config": {
             "username": "root",
             "password": "rootpwd123",
@@ -169,7 +173,7 @@ def create_mysql_source(headers):
             "maxIdleConns": 8,
             "idleTimeSec": 60,
         },
-        "name": "mysql-source",
+        "name": "mysql",
         "accelerationRefreshPeriod": 3600000,
         "accelerationGracePeriod": 10800000,
         "accelerationActivePolicyType": "PERIOD",
@@ -177,72 +181,121 @@ def create_mysql_source(headers):
         "accelerationRefreshOnDataChanges": False,
         "metadataPolicy": {
             "deleteUnavailableDatasets": True,
-            "namesRefreshMillis": 3600000,
-            "datasetDefinitionRefreshAfterMillis": 3600000,
-            "datasetDefinitionExpireAfterMillis": 10800000,
-            "authTTLMillis": 86400000,
-            "updateMode": "PREFETCH_QUERIED",
+            "namesRefreshMs": 3600000,
+            "datasetRefreshAfterMs": 3600000,
+            "datasetExpireAfterMs": 10800000,
+            "authTTLMs": 86400000,
+            "datasetUpdateMode": "PREFETCH_QUERIED",
         },
         "type": "MYSQL",
     }
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
-    assert (
-        response.status_code == 200
-    ), f"Failed to add mysql datasource: {response.text}"
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, (
+        f"Failed to add mysql datasource: {response.text}"
+    )
 
 
 def upload_dataset(headers):
-    url = f"{DREMIO_HOST}/apiv2/source/s3/file_format/warehouse/sample.parquet"
-    payload = {"ignoreOtherFileFormats": False, "type": "Parquet"}
-
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
-    assert response.status_code == 200, f"Failed to add dataset: {response.text}"
-
-    url = f"{DREMIO_HOST}/apiv2/source/Samples/file_format/samples.dremio.com/NYC-weather.csv"
-
+    url = f"{DREMIO_HOST}/api/v3/catalog/dremio%3A%2Fs3%2Fwarehouse"
     payload = {
-        "fieldDelimiter": ",",
-        "quote": '"',
-        "comment": "#",
-        "lineDelimiter": "\r\n",
-        "escape": '"',
-        "extractHeader": False,
-        "trimHeader": True,
-        "skipFirstLine": False,
-        "type": "Text",
+        "entityType": "dataset",
+        "type": "PHYSICAL_DATASET",
+        "path": [
+            "s3",
+            "warehouse",
+        ],
+        "format": {"type": "Parquet"},
     }
 
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to add dataset: {response.text}"
 
-    url = f"{DREMIO_HOST}/apiv2/source/Samples/file_format/samples.dremio.com/Dremio%20University/oracle-departments.xlsx"
-
-    payload = {"extractHeader": True, "hasMergedCells": False, "type": "Excel"}
-
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
-    assert response.status_code == 200, f"Failed to add dataset: {response.text}"
-
-    url = f"{DREMIO_HOST}/apiv2/source/Samples/file_format/samples.dremio.com/Dremio%20University/googleplaystore.csv"
+    url = f"{DREMIO_HOST}/api/v3/catalog/dremio%3A%2FSamples%2Fsamples.dremio.com%2FNYC-weather.csv"
 
     payload = {
-        "fieldDelimiter": ",",
-        "quote": '"',
-        "comment": "#",
-        "lineDelimiter": "\r\n",
-        "escape": '"',
-        "extractHeader": False,
-        "trimHeader": True,
-        "skipFirstLine": False,
-        "type": "Text",
+        "entityType": "dataset",
+        "type": "PHYSICAL_DATASET",
+        "path": [
+            "Samples",
+            "samples.dremio.com",
+            "NYC-weather.csv",
+        ],
+        "format": {
+            "fieldDelimiter": ",",
+            "quote": '"',
+            "comment": "#",
+            "lineDelimiter": "\r\n",
+            "escape": '"',
+            "extractHeader": False,
+            "trimHeader": True,
+            "skipFirstLine": False,
+            "type": "Text",
+        },
     }
 
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to add dataset: {response.text}"
 
-    url = f"{DREMIO_HOST}/apiv2/source/Samples/file_format/samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet"
-    payload = {"ignoreOtherFileFormats": False, "type": "Parquet"}
+    url = f"{DREMIO_HOST}/api/v3/catalog/dremio%3A%2FSamples%2Fsamples.dremio.com%2FDremio%20University%2Foracle-departments.xlsx"
 
-    response = requests.put(url, headers=headers, data=json.dumps(payload))
+    payload = {
+        "entityType": "dataset",
+        "type": "PHYSICAL_DATASET",
+        "path": [
+            "Samples",
+            "samples.dremio.com",
+            "Dremio University",
+            "oracle-departments.xlsx",
+        ],
+        "format": {"extractHeader": True, "hasMergedCells": False, "type": "Excel"},
+    }
+
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, f"Failed to add dataset: {response.text}"
+
+    url = f"{DREMIO_HOST}/api/v3/catalog/dremio%3A%2FSamples%2Fsamples.dremio.com%2FDremio%20University%2Fgoogleplaystore.csv"
+
+    payload = {
+        "entityType": "dataset",
+        "type": "PHYSICAL_DATASET",
+        "path": [
+            "Samples",
+            "samples.dremio.com",
+            "Dremio University",
+            "googleplaystore.csv",
+        ],
+        "format": {
+            "fieldDelimiter": ",",
+            "quote": '"',
+            "comment": "#",
+            "lineDelimiter": "\r\n",
+            "escape": '"',
+            "extractHeader": False,
+            "trimHeader": True,
+            "skipFirstLine": False,
+            "type": "Text",
+        },
+    }
+
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
+    assert response.status_code == 200, f"Failed to add dataset: {response.text}"
+
+    url = f"{DREMIO_HOST}/api/v3/catalog/dremio%3A%2FSamples%2Fsamples.dremio.com%2Ftpcds_sf1000%2Fcatalog_page%2F1ab266d5-18eb-4780-711d-0fa337fa6c00%2F0_0_0.parquet"
+    payload = {
+        "entityType": "dataset",
+        "type": "PHYSICAL_DATASET",
+        "path": [
+            "Samples",
+            "samples.dremio.com",
+            "tpcds_sf1000",
+            "catalog_page",
+            "1ab266d5-18eb-4780-711d-0fa337fa6c00",
+            "0_0_0.parquet",
+        ],
+        "format": {"type": "Parquet"},
+    }
+
+    response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to add dataset: {response.text}"
 
 
@@ -253,7 +306,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "raw"],
-        "sql": 'SELECT * FROM s3.warehouse."sample.parquet"',
+        "sql": "SELECT * FROM s3.warehouse",
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to create view: {response.text}"
@@ -273,7 +326,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "customers"],
-        "sql": 'SELECT * FROM "mysql".northwind.customers',
+        "sql": "SELECT * FROM mysql.northwind.customers",
         "sqlContext": ["mysql", "northwind"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -283,7 +336,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "orders"],
-        "sql": 'SELECT * FROM "mysql".northwind.orders',
+        "sql": "SELECT * FROM mysql.northwind.orders",
         "sqlContext": ["mysql", "northwind"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -293,7 +346,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "metadata_aspect"],
-        "sql": 'SELECT * FROM "mysql".metagalaxy."metadata_aspect"',
+        "sql": "SELECT * FROM mysql.metagalaxy.metadata_aspect",
         "sqlContext": ["mysql", "metagalaxy"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -303,7 +356,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "metadata_index"],
-        "sql": 'SELECT * FROM "mysql".metagalaxy."metadata_index"',
+        "sql": "SELECT * FROM mysql.metagalaxy.metadata_index",
         "sqlContext": ["mysql", "metagalaxy"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -313,7 +366,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "metadata_index_view"],
-        "sql": 'SELECT * FROM "mysql".metagalaxy."metadata_index_view"',
+        "sql": "SELECT * FROM mysql.metagalaxy.metadata_index_view",
         "sqlContext": ["mysql", "metagalaxy"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -422,14 +475,119 @@ def test_dremio_ingest(
     pytestconfig,
     tmp_path,
 ):
-    # Run the metadata ingestion pipeline.
+    # Run the metadata ingestion pipeline with specific output file
     config_file = (test_resources_dir / "dremio_to_file.yml").resolve()
+    output_path = tmp_path / "dremio_mces.json"
+
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
-    # Verify the output.
+    # Verify the output
     mce_helpers.check_golden_file(
         pytestconfig,
-        output_path=tmp_path / "dremio_mces.json",
+        output_path=output_path,
         golden_path=test_resources_dir / "dremio_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_dremio_platform_instance_urns(
+    test_resources_dir,
+    dremio_setup,
+    pytestconfig,
+    tmp_path,
+):
+    config_file = (
+        test_resources_dir / "dremio_platform_instance_to_file.yml"
+    ).resolve()
+    output_path = tmp_path / "dremio_mces.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    with output_path.open() as f:
+        content = f.read()
+        # Skip if file is empty or just contains brackets
+        if not content or content.strip() in ("[]", "[", "]"):
+            pytest.fail(f"Output file is empty or invalid: {content}")
+
+    try:
+        # Try to load as JSON Lines first
+        mces = []
+        for line in content.splitlines():
+            line = line.strip()
+            if line and line not in ("[", "]"):  # Skip empty lines and bare brackets
+                mce = json.loads(line)
+                mces.append(mce)
+    except json.JSONDecodeError:
+        # If that fails, try loading as a single JSON array
+        try:
+            mces = json.loads(content)
+        except json.JSONDecodeError as e:
+            print(f"Failed to parse file content: {content}")
+            raise e
+
+    # Verify MCEs
+    assert len(mces) > 0, "No MCEs found in output file"
+
+    # Verify the platform instances
+    for mce in mces:
+        if "entityType" not in mce:
+            continue
+
+        # Check dataset URN structure
+        if mce["entityType"] == "dataset" and "entityUrn" in mce:
+            assert "test-platform.dremio" in mce["entityUrn"], (
+                f"Platform instance missing in dataset URN: {mce['entityUrn']}"
+            )
+
+        # Check aspects for both datasets and containers
+        if "aspectName" in mce:
+            # Check dataPlatformInstance aspect
+            if mce["aspectName"] == "dataPlatformInstance":
+                aspect = mce["aspect"]
+                if not isinstance(aspect, Dict) or "json" not in aspect:
+                    continue
+
+                aspect_json = aspect["json"]
+                if not isinstance(aspect_json, Dict):
+                    continue
+
+                if "instance" not in aspect_json:
+                    continue
+
+                instance = aspect_json["instance"]
+                expected_instance = "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dremio,test-platform)"
+                assert instance == expected_instance, (
+                    f"Invalid platform instance format: {instance}"
+                )
+
+    # Verify against golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "dremio_platform_instance_mces_golden.json",
+        ignore_paths=[],
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_dremio_schema_filter(
+    test_resources_dir,
+    dremio_setup,
+    pytestconfig,
+    tmp_path,
+):
+    config_file = (test_resources_dir / "dremio_schema_filter_to_file.yml").resolve()
+    output_path = tmp_path / "dremio_mces.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify against golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "dremio_schema_filter_mces_golden.json",
         ignore_paths=[],
     )

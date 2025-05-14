@@ -1,48 +1,47 @@
 # GraphQL for authentication related operations
 
 extend type Query {
-    """
-    Generates an access token for DataHub APIs for a particular user & of a particular type
-    Deprecated, use createAccessToken instead
-    """
-    getAccessToken(input: GetAccessTokenInput!): AccessToken
+  """
+  Generates an access token for DataHub APIs for a particular user & of a particular type
+  Deprecated, use createAccessToken instead
+  """
+  getAccessToken(input: GetAccessTokenInput!): AccessToken
 
-    """
-    List access tokens stored in DataHub.
-    """
-    listAccessTokens(input: ListAccessTokenInput!): ListAccessTokenResult!
+  """
+  List access tokens stored in DataHub.
+  """
+  listAccessTokens(input: ListAccessTokenInput!): ListAccessTokenResult!
 
-    """
-    Fetches the metadata of an access token.
-    This is useful to debug when you have a raw token but don't know the actor.
-    """
-    getAccessTokenMetadata(token: String!): AccessTokenMetadata!
+  """
+  Fetches the metadata of an access token.
+  This is useful to debug when you have a raw token but don't know the actor.
+  """
+  getAccessTokenMetadata(token: String!): AccessTokenMetadata!
 
-    """
-    Experimental API to debug Access for users.
-    Backward incompatible changes will be made without notice in the future.
-    Do not build on top of this API.
-    """
-    debugAccess(userUrn: String!): DebugAccessResult!
+  """
+  Experimental API to debug Access for users.
+  Backward incompatible changes will be made without notice in the future.
+  Do not build on top of this API.
+  """
+  debugAccess(userUrn: String!): DebugAccessResult!
 }
 
 extend type Mutation {
-    """
-    Generates an access token for DataHub APIs for a particular user & of a particular type
-    """
-    createAccessToken(input: CreateAccessTokenInput!): AccessToken
+  """
+  Generates an access token for DataHub APIs for a particular user & of a particular type
+  """
+  createAccessToken(input: CreateAccessTokenInput!): AccessToken
 
-    """
-    Revokes access tokens.
-    """
-    revokeAccessToken(tokenId: String!): Boolean!
+  """
+  Revokes access tokens.
+  """
+  revokeAccessToken(tokenId: String!): Boolean!
 }
 
 """
 Input required to fetch a new Access Token.
 """
 input GetAccessTokenInput {
-
   """
   The type of the Access Token.
   """
@@ -142,7 +141,6 @@ enum AccessTokenDuration {
 }
 
 type AccessToken {
-
   """
   The access token itself
   """
@@ -200,7 +198,6 @@ type ListAccessTokenResult {
 }
 
 type AccessTokenMetadata implements Entity {
-
   """
   The primary key of the access token
   """
@@ -286,6 +283,86 @@ type EntityPrivileges {
   Whether or not a user can update the properties for the entity (e.g. dataset)
   """
   canEditProperties: Boolean
+
+  """
+  Whether or not a user can update tags for the entity
+  """
+  canEditTags: Boolean
+
+  """
+  Whether or not a user can update glossary terms for the entity
+  """
+  canEditGlossaryTerms: Boolean
+
+  """
+  Whether or not a user can update the description for the entity
+  """
+  canEditDescription: Boolean
+
+  """
+  Whether or not a user can update the links for the entity
+  """
+  canEditLinks: Boolean
+
+  """
+  Whether or not a user can update the domain(s) for the entity
+  """
+  canEditDomains: Boolean
+
+  """
+  Whether or not a user can update the data product(s) that the entity belongs to
+  """
+  canEditDataProducts: Boolean
+
+  """
+  Whether or not a user can update the owners for the entity
+  """
+  canEditOwners: Boolean
+
+  """
+  Whether or not a user can update the incidents for an asset
+  """
+  canEditIncidents: Boolean
+
+  """
+  Whether or not a user can update assertions for an asset
+  """
+  canEditAssertions: Boolean
+
+  """
+  Whether or not a user can update the deprecation status for an entity
+  """
+  canEditDeprecation: Boolean
+
+  """
+  Whether or not a user can update the schema field tags for a dataset
+  """
+  canEditSchemaFieldTags: Boolean
+
+  """
+  Whether or not a user can update the schema field tags for a dataset
+  """
+  canEditSchemaFieldGlossaryTerms: Boolean
+
+  """
+  Whether or not a user can update the schema field tags for a dataset
+  """
+  canEditSchemaFieldDescription: Boolean
+
+  """
+  Whether the user can view dataset usage stats
+  """
+  canViewDatasetUsage: Boolean
+
+  """
+  Whether the user can view dataset profiling stats
+  """
+  canViewDatasetProfile: Boolean
+
+  """
+  Whether the user can view dataset operations
+  """
+  canViewDatasetOperations: Boolean
 }
 
 """

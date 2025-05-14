@@ -20,6 +20,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertySettings;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -44,6 +46,11 @@ public class StructuredPropertyUtils {
 
   static final Date MIN_DATE = Date.valueOf("1000-01-01");
   static final Date MAX_DATE = Date.valueOf("9999-12-31");
+
+  public static final String INVALID_SETTINGS_MESSAGE =
+      "Cannot have property isHidden = true while other display location settings are also true.";
+  public static final String ONLY_ONE_BADGE =
+      "Cannot have more than one property set with show as badge. Property urns currently set: ";
 
   public static LogicalValueType getLogicalValueType(
       StructuredPropertyDefinition structuredPropertyDefinition) {
@@ -178,7 +185,7 @@ public class StructuredPropertyUtils {
   /**
    * Return an elasticsearch type from structured property type
    *
-   * @param fieldName filter or facet field name
+   * @param fieldName filter or facet field name - must match actual FQN of structured prop
    * @param aspectRetriever aspect retriever
    * @return elasticsearch type
    */
@@ -354,5 +361,49 @@ public class StructuredPropertyUtils {
                   .collect(Collectors.toSet())),
           true);
     }
+  }
+
+  /*
+   * We accept both ID and qualifiedName as inputs when creating a structured property. However,
+   * these two fields should ALWAYS be the same. If they don't provide either, use a UUID for both.
+   * If they provide both, ensure they are the same otherwise throw. Otherwise, use what is provided.
+   */
+  public static String getPropertyId(
+      @Nullable final String inputId, @Nullable final String inputQualifiedName) {
+    if (inputId != null && inputQualifiedName != null && !inputId.equals(inputQualifiedName)) {
+      throw new IllegalArgumentException(
+          "Qualified name and the ID of a structured property must match");
+    }
+
+    String id = UUID.randomUUID().toString();
+
+    if (inputQualifiedName != null) {
+      id = inputQualifiedName;
+    } else if (inputId != null) {
+      id = inputId;
+    }
+
+    return id;
+  }
+
+  /*
+   * Ensure that a structured property settings aspect is valid by ensuring that if isHidden is true,
+   * the other fields concerning display locations are false;
+   */
+  public static boolean validatePropertySettings(
+      StructuredPropertySettings settings, boolean shouldThrow) {
+    if (settings.isIsHidden()) {
+      if (settings.isShowInSearchFilters()
+          || settings.isShowInAssetSummary()
+          || settings.isShowAsAssetBadge()
+          || settings.isShowInColumnsTable()) {
+        if (shouldThrow) {
+          throw new IllegalArgumentException(INVALID_SETTINGS_MESSAGE);
+        } else {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 }

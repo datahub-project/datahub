@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Scope;
+import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 @Configuration
 @Import({RetentionServiceFactory.class})
@@ -43,6 +44,7 @@ public class IngestRetentionPoliciesStepFactory {
         _entityService,
         _enableRetention,
         _applyOnBootstrap,
-        _pluginRegistryPath);
+        _pluginRegistryPath,
+        new PathMatchingResourcePatternResolver());
   }
 }

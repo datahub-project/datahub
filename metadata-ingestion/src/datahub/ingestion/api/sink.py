@@ -3,6 +3,8 @@ from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Generic, Optional, Type, TypeVar, cast
 
+from typing_extensions import Self
+
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
@@ -79,7 +81,6 @@ class NoopWriteCallback(WriteCallback):
 
 SinkReportType = TypeVar("SinkReportType", bound=SinkReport, covariant=True)
 SinkConfig = TypeVar("SinkConfig", bound=ConfigModel, covariant=True)
-Self = TypeVar("Self", bound="Sink")
 
 
 class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
@@ -90,7 +91,7 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
     report: SinkReportType
 
     @classmethod
-    def get_config_class(cls: Type[Self]) -> Type[SinkConfig]:
+    def get_config_class(cls) -> Type[SinkConfig]:
         config_class = get_class_from_annotation(cls, Sink, ConfigModel)
         assert config_class, "Sink subclasses must define a config class"
         return cast(Type[SinkConfig], config_class)
@@ -109,16 +110,28 @@ class Sink(Generic[SinkConfig, SinkReportType], Closeable, metaclass=ABCMeta):
         self.__post_init__()
 
     def __post_init__(self) -> None:
+        """Hook called after the sink's main initialization is complete.
+
+        Sink subclasses can override this method to customize initialization.
+        """
         pass
 
     @classmethod
-    def create(cls: Type[Self], config_dict: dict, ctx: PipelineContext) -> "Self":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Self":
         return cls(ctx, cls.get_config_class().parse_obj(config_dict))
 
     def handle_work_unit_start(self, workunit: WorkUnit) -> None:
+        """Called at the start of each new workunit.
+
+        This method is deprecated and will be removed in a future release.
+        """
         pass
 
     def handle_work_unit_end(self, workunit: WorkUnit) -> None:
+        """Called at the end of each workunit.
+
+        This method is deprecated and will be removed in a future release.
+        """
         pass
 
     @abstractmethod

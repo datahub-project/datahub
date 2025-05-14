@@ -2,6 +2,8 @@ plugins {
     id 'java-library'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
     implementation(project(':metadata-service:factories')) {
         exclude group: 'org.neo4j.test'
@@ -10,6 +12,12 @@ dependencies {
     implementation externalDependency.springKafka
     implementation externalDependency.slf4jApi
 
+    implementation(externalDependency.springBootStarterJetty) {
+      exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+    }
+    implementation(externalDependency.springBootStarterValidation) {
+      exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+    }
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok

@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Union
 
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionResultClass,
@@ -43,6 +42,9 @@ class DBTTestResult:
 
     native_results: Dict[str, str]
 
+    def has_success_status(self) -> bool:
+        return self.status in ("pass", "success")
+
 
 def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
     """
@@ -57,15 +59,11 @@ def _get_name_for_relationship_test(kw_args: Dict[str, str]) -> Optional[str]:
         # base assertions are violated, bail early
         return None
     m = re.match(r"^ref\(\'(.*)\'\)$", destination_ref)
-    if m:
-        destination_table = m.group(1)
-    else:
-        destination_table = destination_ref
+    destination_table = m.group(1) if m else destination_ref
+
     m = re.search(r"ref\(\'(.*)\'\)", source_ref)
-    if m:
-        source_table = m.group(1)
-    else:
-        source_table = source_ref
+    source_table = m.group(1) if m else source_ref
+
     return f"{source_table}.{column_name} referential integrity to {destination_table}.{dest_field_name}"
 
 
@@ -161,7 +159,7 @@ def make_assertion_from_test(
     node: "DBTNode",
     assertion_urn: str,
     upstream_urn: str,
-) -> MetadataWorkUnit:
+) -> MetadataChangeProposalWrapper:
     assert node.test_info
     qualified_test_name = node.test_info.qualified_test_name
     column_name = node.test_info.column_name
@@ -235,7 +233,7 @@ def make_assertion_from_test(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertion_info,
-    ).as_workunit()
+    )
 
 
 def make_assertion_result_from_test(
@@ -244,7 +242,7 @@ def make_assertion_result_from_test(
     assertion_urn: str,
     upstream_urn: str,
     test_warnings_are_errors: bool,
-) -> MetadataWorkUnit:
+) -> MetadataChangeProposalWrapper:
     assertionResult = AssertionRunEventClass(
         timestampMillis=int(test_result.execution_time.timestamp() * 1000.0),
         assertionUrn=assertion_urn,
@@ -253,7 +251,7 @@ def make_assertion_result_from_test(
         result=AssertionResultClass(
             type=(
                 AssertionResultTypeClass.SUCCESS
-                if test_result.status == "pass"
+                if test_result.has_success_status()
                 or (not test_warnings_are_errors and test_result.status == "warn")
                 else AssertionResultTypeClass.FAILURE
             ),
@@ -265,4 +263,4 @@ def make_assertion_result_from_test(
     return MetadataChangeProposalWrapper(
         entityUrn=assertion_urn,
         aspect=assertionResult,
-    ).as_workunit()
+    )

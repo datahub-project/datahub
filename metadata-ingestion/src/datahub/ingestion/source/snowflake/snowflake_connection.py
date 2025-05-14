@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Any, Dict, Optional
 
 import pydantic
@@ -27,7 +28,7 @@ from datahub.ingestion.source.snowflake.oauth_config import (
     OAuthIdentityProvider,
 )
 from datahub.ingestion.source.snowflake.oauth_generator import OAuthTokenGenerator
-from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
     remove_suffix,
@@ -43,6 +44,7 @@ _VALID_AUTH_TYPES: Dict[str, str] = {
     "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
     "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
     "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
+    "OAUTH_AUTHENTICATOR_TOKEN": OAUTH_AUTHENTICATOR,
 }
 
 _SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
@@ -104,6 +106,10 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
     )
+    token: Optional[str] = pydantic.Field(
+        default=None,
+        description="OAuth token from external identity provider. Not recommended for most use cases because it will not be able to refresh once expired.",
+    )
 
     def get_account(self) -> str:
         assert self.account_id
@@ -120,7 +126,7 @@ class SnowflakeConnectionConfig(ConfigModel):
 
     @pydantic.validator("authentication_type", always=True)
     def authenticator_type_is_valid(cls, v, values):
-        if v not in _VALID_AUTH_TYPES.keys():
+        if v not in _VALID_AUTH_TYPES:
             raise ValueError(
                 f"unsupported authenticator type '{v}' was provided,"
                 f" use one of {list(_VALID_AUTH_TYPES.keys())}"
@@ -146,6 +152,18 @@ class SnowflakeConnectionConfig(ConfigModel):
         elif v == "OAUTH_AUTHENTICATOR":
             cls._check_oauth_config(values.get("oauth_config"))
         logger.info(f"using authenticator type '{v}'")
+        return v
+
+    @pydantic.validator("token", always=True)
+    def validate_token_oauth_config(cls, v, values):
+        auth_type = values.get("authentication_type")
+        if auth_type == "OAUTH_AUTHENTICATOR_TOKEN":
+            if not v:
+                raise ValueError("Token required for OAUTH_AUTHENTICATOR_TOKEN.")
+        elif v is not None:
+            raise ValueError(
+                "Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN"
+            )
         return v
 
     @staticmethod
@@ -175,23 +193,11 @@ class SnowflakeConnectionConfig(ConfigModel):
                 "but should be set when using use_certificate false for oauth_config"
             )
 
-    def get_sql_alchemy_url(
-        self,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[pydantic.SecretStr] = None,
-        role: Optional[str] = None,
-    ) -> str:
-        if username is None:
-            username = self.username
-        if password is None:
-            password = self.password
-        if role is None:
-            role = self.role
+    def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
         return make_sqlalchemy_uri(
             self.scheme,
-            username,
-            password.get_secret_value() if password else None,
+            self.username,
+            self.password.get_secret_value() if self.password else None,
             self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
@@ -200,7 +206,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 for (key, value) in {
                     "authenticator": _VALID_AUTH_TYPES.get(self.authentication_type),
                     "warehouse": self.warehouse,
-                    "role": role,
+                    "role": self.role,
                     "application": _APPLICATION_NAME,
                 }.items()
                 if value
@@ -233,9 +239,9 @@ class SnowflakeConnectionConfig(ConfigModel):
             if self.private_key is not None:
                 pkey_bytes = self.private_key.replace("\\n", "\n").encode()
             else:
-                assert (
-                    self.private_key_path
-                ), "missing required private key path to read key from"
+                assert self.private_key_path, (
+                    "missing required private key path to read key from"
+                )
                 with open(self.private_key_path, "rb") as key:
                     pkey_bytes = key.read()
 
@@ -267,9 +273,9 @@ class SnowflakeConnectionConfig(ConfigModel):
         return self.options
 
     def get_oauth_connection(self) -> NativeSnowflakeConnection:
-        assert (
-            self.oauth_config
-        ), "oauth_config should be provided if using oauth based authentication"
+        assert self.oauth_config, (
+            "oauth_config should be provided if using oauth based authentication"
+        )
         generator = OAuthTokenGenerator(
             client_id=self.oauth_config.client_id,
             authority_url=self.oauth_config.authority_url,
@@ -295,7 +301,7 @@ class SnowflakeConnectionConfig(ConfigModel):
             raise ValueError(
                 f"access_token not found in response {response}. "
                 "Please check your OAuth configuration."
-            )
+            ) from None
         connect_args = self.get_options()["connect_args"]
         return snowflake.connector.connect(
             user=self.username,
@@ -328,6 +334,17 @@ class SnowflakeConnectionConfig(ConfigModel):
                 user=self.username,
                 password=self.password.get_secret_value() if self.password else None,
                 account=self.account_id,
+                warehouse=self.warehouse,
+                role=self.role,
+                application=_APPLICATION_NAME,
+                **connect_args,
+            )
+        elif self.authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
+            return snowflake.connector.connect(
+                user=self.username,
+                account=self.account_id,
+                authenticator="oauth",
+                token=self.token,  # Token generated externally and provided directly to the recipe
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,
@@ -374,13 +391,30 @@ class SnowflakeConnection(Closeable):
     def __init__(self, connection: NativeSnowflakeConnection):
         self._connection = connection
 
+        self._query_num_lock = threading.Lock()
+        self._query_num = 1
+
     def native_connection(self) -> NativeSnowflakeConnection:
         return self._connection
 
+    def get_query_no(self) -> int:
+        with self._query_num_lock:
+            no = self._query_num
+            self._query_num += 1
+            return no
+
     def query(self, query: str) -> Any:
         try:
-            logger.info(f"Query: {query}", stacklevel=2)
+            # We often run multiple queries in parallel across multiple threads,
+            # so we need to number them to help with log readability.
+            query_num = self.get_query_no()
+            logger.info(f"Query #{query_num}: {query}", stacklevel=2)
             resp = self._connection.cursor(DictCursor).execute(query)
+            if resp is not None and resp.rowcount is not None:
+                logger.info(
+                    f"Query #{query_num} got {resp.rowcount} row(s) back from Snowflake",
+                    stacklevel=2,
+                )
             return resp
 
         except Exception as e:

@@ -54,6 +54,8 @@ from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
     cooperative_timeout,
 )
+from datahub.utilities.dedup_list import deduplicate_list
+from datahub.utilities.ordered_set import OrderedSet
 
 assert SQLGLOT_PATCHED
 
@@ -66,6 +68,7 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
+SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
 
 # These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
@@ -127,19 +130,37 @@ class DownstreamColumnRef(_ParserBaseModel):
         return SchemaFieldDataTypeClass.from_obj(v)
 
 
+class ColumnTransformation(_ParserBaseModel):
+    is_direct_copy: bool
+    column_logic: str
+
+
 class _ColumnLineageInfo(_ParserBaseModel):
     downstream: _DownstreamColumnRef
     upstreams: List[_ColumnRef]
 
-    logic: Optional[str] = None
+    logic: Optional[ColumnTransformation] = None
 
 
 class ColumnLineageInfo(_ParserBaseModel):
     downstream: DownstreamColumnRef
     upstreams: List[ColumnRef]
 
-    # Logic for this column, as a SQL expression.
-    logic: Optional[str] = pydantic.Field(default=None, exclude=True)
+    logic: Optional[ColumnTransformation] = pydantic.Field(default=None)
+
+
+class _JoinInfo(_ParserBaseModel):
+    join_type: str
+    tables: List[_TableName]
+    on_clause: Optional[str]
+    columns_involved: List[_ColumnRef]
+
+
+class JoinInfo(_ParserBaseModel):
+    join_type: str
+    tables: List[Urn]
+    on_clause: Optional[str]
+    columns_involved: List[ColumnRef]
 
 
 class SqlParsingDebugInfo(_ParserBaseModel):
@@ -177,6 +198,7 @@ class SqlParsingResult(_ParserBaseModel):
     out_tables: List[Urn]
 
     column_lineage: Optional[List[ColumnLineageInfo]] = None
+    joins: Optional[List[JoinInfo]] = None
 
     # TODO include formatted original sql logic
     # TODO include list of referenced columns
@@ -365,10 +387,11 @@ def _prepare_query_columns(
 
             return node
 
-        # logger.debug(
-        #     "Prior to case normalization sql %s",
-        #     statement.sql(pretty=True, dialect=dialect),
-        # )
+        if SQL_PARSER_TRACE:
+            logger.debug(
+                "Prior to case normalization sql %s",
+                statement.sql(pretty=True, dialect=dialect),
+            )
         statement = statement.transform(_sqlglot_force_column_normalizer, copy=False)
         # logger.debug(
         #     "Sql after casing normalization %s",
@@ -440,9 +463,9 @@ def _create_table_ddl_cll(
 ) -> List[_ColumnLineageInfo]:
     column_lineage: List[_ColumnLineageInfo] = []
 
-    assert (
-        output_table is not None
-    ), "output_table must be set for create DDL statements"
+    assert output_table is not None, (
+        "output_table must be set for create DDL statements"
+    )
 
     create_schema: sqlglot.exp.Schema = statement.this
     sqlglot_columns = create_schema.expressions
@@ -471,7 +494,7 @@ def _create_table_ddl_cll(
     return column_lineage
 
 
-def _select_statement_cll(  # noqa: C901
+def _select_statement_cll(
     statement: _SupportedColumnLineageTypes,
     dialect: sqlglot.Dialect,
     root_scope: sqlglot.optimizer.Scope,
@@ -518,8 +541,6 @@ def _select_statement_cll(  # noqa: C901
             # Generate SELECT lineage.
             direct_raw_col_upstreams = _get_direct_raw_col_upstreams(lineage_node)
 
-            # column_logic = lineage_node.source
-
             # Fuzzy resolve the output column.
             original_col_expression = lineage_node.expression
             if output_col.startswith("_col_"):
@@ -558,11 +579,11 @@ def _select_statement_cll(  # noqa: C901
                         column_type=output_col_type,
                     ),
                     upstreams=sorted(direct_resolved_col_upstreams),
-                    # logic=column_logic.sql(pretty=True, dialect=dialect),
+                    logic=_get_column_transformation(lineage_node, dialect),
                 )
             )
 
-        # TODO: Also extract referenced columns (aka auxillary / non-SELECT lineage)
+        # TODO: Also extract referenced columns (aka auxiliary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
@@ -573,6 +594,7 @@ def _select_statement_cll(  # noqa: C901
 
 class _ColumnLineageWithDebugInfo(_ParserBaseModel):
     column_lineage: List[_ColumnLineageInfo]
+    joins: Optional[List[_JoinInfo]] = None
 
     select_statement: Optional[sqlglot.exp.Expression] = None
     # TODO: Add column exceptions here.
@@ -643,17 +665,27 @@ def _column_level_lineage(
         output_table=downstream_table,
     )
 
+    joins: Optional[List[_JoinInfo]] = None
+    try:
+        # List join clauses.
+        joins = _list_joins(dialect=dialect, root_scope=root_scope)
+        logger.debug("Joins: %s", joins)
+    except Exception as e:
+        # This is a non-fatal error, so we can continue.
+        logger.debug("Failed to list joins: %s", e)
+
     return _ColumnLineageWithDebugInfo(
         column_lineage=column_lineage,
+        joins=joins,
         select_statement=select_statement,
     )
 
 
 def _get_direct_raw_col_upstreams(
     lineage_node: sqlglot.lineage.Node,
-) -> Set[_ColumnRef]:
-    # Using a set here to deduplicate upstreams.
-    direct_raw_col_upstreams: Set[_ColumnRef] = set()
+) -> OrderedSet[_ColumnRef]:
+    # Using an OrderedSet here to deduplicate upstreams while preserving "discovery" order.
+    direct_raw_col_upstreams: OrderedSet[_ColumnRef] = OrderedSet()
 
     for node in lineage_node.walk():
         if node.downstream:
@@ -686,6 +718,152 @@ def _get_direct_raw_col_upstreams(
             pass
 
     return direct_raw_col_upstreams
+
+
+def _is_single_column_expression(
+    expression: sqlglot.exp.Expression,
+) -> bool:
+    # Check if the expression is trivial, i.e. it's just a single column.
+    # Things like count(*) or coalesce(col, 0) are not single columns.
+    if isinstance(expression, sqlglot.exp.Alias):
+        expression = expression.this
+
+    return isinstance(expression, sqlglot.exp.Column)
+
+
+def _get_column_transformation(
+    lineage_node: sqlglot.lineage.Node,
+    dialect: sqlglot.Dialect,
+    parent: Optional[sqlglot.lineage.Node] = None,
+) -> ColumnTransformation:
+    # expression = lineage_node.expression
+    # is_single_column_expression = _is_single_column_expression(lineage_node.expression)
+    if not lineage_node.downstream:
+        # parent_expression = parent.expression if parent else expression
+        if parent:
+            expression = parent.expression
+            is_copy = _is_single_column_expression(expression)
+        else:
+            # This case should rarely happen.
+            is_copy = True
+            expression = lineage_node.expression
+        return ColumnTransformation(
+            is_direct_copy=is_copy,
+            column_logic=expression.sql(dialect=dialect),
+        )
+
+    elif len(lineage_node.downstream) > 1 or not _is_single_column_expression(
+        lineage_node.expression
+    ):
+        return ColumnTransformation(
+            is_direct_copy=False,
+            column_logic=lineage_node.expression.sql(dialect=dialect),
+        )
+
+    else:
+        return _get_column_transformation(
+            lineage_node=lineage_node.downstream[0],
+            dialect=dialect,
+            parent=lineage_node,
+        )
+
+
+def _get_raw_col_upstreams_for_expression(
+    select: sqlglot.exp.Expression,
+    dialect: sqlglot.Dialect,
+    scope: sqlglot.optimizer.Scope,
+) -> OrderedSet[_ColumnRef]:
+    if not isinstance(scope.expression, sqlglot.exp.Query):
+        # Note that Select, Subquery, SetOperation, etc. are all subclasses of Query.
+        # So this line should basically never happen.
+        return OrderedSet()
+
+    original_expression = scope.expression
+    updated_expression = scope.expression.select(select, append=False, copy=True)
+
+    try:
+        scope.expression = updated_expression
+        node = sqlglot.lineage.to_node(
+            column=0,
+            scope=scope,
+            dialect=dialect,
+            trim_selects=False,
+        )
+
+        return _get_direct_raw_col_upstreams(node)
+    finally:
+        scope.expression = original_expression
+
+
+def _list_joins(
+    dialect: sqlglot.Dialect,
+    root_scope: sqlglot.optimizer.Scope,
+) -> List[_JoinInfo]:
+    # TODO: Add a confidence tracker here.
+
+    joins: List[_JoinInfo] = []
+
+    for scope in root_scope.traverse():
+        join: sqlglot.exp.Join
+        for join in scope.find_all(sqlglot.exp.Join):
+            on_clause: Optional[sqlglot.exp.Expression] = join.args.get("on")
+            if not on_clause:
+                # We don't need to check for `using` here because it's normalized to `on`
+                # by the sqlglot optimizer.
+                logger.debug(
+                    "Skipping join without ON clause: %s",
+                    join.sql(dialect=dialect),
+                )
+                # TODO: This skips joins that don't have ON clauses, like cross joins, lateral joins, etc.
+                continue
+
+            joined_columns = _get_raw_col_upstreams_for_expression(
+                select=on_clause, dialect=dialect, scope=scope
+            )
+
+            unique_tables = deduplicate_list(col.table for col in joined_columns)
+            if not unique_tables:
+                logger.debug(
+                    "Skipping join because we couldn't resolve the tables: %s",
+                    join.sql(dialect=dialect),
+                )
+                continue
+
+            joins.append(
+                _JoinInfo(
+                    join_type=_get_join_type(join),
+                    tables=list(unique_tables),
+                    on_clause=on_clause.sql(dialect=dialect) if on_clause else None,
+                    columns_involved=list(sorted(joined_columns)),
+                )
+            )
+
+    return joins
+
+
+def _get_join_type(join: sqlglot.exp.Join) -> str:
+    # Will return "LEFT JOIN", "RIGHT OUTER JOIN", etc.
+    # This is not really comprehensive - there's a couple other edge
+    # cases (e.g. STRAIGHT_JOIN, anti-join) that we don't handle.
+
+    components = []
+
+    # Add method if present (e.g. "HASH", "MERGE")
+    if method := join.args.get("method"):
+        components.append(method)
+
+    # Add side if present (e.g. "LEFT", "RIGHT")
+    if side := join.args.get("side"):
+        components.append(side)
+
+    # Add kind if present (e.g. "INNER", "OUTER", "SEMI", "ANTI")
+    if kind := join.args.get("kind"):
+        components.append(kind)
+
+    # Join the components and append "JOIN"
+    if not components:
+        return "JOIN"
+    return f"{' '.join(components)} JOIN"
 
 
 def _extract_select_from_create(
@@ -873,6 +1051,30 @@ def _translate_internal_column_lineage(
     )
 
 
+def _translate_internal_joins(
+    table_name_urn_mapping: Dict[_TableName, str],
+    raw_joins: List[_JoinInfo],
+    dialect: sqlglot.Dialect,
+) -> List[JoinInfo]:
+    joins = []
+    for raw_join in raw_joins:
+        joins.append(
+            JoinInfo(
+                join_type=raw_join.join_type,
+                tables=[table_name_urn_mapping[table] for table in raw_join.tables],
+                on_clause=raw_join.on_clause,
+                columns_involved=[
+                    ColumnRef(
+                        table=table_name_urn_mapping[col.table],
+                        column=col.column,
+                    )
+                    for col in raw_join.columns_involved
+                ],
+            )
+        )
+    return joins
+
+
 _StrOrNone = TypeVar("_StrOrNone", str, Optional[str])
 
 
@@ -1022,8 +1224,17 @@ def _sqlglot_lineage_inner(
     logger.debug(
         f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
     )
+    if SQL_PARSER_TRACE:
+        for qualified_table, schema_info in table_name_schema_mapping.items():
+            logger.debug(
+                "Table name %s resolved to %s with schema %s",
+                qualified_table,
+                table_name_urn_mapping[qualified_table],
+                schema_info,
+            )
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
+    joins = None
     try:
         with cooperative_timeout(
             timeout=(
@@ -1039,6 +1250,7 @@ def _sqlglot_lineage_inner(
                 default_schema=default_schema,
             )
             column_lineage = column_lineage_debug_info.column_lineage
+            joins = column_lineage_debug_info.joins
     except CooperativeTimeoutError as e:
         logger.debug(f"Timed out while generating column-level lineage: {e}")
         debug_info.column_error = e
@@ -1071,6 +1283,14 @@ def _sqlglot_lineage_inner(
                 f"Failed to translate column lineage to urns: {e}", exc_info=True
             )
             debug_info.column_error = e
+    joins_urns = None
+    if joins is not None:
+        try:
+            joins_urns = _translate_internal_joins(
+                table_name_urn_mapping, raw_joins=joins, dialect=dialect
+            )
+        except KeyError as e:
+            logger.debug(f"Failed to translate joins to urns: {e}", exc_info=True)
 
     query_type, query_type_props = get_query_type_of_sql(
         original_statement, dialect=dialect
@@ -1085,6 +1305,7 @@ def _sqlglot_lineage_inner(
         in_tables=in_urns,
         out_tables=out_urns,
         column_lineage=column_lineage_urns,
+        joins=joins_urns,
         debug_info=debug_info,
     )
 
@@ -1181,6 +1402,45 @@ def sqlglot_lineage(
         )
 
 
+@functools.lru_cache(maxsize=128)
+def create_and_cache_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    return create_schema_resolver(
+        platform=platform,
+        env=env,
+        graph=graph,
+        platform_instance=platform_instance,
+        schema_aware=schema_aware,
+    )
+
+
+def create_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    if graph and schema_aware:
+        return graph._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+
+    return SchemaResolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        graph=None,
+    )
+
+
 def create_lineage_sql_parsed_result(
     query: str,
     default_db: Optional[str],
@@ -1191,21 +1451,17 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
 ) -> SqlParsingResult:
+    schema_resolver = create_schema_resolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        schema_aware=schema_aware,
+        graph=graph,
+    )
+
+    needs_close: bool = True
     if graph and schema_aware:
         needs_close = False
-        schema_resolver = graph._make_schema_resolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-    else:
-        needs_close = True
-        schema_resolver = SchemaResolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-            graph=None,
-        )
 
     try:
         return sqlglot_lineage(
@@ -1243,13 +1499,19 @@ def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldCl
 def view_definition_lineage_helper(
     result: SqlParsingResult, view_urn: str
 ) -> SqlParsingResult:
-    if result.query_type is QueryType.SELECT:
+    if result.query_type is QueryType.SELECT or (
+        result.out_tables and result.out_tables != [view_urn]
+    ):
         # Some platforms (e.g. postgres) store only <select statement> from view definition
         # `create view V as <select statement>` . For such view definitions, `result.out_tables` and
         # `result.column_lineage[].downstream` are empty in `sqlglot_lineage` response, whereas upstream
         # details and downstream column details are extracted correctly.
         # Here, we inject view V's urn in `result.out_tables` and `result.column_lineage[].downstream`
         # to get complete lineage result.
+
+        # Some platforms(e.g. mssql) may have slightly different view name in view definition than
+        # actual view name used elsewhere. Therefore we overwrite downstream table for such cases as well.
+
         result.out_tables = [view_urn]
         if result.column_lineage:
             for col_result in result.column_lineage:

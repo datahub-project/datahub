@@ -1,6 +1,7 @@
 package com.datahub.graphql;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.ACTOR_URN_ATTR;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -37,10 +38,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 @Slf4j
 @RestController
+@RequestMapping("/api")
 public class GraphQLController {
 
   public GraphQLController() {
@@ -130,7 +133,7 @@ public class GraphQLController {
             operationName,
             query,
             variables);
-    Span.current().setAttribute("actor.urn", context.getActorUrn());
+    Span.current().setAttribute(ACTOR_URN_ATTR, context.getActorUrn());
 
     final String threadName = Thread.currentThread().getName();
     final String queryName = context.getQueryName();

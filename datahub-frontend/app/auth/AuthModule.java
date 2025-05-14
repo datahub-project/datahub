@@ -27,6 +27,7 @@ import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.EntityRegistryContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.SearchContext;
 import io.datahubproject.metadata.context.ValidationContext;
 import java.nio.charset.StandardCharsets;
@@ -180,7 +181,12 @@ public class AuthModule extends AbstractModule {
       final Authentication systemAuthentication,
       final ConfigurationProvider configurationProvider) {
     ActorContext systemActorContext =
-        ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
+        ActorContext.builder()
+            .systemAuth(true)
+            .authentication(systemAuthentication)
+            .enforceExistenceEnabled(
+                configurationProvider.getAuthentication().isEnforceExistenceEnabled())
+            .build();
     OperationContextConfig systemConfig =
         OperationContextConfig.builder()
             .viewAuthorizationConfiguration(configurationProvider.getAuthorization().getView())
@@ -195,7 +201,10 @@ public class AuthModule extends AbstractModule {
         .searchContext(SearchContext.EMPTY)
         .entityRegistryContext(EntityRegistryContext.builder().build(EmptyEntityRegistry.EMPTY))
         .validationContext(ValidationContext.builder().alternateValidation(false).build())
-        .build(systemAuthentication);
+        .retrieverContext(RetrieverContext.EMPTY)
+        .build(
+            systemAuthentication,
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
   }
 
   @Provides

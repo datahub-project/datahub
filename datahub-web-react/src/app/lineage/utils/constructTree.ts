@@ -1,8 +1,16 @@
-import { Entity } from '../../../types.generated';
-import EntityRegistry from '../../entity/EntityRegistry';
-import { Direction, EntityAndType, FetchedEntities, FetchedEntity, NodeData, UpdatedLineages } from '../types';
-import constructFetchedNode, { shouldIncludeChildEntity } from './constructFetchedNode';
-import extendAsyncEntities from './extendAsyncEntities';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import {
+    Direction,
+    EntityAndType,
+    FetchedEntities,
+    FetchedEntity,
+    NodeData,
+    UpdatedLineages,
+} from '@app/lineage/types';
+import constructFetchedNode, { shouldIncludeChildEntity } from '@app/lineage/utils/constructFetchedNode';
+import extendAsyncEntities from '@app/lineage/utils/extendAsyncEntities';
+
+import { Entity } from '@types';
 
 function createEntityAndType(entity: Entity) {
     return {
@@ -83,6 +91,8 @@ export default function constructTree(
     });
 
     const fetchedEntity = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
+    const sibling = fetchedEntity?.siblingsSearch?.searchResults?.[0]?.entity;
+    const fetchedSiblingEntity = sibling ? entityRegistry.getLineageVizConfig(sibling.type, sibling) : null;
 
     const root: NodeData = {
         name: fetchedEntity?.name || '',
@@ -100,6 +110,8 @@ export default function constructTree(
         upstreamRelationships: fetchedEntity?.upstreamRelationships || [],
         downstreamRelationships: fetchedEntity?.downstreamRelationships || [],
         health: fetchedEntity?.health,
+        structuredProperties: fetchedEntity?.structuredProperties,
+        siblingStructuredProperties: fetchedSiblingEntity?.structuredProperties,
     };
     const lineageConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
     let updatedLineageConfig = { ...lineageConfig };

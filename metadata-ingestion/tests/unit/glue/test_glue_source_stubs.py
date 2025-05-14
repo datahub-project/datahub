@@ -88,12 +88,14 @@ get_databases_response = {
                     "Permissions": ["ALL"],
                 }
             ],
-            "CatalogId": "123412341234",
+            "CatalogId": "000000000000",
         },
     ]
 }
-databases_1 = [{"Name": "flights-database", "CatalogId": "123412341234"}]
-databases_2 = [{"Name": "test-database", "CatalogId": "123412341234"}]
+flights_database = {"Name": "flights-database", "CatalogId": "123412341234"}
+test_database = {"Name": "test-database", "CatalogId": "123412341234"}
+empty_database = {"Name": "empty-database", "CatalogId": "000000000000"}
+
 tables_1 = [
     {
         "Name": "avro",

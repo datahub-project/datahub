@@ -57,7 +57,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/actions/setup-gradle@v3
+      - uses: gradle/actions/setup-gradle@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
@@ -196,3 +196,52 @@ jobs:
           echo signingKey=$SIGNING_KEY >> gradle.properties
           ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:custom-plugin-lib:publish
           ./gradlew :metadata-integration:java:custom-plugin-lib:closeAndReleaseRepository --info
+  publish-java8:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    needs: ["check-secret", "setup", "publish"]
+    if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
+    steps:
+      - uses: acryldata/sane-checkout-action@v3
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+      - name: checkout upstream repo
+        run: |
+          git remote add upstream https://github.com/datahub-project/datahub.git
+          git fetch upstream --tags --force --filter=tree:0
+      - name: publish datahub-client jar snapshot
+        if: ${{ github.event_name != 'release' }}
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          echo signingKey=$SIGNING_KEY >> gradle.properties
+          ./gradlew :metadata-integration:java:datahub-client:printVersion -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
+          ./gradlew :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
+      - name: release datahub-client jar
+        if: ${{ github.event_name == 'release' }}
+        env:
+          RELEASE_USERNAME: ${{ secrets.RELEASE_USERNAME }}
+          RELEASE_PASSWORD: ${{ secrets.RELEASE_PASSWORD }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
+        run: |
+          echo signingKey=$SIGNING_KEY >> gradle.properties
+          ./gradlew -PreleaseVersion=${{ needs.setup.outputs.tag }} :metadata-integration:java:datahub-client:publish -PjavaClassVersionDefault=8 -ParchiveAppendix=java8
+          ./gradlew :metadata-integration:java:datahub-client:closeAndReleaseRepository --info -PjavaClassVersionDefault=8 -ParchiveAppendix=java8

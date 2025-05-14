@@ -31,6 +31,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD),a)"
                     ],
+                    "transformOperation": "COPY: \"baz\".\"a\" AS \"a\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:e2629e6fd3a70a223cb3e2c9e5bd3416763782de3ec32124bc56cb835b60978a"
                 },
@@ -43,6 +44,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.bar,PROD),b)"
                     ],
+                    "transformOperation": "COPY: \"baz\".\"b\" AS \"b\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:e2629e6fd3a70a223cb3e2c9e5bd3416763782de3ec32124bc56cb835b60978a"
                 }
@@ -57,6 +59,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE bar AS\nSELECT\n  a,\n  b\nFROM baz",
                 "language": "SQL"
@@ -133,7 +136,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_dep,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332"
+                    "query": "urn:li:query:composite_c035c933cc4ce5cf8a111bcaf419b8e66a1e41853bb154ff9aaa24cd00ecf51e"
                 }
             ],
             "fineGrainedLineages": [
@@ -147,7 +150,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),a)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332"
+                    "query": "urn:li:query:composite_c035c933cc4ce5cf8a111bcaf419b8e66a1e41853bb154ff9aaa24cd00ecf51e"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -159,7 +162,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD),b)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332"
+                    "query": "urn:li:query:composite_c035c933cc4ce5cf8a111bcaf419b8e66a1e41853bb154ff9aaa24cd00ecf51e"
                 }
             ]
         }
@@ -167,11 +170,12 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332",
+    "entityUrn": "urn:li:query:composite_c035c933cc4ce5cf8a111bcaf419b8e66a1e41853bb154ff9aaa24cd00ecf51e",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE foo_staging AS\nSELECT\n  a,\n  b\nFROM foo_dep;\n\nALTER TABLE dev.public.foo_staging RENAME TO foo",
                 "language": "SQL"
@@ -190,7 +194,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332",
+    "entityUrn": "urn:li:query:composite_c035c933cc4ce5cf8a111bcaf419b8e66a1e41853bb154ff9aaa24cd00ecf51e",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -217,7 +221,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_2efc2a13ee673ccf7b195f8f2c0e4ba0570194d8200c3c20b1eb7e8ca4fb4332",
+    "entityUrn": "urn:li:query:composite_c035c933cc4ce5cf8a111bcaf419b8e66a1e41853bb154ff9aaa24cd00ecf51e",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -284,6 +288,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE foo_staging AS\nSELECT\n  a,\n  b\nFROM foo_dep;\n\nCREATE TABLE foo_downstream AS\nSELECT\n  a,\n  b\nFROM foo_staging",
                 "language": "SQL"

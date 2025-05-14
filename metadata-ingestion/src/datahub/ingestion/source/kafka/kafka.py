@@ -7,7 +7,6 @@ from typing import Any, Dict, Iterable, List, Optional, Type, cast
 import avro.schema
 import confluent_kafka
 import confluent_kafka.admin
-import pydantic
 from confluent_kafka.admin import (
     AdminClient,
     ConfigEntry,
@@ -16,13 +15,8 @@ from confluent_kafka.admin import (
 )
 from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistryClient
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
 from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
-from datahub.configuration.source_common import (
-    DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
-)
 from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -50,16 +44,15 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.kafka.kafka_config import KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
-    StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import Status
@@ -73,6 +66,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     SubTypesClass,
 )
+from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.mapping import Constants, OperationProcessor
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.str_enum import StrEnum
@@ -89,66 +83,12 @@ class KafkaTopicConfigKeys(StrEnum):
     UNCLEAN_LEADER_ELECTION_CONFIG = "unclean.leader.election.enable"
 
 
-class KafkaSourceConfig(
-    StatefulIngestionConfigBase,
-    DatasetSourceConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
-):
-    connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
-
-    topic_patterns: AllowDenyPattern = AllowDenyPattern(allow=[".*"], deny=["^_.*"])
-    domain: Dict[str, AllowDenyPattern] = pydantic.Field(
-        default={},
-        description="A map of domain names to allow deny patterns. Domains can be urn-based (`urn:li:domain:13ae4d85-d955-49fc-8474-9004c663a810`) or bare (`13ae4d85-d955-49fc-8474-9004c663a810`).",
-    )
-    topic_subject_map: Dict[str, str] = pydantic.Field(
-        default={},
-        description="Provides the mapping for the `key` and the `value` schemas of a topic to the corresponding schema registry subject name. Each entry of this map has the form `<topic_name>-key`:`<schema_registry_subject_name_for_key_schema>` and `<topic_name>-value`:`<schema_registry_subject_name_for_value_schema>` for the key and the value schemas associated with the topic, respectively. This parameter is mandatory when the [RecordNameStrategy](https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#how-the-naming-strategies-work) is used as the subject naming strategy in the kafka schema registry. NOTE: When provided, this overrides the default subject name resolution even when the `TopicNameStrategy` or the `TopicRecordNameStrategy` are used.",
-    )
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-    schema_registry_class: str = pydantic.Field(
-        default="datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry",
-        description="The fully qualified implementation class(custom) that implements the KafkaSchemaRegistryBase interface.",
-    )
-    schema_tags_field: str = pydantic.Field(
-        default="tags",
-        description="The field name in the schema metadata that contains the tags to be added to the dataset.",
-    )
-    enable_meta_mapping: bool = pydantic.Field(
-        default=True,
-        description="When enabled, applies the mappings that are defined through the meta_mapping directives.",
-    )
-    meta_mapping: Dict = pydantic.Field(
-        default={},
-        description="mapping rules that will be executed against top-level schema properties. Refer to the section below on meta automated mappings.",
-    )
-    field_meta_mapping: Dict = pydantic.Field(
-        default={},
-        description="mapping rules that will be executed against field-level schema properties. Refer to the section below on meta automated mappings.",
-    )
-    strip_user_ids_from_email: bool = pydantic.Field(
-        default=False,
-        description="Whether or not to strip email id while adding owners using meta mappings.",
-    )
-    tag_prefix: str = pydantic.Field(
-        default="", description="Prefix added to tags during ingestion."
-    )
-    ignore_warnings_on_schema_type: bool = pydantic.Field(
-        default=False,
-        description="Disables warnings reported for non-AVRO/Protobuf value or key schemas if set.",
-    )
-    disable_topic_record_naming_strategy: bool = pydantic.Field(
-        default=False,
-        description="Disables the utilization of the TopicRecordNameStrategy for Schema Registry subjects. For more information, visit: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#handling-differences-between-preregistered-and-client-derived-schemas:~:text=io.confluent.kafka.serializers.subject.TopicRecordNameStrategy",
-    )
-
-
 def get_kafka_consumer(
     connection: KafkaConsumerConnectionConfig,
 ) -> confluent_kafka.Consumer:
     consumer = confluent_kafka.Consumer(
         {
-            "group.id": "test",
+            "group.id": "datahub-kafka-ingestion",
             "bootstrap.servers": connection.bootstrap,
             **connection.consumer_config,
         }
@@ -157,15 +97,36 @@ def get_kafka_consumer(
     if CallableConsumerConfig.is_callable_config(connection.consumer_config):
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
         # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
+        logger.debug("Initiating polling for kafka consumer")
         consumer.poll(timeout=30)
+        logger.debug("Initiated polling for kafka consumer")
 
     return consumer
+
+
+def get_kafka_admin_client(
+    connection: KafkaConsumerConnectionConfig,
+) -> AdminClient:
+    client = AdminClient(
+        {
+            "group.id": "datahub-kafka-ingestion",
+            "bootstrap.servers": connection.bootstrap,
+            **connection.consumer_config,
+        }
+    )
+    if CallableConsumerConfig.is_callable_config(connection.consumer_config):
+        # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
+        # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
+        logger.debug("Initiating polling for kafka admin client")
+        client.poll(timeout=30)
+        logger.debug("Initiated polling for kafka admin client")
+    return client
 
 
 @dataclass
 class KafkaSourceReport(StaleEntityRemovalSourceReport):
     topics_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_topic_scanned(self, topic: str) -> None:
         self.topics_scanned += 1
@@ -246,7 +207,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             return schema_registry_class.create(config, report)
         except Exception as e:
             logger.debug(e, exc_info=e)
-            raise ImportError(config.schema_registry_class)
+            raise ImportError(config.schema_registry_class) from e
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -276,13 +237,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def init_kafka_admin_client(self) -> None:
         try:
             # TODO: Do we require separate config than existing consumer_config ?
-            self.admin_client = AdminClient(
-                {
-                    "group.id": "test",
-                    "bootstrap.servers": self.source_config.connection.bootstrap,
-                    **self.source_config.connection.consumer_config,
-                }
-            )
+            self.admin_client = get_kafka_admin_client(self.source_config.connection)
         except Exception as e:
             logger.debug(e, exc_info=e)
             self.report.report_warning(
@@ -328,17 +283,20 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 self.report.report_dropped(topic)
 
-        # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
-        for subject in self.schema_registry_client.get_subjects():
-            try:
-                yield from self._extract_record(
-                    subject, True, topic_detail=None, extra_topic_config=None
-                )
-            except Exception as e:
-                logger.warning(f"Failed to extract subject {subject}", exc_info=True)
-                self.report.report_warning(
-                    "subject", f"Exception while extracting topic {subject}: {e}"
-                )
+        if self.source_config.ingest_schemas_as_entities:
+            # Get all subjects from schema registry and ingest them as SCHEMA DatasetSubTypes
+            for subject in self.schema_registry_client.get_subjects():
+                try:
+                    yield from self._extract_record(
+                        subject, True, topic_detail=None, extra_topic_config=None
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to extract subject {subject}", exc_info=True
+                    )
+                    self.report.report_warning(
+                        "subject", f"Exception while extracting topic {subject}: {e}"
+                    )
 
     def _extract_record(
         self,
@@ -397,16 +355,17 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             custom_props = self.build_custom_properties(
                 topic, topic_detail, extra_topic_config
             )
-            schema_name: Optional[
-                str
-            ] = self.schema_registry_client._get_subject_for_topic(
-                topic, is_key_schema=False
+            schema_name: Optional[str] = (
+                self.schema_registry_client._get_subject_for_topic(
+                    topic, is_key_schema=False
+                )
             )
             if schema_name is not None:
                 custom_props["Schema Name"] = schema_name
 
         # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
         description: Optional[str] = None
+        external_url: Optional[str] = None
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
@@ -458,8 +417,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     mce_builder.make_global_tag_aspect_with_tag_list(all_tags)
                 )
 
+        if self.source_config.external_url_base:
+            # Remove trailing slash from base URL if present
+            base_url = self.source_config.external_url_base.rstrip("/")
+            external_url = f"{base_url}/{dataset_name}"
+
         dataset_properties = DatasetPropertiesClass(
-            name=dataset_name, customProperties=custom_props, description=description
+            name=dataset_name,
+            customProperties=custom_props,
+            description=description,
+            externalUrl=external_url,
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -545,10 +512,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         for config_key in KafkaTopicConfigKeys:
             try:
-                if (
-                    config_key in topic_config.keys()
-                    and topic_config[config_key] is not None
-                ):
+                if config_key in topic_config and topic_config[config_key] is not None:
                     config_value = topic_config[config_key].value
                     custom_props[config_key] = (
                         config_value
@@ -588,11 +552,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
     def fetch_topic_configurations(self, topics: List[str]) -> Dict[str, dict]:
         logger.info("Fetching config details for all topics")
-        configs: Dict[
-            ConfigResource, concurrent.futures.Future
-        ] = self.admin_client.describe_configs(
-            resources=[ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics],
-            request_timeout=self.source_config.connection.client_timeout_seconds,
+        configs: Dict[ConfigResource, concurrent.futures.Future] = (
+            self.admin_client.describe_configs(
+                resources=[
+                    ConfigResource(ConfigResource.Type.TOPIC, t) for t in topics
+                ],
+                request_timeout=self.source_config.connection.client_timeout_seconds,
+            )
         )
         logger.debug("Waiting for config details futures to complete")
         concurrent.futures.wait(configs.values())

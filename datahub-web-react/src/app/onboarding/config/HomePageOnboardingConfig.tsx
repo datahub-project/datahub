@@ -1,12 +1,16 @@
-import React from 'react';
 import { Image, Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import dataHubFlowDiagram from '../../../images/datahub-flow-diagram-light.png';
+import React from 'react';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+
+import dataHubFlowDiagram from '@images/datahub-flow-diagram-light.png';
 
 export const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
 export const HOME_PAGE_INGESTION_ID = 'home-page-ingestion';
 export const HOME_PAGE_DOMAINS_ID = 'home-page-domains';
+export const HOME_PAGE_DATA_PRODUCTS_ID = 'home-page-data-products';
+export const HOME_PAGE_INSIGHTS_ID = 'home-page-insights';
 export const HOME_PAGE_PLATFORMS_ID = 'home-page-platforms';
 export const HOME_PAGE_MOST_POPULAR_ID = 'home-page-most-popular';
 export const HOME_PAGE_SEARCH_BAR_ID = 'home-page-search-bar';
@@ -23,7 +27,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     style={{ marginLeft: '50px' }}
                     src={dataHubFlowDiagram}
                 />
-                <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
+                <Typography.Title level={3}>Welcome to DataHub Core! 👋</Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
                     <strong>DataHub</strong> helps you discover and organize the important data within your
                     organization. You can:

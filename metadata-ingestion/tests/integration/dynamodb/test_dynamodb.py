@@ -29,9 +29,11 @@ def test_dynamodb(pytestconfig, tmp_path):
         TableName="Location",
         KeySchema=[
             {"AttributeName": "partitionKey", "KeyType": "HASH"},
+            {"AttributeName": "city", "KeyType": "RANGE"},
         ],
         AttributeDefinitions=[
             {"AttributeName": "partitionKey", "AttributeType": "S"},
+            {"AttributeName": "city", "AttributeType": "S"},
         ],
         ProvisionedThroughput={"ReadCapacityUnits": 10, "WriteCapacityUnits": 10},
     )

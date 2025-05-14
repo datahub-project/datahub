@@ -1,9 +1,10 @@
 import { render } from '@testing-library/react';
 import React from 'react';
-import { dataset1, dataset4WithLineage } from '../../../Mocks';
-import { getTestEntityRegistry } from '../../../utils/test-utils/TestPageContainer';
-import LineageEdges from '../manage/LineageEdges';
-import { Direction } from '../types';
+
+import LineageEdges from '@app/lineage/manage/LineageEdges';
+import { Direction } from '@app/lineage/types';
+import { dataset1, dataset4WithLineage } from '@src/Mocks';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 const mockEntityRegistry = getTestEntityRegistry();
 vi.mock('../../useEntityRegistry', () => ({

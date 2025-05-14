@@ -1,21 +1,5 @@
 const domainName = "CypressNestedDomain";
-
-// Delete Unecessary Existing Domains
-const deleteExisitingDomain = () => {
-  cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
-    .should("be.visible")
-    .its("length")
-    .then((length) => {
-      for (let i = 0; i < length - 1; i++) {
-        cy.get('a[href*="urn:li"] span[class^="ant-typography"]')
-          .should("be.visible")
-          .first()
-          .click({ force: true });
-        deleteFromDomainDropdown();
-      }
-    });
-  cy.waitTextVisible("Marketing");
-};
+const chartUrn = "urn:li:chart:(looker,cypress_baz1)";
 
 const createDomain = () => {
   cy.get(".anticon-plus").first().click();
@@ -44,6 +28,7 @@ const moveDomaintoParent = () => {
   cy.clickOptionWithText(domainName);
   cy.waitTextVisible(domainName);
   cy.openThreeDotDropdown();
+  cy.waitTextVisible("Filters");
   cy.clickOptionWithTestId("entity-menu-move-button");
   cy.clickOptionWithTestId("move-domain-modal-move-button");
 };
@@ -76,6 +61,7 @@ const verifyEditAndPerformAddAndRemoveActionForDomain = (
 ) => {
   cy.clickOptionWithText(entity);
   cy.clickOptionWithText(action);
+  cy.wait(500);
   cy.get('[data-testid="tag-term-modal-input"]').type(text);
   cy.get('[data-testid="tag-term-option"]').contains(text).click();
   cy.clickOptionWithText(body);
@@ -93,21 +79,22 @@ const clearAndDelete = () => {
   cy.clickOptionWithTestId("description-editor-save-button");
   cy.waitTextVisible("No documentation");
   cy.mouseover(".ant-list-item-meta-content");
-  cy.get('[aria-label="delete"]').click();
+  cy.get('[aria-label="delete"]').click().wait(1000);
+  cy.get("button")
+    .contains("span", "Yes")
+    .should("be.visible")
+    .click({ force: true });
   cy.waitTextVisible("Link Removed");
 };
 
 describe("Verify nested domains test functionalities", () => {
   beforeEach(() => {
+    cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
     cy.goToDomainList();
   });
 
   it("Verify Create a new domain", () => {
-    deleteExisitingDomain();
-    cy.get('a[href*="urn:li"] span[class^="ant-typography"]').should(
-      "be.visible",
-    );
     createDomain();
     cy.waitTextVisible("Domains");
   });
@@ -136,6 +123,7 @@ describe("Verify nested domains test functionalities", () => {
   it("Verify Right side panel functionalities", () => {
     cy.clickOptionWithText(domainName);
     cy.waitTextVisible("Filters");
+    cy.get('[data-node-key="Documentation"]').click();
     cy.clickOptionWithText("Add Documentation");
     clearAndType("Test documentation");
     cy.clickOptionWithTestId("description-editor-save-button");
@@ -149,6 +137,9 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test Label");
     cy.clickOptionWithTestId("add-owners-button");
     cy.waitTextVisible("Find a user or group");
+    cy.get('[data-testid="users-group-search"]').type(
+      Cypress.env("ADMIN_DISPLAYNAME"),
+    );
     cy.clickTextOptionWithClass(
       ".rc-virtual-list-holder-inner",
       Cypress.env("ADMIN_DISPLAYNAME"),
@@ -202,34 +193,6 @@ describe("Verify nested domains test functionalities", () => {
     clearAndDelete();
   });
 
-  it("Verify Right side panel functionalities", () => {
-    cy.clickOptionWithText(domainName);
-    cy.waitTextVisible("Filters");
-    cy.clickOptionWithText("Add Documentation");
-    clearAndType("Test documentation");
-    cy.clickOptionWithTestId("description-editor-save-button");
-    cy.ensureTextNotPresent("Add Documentation");
-    cy.waitTextVisible("Test documentation");
-    cy.clickFirstOptionWithSpecificTestId("add-link-button", 1);
-    cy.waitTextVisible("URL");
-    cy.enterTextInTestId("add-link-modal-url", "www.test.com");
-    cy.enterTextInTestId("add-link-modal-label", "Test Label");
-    cy.clickOptionWithTestId("add-link-modal-add-button");
-    cy.waitTextVisible("Test Label");
-    cy.clickOptionWithTestId("add-owners-button");
-    cy.waitTextVisible("Find a user or group");
-    cy.clickTextOptionWithClass(".rc-virtual-list-holder-inner", "DataHub");
-    cy.clickOptionWithText("Find a user or group");
-    cy.clickOptionWithId("#addOwnerButton");
-    cy.waitTextVisible("DataHub");
-    cy.goToDomainList();
-    cy.waitTextVisible("Test documentation");
-    cy.waitTextVisible("DataHub");
-    cy.clickOptionWithText(domainName);
-    cy.clickOptionWithText("Documentation");
-    clearAndDelete();
-  });
-
   it("Verify Edit Domain Name", () => {
     cy.clickFirstOptionWithText(domainName);
     cy.clickOptionWithText("Filters");
@@ -266,25 +229,26 @@ describe("Verify nested domains test functionalities", () => {
     cy.clickOptionWithText("Add assets");
     cy.waitTextVisible("Add assets to Domain");
     cy.enterTextInSpecificTestId("search-bar", 3, "Baz Chart 1");
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     cy.clickOptionWithId("#continueButton");
     cy.waitTextVisible("Added assets to Domain!");
     cy.openThreeDotMenu();
     cy.clickOptionWithText("Edit");
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     verifyEditAndPerformAddAndRemoveActionForDomain(
       "Tags",
       "Add tags",
       "Cypress",
       "Add Tags",
     );
+    cy.wait(3000); // give time for elastic to update before going to page
     cy.clickOptionWithText("Baz Chart 1");
     cy.waitTextVisible("Cypress");
     cy.waitTextVisible("Marketing");
     cy.go("back");
     cy.openThreeDotMenu();
     cy.clickOptionWithText("Edit");
-    cy.clickOptionWithSpecificClass(".ant-checkbox", 1);
+    cy.clickFirstOptionWithTestId(`checkbox-${chartUrn}`);
     verifyEditAndPerformAddAndRemoveActionForDomain(
       "Tags",
       "Remove tags",

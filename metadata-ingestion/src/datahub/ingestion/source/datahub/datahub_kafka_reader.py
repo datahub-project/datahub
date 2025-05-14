@@ -12,6 +12,7 @@ from confluent_kafka.schema_registry import SchemaRegistryClient
 from confluent_kafka.schema_registry.avro import AvroDeserializer
 
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
@@ -92,7 +93,7 @@ class DataHubKafkaReader(Closeable):
             if mcl.created and mcl.created.time > stop_time.timestamp() * 1000:
                 logger.info(
                     f"Stopped reading from kafka, reached MCL "
-                    f"with audit stamp {datetime.fromtimestamp(mcl.created.time / 1000)}"
+                    f"with audit stamp {parse_ts_millis(mcl.created.time)}"
                 )
                 break
 

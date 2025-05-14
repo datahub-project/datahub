@@ -176,6 +176,7 @@
                         "datasets": [
                             "urn:li:dataset:(urn:li:dataPlatform:mode,5450544,PROD)"
                         ],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639169724316,
@@ -253,6 +254,8 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "id": "19780522",
+                "created_at": "2024-09-02T07:38:43.755Z",
                 "updated_at": "2024-09-02T07:40:44.046Z",
                 "last_run_id": "3535709679",
                 "data_source_id": "44763",
@@ -260,8 +263,25 @@
             },
             "externalUrl": "https://app.mode.com/acryl/datasets/24f66e1701b6",
             "name": "Dataset 1",
-            "description": "### Source Code\n``` sql\n-- Returns first 100 rows from DATAHUB_COMMUNITY.POSTGRES_PUBLIC.COMPANY\n  SELECT \n\t\tAGE,\n\t\tID,\n\t\tNAME,\n\t\t_FIVETRAN_DELETED,\n\t\t_FIVETRAN_SYNCED\n FROM DATAHUB_COMMUNITY.POSTGRES_PUBLIC.COMPANY LIMIT 100;\n\n-- Returns first 100 rows from ETHAN_TEST_DB.PUBLIC.ACCOUNT_PHONE_NUMBER\n  SELECT \n\t\tCOMMUNICATION_ACCOUNT_ID,\n\t\tID,\n\t\tMMS_CAPABLE,\n\t\tPHONE_NUMBER,\n\t\tSMS_CAPABLE,\n\t\tSTATUS,\n\t\tSTATUS_TLM,\n\t\tTLM,\n\t\tVOICE_CAPABLE,\n\t\tWHEN_CREATED\n FROM ETHAN_TEST_DB.PUBLIC.ACCOUNT_PHONE_NUMBER LIMIT 100;\n \n \n```\n            ",
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mode,5450544,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "-- Returns first 100 rows from DATAHUB_COMMUNITY.POSTGRES_PUBLIC.COMPANY\n  SELECT \n\t\tAGE,\n\t\tID,\n\t\tNAME,\n\t\t_FIVETRAN_DELETED,\n\t\t_FIVETRAN_SYNCED\n FROM DATAHUB_COMMUNITY.POSTGRES_PUBLIC.COMPANY LIMIT 100;\n\n-- Returns first 100 rows from ETHAN_TEST_DB.PUBLIC.ACCOUNT_PHONE_NUMBER\n  SELECT \n\t\tCOMMUNICATION_ACCOUNT_ID,\n\t\tID,\n\t\tMMS_CAPABLE,\n\t\tPHONE_NUMBER,\n\t\tSMS_CAPABLE,\n\t\tSTATUS,\n\t\tSTATUS_TLM,\n\t\tTLM,\n\t\tVOICE_CAPABLE,\n\t\tWHEN_CREATED\n FROM ETHAN_TEST_DB.PUBLIC.ACCOUNT_PHONE_NUMBER LIMIT 100;\n \n ",
+            "viewLanguage": "SQL"
         }
     },
     "systemMetadata": {
@@ -336,14 +356,33 @@
     "aspect": {
         "json": {
             "customProperties": {
+                "id": "10149707",
+                "created_at": "2021-12-10T20:55:24.361Z",
                 "updated_at": "2021-12-10T23:12:53.273Z",
                 "last_run_id": "1897576958",
                 "data_source_id": "34499"
             },
             "externalUrl": "https://app.mode.com/acryl/reports/9d2da37fa91e/details/queries/6e26a9f3d4e2",
             "name": "Customer and staff",
-            "description": "### Source Code\n``` sql\nSELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}\n```\n            ",
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "mode-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mode,10149707,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": false,
+            "viewLogic": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}",
+            "viewLanguage": "SQL"
         }
     },
     "systemMetadata": {

@@ -18,12 +18,14 @@ import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
+import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.GlossaryNode;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.MLFeature;
@@ -33,6 +35,7 @@ import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
+import com.linkedin.datahub.graphql.generated.Post;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.generated.Role;
@@ -40,6 +43,7 @@ import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.Test;
+import com.linkedin.datahub.graphql.generated.VersionSet;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -224,6 +228,26 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new BusinessAttribute();
       ((BusinessAttribute) partialEntity).setUrn(input.toString());
       ((BusinessAttribute) partialEntity).setType(EntityType.BUSINESS_ATTRIBUTE);
+    }
+    if (input.getEntityType().equals(FORM_ENTITY_NAME)) {
+      partialEntity = new Form();
+      ((Form) partialEntity).setUrn(input.toString());
+      ((Form) partialEntity).setType(EntityType.FORM);
+    }
+    if (input.getEntityType().equals(POST_ENTITY_NAME)) {
+      partialEntity = new Post();
+      ((Post) partialEntity).setUrn(input.toString());
+      ((Post) partialEntity).setType(EntityType.POST);
+    }
+    if (input.getEntityType().equals(DATA_PROCESS_INSTANCE_ENTITY_NAME)) {
+      partialEntity = new DataProcessInstance();
+      ((DataProcessInstance) partialEntity).setUrn(input.toString());
+      ((DataProcessInstance) partialEntity).setType(EntityType.DATA_PROCESS_INSTANCE);
+    }
+    if (input.getEntityType().equals(VERSION_SET_ENTITY_NAME)) {
+      partialEntity = new VersionSet();
+      ((VersionSet) partialEntity).setUrn(input.toString());
+      ((VersionSet) partialEntity).setType(EntityType.VERSION_SET);
     }
     return partialEntity;
   }

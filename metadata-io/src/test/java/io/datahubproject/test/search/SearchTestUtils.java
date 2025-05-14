@@ -111,7 +111,7 @@ public class SearchTestUtils {
         null,
         0,
         100,
-        null);
+        List.of());
   }
 
   public static SearchResult search(
@@ -149,6 +149,29 @@ public class SearchTestUtils {
         scrollId,
         "3m",
         batchSize);
+  }
+
+  public static ScrollResult scrollAcrossEntities(
+      OperationContext opContext, SearchService searchService, String query) {
+    return scrollAcrossEntities(opContext, searchService, SEARCHABLE_ENTITIES, query, null);
+  }
+
+  public static ScrollResult scrollAcrossEntities(
+      OperationContext opContext,
+      SearchService searchService,
+      List<String> entityNames,
+      String query,
+      Filter filter) {
+    return searchService.scrollAcrossEntities(
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSkipCache(true).setSkipHighlighting(false)),
+        entityNames,
+        query,
+        filter,
+        null,
+        null,
+        null,
+        100);
   }
 
   public static SearchResult searchStructured(

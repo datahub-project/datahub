@@ -1,6 +1,5 @@
 package com.linkedin.metadata.recommendation.candidatesource;
 
-import com.codahale.metrics.Timer;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.collect.ImmutableSet;
@@ -17,7 +16,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.extension.annotations.WithSpan;
+import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -105,22 +104,29 @@ public class MostPopularSource implements EntityRecommendationSource {
       @Nonnull RecommendationRequestContext requestContext,
       @Nullable Filter filter) {
     SearchRequest searchRequest = buildSearchRequest(opContext);
-    try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "getMostPopular").time()) {
-      final SearchResponse searchResponse =
-          _searchClient.search(searchRequest, RequestOptions.DEFAULT);
-      // extract results
-      ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
-      List<String> bucketUrns =
-          parsedTerms.getBuckets().stream()
-              .map(MultiBucketsAggregation.Bucket::getKeyAsString)
-              .collect(Collectors.toList());
-      return buildContent(opContext, bucketUrns, _entityService)
-          .limit(MAX_CONTENT)
-          .collect(Collectors.toList());
-    } catch (Exception e) {
-      log.error("Search query to get most popular entities failed", e);
-      throw new ESQueryException("Search query failed:", e);
-    }
+
+    return opContext.withSpan(
+        "getMostPopular",
+        () -> {
+          try {
+            final SearchResponse searchResponse =
+                _searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            // extract results
+            ParsedTerms parsedTerms = searchResponse.getAggregations().get(ENTITY_AGG_NAME);
+            List<String> bucketUrns =
+                parsedTerms.getBuckets().stream()
+                    .map(MultiBucketsAggregation.Bucket::getKeyAsString)
+                    .collect(Collectors.toList());
+            return buildContent(opContext, bucketUrns, _entityService)
+                .limit(MAX_CONTENT)
+                .collect(Collectors.toList());
+          } catch (Exception e) {
+            log.error("Search query to get most popular entities failed", e);
+            throw new ESQueryException("Search query failed:", e);
+          }
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getMostPopular"));
   }
 
   @Override

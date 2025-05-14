@@ -16,7 +16,7 @@ from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.report import Report
-from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -166,6 +166,10 @@ class PlatformDetail(ConfigModel):
         default=None,
         description="The database that all assets produced by this connector belong to. "
         "For destinations, this defaults to the fivetran log config's database.",
+    )
+    include_schema_in_urn: bool = pydantic.Field(
+        default=True,
+        description="Include schema in the dataset URN. In some cases, the schema is not relevant to the dataset URN and Fivetran sets it to the source and destination table names in the connector.",
     )
 
 

@@ -25,11 +25,13 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.urn_functions import get_qualified_table_name
+from datahub.sql_parsing.schema_resolver import match_columns_to_schema
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
     SqlParsingResult,
     Urn,
+    create_and_cache_schema_resolver,
     create_lineage_sql_parsed_result,
 )
 
@@ -200,7 +202,7 @@ def _generate_fully_qualified_name(
 class AbstractViewUpstream(ABC):
     """
     Implementation of this interface extracts the view upstream as per the way the view is bound to datasets.
-    For detail explanation please refer lookml_concept_context.LookerViewContext documentation.
+    For detail explanation, please refer lookml_concept_context.LookerViewContext documentation.
     """
 
     view_context: LookerViewContext
@@ -235,6 +237,47 @@ class AbstractViewUpstream(ABC):
 
     def create_fields(self) -> List[ViewField]:
         return []  # it is for the special case
+
+    def create_upstream_column_refs(
+        self, upstream_urn: str, downstream_looker_columns: List[str]
+    ) -> List[ColumnRef]:
+        """
+        - **`upstream_urn`**: The URN of the upstream dataset.
+
+        - **`expected_columns`**: These are the columns identified by the Looker connector as belonging to the `upstream_urn` dataset. However, there is potential for human error in specifying the columns of the upstream dataset. For example, a user might declare a column in lowercase, while on the actual platform, it may exist in uppercase, or vice versa.
+
+        - This function ensures consistency in column-level lineage by consulting GMS before creating the final `ColumnRef` instance, avoiding discrepancies.
+        """
+        schema_resolver = create_and_cache_schema_resolver(
+            platform=self.view_context.view_connection.platform,
+            platform_instance=self.view_context.view_connection.platform_instance,
+            env=self.view_context.view_connection.platform_env or self.config.env,
+            graph=self.ctx.graph,
+        )
+
+        urn, schema_info = schema_resolver.resolve_urn(urn=upstream_urn)
+
+        if schema_info:
+            actual_columns = match_columns_to_schema(
+                schema_info, downstream_looker_columns
+            )
+        else:
+            logger.info(
+                f"schema_info not found for dataset {urn} in GMS. Using expected_columns to form ColumnRef"
+            )
+            actual_columns = [column.lower() for column in downstream_looker_columns]
+
+        upstream_column_refs: List[ColumnRef] = []
+
+        for column in actual_columns:
+            upstream_column_refs.append(
+                ColumnRef(
+                    column=column,
+                    table=upstream_urn,
+                )
+            )
+
+        return upstream_column_refs
 
 
 class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
@@ -372,15 +415,12 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
         # in-case of "select * from look_ml_view.SQL_TABLE_NAME" or extra field are defined in the looker view which is
         # referring to upstream table
         if self._get_upstream_dataset_urn() and not upstreams_column_refs:
-            upstreams_column_refs = [
-                ColumnRef(
-                    table=self._get_upstream_dataset_urn()[
-                        0
-                    ],  # 0th index has table of from clause
-                    column=column,
-                )
-                for column in field_context.column_name_in_sql_attribute()
-            ]
+            upstreams_column_refs = self.create_upstream_column_refs(
+                upstream_urn=self._get_upstream_dataset_urn()[
+                    0
+                ],  # 0th index has table of from clause,
+                downstream_looker_columns=field_context.column_name_in_sql_attribute(),
+            )
 
         # fix any derived view reference present in urn
         upstreams_column_refs = resolve_derived_view_urn_of_col_ref(
@@ -444,11 +484,11 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
         )
 
     def __get_upstream_dataset_urn(self) -> List[str]:
-        current_view_id: Optional[
-            LookerViewId
-        ] = self.looker_view_id_cache.get_looker_view_id(
-            view_name=self.view_context.name(),
-            base_folder_path=self.view_context.base_folder_path,
+        current_view_id: Optional[LookerViewId] = (
+            self.looker_view_id_cache.get_looker_view_id(
+                view_name=self.view_context.name(),
+                base_folder_path=self.view_context.base_folder_path,
+            )
         )
 
         # Current view will always be present in cache. assert  will silence the lint
@@ -487,18 +527,18 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
             return upstream_column_refs
 
         explore_urn: str = self._get_upstream_dataset_urn()[0]
+        expected_columns: List[str] = []
 
         for column in field_context.column_name_in_sql_attribute():
             if column in self._get_explore_column_mapping():
                 explore_column: Dict = self._get_explore_column_mapping()[column]
-                upstream_column_refs.append(
-                    ColumnRef(
-                        column=explore_column.get("field", explore_column[NAME]),
-                        table=explore_urn,
-                    )
+                expected_columns.append(
+                    explore_column.get("field", explore_column[NAME])
                 )
 
-        return upstream_column_refs
+        return self.create_upstream_column_refs(
+            upstream_urn=explore_urn, downstream_looker_columns=expected_columns
+        )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return self._get_upstream_dataset_urn()
@@ -548,14 +588,10 @@ class RegularViewUpstream(AbstractViewUpstream):
     def get_upstream_column_ref(
         self, field_context: LookerFieldContext
     ) -> List[ColumnRef]:
-        upstream_column_ref: List[ColumnRef] = []
-
-        for column_name in field_context.column_name_in_sql_attribute():
-            upstream_column_ref.append(
-                ColumnRef(table=self._get_upstream_dataset_urn(), column=column_name)
-            )
-
-        return upstream_column_ref
+        return self.create_upstream_column_refs(
+            upstream_urn=self._get_upstream_dataset_urn(),
+            downstream_looker_columns=field_context.column_name_in_sql_attribute(),
+        )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return [self._get_upstream_dataset_urn()]
@@ -609,15 +645,14 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
         self, field_context: LookerFieldContext
     ) -> List[ColumnRef]:
         upstream_column_ref: List[ColumnRef] = []
+
         if not self._get_upstream_dataset_urn():
             return upstream_column_ref
 
-        for column_name in field_context.column_name_in_sql_attribute():
-            upstream_column_ref.append(
-                ColumnRef(table=self._get_upstream_dataset_urn()[0], column=column_name)
-            )
-
-        return upstream_column_ref
+        return self.create_upstream_column_refs(
+            upstream_urn=self._get_upstream_dataset_urn()[0],
+            downstream_looker_columns=field_context.column_name_in_sql_attribute(),
+        )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
         return self._get_upstream_dataset_urn()

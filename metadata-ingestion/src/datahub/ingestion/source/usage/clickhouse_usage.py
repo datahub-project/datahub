@@ -2,7 +2,7 @@ import collections
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List, Optional
 
 from dateutil import parser
 from pydantic.fields import Field
@@ -74,8 +74,12 @@ class ClickHouseUsageConfig(ClickHouseConfig, BaseUsageConfig, EnvConfigMixin):
     options: dict = Field(default={}, description="")
     query_log_table: str = Field(default="system.query_log", exclude=True)
 
-    def get_sql_alchemy_url(self):
-        return super().get_sql_alchemy_url()
+    def get_sql_alchemy_url(
+        self,
+        uri_opts: Optional[Dict[str, Any]] = None,
+        current_db: Optional[str] = None,
+    ) -> str:
+        return super().get_sql_alchemy_url(uri_opts=uri_opts, current_db=current_db)
 
 
 @platform_name("ClickHouse")
@@ -213,15 +217,15 @@ class ClickHouseUsageSource(Source):
     def _aggregate_access_events(
         self, events: List[ClickHouseJoinedAccessEvent]
     ) -> Dict[datetime, Dict[ClickHouseTableRef, AggregatedDataset]]:
-        datasets: Dict[
-            datetime, Dict[ClickHouseTableRef, AggregatedDataset]
-        ] = collections.defaultdict(dict)
+        datasets: Dict[datetime, Dict[ClickHouseTableRef, AggregatedDataset]] = (
+            collections.defaultdict(dict)
+        )
 
         for event in events:
             floored_ts = get_time_bucket(event.starttime, self.config.bucket_duration)
 
             resource = (
-                f'{self.config.platform_instance+"." if self.config.platform_instance else ""}'
+                f"{self.config.platform_instance + '.' if self.config.platform_instance else ''}"
                 f"{event.database}.{event.table}"
             )
 

@@ -9,6 +9,8 @@ from tests.utils import (
     wait_for_writes_to_sync,
 )
 
+from .token_utils import listUsers, removeUser
+
 pytestmark = pytest.mark.no_cypress_suite1
 
 # Disable telemetry
@@ -430,7 +432,9 @@ def generateAccessToken_v2(session, actorUrn):
     return response.json()
 
 
-def listAccessTokens(session, filters=[]):
+def listAccessTokens(session, filters):
+    if filters is None:
+        filters = []
     # Get count of existing tokens
     input = {"start": 0, "count": 20}
 
@@ -489,46 +493,4 @@ def getAccessTokenMetadata(session, token):
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    return response.json()
-
-
-def removeUser(session, urn):
-    # Remove user
-    json = {
-        "query": """mutation removeUser($urn: String!) {
-            removeUser(urn: $urn)
-        }""",
-        "variables": {"urn": urn},
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
-    response.raise_for_status()
-    return response.json()
-
-
-def listUsers(session):
-    input = {
-        "start": "0",
-        "count": "20",
-    }
-
-    # list users
-    json = {
-        "query": """query listUsers($input: ListUsersInput!) {
-            listUsers(input: $input) {
-              start
-              count
-              total
-              users {
-                username
-              }
-            }
-        }""",
-        "variables": {"input": input},
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
-    response.raise_for_status()
     return response.json()

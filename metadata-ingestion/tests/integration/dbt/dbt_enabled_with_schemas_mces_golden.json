@@ -2658,7 +2658,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1580505371997,
+                            "time": 1580505371996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -2930,7 +2930,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1582319845997,
+                            "time": 1582319845996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -3180,7 +3180,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1584998318997,
+                            "time": 1584998318996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -3430,7 +3430,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1588287228997,
+                            "time": 1588287228996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",
@@ -3680,7 +3680,7 @@
                             "actor": "urn:li:corpuser:unknown"
                         },
                         "lastModified": {
-                            "time": 1589460269997,
+                            "time": 1589460269996,
                             "actor": "urn:li:corpuser:dbt_executor"
                         },
                         "hash": "",

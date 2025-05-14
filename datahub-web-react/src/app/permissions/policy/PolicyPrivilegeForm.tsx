@@ -1,33 +1,33 @@
+import { Tooltip } from '@components';
+import { Tag as CustomTag, Form, Select, Tag, Typography } from 'antd';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, Select, Tag, Tooltip, Typography, Tag as CustomTag } from 'antd';
 import styled from 'styled-components/macro';
 
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { useAppConfig } from '../../useAppConfig';
+import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
-    useGetSearchResultsForMultipleLazyQuery,
-    useGetSearchResultsLazyQuery,
-} from '../../../graphql/search.generated';
-import { ResourceFilter, PolicyType, EntityType, Domain, Entity } from '../../../types.generated';
-import {
+    EMPTY_POLICY,
     convertLegacyResourceFilter,
     createCriterionValue,
     createCriterionValueWithEntity,
-    EMPTY_POLICY,
     getFieldValues,
     getFieldValuesOfTags,
     mapResourceTypeToDisplayName,
     mapResourceTypeToEntityType,
     mapResourceTypeToPrivileges,
     setFieldValues,
-} from './policyUtils';
-import DomainNavigator from '../../domain/nestedDomains/domainNavigator/DomainNavigator';
-import { BrowserWrapper } from '../../shared/tags/AddTagsTermsModal';
-import ClickOutside from '../../shared/ClickOutside';
-import { TagTermLabel } from '../../shared/tags/TagTermLabel';
-import { ENTER_KEY_CODE } from '../../shared/constants';
-import { useGetRecommendations } from '../../shared/recommendation';
+} from '@app/permissions/policy/policyUtils';
+import ClickOutside from '@app/shared/ClickOutside';
+import { ENTER_KEY_CODE } from '@app/shared/constants';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
+import { Domain, Entity, EntityType, PolicyType, ResourceFilter } from '@types';
 
 type Props = {
     policyType: PolicyType;
@@ -91,8 +91,9 @@ export default function PolicyPrivilegeForm({
     const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
     const [inputValue, setInputValue] = useState('');
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
-    const [recommendedData] = useGetRecommendations([EntityType.Tag]);
-    const tagSearchResults = tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
+    const { recommendedData } = useGetRecommendations([EntityType.Tag]);
+    const tagSearchResults: Array<Entity> =
+        tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 
     const inputEl = useRef(null);
 
@@ -102,8 +103,9 @@ export default function PolicyPrivilegeForm({
     } = useAppConfig();
 
     const resources: ResourceFilter = convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources;
-    const resourceTypes = getFieldValues(resources.filter, 'TYPE') || [];
-    const resourceEntities = getFieldValues(resources.filter, 'URN') || [];
+    // RESOURCE_TYPE and RESOURCE_URN are deprecated, but need to get them for backwards compatibility
+    const resourceTypes = getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [];
+    const resourceEntities = getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
 
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -178,9 +180,14 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_TYPE field and replace with TYPE field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_TYPE, []);
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)]),
+            filter: setFieldValues(filterWithoutDeprecatedField, TYPE, [
+                ...resourceTypes,
+                createCriterionValue(selectedResourceType),
+            ]),
         });
     };
 
@@ -188,11 +195,13 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_TYPE field and replace with TYPE field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_TYPE, []);
         setResources({
             ...resources,
             filter: setFieldValues(
-                filter,
-                'TYPE',
+                filterWithoutDeprecatedField,
+                TYPE,
                 resourceTypes?.filter((criterionValue) => criterionValue.value !== deselectedResourceType),
             ),
         });
@@ -203,9 +212,11 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_URN field and replace with URN field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'URN', [
+            filter: setFieldValues(filterWithoutDeprecatedField, URN, [
                 ...resourceEntities,
                 createCriterionValueWithEntity(
                     resource,
@@ -220,11 +231,13 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_URN field and replace with URN field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
         setResources({
             ...resources,
             filter: setFieldValues(
-                filter,
-                'URN',
+                filterWithoutDeprecatedField,
+                URN,
                 resourceEntities?.filter((criterionValue) => criterionValue.value !== resource),
             ),
         });
@@ -607,6 +620,9 @@ export default function PolicyPrivilegeForm({
                             {tagProps.label}
                         </Tag>
                     )}
+                    filterOption={(input, option) => {
+                        return !!option?.children?.toString().toLowerCase().includes(input.toLowerCase());
+                    }}
                 >
                     {privilegeOptions.map((priv, index) => {
                         const key = `${priv.type}-${index}`;

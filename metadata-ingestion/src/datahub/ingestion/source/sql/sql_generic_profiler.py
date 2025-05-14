@@ -7,7 +7,10 @@ from typing import Dict, Iterable, List, Optional, Union, cast
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    parse_ts_millis,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import (
@@ -245,11 +248,7 @@ class GenericProfiler:
                 # If profiling state exists we have to carry over to the new state
                 self.state_handler.add_to_state(dataset_urn, last_profiled)
 
-        threshold_time: Optional[datetime] = (
-            datetime.fromtimestamp(last_profiled / 1000, timezone.utc)
-            if last_profiled
-            else None
-        )
+        threshold_time: Optional[datetime] = parse_ts_millis(last_profiled)
         if (
             not threshold_time
             and self.config.profiling.profile_if_updated_since_days is not None
@@ -279,8 +278,7 @@ class GenericProfiler:
 
         if self.config.profiling.profile_table_size_limit is not None and (
             size_in_bytes is not None
-            and size_in_bytes / (2**30)
-            > self.config.profiling.profile_table_size_limit
+            and size_in_bytes / (2**30) > self.config.profiling.profile_table_size_limit
         ):
             self.report.profiling_skipped_size_limit[schema_name] += 1
             logger.debug(

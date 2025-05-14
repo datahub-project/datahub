@@ -61,7 +61,7 @@
   <logger name="com.linkedin" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
-  <logger name="controller" level="DEBUG">
+  <logger name="controllers" level="DEBUG">
     <appender-ref ref="DEBUG_FILE"/>
   </logger>
   <logger name="auth" level="DEBUG">

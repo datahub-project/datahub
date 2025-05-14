@@ -32,7 +32,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
   protected <T extends QueryBuilder> T expandUrnsByGraph(
       @Nonnull OperationContext opContext,
       T queryBuilder,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection relationshipDirection,
       int pageSize,
       int limit) {
@@ -69,7 +69,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
   private BoolQueryBuilder handleNestedFilters(
       OperationContext opContext,
       BoolQueryBuilder boolQueryBuilder,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection relationshipDirection,
       int pageSize,
       int limit) {
@@ -130,7 +130,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
   private static QueryBuilder expandTerms(
       OperationContext opContext,
       TermsQueryBuilder termsQueryBuilder,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection relationshipDirection,
       int pageSize,
       int limit) {
@@ -143,7 +143,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     if (!queryUrns.isEmpty()) {
 
       scrollGraph(
-          opContext.getRetrieverContext().get().getGraphRetriever(),
+          opContext.getRetrieverContext().getGraphRetriever(),
           queryUrns,
           relationshipTypes,
           relationshipDirection,
@@ -177,14 +177,14 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
   private static void scrollGraph(
       @Nonnull GraphRetriever graphRetriever,
       @Nonnull Set<Urn> queryUrns,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection relationshipDirection,
       @Nonnull Set<Urn> visitedUrns,
       int pageSize,
       int limit) {
 
-    List<String> entityTypes =
-        queryUrns.stream().map(Urn::getEntityType).distinct().collect(Collectors.toList());
+    Set<String> entityTypes =
+        queryUrns.stream().map(Urn::getEntityType).distinct().collect(Collectors.toSet());
     List<String> queryUrnStrs = queryUrns.stream().map(Urn::toString).collect(Collectors.toList());
 
     Set<Urn> nextUrns = new HashSet<>();

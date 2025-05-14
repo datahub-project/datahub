@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Dict, List
 
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
-
 from datahub_airflow_plugin._config import DatahubLineageConfig
 from datahub_airflow_plugin.client.airflow_generator import AirflowGenerator
 from datahub_airflow_plugin.entities import (
@@ -57,7 +56,10 @@ def send_lineage_to_datahub(
         entities_to_datajob_urn_list([let.urn for let in inlets])
     )
 
-    for mcp in datajob.generate_mcp(materialize_iolets=config.materialize_iolets):
+    for mcp in datajob.generate_mcp(
+        generate_lineage=config.enable_datajob_lineage,
+        materialize_iolets=config.materialize_iolets,
+    ):
         emitter.emit(mcp)
     operator.log.info(f"Emitted from Lineage: {datajob}")
 
