@@ -19,6 +19,7 @@ def client(mock_graph: Mock) -> DataHubClient:
     return DataHubClient(graph=mock_graph)
 
 
+@pytest.mark.skip(reason="Skipping on SaaS since the assertions client is available")
 def test_use_assertions_client_fails_if_not_installed(
     client: DataHubClient, mock_graph: Mock
 ) -> None:
