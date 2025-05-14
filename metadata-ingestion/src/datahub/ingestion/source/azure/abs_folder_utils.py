@@ -193,31 +193,47 @@ def list_folders(
     container_client = abs_blob_service_client.get_container_client(container_name)
 
     current_level = prefix.count("/")
-    blob_list = container_client.list_blobs(name_starts_with=prefix)
 
-    this_dict = {}
+    # Use a larger page size for better performance
+    blob_list = container_client.list_blobs(
+        name_starts_with=prefix,
+        results_per_page=5000,  # Increased from default for better performance
+    )
+
+    # Use a set for faster lookups
+    unique_folders: set[str] = set()
+
+    # Process blobs in batches for better memory usage
+    batch_size = 1000
+    batch = []
+
     for blob in blob_list:
+        batch.append(blob)
+
+        if len(batch) >= batch_size:
+            _process_folder_batch(batch, prefix, current_level, unique_folders)
+            batch = []
+
+    # Process any remaining blobs
+    if batch:
+        _process_folder_batch(batch, prefix, current_level, unique_folders)
+
+    # Return the unique folders
+    yield from sorted(unique_folders)
+
+
+def _process_folder_batch(blobs, prefix, current_level, unique_folders):
+    """Process a batch of blobs to extract folder names efficiently"""
+    for blob in blobs:
         blob_name = blob.name[: blob.name.rfind("/") + 1]
         folder_structure_arr = blob_name.split("/")
 
-        folder_name = ""
-        if len(folder_structure_arr) > current_level:
-            folder_name = f"{folder_name}/{folder_structure_arr[current_level]}"
-        else:
+        if len(folder_structure_arr) <= current_level:
             continue
 
-        folder_name = folder_name[1 : len(folder_name)]
-
-        if folder_name.endswith("/"):
-            folder_name = folder_name[:-1]
-
-        if folder_name == "":
+        folder_name = folder_structure_arr[current_level]
+        if not folder_name:
             continue
 
-        folder_name = f"{prefix}{folder_name}"
-        if folder_name in this_dict:
-            continue
-        else:
-            this_dict[folder_name] = folder_name
-
-        yield f"{folder_name}"
+        folder_path = f"{prefix}{folder_name}"
+        unique_folders.add(folder_path)
