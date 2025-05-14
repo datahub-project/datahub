@@ -3,9 +3,11 @@ import concurrent.futures
 import io
 import json
 import logging
+import random
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Set, Type, cast
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Type, cast
 
 import avro.io
 import avro.schema
@@ -185,6 +187,41 @@ class KafkaConnectionTest:
             return CapabilityReport(capable=True)
         except Exception as e:
             return CapabilityReport(capable=False, failure_reason=str(e))
+
+
+class SampleCache:
+    """Cache for Kafka topic sample data to improve profiling efficiency."""
+
+    def __init__(self):
+        self._cache: Dict[str, Tuple[List[Dict[str, Any]], float]] = {}
+
+    def get(self, topic: str, ttl_seconds: int) -> Optional[List[Dict[str, Any]]]:
+        """Get cached samples for a topic if they exist and haven't expired."""
+        if topic not in self._cache:
+            return None
+
+        samples, timestamp = self._cache[topic]
+        current_time = time.time()
+
+        # Check if cache has expired
+        if current_time - timestamp > ttl_seconds:
+            # Cache expired
+            del self._cache[topic]
+            return None
+
+        return samples
+
+    def put(self, topic: str, samples: List[Dict[str, Any]]) -> None:
+        """Store samples for a topic with current timestamp."""
+        self._cache[topic] = (samples, time.time())
+
+    def clear(self) -> None:
+        """Clear the entire cache."""
+        self._cache.clear()
+
+
+# Global cache instance
+_sample_cache = SampleCache()
 
 
 @platform_name("Kafka")
@@ -391,100 +428,86 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         return data
 
     def get_sample_messages(self, topic: str) -> Optional[List[Dict[str, Any]]]:
-        """Get sample messages including historical data"""
+        """Get sample messages from Kafka topic using configured strategy and optimizations."""
+        # Check cache first if enabled
+        if self.source_config.profiling.cache_sample_results:
+            cached_samples = _sample_cache.get(
+                topic, self.source_config.profiling.cache_ttl_seconds
+            )
+            if cached_samples:
+                logger.info(
+                    f"Using {len(cached_samples)} cached samples for topic {topic}"
+                )
+                return cached_samples
+
+        logger.info(
+            f"Collecting samples from topic {topic} using {self.source_config.profiling.sampling_strategy} strategy"
+        )
         samples: List[Dict[str, Any]] = []
         try:
             # Get metadata for all partitions
             topic_metadata = self.consumer.list_topics(topic).topics[topic]
             partitions = [
                 confluent_kafka.TopicPartition(topic, p)
-                for p in topic_metadata.partitions.keys()
+                for p in topic_metadata.partitions
             ]
 
-            # For each partition, seek to an earlier offset
-            for partition in partitions:
-                # Get the end offset
-                low, high = self.consumer.get_watermark_offsets(partition)
-                # Ensure we get enough messages
-                messages_per_partition = max(
-                    self.source_config.profiling.sample_size // len(partitions),
-                    10,  # Minimum 10 messages per partition
+            if not partitions:
+                self.report.report_warning(
+                    "profiling", f"No partitions found for topic {topic}"
                 )
-                # Start from either beginning or calculated position
-                start_offset = max(low, high - messages_per_partition)
-                partition.offset = start_offset
-                logger.debug(
-                    f"Setting partition {partition.partition} offset to {start_offset} "
-                    f"(low={low}, high={high})"
-                )
+                return samples
 
-            self.consumer.assign(partitions)
-            logger.debug(f"Assigned to topic {topic} with specific offsets")
-
-            end_time = datetime.now() + timedelta(
-                seconds=float(self.source_config.profiling.max_sample_time_seconds)
+            # Get sample size per partition
+            total_sample_size = self.source_config.profiling.sample_size
+            partition_sample_size = max(
+                total_sample_size // len(partitions),
+                10,  # Minimum 10 messages per partition
             )
-            while (
-                len(samples) < self.source_config.profiling.sample_size
-                and datetime.now() < end_time
-            ):
-                msg = self.consumer.poll(timeout=1.0)
 
-                if msg is None:
-                    continue
+            # Get watermark offsets for all partitions
+            watermarks = {}
+            for partition in partitions:
+                low, high = self.consumer.get_watermark_offsets(partition)
+                watermarks[partition.partition] = (low, high)
 
-                if msg.error():
-                    self.report.report_warning(
-                        "profiling",
-                        f"Error while consuming from {topic}: {msg.error()}",
-                    )
-                    continue
+            # Different sampling approaches based on strategy
+            strategy = self.source_config.profiling.sampling_strategy
 
-                try:
-                    key = msg.key() if callable(msg.key) else msg.key
-                    value = msg.value() if callable(msg.value) else msg.value
+            if strategy == "latest":
+                # Original approach: take latest messages
+                self._get_latest_samples(
+                    partitions, watermarks, partition_sample_size, samples, topic
+                )
+            elif strategy == "random":
+                # Random sampling across the topic
+                self._get_random_samples(
+                    partitions, watermarks, partition_sample_size, samples, topic
+                )
+            elif strategy == "stratified":
+                # Evenly distributed sampling
+                self._get_stratified_samples(
+                    partitions, watermarks, partition_sample_size, samples, topic
+                )
+            elif strategy == "full":
+                # Full scan (respecting sample size)
+                self._get_full_samples(
+                    partitions, watermarks, partition_sample_size, samples, topic
+                )
+            else:
+                # Default to latest if strategy not recognized
+                logger.warning(
+                    f"Unrecognized sampling strategy: {strategy}, using 'latest'"
+                )
+                self._get_latest_samples(
+                    partitions, watermarks, partition_sample_size, samples, topic
+                )
 
-                    # Process key and value with consistent handling
-                    processed_key = self._process_message_part(
-                        key, "key", topic, is_key=True
-                    )
-                    processed_value = self._process_message_part(
-                        value, "value", topic, is_key=False
-                    )
+            logger.info(f"Collected {len(samples)} samples from topic {topic}")
 
-                    # Start with metadata
-                    sample = {
-                        "offset": msg.offset(),
-                        "timestamp": datetime.fromtimestamp(
-                            msg.timestamp()[1] / 1000.0
-                            if msg.timestamp()[1] > 1e10
-                            else msg.timestamp()[1]
-                        ).isoformat(),
-                    }
-
-                    # Add key with proper field path
-                    if processed_key is not None:
-                        if isinstance(processed_key, dict):
-                            # For complex keys, prefix fields with "key."
-                            for k, v in processed_key.items():
-                                sample[f"key.{k}"] = v
-                        else:
-                            # For simple keys, use "key" field
-                            sample["key"] = processed_key
-
-                    # Add value fields
-                    if processed_value is not None:
-                        if isinstance(processed_value, dict):
-                            sample.update(processed_value)
-                        else:
-                            sample["value"] = processed_value
-
-                    samples.append(sample)
-
-                except Exception as e:
-                    self.report.report_warning(
-                        "profiling", f"Failed to process message: {str(e)}"
-                    )
+            # Cache the results if enabled
+            if self.source_config.profiling.cache_sample_results and samples:
+                _sample_cache.put(topic, samples)
 
         except Exception as e:
             self.report.report_warning(
@@ -499,6 +522,191 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         return samples
+
+    def _get_latest_samples(
+        self,
+        partitions: List[confluent_kafka.TopicPartition],
+        watermarks: Dict[int, Tuple[int, int]],
+        partition_sample_size: int,
+        samples: List[Dict[str, Any]],
+        topic: str,
+    ) -> None:
+        """Get latest messages from each partition."""
+        # Set offsets to read from end of partitions
+        for partition in partitions:
+            low, high = watermarks[partition.partition]
+            if high <= low:  # Empty partition
+                continue
+
+            # Start from calculated position at the end
+            start_offset = max(low, high - partition_sample_size)
+            partition.offset = start_offset
+
+        self._read_messages_in_batches(partitions, samples, topic)
+
+    def _get_random_samples(
+        self,
+        partitions: List[confluent_kafka.TopicPartition],
+        watermarks: Dict[int, Tuple[int, int]],
+        partition_sample_size: int,
+        samples: List[Dict[str, Any]],
+        topic: str,
+    ) -> None:
+        """Get random messages from across the topic."""
+        for partition in partitions:
+            low, high = watermarks[partition.partition]
+            if high <= low:  # Empty partition
+                continue
+
+            range_size = high - low
+            if range_size <= partition_sample_size:
+                # If range is smaller than sample size, read everything
+                partition.offset = low
+            else:
+                # Pick a random starting point
+                random_start = low + random.randint(
+                    0, range_size - partition_sample_size
+                )
+                partition.offset = random_start
+
+        self._read_messages_in_batches(partitions, samples, topic)
+
+    def _get_stratified_samples(
+        self,
+        partitions: List[confluent_kafka.TopicPartition],
+        watermarks: Dict[int, Tuple[int, int]],
+        partition_sample_size: int,
+        samples: List[Dict[str, Any]],
+        topic: str,
+    ) -> None:
+        """Get evenly distributed messages across the topic."""
+        for partition in partitions:
+            low, high = watermarks[partition.partition]
+            if high <= low:  # Empty partition
+                continue
+
+            range_size = high - low
+            if range_size <= partition_sample_size:
+                # If range is smaller than sample size, read everything
+                partition.offset = low
+                self.consumer.assign([partition])
+                # Read messages from this partition
+                self._read_messages_in_batches([partition], samples, topic)
+            else:
+                # Calculate stride for evenly distributed samples
+                num_samples = min(partition_sample_size, range_size)
+                stride = range_size / num_samples
+
+                # Read at multiple offsets
+                for i in range(num_samples):
+                    offset = low + int(i * stride)
+                    partition.offset = offset
+                    self.consumer.assign([partition])
+
+                    # Read a single message at this offset
+                    msg = self.consumer.poll(timeout=1.0)
+                    if msg and not msg.error():
+                        self._process_message_to_sample(msg, samples, topic)
+
+    def _get_full_samples(
+        self,
+        partitions: List[confluent_kafka.TopicPartition],
+        watermarks: Dict[int, Tuple[int, int]],
+        partition_sample_size: int,
+        samples: List[Dict[str, Any]],
+        topic: str,
+    ) -> None:
+        """Get messages from the entire topic, respecting sample_size."""
+        # Start from beginning for all partitions
+        for partition in partitions:
+            low, high = watermarks[partition.partition]
+            if high <= low:  # Empty partition
+                continue
+
+            partition.offset = low
+
+        self._read_messages_in_batches(partitions, samples, topic)
+
+    def _read_messages_in_batches(
+        self,
+        partitions: List[confluent_kafka.TopicPartition],
+        samples: List[Dict[str, Any]],
+        topic: str,
+    ) -> None:
+        """Read messages in batches for more efficient consumption."""
+        self.consumer.assign(partitions)
+
+        # Read until we have enough samples or time out
+        end_time = datetime.now() + timedelta(
+            seconds=float(self.source_config.profiling.max_sample_time_seconds)
+        )
+        batch_size = self.source_config.profiling.batch_size
+        total_needed = self.source_config.profiling.sample_size
+
+        while len(samples) < total_needed and datetime.now() < end_time:
+            # Read a batch of messages
+            batch_count = min(batch_size, total_needed - len(samples))
+            for _ in range(batch_count):
+                msg = self.consumer.poll(timeout=1.0)
+                if not msg:
+                    break
+
+                if msg.error():
+                    self.report.report_warning(
+                        "profiling",
+                        f"Error while consuming from {topic}: {msg.error()}",
+                    )
+                    continue
+
+                self._process_message_to_sample(msg, samples, topic)
+
+    def _process_message_to_sample(
+        self, msg: confluent_kafka.Message, samples: List[Dict[str, Any]], topic: str
+    ) -> None:
+        """Process a Kafka message into a sample dict."""
+        try:
+            key = msg.key() if callable(msg.key) else msg.key
+            value = msg.value() if callable(msg.value) else msg.value
+
+            # Process key and value with consistent handling
+            processed_key = self._process_message_part(key, "key", topic, is_key=True)
+            processed_value = self._process_message_part(
+                value, "value", topic, is_key=False
+            )
+
+            # Start with metadata
+            sample = {
+                "offset": msg.offset(),
+                "timestamp": datetime.fromtimestamp(
+                    msg.timestamp()[1] / 1000.0
+                    if msg.timestamp()[1] > 1e10
+                    else msg.timestamp()[1]
+                ).isoformat(),
+            }
+
+            # Add key with proper field path
+            if processed_key is not None:
+                if isinstance(processed_key, dict):
+                    # For complex keys, prefix fields with "key."
+                    for k, v in processed_key.items():
+                        sample[f"key.{k}"] = v
+                else:
+                    # For simple keys, use "key" field
+                    sample["key"] = processed_key
+
+            # Add value fields
+            if processed_value is not None:
+                if isinstance(processed_value, dict):
+                    sample.update(processed_value)
+                else:
+                    sample["value"] = processed_value
+
+            samples.append(sample)
+
+        except Exception as e:
+            self.report.report_warning(
+                "profiling", f"Failed to process message: {str(e)}"
+            )
 
     def _process_sample_data(
         self,
@@ -589,7 +797,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         if self.source_config.profiling.profile_table_level_only:
             profile_data = DatasetProfileClass(
                 timestampMillis=int(datetime.now().timestamp() * 1000),
-                columnCount=len({k for sample in samples for k in sample.keys()}),
+                columnCount=len({k for sample in samples for k in sample}),
             )
         else:
             profile_data = self.profiler.profile_samples(
@@ -857,6 +1065,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def close(self) -> None:
         if self.consumer:
             self.consumer.close()
+        # Clear the sample cache when source is closed
+        _sample_cache.clear()
         super().close()
 
     def _get_config_value_if_present(

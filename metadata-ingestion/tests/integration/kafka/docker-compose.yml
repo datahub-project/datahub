@@ -50,7 +50,6 @@ services:
 
   schema-registry:
     image: confluentinc/cp-schema-registry:7.4.0
-    restart: unless-stopped
     platform: linux/amd64
     env_file: schema-registry.env
     container_name: test_schema_registry

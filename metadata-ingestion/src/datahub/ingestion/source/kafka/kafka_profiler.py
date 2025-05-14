@@ -326,9 +326,26 @@ class KafkaProfiler:
 
         # Special case for simple key field (not a complex key)
         if field_name == "key" and schema_metadata and schema_metadata.fields:
-            for schema_field in schema_metadata.fields:
-                if "[key=True]" in schema_field.fieldPath:
-                    return schema_field.fieldPath
+            # Look for schema fields with [key=True] in fieldPath
+            # We should match on the complete field path, not just the field name
+            key_schema_fields = [
+                schema_field
+                for schema_field in schema_metadata.fields
+                if "[key=True]" in schema_field.fieldPath
+            ]
+
+            # If we found exactly one key field, use its full fieldPath
+            if len(key_schema_fields) == 1:
+                return key_schema_fields[0].fieldPath
+            # If we found multiple key fields, try to find the best match
+            elif len(key_schema_fields) > 1:
+                # Look for a simple type like long, string, etc.
+                for schema_field in key_schema_fields:
+                    if "[type=" in schema_field.fieldPath:
+                        return schema_field.fieldPath
+                # If no simple type found, just use the first one
+                return key_schema_fields[0].fieldPath
+
             return field_name  # No match found, keep as-is
 
         # Try to find matching schema field
