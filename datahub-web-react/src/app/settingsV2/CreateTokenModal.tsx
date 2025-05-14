@@ -8,8 +8,8 @@ import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button } from '@src/alchemy-components';
 import { useAppConfig } from '@app/useAppConfig';
+import { Button } from '@src/alchemy-components';
 
 import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
