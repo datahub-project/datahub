@@ -708,7 +708,7 @@ class LookerUtil:
     }
 
     # Add a pattern-based regex for checking if a tag is a group_label tag
-    GROUP_LABEL_TAG_PATTERN = re.compile(r"^looker\.group_label\.(.+)$")
+    GROUP_LABEL_TAG_PATTERN = re.compile(r"^looker\:group_label\:(.+)$")
 
     @staticmethod
     def _get_tag_mce_for_urn(tag_urn: str) -> MetadataChangeEvent:
@@ -720,7 +720,7 @@ class LookerUtil:
             # This is a group_label tag, create tag definition on the fly
             group_label_value = match.group(1)
             tag_properties = TagPropertiesClass(
-                name=f"looker.group_label.{group_label_value}",
+                name=f"looker:group_label:{group_label_value}",
                 description=f"Fields with Looker group label: {group_label_value}",
             )
 
@@ -774,7 +774,9 @@ class LookerUtil:
         # Add group_label as tags if present
         if field.group_label:
             schema_field_tags.append(
-                TagAssociationClass(tag=builder.make_tag_urn(field.group_label))
+                TagAssociationClass(
+                    tag=builder.make_tag_urn(f"looker:group_label:{field.group_label}")
+                )
             )
 
         if schema_field_tags:

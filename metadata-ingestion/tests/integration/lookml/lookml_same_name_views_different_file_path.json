@@ -335,7 +335,7 @@
                                             "tag": "urn:li:tag:Temporal"
                                         },
                                         {
-                                            "tag": "urn:li:tag:Timestamp"
+                                            "tag": "urn:li:tag:looker:group_label:Timestamp"
                                         }
                                     ]
                                 },
@@ -359,7 +359,7 @@
                                             "tag": "urn:li:tag:Measure"
                                         },
                                         {
-                                            "tag": "urn:li:tag:Measurement"
+                                            "tag": "urn:li:tag:looker:group_label:Measurement"
                                         }
                                     ]
                                 },
@@ -630,7 +630,7 @@
                                             "tag": "urn:li:tag:Temporal"
                                         },
                                         {
-                                            "tag": "urn:li:tag:Timestamp"
+                                            "tag": "urn:li:tag:looker:group_label:Timestamp"
                                         }
                                     ]
                                 },
@@ -654,7 +654,7 @@
                                             "tag": "urn:li:tag:Measure"
                                         },
                                         {
-                                            "tag": "urn:li:tag:Measurement"
+                                            "tag": "urn:li:tag:looker:group_label:Measurement"
                                         }
                                     ]
                                 },
@@ -823,12 +823,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:Measurement",
+    "entityUrn": "urn:li:tag:looker:group_label:Measurement",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "Measurement"
+            "name": "looker:group_label:Measurement"
         }
     },
     "systemMetadata": {
@@ -839,12 +839,12 @@
 },
 {
     "entityType": "tag",
-    "entityUrn": "urn:li:tag:Timestamp",
+    "entityUrn": "urn:li:tag:looker:group_label:Timestamp",
     "changeType": "UPSERT",
     "aspectName": "tagKey",
     "aspect": {
         "json": {
-            "name": "Timestamp"
+            "name": "looker:group_label:Timestamp"
         }
     },
     "systemMetadata": {
