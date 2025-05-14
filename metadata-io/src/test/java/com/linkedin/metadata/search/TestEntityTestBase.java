@@ -17,7 +17,6 @@ import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -85,12 +84,6 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
 
   @Nonnull
   private ElasticSearchService buildService() {
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(
-            getIndexBuilder(),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention(),
-            settingsBuilder);
     ESSearchDAO searchDAO =
         new ESSearchDAO(
             getSearchClient(),
@@ -104,7 +97,14 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
             getSearchClient(), getSearchConfiguration(), null, QueryFilterRewriteChain.EMPTY);
     ESWriteDAO writeDAO = new ESWriteDAO(getSearchClient(), getBulkProcessor(), 1);
     ElasticSearchService searchService =
-        new ElasticSearchService(indexBuilders, searchDAO, browseDAO, writeDAO);
+        new ElasticSearchService(
+            getIndexBuilder(),
+            opContext.getEntityRegistry(),
+            opContext.getSearchContext().getIndexConvention(),
+            settingsBuilder,
+            searchDAO,
+            browseDAO,
+            writeDAO);
     return searchService;
   }
 
