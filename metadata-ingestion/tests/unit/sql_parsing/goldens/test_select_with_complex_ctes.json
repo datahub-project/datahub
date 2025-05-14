@@ -48,8 +48,10 @@
     "joins": [
         {
             "join_type": "JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)"
             ],
             "on_clause": "\"CTE1\".\"COL2\" = \"CTE2\".\"COL4\"",
