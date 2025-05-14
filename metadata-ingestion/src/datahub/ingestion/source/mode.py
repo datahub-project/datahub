@@ -122,10 +122,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # Default API limit for items returned per API call
 # Used for the default per_page value for paginated API requests
 DEFAULT_API_ITEMS_PER_PAGE = 30
-# Cache max size for API calls
-# It should be large enough to hold all distinct API endpoint URLs called during ingestion
-# Increasing this value will potentially increase the ingestion memory footprint
-API_MAX_CACHE_SIZE = 20480
 
 
 class SpaceKey(ContainerKey):
@@ -207,12 +203,6 @@ class ModeConfig(
     items_per_page: int = Field(
         default=DEFAULT_API_ITEMS_PER_PAGE,
         description="Number of items per page for paginated API requests.",
-        hidden_from_docs=True,
-    )
-
-    max_cache_size: int = Field(
-        default=API_MAX_CACHE_SIZE,
-        description="Maximum size of the cache for API requests.",
         hidden_from_docs=True,
     )
 
@@ -403,11 +393,6 @@ class ModeSource(StatefulIngestionSourceBase):
 
         self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
         self.space_tokens = self._get_space_name_and_tokens()
-
-        self.report_cache: Dict[str, List[dict]] = {}
-        self.dataset_cache: Dict[str, List[dict]] = {}
-        self.query_cache: Dict[str, List[dict]] = {}
-        self.chart_cache: Dict[str, Dict[str, List[dict]]] = {}
 
     def _browse_path_space(self) -> List[BrowsePathEntryClass]:
         # TODO: Use containers for the workspace?
@@ -1469,98 +1454,88 @@ class ModeSource(StatefulIngestionSourceBase):
         yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
 
     def _get_reports(self, space_token: str) -> Iterator[List[dict]]:
-        if self.report_cache.get(space_token):
-            # Yield the data from the cache
-            yield self.report_cache.get(space_token)
-        else:
-            # The data is not cached, so fetch it from the API and populate the cache
-            self.report_cache[space_token] = []
-            try:
-                with self.report.report_get_timer:
-                    for reports_page in self._get_paged_request_json(
-                        f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
-                        "reports",
-                        self.config.items_per_page,
-                    ):
-                        self.report.report_get_api_called += 1
-                        logger.debug(
-                            f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
-                        )
-                        self.report_cache[space_token].extend(reports_page)
-                        yield reports_page
-            except ModeRequestError as e:
+        try:
+            with self.report.report_get_timer:
+                for reports_page in self._get_paged_request_json(
+                    f"{self.workspace_uri}/spaces/{space_token}/reports?filter=all",
+                    "reports",
+                    self.config.items_per_page,
+                ):
+                    self.report.report_get_api_called += 1
+                    logger.debug(
+                        f"Read {len(reports_page)} reports records from workspace {self.workspace_uri} space {space_token}"
+                    )
+                    yield reports_page
+        except ModeRequestError as e:
+            if isinstance(e, HTTPError) and e.response.status_code == 404:
+                self.report.report_warning(
+                    title="No Reports Found in Space",
+                    message="No reports were found in the space. It may have been recently deleted.",
+                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                )
+            else:
                 self.report.report_failure(
                     title="Failed to Retrieve Reports for Space",
                     message="Unable to retrieve reports for space token.",
                     context=f"Space Token: {space_token}, Error: {str(e)}",
                 )
-                self.report_cache.pop(space_token, None)
 
     def _get_datasets(self, space_token: str) -> Iterator[List[dict]]:
         """
         Retrieves datasets for a given space token.
         """
-        if self.dataset_cache.get(space_token):
-            # Yield the data from the cache
-            yield self.dataset_cache.get(space_token)
-        else:
-            # The data is not cached, so fetch it from the API and populate the cache
-            self.dataset_cache[space_token] = []
-            try:
-                with self.report.dataset_get_timer:
-                    for dataset_page in self._get_paged_request_json(
-                        f"{self.workspace_uri}/spaces/{space_token}/datasets?filter=all",
-                        "reports",
-                        self.config.items_per_page,
-                    ):
-                        self.report.dataset_get_api_called += 1
-                        logger.debug(
-                            f"Read {len(dataset_page)} datasets records from workspace {self.workspace_uri} space {space_token}"
-                        )
-                        self.dataset_cache[space_token].extend(dataset_page)
-                        yield dataset_page
-            except ModeRequestError as e:
+        try:
+            with self.report.dataset_get_timer:
+                for dataset_page in self._get_paged_request_json(
+                    f"{self.workspace_uri}/spaces/{space_token}/datasets?filter=all",
+                    "reports",
+                    self.config.items_per_page,
+                ):
+                    self.report.dataset_get_api_called += 1
+                    logger.debug(
+                        f"Read {len(dataset_page)} datasets records from workspace {self.workspace_uri} space {space_token}"
+                    )
+                    yield dataset_page
+        except ModeRequestError as e:
+            if isinstance(e, HTTPError) and e.response.status_code == 404:
+                self.report.report_warning(
+                    title="No Datasets Found in Space",
+                    message="No datasets were found in the space. It may have been recently deleted.",
+                    context=f"Space Token: {space_token}, Error: {str(e)}",
+                )
+            else:
                 self.report.report_failure(
                     title="Failed to Retrieve Datasets for Space",
                     message=f"Unable to retrieve datasets for space token {space_token}.",
-                    context=f"Error: {str(e)}",
+                    context=f"Space Token: {space_token}, Error: {str(e)}",
                 )
-                self.dataset_cache.pop(space_token, None)
 
     def _get_queries(self, report_token: str) -> List[dict]:
-        if self.query_cache.get(report_token):
-            # Return the data from the cache
-            return self.query_cache.get(report_token)
-        else:
-            # The data is not cached, so fetch it from the API and populate the cache
-            try:
-                with self.report.query_get_timer:
-                    # This endpoint does not handle pagination properly
-                    queries = self._get_request_json(
-                        f"{self.workspace_uri}/reports/{report_token}/queries"
-                    )
-                    self.report.query_get_api_called += 1
-                    logger.debug(
-                        f"Read {len(queries)} queries records from workspace {self.workspace_uri} report {report_token}"
-                    )
-                    self.query_cache[report_token] = queries.get("_embedded", {}).get(
-                        "queries", []
-                    )
-                    return self.query_cache[report_token]
-            except ModeRequestError as e:
-                if isinstance(e, HTTPError) and e.response.status_code == 404:
-                    self.report.report_warning(
-                        title="No Queries Found",
-                        message="No queries found for the report token. Maybe the report is deleted...",
-                        context=f"Report Token: {report_token}, Error: {str(e)}",
-                    )
-                else:
-                    self.report.report_failure(
-                        title="Failed to Retrieve Queries",
-                        message="Unable to retrieve queries for report token.",
-                        context=f"Report Token: {report_token}, Error: {str(e)}",
-                    )
-                return []
+        try:
+            with self.report.query_get_timer:
+                # This endpoint does not handle pagination properly
+                queries = self._get_request_json(
+                    f"{self.workspace_uri}/reports/{report_token}/queries"
+                )
+                self.report.query_get_api_called += 1
+                logger.debug(
+                    f"Read {len(queries)} queries records from workspace {self.workspace_uri} report {report_token}"
+                )
+                return queries.get("_embedded", {}).get("queries", [])
+        except ModeRequestError as e:
+            if isinstance(e, HTTPError) and e.response.status_code == 404:
+                self.report.report_warning(
+                    title="No Queries Found",
+                    message="No queries found for the report token. Maybe the report is deleted...",
+                    context=f"Report Token: {report_token}, Error: {str(e)}",
+                )
+            else:
+                self.report.report_failure(
+                    title="Failed to Retrieve Queries",
+                    message="Unable to retrieve queries for report token.",
+                    context=f"Report Token: {report_token}, Error: {str(e)}",
+                )
+            return []
 
     @lru_cache(maxsize=None)
     def _get_last_query_run(self, report_token: str, report_run_id: str) -> list:
@@ -1582,36 +1557,31 @@ class ModeSource(StatefulIngestionSourceBase):
         return query_runs
 
     def _get_charts(self, report_token: str, query_token: str) -> List[dict]:
-        if self.chart_cache.get(report_token, {}).get(query_token):
-            # Return the data from the cache
-            return self.chart_cache.get(report_token).get(query_token)
-        else:
-            # The data is not cached, so fetch it from the API and populate the cache
-            if not self.chart_cache.get(report_token):
-                self.chart_cache[report_token] = {}
-            try:
-                with self.report.chart_get_timer:
-                    # This endpoint does not handle pagination properly
-                    charts = self._get_request_json(
-                        f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
-                    )
-                    self.report.chart_get_api_called += 1
-                    logger.debug(
-                        f"Read {len(charts)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
-                    )
-                    self.chart_cache[report_token][query_token] = charts.get(
-                        "_embedded", {}
-                    ).get("charts", [])
-                    return self.chart_cache[report_token][query_token]
-            except ModeRequestError as e:
+        try:
+            with self.report.chart_get_timer:
+                # This endpoint does not handle pagination properly
+                charts = self._get_request_json(
+                    f"{self.workspace_uri}/reports/{report_token}/queries/{query_token}/charts"
+                )
+                self.report.chart_get_api_called += 1
+                logger.debug(
+                    f"Read {len(charts)} charts records from workspace {self.workspace_uri} report {report_token} query {query_token}"
+                )
+                return charts.get("_embedded", {}).get("charts", [])
+        except ModeRequestError as e:
+            if isinstance(e, HTTPError) and e.response.status_code == 404:
+                self.report.report_warning(
+                    title="No Charts Found for Query",
+                    message="No charts were found for the query. The query may have been recently deleted.",
+                    context=f"Report Token: {report_token}, Query Token: {query_token}, Error: {str(e)}",
+                )
+            else:
                 self.report.report_failure(
                     title="Failed to Retrieve Charts",
                     message="Unable to retrieve charts from Mode.",
-                    context=f"Report Token: {report_token}, "
-                    f"Query token: {query_token}, "
-                    f"Error: {str(e)}",
+                    context=f"Report Token: {report_token}, Query Token: {query_token}, Error: {str(e)}",
                 )
-                return []
+            return []
 
     def _get_paged_request_json(
         self, url: str, key: str, per_page: int
@@ -1626,7 +1596,7 @@ class ModeSource(StatefulIngestionSourceBase):
             yield data
             page += 1
 
-    @lru_cache(maxsize=API_MAX_CACHE_SIZE)
+    @lru_cache(maxsize=None)
     def _get_request_json(self, url: str) -> Dict:
         r = tenacity.Retrying(
             wait=wait_exponential(
