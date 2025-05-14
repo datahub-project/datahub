@@ -1,9 +1,3 @@
-# Google Sheets
-
-For context on getting started with ingestion, check out our [metadata ingestion guide](../README.md).
-
-For common workflows and configurations, check out our [common workflows](../common_workflows.md) page.
-
 ## Overview
 
 The Google Sheets connector extracts metadata from Google Sheets documents, including schema information, lineage relationships, usage statistics, and data profiles. It uses the Google Drive and Google Sheets APIs to extract this information.
