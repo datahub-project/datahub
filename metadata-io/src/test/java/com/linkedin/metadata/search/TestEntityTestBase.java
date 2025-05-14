@@ -12,6 +12,7 @@ import com.linkedin.common.urn.TestEntityUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
@@ -68,7 +69,9 @@ public abstract class TestEntityTestBase extends AbstractTestNGSpringContextTest
                     .prefix("es_service_test")
                     .hashIdAlgo("MD5")
                     .build()));
-    settingsBuilder = new SettingsBuilder(null);
+    IndexConfiguration indexConfiguration = new IndexConfiguration();
+    indexConfiguration.setMinSearchFilterLength(3);
+    settingsBuilder = new SettingsBuilder(null, indexConfiguration);
     elasticSearchService = buildService();
     elasticSearchService.reindexAll(Collections.emptySet());
   }
