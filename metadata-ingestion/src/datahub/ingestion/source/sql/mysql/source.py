@@ -11,6 +11,7 @@ from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -23,13 +24,9 @@ from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.mysql.job_models import (
-    MySQLDataFlow,
     MySQLDataJob,
     MySQLProcedureContainer,
     MySQLStoredProcedure,
-)
-from datahub.ingestion.source.sql.mysql.stored_procedure_lineage import (
-    generate_procedure_lineage,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SqlWorkUnit,
@@ -37,11 +34,21 @@ from datahub.ingestion.source.sql.sql_common import (
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import SQLAlchemyConnectionConfig
+from datahub.ingestion.source.sql.stored_procedures.base import (
+    generate_procedure_container_workunits,
+    generate_procedure_lineage,
+)
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
-from datahub.metadata.schema_classes import BytesTypeClass
+from datahub.metadata.schema_classes import (
+    BytesTypeClass,
+    DataTransformClass,
+    DataTransformLogicClass,
+    QueryLanguageClass,
+    QueryStatementClass,
+)
 from datahub.utilities.file_backed_collections import FileBackedList
 
 logger = logging.getLogger(__name__)
@@ -162,7 +169,16 @@ class MySQLSource(TwoTierSQLAlchemySource):
             db=db_name,
             platform_instance=sql_config.platform_instance,
         )
-        data_flow = MySQLDataFlow(entity=mysql_procedure_container)
+
+        # Define database key for the base procedure implementation
+        database_key = DatabaseKey(
+            database=db_name,
+            platform=self.get_platform(),
+            instance=sql_config.platform_instance,
+            env=sql_config.env,
+        )
+
+        schema_key = None  # MySQL is two-tier
 
         with inspector.engine.connect() as conn:
             procedures_data = self._get_stored_procedures(conn, db_name, schema)
@@ -173,16 +189,36 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 if not self.config.procedure_pattern.allowed(procedure_full_name):
                     self.report.report_dropped(procedure_full_name)
                     continue
-                procedures.append(
-                    MySQLStoredProcedure(
-                        flow=mysql_procedure_container, **procedure_data
-                    )
+
+                # Create a procedure
+                procedure = MySQLStoredProcedure(
+                    name=procedure_data["routine_name"],
+                    code=procedure_data.get("code"),
+                    routine_schema=schema,
+                    comment=None,
+                    created=None,
+                    last_altered=None,
+                    flow=mysql_procedure_container,
                 )
+                procedures.append(procedure)
+
+                # Also add to stored_procedures list for lineage processing
+                if self.config.include_lineage:
+                    self.stored_procedures.append(procedure)
 
             if procedures:
-                yield from self.construct_flow_workunits(data_flow=data_flow)
+                # Use the base container workunit generator
+                yield from generate_procedure_container_workunits(
+                    database_key=database_key,
+                    schema_key=schema_key,
+                )
+
             for procedure in procedures:
-                yield from self._process_stored_procedure(conn, procedure)
+                # Get a data job for this procedure
+                data_job = MySQLDataJob(entity=procedure)
+
+                # Generate basic metadata
+                yield from self.construct_job_workunits(data_job)
 
     def _get_stored_procedures(
         self,
@@ -193,7 +229,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
         """
         Get stored procedures from MySQL using information_schema.
         """
-        stored_procedures_data = conn.execute(
+        stored_procedures_data = conn.execute(  # type: ignore
             f"""
 SELECT
     ROUTINE_SCHEMA,
@@ -213,106 +249,21 @@ AND ROUTINE_SCHEMA = '{schema}'
 
         procedures_list = []
         for row in stored_procedures_data:
-            code = row["ROUTINE_DEFINITION"]
-            if not code:
-                # If routine definition is null, try using show create procedure
-                try:
-                    create_proc = conn.execute(
-                        f"SHOW CREATE PROCEDURE `{schema}`.`{row['ROUTINE_NAME']}`"
-                    ).fetchone()
-                    if create_proc:
-                        code = create_proc[2]  # MySQL returns (Procedure, Name, Body)
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to get procedure definition for {schema}.{row['ROUTINE_NAME']} using SHOW CREATE PROCEDURE: {e}"
-                    )
-
             procedures_list.append(
                 dict(
                     routine_schema=schema,
                     routine_name=row["ROUTINE_NAME"],
-                    code=code,
+                    code=row["ROUTINE_DEFINITION"],
                 )
             )
-
         return procedures_list
-
-    def _process_stored_procedure(
-        self,
-        conn: Connection,
-        procedure: MySQLStoredProcedure,
-    ) -> Iterable[MetadataWorkUnit]:
-        data_job = MySQLDataJob(entity=procedure)
-
-        # Get procedure metadata
-        procedure_metadata = conn.execute(
-            f"""
-SELECT
-    ROUTINE_COMMENT,
-    SECURITY_TYPE,
-    SQL_DATA_ACCESS,
-    CREATED,
-    LAST_ALTERED,
-    DEFINER
-FROM information_schema.ROUTINES
-WHERE ROUTINE_SCHEMA = '{procedure.routine_schema}'
-AND ROUTINE_NAME = '{procedure.routine_name}'
-            """
-        ).fetchone()
-
-        if procedure_metadata:
-            # Add description as a property if it exists
-            if procedure_metadata["ROUTINE_COMMENT"]:
-                data_job.add_property(
-                    "description", procedure_metadata["ROUTINE_COMMENT"]
-                )
-
-            # Add other metadata properties
-            for key, value in procedure_metadata.items():
-                if value is not None and key != "ROUTINE_COMMENT":
-                    data_job.add_property(key.lower(), str(value))
-
-        # Rest of the method remains the same...
-        # Get procedure parameters
-        parameters = conn.execute(
-            f"""
-SELECT
-    PARAMETER_NAME,
-    PARAMETER_MODE,
-    DATA_TYPE
-FROM information_schema.PARAMETERS
-WHERE SPECIFIC_SCHEMA = '{procedure.routine_schema}'
-AND SPECIFIC_NAME = '{procedure.routine_name}'
-ORDER BY ORDINAL_POSITION
-            """
-        )
-
-        param_list = []
-        for param in parameters:
-            if param["PARAMETER_NAME"]:  # Skip RETURNS for functions
-                param_list.append(
-                    f"{param['PARAMETER_MODE']} {param['PARAMETER_NAME']} {param['DATA_TYPE']}"
-                )
-
-        if param_list:
-            data_job.add_property("parameters", ", ".join(param_list))
-
-        if procedure.code and self.config.include_stored_procedures_code:
-            data_job.add_property("code", procedure.code)
-
-        if self.config.include_lineage:
-            self.stored_procedures.append(procedure)
-
-        yield from self.construct_job_workunits(
-            data_job,
-            include_lineage=False,  # Lineage will be processed later
-        )
 
     def construct_job_workunits(
         self,
         data_job: MySQLDataJob,
-        include_lineage: bool = True,
+        include_lineage: bool = False,  # Lineage is handled separately
     ) -> Iterable[MetadataWorkUnit]:
+        """Generate work units for a MySQL procedure job"""
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
             aspect=data_job.as_datajob_info_aspect,
@@ -331,14 +282,23 @@ ORDER BY ORDINAL_POSITION
                 aspect=data_job.as_datajob_input_output_aspect,
             ).as_workunit()
 
-    def construct_flow_workunits(
-        self,
-        data_flow: MySQLDataFlow,
-    ) -> Iterable[MetadataWorkUnit]:
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_flow.urn,
-            aspect=data_flow.as_dataflow_info_aspect,
-        ).as_workunit()
+        if (
+            self.config.include_stored_procedures_code
+            and data_job.entity.code is not None
+        ):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=DataTransformLogicClass(
+                    transforms=[
+                        DataTransformClass(
+                            queryStatement=QueryStatementClass(
+                                value=data_job.entity.code,
+                                language=QueryLanguageClass.SQL,
+                            ),
+                        )
+                    ]
+                ),
+            ).as_workunit()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
@@ -353,8 +313,10 @@ ORDER BY ORDINAL_POSITION
                 yield from auto_workunit(
                     generate_procedure_lineage(
                         schema_resolver=self.get_schema_resolver(),
-                        procedure=procedure,
+                        procedure=procedure.to_base_procedure(),
                         procedure_job_urn=MySQLDataJob(entity=procedure).urn,
+                        default_db=None,
+                        default_schema=procedure.routine_schema,
                         is_temp_table=self.is_temp_table,
                     )
                 )
@@ -392,7 +354,7 @@ ORDER BY ORDINAL_POSITION
         if not self.config.is_profiling_enabled():
             return
         with inspector.engine.connect() as conn:
-            for row in conn.execute(
+            for row in conn.execute(  # type: ignore
                 "SELECT table_schema, table_name, data_length from information_schema.tables"
             ):
                 self.profile_metadata_info.dataset_name_to_storage_bytes[

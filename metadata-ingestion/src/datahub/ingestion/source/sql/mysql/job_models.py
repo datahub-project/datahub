@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Dict, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -7,6 +8,8 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
@@ -55,11 +58,14 @@ class MySQLProcedureContainer:
 @dataclass
 class MySQLStoredProcedure:
     routine_schema: str
-    routine_name: str
+    name: str
     flow: MySQLProcedureContainer
     type: str = "STORED_PROCEDURE"
     source: str = field(init=False)
     code: Optional[str] = None
+    comment: Optional[str] = None
+    created: Optional[datetime] = None
+    last_altered: Optional[datetime] = None
 
     def __post_init__(self):
         self.source = self.flow.source
@@ -70,11 +76,37 @@ class MySQLStoredProcedure:
 
     @property
     def formatted_name(self) -> str:
-        return self.routine_name.replace(",", "-")
+        return self.name.replace(",", "-")
 
     @property
     def full_name(self) -> str:
         return f"{self.routine_schema}.{self.formatted_name}"
+
+    def to_base_procedure(self) -> BaseProcedure:
+        """Convert to BaseProcedure for compatibility with base implementation"""
+        return BaseProcedure(
+            name=self.name,
+            procedure_definition=self.code,
+            created=self.created,
+            last_altered=self.last_altered,
+            comment=self.comment,
+            argument_signature=None,
+            return_type=None,
+            language="SQL",
+            extra_properties=None,
+        )
+
+    def to_urn(
+        self, database_key: DatabaseKey, schema_key: Optional[SchemaKey] = None
+    ) -> str:
+        """Generate URN for the procedure"""
+        return make_data_job_urn(
+            orchestrator=self.source,
+            flow_id=self.flow.formatted_name,
+            job_id=self.formatted_name,
+            cluster=self.flow.cluster,
+            platform_instance=self.flow.platform_instance,
+        )
 
 
 @dataclass

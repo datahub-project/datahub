@@ -16,7 +16,7 @@ def test_stored_procedure_parsing():
     """Test parsing of a stored procedure definition"""
     procedure = MySQLStoredProcedure(
         routine_schema="test_db",
-        routine_name="test_proc",
+        name="test_proc",
         flow=MySQLProcedureContainer(
             name="test_db.stored_procedures",
             env="PROD",
@@ -32,7 +32,7 @@ def test_stored_procedure_parsing():
         """,
     )
 
-    assert procedure.routine_name == "test_proc"
+    assert procedure.name == "test_proc"
     assert procedure.routine_schema == "test_db"
     assert procedure.full_name == "test_db.test_proc"
     assert procedure.full_type == "MYSQL_STORED_PROCEDURE"
@@ -106,7 +106,7 @@ def test_procedure_metadata_handling():
     """Test handling of stored procedure metadata"""
     procedure = MySQLStoredProcedure(
         routine_schema="test_db",
-        routine_name="test_proc",
+        name="test_proc",
         flow=MySQLProcedureContainer(
             name="test_db.stored_procedures",
             env="PROD",
@@ -133,7 +133,7 @@ def test_mysql_data_job_empty_properties():
     """Test MySQL data job with empty properties"""
     procedure = MySQLStoredProcedure(
         routine_schema="test_db",
-        routine_name="test_proc",
+        name="test_proc",
         flow=MySQLProcedureContainer(
             name="test_db.stored_procedures",
             env="PROD",
@@ -169,7 +169,7 @@ def test_mysql_procedure_platform_instance():
     )
 
     procedure = MySQLStoredProcedure(
-        routine_schema="test_db", routine_name="test_proc", flow=container
+        routine_schema="test_db", name="test_proc", flow=container
     )
 
     data_job = MySQLDataJob(entity=procedure)
@@ -188,7 +188,7 @@ def test_mysql_data_job_aspects():
     """Test MySQL data job input/output aspects"""
     procedure = MySQLStoredProcedure(
         routine_schema="test_db",
-        routine_name="test_proc",
+        name="test_proc",
         flow=MySQLProcedureContainer(
             name="test_db.stored_procedures",
             env="PROD",
@@ -226,7 +226,7 @@ def test_stored_procedure_properties():
     """Test stored procedure additional properties"""
     procedure = MySQLStoredProcedure(
         routine_schema="test_db",
-        routine_name="test_proc",
+        name="test_proc",
         flow=MySQLProcedureContainer(
             name="test_db.stored_procedures",
             env="PROD",
