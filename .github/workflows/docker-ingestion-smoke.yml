@@ -37,7 +37,6 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       publish: ${{ steps.publish.outputs.publish }}
       pr-publish: ${{ steps.pr-publish.outputs.publish }}
-      python_release_version: ${{ steps.tag.outputs.python_release_version }}
     steps:
       - name: Checkout
         uses: acryldata/sane-checkout-action@v3
@@ -46,7 +45,6 @@ jobs:
         run: |
           source .github/scripts/docker_helpers.sh
           echo "tag=$(get_tag)" >> "$GITHUB_OUTPUT"
-          echo "python_release_version=$(get_python_docker_release_v)" >> "$GITHUB_OUTPUT"
           echo_tags
       - name: Check whether publishing enabled
         id: publish
@@ -80,8 +78,8 @@ jobs:
         uses: acryldata/sane-checkout-action@v3
       - name: Update versions
         run: |
-          python .github/scripts/docker_helper/version_updater.py --version "${{ needs.setup.outputs.python_release_version }}"  --init "./metadata-ingestion/src/datahub/__init__.py"
-          python .github/scripts/docker_helper/version_updater.py --version "${{ needs.setup.outputs.python_release_version }}"  --init "./metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/__init__.py"
+          python .github/scripts/docker_helper/version_updater.py --version "9999"  --init "./metadata-ingestion/src/datahub/_version.py"
+          python .github/scripts/docker_helper/version_updater.py --version "9999"  --init "./metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/_version.py"
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:

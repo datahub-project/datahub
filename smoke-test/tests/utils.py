@@ -22,6 +22,10 @@ def get_frontend_session():
     return login_as(username, password)
 
 
+def check_integrations_service() -> bool:
+    return os.getenv("CHECK_INTEGRATIONS_SERVICE", "true").lower() in ["true", "yes"]
+
+
 def login_as(username: str, password: str):
     return cli_utils.get_frontend_session_login_as(
         username=username, password=password, frontend_url=get_frontend_url()
@@ -90,6 +94,8 @@ def is_k8s_enabled():
 def wait_for_healthcheck_util(auth_session):
     assert not check_endpoint(auth_session, f"{get_frontend_url()}/admin")
     assert not check_endpoint(auth_session, f"{get_gms_url()}/health")
+    if not check_integrations_service():
+        return
     assert not check_endpoint(auth_session, f"{get_integrations_service_url()}/docs")
 
 
