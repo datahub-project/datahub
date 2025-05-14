@@ -4675,8 +4675,7 @@
             "keyAspect" : "mlPrimaryKeyKey",
             "name" : "mlPrimaryKey"
           }
-        }
-        } }, {
+        }, {
           "type" : "record",
           "name" : "MLFeatureSnapshot",
           "fields" : [ {
