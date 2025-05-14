@@ -52,6 +52,7 @@ if sys.version_info >= (3, 12):
     click.secho(
         "Python versions above 3.11 are not tested with. Please use Python 3.11.",
         fg="red",
+        err=True,
     )
 
 
