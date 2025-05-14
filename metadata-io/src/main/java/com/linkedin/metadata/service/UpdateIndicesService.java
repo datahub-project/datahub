@@ -21,7 +21,6 @@ import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
-import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -52,7 +51,6 @@ import lombok.extern.slf4j.Slf4j;
 public class UpdateIndicesService implements SearchIndicesService {
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
-  private final EntitySearchService entitySearchService;
   private final ElasticSearchService elasticSearchService;
   private final TimeseriesAspectService timeseriesAspectService;
   private final SystemMetadataService systemMetadataService;
@@ -78,15 +76,13 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   public UpdateIndicesService(
       UpdateGraphIndicesService updateGraphIndicesService,
-      EntitySearchService entitySearchService,
+      ElasticSearchService elasticSearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
       SearchDocumentTransformer searchDocumentTransformer,
-      @Nonnull String idHashAlgo,
-      ElasticSearchService elasticSearchService) {
+      @Nonnull String idHashAlgo) {
     this(
         updateGraphIndicesService,
-        entitySearchService,
         elasticSearchService,
         timeseriesAspectService,
         systemMetadataService,
@@ -99,7 +95,6 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   public UpdateIndicesService(
       UpdateGraphIndicesService updateGraphIndicesService,
-      EntitySearchService entitySearchService,
       ElasticSearchService elasticSearchService,
       TimeseriesAspectService timeseriesAspectService,
       SystemMetadataService systemMetadataService,
@@ -109,7 +104,6 @@ public class UpdateIndicesService implements SearchIndicesService {
       boolean structuredPropertiesHookEnabled,
       boolean structuredPropertiesWriteEnabled) {
     this.updateGraphIndicesService = updateGraphIndicesService;
-    this.entitySearchService = entitySearchService;
     this.elasticSearchService = elasticSearchService;
     this.timeseriesAspectService = timeseriesAspectService;
     this.systemMetadataService = systemMetadataService;
