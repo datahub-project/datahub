@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from azure.storage.blob import BlobProperties
 
@@ -201,7 +201,7 @@ def list_folders(
     )
 
     # Use a set for faster lookups
-    unique_folders: set[str] = set()
+    unique_folders: Set[str] = set()
 
     # Process blobs in batches for better memory usage
     batch_size = 1000
