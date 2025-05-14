@@ -21,6 +21,7 @@ DataHub works.
 | `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS`             | `true`  | boolean   | [`GMS`]                                 | Controls whether lineage ignores the schema field status aspect, reading the parent's status aspect instead.                |
 | `HIDE_DBT_SOURCE_IN_LINEAGE`                     | `false` | boolean   | [`GMS`]                                 | Hides dbt source entities from lineage graphs when used with specific dbt ingestion settings.                               |
 | `SHOW_NAV_BAR_REDESIGN`                          | `false` | boolean   | [`GMS`]                                 | Enables the new navigation bar redesign.                                                                                    |
+| `SHOW_MANAGE_TAGS`                               | `true`  | boolean   | [`GMS`]                                 | Enables the manage tags page.                                                                                               |
 
 ## Ingestion
 

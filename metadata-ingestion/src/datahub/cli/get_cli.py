@@ -7,6 +7,7 @@ from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import get_aspects_for_entity
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -46,7 +47,7 @@ def urn(ctx: Any, urn: Optional[str], aspect: List[str], details: bool) -> None:
         urn = ctx.args[0]
         logger.debug(f"Using urn from args {urn}")
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     if aspect:
         # If aspects are specified, we need to do the existence check first.

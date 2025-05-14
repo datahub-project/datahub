@@ -6,11 +6,11 @@ import { LinkWrapper } from '@app/shared/LinkWrapper';
 
 describe('LinkWrapper', () => {
     it('renders absolute URLs', () => {
-        const { getByRole } = render(<LinkWrapper to="https://datahubproject.io/" />);
+        const { getByRole } = render(<LinkWrapper to="https://docs.datahub.com/" />);
 
         const link = getByRole('link');
         expect(link).toBeInTheDocument();
-        expect(link).toHaveAttribute('href', 'https://datahubproject.io/');
+        expect(link).toHaveAttribute('href', 'https://docs.datahub.com/');
     });
 
     it('renders relative URLs', () => {

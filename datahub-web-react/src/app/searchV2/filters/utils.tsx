@@ -128,7 +128,7 @@ function getDataPlatformInstanceIconAndLabel(
 ) {
     let icon: React.ReactNode = null;
     let label: string | null = null;
-    const logoUrl = (filterEntity as DataPlatformInstance)?.platform.properties?.logoUrl;
+    const logoUrl = (filterEntity as DataPlatformInstance)?.platform?.properties?.logoUrl;
     icon = logoUrl ? (
         <PlatformIcon src={logoUrl} size={size} />
     ) : (
@@ -292,6 +292,12 @@ export function filterEmptyAggregations(aggregations: AggregationMetadata[], act
         return true;
     });
 }
+
+// Filters out values from the secondary aggregations that are present in the base aggregations.
+export const deduplicateAggregations = (baseAggs: AggregationMetadata[], secondaryAggs: AggregationMetadata[]) => {
+    const baseValues = baseAggs.map((agg) => agg.value);
+    return secondaryAggs.filter((agg) => !baseValues.includes(agg.value));
+};
 
 export function sortFacets(facetA: FacetMetadata, facetB: FacetMetadata, sortedFacetFields: string[]) {
     if (sortedFacetFields.indexOf(facetA.field) === -1) return 1;

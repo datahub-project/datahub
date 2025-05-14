@@ -22,12 +22,12 @@ const StyledTabs = styled(AntTabs)`
     }
 
     .ant-tabs-tab-active .ant-tabs-tab-btn {
-        color: ${colors.violet[500]};
+        color: ${(props) => props.theme.styles['primary-color']};
         font-weight: 600;
     }
 
     .ant-tabs-ink-bar {
-        background-color: ${colors.violet[500]};
+        background-color: ${(props) => props.theme.styles['primary-color']};
     }
 
     .ant-tabs-content-holder {

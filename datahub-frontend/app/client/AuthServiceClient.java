@@ -1,5 +1,7 @@
 package client;
 
+import static com.linkedin.metadata.Constants.DATAHUB_LOGIN_SOURCE_HEADER_NAME;
+
 import com.datahub.authentication.Authentication;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -70,7 +72,7 @@ public class AuthServiceClient {
    * an Actor of type USER.
    */
   @Nonnull
-  public String generateSessionTokenForUser(@Nonnull final String userId) {
+  public String generateSessionTokenForUser(@Nonnull final String userId, String loginSource) {
     Objects.requireNonNull(userId, "userId must not be null");
     CloseableHttpResponse response = null;
 
@@ -97,6 +99,8 @@ public class AuthServiceClient {
 
       // Add authorization header with DataHub frontend system id and secret.
       request.addHeader(Http.HeaderNames.AUTHORIZATION, this.systemAuthentication.getCredentials());
+
+      request.addHeader(DATAHUB_LOGIN_SOURCE_HEADER_NAME, loginSource);
 
       response = httpClient.execute(request);
       final HttpEntity entity = response.getEntity();
