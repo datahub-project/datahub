@@ -26,22 +26,24 @@ export default function DomainFilter({ fieldName, facetState, appliedFilters, on
     const onSearch = debounce((newQuery: string) => setQuery(newQuery), DEBOUNCE_ON_SEARCH_TIMEOUT_MS);
 
     const onSelectUpdate = (selectedOptions: NestedSelectOption[]) => {
-        const selectedValues = selectedOptions.map((option) => option.value);
-        const selectedEntities: Domain[] = selectedOptions
-            .map((option) => option.entity)
-            .filter((entity): entity is Domain => !!entity && entity.type === EntityType.Domain);
+        if (facetState !== undefined) {
+            const selectedValues = selectedOptions.map((option) => option.value);
+            const selectedEntities: Domain[] = selectedOptions
+                .map((option) => option.entity)
+                .filter((entity): entity is Domain => !!entity && entity.type === EntityType.Domain);
 
-        setEntities(selectedEntities);
+            setEntities(selectedEntities);
 
-        onUpdate?.({
-            filters: [
-                {
-                    field: fieldName,
-                    condition: FilterOperator.Equal,
-                    values: selectedValues,
-                },
-            ],
-        });
+            onUpdate?.({
+                filters: [
+                    {
+                        field: fieldName,
+                        condition: FilterOperator.Equal,
+                        values: selectedValues,
+                    },
+                ],
+            });
+        }
     };
 
     return (

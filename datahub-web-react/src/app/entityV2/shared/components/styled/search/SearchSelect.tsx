@@ -1,5 +1,6 @@
 import { FilterOutlined } from '@ant-design/icons';
 import { Button, Typography, message } from 'antd';
+import { debounce } from 'lodash';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -12,6 +13,7 @@ import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { isListSubset } from '@app/entityV2/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
 import useSortInput from '@src/app/searchV2/sorting/useSortInput';
@@ -60,7 +62,7 @@ type Props = {
  * when the selection is complete.
  */
 export const SearchSelect = ({
-    fixedEntityTypes,
+    fixedEntityTypes = [],
     placeholderText,
     selectedEntities,
     setSelectedEntities,
@@ -88,24 +90,27 @@ export const SearchSelect = ({
     const entityFilters: Array<EntityType> = filters
         .filter((filter) => filter.field === ENTITY_FILTER_NAME)
         .flatMap((filter) => filter.values?.map((value) => value.toUpperCase() as EntityType) || []);
-    const finalEntityTypes = (entityFilters.length > 0 && entityFilters) || fixedEntityTypes || [];
+    const finalEntityTypes = [...entityFilters, ...(fixedEntityTypes || [])];
 
-    const finalEntityFilter: FacetFilterInput = {
-        field: ENTITY_FILTER_NAME,
-        condition: FilterOperator.Equal,
-        values: finalEntityTypes,
-        negated: false,
-    };
+    const finalEntityFilter = finalEntityTypes.length
+        ? {
+              field: ENTITY_FILTER_NAME,
+              condition: FilterOperator.Equal,
+              values: finalEntityTypes,
+              negated: false,
+          }
+        : undefined;
+    const finalFilters = finalEntityFilter ? [...filtersWithoutEntities, finalEntityFilter] : filtersWithoutEntities;
 
     // Execute search
     const { data, loading, error, refetch } = useGetSearchResultsForMultipleQuery({
         variables: {
             input: {
-                types: finalEntityTypes,
+                types: finalEntityTypes.length ? finalEntityTypes : undefined,
                 query: searchQuery,
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
-                filters: [...filtersWithoutEntities, finalEntityFilter],
+                filters: finalFilters,
                 sortInput,
             },
         },
@@ -119,9 +124,9 @@ export const SearchSelect = ({
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
     const facets = searchAcrossEntities?.facets || [];
 
-    const onSearch = (q: string) => {
+    const onSearch = debounce((q: string) => {
         setQuery(q);
-    };
+    }, DEBOUNCE_SEARCH_MS);
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         setPage(1);

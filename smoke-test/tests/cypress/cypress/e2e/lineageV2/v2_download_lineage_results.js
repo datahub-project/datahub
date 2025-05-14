@@ -23,7 +23,7 @@ const third_degree_plus = [
 ];
 const downloadCsvFile = (filename) => {
   cy.get(".ant-list-items").should("be.visible");
-  cy.get(".anticon-download").should("be.visible").click();
+  cy.get('[data-testid="download-csv-button"]').should("be.visible").click();
   cy.get('[data-testid="download-as-csv-input"]').clear().type(filename);
   cy.get('[data-testid="csv-modal-download-button"]').click().wait(5000);
   cy.ensureTextNotPresent("Creating CSV");

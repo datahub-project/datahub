@@ -299,6 +299,7 @@ class ViewField:
     view_name: Optional[str] = None
     is_primary_key: bool = False
     tags: List[str] = dataclasses_field(default_factory=list)
+    group_label: Optional[str] = None
 
     # It is the list of ColumnRef for derived view defined using SQL otherwise simple column name
     upstream_fields: Union[List[ColumnRef]] = dataclasses_field(default_factory=list)
@@ -326,6 +327,7 @@ class ViewField:
         description = field_dict.get("description", default_description)
 
         label = field_dict.get("label", "")
+        group_label = field_dict.get("group_label")
 
         return ViewField(
             name=name,
@@ -336,6 +338,7 @@ class ViewField:
             field_type=type_cls,
             tags=field_dict.get("tags") or [],
             upstream_fields=upstream_column_ref,
+            group_label=group_label,
         )
 
 
@@ -704,14 +707,47 @@ class LookerUtil:
         ),
     }
 
+    # Add a pattern-based regex for checking if a tag is a group_label tag
+    GROUP_LABEL_TAG_PATTERN = re.compile(r"^looker\:group_label\:(.+)$")
+
     @staticmethod
     def _get_tag_mce_for_urn(tag_urn: str) -> MetadataChangeEvent:
-        assert tag_urn in LookerUtil.tag_definitions
-        return MetadataChangeEvent(
-            proposedSnapshot=TagSnapshotClass(
-                urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
+        # Check if this is a group_label tag
+        tag_name = tag_urn[len("urn:li:tag:") :]
+        match = LookerUtil.GROUP_LABEL_TAG_PATTERN.match(tag_name)
+
+        if match:
+            # This is a group_label tag, create tag definition on the fly
+            group_label_value = match.group(1)
+            tag_properties = TagPropertiesClass(
+                name=f"looker:group_label:{group_label_value}",
+                description=f"Fields with Looker group label: {group_label_value}",
             )
-        )
+
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(urn=tag_urn, aspects=[tag_properties])
+            )
+        elif tag_urn in LookerUtil.tag_definitions:
+            # This is a predefined tag
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(
+                    urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
+                )
+            )
+        else:
+            # Should not happen, but handle gracefully
+            logger.warning(f"No tag definition found for tag URN: {tag_urn}")
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(
+                    urn=tag_urn,
+                    aspects=[
+                        TagPropertiesClass(
+                            name=tag_name,
+                            description=f"Tag: {tag_name}",
+                        )
+                    ],
+                )
+            )
 
     @staticmethod
     def _get_tags_from_field_type(
@@ -733,6 +769,14 @@ class LookerUtil:
             reporter.report_warning(
                 title="Failed to Map View Field Type",
                 message=f"Failed to map view field type {field.field_type}. Won't emit tags for measure and dimension",
+            )
+
+        # Add group_label as tags if present
+        if field.group_label:
+            schema_field_tags.append(
+                TagAssociationClass(
+                    tag=builder.make_tag_urn(f"looker:group_label:{field.group_label}")
+                )
             )
 
         if schema_field_tags:
@@ -1030,6 +1074,7 @@ class LookerExplore:
                                         else False
                                     ),
                                     upstream_fields=[],
+                                    group_label=dim_field.field_group_label,
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -1068,6 +1113,7 @@ class LookerExplore:
                                         else False
                                     ),
                                     upstream_fields=[],
+                                    group_label=measure_field.field_group_label,
                                 )
                             )
 

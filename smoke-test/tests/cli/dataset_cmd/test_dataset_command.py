@@ -24,7 +24,7 @@ dataset_id = f"test_dataset_sync_{start_index}"
 dataset_urn = make_dataset_urn("snowflake", dataset_id)
 
 sleep_sec, sleep_times = get_sleep_info()
-runner = CliRunner(mix_stderr=False)
+runner = CliRunner()
 
 
 @pytest.fixture(scope="module")

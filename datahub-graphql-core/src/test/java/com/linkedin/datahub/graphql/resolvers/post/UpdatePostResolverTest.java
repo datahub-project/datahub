@@ -33,11 +33,11 @@ public class UpdatePostResolverTest {
   private static final Urn TEST_URN = UrnUtils.getUrn("urn:li:post:post-id");
   private static final MediaType POST_MEDIA_TYPE = MediaType.IMAGE;
   private static final String POST_MEDIA_LOCATION =
-      "https://datahubproject.io/img/datahub-logo-color-light-horizontal.svg";
+      "https://docs.datahub.com/img/datahub-logo-color-light-horizontal.svg";
   private static final PostContentType POST_CONTENT_TYPE = PostContentType.LINK;
   private static final String POST_TITLE = "title";
   private static final String POST_DESCRIPTION = "description";
-  private static final String POST_LINK = "https://datahubproject.io";
+  private static final String POST_LINK = "https://docs.datahub.com";
   private PostService postService;
   private UpdatePostResolver resolver;
   private DataFetchingEnvironment dataFetchingEnvironment;
