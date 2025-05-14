@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.types.mappers.UrnScrollResultsMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
@@ -80,6 +81,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
           } else {
             searchFlags = null;
           }
+          List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
 
           try {
             log.debug(
@@ -108,6 +110,7 @@ public class ScrollAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                         : baseFilter,
                     scrollId,
                     keepAlive,
+                    sortCriteria,
                     count));
           } catch (Exception e) {
             log.error(

@@ -121,7 +121,7 @@ class ConfluentJDBCSourceConnector(BaseConnector):
         for name in transform_names:
             transform = {"name": name}
             transforms.append(transform)
-            for key in self.connector_manifest.config.keys():
+            for key in self.connector_manifest.config:
                 if key.startswith(f"transforms.{name}."):
                     transform[key.replace(f"transforms.{name}.", "")] = (
                         self.connector_manifest.config[key]
@@ -447,13 +447,10 @@ class DebeziumSourceConnector(BaseConnector):
     ) -> DebeziumParser:
         connector_class = connector_manifest.config.get(CONNECTOR_CLASS, "")
 
-        if connector_class == "io.debezium.connector.mysql.MySqlConnector":
-            parser = self.DebeziumParser(
-                source_platform="mysql",
-                server_name=self.get_server_name(connector_manifest),
-                database_name=None,
-            )
-        elif connector_class == "MySqlConnector":
+        if (
+            connector_class == "io.debezium.connector.mysql.MySqlConnector"
+            or connector_class == "MySqlConnector"
+        ):
             parser = self.DebeziumParser(
                 source_platform="mysql",
                 server_name=self.get_server_name(connector_manifest),

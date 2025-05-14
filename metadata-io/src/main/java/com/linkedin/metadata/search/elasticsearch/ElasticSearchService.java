@@ -26,9 +26,13 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -52,6 +56,13 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           .setIncludeRestricted(false);
 
   private static final int MAX_RUN_IDS_INDEXED = 25; // Save the previous 25 run ids in the index.
+  public static final String SCRIPT_SOURCE =
+      "if (ctx._source.containsKey('runId')) { "
+          + "if (!ctx._source.runId.contains(params.runId)) { "
+          + "ctx._source.runId.add(params.runId); "
+          + "if (ctx._source.runId.length > params.maxRunIds) { ctx._source.runId.remove(0) } } "
+          + "} else { ctx._source.runId = [params.runId] }";
+
   private final EntityIndexBuilders indexBuilders;
   @VisibleForTesting @Getter private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
@@ -114,22 +125,27 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         urn.getEntityType(),
         docId,
         runId);
+
+    // Create an upsert document that will be used if the document doesn't exist
+    Map<String, Object> upsert = new HashMap<>();
+    upsert.put("urn", urn.toString());
+    upsert.put("runId", Collections.singletonList(runId));
+
+    Map<String, Object> scriptParams = new HashMap<>();
+    scriptParams.put("runId", runId);
+    scriptParams.put("maxRunIds", MAX_RUN_IDS_INDEXED);
     esWriteDAO.applyScriptUpdate(
         opContext,
         urn.getEntityType(),
         docId,
         /*
-          Script used to apply updates to the runId field of the index.
+          Parameterized script used to apply updates to the runId field of the index.
           This script saves the past N run ids which touched a particular URN in the search index.
           It only adds a new run id if it is not already stored inside the list. (List is unique AND ordered)
         */
-        String.format(
-            "if (ctx._source.containsKey('runId')) { "
-                + "if (!ctx._source.runId.contains('%s')) { "
-                + "ctx._source.runId.add('%s'); "
-                + "if (ctx._source.runId.length > %s) { ctx._source.runId.remove(0) } } "
-                + "} else { ctx._source.runId = ['%s'] }",
-            runId, runId, MAX_RUN_IDS_INDEXED, runId));
+        SCRIPT_SOURCE,
+        scriptParams,
+        upsert);
   }
 
   @Nonnull
@@ -142,7 +158,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       int from,
       int size) {
-    return search(opContext, entityNames, input, postFilters, sortCriteria, from, size, null);
+    return search(opContext, entityNames, input, postFilters, sortCriteria, from, size, List.of());
   }
 
   @Nonnull
@@ -154,7 +170,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       int from,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
     log.debug(
         String.format(
             "Searching FullText Search documents entityName: %s, input: %s, postFilters: %s, sortCriteria: %s, from: %s, size: %s",
@@ -336,7 +352,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      int size,
+      @Nonnull List<String> facets) {
     log.debug(
         String.format(
             "Scrolling Structured Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
@@ -366,7 +383,8 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       @Nullable String keepAlive,
-      int size) {
+      int size,
+      @Nonnull List<String> facets) {
     log.debug(
         String.format(
             "Scrolling FullText Search documents entities: %s, input: %s, postFilters: %s, sortCriteria: %s, scrollId: %s, size: %s",
@@ -392,6 +410,21 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
+  @Nonnull
+  public Map<Urn, Map<String, Object>> raw(
+      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
+    return esSearchDAO.rawEntity(opContext, urns).entrySet().stream()
+        .flatMap(
+            entry ->
+                Optional.ofNullable(entry.getValue().getHits().getHits())
+                    .filter(hits -> hits.length > 0)
+                    .map(hits -> Map.entry(entry.getKey(), hits[0]))
+                    .stream())
+        .map(entry -> Map.entry(entry.getKey(), entry.getValue().getSourceAsMap()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Override
   public int maxResultSize() {
     return ESUtils.MAX_RESULT_SIZE;
   }
@@ -407,7 +440,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size,
-      @Nullable List<String> facets) {
+      @Nonnull List<String> facets) {
 
     return esSearchDAO.explain(
         opContext.withSearchFlags(

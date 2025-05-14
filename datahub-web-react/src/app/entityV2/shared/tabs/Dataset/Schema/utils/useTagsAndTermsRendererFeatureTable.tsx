@@ -1,8 +1,10 @@
 import React from 'react';
-import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
-import TagTermGroup from '../../../../../../sharedV2/tags/TagTermGroup';
-import { pathMatchesExact } from '../../../../../dataset/profile/schema/utils/utils';
-import { useEntityData, useRefetch } from '../../../../../../entity/shared/EntityContext';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { pathMatchesExact } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
+
+import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
 
 export default function useTagsAndTermsRendererFeatureTable(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
@@ -14,7 +16,7 @@ export default function useTagsAndTermsRendererFeatureTable(
     const refetch = useRefetch();
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find(
             (candidateEditableFieldInfo) => pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 

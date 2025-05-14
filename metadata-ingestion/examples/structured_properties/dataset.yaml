@@ -6,17 +6,22 @@
   schema:
     file: examples/structured_properties/click_event.avsc
     fields:
-      - id: ip
-      - urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD),ip)
-        structured_properties: # structured properties for schema fields/columns go here
-          io.acryl.dataManagement.deprecationDate: "2023-01-01"
-          io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
-          io.acryl.dataManagement.replicationSLA: 90
+    - id: ip
+      structured_properties:
+        io.acryl.dataManagement.deprecationDate: '2023-01-01'
+        io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
+        io.acryl.dataManagement.replicationSLA: 90
+    - id: url
+      structured_properties:
+        io.acryl.dataManagement.deprecationDate: '2023-01-01'
+    - id: locator.latitude
+      structured_properties:
+        io.acryl.dataManagement.deprecationDate: '2023-01-01'
   structured_properties: # dataset level structured properties go here
     io.acryl.privacy.retentionTime: 365
     projectNames:
-      - Tracking
-      - DataHub
+    - Tracking
+    - DataHub
 - id: ClickEvent
   platform: events
   subtype: Topic
@@ -27,19 +32,20 @@
     project_name: Tracking
     namespace: org.acryl.tracking
     version: 1.0.0
-    retention: 30
+    retention: '30'
   structured_properties:
     io.acryl.dataManagement.certifier: urn:li:corpuser:john.doe@example.com
   schema:
     file: examples/structured_properties/click_event.avsc
   downstreams:
-    - urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)
+  - urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD)
 - id: user.clicks
   platform: snowflake
-  schema:
-    fields:
-      - id: user_id
-        structured_properties:
-          io.acryl.dataManagement.deprecationDate: "2023-01-01"
   structured_properties:
     io.acryl.dataManagement.replicationSLA: 90
+  schema:
+    fields:
+    - id: user_id
+      structured_properties:
+        io.acryl.dataManagement.deprecationDate: '2023-01-01'
+      type: string

@@ -12,21 +12,28 @@ import com.linkedin.datahub.graphql.generated.EntityProfileConfig;
 import com.linkedin.datahub.graphql.generated.EntityProfilesConfig;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FeatureFlagsConfig;
+import com.linkedin.datahub.graphql.generated.HomePageConfig;
 import com.linkedin.datahub.graphql.generated.IdentityManagementConfig;
 import com.linkedin.datahub.graphql.generated.LineageConfig;
 import com.linkedin.datahub.graphql.generated.ManagedIngestionConfig;
+import com.linkedin.datahub.graphql.generated.PersonalSidebarSection;
 import com.linkedin.datahub.graphql.generated.PoliciesConfig;
 import com.linkedin.datahub.graphql.generated.Privilege;
 import com.linkedin.datahub.graphql.generated.QueriesTabConfig;
 import com.linkedin.datahub.graphql.generated.ResourcePrivileges;
+import com.linkedin.datahub.graphql.generated.SearchBarAPI;
+import com.linkedin.datahub.graphql.generated.SearchBarConfig;
 import com.linkedin.datahub.graphql.generated.SearchResultsVisualConfig;
 import com.linkedin.datahub.graphql.generated.TelemetryConfig;
 import com.linkedin.datahub.graphql.generated.TestsConfig;
+import com.linkedin.datahub.graphql.generated.ThemeConfig;
 import com.linkedin.datahub.graphql.generated.ViewsConfig;
 import com.linkedin.datahub.graphql.generated.VisualConfig;
 import com.linkedin.metadata.config.ChromeExtensionConfiguration;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.HomePageConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.config.SearchBarConfiguration;
 import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.ViewsConfiguration;
 import com.linkedin.metadata.config.VisualConfiguration;
@@ -36,8 +43,10 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /** Resolver responsible for serving app configurations to the React UI. */
+@Slf4j
 public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfig>> {
 
   private final GitVersion _gitVersion;
@@ -51,6 +60,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
   private final TestsConfiguration _testsConfiguration;
   private final DataHubConfiguration _datahubConfiguration;
   private final ViewsConfiguration _viewsConfiguration;
+  private final SearchBarConfiguration _searchBarConfig;
+  private final HomePageConfiguration _homePageConfig;
   private final FeatureFlags _featureFlags;
   private final ChromeExtensionConfiguration _chromeExtensionConfiguration;
 
@@ -66,6 +77,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       final TestsConfiguration testsConfiguration,
       final DataHubConfiguration datahubConfiguration,
       final ViewsConfiguration viewsConfiguration,
+      final SearchBarConfiguration searchBarConfig,
+      final HomePageConfiguration homePageConfig,
       final FeatureFlags featureFlags,
       final ChromeExtensionConfiguration chromeExtensionConfiguration) {
     _gitVersion = gitVersion;
@@ -79,6 +92,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     _testsConfiguration = testsConfiguration;
     _datahubConfiguration = datahubConfiguration;
     _viewsConfiguration = viewsConfiguration;
+    _searchBarConfig = searchBarConfig;
+    _homePageConfig = homePageConfig;
     _featureFlags = featureFlags;
     _chromeExtensionConfiguration = chromeExtensionConfiguration;
   }
@@ -140,6 +155,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         visualConfig.setAppTitle(_visualConfiguration.getAppTitle());
       }
       visualConfig.setHideGlossary(_visualConfiguration.isHideGlossary());
+      visualConfig.setShowFullTitleInLineage(_visualConfiguration.isShowFullTitleInLineage());
     }
     if (_visualConfiguration != null && _visualConfiguration.getQueriesTab() != null) {
       QueriesTabConfig queriesTabConfig = new QueriesTabConfig();
@@ -164,6 +180,13 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
       }
       visualConfig.setSearchResult(searchResultsVisualConfig);
     }
+    if (_visualConfiguration != null && _visualConfiguration.getTheme() != null) {
+      ThemeConfig themeConfig = new ThemeConfig();
+      if (_visualConfiguration.getTheme().getThemeId() != null) {
+        themeConfig.setThemeId(_visualConfiguration.getTheme().getThemeId());
+      }
+      visualConfig.setTheme(themeConfig);
+    }
     appConfig.setVisualConfig(visualConfig);
 
     final TelemetryConfig telemetryConfig = new TelemetryConfig();
@@ -177,6 +200,28 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
     final ViewsConfig viewsConfig = new ViewsConfig();
     viewsConfig.setEnabled(_viewsConfiguration.isEnabled());
     appConfig.setViewsConfig(viewsConfig);
+
+    final SearchBarConfig searchBarConfig = new SearchBarConfig();
+    try {
+      searchBarConfig.setApiVariant(SearchBarAPI.valueOf(_searchBarConfig.getApiVariant()));
+    } catch (IllegalArgumentException e) {
+      searchBarConfig.setApiVariant(SearchBarAPI.AUTOCOMPLETE_FOR_MULTIPLE);
+    }
+    appConfig.setSearchBarConfig(searchBarConfig);
+
+    final HomePageConfig homePageConfig = new HomePageConfig();
+    try {
+      homePageConfig.setFirstInPersonalSidebar(
+          PersonalSidebarSection.valueOf(_homePageConfig.getFirstInPersonalSidebar()));
+    } catch (Exception e) {
+      log.warn(
+          String.format(
+              "Unexpected value set for firstInPersonalSidebar: %s",
+              _homePageConfig.getFirstInPersonalSidebar()),
+          e);
+      homePageConfig.setFirstInPersonalSidebar(PersonalSidebarSection.YOUR_ASSETS);
+    }
+    appConfig.setHomePageConfig(homePageConfig);
 
     final FeatureFlagsConfig featureFlagsConfig =
         FeatureFlagsConfig.builder()
@@ -204,6 +249,11 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
             .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
             .setEntityVersioningEnabled(_featureFlags.isEntityVersioning())
+            .setShowHasSiblingsFilter(_featureFlags.isShowHasSiblingsFilter())
+            .setShowSearchBarAutocompleteRedesign(
+                _featureFlags.isShowSearchBarAutocompleteRedesign())
+            .setShowManageTags(_featureFlags.isShowManageTags())
+            .setShowIntroducePage(_featureFlags.isShowIntroducePage())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -297,6 +347,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         .getResourceType()
         .equals(resourceType)) {
       return EntityType.BUSINESS_ATTRIBUTE;
+    } else if (com.linkedin.metadata.authorization.PoliciesConfig.PLATFORM_INSTANCE_PRIVILEGES
+        .getResourceType()
+        .equals(resourceType)) {
+      return EntityType.DATA_PLATFORM_INSTANCE;
     } else {
       return null;
     }

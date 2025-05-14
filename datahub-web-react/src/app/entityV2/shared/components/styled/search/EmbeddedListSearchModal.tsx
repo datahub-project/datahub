@@ -1,17 +1,14 @@
+import { Modal } from 'antd';
 import React, { useState } from 'react';
-import { Button, Modal } from 'antd';
 import styled from 'styled-components';
-import {
-    AndFilterInput,
-    EntityType,
-    FacetFilterInput,
-    SearchFlags,
-    SortCriterion,
-} from '../../../../../../types.generated';
-import { EmbeddedListSearch } from './EmbeddedListSearch';
-import { UnionType } from '../../../../../search/utils/constants';
-import { FilterSet } from './types';
-import { EntityActionProps } from './EntitySearchResults';
+
+import { EmbeddedListSearch } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearch';
+import { EntityActionProps } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
+import { UnionType } from '@app/search/utils/constants';
+import { Button } from '@src/alchemy-components';
+
+import { AndFilterInput, EntityType, FacetFilterInput, SearchFlags, SortCriterion } from '@types';
 
 const SearchContainer = styled.div<{ height?: string }>`
     height: ${(props) => props.height || '500px'};
@@ -90,7 +87,11 @@ export const EmbeddedListSearchModal = ({
             title={title}
             visible
             onCancel={onClose}
-            footer={<Button onClick={onClose}>Close</Button>}
+            footer={
+                <Button variant="text" onClick={onClose}>
+                    Close
+                </Button>
+            }
         >
             <SearchContainer height={height}>
                 <EmbeddedListSearch

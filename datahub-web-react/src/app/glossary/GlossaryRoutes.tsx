@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
+import { Redirect, Route, Switch } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Switch, Route, Redirect } from 'react-router-dom';
-import { PageRoutes } from '../../conf/Global';
-import { GlossaryEntityContext } from '../entity/shared/GlossaryEntityContext';
-import { GenericEntityProperties } from '../entity/shared/types';
-import BusinessGlossaryPage from './BusinessGlossaryPage';
-import BusinessGlossaryPageV2 from '../glossaryV2/BusinessGlossaryPage';
-import { EntityPage } from '../entity/EntityPage';
-import GlossarySidebar from './GlossarySidebar';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { useAppConfig } from '../useAppConfig';
-import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
-import { shouldShowGlossary } from '../identity/user/UserUtils';
-import { useIsThemeV2 } from '../useIsThemeV2';
+
+import { EntityPage } from '@app/entity/EntityPage';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GlossaryEntityContext } from '@app/entityV2/shared/GlossaryEntityContext';
+import BusinessGlossaryPage from '@app/glossary/BusinessGlossaryPage';
+import GlossarySidebar from '@app/glossary/GlossarySidebar';
+import BusinessGlossaryPageV2 from '@app/glossaryV2/BusinessGlossaryPage';
+import { shouldShowGlossary } from '@app/identity/user/UserUtils';
+import { useAppConfig } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { PageRoutes } from '@conf/Global';
+import { Entity } from '@src/types.generated';
 
 const ContentWrapper = styled.div`
     display: flex;
@@ -25,11 +27,13 @@ export default function GlossaryRoutes() {
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
     const [urnsToUpdate, setUrnsToUpdate] = useState<string[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+    const [nodeToNewEntity, setNodeToNewEntity] = useState<Record<string, Entity>>({});
+    const [nodeToDeletedUrn, setNodeToDeletedUrn] = useState<Record<string, string>>({});
 
     const appConfig = useAppConfig();
     const authenticatedUser = useGetAuthenticatedUser();
     const isThemeV2 = useIsThemeV2();
-    const canManageGlossary = authenticatedUser?.platformPrivileges.manageGlossaries || false;
+    const canManageGlossary = authenticatedUser?.platformPrivileges?.manageGlossaries || false;
     const hideGlossary = !!appConfig?.config?.visualConfig?.hideGlossary;
     const showGlossary = shouldShowGlossary(canManageGlossary, hideGlossary);
 
@@ -56,6 +60,10 @@ export default function GlossaryRoutes() {
                 setUrnsToUpdate,
                 isSidebarOpen,
                 setIsSidebarOpen,
+                nodeToNewEntity,
+                setNodeToNewEntity,
+                nodeToDeletedUrn,
+                setNodeToDeletedUrn,
             }}
         >
             <ContentWrapper>

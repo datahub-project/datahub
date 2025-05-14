@@ -1,11 +1,11 @@
 plugins {
   id 'org.springframework.boot'
-  id 'com.palantir.docker'
   id 'java'
 }
 
 apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
+apply from: "../../gradle/docker/docker.gradle"
 
 ext {
   docker_repo = 'datahub-gms'
@@ -38,11 +38,20 @@ dependencies {
   implementation(externalDependency.springBootStarterWeb) {
     exclude module: "spring-boot-starter-tomcat"
   }
-  implementation externalDependency.springBootStarterJetty
+  implementation(externalDependency.springBootStarterJetty) {
+    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+  }
+  implementation(externalDependency.springBootStarterValidation) {
+    exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
+  }
+
   implementation externalDependency.jettyJmx
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.servletApi
+  runtimeOnly externalDependency.opentelemetryExporter
+  runtimeOnly externalDependency.openTelemetryExporterLogging
+  runtimeOnly externalDependency.openTelemetryExporterCommon
 
   implementation spec.product.pegasus.restliDocgen
   implementation spec.product.pegasus.restliSpringBridge
@@ -53,6 +62,8 @@ dependencies {
   runtimeOnly externalDependency.log4j2Api
   runtimeOnly externalDependency.logbackClassic
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
 
@@ -82,8 +93,8 @@ bootRun {
 }
 
 docker {
-  name "${docker_registry}/${docker_repo}:v${version}"
-  version "v${version}"
+  dependsOn bootJar
+  name "${docker_registry}/${docker_repo}:${versionTag}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
@@ -94,12 +105,7 @@ docker {
   }.exclude {
     i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
-  tag("Debug", "${docker_registry}/${docker_repo}:debug")
-
-  // platform('linux/arm64', 'linux/amd64')
-  buildx(true)
-  load(true)
-  push(false)
+  additionalTag("Debug", "${docker_registry}/${docker_repo}:debug")
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
@@ -116,15 +122,9 @@ docker {
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)
   }
-}
-tasks.getByPath(":metadata-service:war:docker").dependsOn([bootJar])
 
-task cleanLocalDockerImages {
-  doLast {
-    rootProject.ext.cleanLocalDockerImages(docker_registry, docker_repo, "${version}")
-  }
+  debugBuildArgs = [APP_ENV:  'dev']
 }
-dockerClean.finalizedBy(cleanLocalDockerImages)
 
 test {
   jacoco {

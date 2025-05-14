@@ -165,6 +165,21 @@ Regardless of the location of the markdown file, the subcommands will be execute
 
 Only the stdout of the subprocess will be outputted. The stderr, if any, will be included as a comment in the markdown.
 
+**Automatic Formatting**
+
+The markdown files are automatically formatted using Prettier. Currently, this is executed by
+`datahub-web-react`'s node environment, because it formats markdown files in the whole repository.
+You can format all files by running:
+
+```console
+../gradlew :datahub-web-react:mdPrettierWriteChanged
+```
+
+or by allowing pre-commit hooks to run when you commit your changes.
+
+Warning: When using [admonitions](https://docusaurus.io/docs/markdown-features/admonitions#usage-with-prettier) (e.g. `:::note`), 
+you may need to add newlines around the inner text to avoid formatting issues. See the link for details.
+
 ## Docs site generation process
 
 This process is orchestrated by a combination of Gradle and Yarn tasks. The main entrypoint is via the `docs-website:yarnGenerate` task, which in turn eventually runs `yarn run generate`.

@@ -1,10 +1,12 @@
 import { Button, Modal } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { EntityType } from '../../../../../../types.generated';
-import ClickOutside from '../../../../../shared/ClickOutside';
-import { EntityAndType } from '../../../../../entity/shared/types';
-import { SearchSelect } from './SearchSelect';
+
+import { EntityAndType } from '@app/entity/shared/types';
+import { SearchSelect } from '@app/entityV2/shared/components/styled/search/SearchSelect';
+import ClickOutside from '@app/shared/ClickOutside';
+
+import { EntityType } from '@types';
 
 const StyledModal = styled(Modal)`
     top: 30px;
@@ -12,9 +14,11 @@ const StyledModal = styled(Modal)`
 
 const MODAL_WIDTH_PX = 800;
 
+const UI_Z_INDEX = 1000;
+
 const MODAL_BODY_STYLE = { padding: 0, height: '70vh' };
 
-type Props = {
+type SearchSelectModalProps = {
     fixedEntityTypes?: Array<EntityType> | null;
     placeholderText?: string | null;
     titleText?: string | null;
@@ -38,7 +42,7 @@ export const SearchSelectModal = ({
     onContinue,
     onCancel,
     limit,
-}: Props) => {
+}: SearchSelectModalProps) => {
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
     const onCancelSelect = () => {
@@ -66,7 +70,7 @@ export const SearchSelectModal = ({
                 bodyStyle={MODAL_BODY_STYLE}
                 title={titleText || 'Select entities'}
                 width={MODAL_WIDTH_PX}
-                zIndex={999}
+                zIndex={UI_Z_INDEX}
                 visible
                 onCancel={onCancelSelect}
                 footer={

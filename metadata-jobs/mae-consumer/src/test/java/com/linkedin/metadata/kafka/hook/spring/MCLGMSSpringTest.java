@@ -69,6 +69,6 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
 
     assertNotNull(updateIndicesService.getUpdateGraphIndicesService());
     assertTrue(updateIndicesService.getUpdateGraphIndicesService().isGraphDiffMode());
-    assertTrue(updateIndicesService.getUpdateGraphIndicesService().isGraphStatusEnabled());
+    assertFalse(updateIndicesService.getUpdateGraphIndicesService().isGraphStatusEnabled());
   }
 }

@@ -8,7 +8,7 @@ export function getAssetDescriptionDetails({
     defaultDescription?: string | null;
 }) {
     // get most recent documentation aspect
-    const sortedDocumentations = entityProperties?.documentation?.documentations.sort(
+    const sortedDocumentations = entityProperties?.documentation?.documentations?.sort(
         (doc1, doc2) => (doc2.attribution?.time || 0) - (doc1.attribution?.time || 0),
     );
     const documentation = sortedDocumentations?.[0];

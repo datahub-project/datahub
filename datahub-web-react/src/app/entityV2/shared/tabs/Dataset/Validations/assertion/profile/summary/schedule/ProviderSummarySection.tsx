@@ -1,11 +1,11 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { ApiOutlined } from '@ant-design/icons';
+import React from 'react';
+import styled from 'styled-components';
 
-import { AssertionPlatformAvatar } from '../../../../AssertionPlatformAvatar';
-import { AssertionScheduleSummarySection } from './AssertionScheduleSummarySection';
-import { Assertion } from '../../../../../../../../../../types.generated';
+import { AssertionPlatformAvatar } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionPlatformAvatar';
+import { AssertionScheduleSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummarySection';
+
+import { Assertion } from '@types';
 
 const StyledApiOutlined = styled(ApiOutlined)`
     margin-right: 8px;

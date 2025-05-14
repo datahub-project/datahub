@@ -1,9 +1,17 @@
 import { ButtonHTMLAttributes } from 'react';
 
-import type { IconNames } from '@components';
-import type { SizeOptions, ColorOptions, FontSizeOptions } from '@components/theme/config';
+import { IconProps } from '@components/components/Icon/types';
+import type { ColorOptions, SizeOptions } from '@components/theme/config';
 
-export type ButtonVariant = 'filled' | 'outline' | 'text';
+import { Theme } from '@src/conf/theme/types';
+
+export enum ButtonVariantValues {
+    filled = 'filled',
+    outline = 'outline',
+    text = 'text',
+    secondary = 'secondary',
+}
+export type ButtonVariant = keyof typeof ButtonVariantValues;
 
 export interface ButtonPropsDefaults {
     variant: ButtonVariant;
@@ -19,8 +27,7 @@ export interface ButtonPropsDefaults {
 export interface ButtonProps
     extends Partial<ButtonPropsDefaults>,
         Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'color'> {
-    icon?: IconNames;
-    iconSize?: FontSizeOptions;
+    icon?: IconProps;
 }
 
-export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'>;
+export type ButtonStyleProps = Omit<ButtonPropsDefaults, 'iconPosition'> & { hasChildren: boolean; theme?: Theme };

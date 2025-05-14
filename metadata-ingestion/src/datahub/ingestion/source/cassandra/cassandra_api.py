@@ -1,3 +1,4 @@
+import ssl
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -23,9 +24,9 @@ class CassandraKeyspace:
 
 
 @dataclass
-class CassandraTable:
+class CassandraSharedDatasetFields:
     keyspace_name: str
-    table_name: str
+
     bloom_filter_fp_chance: Optional[float]
     caching: Optional[Dict[str, str]]
     comment: Optional[str]
@@ -44,6 +45,11 @@ class CassandraTable:
 
 
 @dataclass
+class CassandraTable(CassandraSharedDatasetFields):
+    table_name: str
+
+
+@dataclass
 class CassandraColumn:
     keyspace_name: str
     table_name: str
@@ -55,8 +61,10 @@ class CassandraColumn:
 
 
 @dataclass
-class CassandraView(CassandraTable):
+class CassandraView(CassandraSharedDatasetFields):
     view_name: str
+
+    base_table_name: str
     include_all_columns: Optional[bool]
     where_clause: str = ""
 
@@ -121,6 +129,23 @@ class CassandraAPI:
 
                 self._cassandra_session = cluster.connect()
                 return True
+
+            ssl_context = None
+            if self.config.ssl_ca_certs:
+                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+                ssl_context.load_verify_locations(self.config.ssl_ca_certs)
+                if self.config.ssl_certfile and self.config.ssl_keyfile:
+                    ssl_context.load_cert_chain(
+                        certfile=self.config.ssl_certfile,
+                        keyfile=self.config.ssl_keyfile,
+                    )
+                elif self.config.ssl_certfile or self.config.ssl_keyfile:
+                    # If one is provided, the other must be too.
+                    # This is a simplification; real-world scenarios might allow one without the other depending on setup.
+                    raise ValueError(
+                        "Both ssl_certfile and ssl_keyfile must be provided if one is specified."
+                    )
+
             if self.config.username and self.config.password:
                 auth_provider = PlainTextAuthProvider(
                     username=self.config.username, password=self.config.password
@@ -129,12 +154,14 @@ class CassandraAPI:
                     [self.config.contact_point],
                     port=self.config.port,
                     auth_provider=auth_provider,
+                    ssl_context=ssl_context,
                     load_balancing_policy=None,
                 )
             else:
                 cluster = Cluster(
                     [self.config.contact_point],
                     port=self.config.port,
+                    ssl_context=ssl_context,
                     load_balancing_policy=None,
                 )
 
@@ -152,7 +179,8 @@ class CassandraAPI:
             self.report.failure(message="Failed to authenticate to Cassandra", exc=e)
             return False
 
-    def get(self, query: str, parameters: Optional[List] = []) -> List:
+    def get(self, query: str, parameters: Optional[List] = None) -> List:
+        parameters = parameters or []
         if not self._cassandra_session:
             return []
 
@@ -261,7 +289,7 @@ class CassandraAPI:
             views = self.get(CassandraQueries.GET_VIEWS_QUERY, [keyspace_name])
             view_list = [
                 CassandraView(
-                    table_name=row.base_table_name,
+                    base_table_name=row.base_table_name,
                     keyspace_name=row.keyspace_name,
                     view_name=row.view_name,
                     bloom_filter_fp_chance=row.bloom_filter_fp_chance,

@@ -1,19 +1,23 @@
 import { LoadingOutlined } from '@ant-design/icons';
+import { Empty, Select, message } from 'antd';
 import Modal from 'antd/lib/modal/Modal';
-import { Button, Empty, Select, message } from 'antd';
-import { getModalDomContainer } from '@src/utils/focus';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { debounce } from 'lodash';
 import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
+
+import { IconStyleType } from '@app/entityV2/Entity';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Button } from '@src/alchemy-components';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { DataProduct, Entity, EntityType } from '../../../../../../../types.generated';
-import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { IconStyleType } from '../../../../../Entity';
-import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
-import { handleBatchError } from '../../../../utils';
+import { getModalDomContainer } from '@src/utils/focus';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
+import { DataProduct, Entity, EntityType } from '@types';
 
 const OptionWrapper = styled.div`
     padding: 2px 0;
@@ -62,7 +66,7 @@ export default function SetDataProductModal({
 
     const displayedDataProducts: Entity[] =
         !showRecommendations && data?.autoCompleteForMultiple?.suggestions
-            ? data?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities)
+            ? data?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities)
             : recommendedDataProducts;
 
     const handleSearch = useMemo(() => {
@@ -167,14 +171,14 @@ export default function SetDataProductModal({
             onCancel={onModalClose}
             getContainer={getModalDomContainer}
             footer={
-                <>
-                    <Button onClick={onModalClose} type="text">
+                <ModalButtonContainer>
+                    <Button variant="text" color="gray" onClick={onModalClose}>
                         Cancel
                     </Button>
-                    <Button type="primary" id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
+                    <Button id="setDataProductButton" disabled={!selectedDataProduct} onClick={onOk}>
                         Save
                     </Button>
-                </>
+                </ModalButtonContainer>
             }
         >
             <Select

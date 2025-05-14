@@ -1,15 +1,17 @@
 import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Section } from '../Section';
-import { PlatformCard } from './PlatformCard';
-import { useGetPlatforms } from './useGetPlatforms';
-import { useUserContext } from '../../../../../../context/useUserContext';
-import { HOME_PAGE_PLATFORMS_ID } from '../../../../../../onboarding/config/HomePageOnboardingConfig';
-import { useUpdateEducationStepsAllowList } from '../../../../../../onboarding/useUpdateEducationStepsAllowList';
-import { Carousel } from '../../../../../../sharedV2/carousel/Carousel';
-import { HorizontalListSkeletons } from '../../../../HorizontalListSkeletons';
-import OnboardingContext from '../../../../../../onboarding/OnboardingContext';
+
+import analytics, { EventType, HomePageModule } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
+import { Section } from '@app/homeV2/content/tabs/discovery/sections/Section';
+import { PlatformCard } from '@app/homeV2/content/tabs/discovery/sections/platform/PlatformCard';
+import { useGetPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { HOME_PAGE_PLATFORMS_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
+import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
+import { Carousel } from '@app/sharedV2/carousel/Carousel';
 
 const SkeletonCard = styled(Skeleton.Button)<{ width: string }>`
     &&& {
@@ -25,6 +27,15 @@ export const Platforms = () => {
 
     useUpdateEducationStepsAllowList(!!platforms.length, HOME_PAGE_PLATFORMS_ID);
 
+    const handlePlatformClick = (platformUrn: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.Discover,
+            section: 'Platforms',
+            value: platformUrn,
+        });
+    };
+
     const showSkeleton = isUserInitializing || !user || loading;
     return (
         <div id={HOME_PAGE_PLATFORMS_ID}>
@@ -33,11 +44,13 @@ export const Platforms = () => {
                 <Section title="Platforms">
                     <Carousel>
                         {platforms.map((platform) => (
-                            <PlatformCard
+                            // eslint-disable-next-line
+                            <span
                                 key={platform.platform.urn}
-                                platform={platform.platform}
-                                count={platform.count}
-                            />
+                                onClick={() => handlePlatformClick(platform.platform.urn)}
+                            >
+                                <PlatformCard platform={platform.platform} count={platform.count} />
+                            </span>
                         ))}
                     </Carousel>
                 </Section>

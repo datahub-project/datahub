@@ -17,6 +17,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataplatforminstance.IcebergWarehouseInfo;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.client.CacheEvictionService;
 import com.linkedin.secret.DataHubSecretValue;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.Utils;
@@ -47,6 +48,7 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
   @Mock protected HttpServletRequest request;
   @Mock protected SecretService secretService;
   @Mock protected EntitySearchService entitySearchService;
+  @Mock protected CacheEvictionService cacheEvictionService;
 
   private OperationContext systemOperationContext;
   private Authentication authentication;
@@ -87,6 +89,7 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
     injectField("authorizer", authorizer);
     injectField("systemOperationContext", systemOperationContext);
     injectField("cachingCredentialProvider", credentialProvider);
+    injectField("cacheEvictionService", cacheEvictionService);
   }
 
   protected void setupDefaultAuthorization(boolean isAuthorized) {

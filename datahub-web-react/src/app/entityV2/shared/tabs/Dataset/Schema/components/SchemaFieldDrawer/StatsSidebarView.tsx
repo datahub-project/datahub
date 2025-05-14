@@ -1,22 +1,22 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { LoadingOutlined } from '@ant-design/icons';
-import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
-import StatsSidebarHeader, { StatsViewType } from './StatsSidebarHeader';
-import { StatsSidebarContent } from './StatsSidebarContent';
-import StatsSidebarColumnTab from './StatsSidebarColumnTab';
-import { LOOKBACK_WINDOWS, LookbackWindow } from '../../../Stats/lookbackWindows';
-import {
-    getFixedLookbackWindow,
-    toLocalDateString,
-    toLocalTimeString,
-} from '../../../../../../../shared/time/timeUtils';
 
-interface Props {
+import StatsSidebarColumnTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarColumnTab';
+import { StatsSidebarContent } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarContent';
+import StatsSidebarHeader, {
+    StatsViewType,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarHeader';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { getFixedLookbackWindow, toLocalDateString, toLocalTimeString } from '@app/shared/time/timeUtils';
+
+import { DatasetFieldProfile, DatasetProfile, SchemaField } from '@types';
+
+export interface StatsProps {
     properties: {
         expandedField: SchemaField;
         fieldProfile: DatasetFieldProfile | undefined;
-        profiles: any[];
+        profiles: DatasetProfile[];
         fetchDataWithLookbackWindow: (lookbackWindow: any) => void;
         profilesDataLoading: boolean;
     };
@@ -34,12 +34,12 @@ const LoadingText = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: #533fd1;
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 export default function StatsSidebarView({
     properties: { expandedField, fieldProfile, profiles, fetchDataWithLookbackWindow, profilesDataLoading },
-}: Props) {
+}: StatsProps) {
     const [viewType, setViewType] = useState(StatsViewType.LATEST);
     const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.QUARTER);
 

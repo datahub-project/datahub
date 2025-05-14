@@ -1,6 +1,8 @@
 import { useCallback } from 'react';
-import { useBatchUpdateStepStatesMutation } from '../../../graphql/step.generated';
-import { LAST_VIEWED_ANNOUNCEMENT_TIME_STEP } from './utils';
+
+import { LAST_VIEWED_ANNOUNCEMENT_TIME_STEP } from '@app/homeV2/shared/utils';
+
+import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
 
 export const useUpdateLastViewedAnnouncementTime = () => {
     const [updateStepState] = useBatchUpdateStepStatesMutation();

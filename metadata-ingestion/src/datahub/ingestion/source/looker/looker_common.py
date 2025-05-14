@@ -299,6 +299,7 @@ class ViewField:
     view_name: Optional[str] = None
     is_primary_key: bool = False
     tags: List[str] = dataclasses_field(default_factory=list)
+    group_label: Optional[str] = None
 
     # It is the list of ColumnRef for derived view defined using SQL otherwise simple column name
     upstream_fields: Union[List[ColumnRef]] = dataclasses_field(default_factory=list)
@@ -326,6 +327,7 @@ class ViewField:
         description = field_dict.get("description", default_description)
 
         label = field_dict.get("label", "")
+        group_label = field_dict.get("group_label")
 
         return ViewField(
             name=name,
@@ -336,6 +338,7 @@ class ViewField:
             field_type=type_cls,
             tags=field_dict.get("tags") or [],
             upstream_fields=upstream_column_ref,
+            group_label=group_label,
         )
 
 
@@ -471,7 +474,10 @@ def get_view_file_path(
     logger.debug("Entered")
 
     for field in lkml_fields:
-        if field.view == view_name:
+        if (
+            LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
+            == view_name
+        ):
             # This path is relative to git clone directory
             logger.debug(f"Found view({view_name}) file-path {field.source_file}")
             return field.source_file
@@ -701,14 +707,47 @@ class LookerUtil:
         ),
     }
 
+    # Add a pattern-based regex for checking if a tag is a group_label tag
+    GROUP_LABEL_TAG_PATTERN = re.compile(r"^looker\:group_label\:(.+)$")
+
     @staticmethod
     def _get_tag_mce_for_urn(tag_urn: str) -> MetadataChangeEvent:
-        assert tag_urn in LookerUtil.tag_definitions
-        return MetadataChangeEvent(
-            proposedSnapshot=TagSnapshotClass(
-                urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
+        # Check if this is a group_label tag
+        tag_name = tag_urn[len("urn:li:tag:") :]
+        match = LookerUtil.GROUP_LABEL_TAG_PATTERN.match(tag_name)
+
+        if match:
+            # This is a group_label tag, create tag definition on the fly
+            group_label_value = match.group(1)
+            tag_properties = TagPropertiesClass(
+                name=f"looker:group_label:{group_label_value}",
+                description=f"Fields with Looker group label: {group_label_value}",
             )
-        )
+
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(urn=tag_urn, aspects=[tag_properties])
+            )
+        elif tag_urn in LookerUtil.tag_definitions:
+            # This is a predefined tag
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(
+                    urn=tag_urn, aspects=[LookerUtil.tag_definitions[tag_urn]]
+                )
+            )
+        else:
+            # Should not happen, but handle gracefully
+            logger.warning(f"No tag definition found for tag URN: {tag_urn}")
+            return MetadataChangeEvent(
+                proposedSnapshot=TagSnapshotClass(
+                    urn=tag_urn,
+                    aspects=[
+                        TagPropertiesClass(
+                            name=tag_name,
+                            description=f"Tag: {tag_name}",
+                        )
+                    ],
+                )
+            )
 
     @staticmethod
     def _get_tags_from_field_type(
@@ -730,6 +769,14 @@ class LookerUtil:
             reporter.report_warning(
                 title="Failed to Map View Field Type",
                 message=f"Failed to map view field type {field.field_type}. Won't emit tags for measure and dimension",
+            )
+
+        # Add group_label as tags if present
+        if field.group_label:
+            schema_field_tags.append(
+                TagAssociationClass(
+                    tag=builder.make_tag_urn(f"looker:group_label:{field.group_label}")
+                )
             )
 
         if schema_field_tags:
@@ -1027,6 +1074,7 @@ class LookerExplore:
                                         else False
                                     ),
                                     upstream_fields=[],
+                                    group_label=dim_field.field_group_label,
                                 )
                             )
                 if explore.fields.measures is not None:
@@ -1065,6 +1113,7 @@ class LookerExplore:
                                         else False
                                     ),
                                     upstream_fields=[],
+                                    group_label=measure_field.field_group_label,
                                 )
                             )
 
@@ -1103,7 +1152,7 @@ class LookerExplore:
                     [column_ref] if column_ref is not None else []
                 )
 
-            return cls(
+            looker_explore = cls(
                 name=explore_name,
                 model_name=model,
                 project_name=explore.project_name,
@@ -1121,6 +1170,8 @@ class LookerExplore:
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
             )
+            logger.debug(f"Created LookerExplore from API: {looker_explore}")
+            return looker_explore
         except SDKError as e:
             if "<title>Looker Not Found (404)</title>" in str(e):
                 logger.info(
@@ -1160,6 +1211,9 @@ class LookerExplore:
     def get_explore_urn(self, config: LookerCommonConfig) -> str:
         dataset_name = config.explore_naming_pattern.replace_variables(
             self.get_mapping(config)
+        )
+        logger.debug(
+            f"Generated dataset_name={dataset_name} for explore with model_name={self.model_name}, name={self.name}"
         )
 
         return builder.make_dataset_urn_with_platform_instance(
@@ -1362,6 +1416,7 @@ class LookerExploreRegistry:
 
     @lru_cache(maxsize=200)
     def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
+        logger.debug(f"Retrieving explore: model={model}, explore={explore}")
         looker_explore = LookerExplore.from_api(
             model,
             explore,
@@ -1369,6 +1424,12 @@ class LookerExploreRegistry:
             self.report,
             self.source_config,
         )
+        if looker_explore is not None:
+            logger.debug(
+                f"Found explore with model_name={looker_explore.model_name}, name={looker_explore.name}"
+            )
+        else:
+            logger.debug(f"No explore found for model={model}, explore={explore}")
         return looker_explore
 
     def compute_stats(self) -> Dict:

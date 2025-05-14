@@ -6,17 +6,17 @@ The Oracle ingestion source supports two modes for extracting metadata informati
 
 The following table contains a brief description of what each data dictionary view is used for:
 
-| Data Dictionary View | What's it used for? |
-| --- | --- |
-| `ALL_TABLES` or `DBA_TABLES` | Get list of all relational tables in the database |
-| `ALL_VIEWS` or `DBA_VIEWS` | Get list of all views in the database |
-| `ALL_TAB_COMMENTS` or `DBA_TAB_COMMENTS` | Get comments on tables and views |
-| `ALL_TAB_COLS` or `DBA_TAB_COLS` | Get description of the columns of tables and views |
-| `ALL_COL_COMMENTS` or `DBA_COL_COMMENTS` | Get comments on the columns of tables and views |
-| `ALL_TAB_IDENTITY_COLS` or `DBA_TAB_IDENTITY_COLS` | Get table identity columns |
-| `ALL_CONSTRAINTS` or `DBA_CONSTRAINTS` | Get constraint definitions on tables |
-| `ALL_CONS_COLUMNS` or `DBA_CONS_COLUMNS` | Get list of columns that are specified in constraints |
-| `ALL_USERS` or `DBA_USERS` | Get all schema names |
+| Data Dictionary View                               | What's it used for?                                   |
+| -------------------------------------------------- | ----------------------------------------------------- |
+| `ALL_TABLES` or `DBA_TABLES`                       | Get list of all relational tables in the database     |
+| `ALL_VIEWS` or `DBA_VIEWS`                         | Get list of all views in the database                 |
+| `ALL_TAB_COMMENTS` or `DBA_TAB_COMMENTS`           | Get comments on tables and views                      |
+| `ALL_TAB_COLS` or `DBA_TAB_COLS`                   | Get description of the columns of tables and views    |
+| `ALL_COL_COMMENTS` or `DBA_COL_COMMENTS`           | Get comments on the columns of tables and views       |
+| `ALL_TAB_IDENTITY_COLS` or `DBA_TAB_IDENTITY_COLS` | Get table identity columns                            |
+| `ALL_CONSTRAINTS` or `DBA_CONSTRAINTS`             | Get constraint definitions on tables                  |
+| `ALL_CONS_COLUMNS` or `DBA_CONS_COLUMNS`           | Get list of columns that are specified in constraints |
+| `ALL_USERS` or `DBA_USERS`                         | Get all schema names                                  |
 
 #### Data Dictionary Views accessible information and required privileges
 

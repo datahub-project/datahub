@@ -9,14 +9,13 @@ import { retry } from "@octokit/plugin-retry";
 // Note: this must be executed within the docs-website directory.
 
 // Constants.
-const HOSTED_SITE_URL = "https://datahubproject.io";
+const HOSTED_SITE_URL = "https://docs.datahub.com";
 const GITHUB_EDIT_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 const GITHUB_BROWSE_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 
 const OUTPUT_DIRECTORY = "docs";
-const STATIC_DIRECTORY = "genStatic/artifacts";
 
 const SIDEBARS_DEF_PATH = "./sidebars.js";
 const sidebars = require(SIDEBARS_DEF_PATH);
@@ -284,6 +283,10 @@ function markdown_add_slug(
 //   );
 // }
 
+function preprocess_url(url: string): string {
+  return url.trim().replace(/^<(.+)>$/, "$1");
+}
+
 function trim_anchor_link(url: string): string {
   return url.replace(/#.+$/, "");
 }
@@ -383,7 +386,7 @@ function markdown_rewrite_urls(
       // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
       /\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
-        const updated = new_url(url.trim(), filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}](${updated})`;
       }
     )
@@ -391,7 +394,7 @@ function markdown_rewrite_urls(
       // Also look for the [text]: url syntax.
       /^\[([^^\n\r]+?)\]\s*:\s*(.+?)\s*$/gm,
       (_, text, url) => {
-        const updated = new_url(url, filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}]: ${updated}`;
       }
     );
@@ -520,10 +523,13 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
 
 ## Summary\n\n`);
 
-  const releases_list = await octokit.rest.repos.listReleases({
+  const releases_list_full = await octokit.rest.repos.listReleases({
     owner: "datahub-project",
     repo: "datahub",
   });
+  const releases_list = releases_list_full.data.filter(
+    (release) => !release.prerelease && !release.draft
+  );
 
   // We only embed release notes for releases in the last 3 months.
   const release_notes_date_cutoff = new Date(
@@ -534,10 +540,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   const releaseNoteVersions = new Set();
   contents.content += "| Version | Release Date | Links |\n";
   contents.content += "| ------- | ------------ | ----- |\n";
-  for (const release of releases_list.data) {
-    if (release.prerelease || release.draft) {
-      continue;
-    }
+  for (const release of releases_list) {
     const release_date = new Date(Date.parse(release.created_at));
 
     let row = `| **${release.tag_name}** | ${pretty_format_date(
@@ -554,7 +557,7 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   contents.content += "\n\n";
 
   // Full details
-  for (const release of releases_list.data) {
+  for (const release of releases_list) {
     let body: string;
     if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";
@@ -604,25 +607,6 @@ function write_markdown_file(
     console.log(`Failed to write file ${output_filepath}`);
     console.log(`contents = ${contents}`);
     throw error;
-  }
-}
-
-function copy_python_wheels(): void {
-  // Copy the built wheel files to the static directory.
-  // Everything is copied to the python-build directory first, so
-  // we just need to copy from there.
-  const wheel_dir = "../python-build/wheels";
-
-  const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
-  fs.mkdirSync(wheel_output_directory, { recursive: true });
-
-  const wheel_files = fs.readdirSync(wheel_dir);
-  for (const wheel_file of wheel_files) {
-    const src = path.join(wheel_dir, wheel_file);
-    const dest = path.join(wheel_output_directory, wheel_file);
-
-    // console.log(`Copying artifact ${src} to ${dest}...`);
-    fs.copyFileSync(src, dest);
   }
 }
 
@@ -680,8 +664,5 @@ function copy_python_wheels(): void {
       );
     }
   }
-
-  // Generate static directory.
-  copy_python_wheels();
   // TODO: copy over the source json schemas + other artifacts.
 })();

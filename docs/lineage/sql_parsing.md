@@ -10,11 +10,11 @@ DataHub's SQL parser is built on top of [sqlglot](https://github.com/tobymao/sql
 
 In our benchmarks, the DataHub SQL parser generates lineage with 97-99% accuracy and outperforms other SQL parsers by a wide margin.
 
-We've published a blog post on some of the technical details of the parser: [Extracting Column Lineage from SQL Queries](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567).
+We've published a blog post on some of the technical details of the parser: [Extracting Column Lineage from SQL Queries](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce17567).
 
 ## Built-in SQL Parsing Support
 
-If you're using a tool that DataHub already [integrates with](https://datahubproject.io/integrations), check the documentation for that specific integration.
+If you're using a tool that DataHub already [integrates with](https://docs.datahub.com/integrations), check the documentation for that specific integration.
 Most of our integrations, including Snowflake, BigQuery, Redshift, dbt, Looker, PowerBI, Airflow, etc, use the SQL parser to generate column-level lineage and usage statistics.
 
 If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, the [SQL queries](../generated/ingestion/sources/sql-queries.md) connector can generate column-level lineage and table/column usage statistics from the query log.
@@ -45,10 +45,11 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
 ### Not supported
 
 - Scalar `UDFs` - We will generate lineage pointing at the columns that are inputs to the UDF, but will not be able to understand the UDF itself.
-- Tabular `UDFs`
+- Table-valued functions, including tabular `UDFs`
 - `json_extract` and similar functions
 - `UNNEST` - We will do a best-effort job, but cannot reliably generate column-level lineage in the presence of `UNNEST` constructs.
 - Structs - We will do a best-effort attempt to resolve struct subfields, but it is not guaranteed. This will only impact column-level lineage.
+  - This extends to things like dynamic table unpacking e.g. `SELECT IF (main.id is not null, main, extras).* FROM my_schema.main_users main FULL JOIN my_schema.external_users extras USING (id)` in BigQuery.
 - Snowflake's multi-table inserts
 - Multi-statement SQL / SQL scripting
 
@@ -59,5 +60,6 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
   - `INSERT INTO (col1_new, col2_new) SELECT col1_old, col2_old FROM ...`. We only support `INSERT INTO` statements that either (1) don't specify a column list, or (2) specify a column list that matches the columns in the `SELECT` clause.
   - `MERGE INTO` statements - We don't generate column-level lineage for these.
 - In cases where the table schema information in DataHub is outdated or otherwise incorrect, we may not be able to generate accurate column-level lineage.
-- We trip over BigQuery queries that use the `_partitiontime` and `_partitiondate` pseudo-columns with a table name prefix e.g. `my_table._partitiontime` fails. However, unqualified references like `_partitiontime` and `_partitiondate` will be fine.
-- We do not consider columns referenced in `WHERE`, `GROUP BY`, `ORDER BY`, etc. clauses to be part of lineage. For example, `SELECT col1, col2 FROM upstream_table WHERE col3 = 3` will not generate any lineage related to `col3`.
+- We sometimes trip over BigQuery queries that use the `_partitiontime` and `_partitiondate` pseudo-columns with a table name prefix e.g. `my_table._partitiontime` fails. However, unqualified references like `_partitiontime` and `_partitiondate` will be fine.
+- We do not consider columns referenced in filtering or organizational clauses such as `WHERE`, `GROUP BY`, `ORDER BY`, `JOIN`, `HAVING`, or `PARTITION BY` to be part of lineage. For example, `SELECT col1, col2 FROM upstream_table WHERE col3 = 3` will not generate any lineage related to `col3`.
+- We generally only analyze static table references. For example, this Snowflake query will not generate any lineage: `SELECT * FROM identifier('my_db.my_schema.my_table')`, since the `identifier` function is resolved at SQL runtime.

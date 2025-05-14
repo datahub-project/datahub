@@ -1,23 +1,9 @@
-import { DownloadOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
-import { Tooltip } from '@components';
+import { Button, Tooltip, colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { SEARCH_COLORS } from '../../entityV2/shared/constants';
 
-const DownloadCsvButton = styled(Button)`
-    font-size: 8px;
-    padding-left: 12px;
-    padding-right: 12px;
-    background-color: ${SEARCH_COLORS.TITLE_PURPLE};
-    color: #ffffff;
-    :hover {
-        background-color: #ffffff;
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
-        border: 1px solid ${SEARCH_COLORS.TITLE_PURPLE};
-    }
-    height: 28px;
-    margin: 0px 8px;
+const StyledButton = styled(Button)`
+    border: 1px solid ${colors.gray[100]};
 `;
 
 type Props = {
@@ -29,14 +15,18 @@ type Props = {
 export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadingCsv, disabled }: Props) {
     return (
         <Tooltip title="Download results..." showArrow={false} placement="top">
-            <DownloadCsvButton
-                type="text"
+            <StyledButton
                 onClick={() => setShowDownloadAsCsvModal(true)}
                 disabled={isDownloadingCsv || disabled}
+                isCircle
+                icon={{ icon: 'DownloadSimple', source: 'phosphor' }}
+                variant="text"
+                color="gray"
+                size="sm"
+                data-testid="download-csv-button"
             >
-                <DownloadOutlined />
                 {isDownloadingCsv ? 'Downloading...' : null}
-            </DownloadCsvButton>
+            </StyledButton>
         </Tooltip>
     );
 }

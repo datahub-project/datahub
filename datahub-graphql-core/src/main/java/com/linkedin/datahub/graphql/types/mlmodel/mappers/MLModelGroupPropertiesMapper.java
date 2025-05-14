@@ -52,6 +52,10 @@ public class MLModelGroupPropertiesMapper
           TimeStampToAuditStampMapper.map(context, mlModelGroupProperties.getLastModified()));
     }
 
+    if (mlModelGroupProperties.getExternalUrl() != null) {
+      result.setExternalUrl(mlModelGroupProperties.getExternalUrl().toString());
+    }
+
     result.setCustomProperties(
         CustomPropertiesMapper.map(mlModelGroupProperties.getCustomProperties(), entityUrn));
 

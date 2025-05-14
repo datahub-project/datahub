@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { useGetAutoCompleteResultsLazyQuery } from '../../../../graphql/search.generated';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { GenericEntityProperties } from '../../../entity/shared/types';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 interface Props {
     entityType: EntityType;

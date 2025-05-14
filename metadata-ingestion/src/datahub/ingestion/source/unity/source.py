@@ -464,7 +464,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
             with self.report.new_stage(f"Ingest schema {schema.id}"):
                 yield from self.gen_schema_containers(schema)
-                yield from self.process_tables(schema)
+                try:
+                    yield from self.process_tables(schema)
+                except Exception as e:
+                    logger.exception(f"Error parsing schema {schema}")
+                    self.report.report_warning(
+                        message="Missed schema because of parsing issues",
+                        context=str(schema),
+                        title="Error parsing schema",
+                        exc=e,
+                    )
+                    continue
 
                 self.report.schemas.processed(schema.id)
 
@@ -993,7 +1003,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             generate_usage_statistics=False,
             generate_operations=False,
         )
-        for dataset_name in self.view_definitions.keys():
+        for dataset_name in self.view_definitions:
             view_ref, view_definition = self.view_definitions[dataset_name]
             result = self._run_sql_parser(
                 view_ref,

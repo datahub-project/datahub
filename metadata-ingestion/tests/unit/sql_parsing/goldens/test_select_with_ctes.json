@@ -11,28 +11,56 @@
         {
             "downstream": {
                 "table": null,
-                "column": "COL1",
+                "column": "col1",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)",
-                    "column": "COL1"
+                    "column": "col1"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TABLE1\".\"COL1\" AS \"COL1\""
+            }
         },
         {
             "downstream": {
                 "table": null,
-                "column": "COL3",
+                "column": "col3",
                 "column_type": null,
                 "native_column_type": null
             },
             "upstreams": [
                 {
                     "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)",
-                    "column": "COL3"
+                    "column": "col3"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"TABLE2\".\"COL3\" AS \"COL3\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)"
+            ],
+            "on_clause": "\"CTE1\".\"COL2\" = \"CTE2\".\"COL4\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,table1,PROD)",
+                    "column": "COL2"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:oracle,table2,PROD)",
+                    "column": "COL4"
                 }
             ]
         }

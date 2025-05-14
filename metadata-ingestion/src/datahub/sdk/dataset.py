@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Type, Union
 
 from typing_extensions import Self, TypeAlias, assert_never
 
@@ -13,37 +13,43 @@ from datahub.errors import (
     IngestionAttributionWarning,
     ItemNotFoundError,
     SchemaFieldKeyError,
+    SdkUsageError,
 )
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
-from datahub.sdk._entity import Entity
 from datahub.sdk._shared import (
-    ContainerInputType,
     DatasetUrnOrStr,
     DomainInputType,
     HasContainer,
     HasDomain,
+    HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
     HasSubtype,
     HasTags,
     HasTerms,
+    LinksInputType,
     OwnersInputType,
+    ParentContainerInputType,
+    TagInputType,
     TagsInputType,
+    TermInputType,
     TermsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk._utils import add_list_unique, remove_list_unique
+from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.utilities.sentinels import Unset, unset
 
 SchemaFieldInputType: TypeAlias = Union[
-    str,
     Tuple[str, str],  # (name, type)
     Tuple[str, str, str],  # (name, type, description)
     models.SchemaFieldClass,
 ]
 SchemaFieldsInputType: TypeAlias = Union[
-    List[SchemaFieldInputType],
+    Sequence[SchemaFieldInputType],
     models.SchemaMetadataClass,
 ]
 
@@ -68,9 +74,9 @@ UpstreamLineageInputType: TypeAlias = Union[
 def _parse_upstream_input(
     upstream_input: UpstreamInputType,
 ) -> Union[models.UpstreamClass, models.FineGrainedLineageClass]:
-    if isinstance(upstream_input, models.UpstreamClass):
-        return upstream_input
-    elif isinstance(upstream_input, models.FineGrainedLineageClass):
+    if isinstance(
+        upstream_input, (models.UpstreamClass, models.FineGrainedLineageClass)
+    ):
         return upstream_input
     elif isinstance(upstream_input, (str, DatasetUrn)):
         return models.UpstreamClass(
@@ -81,7 +87,7 @@ def _parse_upstream_input(
         assert_never(upstream_input)
 
 
-def _parse_cll_mapping(
+def parse_cll_mapping(
     *,
     upstream: DatasetUrnOrStr,
     downstream: DatasetUrnOrStr,
@@ -136,7 +142,7 @@ def _parse_upstream_lineage_input(
                 )
             )
             cll.extend(
-                _parse_cll_mapping(
+                parse_cll_mapping(
                     upstream=dataset_urn,
                     downstream=downstream_urn,
                     cll_mapping=column_lineage,
@@ -271,6 +277,51 @@ class SchemaField:
                 tags=parsed_tags
             )
 
+    def add_tag(self, tag: TagInputType) -> None:
+        parsed_tag = self._parent._parse_tag_association_class(tag)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field tags in ingestion mode is not yet supported. "
+                "Use set_tags instead."
+            )
+        else:
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.globalTags is None:
+                editable_field.globalTags = models.GlobalTagsClass(tags=[])
+
+            add_list_unique(
+                editable_field.globalTags.tags,
+                key=self._parent._tag_key,
+                item=parsed_tag,
+            )
+
+    def remove_tag(self, tag: TagInputType) -> None:
+        parsed_tag = self._parent._parse_tag_association_class(tag)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field tags in ingestion mode is not yet supported. "
+                "Use set_tags instead."
+            )
+        else:
+            base_field = self._base_schema_field()
+            if base_field.globalTags is not None:
+                remove_list_unique(
+                    base_field.globalTags.tags,
+                    key=self._parent._tag_key,
+                    item=parsed_tag,
+                    missing_ok=True,
+                )
+
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.globalTags is not None:
+                remove_list_unique(
+                    editable_field.globalTags.tags,
+                    key=self._parent._tag_key,
+                    item=parsed_tag,
+                )
+
     @property
     def terms(self) -> Optional[List[models.GlossaryTermAssociationClass]]:
         # TODO: Basically the same implementation as tags - can we share code?
@@ -287,7 +338,7 @@ class SchemaField:
 
         return terms
 
-    def set_terms(self, terms: List[models.GlossaryTermAssociationClass]) -> None:
+    def set_terms(self, terms: TermsInputType) -> None:
         parsed_terms = [
             self._parent._parse_glossary_term_association_class(term) for term in terms
         ]
@@ -318,21 +369,83 @@ class SchemaField:
                 )
             )
 
+    def add_term(self, term: TermInputType) -> None:
+        parsed_term = self._parent._parse_glossary_term_association_class(term)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Adding field terms in ingestion mode is not yet supported. "
+                "Use set_terms instead."
+            )
+        else:
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.glossaryTerms is None:
+                editable_field.glossaryTerms = models.GlossaryTermsClass(
+                    terms=[],
+                    auditStamp=self._parent._terms_audit_stamp(),
+                )
+
+            add_list_unique(
+                editable_field.glossaryTerms.terms,
+                key=self._parent._terms_key,
+                item=parsed_term,
+            )
+
+    def remove_term(self, term: TermInputType) -> None:
+        parsed_term = self._parent._parse_glossary_term_association_class(term)
+
+        if is_ingestion_attribution():
+            raise SdkUsageError(
+                "Removing field terms in ingestion mode is not yet supported. "
+                "Use set_terms instead."
+            )
+        else:
+            base_field = self._base_schema_field()
+            if base_field.glossaryTerms is not None:
+                remove_list_unique(
+                    base_field.glossaryTerms.terms,
+                    key=self._parent._terms_key,
+                    item=parsed_term,
+                    missing_ok=True,
+                )
+
+            editable_field = self._ensure_editable_schema_field()
+            if editable_field.glossaryTerms is not None:
+                remove_list_unique(
+                    editable_field.glossaryTerms.terms,
+                    key=self._parent._terms_key,
+                    item=parsed_term,
+                    missing_ok=True,
+                )
+
 
 class Dataset(
     HasPlatformInstance,
     HasSubtype,
     HasContainer,
     HasOwnership,
+    HasInstitutionalMemory,
     HasTags,
     HasTerms,
     HasDomain,
     Entity,
 ):
+    """Represents a dataset in DataHub.
+
+    A dataset represents a collection of data, such as a table, view, or file.
+    This class provides methods for managing dataset metadata including schema,
+    lineage, and various aspects like ownership, tags, and terms.
+    """
+
     __slots__ = ()
 
     @classmethod
     def get_urn_type(cls) -> Type[DatasetUrn]:
+        """Get the URN type for datasets.
+
+        Returns:
+            The DatasetUrn class.
+        """
         return DatasetUrn
 
     def __init__(
@@ -352,17 +465,44 @@ class Dataset(
         created: Optional[datetime] = None,
         last_modified: Optional[datetime] = None,
         # Standard aspects.
+        parent_container: ParentContainerInputType | Unset = unset,
         subtype: Optional[str] = None,
-        container: Optional[ContainerInputType] = None,
         owners: Optional[OwnersInputType] = None,
+        links: Optional[LinksInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         # TODO structured_properties
         domain: Optional[DomainInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
     ):
+        """Initialize a new Dataset instance.
+
+        Args:
+            platform: The platform this dataset belongs to (e.g. "mysql", "snowflake").
+            name: The name of the dataset.
+            platform_instance: Optional platform instance identifier.
+            env: The environment this dataset belongs to (default: DEFAULT_ENV).
+            description: Optional description of the dataset.
+            display_name: Optional display name for the dataset.
+            qualified_name: Optional qualified name for the dataset.
+            external_url: Optional URL to external documentation or source.
+            custom_properties: Optional dictionary of custom properties.
+            created: Optional creation timestamp.
+            last_modified: Optional last modification timestamp.
+            parent_container: Optional parent container for this dataset.
+            subtype: Optional subtype of the dataset.
+            owners: Optional list of owners.
+            links: Optional list of links.
+            tags: Optional list of tags.
+            terms: Optional list of glossary terms.
+            domain: Optional domain this dataset belongs to.
+            extra_aspects: Optional list of additional aspects.
+            schema: Optional schema definition for the dataset.
+            upstreams: Optional upstream lineage information.
+        """
         urn = DatasetUrn.create_from_ids(
             platform_id=platform,
             table_name=name,
@@ -370,6 +510,7 @@ class Dataset(
             env=env,
         )
         super().__init__(urn)
+        self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(urn.platform, platform_instance)
 
@@ -393,12 +534,14 @@ class Dataset(
         if last_modified is not None:
             self.set_last_modified(last_modified)
 
+        if parent_container is not unset:
+            self._set_container(parent_container)
         if subtype is not None:
             self.set_subtype(subtype)
-        if container is not None:
-            self._set_container(container)
         if owners is not None:
             self.set_owners(owners)
+        if links is not None:
+            self.set_links(links)
         if tags is not None:
             self.set_tags(tags)
         if terms is not None:
@@ -433,6 +576,11 @@ class Dataset(
 
     @property
     def description(self) -> Optional[str]:
+        """Get the description of the dataset.
+
+        Returns:
+            The description if set, None otherwise.
+        """
         editable_props = self._get_editable_props()
         return first_non_null(
             [
@@ -442,6 +590,15 @@ class Dataset(
         )
 
     def set_description(self, description: str) -> None:
+        """Set the description of the dataset.
+
+        Args:
+            description: The description to set.
+
+        Note:
+            If called during ingestion, this will warn if overwriting
+            a non-ingestion description.
+        """
         if is_ingestion_attribution():
             editable_props = self._get_editable_props()
             if editable_props is not None and editable_props.description is not None:
@@ -459,41 +616,96 @@ class Dataset(
 
     @property
     def display_name(self) -> Optional[str]:
+        """Get the display name of the dataset.
+
+        Returns:
+            The display name if set, None otherwise.
+        """
         return self._ensure_dataset_props().name
 
     def set_display_name(self, display_name: str) -> None:
+        """Set the display name of the dataset.
+
+        Args:
+            display_name: The display name to set.
+        """
         self._ensure_dataset_props().name = display_name
 
     @property
     def qualified_name(self) -> Optional[str]:
+        """Get the qualified name of the dataset.
+
+        Returns:
+            The qualified name if set, None otherwise.
+        """
         return self._ensure_dataset_props().qualifiedName
 
     def set_qualified_name(self, qualified_name: str) -> None:
+        """Set the qualified name of the dataset.
+
+        Args:
+            qualified_name: The qualified name to set.
+        """
         self._ensure_dataset_props().qualifiedName = qualified_name
 
     @property
     def external_url(self) -> Optional[str]:
+        """Get the external URL of the dataset.
+
+        Returns:
+            The external URL if set, None otherwise.
+        """
         return self._ensure_dataset_props().externalUrl
 
     def set_external_url(self, external_url: str) -> None:
+        """Set the external URL of the dataset.
+
+        Args:
+            external_url: The external URL to set.
+        """
         self._ensure_dataset_props().externalUrl = external_url
 
     @property
     def custom_properties(self) -> Dict[str, str]:
+        """Get the custom properties of the dataset.
+
+        Returns:
+            Dictionary of custom properties.
+        """
         return self._ensure_dataset_props().customProperties
 
     def set_custom_properties(self, custom_properties: Dict[str, str]) -> None:
+        """Set the custom properties of the dataset.
+
+        Args:
+            custom_properties: Dictionary of custom properties to set.
+        """
         self._ensure_dataset_props().customProperties = custom_properties
 
     @property
     def created(self) -> Optional[datetime]:
+        """Get the creation timestamp of the dataset.
+
+        Returns:
+            The creation timestamp if set, None otherwise.
+        """
         return parse_time_stamp(self._ensure_dataset_props().created)
 
     def set_created(self, created: datetime) -> None:
+        """Set the creation timestamp of the dataset.
+
+        Args:
+            created: The creation timestamp to set.
+        """
         self._ensure_dataset_props().created = make_time_stamp(created)
 
     @property
     def last_modified(self) -> Optional[datetime]:
+        """Get the last modification timestamp of the dataset.
+
+        Returns:
+            The last modification timestamp if set, None otherwise.
+        """
         return parse_time_stamp(self._ensure_dataset_props().lastModified)
 
     def set_last_modified(self, last_modified: datetime) -> None:
@@ -508,6 +720,11 @@ class Dataset(
     @property
     def schema(self) -> List[SchemaField]:
         # TODO: Add some caching here to avoid iterating over the schema every time.
+        """Get the schema fields of the dataset.
+
+        Returns:
+            List of SchemaField objects representing the dataset's schema.
+        """
         schema_dict = self._schema_dict()
         return [SchemaField(self, field_path) for field_path in schema_dict]
 
@@ -537,14 +754,6 @@ class Dataset(
                 nativeDataType=field_type,
                 description=description,
             )
-        elif isinstance(schema_field_input, str):
-            # TODO: Not sure this branch makes sense - we should probably just require types?
-            return models.SchemaFieldClass(
-                fieldPath=schema_field_input,
-                type=models.SchemaFieldDataTypeClass(models.NullTypeClass()),
-                nativeDataType="unknown",
-                description=None,
-            )
         else:
             assert_never(schema_field_input)
 
@@ -571,6 +780,17 @@ class Dataset(
 
     def __getitem__(self, field_path: str) -> SchemaField:
         # TODO: Automatically deal with field path v2?
+        """Get a schema field by its path.
+
+        Args:
+            field_path: The path of the field to retrieve.
+
+        Returns:
+            A SchemaField instance.
+
+        Raises:
+            SchemaFieldKeyError: If the field is not found.
+        """
         schema_dict = self._schema_dict()
         if field_path not in schema_dict:
             raise SchemaFieldKeyError(f"Field {field_path} not found in schema")

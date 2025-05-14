@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
 import pydantic
-from pydantic import Field, SecretStr, root_validator, validator
+from pydantic import Field, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
@@ -100,7 +100,15 @@ class SnowflakeFilterConfig(SQLFilterConfig):
 
     stream_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns for streams to filter in ingestion. Note: Defaults to table_pattern if not specified. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+        description="Regex patterns for streams to filter in ingestion. Specify regex to match the entire view name in database.schema.view format. e.g. to match all views starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
+    )
+
+    procedure_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for procedures to filter in ingestion. "
+        "Specify regex to match the entire procedure name in database.schema.procedure format. "
+        "e.g. to match all procedures starting with customer in Customer database and public schema,"
+        " use the regex 'Customer.public.customer.*'",
     )
 
     match_fully_qualified_names: bool = Field(
@@ -284,10 +292,16 @@ class SnowflakeV2Config(
         description="If enabled, streams will be ingested as separate entities from tables/views.",
     )
 
+    include_procedures: bool = Field(
+        default=True,
+        description="If enabled, procedures will be ingested as pipelines/tasks.",
+    )
+
     structured_property_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "List of regex patterns for structured properties to include in ingestion."
+            " Applied to tags with form `<database>.<schema>.<tag_name>`."
             " Only used if `extract_tags` and `extract_tags_as_structured_properties` are enabled."
         ),
     )
@@ -370,17 +384,6 @@ class SnowflakeV2Config(
             )
 
         return values
-
-    def get_sql_alchemy_url(
-        self,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[SecretStr] = None,
-        role: Optional[str] = None,
-    ) -> str:
-        return SnowflakeConnectionConfig.get_sql_alchemy_url(
-            self, database=database, username=username, password=password, role=role
-        )
 
     @validator("shares")
     def validate_shares(

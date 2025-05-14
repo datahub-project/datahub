@@ -1,8 +1,10 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { DisplayProperties } from '../../../../../../types.generated';
-import { generateColorFromPalette } from '../../../../../glossaryV2/colorUtils';
-import { GenericEntityProperties } from '../../../../../entity/shared/types';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+
+import { DisplayProperties } from '@types';
 
 type Props = {
     urn: string;
@@ -29,8 +31,9 @@ const GlossaryItemRibbon = styled.span<GlossaryItemRibbonProps>`
 
 export const GlossaryPreviewCardDecoration = ({ urn, entityData, displayProperties }: Props) => {
     const parentNodeCount = entityData?.parentNodes?.count || 0;
-    const urnText = parentNodeCount === 0 ? urn : entityData?.parentNodes?.nodes[parentNodeCount - 1].urn || '';
-    const glossaryColor = displayProperties?.colorHex || generateColorFromPalette(urnText);
+    const urnText = parentNodeCount === 0 ? urn : entityData?.parentNodes?.nodes[parentNodeCount - 1]?.urn || '';
+    const generateColor = useGenerateGlossaryColorFromPalette();
+    const glossaryColor = displayProperties?.colorHex || generateColor(urnText);
 
     return <GlossaryItemRibbon color={glossaryColor} />;
 };

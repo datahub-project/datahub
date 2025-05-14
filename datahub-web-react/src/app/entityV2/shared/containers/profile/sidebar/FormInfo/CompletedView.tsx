@@ -1,6 +1,7 @@
-import { Button } from 'antd';
 import React, { useState } from 'react';
-import styled from 'styled-components';
+
+import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import VerificationAuditStamp from '@app/entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
 import {
     CTAWrapper,
     Content,
@@ -11,27 +12,10 @@ import {
     StyledReadOutlined,
     Title,
     TitleWrapper,
-} from './components';
-import OptionalPromptsRemaining from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import VerificationAuditStamp from '../../../../../../entity/shared/containers/profile/sidebar/FormInfo/VerificationAuditStamp';
-import ShieldCheck from '../../../../../../../images/shield-check.svg';
-import { REDESIGN_COLORS } from '../../../../constants';
+} from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
+import { Button } from '@src/alchemy-components';
 
-const StyledButton = styled(Button)`
-    margin-top: 16px;
-    font-size: 12px;
-    line-height: 14px;
-    display: inline-flex;
-    align-items: center;
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    padding: 9px 17px;
-    border-radius: 6px;
-    &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-`;
+import ShieldCheck from '@images/shield-check.svg';
 
 interface Props {
     showVerificationStyles: boolean;
@@ -75,7 +59,9 @@ export default function CompletedView({
                             {isUserAssigned && <OptionalPromptsRemaining numRemaining={numOptionalPromptsRemaining} />}
                             {!!openFormModal && (
                                 <StyledButtonWrapper>
-                                    <StyledButton onClick={openFormModal}>View & Edit</StyledButton>
+                                    <Button variant="outline" onClick={openFormModal}>
+                                        View & Edit
+                                    </Button>
                                 </StyledButtonWrapper>
                             )}
                         </>

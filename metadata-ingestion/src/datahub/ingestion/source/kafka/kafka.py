@@ -224,7 +224,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             return schema_registry_class.create(config, report)
         except Exception as e:
             logger.debug(e, exc_info=e)
-            raise ImportError(config.schema_registry_class)
+            raise ImportError(config.schema_registry_class) from e
 
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
@@ -609,6 +609,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> DatasetSnapshotClass:
         AVRO = "AVRO"
         description: Optional[str] = None
+        external_url: Optional[str] = None
         if (
             schema_metadata is not None
             and isinstance(schema_metadata.platformSchema, KafkaSchemaClass)
@@ -660,8 +661,16 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     mce_builder.make_global_tag_aspect_with_tag_list(all_tags)
                 )
 
+        if self.source_config.external_url_base:
+            # Remove trailing slash from base URL if present
+            base_url = self.source_config.external_url_base.rstrip("/")
+            external_url = f"{base_url}/{dataset_name}"
+
         dataset_properties = DatasetPropertiesClass(
-            name=dataset_name, customProperties=custom_props, description=description
+            name=dataset_name,
+            customProperties=custom_props,
+            description=description,
+            externalUrl=external_url,
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
@@ -832,10 +841,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
         for config_key in KafkaTopicConfigKeys:
             try:
-                if (
-                    config_key in topic_config.keys()
-                    and topic_config[config_key] is not None
-                ):
+                if config_key in topic_config and topic_config[config_key] is not None:
                     config_value = topic_config[config_key].value
                     custom_props[config_key] = (
                         config_value

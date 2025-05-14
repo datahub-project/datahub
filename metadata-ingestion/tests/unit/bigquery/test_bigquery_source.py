@@ -20,8 +20,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigQueryTableRef,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
-    BigQueryConnectionConfig,
     BigQueryV2Config,
+)
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
@@ -848,7 +850,7 @@ def test_table_processing_logic(
     tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
         2
     ]  # alternatively
-    for table in tables.keys():
+    for table in tables:
         assert table in ["test-table", "test-sharded-table_20220102"]
 
 
@@ -924,7 +926,7 @@ def test_table_processing_logic_date_named_tables(
     tables: Dict[str, TableListItem] = data_dictionary_mock.call_args_list[0][0][
         2
     ]  # alternatively
-    for table in tables.keys():
+    for table in tables:
         assert tables[table].table_id in ["test-table", "20220103"]
 
 

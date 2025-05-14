@@ -1,22 +1,19 @@
-import React from 'react';
-import styled from 'styled-components';
-import * as moment from 'moment-timezone';
+import { ApiOutlined, CheckOutlined, CloseOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import * as cronParser from 'cron-parser';
 import cronstrue from 'cronstrue';
-import { CheckOutlined, CloseOutlined, ApiOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import * as moment from 'moment-timezone';
+import React from 'react';
+import styled from 'styled-components';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { AssertionGroup, AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
+import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { toProperTitleCase } from '@app/entityV2/shared/utils';
+import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
-import {
-    Assertion,
-    AssertionResultType,
-    AssertionType,
-    CronSchedule,
-    EntityType,
-} from '../../../../../../types.generated';
-import { sortAssertions } from './assertionUtils';
-import { AssertionGroup, AssertionStatusSummary } from './acrylTypes';
-import { lowerFirstLetter } from '../../../../../shared/textUtil';
-import { GenericEntityProperties } from '../../../../../entity/shared/types';
+
+import { Assertion, AssertionResultType, AssertionType, CronSchedule, EntityType } from '@types';
 
 export const SUCCESS_COLOR_HEX = '#52C41A';
 export const FAILURE_COLOR_HEX = '#F5222D';
@@ -140,7 +137,7 @@ ASSERTION_INFO.forEach((info) => {
 });
 
 export const getAssertionGroupName = (type: string): string => {
-    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : type;
+    return ASSERTION_TYPE_TO_INFO.has(type) ? ASSERTION_TYPE_TO_INFO.get(type).name : toProperTitleCase(type);
 };
 
 export const getAssertionGroupTypeIcon = (type: string) => {

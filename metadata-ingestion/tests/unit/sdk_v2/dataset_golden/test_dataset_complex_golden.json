@@ -110,19 +110,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Table"
-            ]
-        }
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
@@ -158,6 +145,19 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
@@ -172,6 +172,34 @@
                 "time": 0,
                 "actor": "urn:li:corpuser:unknown"
             }
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_instance.my_db.my_schema.my_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://example.com/doc1",
+                    "description": "https://example.com/doc1",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
+                },
+                {
+                    "url": "https://example.com/doc2",
+                    "description": "Documentation 2",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
+                }
+            ]
         }
     }
 },

@@ -231,7 +231,7 @@ def _docker_compose_v2() -> List[str]:
             # docker-compose v1 is not installed either.
             raise DockerComposeVersionError(
                 "You don't have Docker Compose installed. Please install Docker Compose. See https://docs.docker.com/compose/install/.",
-            )
+            ) from None
 
 
 def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
@@ -811,7 +811,7 @@ def quickstart(
         raise status.to_exception(
             header="Unable to run quickstart - the following issues were detected:",
             footer="If you think something went wrong, please file an issue at https://github.com/datahub-project/datahub/issues\n"
-            "or send a message in our Slack https://slack.datahubproject.io/\n"
+            "or send a message in our Slack https://datahub.com/slack/\n"
             f"Be sure to attach the logs from {log_file.name}",
         )
 
@@ -824,7 +824,7 @@ def quickstart(
         fg="green",
     )
     click.secho(
-        "Need support? Get in touch on Slack: https://slack.datahubproject.io/",
+        "Need support? Get in touch on Slack: https://datahub.com/slack/",
         fg="magenta",
     )
 

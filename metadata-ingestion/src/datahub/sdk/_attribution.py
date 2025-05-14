@@ -5,6 +5,10 @@ from typing import Iterator
 
 from datahub.utilities.str_enum import StrEnum
 
+# TODO: This attribution setup is not the final form. I expect that once we have better
+# backend support for attribution and attribution-oriented patch, this will become a bit
+# more sophisticated.
+
 
 class KnownAttribution(StrEnum):
     INGESTION = "INGESTION"

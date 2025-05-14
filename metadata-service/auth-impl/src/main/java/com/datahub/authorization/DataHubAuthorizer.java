@@ -129,7 +129,7 @@ public class DataHubAuthorizer implements Authorizer {
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
   }
 
-  public List<String> getGrantedPrivileges(
+  public PolicyEngine.PolicyGrantedPrivileges getGrantedPrivileges(
       final String actor, final Optional<EntitySpec> resourceSpec) {
 
     Urn actorUrn = UrnUtils.getUrn(actor);
@@ -367,7 +367,7 @@ public class DataHubAuthorizer implements Authorizer {
           writeLock.unlock();
         }
 
-        log.debug(String.format("Successfully fetched %s policies.", total));
+        log.debug("Successfully fetched {} policies.", total);
       } catch (Exception e) {
         log.error(
             "Caught exception while loading Policy cache. Will retry on next scheduled attempt.",

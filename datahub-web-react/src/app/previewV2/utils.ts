@@ -1,9 +1,11 @@
 import { Modal, message } from 'antd';
+
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
-import { useRemoveTermMutation, useUnsetDomainMutation } from '../../graphql/mutations.generated';
-import { BrowsePathV2, GlobalTags, Owner } from '../../types.generated';
-import { EntityCapabilityType } from '../entityV2/Entity';
-import { useEntityContext } from '../entity/shared/EntityContext';
+
+import { useRemoveTermMutation, useUnsetDomainMutation } from '@graphql/mutations.generated';
+import { BrowsePathV2, GlobalTags, Owner } from '@types';
 
 export function getUniqueOwners(owners?: Owner[] | null) {
     const uniqueOwnerUrns = new Set();
@@ -153,5 +155,5 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
 }
 
 export const isDefaultBrowsePath = (browsePaths: BrowsePathV2) => {
-    return browsePaths.path?.length === 1 && browsePaths?.path[0].name === 'Default';
+    return browsePaths.path?.length === 1 && browsePaths?.path[0]?.name === 'Default';
 };

@@ -113,7 +113,7 @@ class LookerAPI:
             )
         except SDKError as e:
             raise ConfigurationError(
-                f"Failed to connect/authenticate with looker - check your configuration: {e}"
+                "Failed to connect/authenticate with looker - check your configuration"
             ) from e
 
         self.client_stats = LookerAPIStats()
@@ -205,8 +205,9 @@ class LookerAPI:
     def folder_ancestors(
         self,
         folder_id: str,
-        fields: Union[str, List[str]] = ["id", "name", "parent_id"],
+        fields: Optional[Union[str, List[str]]] = None,
     ) -> Sequence[Folder]:
+        fields = fields or ["id", "name", "parent_id"]
         self.client_stats.folder_calls += 1
         try:
             return self.client.folder_ancestors(

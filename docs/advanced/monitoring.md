@@ -16,9 +16,9 @@ telemetry from popular libraries.
 
 Using the agent we are able to
 
-1) Plug and play different tracing tools based on the user's setup: Jaeger, Zipkin, or other tools
-2) Get traces for Kafka, JDBC, and Elasticsearch without any additional code
-3) Track traces of any function with a simple `@WithSpan` annotation
+1. Plug and play different tracing tools based on the user's setup: Jaeger, Zipkin, or other tools
+2. Get traces for Kafka, JDBC, and Elasticsearch without any additional code
+3. Track traces of any function with a simple `@WithSpan` annotation
 
 You can enable the agent by setting env variable `ENABLE_OTEL` to `true` for GMS and MAE/MCE consumers. In our
 example [docker-compose](../../docker/monitoring/docker-compose.monitoring.yml), we export metrics to a local Jaeger
@@ -32,6 +32,11 @@ Once the above is set up, you should be able to see a detailed trace as a reques
 the `@WithSpan` annotation in various places to make the trace more readable. You should start to see traces in the
 tracing collector of choice. Our example [docker-compose](../../docker/monitoring/docker-compose.monitoring.yml) deploys
 an instance of Jaeger with port 16686. The traces should be available at http://localhost:16686.
+
+### Configuration Note
+
+We recommend using either `grpc` or `http/protobuf`, configured using `OTEL_EXPORTER_OTLP_PROTOCOL`. Avoid using `http` will not work as expected due to the size of
+the generated spans.
 
 ## Metrics
 
@@ -94,7 +99,7 @@ docker-compose -p datahub \
 
 We set up quickstart.sh, dev.sh, and dev-without-neo4j.sh to add the above docker-compose when MONITORING=true. For
 instance `MONITORING=true ./docker/quickstart.sh` will add the correct env variables to start collecting traces and
-metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support this as a flag during quickstart. 
+metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support this as a flag during quickstart.
 
 ## Health check endpoint
 

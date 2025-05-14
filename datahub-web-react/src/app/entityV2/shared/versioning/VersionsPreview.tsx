@@ -1,13 +1,15 @@
+import { Pill, Text, colors } from '@components';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
 import analytics, { EventType } from '@app/analytics';
 import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
 import { DrawerType } from '@app/entity/shared/types';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors, Pill, Text } from '@components';
+
 import { Entity, VersionSet } from '@types';
-import React from 'react';
-import { Link } from 'react-router-dom';
-import styled from 'styled-components';
 
 const Wrapper = styled.div`
     display: flex;
@@ -64,7 +66,7 @@ export default function VersionsPreview({ versionSet }: Props) {
                 {!!total && <VersionsCount label={total.toString()} size="sm" clickable={false} />}
             </Header>
             <VersionsWrapper>
-                {versionSet?.versionsSearch?.searchResults.map((result) => (
+                {versionSet?.versionsSearch?.searchResults?.map((result) => (
                     <VersionPreviewRow entity={result.entity} />
                 ))}
             </VersionsWrapper>
@@ -127,7 +129,7 @@ function VersionPreviewRow({ entity }: VersionPreviewRowProps) {
         <VersionPreviewEntry isViewing={isViewing}>
             <VersionPreviewHeader>
                 <VersionPill
-                    label={versionProperties?.version.versionTag ?? '<unlabeled>'}
+                    label={versionProperties?.version?.versionTag ?? '<unlabeled>'}
                     isLatest={versionProperties?.isLatest}
                 />
                 {!!versionProperties?.isLatest && (

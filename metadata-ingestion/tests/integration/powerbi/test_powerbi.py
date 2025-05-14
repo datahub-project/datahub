@@ -103,7 +103,7 @@ def register_mock_api(
 
     api_vs_response.update(override_data or {})
 
-    for url in api_vs_response.keys():
+    for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
             url,
@@ -1354,7 +1354,7 @@ def test_cll_extraction_flags(
 
     default_conf: dict = default_source_config()
     pattern: str = re.escape(
-        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage', 'extract_dataset_schema']"
     )
 
     with pytest.raises(Exception, match=pattern):
@@ -1463,8 +1463,10 @@ def common_app_ingest(
     pytestconfig: pytest.Config,
     requests_mock: Any,
     output_mcp_path: str,
-    override_config: dict = {},
+    override_config: Optional[dict] = None,
 ) -> Pipeline:
+    if override_config is None:
+        override_config = {}
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,

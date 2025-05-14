@@ -97,7 +97,7 @@ task pytest(type: Exec, dependsOn: [installDev, ':metadata-ingestion:installDev'
 
     environment 'RUN_QUICKSTART', 'false'
     environment 'TEST_STRATEGY', 'pytests'
-    environment 'BATCH_COUNT', 5
+    environment 'BATCH_COUNT', 3
     environment 'BATCH_NUMBER', batchNumber
 
     workingDir = project.projectDir
@@ -145,6 +145,15 @@ task cypressData(type: Exec, dependsOn: [installDev, ':metadata-ingestion:instal
     commandLine 'bash', '-c',
             "source ${venv_name}/bin/activate && set -x && " +
                     "./cypress-dev.sh"
+}
+
+task cypressRemote(type: Exec) {
+  environment 'CYPRESS_BASE_URL', project.findProperty('baseUrl') ?: 'http://localhost:4173'
+  environment 'CYPRESS_ADMIN_USERNAME', project.findProperty('username') ?: 'admin'
+  environment 'CYPRESS_ADMIN_PASSWORD', project.findProperty('password')
+
+  workingDir = "${project.rootDir}/smoke-test/tests/cypress"
+  commandLine 'bash', '-c', './cypress-remote.sh'
 }
 
 task lint {

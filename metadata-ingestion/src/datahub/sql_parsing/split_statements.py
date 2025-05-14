@@ -1,18 +1,20 @@
+import logging
 import re
 from enum import Enum
 from typing import Iterator, List, Tuple
 
+logger = logging.getLogger(__name__)
 SELECT_KEYWORD = "SELECT"
 CASE_KEYWORD = "CASE"
 END_KEYWORD = "END"
 
 CONTROL_FLOW_KEYWORDS = [
     "GO",
-    r"BEGIN\w+TRY",
-    r"BEGIN\w+CATCH",
+    r"BEGIN\s+TRY",
+    r"BEGIN\s+CATCH",
     "BEGIN",
-    r"END\w+TRY",
-    r"END\w+CATCH",
+    r"END\s+TRY",
+    r"END\s+CATCH",
     # This isn't strictly correct, but we assume that IF | (condition) | (block) should all be split up
     # This mainly ensures that IF statements don't get tacked onto the previous statement incorrectly
     "IF",
@@ -73,25 +75,31 @@ class _StatementSplitter:
         # what a given END is closing.
         self.current_case_statements = 0
 
-    def _is_keyword_at_position(self, pos: int, keyword: str) -> bool:
+    def _is_keyword_at_position(self, pos: int, keyword: str) -> Tuple[bool, str]:
         """
         Check if a keyword exists at the given position using regex word boundaries.
         """
         sql = self.sql
 
-        if pos + len(keyword) > len(sql):
-            return False
+        keyword_length = len(keyword.replace(r"\s+", " "))
+
+        if pos + keyword_length > len(sql):
+            return False, ""
 
         # If we're not at a word boundary, we can't generate a keyword.
         if pos > 0 and not (
             bool(re.match(r"\w\W", sql[pos - 1 : pos + 1]))
             or bool(re.match(r"\W\w", sql[pos - 1 : pos + 1]))
         ):
-            return False
+            return False, ""
 
-        pattern = rf"^{re.escape(keyword)}\b"
+        pattern = rf"^{keyword}\b"
         match = re.match(pattern, sql[pos:], re.IGNORECASE)
-        return bool(match)
+        is_match = bool(match)
+        actual_match = (
+            sql[pos:][match.start() : match.end()] if match is not None else ""
+        )
+        return is_match, actual_match
 
     def _look_ahead_for_keywords(self, keywords: List[str]) -> Tuple[bool, str, int]:
         """
@@ -99,7 +107,8 @@ class _StatementSplitter:
         """
 
         for keyword in keywords:
-            if self._is_keyword_at_position(self.i, keyword):
+            is_match, keyword = self._is_keyword_at_position(self.i, keyword)
+            if is_match:
                 return True, keyword, len(keyword)
         return False, "", 0
 
@@ -113,12 +122,14 @@ class _StatementSplitter:
         # Reset current_statement-specific state.
         self.does_select_mean_new_statement = False
         if self.current_case_statements != 0:
-            breakpoint()
+            logger.warning(
+                f"Unexpected END keyword. Current case statements: {self.current_case_statements}"
+            )
         self.current_case_statements = 0
 
     def process(self) -> Iterator[str]:
         if not self.sql or not self.sql.strip():
-            return
+            yield from ()
 
         prev_real_char = "\0"  # the most recent non-whitespace, non-comment character
         while self.i < len(self.sql):
@@ -181,7 +192,7 @@ class _StatementSplitter:
     def _process_normal(self, most_recent_real_char: str) -> Iterator[str]:
         c = self.sql[self.i]
 
-        if self._is_keyword_at_position(self.i, CASE_KEYWORD):
+        if self._is_keyword_at_position(self.i, CASE_KEYWORD)[0]:
             self.current_case_statements += 1
 
         is_control_keyword, keyword, keyword_len = self._look_ahead_for_keywords(
@@ -226,8 +237,10 @@ class _StatementSplitter:
             ),
         )
         if (
-            is_force_new_statement_keyword and most_recent_real_char != ")"
-        ):  # usually we'd have a close paren that closes a CTE
+            is_force_new_statement_keyword
+            and not self._has_preceding_cte(most_recent_real_char)
+            and not self._is_part_of_merge_query()
+        ):
             # Force termination of current statement
             yield from self._yield_if_complete()
 
@@ -239,6 +252,14 @@ class _StatementSplitter:
             yield from self._yield_if_complete()
         else:
             self.current_statement.append(c)
+
+    def _has_preceding_cte(self, most_recent_real_char: str) -> bool:
+        # usually we'd have a close paren that closes a CTE
+        return most_recent_real_char == ")"
+
+    def _is_part_of_merge_query(self) -> bool:
+        # In merge statement we'd have `when matched then` or `when not matched then"
+        return "".join(self.current_statement).strip().lower().endswith("then")
 
 
 def split_statements(sql: str) -> Iterator[str]:
