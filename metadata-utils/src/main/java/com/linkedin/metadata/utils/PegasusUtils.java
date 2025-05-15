@@ -20,6 +20,10 @@ import lombok.extern.slf4j.Slf4j;
 /** Static utility class providing methods for extracting entity metadata from Pegasus models. */
 @Slf4j
 public class PegasusUtils {
+  
+  private static final boolean USE_GZIP_ENCODING = 
+      System.getenv("DATAHUB_USE_GZIP_ENCODING") == null || 
+      "true".equalsIgnoreCase(System.getenv("DATAHUB_USE_GZIP_ENCODING"));
 
   private PegasusUtils() {}
 
@@ -84,6 +88,19 @@ public class PegasusUtils {
     return urn.getEntityType();
   }
 
+  private static final java.util.Set<String> COMPRESSED_ASPECTS =
+      java.util.Collections.singleton("schemaMetadata");
+      
+
+  private static boolean shouldCompressAspect(String aspectName) {
+
+    if (!USE_GZIP_ENCODING) {
+      return false;
+    }
+
+    return COMPRESSED_ASPECTS.contains(aspectName);
+  }
+
   public static MetadataChangeLog constructMCL(
       @Nullable MetadataChangeProposal base,
       String entityName,
@@ -106,18 +123,35 @@ public class PegasusUtils {
     metadataChangeLog.setChangeType(changeType);
     metadataChangeLog.setAspectName(aspectName);
     metadataChangeLog.setCreated(auditStamp);
+    
+    boolean shouldCompress = shouldCompressAspect(aspectName);
+    
     if (newAspectValue != null) {
-      metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspectValue));
+      if (shouldCompress) {
+        log.debug("Using GZIP compression for aspect: {}", aspectName);
+        metadataChangeLog.setAspect(GenericRecordUtils.serializeGzippedAspect(newAspectValue));
+      } else {
+        metadataChangeLog.setAspect(GenericRecordUtils.serializeAspect(newAspectValue));
+      }
     }
+    
     if (newSystemMetadata != null) {
       metadataChangeLog.setSystemMetadata(newSystemMetadata);
     }
+    
     if (oldAspectValue != null) {
-      metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspectValue));
+      if (shouldCompress) {
+        log.debug("Using GZIP compression for previous aspect: {}", aspectName);
+        metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeGzippedAspect(oldAspectValue));
+      } else {
+        metadataChangeLog.setPreviousAspectValue(GenericRecordUtils.serializeAspect(oldAspectValue));
+      }
     }
+    
     if (oldSystemMetadata != null) {
       metadataChangeLog.setPreviousSystemMetadata(oldSystemMetadata);
     }
+    
     return metadataChangeLog;
   }
 }
