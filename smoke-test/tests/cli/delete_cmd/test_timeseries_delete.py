@@ -97,6 +97,7 @@ def datahub_delete(auth_session, params: List[str]) -> None:
     logger.info(f"Running delete command with args: {args}")
     delete_result = run_datahub_cmd(
         args,
+        input="y\ny\n",
         env={
             "DATAHUB_GMS_URL": auth_session.gms_url(),
             "DATAHUB_GMS_TOKEN": auth_session.gms_token(),

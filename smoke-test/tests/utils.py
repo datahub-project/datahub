@@ -104,7 +104,10 @@ def check_endpoint(auth_session, url):
 
 
 def run_datahub_cmd(
-    command: List[str], env: Optional[Dict[str, str]] = None
+    command: List[str],
+    *,
+    input: Optional[str] = None,
+    env: Optional[Dict[str, str]] = None,
 ) -> click.testing.Result:
     # TODO: Unify this with the run_datahub_cmd in the metadata-ingestion directory.
     click_version: str = click.__version__  # type: ignore
@@ -113,7 +116,7 @@ def run_datahub_cmd(
     else:
         # Once we're pinned to click >= 8.2.0, we can remove this.
         runner = click.testing.CliRunner(mix_stderr=False)  # type: ignore
-    return runner.invoke(datahub, command, env=env)
+    return runner.invoke(datahub, command, input=input, env=env)
 
 
 def ingest_file_via_rest(
