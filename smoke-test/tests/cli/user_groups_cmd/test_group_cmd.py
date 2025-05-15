@@ -7,17 +7,7 @@ import yaml
 
 from datahub.api.entities.corpgroup.corpgroup import CorpGroup
 from datahub.ingestion.graph.client import DataHubGraph
-<<<<<<< HEAD
-from tests.utils import assert_dict_contains, wait_for_writes_to_sync
-
-runner = CliRunner()
-||||||| dbcab5e404
-from tests.utils import wait_for_writes_to_sync
-
-runner = CliRunner()
-=======
-from tests.utils import run_datahub_cmd, wait_for_writes_to_sync
->>>>>>> master
+from tests.utils import assert_dict_contains, run_datahub_cmd, wait_for_writes_to_sync
 
 
 def sync_elastic() -> None:

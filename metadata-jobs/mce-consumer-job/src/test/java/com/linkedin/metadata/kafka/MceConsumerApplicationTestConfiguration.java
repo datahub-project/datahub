@@ -12,13 +12,7 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-<<<<<<< HEAD
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.test.TestEngine;
-||||||| dbcab5e404
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
-=======
->>>>>>> master
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;

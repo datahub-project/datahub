@@ -14,16 +14,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
-<<<<<<< HEAD
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
-||||||| dbcab5e404
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
-=======
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
->>>>>>> master
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;

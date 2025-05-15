@@ -43,22 +43,8 @@ export default function useDescriptionRenderer(
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
-<<<<<<< HEAD
-        const { schemaFieldEntity } = record;
         const { displayedDescription, sanitizedDescription, isPropagated, isInferred, sourceDetail } =
             extractFieldDescription(record, description);
-||||||| dbcab5e404
-        const { schemaFieldEntity } = record;
-        const { displayedDescription, sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(
-            record,
-            description,
-        );
-=======
-        const { displayedDescription, sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(
-            record,
-            description,
-        );
->>>>>>> master
         const original = record.description ? sanitizeRichText(record.description) : undefined;
 
         const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
