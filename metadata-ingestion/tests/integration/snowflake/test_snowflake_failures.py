@@ -385,81 +385,42 @@ def test_snowflake_failed_secure_view_definitions_query_raises_pipeline_warning(
 
 
 # Tests for known_snowflake_edition config option
-@freeze_time(FROZEN_TIME)
-def test_snowflake_is_standard_explicit_true(pytestconfig, snowflake_pipeline_config):
-    snowflake_pipeline_config.source.config.known_snowflake_edition = (
-        SnowflakeEdition.STANDARD
-    )
-
-    with mock.patch("snowflake.connector.connect") as mock_connect:
-        sf_connection = mock.MagicMock()
-        sf_cursor = mock.MagicMock()
-        mock_connect.return_value = sf_connection
-        sf_connection.cursor.return_value = sf_cursor
-
-        sf_cursor.execute.side_effect = query_permission_response_override(
-            default_query_results,
-            [SnowflakeQuery.current_region()],
-            [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}],
-        )
-
-        pipeline = Pipeline(snowflake_pipeline_config)
-        pipeline.run()
-        pipeline.raise_from_status()
-
-        source = cast(SnowflakeV2Source, pipeline.source)
-        assert source.is_standard_edition() is True
-
-        sf_cursor.execute.assert_any_call(SnowflakeQuery.current_region())
-
-
-@freeze_time(FROZEN_TIME)
-def test_snowflake_is_standard_explicit_false(pytestconfig, snowflake_pipeline_config):
-    snowflake_pipeline_config.source.config.known_snowflake_edition = (
-        SnowflakeEdition.ENTERPRISE
-    )
-
-    with mock.patch("snowflake.connector.connect") as mock_connect:
-        sf_connection = mock.MagicMock()
-        sf_cursor = mock.MagicMock()
-        mock_connect.return_value = sf_connection
-        sf_connection.cursor.return_value = sf_cursor
-
-        sf_cursor.execute.side_effect = query_permission_response_override(
-            default_query_results,
-            [SnowflakeQuery.current_region()],
-            [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}],
-        )
-
-        pipeline = Pipeline(snowflake_pipeline_config)
-        pipeline.run()
-        pipeline.raise_from_status()
-
-        source = cast(SnowflakeV2Source, pipeline.source)
-        assert source.is_standard_edition() is False
-
-        sf_cursor.execute.assert_any_call(SnowflakeQuery.current_region())
-
-
-@freeze_time(FROZEN_TIME)
-def test_snowflake_is_standard_autodetect(pytestconfig, snowflake_pipeline_config):
-    with mock.patch("snowflake.connector.connect") as mock_connect:
-        sf_connection = mock.MagicMock()
-        sf_cursor = mock.MagicMock()
-        mock_connect.return_value = sf_connection
-        sf_connection.cursor.return_value = sf_cursor
-
-        sf_cursor.execute.side_effect = query_permission_response_override(
-            default_query_results,
-            [SnowflakeQuery.current_region()],
-            [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}],
-        )
-
-        pipeline = Pipeline(snowflake_pipeline_config)
-        pipeline.run()
-        pipeline.raise_from_status()
-
-        source = cast(SnowflakeV2Source, pipeline.source)
-        assert source.is_standard_edition() is False
-
-        sf_cursor.execute.assert_any_call(SnowflakeQuery.current_region())
+@freeze_time(FROZEN_TIME)  
+@pytest.mark.parametrize(  
+    "known_edition, expected_is_standard",  
+    [  
+        (SnowflakeEdition.STANDARD, True),  
+        (SnowflakeEdition.ENTERPRISE, False),  
+        (None, False),  # Autodetect scenario  
+    ],  
+)  
+def test_snowflake_is_standard_edition(  
+    pytestconfig, snowflake_pipeline_config, known_edition, expected_is_standard  
+):  
+    # Set known_snowflake_edition if provided, otherwise test autodetect scenario  
+    if known_edition is not None:  
+        snowflake_pipeline_config.source.config.known_snowflake_edition = known_edition  
+    else:  
+        # Trigger autodetect scenario  
+        snowflake_pipeline_config.source.config.known_snowflake_edition = None  
+  
+    with mock.patch("snowflake.connector.connect") as mock_connect:  
+        sf_connection = mock.MagicMock()  
+        sf_cursor = mock.MagicMock()  
+        mock_connect.return_value = sf_connection  
+        sf_connection.cursor.return_value = sf_cursor  
+  
+        sf_cursor.execute.side_effect = query_permission_response_override(  
+            default_query_results,  
+            [SnowflakeQuery.current_region()],  
+            [{"CURRENT_REGION()": "AWS_AP_SOUTH_1"}],  
+        )  
+  
+        pipeline = Pipeline(snowflake_pipeline_config)  
+        pipeline.run()  
+        pipeline.raise_from_status()  
+  
+        source = cast(SnowflakeV2Source, pipeline.source)  
+        assert source.is_standard_edition() is expected_is_standard  
+  
+        sf_cursor.execute.assert_any_call(SnowflakeQuery.current_region())  
