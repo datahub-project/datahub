@@ -142,7 +142,6 @@ type Props = {
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
     onPropose?: (description: string) => void;
     onInferDescription?: () => Promise<void>;
-    handleShowMore?: (_: string) => void;
     isEdited?: boolean;
     isReadOnly?: boolean;
     isPropagated?: boolean;
@@ -159,7 +158,6 @@ export default function DescriptionField({
     onUpdate,
     onPropose,
     onInferDescription,
-    handleShowMore,
     isEdited = false,
     original,
     isReadOnly,
@@ -275,7 +273,6 @@ export default function DescriptionField({
                             <CompactMarkdownViewer
                                 content={description}
                                 lineLimit={1}
-                                handleShowMore={() => handleShowMore && handleShowMore(fieldPath || '')}
                                 fixedLineHeight
                                 customStyle={{ fontSize: '12px' }}
                                 scrollableY={false}

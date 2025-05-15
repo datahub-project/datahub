@@ -118,17 +118,23 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
     }
 
     // this makes the table fill up height of parent
+
     .ant-spin-nested-loading {
         height: 100%;
+
         .ant-spin-container {
             height: 100%;
+
             .ant-table {
                 height: 100%;
+
                 .ant-table-container {
                     height: 100%;
+
                     .ant-table-body {
                         height: 100%;
                     }
+
                     .ant-table-body > div:first-child {
                         height: 100%;
                     }
@@ -197,17 +203,8 @@ export default function SchemaTable({
         }
     };
 
-    const [rowDescriptionExpanded, setRowDescriptionExpanded] = useState<{
-        [_: string]: boolean;
-    }>({});
-
-    const handleShowMore = (field) => {
-        setRowDescriptionExpanded({ [field]: true });
-    };
-
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, {
         onInferSchemaDescriptions,
-        handleShowMore,
     });
     const usageStatsRenderer = useUsageStatsRenderer(usageStats, expandedDrawerFieldPath);
     const tagRenderer = useTagsAndTermsRenderer(
@@ -540,9 +537,6 @@ export default function SchemaTable({
                     usageStats={usageStats}
                     displayedRows={schemaSorter ? sortedDisplayedRows : displayedRows}
                     refetch={refetch}
-                    isShowMoreEnabled={
-                        (schemaFieldDrawerFieldPath && rowDescriptionExpanded[schemaFieldDrawerFieldPath]) || false
-                    }
                 />
             )}
         </>

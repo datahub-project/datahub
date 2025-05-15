@@ -17,7 +17,6 @@ export default function useDescriptionRenderer(
     isCompact: boolean,
     options?: {
         onInferSchemaDescriptions?: () => Promise<void>;
-        handleShowMore?: (_: string) => void;
     },
 ) {
     const urn = useMutationUrn();
@@ -81,7 +80,6 @@ export default function useDescriptionRenderer(
                     }).then(refresh)
                 }
                 onInferDescription={options?.onInferSchemaDescriptions}
-                handleShowMore={options?.handleShowMore}
                 isReadOnly
                 enableInferenceButton
                 isPropagated={isPropagated}
