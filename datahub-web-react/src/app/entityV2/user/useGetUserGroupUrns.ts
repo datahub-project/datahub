@@ -2,11 +2,18 @@ import { useGetUserGroupsUrnsQuery } from '@src/graphql/user.generated';
 
 const NUM_GROUP_URNS_TO_FETCH = 100;
 
-export default function useGetUserGroupUrns(userUrn: string) {
+export default function useGetUserGroupUrns(userUrn?: string) {
     const { data, loading } = useGetUserGroupsUrnsQuery({
+<<<<<<< HEAD
         variables: { urn: userUrn, start: 0, count: NUM_GROUP_URNS_TO_FETCH },
         skip: !userUrn,
+||||||| dbcab5e404
+        variables: { urn: userUrn, start: 0, count: NUM_GROUP_URNS_TO_FETCH },
+=======
+        variables: { urn: userUrn || '', start: 0, count: NUM_GROUP_URNS_TO_FETCH },
+>>>>>>> master
         fetchPolicy: 'cache-first',
+        skip: !userUrn,
     });
 
     const groupUrns: string[] =

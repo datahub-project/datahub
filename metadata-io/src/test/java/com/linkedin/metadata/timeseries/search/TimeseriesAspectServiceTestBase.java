@@ -43,7 +43,6 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
-import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -146,14 +145,13 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
   private ElasticSearchTimeseriesAspectService buildService() {
     return new ElasticSearchTimeseriesAspectService(
         getSearchClient(),
-        new TimeseriesAspectIndexBuilders(
-            getIndexBuilder(),
-            opContext.getEntityRegistry(),
-            opContext.getSearchContext().getIndexConvention()),
         getBulkProcessor(),
         1,
         QueryFilterRewriteChain.EMPTY,
-        TimeseriesAspectServiceConfig.builder().build());
+        TimeseriesAspectServiceConfig.builder().build(),
+        opContext.getEntityRegistry(),
+        opContext.getSearchContext().getIndexConvention(),
+        getIndexBuilder());
   }
 
   /*

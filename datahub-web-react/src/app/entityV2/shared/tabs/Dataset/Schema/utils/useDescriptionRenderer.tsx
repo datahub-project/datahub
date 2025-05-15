@@ -15,9 +15,16 @@ import { EditableSchemaMetadata, SchemaField, SubResourceType } from '@types';
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     isCompact: boolean,
+<<<<<<< HEAD
     options?: {
         onInferSchemaDescriptions?: () => Promise<void>;
     },
+||||||| dbcab5e404
+    options?: {
+        handleShowMore?: (_: string) => void;
+    },
+=======
+>>>>>>> master
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -36,9 +43,22 @@ export default function useDescriptionRenderer(
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
+<<<<<<< HEAD
         const { schemaFieldEntity } = record;
         const { displayedDescription, sanitizedDescription, isPropagated, isInferred, sourceDetail } =
             extractFieldDescription(record, description);
+||||||| dbcab5e404
+        const { schemaFieldEntity } = record;
+        const { displayedDescription, sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(
+            record,
+            description,
+        );
+=======
+        const { displayedDescription, sanitizedDescription, isPropagated, sourceDetail } = extractFieldDescription(
+            record,
+            description,
+        );
+>>>>>>> master
         const original = record.description ? sanitizeRichText(record.description) : undefined;
 
         const handleExpandedRows = (expanded) => setExpandedRows((prev) => ({ ...prev, [index]: expanded }));
@@ -51,7 +71,6 @@ export default function useDescriptionRenderer(
             <DescriptionField
                 onExpanded={handleExpandedRows}
                 expanded={!!expandedRows[index]}
-                fieldPath={schemaFieldEntity?.fieldPath}
                 description={sanitizedDescription}
                 original={original}
                 isEdited={!!editableFieldInfo?.description}
@@ -67,6 +86,7 @@ export default function useDescriptionRenderer(
                         },
                     }).then(refresh)
                 }
+<<<<<<< HEAD
                 onPropose={(updatedDescription) =>
                     proposeUpdateDescription({
                         variables: {
@@ -80,6 +100,10 @@ export default function useDescriptionRenderer(
                     }).then(refresh)
                 }
                 onInferDescription={options?.onInferSchemaDescriptions}
+||||||| dbcab5e404
+                handleShowMore={options?.handleShowMore}
+=======
+>>>>>>> master
                 isReadOnly
                 enableInferenceButton
                 isPropagated={isPropagated}

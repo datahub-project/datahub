@@ -12,7 +12,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
@@ -46,15 +45,15 @@ public class ElasticSearchServiceTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(
+    testInstance =
+        new ElasticSearchService(
             mock(ESIndexBuilder.class),
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class));
-    testInstance =
-        new ElasticSearchService(
-            indexBuilders, mock(ESSearchDAO.class), mock(ESBrowseDAO.class), mockEsWriteDAO);
+            mock(SettingsBuilder.class),
+            mock(ESSearchDAO.class),
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
   }
 
   @Test
@@ -129,19 +128,16 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testRaw_WithValidUrns() {
-    // Mock dependencies
     ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(
+    testInstance =
+        new ElasticSearchService(
             mock(ESIndexBuilder.class),
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class));
-
-    // Create test instance with mocked ESSearchDAO
-    testInstance =
-        new ElasticSearchService(
-            indexBuilders, mockEsSearchDAO, mock(ESBrowseDAO.class), mockEsWriteDAO);
+            mock(SettingsBuilder.class),
+            mockEsSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
 
     // Create test data
     Urn urn1 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test_dataset1,PROD)");
@@ -193,19 +189,16 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testRaw_WithEmptyHits() {
-    // Mock dependencies
     ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(
+    testInstance =
+        new ElasticSearchService(
             mock(ESIndexBuilder.class),
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class));
-
-    // Create test instance with mocked ESSearchDAO
-    testInstance =
-        new ElasticSearchService(
-            indexBuilders, mockEsSearchDAO, mock(ESBrowseDAO.class), mockEsWriteDAO);
+            mock(SettingsBuilder.class),
+            mockEsSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
 
     // Create test data
     Urn urn1 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test_dataset1,PROD)");
@@ -253,20 +246,16 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testRaw_WithNullHits() {
-    // Mock dependencies
     ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(
+    testInstance =
+        new ElasticSearchService(
             mock(ESIndexBuilder.class),
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class));
-
-    // Create test instance with mocked ESSearchDAO
-    testInstance =
-        new ElasticSearchService(
-            indexBuilders, mockEsSearchDAO, mock(ESBrowseDAO.class), mockEsWriteDAO);
-
+            mock(SettingsBuilder.class),
+            mockEsSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
     // Create test data
     Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test_dataset1,PROD)");
     Set<Urn> urns = Set.of(urn);
@@ -296,20 +285,16 @@ public class ElasticSearchServiceTest {
 
   @Test
   public void testRaw_WithEmptyUrns() {
-    // Mock dependencies
     ESSearchDAO mockEsSearchDAO = mock(ESSearchDAO.class);
-    EntityIndexBuilders indexBuilders =
-        new EntityIndexBuilders(
+    testInstance =
+        new ElasticSearchService(
             mock(ESIndexBuilder.class),
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
-            mock(SettingsBuilder.class));
-
-    // Create test instance with mocked ESSearchDAO
-    testInstance =
-        new ElasticSearchService(
-            indexBuilders, mockEsSearchDAO, mock(ESBrowseDAO.class), mockEsWriteDAO);
-
+            mock(SettingsBuilder.class),
+            mockEsSearchDAO,
+            mock(ESBrowseDAO.class),
+            mockEsWriteDAO);
     // Create empty set of URNs
     Set<Urn> emptyUrns = Collections.emptySet();
 

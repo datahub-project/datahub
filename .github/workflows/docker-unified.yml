@@ -116,8 +116,16 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
+<<<<<<< HEAD
                (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'release' )
                && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
+||||||| dbcab5e404
+               (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') 
+               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+=======
+               (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'release' ) 
+               && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
+>>>>>>> master
             }}
         run: |
           echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
@@ -197,7 +205,7 @@ jobs:
           distribution: "zulu"
           java-version: 17
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
@@ -205,7 +213,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/yarn
@@ -395,7 +403,7 @@ jobs:
           sudo rm -rf /usr/local/lib/android/ || true
           sudo docker image prune -a -f || true
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.cache/uv
@@ -403,7 +411,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-uv-
 
-      - uses: actions/cache/restore@v3
+      - uses: actions/cache/restore@v4
         with:
           path: |
             ~/.npm

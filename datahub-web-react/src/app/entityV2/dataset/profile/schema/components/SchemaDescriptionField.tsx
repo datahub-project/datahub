@@ -135,13 +135,17 @@ type Props = {
     onExpanded: (expanded: boolean) => void;
     expanded: boolean;
     description: string;
-    fieldPath?: string;
     original?: string | null;
     onUpdate: (
         description: string,
     ) => Promise<FetchResult<UpdateDatasetMutation, Record<string, any>, Record<string, any>> | void>;
+<<<<<<< HEAD
     onPropose?: (description: string) => void;
     onInferDescription?: () => Promise<void>;
+||||||| dbcab5e404
+    handleShowMore?: (_: string) => void;
+=======
+>>>>>>> master
     isEdited?: boolean;
     isReadOnly?: boolean;
     isPropagated?: boolean;
@@ -154,10 +158,14 @@ export default function DescriptionField({
     expanded,
     onExpanded: handleExpanded,
     description,
-    fieldPath,
     onUpdate,
+<<<<<<< HEAD
     onPropose,
     onInferDescription,
+||||||| dbcab5e404
+    handleShowMore,
+=======
+>>>>>>> master
     isEdited = false,
     original,
     isReadOnly,

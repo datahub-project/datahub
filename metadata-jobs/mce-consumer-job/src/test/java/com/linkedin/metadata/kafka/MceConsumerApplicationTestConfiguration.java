@@ -12,8 +12,13 @@ import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
+<<<<<<< HEAD
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.test.TestEngine;
+||||||| dbcab5e404
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+=======
+>>>>>>> master
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
@@ -71,9 +76,15 @@ public class MceConsumerApplicationTestConfiguration {
   @MockBean protected ConfigEntityRegistry configEntityRegistry;
 
   @MockBean protected SiblingGraphService siblingGraphService;
+<<<<<<< HEAD
 
   @MockBean public EntityIndexBuilders entityIndexBuilders;
 
   // Saas Only
   @MockBean protected TestEngine testEngine;
+||||||| dbcab5e404
+
+  @MockBean public EntityIndexBuilders entityIndexBuilders;
+=======
+>>>>>>> master
 }

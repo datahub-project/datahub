@@ -64,11 +64,17 @@ interface Props {
     editableFieldInfo?: EditableSchemaFieldInfo;
 }
 
+<<<<<<< HEAD
 export function getShouldShowProposeButton(entityType: EntityType) {
     return PROPOSAL_ENTITY_TYPES.includes(entityType);
 }
 
 export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
+||||||| dbcab5e404
+export default function FieldDescription({ expandedField, editableFieldInfo, isShowMoreEnabled }: Props) {
+=======
+export default function FieldDescription({ expandedField, editableFieldInfo }: Props) {
+>>>>>>> master
     const isSchemaEditable = React.useContext(SchemaEditableContext);
     const urn = useMutationUrn();
     const refetch = useRefetch();

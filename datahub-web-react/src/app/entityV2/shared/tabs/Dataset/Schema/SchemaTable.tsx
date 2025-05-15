@@ -190,6 +190,7 @@ export default function SchemaTable({
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
+<<<<<<< HEAD
     const inferDocumentation = useInferDocumentationForItem({
         entityUrn,
         saveResult: true,
@@ -206,6 +207,21 @@ export default function SchemaTable({
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, {
         onInferSchemaDescriptions,
     });
+||||||| dbcab5e404
+    const [rowDescriptionExpanded, setRowDescriptionExpanded] = useState<{
+        [_: string]: boolean;
+    }>({});
+
+    const handleShowMore = (field) => {
+        setRowDescriptionExpanded({ [field]: true });
+    };
+
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false, {
+        handleShowMore,
+    });
+=======
+    const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, false);
+>>>>>>> master
     const usageStatsRenderer = useUsageStatsRenderer(usageStats, expandedDrawerFieldPath);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,

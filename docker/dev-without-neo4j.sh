@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Handle the case when docker is aliased to podman or another container runtime
+shopt -s expand_aliases
+source ~/.bashrc
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
 MONITORING_COMPOSE=""

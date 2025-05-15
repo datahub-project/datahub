@@ -132,7 +132,7 @@ jobs:
           ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
       - name: Gather coverage files
         run: |
-          echo "BACKEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahuyb-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade)' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
+          echo "BACKEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahub-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade)' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
           echo "FRONTEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(datahub-frontend|datahub-web-react).*\.(xml|json)$' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
           echo "INTEGRATION_SERVICE_FILES=`find ./build/coverage-reports/ -type f | grep 'datahub-integrations-service' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
           echo "EXECUTOR_FILES=`find ./build/coverage-reports/ -type f | grep 'datahub-executor' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
@@ -174,6 +174,7 @@ jobs:
           flags: frontend
           name: ${{ matrix.command }}
           verbose: true
+<<<<<<< HEAD
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload integration-service coverage to Codecov
         if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
@@ -201,6 +202,10 @@ jobs:
           name: ${{ matrix.command }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
+||||||| dbcab5e404
+=======
+          override_branch: ${{ github.head_ref || github.ref_name }}
+>>>>>>> master
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
