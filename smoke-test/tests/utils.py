@@ -113,7 +113,7 @@ def run_datahub_cmd(
     else:
         # Once we're pinned to click >= 8.2.0, we can remove this.
         runner = click.testing.CliRunner(mix_stderr=False)  # type: ignore
-    return runner.invoke(datahub, command)
+    return runner.invoke(datahub, command, env=env)
 
 
 def ingest_file_via_rest(
