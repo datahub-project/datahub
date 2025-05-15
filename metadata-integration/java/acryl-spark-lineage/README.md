@@ -8,7 +8,7 @@ datasets that are being read from and written to. Read on to learn how to config
 ## Configuring Spark agent
 
 The Spark agent can be configured using a config file or while creating a Spark Session. If you are using Spark on
-Databricks, refer [Configuration Instructions for Databricks](#configuration-instructions--databricks).
+Databricks, refer to [Configuration Instructions for Databricks](#configuration-instructions-databricks).
 
 ### Before you begin: Versions and Release Notes
 

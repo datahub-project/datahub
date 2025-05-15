@@ -102,7 +102,8 @@ ext {
                         ':metadata-jobs:mce-consumer-job',
                         ':metadata-jobs:mae-consumer-job',
                         ':datahub-actions',
-                        ':docker:datahub-ingestion'
+                        ':docker:datahub-ingestion',
+                        ':docker:postgres-setup'
                     ]
             ]
     ]
@@ -164,6 +165,7 @@ dockerCompose {
             buildBeforePull = false
             stopContainers = false
             removeVolumes = false
+            retainContainersOnStartupFailure = config.isDebug ? true: false //forcing nulls to bool
 
             // Apply common configuration
             common_config.each { key, value ->

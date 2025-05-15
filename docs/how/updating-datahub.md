@@ -44,6 +44,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - SYNC_PRIMARY: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
   - ASYNC: Queues the metadata change for asynchronous processing and returns immediately. The client continues execution without waiting for the change to be fully processed. Best for high-throughput scenarios where eventual consistency is acceptable.
   - ASYNC_WAIT: Queues the metadata change asynchronously but blocks until confirmation that the write has been fully persisted. More efficient than fully synchronous operations due to backend parallelization and batching while still providing strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
+- #13499 - Added ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH configuration for ElasticSearch index config. If modified from the default, this configuration can have significant impact on search performance if changed and will trigger reindexing causing large delays in updates. Most users will not want to modify this.
 
 ## 1.0.0
 

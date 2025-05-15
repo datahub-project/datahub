@@ -6,6 +6,7 @@ source:
     username: sa
     password: test!Password
     host_port: localhost:21433
+    convert_urns_to_lowercase: true
 
 sink:
   type: file
