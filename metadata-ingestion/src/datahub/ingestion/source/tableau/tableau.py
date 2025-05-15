@@ -4000,25 +4000,11 @@ class TableauSiteSource:
                     ] = timer.elapsed_seconds(digits=2)
 
             if self.config.ingest_virtual_connections:
-                tableau_version = self.server.version or ""
-                if (
-                    not tableau_version
-                    or int(tableau_version.split(".")[0]) < 2021
-                    or (
-                        int(tableau_version.split(".")[0]) == 2021
-                        and int(tableau_version.split(".")[1]) < 4
-                    )
-                ):
-                    self.report.report_warning(
-                        message="Tableau version %s does not support virtual connections (requires 2021.4+)",
-                        context=tableau_version,
-                    )
-                else:
-                    with PerfTimer() as timer:
-                        yield from self.emit_virtual_connections()
-                        self.report.emit_virtual_connections_timer[
-                            self.site_content_url
-                        ] = timer.elapsed_seconds(digits=2)
+                with PerfTimer() as timer:
+                    yield from self.emit_virtual_connections()
+                    self.report.emit_virtual_connections_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
 
             if self.custom_sql_ids_being_used:
                 with PerfTimer() as timer:

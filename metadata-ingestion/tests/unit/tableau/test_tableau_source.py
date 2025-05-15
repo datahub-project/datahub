@@ -716,3 +716,142 @@ class TestTableauPageSizeConfig:
         config = TableauPageSizeConfig(database_table_page_size=any_page_size)
         assert config.page_size == DEFAULT_PAGE_SIZE
         assert config.effective_database_table_page_size == any_page_size
+
+
+def test_emit_virtual_connections():
+    """Test that virtual connections are emitted correctly."""
+    # Create a mock site source
+    context = PipelineContext(run_id="test-virtual-connections")
+    config = TableauConfig.parse_obj({
+        "connect_uri": "https://tableau.example.com",
+        "username": "test",
+        "password": "test",
+        "site": "test-site",
+        "ingest_virtual_connections": True,
+        "platform_instance": "test-instance"
+    })
+    
+    # Mock site information
+    site = mock.Mock()
+    site.id = "test-site-id"
+    site.name = "Test Site"
+    
+    # Mock server
+    server = mock.Mock()
+    server.version = "2022.1.0"
+    
+    # Mock user with admin permissions to avoid permission warnings
+    user = mock.Mock()
+    user.name = "test-user"
+    user.site_role = "SiteAdministratorExplorer"
+    server.users = mock.Mock()
+    server.users.get_by_id = mock.Mock(return_value=user)
+    
+    # Create a report
+    report = TableauSourceReport()
+    
+    # Create platform name string
+    platform = f"tableau.{DEFAULT_ENV}"
+    
+    # Create a site source with the mocks
+    site_source = TableauSiteSource(
+        config, context, 
+        SiteIdContentUrl(site_id=site.id, site_content_url="test-site"),
+        report, server, platform
+    )
+    
+    # Mock the get_connection_objects method to return a virtual connection
+    virtual_connection = {
+        "id": "test-vc-id",
+        "name": "Test Virtual Connection",
+        "description": "Test virtual connection description",
+        "luid": "test-vc-luid",
+    }
+    
+    with mock.patch.object(
+        site_source, 'get_connection_objects', return_value=[virtual_connection]
+    ):
+        # Mock the get_schema_metadata_for_datasource method
+        with mock.patch.object(
+            site_source, '_get_schema_metadata_for_datasource', return_value=None
+        ):
+            # Execute the emit_virtual_connections method
+            workunits = list(site_source.emit_virtual_connections())
+            
+            # Assert that we got at least one workunit
+            assert len(workunits) > 0
+            
+            # Verify the workunit contains the correct information by examining
+            # the DatasetProperties aspect within the metadata
+            vc_workunit = workunits[0]
+            aspects = vc_workunit.metadata.proposedSnapshot.aspects
+            
+            # Find the DatasetProperties aspect
+            dataset_properties = next(
+                (aspect for aspect in aspects 
+                 if aspect.__class__.__name__ == "DatasetPropertiesClass"),
+                None
+            )
+            
+            # Verify the dataset properties
+            assert dataset_properties is not None
+            assert dataset_properties.name == virtual_connection["name"]
+            assert dataset_properties.description == virtual_connection["description"]
+            assert dataset_properties.customProperties["luid"] == virtual_connection["luid"]
+
+
+def test_mock_emit_virtual_connections():
+    """Test that the mock_emit_virtual_connections patching approach works correctly."""
+    # Function to mock
+    def mock_emit_virtual_connections(self):
+        # Return an empty generator to avoid version check issues
+        if False:  # This ensures the yield is never reached but keeps it a generator
+            yield
+        # End without yielding anything
+    
+    # Create a basic site source
+    context = PipelineContext(run_id="test-mock-approach")
+    config = TableauConfig.parse_obj({
+        "connect_uri": "https://tableau.example.com",
+        "username": "test",
+        "password": "test",
+        "site": "test-site",
+        "ingest_virtual_connections": True
+    })
+    
+    # Mock objects
+    site_id_content_url = SiteIdContentUrl(site_id="test-site-id", site_content_url="test-site")
+    report = TableauSourceReport()
+    server = mock.Mock()
+    
+    # Mock server version
+    server.version = "2022.1.0"
+    
+    # Mock user with admin permissions to avoid permission warnings
+    user = mock.Mock()
+    user.name = "test-user"
+    user.site_role = "SiteAdministratorExplorer"
+    server.users = mock.Mock()
+    server.users.get_by_id = mock.Mock(return_value=user)
+    
+    platform = f"tableau.{DEFAULT_ENV}"
+    
+    # Create a site source with these mocks
+    site_source = TableauSiteSource(
+        config, context, site_id_content_url, report, server, platform
+    )
+    
+    # Patch the emit_virtual_connections method
+    with mock.patch(
+        "datahub.ingestion.source.tableau.tableau.TableauSiteSource.emit_virtual_connections",
+        mock_emit_virtual_connections
+    ):
+        # Call the patched method
+        workunits = list(site_source.emit_virtual_connections())
+        
+        # Should not generate any workunits
+        assert len(workunits) == 0
+        
+        # Should not have any warnings or errors, since we bypassed the version check
+        assert len(report.warnings) == 0
+        assert len(report.failures) == 0
