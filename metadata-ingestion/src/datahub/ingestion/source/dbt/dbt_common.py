@@ -364,6 +364,11 @@ class DBTCommonConfig(
         "Set to False to skip it for engines like AWS Athena where it's not required.",
     )
 
+    dbt_is_primary_sibling: bool = Field(
+        default=True,
+        description="When enabled (default), DBT nodes are treated as the primary siblings and target platform nodes as secondary. When disabled, target platform nodes are treated as primary and DBT nodes as secondary.",
+    )
+
     @validator("target_platform")
     def validate_target_platform_value(cls, target_platform: str) -> str:
         if target_platform.lower() == DBT_PLATFORM:
@@ -852,7 +857,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         test_nodes: List[DBTNode],
         extra_custom_props: Dict[str, str],
         all_nodes_map: Dict[str, DBTNode],
-    ) -> Iterable[MetadataChangeProposalWrapper]:
+    ) -> Iterable[MetadataWorkUnit]:
         for node in sorted(test_nodes, key=lambda n: n.dbt_name):
             upstreams = get_upstreams_for_test(
                 test_node=node,
@@ -905,14 +910,14 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     yield MetadataChangeProposalWrapper(
                         entityUrn=assertion_urn,
                         aspect=self._make_data_platform_instance_aspect(),
-                    )
+                    ).as_workunit()
 
                     yield make_assertion_from_test(
                         custom_props,
                         node,
                         assertion_urn,
                         upstream_urn,
-                    )
+                    ).as_workunit()
 
                 for test_result in node.test_results:
                     if self.config.entities_enabled.can_emit_test_results:
@@ -922,7 +927,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             assertion_urn,
                             upstream_urn,
                             test_warnings_are_errors=self.config.test_warnings_are_errors,
-                        )
+                        ).as_workunit()
                     else:
                         logger.debug(
                             f"Skipping test result {node.name} ({test_result.invocation_id}) emission since it is turned off."
@@ -1389,7 +1394,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
                 if self.config.write_semantics == "PATCH":
                     mce = self.get_patched_mce(mce)
-                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+                yield MetadataWorkUnit(
+                    id=dataset_snapshot.urn,
+                    mce=mce,
+                    is_primary_source=self.config.dbt_is_primary_sibling,
+                )
             else:
                 logger.debug(
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
@@ -1451,6 +1460,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     model_performance.start_time
                 ),
             )
+
             yield from data_process_instance.end_event_mcp(
                 end_timestamp_millis=datetime_to_ts_millis(model_performance.end_time),
                 start_timestamp_millis=datetime_to_ts_millis(
@@ -1512,13 +1522,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         aspect=upstreams_lineage_class,
                         system_metadata=None,
                     )
-                    wu.is_primary_source = False
+                    wu.is_primary_source = not self.config.dbt_is_primary_sibling
                     yield wu
                 else:
                     yield MetadataChangeProposalWrapper(
                         entityUrn=node_datahub_urn,
                         aspect=upstreams_lineage_class,
-                    ).as_workunit(is_primary_source=False)
+                    ).as_workunit(
+                        is_primary_source=not self.config.dbt_is_primary_sibling
+                    )
 
     def extract_query_tag_aspects(
         self,
