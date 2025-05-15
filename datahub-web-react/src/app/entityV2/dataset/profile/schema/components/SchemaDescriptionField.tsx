@@ -105,7 +105,6 @@ type Props = {
     onExpanded: (expanded: boolean) => void;
     expanded: boolean;
     description: string;
-    fieldPath?: string;
     original?: string | null;
     onUpdate: (
         description: string,
@@ -120,7 +119,6 @@ export default function DescriptionField({
     expanded,
     onExpanded: handleExpanded,
     description,
-    fieldPath,
     onUpdate,
     isEdited = false,
     original,
