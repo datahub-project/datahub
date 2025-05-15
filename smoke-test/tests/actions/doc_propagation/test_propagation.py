@@ -109,7 +109,7 @@ def action_env_vars(pytestconfig) -> ActionTestEnv:
                 key, value = line.split("=", 1)
                 env_vars[key] = value
 
-    return ActionTestEnv.model_validate(env_vars)
+    return ActionTestEnv.parse_obj(env_vars)
 
 
 @pytest.fixture(scope="function")

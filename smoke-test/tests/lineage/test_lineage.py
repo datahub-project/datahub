@@ -6,7 +6,7 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 import networkx as nx
 import pydantic
 import pytest
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -361,7 +361,11 @@ class ScenarioExpectation:
 
 
 class Scenario(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    class Config:
+        arbitrary_types_allowed = True
+
+    # TODO(SaaS only) enable this once we're on pydantic>2
+    # model_config = ConfigDict(arbitrary_types_allowed=True)
 
     class LineageStyle(Enum):
         DATASET_QUERY_DATASET = "DATASET_QUERY_DATASET"
