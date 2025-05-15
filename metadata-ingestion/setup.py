@@ -28,7 +28,8 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=7.1.2",
+    # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
+    "click>=7.1.2, !=8.2.0",
     "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
