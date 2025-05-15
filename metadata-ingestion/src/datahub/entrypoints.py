@@ -50,8 +50,9 @@ MAX_CONTENT_WIDTH = 120
 
 if sys.version_info >= (3, 12):
     click.secho(
-        "Python versions above 3.11 are not tested with. Please use Python 3.11.",
+        "Python versions above 3.11 are not actively tested with yet. Please use Python 3.11 for now.",
         fg="red",
+        err=True,
     )
 
 
