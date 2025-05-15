@@ -73,7 +73,6 @@ export const LeftColumn = styled.div`
     align-items: start;
     flex-grow: 1;
     flex-shrink: 1;
-    min-width: fit-content;
 `;
 
 export const RightColumn = styled.div`
@@ -81,8 +80,6 @@ export const RightColumn = styled.div`
     flex-direction: column;
     align-items: end;
     justify-content: center;
-    width: 100%;
-    overflow: hidden;
     padding-left: 8px;
 `;
 
