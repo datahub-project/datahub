@@ -36,6 +36,7 @@ export default function useDescriptionRenderer(
         const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesExact(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
+        const { schemaFieldEntity } = record;
         const { displayedDescription, sanitizedDescription, isPropagated, isInferred, sourceDetail } =
             extractFieldDescription(record, description);
         const original = record.description ? sanitizeRichText(record.description) : undefined;
@@ -50,6 +51,7 @@ export default function useDescriptionRenderer(
             <DescriptionField
                 onExpanded={handleExpandedRows}
                 expanded={!!expandedRows[index]}
+                fieldPath={schemaFieldEntity?.fieldPath}
                 description={sanitizedDescription}
                 original={original}
                 isEdited={!!editableFieldInfo?.description}
