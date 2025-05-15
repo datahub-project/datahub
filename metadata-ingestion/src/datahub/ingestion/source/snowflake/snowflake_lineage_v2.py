@@ -360,6 +360,12 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         self, db_row: dict
     ) -> Optional[UpstreamLineageEdge]:
         try:
+            _queries = db_row.get("QUERIES")
+            if _queries == "[\n  {}\n]":
+                # We are creating an empty object in the list when there are no queries
+                # To avoid that causing a pydantic error we are setting it to an empty list
+                # instead of a list with an empty object
+                db_row["QUERIES"] = "[]"
             return UpstreamLineageEdge.parse_obj(db_row)
         except Exception as e:
             self.report.num_upstream_lineage_edge_parsing_failed += 1

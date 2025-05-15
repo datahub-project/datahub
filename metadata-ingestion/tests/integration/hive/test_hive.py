@@ -19,7 +19,7 @@ pytestmark = pytest.mark.integration_batch_1
 def hive_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hive"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "hive"
+        test_resources_dir / "docker-compose.yml", "hive", parallel=1
     ) as docker_services:
         wait_for_port(docker_services, "testhiveserver2", 10000, timeout=120)
         yield docker_services

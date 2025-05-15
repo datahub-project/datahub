@@ -213,20 +213,21 @@ export default function FormByQuestion({ closeModal }: Props) {
                         onClearFilters={clearAllFilters}
                         onChangeUnionType={onChangeUnionType}
                         basicFilters
+                        query={query}
+                        viewUrn={viewUrn ?? undefined}
+                        totalResults={results?.searchAcrossEntities?.total || 0}
+                        setShowSelectMode={setIsSelectMode}
+                        downloadSearchResults={downloadSearchResults}
                     />
                 </div>
             )}
             {resultItemCount === 0 && <EmptyStates closeModal={closeModal} handleViewRemaining={handleViewRemaining} />}
             {resultItemCount > 0 && (
                 <SearchResults
-                    unionType={unionType}
-                    downloadSearchResults={downloadSearchResults}
                     page={page}
                     query={query}
-                    viewUrn={viewUrn || undefined}
                     error={error}
                     searchResponse={loading ? undefined : results?.searchAcrossEntities}
-                    availableFilters={loading ? [] : results?.searchAcrossEntities?.facets || []}
                     suggestions={results?.searchAcrossEntities?.suggestions || []}
                     selectedFilters={filters}
                     loading={loading}

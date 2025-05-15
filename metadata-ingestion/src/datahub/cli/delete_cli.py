@@ -396,8 +396,8 @@ def by_filter(
 
     if not force and not soft and not dry_run:
         message = (
-            "Hard deletion will permanently delete data from DataHub and can be slow. "
-            "We generally recommend using soft deletes instead. "
+            "Hard deletion will permanently delete data and can significantly slow down your instance while being executed. "
+            "We strongly recommend using soft deletes instead. "
             "Do you want to continue?"
         )
         if only_soft_deleted:

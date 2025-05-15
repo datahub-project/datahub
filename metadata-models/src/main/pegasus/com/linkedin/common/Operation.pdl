@@ -44,9 +44,9 @@ record Operation includes TimeseriesAspectBase {
    * Source Type - E.g. which process produced this operation. Note that this field will be superseded by the richer information
     * provided inside the "source" field (e.g source > producerType)
    */
-   @TimeseriesField = {}
-   @deprecated
-   sourceType: optional OperationSourceType
+  @TimeseriesField = {}
+  @deprecated
+  sourceType: optional OperationSourceType
 
    /**
     * More detailed information about the source of the operation.
@@ -56,7 +56,7 @@ record Operation includes TimeseriesAspectBase {
   /**
    * Custom properties
    */
-   customProperties: optional map[string, string]
+  customProperties: optional map[string, string]
 
   /**
    * The time at which the operation occurred. Would be better named 'operationTime'
@@ -64,4 +64,10 @@ record Operation includes TimeseriesAspectBase {
   @TimeseriesField = { "fieldType": "DATETIME" }
   @Searchable = { "fieldType": "DATETIME", "fieldName": "lastOperationTime" }
   lastUpdatedTimestamp: long
+
+  /**
+   * Which queries were used in this operation.
+   */
+  @TimeseriesFieldCollection = {"key":"query"}
+  queries: optional array[Urn]
 }
