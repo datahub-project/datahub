@@ -83,7 +83,7 @@
         "react-icons": "4.3.1",
         "react-intersection-observer": "^9.5.3",
         "react-js-cron": "^2.1.0",
-        "react-router": "^5.3",
+        "react-router": "^7.5",
         "react-router-dom": "^5.3",
         "react-syntax-highlighter": "^15.4.4",
         "react-vertical-timeline-component": "^3.6.0",
