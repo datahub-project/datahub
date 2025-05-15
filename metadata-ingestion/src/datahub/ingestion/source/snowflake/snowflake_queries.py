@@ -373,6 +373,13 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     if entry:
                         yield entry
 
+    @classmethod
+    def _has_temp_keyword(cls, query_text: str) -> bool:
+        return (
+            re.search(r"\bTEMP\b", query_text, re.IGNORECASE) is not None
+            or re.search(r"\bTEMPORARY\b", query_text, re.IGNORECASE) is not None
+        )
+
     def _parse_audit_log_row(
         self, row: Dict[str, Any], users: UsersMapping
     ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery, ObservedQuery]]:
@@ -393,7 +400,8 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         timestamp = timestamp.astimezone(timezone.utc)
 
         # TODO need to map snowflake query types to ours
-        query_type = SNOWFLAKE_QUERY_TYPE_MAPPING.get(
+        query_text: str = res["query_text"]
+        query_type: QueryType = SNOWFLAKE_QUERY_TYPE_MAPPING.get(
             res["query_type"], QueryType.UNKNOWN
         )
 
@@ -407,9 +415,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 "Error fetching ddl lineage from Snowflake"
             ):
                 known_ddl_entry = self.parse_ddl_query(
-                    res["query_text"],
+                    query_text,
                     res["session_id"],
-                    res["query_start_time"],
+                    timestamp,
                     object_modified_by_ddl,
                     res["query_type"],
                 )
@@ -434,23 +442,26 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         #    prefer doing SQL parsing over Snowflake's metadata.
         # 2. For queries that create a view, objects_modified is empty and object_modified_by_ddl
         #    contains the view name and columns. Because `object_modified_by_ddl` doesn't contain
-        #    source columns e.g. lineage information, we must do our own SQL parsing.
+        #    source columns e.g. lineage information, we must do our own SQL parsing. We're mainly
+        #    focused on temporary views. It's fine if we parse a couple extra views, but in general
+        #    we want view definitions to come from Snowflake's schema metadata and not from query logs.
 
         has_stream_objects = any(
             obj.get("objectDomain") == "Stream" for obj in direct_objects_accessed
         )
         is_create_view = query_type == QueryType.CREATE_VIEW
+        is_create_temp_view = is_create_view and self._has_temp_keyword(query_text)
 
-        if has_stream_objects or is_create_view:
+        if has_stream_objects or is_create_temp_view:
             return ObservedQuery(
-                query=res["query_text"],
+                query=query_text,
                 session_id=res["session_id"],
                 timestamp=timestamp,
                 user=user,
                 default_db=res["default_db"],
                 default_schema=res["default_schema"],
                 query_hash=get_query_fingerprint(
-                    res["query_text"], self.identifiers.platform, fast=True
+                    query_text, self.identifiers.platform, fast=True
                 ),
             )
 
@@ -521,12 +532,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             # job at eliminating redundant / repetitive queries. As such, we include the fast fingerprint
             # here
             query_id=get_query_fingerprint(
-                res["query_text"],
+                query_text,
                 self.identifiers.platform,
                 fast=True,
                 secondary_id=res["query_secondary_fingerprint"],
             ),
-            query_text=res["query_text"],
+            query_text=query_text,
             upstreams=upstreams,
             downstream=downstream,
             column_lineage=column_lineage,
@@ -549,7 +560,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         object_modified_by_ddl: dict,
         query_type: str,
     ) -> Optional[Union[TableRename, TableSwap]]:
-        timestamp = timestamp.astimezone(timezone.utc)
         if (
             object_modified_by_ddl["operationType"] == "ALTER"
             and query_type == "RENAME_TABLE"
