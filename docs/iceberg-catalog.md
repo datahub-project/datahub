@@ -473,8 +473,8 @@ To configure access:
 </p>
 
 2. Scope the policies by:
-   - Selecting specific warehouse Data Platform Instances for namespace, table/view management, listing and data access privileges
-   - Selecting specific DataSets for table and view data access privileges
+   - Selecting specific warehouse Data Platform Instances for namespace, table/view management, listing
+   - Selecting specific DataSets and/or Data Platform Instances for table and view data access privileges
    - Alternatively, resources can be filtered by
      - Selecting specific namespace Containers for namespace, table/view management, listing and data access privileges: when a container is selected, all datasets in that container and its descendant containers (in the container hierarchy) are included in the scope.
      - Selecting Tags / Domains that may be applied to DataSets or Data Platform Instances
