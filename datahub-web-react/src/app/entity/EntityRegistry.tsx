@@ -30,11 +30,14 @@ export default class EntityRegistry {
 
     pathNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
 
+    graphNameToEntityType: Map<string, EntityType> = new Map<string, EntityType>();
+
     register(entity: Entity<any>) {
         this.entities.push(entity);
         this.entityTypeToEntity.set(entity.type, entity);
         this.collectionNameToEntityType.set(entity.getCollectionName(), entity.type);
         this.pathNameToEntityType.set(entity.getPathName(), entity.type);
+        this.graphNameToEntityType.set(entity.getGraphName(), entity.type);
     }
 
     getEntity(type: EntityType): Entity<any> {
@@ -261,6 +264,10 @@ export default class EntityRegistry {
     getCustomCardUrlPath(type: EntityType): string | undefined {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getCustomCardUrlPath?.() as string | undefined;
+    }
+
+    getTypeFromGraphName(name: string): EntityType | undefined {
+        return this.graphNameToEntityType.get(name);
     }
 
     getGraphNameFromType(type: EntityType): string {

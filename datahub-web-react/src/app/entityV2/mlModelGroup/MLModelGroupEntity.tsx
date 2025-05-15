@@ -1,4 +1,5 @@
 import { CodeSandboxOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
@@ -22,7 +23,7 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import { isOutputPort } from '@app/entityV2/shared/utils';
+import { SidebarTitleActionType, isOutputPort } from '@app/entityV2/shared/utils';
 
 import { useGetMlModelGroupQuery } from '@graphql/mlModelGroup.generated';
 import { EntityType, MlModelGroup, SearchResult } from '@types';
@@ -107,6 +108,7 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
                     name: 'Lineage',
                     component: LineageTab,
                     icon: PartitionOutlined,
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',
@@ -152,6 +154,15 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
     ];
 
     getSidebarTabs = () => [
+        {
+            name: 'Lineage',
+            component: LineageTab,
+            description: "View this data asset's upstream and downstream dependencies",
+            icon: TreeStructure,
+            properties: {
+                actionType: SidebarTitleActionType.LineageExplore,
+            },
+        },
         {
             name: 'Properties',
             component: PropertiesTab,
