@@ -38,16 +38,8 @@ test {
   systemProperty 'datahub.project.root.dir', "$rootDir" // used in security.policy
 }
 
-<<<<<<< HEAD
-processTestResources {
-  dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:copyJar'
-}
-
-||||||| dbcab5e404
-=======
 processTestResources.dependsOn(":metadata-service:plugin:src:test:sample-test-plugins:copyJar")
 
->>>>>>> master
 clean {
   dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:clean'
 }

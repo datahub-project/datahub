@@ -30,17 +30,10 @@ public class QueryType
   public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
           QUERY_PROPERTIES_ASPECT_NAME,
-<<<<<<< HEAD
           QUERY_SUBJECTS_ASPECT_NAME,
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           QUERY_USAGE_FEATURES_ASPECT_NAME,
           LINEAGE_FEATURES_ASPECT_NAME);
-||||||| dbcab5e404
-          QUERY_SUBJECTS_ASPECT_NAME);
-=======
-          QUERY_SUBJECTS_ASPECT_NAME,
-          DATA_PLATFORM_INSTANCE_ASPECT_NAME);
->>>>>>> master
   private final EntityClient _entityClient;
 
   @Override

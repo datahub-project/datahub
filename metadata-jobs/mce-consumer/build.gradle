@@ -45,15 +45,10 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.mockito
     testImplementation externalDependency.mockitoInline
-<<<<<<< HEAD
     testImplementation externalDependency.springBootTest
 
     implementation externalDependency.azureIdentityExtensions
     implementation externalDependency.azureIdentity
-||||||| dbcab5e404
-=======
-    testImplementation externalDependency.springBootTest
->>>>>>> master
 }
 
 task avroSchemaSources(type: Copy) {

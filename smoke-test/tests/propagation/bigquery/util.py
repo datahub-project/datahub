@@ -10,7 +10,7 @@ from google.cloud.datacatalog_v1 import DataCatalogClient
 from pydantic import Field
 
 from datahub.configuration.common import PermissiveConfigModel
-from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 

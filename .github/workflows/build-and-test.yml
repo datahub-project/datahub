@@ -174,7 +174,6 @@ jobs:
           flags: frontend
           name: ${{ matrix.command }}
           verbose: true
-<<<<<<< HEAD
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload integration-service coverage to Codecov
         if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
@@ -202,10 +201,6 @@ jobs:
           name: ${{ matrix.command }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
-||||||| dbcab5e404
-=======
-          override_branch: ${{ github.head_ref || github.ref_name }}
->>>>>>> master
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1

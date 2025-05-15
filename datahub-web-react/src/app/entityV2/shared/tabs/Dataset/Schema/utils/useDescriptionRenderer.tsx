@@ -15,16 +15,9 @@ import { EditableSchemaMetadata, SchemaField, SubResourceType } from '@types';
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     isCompact: boolean,
-<<<<<<< HEAD
     options?: {
         onInferSchemaDescriptions?: () => Promise<void>;
     },
-||||||| dbcab5e404
-    options?: {
-        handleShowMore?: (_: string) => void;
-    },
-=======
->>>>>>> master
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -72,7 +65,6 @@ export default function useDescriptionRenderer(
                         },
                     }).then(refresh)
                 }
-<<<<<<< HEAD
                 onPropose={(updatedDescription) =>
                     proposeUpdateDescription({
                         variables: {
@@ -86,10 +78,6 @@ export default function useDescriptionRenderer(
                     }).then(refresh)
                 }
                 onInferDescription={options?.onInferSchemaDescriptions}
-||||||| dbcab5e404
-                handleShowMore={options?.handleShowMore}
-=======
->>>>>>> master
                 isReadOnly
                 enableInferenceButton
                 isPropagated={isPropagated}

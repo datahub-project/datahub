@@ -2,14 +2,8 @@ pytest>=6.2
 pytest-dependency>=0.5.1
 psutil
 tenacity
-<<<<<<< HEAD
--e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql,bigquery]
-||||||| dbcab5e404
--e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql]
-=======
 -e ../metadata-ingestion[datahub-rest,datahub-kafka,mysql]
 pydantic>2
->>>>>>> master
 slack-sdk==3.18.1
 aiohttp
 joblib
@@ -31,5 +25,9 @@ opensearch-py==2.6.0
 confluent-kafka[schemaregistry,avro]>=1.9.0,!=2.8.1
 pydantic>=1.10.0,!=1.10.3
 python-snappy>=0.6.1
-# Add datahub-integrations-service package
+
+# SaaS Only:
+# required to propagation tests
 -e ../datahub-integrations-service
+# required for bigquery docs propagation tests
+-e ../metadata-ingestion[bigquery-slim]

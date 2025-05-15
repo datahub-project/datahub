@@ -70,15 +70,9 @@ public class MceConsumerApplicationTestConfiguration {
   @MockBean protected ConfigEntityRegistry configEntityRegistry;
 
   @MockBean protected SiblingGraphService siblingGraphService;
-<<<<<<< HEAD
 
   @MockBean public EntityIndexBuilders entityIndexBuilders;
 
   // Saas Only
   @MockBean protected TestEngine testEngine;
-||||||| dbcab5e404
-
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
-=======
->>>>>>> master
 }
