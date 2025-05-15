@@ -199,6 +199,10 @@ class GlueSourceConfig(
     def s3_client(self):
         return self.get_s3_client()
 
+    @property
+    def lakeformation_client(self):
+        return self.get_lakeformation_client()
+
     @validator("glue_s3_lineage_direction")
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
@@ -320,6 +324,8 @@ class GlueSource(StatefulIngestionSourceBase):
         self.report.catalog_id = self.source_config.catalog_id
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
+        # Initialize Lake Formation client
+        self.lf_client = config.lakeformation_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
 
@@ -936,6 +942,10 @@ class GlueSource(StatefulIngestionSourceBase):
 
             dataset_profile.fieldProfiles.append(column_profile)
 
+        # if no stats are available, skip ingestion
+        if not dataset_profile.fieldProfiles and dataset_profile.rowCount is None and dataset_profile.columnCount is None:
+            return
+
         if partition_spec:
             # inject partition level stats
             dataset_profile.partitionSpec = PartitionSpecClass(
@@ -1298,6 +1308,68 @@ class GlueSource(StatefulIngestionSourceBase):
                 and (columns[0].get("Name", "") == "col")
                 and (columns[0].get("Type", "") == "array<string>")
             )
+
+        def get_lake_formation_tags_for_glue_resource(resource_arn):
+            """
+            Extract Lake Formation tags for a specific Glue resource.
+
+            Args:
+                resource_arn (str): ARN of the Glue resource
+
+            Returns:
+                list: List of tag key-value pairs
+            """
+            try:
+                # Get the resource LF-Tags
+                response = self.lf_client.get_resource_lf_tags(
+                    Resource={
+                        'Table': {
+                            'CatalogId': resource_arn.split(':')[4],
+                            'DatabaseName': resource_arn.split(':')[5].split('/')[0],
+                            'Name': resource_arn.split(':')[5].split('/')[1]
+                        }
+                    }
+                )
+
+                return response['LFTagOnDatabase'] if 'LFTagOnDatabase' in response else response['LFTagsOnTable']
+
+            except Exception as e:
+                print(f"Error getting Lake Formation tags: {e}")
+                return []
+
+        def list_all_resources_with_lf_tags():
+            """
+            List all resources with their Lake Formation tags.
+
+            Args:
+
+            Returns:
+                dict: Dictionary of resources and their tags
+            """
+            # Get all databases
+            databases = self.glue_client.get_databases()['DatabaseList']
+
+            resources_with_tags = {}
+
+            # Process databases
+            for db in databases:
+                db_name = db['Name']
+
+                # Get tables in this database
+                tables = self.glue_client.get_tables(DatabaseName=db_name)['TableList']
+
+                # Process tables
+                for table in tables:
+                    table_name = table['Name']
+                    resource_arn = f"arn:aws:glue:{region_name}:{boto3.client('sts').get_caller_identity()['Account']}:table/{db_name}/{table_name}"
+
+                    # Get tags for this resource
+                    tags = get_lake_formation_tags_for_glue_resource(resource_arn, region_name)
+
+                    if tags:
+                        resources_with_tags[resource_arn] = tags
+
+            return resources_with_tags
 
         def get_schema_metadata() -> Optional[SchemaMetadata]:
             # As soon as the hive integration with Spark is correctly providing the schema as expected in the

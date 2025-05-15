@@ -454,6 +454,9 @@ class AwsConnectionConfig(ConfigModel):
     def get_sagemaker_client(self) -> "SageMakerClient":
         return self.get_session().client("sagemaker", config=self._aws_config())
 
+    def get_lakeformation_client(self) -> "LakeFormationClient":
+        return self.get_session().client("lakeformation", config=self._aws_config())
+
 
 class AwsSourceConfig(EnvConfigMixin, AwsConnectionConfig):
     """
