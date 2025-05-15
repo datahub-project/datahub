@@ -1822,3 +1822,9 @@ fragment dataTransformLogicFields on DataTransformLogic {
         }
     }
 }
+
+fragment customPropertiesFields on CustomPropertiesEntry {
+    key
+    value
+    associatedUrn
+}
