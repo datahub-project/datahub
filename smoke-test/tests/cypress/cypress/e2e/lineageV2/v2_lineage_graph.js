@@ -1,4 +1,4 @@
-import { getTimestampMillisNumDaysAgo } from "../../support/commands";
+import { getTimestampMillisNumDaysAgo } from "../../support/utils";
 
 const DATASET_ENTITY_TYPE = "dataset";
 const TASKS_ENTITY_TYPE = "tasks";
