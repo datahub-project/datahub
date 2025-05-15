@@ -1,4 +1,9 @@
 from datetime import datetime, timezone
+from typing import Any, Dict
+from unittest.mock import MagicMock, patch
+
+import pytest
+from google.cloud.bigquery import Client
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
@@ -10,27 +15,73 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
 from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
 
 
-def test_not_generate_partition_profiler_query_if_not_partitioned_sharded_table():
+def test_get_partition_filters_for_non_partitioned_internal_table():
+    """Test handling of non-partitioned internal tables."""
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
-    test_table = BigqueryTable(
-        name="test_table",
-        comment="test_comment",
-        rows_count=1,
-        size_in_bytes=1,
-        last_altered=datetime.now(timezone.utc),
-        created=datetime.now(timezone.utc),
-    )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-        partition_datetime=None,
-    )
 
-    assert query == (None, None)
+    # Mock the table metadata to ensure no partition columns are found
+    # Use patch to avoid "method assign" error
+    with patch.object(
+        profiler, "_get_table_metadata", return_value={"partition_columns": {}}
+    ):
+        test_table = BigqueryTable(
+            name="test_table",
+            comment="test_comment",
+            rows_count=1,
+            size_in_bytes=1,
+            last_altered=datetime.now(timezone.utc),
+            created=datetime.now(timezone.utc),
+        )
+        filters = profiler._get_required_partition_filters(
+            table=test_table,
+            project="test_project",
+            schema="test_dataset",
+        )
+
+        # Internal tables with no partitions should return None
+        assert filters is None
 
 
-def test_generate_day_partitioned_partition_profiler_query():
+def test_get_partition_filters_for_non_partitioned_external_table():
+    """Test handling of non-partitioned external tables."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Mock the BigQuery client
+    mock_client = MagicMock(spec=Client)
+    config_mock = MagicMock()
+    config_mock.get_bigquery_client = MagicMock(return_value=mock_client)
+    profiler.config = config_mock
+
+    # Mock methods with patch to avoid assign errors
+    with patch.object(
+        profiler,
+        "_get_table_metadata",
+        return_value={"partition_columns": {}, "is_external": True},
+    ), patch.object(
+        profiler, "_check_sample_rate_in_ddl", return_value=None
+    ), patch.object(profiler, "_execute_cached_query", return_value=[]):
+        test_table = BigqueryTable(
+            name="test_table",
+            comment="test_comment",
+            rows_count=1,
+            size_in_bytes=1,
+            last_altered=datetime.now(timezone.utc),
+            created=datetime.now(timezone.utc),
+            external=True,
+        )
+        filters = profiler._get_required_partition_filters(
+            table=test_table,
+            project="test_project",
+            schema="test_dataset",
+        )
+
+        # External tables with no partitions should return empty list
+        assert not filters
+
+
+def test_get_partition_filters_for_single_day_partition():
+    """Test handling of single partition column."""
+    # Create a test column and partition info
     column = BigqueryColumn(
         name="date",
         field_path="date",
@@ -41,8 +92,17 @@ def test_generate_day_partitioned_partition_profiler_query():
         comment=None,
         is_nullable=False,
     )
-    partition_info = PartitionInfo(type="DAY", field="date", column=column)
+    partition_info = PartitionInfo(fields=["date"], columns=[column], type="DAY")
+
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Mock the dependencies
+    current_time = datetime.now(timezone.utc)
+
+    # Set up config
+    config_mock = MagicMock()
+    profiler.config = config_mock
+
     test_table = BigqueryTable(
         name="test_table",
         comment="test_comment",
@@ -51,41 +111,58 @@ def test_generate_day_partitioned_partition_profiler_query():
         last_altered=datetime.now(timezone.utc),
         created=datetime.now(timezone.utc),
         partition_info=partition_info,
-        max_partition_id="20200101",
     )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-    )
-    expected_query = """
-SELECT
-    *
-FROM
-    `test_project.test_dataset.test_table`
-WHERE
-    `date` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
-""".strip()
 
-    assert query[0] == "20200101"
-    assert query[1]
-    assert expected_query == query[1].strip()
+    # Test the function with patches
+    with patch.object(
+        profiler,
+        "_get_table_metadata",
+        return_value={"partition_columns": {"date": "TIMESTAMP"}, "is_external": False},
+    ), patch.object(
+        profiler, "_get_partition_values", return_value={"date": current_time}
+    ), patch.object(
+        profiler, "_verify_partition_has_data", return_value=True
+    ), patch.object(
+        profiler, "_try_time_hierarchy_approach", return_value=None
+    ), patch.object(profiler, "_try_date_columns_approach", return_value=None):
+        filters = profiler._get_required_partition_filters(
+            table=test_table,
+            project="test_project",
+            schema="test_dataset",
+        )
+
+        # Assertions
+        assert filters is not None
+        assert len(filters) == 1
+        assert filters[0].startswith("`date` = ")
+        assert filters[0].endswith("'")
+        timestamp_str = filters[0].split("'")[1]
+        datetime.strptime(timestamp_str.split("+")[0], "%Y-%m-%d %H:%M:%S")
 
 
-# If partition time is passed in we force to use that time instead of the max partition id
-def test_generate_day_partitioned_partition_profiler_query_with_set_partition_time():
+def test_get_partition_filters_for_external_table_with_partitions():
+    """Test handling of external table with partitions."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Create a column with partition information
     column = BigqueryColumn(
-        name="date",
-        field_path="date",
+        name="partition_col",
+        field_path="partition_col",
         ordinal_position=1,
-        data_type="TIMESTAMP",
+        data_type="STRING",
         is_partition_column=True,
         cluster_column_position=None,
         comment=None,
         is_nullable=False,
     )
-    partition_info = PartitionInfo(type="DAY", field="date", column=column)
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Create partition info
+    partition_info = PartitionInfo(fields=["partition_col"], columns=[column])
+
+    # Set up config mock
+    config_mock = MagicMock()
+    profiler.config = config_mock
+
     test_table = BigqueryTable(
         name="test_table",
         comment="test_comment",
@@ -93,41 +170,104 @@ def test_generate_day_partitioned_partition_profiler_query_with_set_partition_ti
         size_in_bytes=1,
         last_altered=datetime.now(timezone.utc),
         created=datetime.now(timezone.utc),
+        external=True,
         partition_info=partition_info,
-        max_partition_id="20200101",
     )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-    )
-    expected_query = """
-SELECT
-    *
-FROM
-    `test_project.test_dataset.test_table`
-WHERE
-    `date` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
-""".strip()
 
-    assert query[0] == "20200101"
-    assert query[1]
-    assert expected_query == query[1].strip()
+    # Use patches instead of direct assignments
+    with patch.object(
+        profiler,
+        "_get_table_metadata",
+        return_value={
+            "partition_columns": {"partition_col": "STRING"},
+            "is_external": True,
+        },
+    ), patch.object(
+        profiler, "_check_sample_rate_in_ddl", return_value=None
+    ), patch.object(
+        profiler, "_try_date_based_filtering_for_external", return_value=None
+    ), patch.object(
+        profiler,
+        "_try_standard_approach_for_external",
+        return_value=["`partition_col` = 'partition_value'"],
+    ):
+        filters = profiler._get_required_partition_filters(
+            table=test_table,
+            project="test_project",
+            schema="test_dataset",
+        )
+
+        assert filters is not None
+        assert len(filters) == 1
+        assert filters[0] == "`partition_col` = 'partition_value'"
 
 
-def test_generate_hour_partitioned_partition_profiler_query():
-    column = BigqueryColumn(
-        name="partition_column",
-        field_path="partition_column",
+def test_get_partition_filters_for_multi_partition():
+    """Test handling of multiple partition columns."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Mock time hierarchy approach to return correctly formatted filters
+    current_time = datetime.now(timezone.utc)
+    expected_filters = [
+        f"`year` = {current_time.year}",
+        f"`month` = {current_time.month}",
+        f"`day` = {current_time.day}",
+        "`feed` = 'test_feed'",
+    ]
+
+    # Create partition info
+    year_col = BigqueryColumn(
+        name="year",
+        field_path="year",
         ordinal_position=1,
-        data_type="TIMESTAMP",
+        data_type="INTEGER",
         is_partition_column=True,
         cluster_column_position=None,
         comment=None,
         is_nullable=False,
     )
-    partition_info = PartitionInfo(type="DAY", field="date", column=column)
-    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+    month_col = BigqueryColumn(
+        name="month",
+        field_path="month",
+        ordinal_position=2,
+        data_type="INTEGER",
+        is_partition_column=True,
+        cluster_column_position=None,
+        comment=None,
+        is_nullable=False,
+    )
+    day_col = BigqueryColumn(
+        name="day",
+        field_path="day",
+        ordinal_position=3,
+        data_type="INTEGER",
+        is_partition_column=True,
+        cluster_column_position=None,
+        comment=None,
+        is_nullable=False,
+    )
+    feed_col = BigqueryColumn(
+        name="feed",
+        field_path="feed",
+        ordinal_position=4,
+        data_type="STRING",
+        is_partition_column=True,
+        cluster_column_position=None,
+        comment=None,
+        is_nullable=False,
+    )
+
+    partition_info = PartitionInfo(
+        fields=["year", "month", "day", "feed"],
+        columns=[year_col, month_col, day_col, feed_col],
+        type="DAY",
+    )
+
+    # Set up config mock
+    config_mock = MagicMock()
+    profiler.config = config_mock
+
+    # Create test table
     test_table = BigqueryTable(
         name="test_table",
         comment="test_comment",
@@ -136,32 +276,50 @@ def test_generate_hour_partitioned_partition_profiler_query():
         last_altered=datetime.now(timezone.utc),
         created=datetime.now(timezone.utc),
         partition_info=partition_info,
-        max_partition_id="2020010103",
     )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
-        partition_datetime=None,
-    )
-    expected_query = """
-SELECT
-    *
-FROM
-    `test_project.test_dataset.test_table`
-WHERE
-    `partition_column` BETWEEN TIMESTAMP('2020-01-01 03:00:00') AND TIMESTAMP('2020-01-01 04:00:00')
-""".strip()
 
-    assert query[0] == "2020010103"
-    assert query[1]
-    assert expected_query == query[1].strip()
+    # Use patches
+    with patch.object(
+        profiler,
+        "_get_table_metadata",
+        return_value={
+            "partition_columns": {
+                "year": "INTEGER",
+                "month": "INTEGER",
+                "day": "INTEGER",
+                "feed": "STRING",
+            },
+            "is_external": False,
+        },
+    ), patch.object(
+        profiler, "_try_time_hierarchy_approach", return_value=expected_filters
+    ):
+        filters = profiler._get_required_partition_filters(
+            table=test_table,
+            project="test_project",
+            schema="test_dataset",
+        )
+
+        assert filters is not None
+        assert len(filters) == len(expected_filters)
+        assert sorted(filters) == sorted(expected_filters)
 
 
-# Ingestion partitioned tables do not have partition column in the schema as it uses a psudo column _PARTITIONTIME to partition
-def test_generate_ingestion_partitioned_partition_profiler_query():
-    partition_info = PartitionInfo(type="DAY", field="date")
+def test_get_partition_filters_for_time_partitions():
+    """Test handling of time partitions."""
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Set up the time hierarchy filters
+    current_time = datetime.now(timezone.utc)
+    expected_filters = [
+        f"`year` = {current_time.year}",
+        f"`month` = {current_time.month}",
+        f"`day` = {current_time.day}",
+        f"`hour` = {current_time.hour}",
+    ]
+
+    partition_info = PartitionInfo(fields=["year", "month", "day", "hour"])
+
     test_table = BigqueryTable(
         name="test_table",
         comment="test_comment",
@@ -170,43 +328,389 @@ def test_generate_ingestion_partitioned_partition_profiler_query():
         last_altered=datetime.now(timezone.utc),
         created=datetime.now(timezone.utc),
         partition_info=partition_info,
-        max_partition_id="20200101",
     )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
+
+    # Use patches
+    with patch.object(
+        profiler,
+        "_get_table_metadata",
+        return_value={
+            "partition_columns": {
+                "year": "INTEGER",
+                "month": "INTEGER",
+                "day": "INTEGER",
+                "hour": "INTEGER",
+            },
+            "is_external": False,
+        },
+    ), patch.object(
+        profiler, "_try_time_hierarchy_approach", return_value=expected_filters
+    ):
+        filters = profiler._get_required_partition_filters(
+            table=test_table,
+            project="test_project",
+            schema="test_dataset",
+        )
+
+        # Add assertion to ensure filters is not None
+        assert filters is not None
+        assert set(filters) == set(expected_filters)
+
+
+def test_get_partition_range_from_partition_id():
+    """Test partition range calculation from partition ID."""
+    assert BigqueryProfiler.get_partition_range_from_partition_id("2024", None) == (
+        datetime(2024, 1, 1),
+        datetime(2025, 1, 1),
     )
-    expected_query = """
-SELECT
-    *
-FROM
-    `test_project.test_dataset.test_table`
-WHERE
-    `_PARTITIONTIME` BETWEEN TIMESTAMP('2020-01-01 00:00:00') AND TIMESTAMP('2020-01-02 00:00:00')
-""".strip()
+    assert BigqueryProfiler.get_partition_range_from_partition_id("202402", None) == (
+        datetime(2024, 2, 1),
+        datetime(2024, 3, 1),
+    )
+    assert BigqueryProfiler.get_partition_range_from_partition_id("20240221", None) == (
+        datetime(2024, 2, 21),
+        datetime(2024, 2, 22),
+    )
+    assert BigqueryProfiler.get_partition_range_from_partition_id(
+        "2024022114", None
+    ) == (datetime(2024, 2, 21, 14), datetime(2024, 2, 21, 15))
 
-    assert query[0] == "20200101"
-    assert query[1]
-    assert expected_query == query[1].strip()
+    # Test new format support
+    assert BigqueryProfiler.get_partition_range_from_partition_id(
+        "2024-02-21", None
+    ) == (
+        datetime(2024, 2, 21),
+        datetime(2024, 2, 22),
+    )
+
+    # Test Hive-style partitions
+    assert BigqueryProfiler.get_partition_range_from_partition_id(
+        "year=2024/month=02/day=21", None
+    ) == (
+        datetime(2024, 2, 21, 0),
+        datetime(2024, 2, 22, 0),
+    )
+
+    assert BigqueryProfiler.get_partition_range_from_partition_id(
+        "year=2024/month=02", None
+    ) == (
+        datetime(2024, 2, 1, 0),
+        datetime(2024, 3, 1, 0),
+    )
 
 
-def test_generate_sharded_table_profiler_query():
+def test_invalid_partition_id():
+    """Test invalid partition IDs raise errors."""
+    with pytest.raises(ValueError):
+        BigqueryProfiler.get_partition_range_from_partition_id("abcd", None)
+    with pytest.raises(ValueError):
+        BigqueryProfiler.get_partition_range_from_partition_id("202402211412", None)
+
+
+def test_get_partition_filters_with_missing_values():
+    """Test handling of partition columns with missing values."""
     profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Create test data
+    feed_col = BigqueryColumn(
+        name="feed",
+        field_path="feed",
+        ordinal_position=1,
+        data_type="STRING",
+        is_partition_column=True,
+        cluster_column_position=None,
+        comment=None,
+        is_nullable=False,
+    )
+
+    partition_info = PartitionInfo(fields=["feed"], columns=[feed_col], type="DAY")
+
+    # Set up config mock
+    config_mock = MagicMock()
+    profiler.config = config_mock
+
     test_table = BigqueryTable(
-        name="my_sharded_table",
-        max_shard_id="20200101",
+        name="test_table",
         comment="test_comment",
         rows_count=1,
         size_in_bytes=1,
         last_altered=datetime.now(timezone.utc),
         created=datetime.now(timezone.utc),
-    )
-    query = profiler.generate_partition_profiler_query(
-        project="test_project",
-        schema="test_dataset",
-        table=test_table,
+        partition_info=partition_info,
     )
 
-    assert query[0] == "20200101"
-    assert query[1] is None
+    # Use patches
+    with patch.object(
+        profiler,
+        "_get_table_metadata",
+        return_value={"partition_columns": {"feed": "STRING"}, "is_external": False},
+    ), patch.object(
+        profiler, "_try_time_hierarchy_approach", return_value=None
+    ), patch.object(
+        profiler, "_try_date_columns_approach", return_value=None
+    ), patch.object(profiler, "_get_partition_values", return_value={}):
+        filters = profiler._get_required_partition_filters(
+            table=test_table,
+            project="test_project",
+            schema="test_dataset",
+        )
+
+        # Should return None when can't get values for partition columns
+        assert filters is None
+
+
+def test_create_partition_filters_with_various_types():
+    """Test creating filters for different data types."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Test data with various types
+    partition_columns = {
+        "string_col": "STRING",
+        "int_col": "INTEGER",
+        "float_col": "FLOAT64",
+        "date_col": "DATE",
+        "timestamp_col": "TIMESTAMP",
+        "bool_col": "BOOLEAN",
+    }
+
+    # Create values for each column
+    current_time = datetime.now(timezone.utc)
+    partition_values = {
+        "string_col": "test'value",  # With a quote to test escaping
+        "int_col": 123,
+        "float_col": 123.45,
+        "date_col": current_time,
+        "timestamp_col": current_time,
+        "bool_col": True,
+    }
+
+    # Mock the table, project, and schema
+    mock_table = MagicMock(spec=BigqueryTable)
+    mock_table.name = "test_table"
+    project = "test-project"
+    schema = "test_dataset"
+
+    # Mock _get_accurate_column_types to return the same types we're testing with
+    with patch.object(
+        profiler,
+        "_get_accurate_column_types",
+        return_value={
+            col: {"data_type": type_name, "is_partition": True}
+            for col, type_name in partition_columns.items()
+        },
+    ):
+        # Generate the filters
+        filters = profiler._create_partition_filters(
+            mock_table, project, schema, partition_columns, partition_values
+        )
+
+    # Verify all types are handled correctly
+    assert len(filters) == 6
+
+    # Check each filter individually
+    string_filter = next(f for f in filters if f.startswith("`string_col`"))
+    assert string_filter == "`string_col` = 'test\\'value'"  # Quote should be escaped
+
+    int_filter = next(f for f in filters if f.startswith("`int_col`"))
+    assert int_filter == "`int_col` = 123"
+
+    float_filter = next(f for f in filters if f.startswith("`float_col`"))
+    assert float_filter == "`float_col` = 123.45"
+
+    date_filter = next(f for f in filters if f.startswith("`date_col`"))
+    assert "DATE" in date_filter
+
+    timestamp_filter = next(f for f in filters if f.startswith("`timestamp_col`"))
+    assert "TIMESTAMP" in timestamp_filter
+
+    bool_filter = next(f for f in filters if f.startswith("`bool_col`"))
+    assert bool_filter == "`bool_col` = true"
+
+
+def test_verify_partition_has_data():
+    """Test the partition verification functionality."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Create a mock result class
+    class MockResult:
+        def __init__(self, val):
+            self.value = val
+
+    # Set up empty cache
+    profiler._successful_filters_cache = {}
+
+    # Create test table
+    test_table = BigqueryTable(
+        name="test_table",
+        comment="test_comment",
+        rows_count=1000,
+        size_in_bytes=10000000,  # 10MB
+        last_altered=datetime.now(timezone.utc),
+        created=datetime.now(timezone.utc),
+    )
+
+    # Mock the execute_cached_query method with patch
+    with patch.object(
+        profiler,
+        "_execute_cached_query",
+        side_effect=lambda query, *args, **kwargs: [MockResult(1)]
+        if "existence" in query.lower()
+        else [],
+    ):
+        # Test verification with filters
+        filters = ["`col1` = 123", "`col2` = 'value'"]
+        result = profiler._verify_partition_has_data(
+            table=test_table,
+            project="test_project",
+            schema="test_dataset",
+            filters=filters,
+        )
+
+        # Should return True as the mock returns data
+        assert result is True
+
+        # Check it was cached
+        cache_key = (
+            f"test_project.test_dataset.test_table.{hash(tuple(sorted(filters)))}"
+        )
+        assert cache_key in profiler._successful_filters_cache
+
+
+def test_extract_partitioning_from_ddl():
+    """Test extracting partition columns from DDL."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Create a more specific mock for get_partition_column_types
+    def mock_get_types(found_cols, metadata, proj, sch, tbl):
+        for col in found_cols:
+            if col == "event_date":
+                metadata["partition_columns"][col] = "DATE"
+            elif col == "event_timestamp":
+                metadata["partition_columns"][col] = "DATE"  # Explicitly set as DATE
+            else:
+                metadata["partition_columns"][col] = "STRING"
+
+    # Use patch
+    with patch.object(
+        profiler, "_get_partition_column_types", side_effect=mock_get_types
+    ):
+        # Test data
+        metadata: Dict[str, Any] = {"partition_columns": {}, "is_external": False}
+
+        # Test with standard PARTITION BY
+        ddl1 = """
+        CREATE TABLE `project.dataset.table` (
+          event_date DATE,
+          customer_id STRING,
+          value INT64
+        )
+        PARTITION BY event_date
+        """
+
+        profiler._extract_partitioning_from_ddl(
+            ddl=ddl1,
+            metadata=metadata,
+            project="project",
+            schema="dataset",
+            table_name="table",
+        )
+
+        # Check partition columns were extracted
+        assert "event_date" in metadata["partition_columns"]
+        assert metadata["partition_columns"]["event_date"] == "DATE"
+
+        # Reset metadata for next test
+        metadata = {"partition_columns": {}, "is_external": False}
+
+        # Test with DATE function
+        ddl2 = """
+        CREATE TABLE `project.dataset.table` (
+          event_timestamp TIMESTAMP,
+          customer_id STRING,
+          value INT64
+        )
+        PARTITION BY DATE(event_timestamp)
+        """
+
+        profiler._extract_partitioning_from_ddl(
+            ddl=ddl2,
+            metadata=metadata,
+            project="project",
+            schema="dataset",
+            table_name="table",
+        )
+
+        # Should extract the column inside the DATE function
+        assert "event_timestamp" in metadata["partition_columns"]
+        assert metadata["partition_columns"]["event_timestamp"] == "DATE"
+
+
+def test_get_batch_kwargs_with_optimization_hints():
+    """Test that batch kwargs are correctly generated with optimization hints for large tables."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Mock with patches
+    with patch.object(
+        profiler,
+        "_get_required_partition_filters",
+        return_value=["`date_col` = DATE '2023-03-01'"],
+    ):
+        # Initialize empty set
+        profiler._queried_tables = set()
+
+        # Create a large test table to trigger optimization hints
+        test_table = BigqueryTable(
+            name="large_table",
+            comment="test_comment",
+            rows_count=100000000,  # 100M rows
+            size_in_bytes=10000000000,  # 10GB
+            last_altered=datetime.now(timezone.utc),
+            created=datetime.now(timezone.utc),
+        )
+
+        # Get the batch kwargs
+        kwargs = profiler.get_batch_kwargs(test_table, "test_dataset", "test_project")
+
+        # Check the result contains the expected optimization hints
+        assert "custom_sql" in kwargs
+        assert "partition_handling" in kwargs
+        assert kwargs["partition_handling"] == "true"
+        assert "`date_col` = DATE '2023-03-01'" in kwargs["custom_sql"]
+
+        # For large tables, should include optimization comment
+        assert (
+            "--" in kwargs["custom_sql"]
+            or "partition filters" in kwargs["custom_sql"].lower()
+        )
+
+
+def test_external_table_tablesample():
+    """Test that external tables use TABLESAMPLE when appropriate."""
+    profiler = BigqueryProfiler(config=BigQueryV2Config(), report=BigQueryV2Report())
+
+    # Mock dependencies with patches
+    with patch.object(
+        profiler,
+        "_get_required_partition_filters",
+        return_value=[],  # Empty filters
+    ):
+        # Initialize empty set
+        profiler._queried_tables = set()
+
+        # Create an external test table
+        test_table = BigqueryTable(
+            name="external_table",
+            comment="test_comment",
+            rows_count=1000,
+            size_in_bytes=100000000,  # 100MB
+            last_altered=datetime.now(timezone.utc),
+            created=datetime.now(timezone.utc),
+            external=True,
+        )
+
+        # Get the batch kwargs
+        kwargs = profiler.get_batch_kwargs(test_table, "test_dataset", "test_project")
+
+        # Check that TABLESAMPLE is included for external tables with empty filters
+        assert "custom_sql" in kwargs
+        assert "TABLESAMPLE" in kwargs["custom_sql"]
