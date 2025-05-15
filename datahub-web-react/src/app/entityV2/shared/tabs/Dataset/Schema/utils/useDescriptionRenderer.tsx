@@ -14,9 +14,6 @@ import { EditableSchemaMetadata, SchemaField, SubResourceType } from '@types';
 export default function useDescriptionRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
     isCompact: boolean,
-    options?: {
-        handleShowMore?: (_: string) => void;
-    },
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -67,7 +64,6 @@ export default function useDescriptionRenderer(
                         },
                     }).then(refresh)
                 }
-                handleShowMore={options?.handleShowMore}
                 isReadOnly
                 isPropagated={isPropagated}
                 sourceDetail={sourceDetail}
