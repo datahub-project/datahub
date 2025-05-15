@@ -18,6 +18,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
@@ -204,6 +205,9 @@ public class MetadataChangeProposalsProcessorTest {
 
     // Mock conversion from Avro to Pegasus MCP
     eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord)).thenReturn(mcp);
+    when(mockEntityService.ingestProposal(eq(opContext), any(AspectsBatch.class), eq(false)))
+        .thenThrow(
+            new IllegalArgumentException("ERROR :: /origin :: \"INVALID\" is not an enum symbol"));
 
     // Execute test
     processor.consume(mockConsumerRecord);
@@ -220,7 +224,8 @@ public class MetadataChangeProposalsProcessorTest {
     // Verify error handling
     Throwable validationException = exceptionCaptor.getValue();
     verify(mockSpan).recordException(validationException);
-    verify(mockSpan).setStatus(StatusCode.ERROR, "Failed to ingest MCP.");
+    verify(mockSpan)
+        .setStatus(StatusCode.ERROR, "ERROR :: /origin :: \"INVALID\" is not an enum symbol");
   }
 
   @Test
@@ -287,5 +292,25 @@ public class MetadataChangeProposalsProcessorTest {
     Throwable validationException = exceptionCaptor.getValue();
     verify(mockSpan).recordException(validationException);
     verify(mockSpan).setStatus(StatusCode.ERROR, "Unknown aspect INVALID for entity dataset");
+  }
+
+  @Test
+  public void testSuccess() {
+    // Create a successful MCP
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    Urn entityUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD)");
+    mcp.setEntityUrn(entityUrn);
+    mcp.setEntityType("dataset");
+    mcp.setAspectName("status");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(new Status().setRemoved(false)));
+
+    // Mock conversion from Avro to Pegasus MCP
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord)).thenReturn(mcp);
+
+    // Execute test
+    processor.consume(mockConsumerRecord);
+
+    verify(mockEntityService).ingestProposal(eq(opContext), any(AspectsBatch.class), eq(false));
   }
 }
