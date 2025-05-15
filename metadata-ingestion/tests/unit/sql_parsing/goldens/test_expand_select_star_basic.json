@@ -23,7 +23,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "totalprice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(\"ORDERS\".\"TOTALPRICE\") AS \"TOTAL_AGG\""
+            }
         },
         {
             "downstream": {
@@ -41,7 +45,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "orderkey"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"ORDERKEY\" AS \"ORDERKEY\""
+            }
         },
         {
             "downstream": {
@@ -59,7 +67,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "custkey"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"CUSTKEY\" AS \"CUSTKEY\""
+            }
         },
         {
             "downstream": {
@@ -77,7 +89,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "orderstatus"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"ORDERSTATUS\" AS \"ORDERSTATUS\""
+            }
         },
         {
             "downstream": {
@@ -95,7 +111,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "totalprice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"TOTALPRICE\" AS \"TOTALPRICE\""
+            }
         },
         {
             "downstream": {
@@ -113,7 +133,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "orderdate"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"ORDERDATE\" AS \"ORDERDATE\""
+            }
         },
         {
             "downstream": {
@@ -131,7 +155,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "orderpriority"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"ORDERPRIORITY\" AS \"ORDERPRIORITY\""
+            }
         },
         {
             "downstream": {
@@ -149,7 +177,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "clerk"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"CLERK\" AS \"CLERK\""
+            }
         },
         {
             "downstream": {
@@ -167,7 +199,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "shippriority"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"SHIPPRIORITY\" AS \"SHIPPRIORITY\""
+            }
         },
         {
             "downstream": {
@@ -185,9 +221,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "comment"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"COMMENT\" AS \"COMMENT\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT SUM(totalprice) AS total_agg, * FROM snowflake_sample_data.tpch_sf1.orders WHERE orderdate = ?"

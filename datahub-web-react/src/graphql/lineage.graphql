@@ -263,6 +263,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 urn
                 path
             }
+            query
+            transformOperation
         }
         health {
             ...entityHealth

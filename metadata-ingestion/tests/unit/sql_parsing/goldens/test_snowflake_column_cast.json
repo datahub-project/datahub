@@ -23,7 +23,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "o_orderkey"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"O\".\"O_ORDERKEY\" AS DECIMAL(20, 0)) AS \"ORDERKEY\""
+            }
         },
         {
             "downstream": {
@@ -41,7 +45,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "o_totalprice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"O\".\"O_TOTALPRICE\" AS INT) AS \"TOTAL_CAST_INT\""
+            }
         },
         {
             "downstream": {
@@ -59,9 +67,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)",
                     "column": "o_totalprice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "CAST(\"O\".\"O_TOTALPRICE\" AS DECIMAL(16, 4)) AS \"TOTAL_CAST_FLOAT\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT CAST(o.o_orderkey AS DECIMAL(?, ?)) AS orderkey, CAST(o.o_totalprice AS INT) AS total_cast_int, CAST(o.o_totalprice AS DECIMAL(?, ?)) AS total_cast_float FROM snowflake_sample_data.tpch_sf1.orders AS o LIMIT ?"

@@ -57,6 +57,7 @@ jobs:
           fail_ci_if_error: false
           name: datahub-actions
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
     runs-on: ubuntu-latest
