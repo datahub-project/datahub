@@ -46,8 +46,10 @@
     "joins": [
         {
             "join_type": "FULL JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.main_users,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.main_users,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,playground-1.my_schema.external_users,PROD)"
             ],
             "on_clause": "`main`.`id` = `extras`.`id`",

@@ -74,11 +74,6 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   public static final String INDEX_NAME = "graph_service_v1";
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
-  @Override
-  public ESIndexBuilder getIndexBuilder() {
-    return _indexBuilder;
-  }
-
   private static String toDocument(@Nonnull final Edge edge) {
     final ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
 
@@ -140,6 +135,11 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     log.debug("Search doc for write {}", searchDocument);
 
     return searchDocument.toString();
+  }
+
+  @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return _indexBuilder;
   }
 
   @Override

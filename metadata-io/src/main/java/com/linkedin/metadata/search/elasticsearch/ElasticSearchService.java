@@ -6,6 +6,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
@@ -13,9 +14,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -26,13 +26,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -45,6 +39,10 @@ import org.opensearch.action.search.SearchResponse;
 @Slf4j
 @RequiredArgsConstructor
 public class ElasticSearchService implements EntitySearchService, ElasticSearchIndexed {
+  private final ESIndexBuilder indexBuilder;
+  private final EntityRegistry entityRegistry;
+  @Getter private final IndexConvention indexConvention;
+  private final SettingsBuilder settingsBuilder;
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
@@ -64,25 +62,68 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
           + "if (ctx._source.runId.length > params.maxRunIds) { ctx._source.runId.remove(0) } } "
           + "} else { ctx._source.runId = [params.runId] }";
 
-  private final EntityIndexBuilders indexBuilders;
   @VisibleForTesting @Getter private final ESSearchDAO esSearchDAO;
   private final ESBrowseDAO esBrowseDAO;
   private final ESWriteDAO esWriteDAO;
 
   @Override
   public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    indexBuilders.reindexAll(properties);
+    for (ReindexConfig config : buildReindexConfigs(properties)) {
+      try {
+        indexBuilder.buildIndex(config);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
-      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
-    return indexBuilders.buildReindexConfigs(properties);
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    Map<String, Object> settings = settingsBuilder.getSettings();
+
+    return entityRegistry.getEntitySpecs().values().stream()
+        .map(
+            entitySpec -> {
+              try {
+                Map<String, Object> mappings =
+                    MappingsBuilder.getMappings(entityRegistry, entitySpec, properties);
+                return indexBuilder.buildReindexState(
+                    indexConvention.getIndexName(entitySpec), mappings, settings);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .collect(Collectors.toList());
   }
 
-  @Override
-  public ESIndexBuilder getIndexBuilder() {
-    return indexBuilders.getIndexBuilder();
+  /**
+   * Given a structured property generate all entity index configurations impacted by it, preserving
+   * existing properties
+   *
+   * @param property the new property
+   * @return index configurations impacted by the new property
+   */
+  public List<ReindexConfig> buildReindexConfigsWithNewStructProp(
+      Urn urn, StructuredPropertyDefinition property) {
+    Map<String, Object> settings = settingsBuilder.getSettings();
+
+    return entityRegistry.getEntitySpecs().values().stream()
+        .map(
+            entitySpec -> {
+              try {
+                Map<String, Object> mappings =
+                    MappingsBuilder.getMappings(
+                        entityRegistry, entitySpec, List.of(Pair.of(urn, property)));
+                return indexBuilder.buildReindexState(
+                    indexConvention.getIndexName(entitySpec), mappings, settings, true);
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+            })
+        .filter(Objects::nonNull)
+        .filter(ReindexConfig::hasNewStructuredProperty)
+        .collect(Collectors.toList());
   }
 
   @Override
@@ -124,7 +165,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   @Override
   public void appendRunId(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {
-    final String docId = indexBuilders.getIndexConvention().getEntityDocumentId(urn);
+    final String docId = getIndexConvention().getEntityDocumentId(urn);
 
     log.debug(
         "Appending run id for entity name: {}, doc id: {}, run id: {}",
@@ -464,6 +505,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public IndexConvention getIndexConvention() {
-    return indexBuilders.getIndexConvention();
+    return indexConvention;
+  }
+
+  @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return indexBuilder;
   }
 }
