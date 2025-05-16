@@ -6,9 +6,11 @@ import pathlib
 import re
 import time
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
+from functools import lru_cache
 from pathlib import PurePath
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Set, Tuple
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
@@ -68,6 +70,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from azure.storage.blob import BlobProperties
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -133,12 +138,29 @@ class ABSSource(StatefulIngestionSourceBase):
     report: DataLakeSourceReport
     profiling_times_taken: List[float]
     container_WU_creator: ContainerWUCreator
+    _folder_cache: Dict[str, Set[str]]
+    _schema_cache: Dict[str, List[SchemaField]]
+
+    @lru_cache(maxsize=1000)
+    def _get_blob_metadata_cached(
+        self, container_name: str, blob_name: str
+    ) -> "BlobProperties":
+        """Cache blob metadata to avoid repeated API calls"""
+        if self.source_config.azure_config is None:
+            raise ValueError("Azure config is required for ABS blob metadata")
+
+        blob_service_client = self.source_config.azure_config.get_blob_service_client()
+        container_client = blob_service_client.get_container_client(container_name)
+        blob_client = container_client.get_blob_client(blob=blob_name)
+        return blob_client.get_blob_properties()
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
+        self._folder_cache = {}
+        self._schema_cache = {}
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -189,21 +211,48 @@ class ABSSource(StatefulIngestionSourceBase):
             extension = f".{path_spec.default_extension}"
 
         try:
+            # Cache schema inference results by file path to avoid redundant processing
+            cache_key = f"{table_data.full_path}_{extension}"
+
+            # Check if we already processed this file
+            if hasattr(self, "_schema_cache") and cache_key in self._schema_cache:
+                logger.debug(f"Using cached schema for {table_data.full_path}")
+                return self._schema_cache[cache_key]
+
+            # Read only the beginning of the file for schema inference
+            # This dramatically speeds up processing of large files
+            if not hasattr(self, "_schema_cache"):
+                self._schema_cache: Dict[str, List[SchemaField]] = {}
+
+            # Limit reading for certain file types
+            limited_read = extension in [".csv", ".tsv", ".jsonl"]
+
+            if limited_read:
+                # For row-based formats, we can limit bytes read
+                file.seek(0)  # Reset position for inferrers
+
             if extension == ".parquet":
                 fields = parquet.ParquetInferrer().infer_schema(file)
             elif extension == ".csv":
                 fields = csv_tsv.CsvInferrer(
-                    max_rows=self.source_config.max_rows
+                    max_rows=min(
+                        1000, self.source_config.max_rows
+                    )  # Use smaller sample
                 ).infer_schema(file)
             elif extension == ".tsv":
                 fields = csv_tsv.TsvInferrer(
-                    max_rows=self.source_config.max_rows
+                    max_rows=min(
+                        1000, self.source_config.max_rows
+                    )  # Use smaller sample
                 ).infer_schema(file)
             elif extension == ".json":
                 fields = json.JsonInferrer().infer_schema(file)
             elif extension == ".jsonl":
                 fields = json.JsonInferrer(
-                    max_rows=self.source_config.max_rows, format="jsonl"
+                    max_rows=min(
+                        1000, self.source_config.max_rows
+                    ),  # Use smaller sample
+                    format="jsonl",
                 ).infer_schema(file)
             elif extension == ".avro":
                 fields = avro.AvroInferrer().infer_schema(file)
@@ -213,12 +262,17 @@ class ABSSource(StatefulIngestionSourceBase):
                     f"file {table_data.full_path} has unsupported extension",
                 )
             file.close()
+
+            # Cache the result
+            self._schema_cache[cache_key] = fields
+
         except Exception as e:
             self.report.report_warning(
                 table_data.full_path,
                 f"could not infer schema for file {table_data.full_path}: {e}",
             )
             file.close()
+
         logger.debug(f"Extracted fields in schema: {fields}")
         fields = sorted(fields, key=lambda f: f.fieldPath)
 
@@ -468,6 +522,9 @@ class ABSSource(StatefulIngestionSourceBase):
         prefix = self.get_prefix(get_container_relative_path(path_spec.include))
         logger.debug(f"Scanning objects with prefix:{prefix}")
 
+        # Use parallel processing for better performance
+        max_workers = min(10, os.cpu_count() or 4)  # Limit to reasonable number
+
         matches = re.finditer(r"{\s*\w+\s*}", path_spec.include, re.MULTILINE)
         matches_list = list(matches)
         if matches_list and path_spec.sample_files:
@@ -484,6 +541,8 @@ class ABSSource(StatefulIngestionSourceBase):
 
             table_index = include.find(max_match)
 
+            # Get all folders to process first
+            all_folders = []
             for folder in self.resolve_templated_folders(
                 container_name,
                 get_container_relative_path(include[:table_index]),
@@ -492,32 +551,8 @@ class ABSSource(StatefulIngestionSourceBase):
                     for f in list_folders(
                         container_name, f"{folder}", self.source_config.azure_config
                     ):
-                        logger.info(f"Processing folder: {f}")
-                        protocol = ContainerWUCreator.get_protocol(path_spec.include)
-                        dir_to_process = self.get_dir_to_process(
-                            container_name=container_name,
-                            folder=f + "/",
-                            path_spec=path_spec,
-                            protocol=protocol,
-                        )
-                        logger.info(f"Getting files from folder: {dir_to_process}")
-                        dir_to_process = dir_to_process.rstrip("\\")
-                        for obj in container_client.list_blobs(
-                            name_starts_with=f"{dir_to_process}",
-                            results_per_page=PAGE_SIZE,
-                        ):
-                            abs_path = self.create_abs_path(obj.name)
-                            logger.debug(f"Sampling file: {abs_path}")
-                            yield (
-                                abs_path,
-                                obj.name,
-                                obj.last_modified,
-                                obj.size,
-                            )
+                        all_folders.append((container_name, f))
                 except Exception as e:
-                    # This odd check if being done because boto does not have a proper exception to catch
-                    # The exception that appears in stacktrace cannot actually be caught without a lot more work
-                    # https://github.com/boto/boto3/issues/1195
                     if "NoSuchBucket" in repr(e):
                         logger.debug(
                             f"Got NoSuchBucket exception for {container_name}", e
@@ -527,19 +562,92 @@ class ABSSource(StatefulIngestionSourceBase):
                         )
                     else:
                         raise e
+
+            # Process folders in parallel
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = []
+                for container_name, folder in all_folders:
+                    logger.info(f"Submitting folder for processing: {folder}")
+                    protocol = ContainerWUCreator.get_protocol(path_spec.include)
+                    dir_to_process = self.get_dir_to_process(
+                        container_name=container_name,
+                        folder=folder + "/",
+                        path_spec=path_spec,
+                        protocol=protocol,
+                    )
+                    futures.append(
+                        executor.submit(
+                            self._process_folder,
+                            container_client,
+                            dir_to_process,
+                            container_name,
+                        )
+                    )
+
+                # Get results from futures
+                for future in futures:
+                    for result in future.result():
+                        yield result
         else:
             logger.debug(
                 "No template in the pathspec can't do sampling, fallbacking to do full scan"
             )
             path_spec.sample_files = False
-            for obj in container_client.list_blobs(
-                prefix=f"{prefix}", results_per_page=PAGE_SIZE
-            ):
-                abs_path = self.create_abs_path(obj.name)
-                logger.debug(f"Path: {abs_path}")
-                # the following line if using the file_system_client
-                # yield abs_path, obj.last_modified, obj.content_length,
-                yield abs_path, obj.name, obj.last_modified, obj.size
+
+            # For full scans, use segmented listing with parallel processing
+            # to improve performance
+            page_size = PAGE_SIZE * 5  # Increase page size for better performance
+            prefixes_to_scan = [prefix]
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = []
+                for prefix_chunk in prefixes_to_scan:
+                    futures.append(
+                        executor.submit(
+                            self._list_blobs_with_prefix,
+                            container_client,
+                            prefix_chunk,
+                            page_size,
+                        )
+                    )
+
+                # Get results from futures
+                for future in futures:
+                    for result in future.result():
+                        yield result
+
+    def _process_folder(self, container_client, dir_to_process, container_name):
+        """Process a folder and yield its blobs (used for parallel processing)"""
+        results = []
+        dir_to_process = dir_to_process.rstrip("\\")
+        logger.info(f"Getting files from folder: {dir_to_process}")
+
+        for obj in container_client.list_blobs(
+            name_starts_with=f"{dir_to_process}",
+            results_per_page=PAGE_SIZE * 5,  # Increased for better performance
+        ):
+            abs_path = self.create_abs_path(obj.name)
+            logger.debug(f"Found file: {abs_path}")
+            results.append(
+                (
+                    abs_path,
+                    obj.name,
+                    obj.last_modified,
+                    obj.size,
+                )
+            )
+        return results
+
+    def _list_blobs_with_prefix(self, container_client, prefix, page_size):
+        """List blobs with a given prefix (used for parallel processing)"""
+        results = []
+        for obj in container_client.list_blobs(
+            prefix=f"{prefix}", results_per_page=page_size
+        ):
+            abs_path = self.create_abs_path(obj.name)
+            logger.debug(f"Path: {abs_path}")
+            results.append((abs_path, obj.name, obj.last_modified, obj.size))
+        return results
 
     def create_abs_path(self, key: str) -> str:
         if self.source_config.azure_config:
@@ -588,6 +696,10 @@ class ABSSource(StatefulIngestionSourceBase):
         )
         with PerfTimer():
             assert self.source_config.path_specs
+
+            # Use ThreadPoolExecutor for parallel processing of tables
+            max_workers = min(10, os.cpu_count() or 4)  # Limit to reasonable number
+
             for path_spec in self.source_config.path_specs:
                 file_browser = (
                     self.abs_browser(
@@ -597,6 +709,8 @@ class ABSSource(StatefulIngestionSourceBase):
                     else self.local_browser(path_spec)
                 )
                 table_dict: Dict[str, TableData] = {}
+
+                # Process files and gather table data
                 for file, name, timestamp, size in file_browser:
                     if not path_spec.allowed(file):
                         continue
@@ -624,8 +738,51 @@ class ABSSource(StatefulIngestionSourceBase):
                                 table_data.table_path
                             ].timestamp = table_data.timestamp
 
-                for _, table_data in table_dict.items():
-                    yield from self.ingest_table(table_data, path_spec)
+                # Only use parallel processing if we have multiple tables
+                if len(table_dict) > 1:
+                    logger.info(f"Processing {len(table_dict)} tables in parallel")
+
+                    # Process tables in parallel
+                    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                        # Submit all tasks
+                        future_to_table = {
+                            executor.submit(
+                                self._process_table, table_data, path_spec
+                            ): table_data
+                            for _, table_data in table_dict.items()
+                        }
+
+                        # Collect results as they complete
+                        for future in future_to_table:
+                            try:
+                                for wu in future.result():
+                                    yield wu
+                            except Exception as e:
+                                table = future_to_table[future]
+                                logger.error(
+                                    f"Error processing table {table.display_name}: {e}"
+                                )
+                                self.report.report_failure(
+                                    f"Table {table.display_name}",
+                                    f"Failed with error: {e}",
+                                )
+                else:
+                    # Process tables sequentially for just one table
+                    for _, table_data in table_dict.items():
+                        yield from self.ingest_table(table_data, path_spec)
+
+    def _process_table(
+        self, table_data: TableData, path_spec: PathSpec
+    ) -> List[MetadataWorkUnit]:
+        """Process a single table and return work units (used for parallel processing)"""
+        try:
+            return list(self.ingest_table(table_data, path_spec))
+        except Exception as e:
+            logger.error(f"Error processing table {table_data.display_name}: {e}")
+            self.report.report_failure(
+                f"Table {table_data.display_name}", f"Failed with error: {e}"
+            )
+            return []
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [

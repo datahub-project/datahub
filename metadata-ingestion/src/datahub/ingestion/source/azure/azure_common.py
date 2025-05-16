@@ -59,9 +59,14 @@ class AzureConnectionConfig(ConfigModel):
         )
 
     def get_blob_service_client(self):
+        # Directly create service client with proper parameters to fix typing issues
         return BlobServiceClient(
             account_url=f"https://{self.account_name}.blob.core.windows.net",
-            credential=f"{self.get_credentials()}",
+            credential=self.get_credentials(),
+            connection_timeout=30,  # Increase from default 20 seconds
+            max_single_put_size=64 * 1024 * 1024,  # 64MB for larger uploads
+            max_page_size=4 * 1024 * 1024,  # 4MB for faster paging
+            retry_total=5,  # Increase retries
         )
 
     def get_data_lake_service_client(self) -> DataLakeServiceClient:
