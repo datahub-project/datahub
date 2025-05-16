@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DeleteFormInput;
 import com.linkedin.entity.client.EntityClient;
@@ -34,7 +35,7 @@ public class DeleteFormResolver implements DataFetcher<CompletableFuture<Boolean
         bindArgument(environment.getArgument("input"), DeleteFormInput.class);
     final Urn formUrn = UrnUtils.getUrn(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (!AuthorizationUtils.canManageForms(context)) {
@@ -60,6 +61,8 @@ public class DeleteFormResolver implements DataFetcher<CompletableFuture<Boolean
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

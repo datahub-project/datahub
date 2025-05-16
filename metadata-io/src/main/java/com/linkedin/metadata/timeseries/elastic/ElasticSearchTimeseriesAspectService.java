@@ -16,10 +16,12 @@ import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
@@ -32,8 +34,8 @@ import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.TimeseriesScrollResult;
 import com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder;
-import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.timeseries.elastic.query.ESAggregatedStatsDAO;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.SystemMetadata;
@@ -47,14 +49,7 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -105,20 +100,23 @@ public class ElasticSearchTimeseriesAspectService
 
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
-  private final TimeseriesAspectIndexBuilders indexBuilders;
   private final RestHighLevelClient searchClient;
   private final ESAggregatedStatsDAO esAggregatedStatsDAO;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
   private final ExecutorService queryPool;
+  @Nonnull private final EntityRegistry entityRegistry;
+  @Nonnull private final IndexConvention indexConvention;
+  @Nonnull private final ESIndexBuilder indexBuilder;
 
   public ElasticSearchTimeseriesAspectService(
       @Nonnull RestHighLevelClient searchClient,
-      @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
       @Nonnull ESBulkProcessor bulkProcessor,
       int numRetries,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
-      @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig) {
-    this.indexBuilders = indexBuilders;
+      @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull IndexConvention indexConvention,
+      @Nonnull ESIndexBuilder indexBuilder) {
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.numRetries = numRetries;
@@ -132,6 +130,9 @@ public class ElasticSearchTimeseriesAspectService
             new ArrayBlockingQueue<>(
                 timeseriesAspectServiceConfig.getQuery().getQueueSize()), // fixed size queue
             new ThreadPoolExecutor.CallerRunsPolicy());
+    this.entityRegistry = entityRegistry;
+    this.indexConvention = indexConvention;
+    this.indexBuilder = indexBuilder;
 
     esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
   }
@@ -225,19 +226,75 @@ public class ElasticSearchTimeseriesAspectService
 
   @Override
   public List<ReindexConfig> buildReindexConfigs(
-      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException {
-    return indexBuilders.buildReindexConfigs(properties);
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    return entityRegistry.getEntitySpecs().values().stream()
+        .flatMap(
+            entitySpec ->
+                entitySpec.getAspectSpecs().stream()
+                    .map(aspectSpec -> Pair.of(entitySpec, aspectSpec)))
+        .filter(pair -> pair.getSecond().isTimeseries())
+        .map(
+            pair -> {
+              try {
+                return indexBuilder.buildReindexState(
+                    indexConvention.getTimeseriesAspectIndexName(
+                        pair.getFirst().getName(), pair.getSecond().getName()),
+                    MappingsBuilder.getMappings(pair.getSecond()),
+                    Collections.emptyMap());
+              } catch (IOException e) {
+                log.error(
+                    "Issue while building timeseries field index for entity {} aspect {}",
+                    pair.getFirst().getName(),
+                    pair.getSecond().getName());
+                throw new RuntimeException(e);
+              }
+            })
+        .collect(Collectors.toList());
   }
 
   public String reindexAsync(
       String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
       throws Exception {
-    return indexBuilders.reindexAsync(index, filterQuery, options);
+    Optional<Pair<String, String>> entityAndAspect = indexConvention.getEntityAndAspectName(index);
+    if (entityAndAspect.isEmpty()) {
+      throw new IllegalArgumentException("Could not extract entity and aspect from index " + index);
+    }
+    String entityName = entityAndAspect.get().getFirst();
+    String aspectName = entityAndAspect.get().getSecond();
+    EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
+    for (String aspect : entitySpec.getAspectSpecMap().keySet()) {
+      if (aspect.toLowerCase().equals(aspectName)) {
+        aspectName = aspect;
+        break;
+      }
+    }
+    if (!entitySpec.hasAspect(aspectName)) {
+      throw new IllegalArgumentException(
+          String.format("Could not find aspect %s of entity %s", aspectName, entityName));
+    }
+    ReindexConfig config =
+        indexBuilder.buildReindexState(
+            index,
+            MappingsBuilder.getMappings(
+                entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName)),
+            Collections.emptyMap());
+    return indexBuilder.reindexInPlaceAsync(index, filterQuery, options, config);
   }
 
   @Override
   public void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
-    indexBuilders.reindexAll(properties);
+    for (ReindexConfig config : buildReindexConfigs(properties)) {
+      try {
+        indexBuilder.buildIndex(config);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return indexBuilder;
   }
 
   @Override

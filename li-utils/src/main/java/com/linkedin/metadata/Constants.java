@@ -12,6 +12,7 @@ public class Constants {
 
   // Use on specific MCP to request an synchronous index update avoid the kafka lag.
   public static final String SYNC_INDEX_UPDATE_HEADER_NAME = "X-DataHub-Sync-Index-Update";
+  public static final String DATAHUB_LOGIN_SOURCE_HEADER_NAME = "X-DataHubLoginSource";
 
   public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
@@ -258,6 +259,7 @@ public class Constants {
       "editableMlPrimaryKeyProperties";
 
   // Policy
+  public static final String DATAHUB_POLICY_KEY_ASPECT_NAME = "dataHubPolicyKey";
   public static final String DATAHUB_POLICY_INFO_ASPECT_NAME = "dataHubPolicyInfo";
 
   // Role
@@ -496,6 +498,9 @@ public class Constants {
 
   // DAO
   public static final long LATEST_VERSION = 0;
+
+  // Index names
+  public static final String DATAHUB_USAGE_EVENT_INDEX = "datahub_usage_event";
 
   // Logging MDC
   public static final String MDC_ENTITY_URN = "entityUrn";

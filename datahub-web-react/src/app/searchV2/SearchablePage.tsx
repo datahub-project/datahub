@@ -1,7 +1,6 @@
 import { debounce } from 'lodash';
-import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -11,13 +10,12 @@ import { NavSidebar } from '@app/homeV2/layout/NavSidebar';
 import { NavSidebar as NavSidebarRedesign } from '@app/homeV2/layout/navBarRedesign/NavSidebar';
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
 import { SearchHeader } from '@app/searchV2/SearchHeader';
+import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
-import useFilters from '@app/searchV2/utils/useFilters';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
-import { PageRoutes } from '@conf/Global';
 import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { colors } from '@src/alchemy-components';
 
@@ -66,23 +64,13 @@ const FIFTH_SECOND_IN_MS = 100;
 
 type Props = React.PropsWithChildren<any>;
 
-const isSearchResultPage = (path: string) => {
-    return path.startsWith(PageRoutes.SEARCH);
-};
-
 /**
  * A page that includes a sticky search header (nav bar)
  */
 export const SearchablePage = ({ children }: Props) => {
-    const location = useLocation();
     const appConfig = useAppConfig();
     const showSearchBarAutocompleteRedesign = appConfig.config.featureFlags?.showSearchBarAutocompleteRedesign;
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
-    const paramFilters: Array<FacetFilterInput> = useFilters(params);
-    const filters = isSearchResultPage(location.pathname) ? paramFilters : [];
-    const currentQuery: string = isSearchResultPage(location.pathname)
-        ? decodeURIComponent(params.query ? (params.query as string) : '')
-        : '';
+    const { filters, query: currentQuery } = useQueryAndFiltersFromLocation();
     const selectedSortOption = useSelectedSortOption();
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
@@ -112,7 +100,12 @@ export const SearchablePage = ({ children }: Props) => {
             selectedQuickFilterValues: selectedQuickFilter ? [selectedQuickFilter.value] : undefined,
         });
 
-        const newAppliedFilters = newFilters && newFilters?.length > 0 ? newFilters : filters;
+        let newAppliedFilters: FacetFilterInput[] | undefined = filters;
+
+        // For the redesigned search bar we should always pass new filters even though they are empty
+        if (showSearchBarAutocompleteRedesign || (newFilters && newFilters?.length > 0)) {
+            newAppliedFilters = newFilters;
+        }
 
         navigateToSearchUrl({
             query,
