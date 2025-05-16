@@ -95,6 +95,7 @@ Once the above steps are completed, user assignments/unassignments to the DataHu
 > Refer the Okta documentation on [Delete (Deprovision)](https://developer.okta.com/docs/concepts/scim/#delete-deprovision) for more details.
 
 ### 4. (Optional): Assigning Datahub roles to users / groups
+
 If roles are to be assigned to users/groups in Datahub, create custom attributes to represent Datahub roles as detailed in the following steps.
 
 a). Navigate to `Directory` -> `Profile Editor`, and select the user-profile of this new application.
