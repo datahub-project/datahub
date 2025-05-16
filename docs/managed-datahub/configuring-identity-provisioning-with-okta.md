@@ -76,7 +76,26 @@ c). Configure the `To App` section as shown below:
 
 **Note**: We are not pushing passwords to DataHub over SCIM, since we are assuming SSO with OIDC as mentioned earlier.
 
-### 3. Add a custom attribute to represent roles
+### 3. Assign users & groups to the app
+
+Assign users and groups to the app from the `Assignments` tab:
+
+<p>
+<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/assignUsersGroups.png"/>
+</p>
+
+### The provisioning setup is now complete
+
+Once the above steps are completed, user assignments/unassignments to the DataHub-SCIM-SWA app in Okta will get reflected in DataHub automatically.
+
+> #### A note on user deletion
+>
+> Note that when users are unassigned or deactivated in Okta, the corresponding users in DataHub are also deactivated (marked "suspended").
+> But when a user is _deleted_ in Okta, the corresponding user in DataHub does _not_ get deleted.
+> Refer the Okta documentation on [Delete (Deprovision)](https://developer.okta.com/docs/concepts/scim/#delete-deprovision) for more details.
+
+### 4. (Optional): Assigning Datahub roles to users / groups
+If roles are to be assigned to users/groups in Datahub, create custom attributes to represent Datahub roles as detailed in the following steps.
 
 a). Navigate to `Directory` -> `Profile Editor`, and select the user-profile of this new application.
 
@@ -98,26 +117,8 @@ b). Click `Add Attribute` and define a new attribute that will be used to specif
 
 c). Add a similar attribute for groups i.e. repeat step (b) above, but select `Attribute Type` as `Group`. (Specify the variable name as, say, `dataHubGroupRoles`.)
 
-### 4. Assign users & groups to the app
-
-Assign users and groups to the app from the `Assignments` tab:
-
-<p>
-<img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/scim/okta/assignUsersGroups.png"/>
-</p>
-
-While assigning a user/group, choose an appropriate value for the dataHubRoles/dataHubGroupRoles attribute.
+While assigning a user/group to the app (refer step #3 above), you can now choose an appropriate value for the dataHubRoles/dataHubGroupRoles attribute.
 Note that when a role is selected for a group, the corresponding role is pushed for all users of that group in DataHub.
-
-### The provisioning setup is now complete
-
-Once the above steps are completed, user assignments/unassignments to the DataHub-SCIM-SWA app in Okta will get reflected in DataHub automatically.
-
-> #### A note on user deletion
->
-> Note that when users are unassigned or deactivated in Okta, the corresponding users in DataHub are also deactivated (marked "suspended").
-> But when a user is _deleted_ in Okta, the corresponding user in DataHub does _not_ get deleted.
-> Refer the Okta documentation on [Delete (Deprovision)](https://developer.okta.com/docs/concepts/scim/#delete-deprovision) for more details.
 
 ### 5. (Optional): Configure push groups
 
