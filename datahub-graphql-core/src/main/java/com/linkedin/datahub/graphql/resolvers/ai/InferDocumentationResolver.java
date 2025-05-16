@@ -53,7 +53,7 @@ public class InferDocumentationResolver
         Urn.createFromString(bindArgument(environment.getArgument("urn"), String.class));
     final Boolean saveResult =
         bindArgument(environment.getArgumentOrDefault("saveResult", false), Boolean.class);
-    if (!DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
+    if (saveResult && !DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }
