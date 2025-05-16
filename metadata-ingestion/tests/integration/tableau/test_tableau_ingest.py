@@ -328,10 +328,10 @@ def tableau_ingest_common(
                 sign_out_side_effect=sign_out_side_effect,
             )
             mock_sdk._auth_token = "ABC"
-            
+
             with mock.patch(
                 "datahub.ingestion.source.tableau.tableau.TableauSiteSource.emit_virtual_connections",
-                mock_emit_virtual_connections
+                mock_emit_virtual_connections,
             ):
                 pipeline = Pipeline.create(
                     {
