@@ -488,13 +488,10 @@ class HiveStorageLineage:
         storage_urn, storage_platform = storage_info
         self.report.report_location_scanned()
 
-        if self.config.storage_platform_instance:
-            platform_instance = self.config.storage_platform_instance.lower()
-
         # Create storage dataset entity
         yield from self.get_storage_dataset_mcp(
             storage_location=storage_location,
-            platform_instance=platform_instance,
+            platform_instance=self.config.storage_platform_instance,
             schema_metadata=dataset_schema,
         )
 
