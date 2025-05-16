@@ -268,7 +268,10 @@ class HiveStorageLineage:
         Returns tuple of (urn, platform) if successful, None otherwise.
         """
 
-        platform_instance = None
+        platform_instance = (
+            self.config.storage_platform_instance
+            or self.config.storage_platform_instance
+        )
         storage_info = StoragePathParser.parse_storage_location(storage_location)
         if not storage_info:
             logger.debug(f"Could not parse storage location: {storage_location}")
