@@ -409,6 +409,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     platformNativeType
     properties {
         name
+        qualifiedName
         description
         customProperties {
             key
