@@ -238,9 +238,11 @@ class HiveStorageLineage:
         self,
         config: HiveStorageLineageConfig,
         env: str,
+        convert_urns_to_lowercase: bool = False,
     ):
         self.config = config
         self.env = env
+        self.convert_urns_to_lowercase = convert_urns_to_lowercase
         self.report = HiveStorageSourceReport()
 
     def _make_dataset_platform_instance(
