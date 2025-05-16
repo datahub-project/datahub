@@ -38,5 +38,4 @@ public interface ElasticSearchIndexed {
       throw new RuntimeException(e);
     }
   }
-
 }
