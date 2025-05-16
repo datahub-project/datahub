@@ -278,10 +278,7 @@ class HiveStorageLineage:
         platform_name = StoragePathParser.get_platform_name(platform)
 
         if self.convert_urns_to_lowercase:
-            platform_name = platform_name.lower()
             path = path.lower()
-            if self.config.storage_platform_instance:
-                platform_instance = self.config.storage_platform_instance.lower()
 
         try:
             storage_urn = make_dataset_urn_with_platform_instance(
@@ -399,10 +396,7 @@ class HiveStorageLineage:
         platform_name = StoragePathParser.get_platform_name(platform)
 
         if self.convert_urns_to_lowercase:
-            platform_name = platform_name.lower()
             path = path.lower()
-            if self.config.storage_platform_instance:
-                platform_instance = self.config.storage_platform_instance.lower()
 
         try:
             storage_urn = make_dataset_urn_with_platform_instance(
