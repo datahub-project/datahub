@@ -430,19 +430,33 @@ def by_filter(
                     )
                 )
             else:
-                urns.extend(
+                # For containers, try both browsePathV2 and container aspects
+                # it's possible for the browsePathV2 to be stored as an alias, therefore the container would not be found
+                browse_path_children = list(
                     graph.get_urns_by_filter(
                         container=urn,
                         status=soft_delete_filter,
                         batch_size=batch_size,
                     )
                 )
-    elif urn_file:
-        with open(urn_file, "r") as r:
-            urns = []
-            for line in r.readlines():
-                urn = line.strip().strip('"')
-                urns.append(urn)
+
+                container_filter = {
+                    "field": "container",
+                    "condition": "CONTAIN",
+                    "values": [urn],
+                }
+                container_children = list(
+                    graph.get_urns_by_filter(
+                        extraFilters=[container_filter],
+                        status=soft_delete_filter,
+                        batch_size=batch_size,
+                    )
+                )
+
+                all_container_children = set(browse_path_children + container_children)
+                all_container_children.discard(urn)
+
+                urns.extend(all_container_children)
     else:
         urns = list(
             graph.get_urns_by_filter(
