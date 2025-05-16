@@ -1,4 +1,4 @@
-ARG KAFKA_DOCKER_VERSION=7.9.0
+ARG KAFKA_DOCKER_VERSION=7.9.1
 
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
