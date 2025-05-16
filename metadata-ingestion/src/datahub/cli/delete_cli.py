@@ -457,6 +457,12 @@ def by_filter(
                 all_container_children.discard(urn)
 
                 urns.extend(all_container_children)
+    elif urn_file:
+        with open(urn_file, "r") as r:
+            urns = []
+            for line in r.readlines():
+                urn = line.strip().strip('"')
+                urns.append(urn)
     else:
         urns = list(
             graph.get_urns_by_filter(
