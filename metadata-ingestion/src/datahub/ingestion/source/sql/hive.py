@@ -469,8 +469,6 @@ class HiveStorageLineage:
             MetadataWorkUnit containing the lineage MCP if successful
         """
 
-        platform_instance = None
-
         if not self.config.emit_storage_lineage:
             return
 
