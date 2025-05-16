@@ -24,17 +24,20 @@ dependencies {
 
     implementation externalDependency.json
 
+    // Test dependencies
     testImplementation externalDependency.testng
+    testImplementation "io.openlineage:openlineage-java:$openLineageVersion"
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+    testImplementation 'org.mockito:mockito-core:4.6.1'
+    testImplementation 'org.mockito:mockito-junit-jupiter:4.6.1'
 }
 
 test {
     forkEvery = 1
     useJUnit()
-}
-
-test {
-    useJUnit()
     useTestNG()
+    useJUnitPlatform()
 }
 
 shadowJar {

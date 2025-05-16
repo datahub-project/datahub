@@ -78,6 +78,12 @@ dependencies {
   }
 
   testImplementation externalDependency.mockito
+  testImplementation externalDependency.mockitoInline
+
+  // JUnit 5 dependencies
+  testImplementation externalDependency.junitJupiterApi
+  testImplementation externalDependency.junitJupiterParams
+  testRuntimeOnly externalDependency.junitJupiterEngine
 
   testImplementation(externalDependency.mockServer) {
     exclude group: "com.fasterxml.jackson.core"
@@ -172,7 +178,7 @@ checkShadowJar {
 
 test {
   forkEvery = 1
-  useJUnit()
+  useJUnitPlatform()
 }
 
 assemble {

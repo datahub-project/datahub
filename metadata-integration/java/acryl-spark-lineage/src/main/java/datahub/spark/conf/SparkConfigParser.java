@@ -54,6 +54,7 @@ public class SparkConfigParser {
   public static final String PATCH_ENABLED = "patch.enabled";
   public static final String LEGACY_LINEAGE_CLEANUP = "legacyLineageCleanup.enabled";
   public static final String DISABLE_SYMLINK_RESOLUTION = "disableSymlinkResolution";
+  public static final String EXCLUDE_EMPTY_JOBS = "exclude_empty_jobs";
 
   public static final String STAGE_METADATA_COALESCING = "stage_metadata_coalescing";
   public static final String STREAMING_JOB = "streaming_job";
@@ -85,6 +86,8 @@ public class SparkConfigParser {
   public static final String TAGS_KEY = "tags";
 
   public static final String DOMAINS_KEY = "domains";
+
+  public static final String USE_LEGACY_JOB_NAMES = "use_legacy_job_names";
 
   private static final Logger log = LoggerFactory.getLogger(SparkConfigParser.class);
   public static final String SPARK_DATABRICKS_CLUSTER_USAGE_TAGS_CLUSTER_ALL_TAGS =
@@ -394,5 +397,17 @@ public class SparkConfigParser {
   public static boolean isLowerCaseDatasetUrns(Config datahubConfig) {
     return datahubConfig.hasPath(DATASET_LOWERCASE_URNS)
         && datahubConfig.getBoolean(DATASET_LOWERCASE_URNS);
+  }
+
+  public static boolean isExcludeEmptyJobs(Config datahubConfig) {
+    return datahubConfig.hasPath(EXCLUDE_EMPTY_JOBS)
+        ? datahubConfig.getBoolean(EXCLUDE_EMPTY_JOBS)
+        : true; // Default to true
+  }
+
+  public static boolean isUseLegacyJobNames(Config datahubConfig) {
+    return datahubConfig.hasPath(USE_LEGACY_JOB_NAMES)
+        ? datahubConfig.getBoolean(USE_LEGACY_JOB_NAMES)
+        : false; // Default to false (use new naming)
   }
 }

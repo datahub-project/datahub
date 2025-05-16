@@ -292,82 +292,62 @@ public class DatahubSparkListener extends SparkListener {
     log.debug("onApplicationEnd completed successfully in {} ms", elapsedTime);
   }
 
-  public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
-    long startTime = System.currentTimeMillis();
-
-    log.debug("Task end called");
-    listener.onTaskEnd(taskEnd);
-    long elapsedTime = System.currentTimeMillis() - startTime;
-    log.debug("onTaskEnd completed successfully in {} ms", elapsedTime);
-  }
-
-  public void onJobEnd(SparkListenerJobEnd jobEnd) {
-    long startTime = System.currentTimeMillis();
-
-    log.debug("Job end called");
-    listener.onJobEnd(jobEnd);
-    long elapsedTime = System.currentTimeMillis() - startTime;
-    log.debug("onJobEnd completed successfully in {} ms", elapsedTime);
-  }
-
-  public void onJobStart(SparkListenerJobStart jobStart) {
-    long startTime = System.currentTimeMillis();
-    initializeContextFactoryIfNotInitialized();
-
-    log.debug("Job start called");
-    listener.onJobStart(jobStart);
-    long elapsedTime = System.currentTimeMillis() - startTime;
-    log.debug("onJobStart completed successfully in {} ms", elapsedTime);
-  }
-
+  @Override
   public void onOtherEvent(SparkListenerEvent event) {
-    long startTime = System.currentTimeMillis();
-
-    log.debug("Other event called {}", event.getClass().getName());
-    // Switch to streaming mode if streaming mode is not set, but we get a progress event
-    if ((event instanceof StreamingQueryListener.QueryProgressEvent)
-        || (event instanceof StreamingQueryListener.QueryStartedEvent)) {
-      if (!emitter.isStreaming()) {
-        if (!datahubConf.hasPath(STREAMING_JOB)) {
-          log.info("Streaming mode not set explicitly, switching to streaming mode");
-          emitter.setStreaming(true);
-        } else {
-          emitter.setStreaming(datahubConf.getBoolean(STREAMING_JOB));
-          log.info("Streaming mode set to {}", datahubConf.getBoolean(STREAMING_JOB));
-        }
+    try {
+      if (event instanceof StreamingQueryListener.QueryProgressEvent) {
+        StreamingQueryListener.QueryProgressEvent streamingEvent =
+            (StreamingQueryListener.QueryProgressEvent) event;
+        listener.onOtherEvent(streamingEvent);
+      } else if (event instanceof StreamingQueryListener.QueryStartedEvent) {
+        StreamingQueryListener.QueryStartedEvent streamingEvent =
+            (StreamingQueryListener.QueryStartedEvent) event;
+        listener.onOtherEvent(streamingEvent);
+      } else if (event instanceof StreamingQueryListener.QueryTerminatedEvent) {
+        StreamingQueryListener.QueryTerminatedEvent streamingEvent =
+            (StreamingQueryListener.QueryTerminatedEvent) event;
+        listener.onOtherEvent(streamingEvent);
+      } else {
+        listener.onOtherEvent(event);
       }
+    } catch (Exception e) {
+      log.warn("Error dispatching event {}: {}", event, e.getMessage());
     }
+  }
 
-    if (datahubConf.hasPath(STREAMING_JOB) && !datahubConf.getBoolean(STREAMING_JOB)) {
-      log.info("Not in streaming mode");
-      return;
+  /** Handle the start of a Spark job to capture PySpark lineage that doesn't go through SQL. */
+  @Override
+  public void onJobStart(SparkListenerJobStart jobStart) {
+    log.debug("Job start event: {}", jobStart);
+    try {
+      // Delegate to the OpenLineage listener to capture the PySpark lineage
+      listener.onJobStart(jobStart);
+    } catch (Exception e) {
+      log.warn("Error processing job start event: {}", e.getMessage());
     }
+  }
 
-    listener.onOtherEvent(event);
+  /** Handle the end of a Spark job to complete the PySpark lineage capturing process. */
+  @Override
+  public void onJobEnd(SparkListenerJobEnd jobEnd) {
+    log.debug("Job end event: {}", jobEnd);
+    try {
+      // Delegate to the OpenLineage listener to capture the PySpark lineage
+      listener.onJobEnd(jobEnd);
+    } catch (Exception e) {
+      log.warn("Error processing job end event: {}", e.getMessage());
+    }
+  }
 
-    if (event instanceof StreamingQueryListener.QueryProgressEvent) {
-      int streamingHeartbeatIntervalSec = SparkConfigParser.getStreamingHeartbeatSec(datahubConf);
-      StreamingQueryListener.QueryProgressEvent queryProgressEvent =
-          (StreamingQueryListener.QueryProgressEvent) event;
-      ((StreamingQueryListener.QueryProgressEvent) event).progress().id();
-      if ((batchLastUpdated.containsKey(queryProgressEvent.progress().id().toString()))
-          && (batchLastUpdated
-              .get(queryProgressEvent.progress().id().toString())
-              .isAfter(Instant.now().minusSeconds(streamingHeartbeatIntervalSec)))) {
-        log.debug(
-            "Skipping lineage emit as it was emitted in the last {} seconds",
-            streamingHeartbeatIntervalSec);
-        return;
-      }
-      try {
-        batchLastUpdated.put(queryProgressEvent.progress().id().toString(), Instant.now());
-        emitter.emit(queryProgressEvent.progress());
-      } catch (URISyntaxException e) {
-        throw new RuntimeException(e);
-      }
-      log.debug("Query progress event: {}", queryProgressEvent.progress());
-      long elapsedTime = System.currentTimeMillis() - startTime;
-      log.debug("onOtherEvent completed successfully in {} ms", elapsedTime);
+  /** Handle the end of a Spark task. */
+  @Override
+  public void onTaskEnd(SparkListenerTaskEnd taskEnd) {
+    log.debug("Task end event: {}", taskEnd);
+    try {
+      // Delegate to the OpenLineage listener to capture the PySpark lineage
+      listener.onTaskEnd(taskEnd);
+    } catch (Exception e) {
+      log.warn("Error processing task end event: {}", e.getMessage());
     }
   }
 

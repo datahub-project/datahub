@@ -632,13 +632,17 @@ public class OpenLineageToDataHub {
     DataJobInfo dji = new DataJobInfo();
 
     log.debug("Datahub Config: {}", datahubConf);
-    if (job.getName().contains(".")) {
 
-      String jobName = job.getName().substring(job.getName().indexOf(".") + 1);
-      dji.setName(jobName);
+    // Use legacy or unique job name based on configuration
+    String jobName;
+    if (datahubConf.isUseLegacyJobNames()) {
+      // Legacy behavior - just use the job name as-is
+      jobName = job.getName();
     } else {
-      dji.setName(job.getName());
+      // New behavior - create a unique job name with operation type and identifier
+      jobName = createUniqueJobName(job.getName(), event);
     }
+    dji.setName(jobName);
 
     String jobProcessingEngine = null;
     if ((event.getRun().getFacets() != null)
@@ -657,7 +661,7 @@ public class OpenLineageToDataHub {
     dji.setFlowUrn(flowUrn);
     dji.setType(DataJobInfo.Type.create(flowUrn.getOrchestratorEntity()));
 
-    DataJobUrn dataJobUrn = new DataJobUrn(flowUrn, job.getName());
+    DataJobUrn dataJobUrn = new DataJobUrn(flowUrn, jobName);
     datahubJob.setJobUrn(dataJobUrn);
     StringMap customProperties = generateCustomProperties(event, false);
     dji.setCustomProperties(customProperties);
@@ -996,5 +1000,70 @@ public class OpenLineageToDataHub {
 
     schemaMetadata.setFields(schemaFieldArray);
     return schemaMetadata;
+  }
+
+  private static String createUniqueJobName(String jobName, OpenLineage.RunEvent event) {
+    StringBuilder uniqueJobName = new StringBuilder();
+
+    // Start with the base job name (the part after the last dot if it exists)
+    if (jobName.contains(".")) {
+      uniqueJobName.append(jobName.substring(jobName.lastIndexOf(".") + 1));
+    } else {
+      uniqueJobName.append(jobName);
+    }
+
+    // Add operation type if available (e.g., MERGE, INSERT, UPDATE, DELETE)
+    String operationType = extractOperationType(event);
+    if (operationType != null && !operationType.isEmpty()) {
+      uniqueJobName.append("-").append(operationType);
+    }
+
+    // Add a unique identifier from the run ID
+    // Using the last 8 characters of the run ID as a unique suffix
+    if (event.getRun() != null && event.getRun().getRunId() != null) {
+      String runId = event.getRun().getRunId().toString();
+      String uniqueId = runId.length() > 8 ? runId.substring(runId.length() - 8) : runId;
+      uniqueJobName.append("-").append(uniqueId);
+    }
+
+    return uniqueJobName.toString();
+  }
+
+  /**
+   * Extract the operation type from the event metadata if available
+   *
+   * @param event The run event
+   * @return The operation type (MERGE, INSERT, UPDATE, DELETE, etc.) or null if not found
+   */
+  private static String extractOperationType(OpenLineage.RunEvent event) {
+    // Look for operation type in facets or custom properties
+    if (event.getJob() != null && event.getJob().getFacets() != null) {
+      if (event.getJob().getFacets().getAdditionalProperties() != null) {
+        // Check for operation type in additional properties
+        for (Map.Entry<String, OpenLineage.JobFacet> entry :
+            event.getJob().getFacets().getAdditionalProperties().entrySet()) {
+          if (entry.getKey().toLowerCase().contains("operation")
+              || entry.getKey().toLowerCase().contains("type")) {
+            return entry.getValue().toString().toUpperCase();
+          }
+        }
+      }
+
+      // Look for custom facets that might describe the operation
+      if (event.getJob().getFacets().getSql() != null
+          && event.getJob().getFacets().getSql().getQuery() != null) {
+        String query = event.getJob().getFacets().getSql().getQuery().toUpperCase();
+        // Extract operation type from SQL query
+        if (query.contains("MERGE")) return "MERGE";
+        if (query.contains("INSERT")) return "INSERT";
+        if (query.contains("UPDATE")) return "UPDATE";
+        if (query.contains("DELETE")) return "DELETE";
+        if (query.contains("OPTIMIZE") || query.contains("COMPACT")) return "OPTIMIZE";
+        if (query.contains("REWRITE")) return "REWRITE";
+      }
+    }
+
+    // Default case: no operation type detected
+    return null;
   }
 }

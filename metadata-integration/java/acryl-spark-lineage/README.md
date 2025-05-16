@@ -200,6 +200,8 @@ information like tokens.
 | spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
 | spark.datahub.log.mcps                                 |          | true                  | Set this to true to log MCPS to the log. By default, it is enabled.                                                                                                                       |
 | spark.datahub.legacyLineageCleanup.enabled             |          | false                 | Set this to true to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob. By default, it is disabled.          |
+| spark.datahub.lineage.exclude_empty_jobs               |          | true                  | Set this to true to exclude jobs with no inputs or outputs from being sent to DataHub. This helps keep the lineage graph clean. By default, it is enabled.                                |
+| spark.datahub.lineage.use_legacy_job_names             |          | false                 | Set this to false to use enhanced job naming with operation type (MERGE, INSERT, DELETE, etc.) and unique identifier. When set to true, original job names without enhancements are used. |
 
 ## What to Expect: The Metadata Model
 
@@ -363,6 +365,14 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 -
 
 ## Changelog
+
+### Version 0.2.18
+
+- _New features_:
+  - Added option to exclude empty jobs (with no inputs or outputs) via `spark.datahub.lineage.exclude_empty_jobs` (default: true)
+  - Added option to use enhanced job naming with operation type (MERGE, INSERT, UPDATE, etc.) via `spark.datahub.lineage.use_legacy_job_names` (default: false)
+  - Added operation type detection to create more descriptive job names, helping distinguish between different operations on the same dataset
+  - Jobs now have unique identifiers in their names to prevent conflicts when multiple operations run with the same name
 
 ### Version 0.2.17
 

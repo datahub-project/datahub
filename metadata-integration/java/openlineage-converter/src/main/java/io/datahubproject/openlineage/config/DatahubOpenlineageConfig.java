@@ -10,10 +10,12 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 
 @Builder
 @Getter
+@Setter
 @ToString
 public class DatahubOpenlineageConfig {
   @Builder.Default private final boolean isSpark = false;
@@ -36,6 +38,9 @@ public class DatahubOpenlineageConfig {
   @Builder.Default private final boolean disableSymlinkResolution = false;
   @Builder.Default private final boolean lowerCaseDatasetUrns = false;
   @Builder.Default private final boolean removeLegacyLineage = false;
+  // New configuration options
+  @Builder.Default private boolean excludeEmptyJobs = true;
+  @Builder.Default private boolean useLegacyJobNames = false;
 
   public List<PathSpec> getPathSpecsForPlatform(String platform) {
     if ((pathSpecs == null) || (pathSpecs.isEmpty())) {
