@@ -26,8 +26,7 @@ import com.linkedin.metadata.key.DataHubRoleKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.search.EntitySearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -101,11 +100,10 @@ public class ScimpleSpringTestApp {
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(graphService),
-            mock(EntitySearchService.class),
+            mock(ElasticSearchService.class),
             mock(TimeseriesAspectService.class),
             mock(SystemMetadataService.class),
             mock(SearchDocumentTransformer.class),
-            mock(EntityIndexBuilders.class),
             systemOperationContext.getSearchContext().getIndexConvention().getIdHashAlgo());
 
     EventProducer _mockProducer = mock(EventProducer.class);

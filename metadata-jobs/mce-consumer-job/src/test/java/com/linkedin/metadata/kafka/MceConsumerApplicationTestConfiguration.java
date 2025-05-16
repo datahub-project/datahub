@@ -71,8 +71,6 @@ public class MceConsumerApplicationTestConfiguration {
 
   @MockBean protected SiblingGraphService siblingGraphService;
 
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
-
   // Saas Only
   @MockBean protected TestEngine testEngine;
 }
