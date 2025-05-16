@@ -43,7 +43,7 @@ import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/Sid
 import AccessManagement from '@app/entityV2/shared/tabs/Dataset/AccessManagement/AccessManagement';
 import QueriesTab from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTab';
-import StatsTab from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTab';
+import StatsTabWrapper from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabWrapper';
 import { AcrylValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylValidationsTab';
 import ViewDefinitionTab from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
@@ -212,7 +212,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Stats',
-                    component: StatsTab,
+                    component: StatsTabWrapper,
                     icon: FundOutlined,
                     display: {
                         visible: (_, _1) => true,

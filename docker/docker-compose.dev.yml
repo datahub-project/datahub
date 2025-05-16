@@ -51,6 +51,7 @@ services:
     - THEME_V2_TOGGLEABLE=${THEME_V2_TOGGLEABLE:-true}
     - SHOW_NAV_BAR_REDESIGN=${SHOW_NAV_BAR_REDESIGN:-true}
     - PLATFORM_BROWSE_V2=${PLATFORM_BROWSE_V2:-true}
+    - SHOW_STATS_TAB_REDESIGN=${SHOW_STATS_TAB_REDESIGN:-true}
     volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml

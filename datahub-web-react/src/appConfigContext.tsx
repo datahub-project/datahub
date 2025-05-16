@@ -78,6 +78,7 @@ export const DEFAULT_APP_CONFIG = {
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
         showIntroducePage: false,
+        showStatsTabRedesign: false,
     },
     chromeExtensionConfig: {
         enabled: false,

@@ -9,4 +9,8 @@ export type GraphCardProps = {
     isEmpty?: boolean;
     emptyContent?: React.ReactNode;
     moreInfoModalContent?: React.ReactNode;
+    showHeader?: boolean;
+    showEmptyMessageHeader?: boolean;
+    emptyMessage?: string;
+    dataTestId?: string;
 };

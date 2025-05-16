@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.isVi
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.datahub.graphql.Constants;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -31,7 +32,11 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
-    final UsageTimeRange range = UsageTimeRange.valueOf(environment.getArgument("range"));
+    final UsageTimeRange range =
+        UsageTimeRange.valueOf(environment.getArgument(Constants.RANGE_INPUT_FIELD));
+    final Long startTimeMillis =
+        environment.getArgumentOrDefault(Constants.START_TIME_MILLIS_INPUT_FIELD, null);
+    final String timeZone = environment.getArgument(Constants.TIME_ZONE_INPUT_FIELD);
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -45,7 +50,11 @@ public class DatasetUsageStatsResolver implements DataFetcher<CompletableFuture<
           try {
             com.linkedin.usage.UsageQueryResult usageQueryResult =
                 usageClient.getUsageStats(
-                    context.getOperationContext(), resourceUrn.toString(), range);
+                    context.getOperationContext(),
+                    resourceUrn.toString(),
+                    range,
+                    startTimeMillis,
+                    timeZone);
             return UsageQueryResultMapper.map(context, usageQueryResult);
           } catch (Exception e) {
             log.error(String.format("Failed to load Usage Stats for resource %s", resourceUrn), e);

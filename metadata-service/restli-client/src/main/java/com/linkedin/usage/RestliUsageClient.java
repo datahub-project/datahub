@@ -13,6 +13,7 @@ import com.linkedin.restli.client.Client;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class RestliUsageClient extends BaseClient implements UsageClient {
   private static final UsageStatsRequestBuilders USAGE_STATS_REQUEST_BUILDERS =
@@ -40,7 +41,9 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
                     return getUsageStatsNoCache(
                         operationContextMap.getIfPresent(cacheKey.getContextId()),
                         cacheKey.getResource(),
-                        cacheKey.getRange());
+                        cacheKey.getRange(),
+                        cacheKey.getStartTimeMillis(),
+                        cacheKey.getTimeZone());
                   } catch (RemoteInvocationException | URISyntaxException e) {
                     throw new RuntimeException(e);
                   }
@@ -56,16 +59,22 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
   public UsageQueryResult getUsageStats(
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
-      @Nonnull UsageTimeRange range) {
+      @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
+      @Nullable String timeZone) {
     operationContextMap.put(opContext.getEntityContextId(), opContext);
-    return usageClientCache.getUsageStats(opContext, resource, range);
+    return usageClientCache.getUsageStats(opContext, resource, range, startTimeMillis, timeZone);
   }
 
   /** Gets a specific version of downstream {@link EntityRelationships} for the given dataset. */
   @Override
   @Nonnull
   public UsageQueryResult getUsageStatsNoCache(
-      @Nonnull OperationContext opContext, @Nonnull String resource, @Nonnull UsageTimeRange range)
+      @Nonnull OperationContext opContext,
+      @Nonnull String resource,
+      @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
+      @Nullable String timeZone)
       throws RemoteInvocationException, URISyntaxException {
 
     final UsageStatsDoQueryRangeRequestBuilder requestBuilder =

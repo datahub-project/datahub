@@ -29,11 +29,17 @@ public class Constants {
   public static final String CONTRACTS_SCHEMA_FILE = "contract.graphql";
   public static final String CONNECTIONS_SCHEMA_FILE = "connection.graphql";
   public static final String VERSION_SCHEMA_FILE = "versioning.graphql";
+  public static final String OPERATIONS_SCHEMA_FILE = "operations.graphql";
+  public static final String TIMESERIES_SCHEMA_FILE = "timeseries.graphql";
+
   public static final String QUERY_SCHEMA_FILE = "query.graphql";
   public static final String BROWSE_PATH_DELIMITER = "/";
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
   public static final String ENTITY_FILTER_NAME = "_entityType";
+  public static final String RANGE_INPUT_FIELD = "range";
+  public static final String START_TIME_MILLIS_INPUT_FIELD = "startTimeMillis";
+  public static final String TIME_ZONE_INPUT_FIELD = "timeZone";
 
   public static final Set<String> DEFAULT_PERSONA_URNS =
       ImmutableSet.of(
