@@ -20,6 +20,8 @@ const Wrapper = styled.div`
 const TextWrapper = styled.div`
     display: flex;
     flex-direction: column;
+    // TODO: Add this as a prop if needed
+    max-width: 600px;
 `;
 
 const IconContainer = styled.img`

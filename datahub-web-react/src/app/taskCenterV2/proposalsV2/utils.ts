@@ -1,10 +1,33 @@
 import { cloneDeep } from 'lodash';
 
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import { ActionRequestAssignee, ActionRequestStatus, AndFilterInput, FacetFilterInput } from '@src/types.generated';
+import {
+    ActionRequestAssignee,
+    ActionRequestStatus,
+    AndFilterInput,
+    EntityType,
+    FacetFilterInput,
+} from '@src/types.generated';
 
 export const PERSONAL_ACTION_REQUESTS_GROUP_NAME = 'Inbox';
 export const MY_PROPOSALS_GROUP_NAME = 'My Proposals';
+
+export const PROPOSAL_TARGET_ENTITY_TYPES = [
+    EntityType.Dataset,
+    EntityType.Dashboard,
+    EntityType.DataContract,
+    EntityType.Chart,
+    EntityType.DataFlow,
+    EntityType.DataPlatform,
+    EntityType.DataPlatformInstance,
+    EntityType.DataJob,
+    EntityType.Container,
+    EntityType.MlfeatureTable,
+    EntityType.Mlfeature,
+    EntityType.MlprimaryKey,
+    EntityType.Mlmodel,
+    EntityType.MlmodelGroup,
+];
 
 export enum ProposalModalType {
     Accept = 'ACCEPT',

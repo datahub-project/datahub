@@ -1,110 +1,108 @@
-import _, { debounce } from 'lodash';
-import React, { useMemo, useState } from 'react';
+import { debounce, differenceBy, uniqBy } from 'lodash';
+import { CaretDown } from 'phosphor-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { Pill, SimpleSelect } from '@src/alchemy-components';
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import EntitySearchInputResultV2 from '@src/app/entityV2/shared/EntitySearchInput/EntitySearchInputResultV2';
+import SearchFiltersLoadingSection from '@app/searchV2/filters/SearchFiltersLoadingSection';
+import { formatNumber } from '@app/shared/formatNumber';
+import { FilterLabel } from '@app/sharedV2/filters/Filter';
+import EntitySelectDropdown from '@app/taskCenterV2/proposalsV2/EntitySelectDropdown';
+import { PROPOSAL_TARGET_ENTITY_TYPES } from '@app/taskCenterV2/proposalsV2/utils';
+import { Icon, Pill } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import { useGetAutoCompleteMultipleResultsLazyQuery } from '@src/graphql/search.generated';
+import { useGetSearchResultsForMultipleLazyQuery } from '@src/graphql/search.generated';
 import { Entity } from '@src/types.generated';
 
-const Container = styled.div`
-    width: 500px;
-`;
+const Container = styled.div``;
 interface EntitySelectorProps {
     defaultSuggestions: Entity[] | undefined;
     defaultSuggestionsLoading: boolean;
     onUpdate?: (selectedValues: string[]) => void;
     selected?: string[];
+    fetchedSelectedEntityData?: Entity[];
+    loading?: boolean;
 }
 
 export const ProposalsEntitySelect = ({
     onUpdate,
     selected,
-    defaultSuggestions,
+    defaultSuggestions = [],
     defaultSuggestionsLoading,
+    fetchedSelectedEntityData = [],
+    loading,
 }: EntitySelectorProps) => {
     const entityRegistry = useEntityRegistryV2();
+    const [selectedEntityUrns, setSelectedEntityUrns] = useState<any>(selected || []);
+    const [selectedEntities, setSelectedEntities] = useState<Entity[]>([]);
+    const [validDefaultSuggestions, setValidDefaultSuggestions] = useState<Entity[]>([]);
+    const [cachedSuggestions, setCachedSuggestions] = useState<Entity[]>([]);
 
-    const [selectedEntityList, setSelectedEntityList] = useState<any>(
-        selected || defaultSuggestions?.map((e) => e?.urn) || [],
-    );
-    const [selectedEntityOptions, setSelectedEntityOptions] = useState<NestedSelectOption[]>([]);
+    // Search results
+    const [searchAcrossEntities, { data: searchData, loading: searchResultsLoading }] =
+        useGetSearchResultsForMultipleLazyQuery();
+    const searchSuggestions: Entity[] =
+        searchData?.searchAcrossEntities?.searchResults?.flatMap((result) => result.entity) || [];
 
-    // Autocomplete results
-    const [autoComplete, { data: autoCompleteData, loading: autoCompleteLoading }] =
-        useGetAutoCompleteMultipleResultsLazyQuery();
-    const autoCompleteSuggestions: Array<Entity> =
-        autoCompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) || [];
+    useEffect(() => {
+        if (defaultSuggestions.length) {
+            setValidDefaultSuggestions(defaultSuggestions);
+        }
+    }, [defaultSuggestions]);
 
     const [useSearch, setUseSearch] = useState(false);
-    const suggestions = useSearch ? autoCompleteSuggestions : defaultSuggestions;
+    const suggestions: Entity[] = useSearch
+        ? searchSuggestions
+        : [...cachedSuggestions, ...differenceBy(validDefaultSuggestions, cachedSuggestions, 'urn')];
+
+    // Set local state initially based on fetchedSelectedEntityData
+    const synced = useRef(false);
+    useEffect(() => {
+        if (fetchedSelectedEntityData.length && !synced.current) {
+            synced.current = true;
+            setSelectedEntityUrns(fetchedSelectedEntityData.map((e) => e.urn));
+            setSelectedEntities(fetchedSelectedEntityData);
+            setCachedSuggestions(fetchedSelectedEntityData);
+        }
+    }, [fetchedSelectedEntityData]);
 
     // Prepare Options
-    const availableEntityOptions = useMemo(() => {
-        const options =
-            suggestions?.map((entity) => ({
-                value: entity.urn,
-                label: entityRegistry.getDisplayName(entity.type, entity),
-                entity,
-            })) || [];
-        const uniqueOptions = _.uniqBy(options, 'value');
-        return uniqueOptions;
-    }, [entityRegistry, suggestions]);
+    const availableEntityOptions = uniqBy(
+        suggestions?.map((entity) => ({
+            value: entity.urn,
+            label: entityRegistry.getDisplayName(entity.type, entity),
+            entity,
+        })) || [],
+        'value',
+    );
 
     const handleUpdate = (values: string[]) => {
-        const newSelectedOptions: NestedSelectOption[] = [];
+        const newSelectedEntities: Entity[] = [];
         values.forEach((value) => {
-            const alreadySelected = newSelectedOptions.find((item) => item?.value === value);
+            const entity =
+                suggestions.find((sug) => sug?.urn === value) ||
+                searchSuggestions.find((sug) => sug.urn === value) ||
+                selectedEntities.find((sug) => sug.urn === value);
 
-            if (!alreadySelected) {
-                const option =
-                    availableEntityOptions.find((o) => o?.value === value) ||
-                    selectedEntityOptions.find((o) => o?.value === value);
-
-                if (option) {
-                    newSelectedOptions.push(option as NestedSelectOption);
-                }
+            if (entity) {
+                newSelectedEntities.push(entity);
             }
         });
 
-        setSelectedEntityOptions(newSelectedOptions);
-        setSelectedEntityList(newSelectedOptions.map((a) => a.value));
-        onUpdate?.(newSelectedOptions.map((a) => a.value));
-    };
-
-    const removeLinkedAsset = (entityUrn) => {
-        const selectedAssets = selectedEntityList?.filter((urn) => urn !== entityUrn);
-        handleUpdate(selectedAssets);
-    };
-
-    const renderSelectedEntity = (selectedOption: NestedSelectOption) => {
-        return selectedOption ? (
-            <Pill
-                key={selectedOption.value}
-                label={selectedOption.label}
-                rightIcon="Close"
-                color="gray"
-                variant="outline"
-                onClickRightIcon={() => {
-                    removeLinkedAsset(selectedOption.value);
-                }}
-                clickable
-                size="sm"
-            />
-        ) : null;
-    };
-
-    const renderCustomEntityOption = (option: NestedSelectOption) => {
-        return <>{option.entity && <EntitySearchInputResultV2 entity={option.entity} />}</>;
+        setSelectedEntities(newSelectedEntities);
+        setSelectedEntityUrns(newSelectedEntities.map((e) => e.urn));
+        onUpdate?.(newSelectedEntities.map((e) => e.urn));
     };
 
     const handleSearch = (text: string) => {
         if (text) {
-            autoComplete({
+            searchAcrossEntities({
                 variables: {
-                    input: { query: text, limit: 10 },
+                    input: {
+                        types: PROPOSAL_TARGET_ENTITY_TYPES,
+                        query: text,
+                        start: 0,
+                        count: 10,
+                    },
                 },
             });
             setUseSearch(true);
@@ -113,42 +111,43 @@ export const ProposalsEntitySelect = ({
         }
     };
 
+    const handleClose = useCallback(() => {
+        setCachedSuggestions(selectedEntities);
+    }, [selectedEntities]);
+
     return (
         <Container>
-            <SimpleSelect
-                options={defaultSuggestionsLoading ? [] : availableEntityOptions}
-                isLoading={defaultSuggestionsLoading || autoCompleteLoading}
-                size="sm"
-                isMultiSelect
-                placeholder="Select entity"
-                width="full"
-                optionListStyle={{
-                    maxHeight: '30vh',
-                    overflow: 'auto',
-                }}
-                selectedOptionListStyle={{
-                    flexWrap: 'nowrap',
-                    overflow: 'auto',
-                    scrollbarWidth: 'none',
-                    padding: '4px',
-                }}
-                onUpdate={handleUpdate}
-                values={selectedEntityList}
+            <EntitySelectDropdown
+                options={availableEntityOptions}
+                values={selectedEntityUrns}
                 onSearchChange={debounce(handleSearch, 200)}
-                showSearch
-                showClear
-                onClear={() => setUseSearch(false)}
-                combinedSelectedAndSearchOptions={_.uniqBy(
-                    [...availableEntityOptions, ...selectedEntityOptions],
-                    'value',
+                onUpdate={handleUpdate}
+                onClose={handleClose}
+                isLoading={defaultSuggestionsLoading || searchResultsLoading}
+            >
+                {loading && !availableEntityOptions?.length ? (
+                    <SearchFiltersLoadingSection noOfLoadingSkeletons={1} />
+                ) : (
+                    <FilterLabel $isActive={!!selectedEntityUrns.length} data-testid="filter-dropdown-entity-select">
+                        Entity
+                        {!!selectedEntityUrns.length && (
+                            <Pill size="xs" label={formatNumber(selectedEntityUrns.length)} />
+                        )}
+                        {!!selectedEntityUrns.length && (
+                            <Icon
+                                source="phosphor"
+                                icon="X"
+                                size="sm"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleUpdate([]);
+                                }}
+                            />
+                        )}
+                        <CaretDown style={{ fontSize: '14px', height: '14px' }} />
+                    </FilterLabel>
                 )}
-                renderCustomSelectedValue={renderSelectedEntity}
-                renderCustomOptionText={renderCustomEntityOption}
-                selectLabelProps={{ variant: 'custom' }}
-                optionListTestId="entities-options-list"
-                data-testid="entities-select-input-type"
-                ignoreMaxHeight
-            />
+            </EntitySelectDropdown>
         </Container>
     );
 };

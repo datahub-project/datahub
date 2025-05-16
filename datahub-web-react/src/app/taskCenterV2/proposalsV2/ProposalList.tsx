@@ -23,7 +23,8 @@ import usePagination from '@src/app/sharedV2/pagination/usePagination';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useListActionRequestsQuery } from '@graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestAssignee, EntityType, FacetFilterInput, FilterOperator } from '@types';
+import { useGetEntitiesQuery } from '@graphql/entity.generated';
+import { ActionRequest, ActionRequestAssignee, Entity, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -55,7 +56,6 @@ const ActionRequestsTitle = styled(Typography.Title)`
 
 const ProposalsTableHeader = styled.div`
     display: flex;
-    justify-content: space-between;
     padding: 2px;
 `;
 
@@ -104,6 +104,10 @@ export const ProposalList = ({
     });
 
     const entitiesSelected = filters?.find((f) => f.field === 'resource')?.values || [];
+    const { data: selectedEntityData } = useGetEntitiesQuery({
+        variables: { urns: entitiesSelected },
+        fetchPolicy: 'cache-first',
+    });
 
     const input = {
         start,
@@ -235,10 +239,12 @@ export const ProposalList = ({
                 {showFiltersHeader && (
                     <ProposalsTableHeader>
                         <ProposalsEntitySelect
-                            defaultSuggestionsLoading={entitySuggestionsLoading}
+                            defaultSuggestionsLoading={entitySuggestionsLoading && !entitySuggestions}
                             defaultSuggestions={entitySuggestions}
                             selected={entitiesSelected}
                             onUpdate={onSelectEntities}
+                            fetchedSelectedEntityData={selectedEntityData?.entities as Entity[]}
+                            loading={facetsLoading && !facetsData}
                         />
                         <FilterSection
                             name="proposals"
@@ -248,14 +254,15 @@ export const ProposalList = ({
                             onChangeFilters={handleFiltersChange}
                             customFilterLabels={PROPOSALS_FILTER_LABELS}
                             aggregationsEntityTypes={[EntityType.ActionRequest]}
-                            noOfLoadingSkeletons={1}
+                            noOfLoadingSkeletons={3}
+                            shouldApplyView={false}
                         />
                     </ProposalsTableHeader>
                 )}
                 <ProposalsTable
                     onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
-                    isLoading={isLoading}
+                    isLoading={isLoading && !data}
                     enableSelection={enableSelection}
                     isRowSelectionDisabled={(record: ActionRequest) => {
                         return record.status === 'COMPLETED';

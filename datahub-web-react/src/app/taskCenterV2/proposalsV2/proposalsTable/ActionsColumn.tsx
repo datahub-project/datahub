@@ -42,12 +42,12 @@ type ModalType = ProposalModalType | null;
 
 const modalConfig = {
     [ProposalModalType.Accept]: {
-        title: 'Approve Proposal Note',
+        title: 'Approve Proposal',
         subtitle: 'Please provide a reason for approving changes...',
         placeholder: 'Why are you approving the proposal?',
     },
     [ProposalModalType.Reject]: {
-        title: 'Reject Proposal Note',
+        title: 'Reject Proposal',
         subtitle: 'Please provide a reason for rejecting changes...',
         placeholder: 'Why are you rejecting the proposal?',
     },
@@ -97,6 +97,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
             })
             .finally(() => {
                 setModalType(null);
+                setNote('');
             });
     };
 
@@ -124,6 +125,7 @@ const ActionsColumn = ({ actionRequest, onUpdate, showPendingView }: Props) => {
             })
             .finally(() => {
                 setModalType(null);
+                setNote('');
             });
     };
 
