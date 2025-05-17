@@ -20,7 +20,7 @@ import {
     useUpdateErModelRelationshipMutation,
 } from '@graphql/ermodelrelationship.generated';
 import { EntityType, ErModelRelationship, OwnershipType, SearchResult } from '@types';
-
+import ERModelRelationshipSidebarCardinality from './profile/sidebar/ERModelRelationshipSidebarCardinality';
 import ermodelrelationshipIcon from '@images/ermodelrelationshipIcon.svg';
 
 /**
@@ -58,7 +58,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
 
     getPathName = () => 'erModelRelationship';
 
-    getCollectionName = () => '';
+    getCollectionName = () => 'ER-Model-Relationships';
 
     getEntityName = () => 'ER-Model-Relationship';
 
@@ -73,7 +73,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
             getOverrideProperties={this.getOverridePropertiesFromEntity}
             tabs={[
                 {
-                    name: 'ER-Model-Relationship',
+                    name: this.getEntityName(),
                     component: ERModelRelationshipTab,
                 },
                 {
@@ -88,6 +88,9 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
             sidebarSections={[
                 {
                     component: SidebarAboutSection,
+                },
+                {
+                    component: ERModelRelationshipSidebarCardinality,
                 },
                 {
                     component: SidebarOwnerSection,
@@ -125,6 +128,7 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
                     owners={data.ownership?.owners}
                     glossaryTerms={data?.glossaryTerms || undefined}
                     globalTags={data?.tags}
+                    cardinality={data?.properties?.cardinality}
                 />
             </>
         );
