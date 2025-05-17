@@ -219,12 +219,12 @@ Configuration options are grouped by category for easier reference:
 
 ### Core Configuration
 
-| Field                   | Required | Default | Description                                                     |
-| ----------------------- | -------- | ------- | --------------------------------------------------------------- |
-| spark.jars.packages     | ✅       |         | Set with latest version io.acryl:acryl-spark-lineage:0.2.17     |
-| spark.extraListeners    | ✅       |         | datahub.spark.DatahubSparkListener                              |
-| spark.datahub.emitter   |          | rest    | Specify how to emit metadata. Options: rest, kafka, file, or s3 |
-| spark.datahub.flow_name |          |         | Custom DataFlow name. Default is the Spark app name             |
+| Field                   | Required | Default | Description                                                                        |
+| ----------------------- | -------- | ------- | ---------------------------------------------------------------------------------- |
+| spark.jars.packages     | ✅       |         | Set with latest version io.acryl:acryl-spark-lineage:0.2.17                        |
+| spark.extraListeners    | ✅       |         | datahub.spark.DatahubSparkListener                                                 |
+| spark.datahub.emitter   |          | rest    | Specify how to emit metadata. <br /> **Options**: `rest`, `kafka`, `file`, or `s3` |
+| spark.datahub.flow_name |          |         | Custom DataFlow name. Default is the Spark app name                                |
 
 ### REST Emitter Configuration
 
