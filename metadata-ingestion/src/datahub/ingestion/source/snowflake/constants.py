@@ -55,6 +55,7 @@ class SnowflakeObjectDomain(StrEnum):
     ICEBERG_TABLE = "iceberg table"
     STREAM = "stream"
     PROCEDURE = "procedure"
+    DYNAMIC_TABLE = "dynamic table"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"

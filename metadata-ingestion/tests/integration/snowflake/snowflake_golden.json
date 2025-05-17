@@ -796,22 +796,22 @@
                 "CLUSTERING_KEY": "LINEAR(COL_1)",
                 "IS_DYNAMIC": "true"
             },
-            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/",
+            "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/dynamic-table/TABLE_2/",
             "name": "TABLE_2",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_2",
             "description": "Comment for Table",
             "created": {
-                "time": 1623124800000
+                "time": 1623106800000
             },
             "lastModified": {
-                "time": 1623124800000
+                "time": 1623106800000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2025_05_17-22_44_00-urohyu",
         "lastRunId": "no-run-id-provided"
     }
 },

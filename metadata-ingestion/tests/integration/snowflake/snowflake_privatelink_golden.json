@@ -1940,13 +1940,13 @@
             {
                 "op": "add",
                 "path": "/externalUrl",
-                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/"
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/dynamic-table/TABLE_2/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
+        "runId": "snowflake-2022_06_07-17_00_00-xkx8ph",
         "lastRunId": "no-run-id-provided"
     }
 },

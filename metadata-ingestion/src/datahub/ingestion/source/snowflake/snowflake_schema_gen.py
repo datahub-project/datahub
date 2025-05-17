@@ -980,7 +980,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     schema_name,
                     db_name,
                     (
-                        SnowflakeObjectDomain.TABLE
+                        SnowflakeObjectDomain.DYNAMIC_TABLE
+                        if isinstance(table, SnowflakeTable)
+                        and table.is_dynamic is True
+                        else SnowflakeObjectDomain.TABLE
                         if isinstance(table, SnowflakeTable)
                         else SnowflakeObjectDomain.VIEW
                     ),

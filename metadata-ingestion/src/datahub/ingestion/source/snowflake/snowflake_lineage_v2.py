@@ -12,6 +12,7 @@ from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
     LINEAGE_PERMISSION_ERROR,
     SnowflakeEdition,
+    SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -24,6 +25,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeFilter,
     SnowflakeIdentifierBuilder,
+    split_qualified_name,
 )
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
@@ -366,6 +368,53 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 # To avoid that causing a pydantic error we are setting it to an empty list
                 # instead of a list with an empty object
                 db_row["QUERIES"] = "[]"
+
+            # Handle dynamic tables migration - Check if the current table was moved
+            # Snowflake access history might show the old location for dynamic tables
+            downstream_table_name = db_row.get("DOWNSTREAM_TABLE_NAME")
+            if (
+                db_row.get("DOWNSTREAM_TABLE_DOMAIN", "").lower()
+                == SnowflakeObjectDomain.DYNAMIC_TABLE.lower()
+                and downstream_table_name is not None
+            ):
+                # Try to locate the actual table to ensure we have the correct identifier
+                try:
+                    # Split the qualified name to extract database and schema
+                    parts = split_qualified_name(str(downstream_table_name))
+                    if len(parts) == 3:
+                        db_name, schema_name, table_name = parts
+                        # Query to check if the table exists at the current location
+                        check_query = f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN {db_name}.{schema_name}"
+                        result = self.connection.query(check_query)
+
+                        # If the dynamic table is not found, it may have been moved
+                        if not list(result):
+                            # Try to locate the dynamic table across the account
+                            locate_query = (
+                                f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN ACCOUNT"
+                            )
+                            locate_result = self.connection.query(locate_query)
+
+                            # If found, update the downstream table name to the new location
+                            locate_rows = list(locate_result)
+                            if locate_rows and len(locate_rows) > 0:
+                                new_location = locate_rows[0]
+                                new_db_name = new_location.get("database_name")
+                                new_schema_name = new_location.get("schema_name")
+                                if new_db_name and new_schema_name:
+                                    new_downstream_name = (
+                                        f"{new_db_name}.{new_schema_name}.{table_name}"
+                                    )
+                                    logger.info(
+                                        f"Dynamic table moved: {downstream_table_name} -> {new_downstream_name}"
+                                    )
+                                    db_row["DOWNSTREAM_TABLE_NAME"] = (
+                                        new_downstream_name
+                                    )
+                except Exception as e:
+                    # Log but continue with original name if there's an error
+                    logger.debug(f"Error checking dynamic table location: {e}")
+
             return UpstreamLineageEdge.parse_obj(db_row)
         except Exception as e:
             self.report.num_upstream_lineage_edge_parsing_failed += 1
@@ -384,30 +433,100 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     def map_query_result_upstreams(
         self, upstream_tables: Optional[List[UpstreamTableNode]], query_id: str
     ) -> List[UrnStr]:
+        """We need to make dataset URNs for each upstream."""
         if not upstream_tables:
             return []
-        upstreams: List[UrnStr] = []
+
+        upstream_tables_set = []
         for upstream_table in upstream_tables:
-            if upstream_table and upstream_table.query_id == query_id:
+            # Check if this is the right query
+            if not upstream_table or upstream_table.query_id != query_id:
+                continue
+
+            # No blank upstream names.
+            if not upstream_table.upstream_object_name:
+                continue
+
+            # Validate that this object is of the right domain.
+            if upstream_table.upstream_object_domain.lower() not in {
+                SnowflakeObjectDomain.TABLE.lower(),
+                SnowflakeObjectDomain.VIEW.lower(),
+                SnowflakeObjectDomain.EXTERNAL_TABLE.lower(),
+                SnowflakeObjectDomain.MATERIALIZED_VIEW.lower(),
+                SnowflakeObjectDomain.ICEBERG_TABLE.lower(),
+                SnowflakeObjectDomain.STREAM.lower(),
+                SnowflakeObjectDomain.DYNAMIC_TABLE.lower(),
+            }:
+                # Only add upstream edges for table <-> {table, view, materialized_view, external_table, iceberg_table, stream} objects.
+                continue
+
+            # Need additional handling for dynamic tables that could have moved
+            original_upstream_name = upstream_table.upstream_object_name
+            if (
+                upstream_table.upstream_object_domain.lower()
+                == SnowflakeObjectDomain.DYNAMIC_TABLE.lower()
+            ):
                 try:
-                    upstream_name = (
-                        self.identifiers.get_dataset_identifier_from_qualified_name(
-                            upstream_table.upstream_object_name
-                        )
-                    )
-                    if upstream_name and (
-                        not self.config.validate_upstreams_against_patterns
-                        or self.filters.is_dataset_pattern_allowed(
-                            upstream_name,
-                            upstream_table.upstream_object_domain,
-                        )
-                    ):
-                        upstreams.append(
-                            self.identifiers.gen_dataset_urn(upstream_name)
-                        )
+                    # Split the qualified name to extract database, schema, and table name
+                    parts = split_qualified_name(upstream_table.upstream_object_name)
+                    if len(parts) == 3:
+                        db_name, schema_name, table_name = parts
+                        # Check if the dynamic table exists at the specified location
+                        check_query = f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN {db_name}.{schema_name}"
+                        result = self.connection.query(check_query)
+
+                        # If the dynamic table is not found, it may have been moved
+                        if not list(result):
+                            # Try to locate the dynamic table across the account
+                            locate_query = (
+                                f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN ACCOUNT"
+                            )
+                            locate_result = self.connection.query(locate_query)
+
+                            # If found, update the upstream table name to the new location
+                            locate_rows = list(locate_result)
+                            if locate_rows and len(locate_rows) > 0:
+                                new_location = locate_rows[0]
+                                new_db_name = new_location.get("database_name")
+                                new_schema_name = new_location.get("schema_name")
+                                if new_db_name and new_schema_name:
+                                    new_upstream_name = (
+                                        f"{new_db_name}.{new_schema_name}.{table_name}"
+                                    )
+                                    logger.info(
+                                        f"Dynamic table upstream moved: {upstream_table.upstream_object_name} -> {new_upstream_name}"
+                                    )
+                                    upstream_table.upstream_object_name = (
+                                        new_upstream_name
+                                    )
                 except Exception as e:
-                    logger.debug(e, exc_info=e)
-        return upstreams
+                    # Log but continue with original name if there's an error
+                    logger.debug(f"Error checking dynamic table upstream location: {e}")
+
+            dataset_identifier = (
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    original_upstream_name
+                    if upstream_table.upstream_object_domain.lower()
+                    != SnowflakeObjectDomain.DYNAMIC_TABLE.lower()
+                    else upstream_table.upstream_object_name
+                )
+            )
+            if dataset_identifier:
+                if (
+                    not self.config.validate_upstreams_against_patterns
+                    or self.filters.is_dataset_pattern_allowed(
+                        dataset_identifier,
+                        upstream_table.upstream_object_domain,
+                    )
+                ):
+                    upstream_dataset_urn = self.identifiers.gen_dataset_urn(
+                        dataset_identifier
+                    )
+                    # Only unique upstreams.
+                    if upstream_dataset_urn not in upstream_tables_set:
+                        upstream_tables_set.append(upstream_dataset_urn)
+
+        return upstream_tables_set
 
     def map_query_result_fine_upstreams(
         self,

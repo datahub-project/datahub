@@ -313,3 +313,102 @@ def test_snowflake_private_link_and_incremental_mcps(
             golden_path=golden_file,
             ignore_paths=[],
         )
+
+
+@freeze_time(FROZEN_TIME)
+def test_dynamic_tables_support(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+    pytestconfig.rootpath / "tests/integration/snowflake"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "snowflake_dynamic_table_test_events.json"
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        # Define a wrapper around default_query_results that adds dynamic table support
+        def dynamic_tables_query_results(query):
+            if "information_schema.tables" in query.lower():
+                result_data = [
+                    {
+                        "TABLE_CATALOG": "TEST_DB",
+                        "TABLE_SCHEMA": "TEST_SCHEMA",
+                        "TABLE_NAME": "TEST_TABLE",
+                        "TABLE_TYPE": "BASE TABLE",
+                        "CREATED": datetime(2022, 3, 1, 15, 31, 0, 946000),
+                        "LAST_ALTERED": datetime(2022, 4, 23, 15, 31, 0, 946000),
+                        "COMMENT": "test comment",
+                        "ROW_COUNT": 10,
+                        "BYTES": 100,
+                        "CLUSTERING_KEY": None,
+                        "AUTO_CLUSTERING_ON": None,
+                        "IS_DYNAMIC": "NO",
+                        "IS_ICEBERG": "NO",
+                        "IS_HYBRID": "NO",
+                    },
+                    {
+                        "TABLE_CATALOG": "TEST_DB",
+                        "TABLE_SCHEMA": "TEST_SCHEMA",
+                        "TABLE_NAME": "DYNAMIC_TEST_TABLE",
+                        "TABLE_TYPE": "BASE TABLE",
+                        "CREATED": datetime(2022, 3, 1, 15, 31, 0, 946000),
+                        "LAST_ALTERED": datetime(2022, 4, 23, 15, 31, 0, 946000),
+                        "COMMENT": "dynamic table test",
+                        "ROW_COUNT": 5,
+                        "BYTES": 50,
+                        "CLUSTERING_KEY": None,
+                        "AUTO_CLUSTERING_ON": None,
+                        "IS_DYNAMIC": "YES",
+                        "IS_ICEBERG": "NO",
+                        "IS_HYBRID": "NO",
+                    },
+                ]
+
+                # Wrap in the RowCountList from the common module to handle rowcount
+                from tests.integration.snowflake.common import RowCountList
+
+                return RowCountList(result_data)
+            else:
+                return default_query_results(query)
+
+        sf_cursor.execute.side_effect = dynamic_tables_query_results
+
+        pipeline = Pipeline(
+            config=PipelineConfig(
+                source=SourceConfig(
+                    type="snowflake",
+                    config=SnowflakeV2Config(
+                        account_id="ABC12345.us-west-2.aws",
+                        username="TST_USR",
+                        password="TST_PWD",
+                        match_fully_qualified_names=True,
+                        schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
+                        include_technical_schema=True,
+                        include_usage_stats=False,
+                        include_operational_stats=False,
+                        include_table_lineage=False,  # Disable lineage to avoid warnings
+                        include_column_lineage=False,  # Disable column lineage
+                        extract_tags=TagOption.skip,
+                    ),
+                ),
+                sink=DynamicTypedConfig(
+                    type="file", config={"filename": str(output_file)}
+                ),
+            )
+        )
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
+        # We're not testing warnings in this test, we just want to verify the dynamic table was ingested
+
+        # Verify the output contains the dynamic table with the correct URL
+        with open(output_file, "r") as f:
+            output_json = f.read()
+            # Verify the dynamic table was ingested
+            assert "DYNAMIC_TEST_TABLE" in output_json
+            # Verify IS_DYNAMIC property was set
+            assert "IS_DYNAMIC" in output_json and "true" in output_json
+            # Verify dynamic-table URL format is used
+            assert "dynamic-table/DYNAMIC_TEST_TABLE" in output_json

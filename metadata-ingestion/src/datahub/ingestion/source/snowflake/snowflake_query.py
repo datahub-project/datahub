@@ -38,6 +38,7 @@ class SnowflakeQuery:
         SnowflakeObjectDomain.MATERIALIZED_VIEW.capitalize(),
         SnowflakeObjectDomain.ICEBERG_TABLE.capitalize(),
         SnowflakeObjectDomain.STREAM.capitalize(),
+        SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
     }
 
     ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER = "({})".format(

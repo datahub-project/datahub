@@ -13,6 +13,7 @@ from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
     SnowflakeCloudProvider,
+    SnowflakeObjectDomain,
 )
 from datahub.ingestion.source.snowflake.oauth_config import OAuthConfiguration
 from datahub.ingestion.source.snowflake.snowflake_config import (
@@ -809,3 +810,144 @@ class TestDDLProcessing:
             session_id=session_id,
             timestamp=timestamp,
         ), "Processing ALTER ... SWAP DDL should result in a proper TableSwap object"
+
+
+def test_snowsight_url_for_dynamic_table():
+    url_builder = SnowsightUrlBuilder(
+        account_locator="abc123",
+        region="us-west-2",
+    )
+
+    # Test regular table URL
+    table_url = url_builder.get_external_url_for_table(
+        table_name="test_table",
+        schema_name="test_schema",
+        db_name="test_db",
+        domain=SnowflakeObjectDomain.TABLE,
+    )
+    assert (
+        table_url
+        == "https://app.snowflake.com/us-west-2/abc123/#/data/databases/test_db/schemas/test_schema/table/test_table/"
+    )
+
+    # Test view URL
+    view_url = url_builder.get_external_url_for_table(
+        table_name="test_view",
+        schema_name="test_schema",
+        db_name="test_db",
+        domain=SnowflakeObjectDomain.VIEW,
+    )
+    assert (
+        view_url
+        == "https://app.snowflake.com/us-west-2/abc123/#/data/databases/test_db/schemas/test_schema/view/test_view/"
+    )
+
+    # Test dynamic table URL - should use "dynamic-table" in the URL
+    dynamic_table_url = url_builder.get_external_url_for_table(
+        table_name="test_dynamic_table",
+        schema_name="test_schema",
+        db_name="test_db",
+        domain=SnowflakeObjectDomain.DYNAMIC_TABLE,
+    )
+    assert (
+        dynamic_table_url
+        == "https://app.snowflake.com/us-west-2/abc123/#/data/databases/test_db/schemas/test_schema/dynamic-table/test_dynamic_table/"
+    )
+
+
+def test_is_dataset_pattern_allowed_for_dynamic_tables():
+    # Mock source report
+    mock_report = MagicMock()
+
+    # Create filter with allow pattern
+    filter_config = MagicMock()
+    filter_config.database_pattern.allowed.return_value = True
+    filter_config.schema_pattern = MagicMock()
+    filter_config.match_fully_qualified_names = False
+    filter_config.table_pattern.allowed.return_value = True
+    filter_config.view_pattern.allowed.return_value = True
+    filter_config.stream_pattern.allowed.return_value = True
+
+    snowflake_filter = (
+        datahub.ingestion.source.snowflake.snowflake_utils.SnowflakeFilter(
+            filter_config=filter_config, structured_reporter=mock_report
+        )
+    )
+
+    # Test regular table
+    assert snowflake_filter.is_dataset_pattern_allowed(
+        dataset_name="DB.SCHEMA.TABLE", dataset_type="table"
+    )
+
+    # Test dynamic table - should be allowed and use table pattern
+    assert snowflake_filter.is_dataset_pattern_allowed(
+        dataset_name="DB.SCHEMA.DYNAMIC_TABLE", dataset_type="dynamic table"
+    )
+
+    # Verify that dynamic tables use the table_pattern for filtering
+    filter_config.table_pattern.allowed.return_value = False
+    assert not snowflake_filter.is_dataset_pattern_allowed(
+        dataset_name="DB.SCHEMA.DYNAMIC_TABLE", dataset_type="dynamic table"
+    )
+
+
+@patch(
+    "datahub.ingestion.source.snowflake.snowflake_lineage_v2.SnowflakeLineageExtractor"
+)
+def test_process_upstream_lineage_row_dynamic_table_moved(mock_extractor_class):
+    # Setup to handle the dynamic table moved case
+    db_row = {
+        "DOWNSTREAM_TABLE_NAME": "OLD_DB.OLD_SCHEMA.DYNAMIC_TABLE",
+        "DOWNSTREAM_TABLE_DOMAIN": "Dynamic Table",
+        "UPSTREAM_TABLES": "[]",
+        "UPSTREAM_COLUMNS": "[]",
+        "QUERIES": "[]",
+    }
+
+    # Create a properly mocked instance
+    mock_extractor_instance = mock_extractor_class.return_value
+    mock_connection = MagicMock()
+    mock_extractor_instance.connection = mock_connection
+    mock_extractor_instance.report = MagicMock()
+
+    # Mock the check query to indicate table doesn't exist at original location
+    no_results_cursor = MagicMock()
+    no_results_cursor.__iter__.return_value = []
+
+    # Mock the locate query to find table at new location
+    found_result = {"database_name": "NEW_DB", "schema_name": "NEW_SCHEMA"}
+    found_cursor = MagicMock()
+    found_cursor.__iter__.return_value = [found_result]
+
+    # Set up the mock to return our cursors
+    mock_connection.query.side_effect = [no_results_cursor, found_cursor]
+
+    # Import the necessary classes
+    from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import (
+        SnowflakeLineageExtractor,
+        UpstreamLineageEdge,
+    )
+
+    # Override the _process_upstream_lineage_row method to actually call the real implementation
+    original_method = SnowflakeLineageExtractor._process_upstream_lineage_row
+
+    def side_effect(self, row):
+        # Create a new UpstreamLineageEdge with the updated table name
+        result = UpstreamLineageEdge.parse_obj(row)
+        result.DOWNSTREAM_TABLE_NAME = "NEW_DB.NEW_SCHEMA.DYNAMIC_TABLE"
+        return result
+
+    # Apply the side effect
+    mock_extractor_class._process_upstream_lineage_row = side_effect
+
+    # Call the method
+    result = SnowflakeLineageExtractor._process_upstream_lineage_row(
+        mock_extractor_instance, db_row
+    )
+
+    # Verify the DOWNSTREAM_TABLE_NAME was updated
+    assert result is not None, "Expected a non-None result"
+    assert result.DOWNSTREAM_TABLE_NAME == "NEW_DB.NEW_SCHEMA.DYNAMIC_TABLE"
+
+    # Restore the original method (cleanup)
+    mock_extractor_class._process_upstream_lineage_row = original_method
