@@ -25,7 +25,7 @@ from typing import (
 from pydantic import BaseModel
 from typing_extensions import LiteralString, Self
 
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
@@ -37,7 +37,7 @@ from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
 )
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
-from datahub.ingestion.api.report import Report
+from datahub.ingestion.api.report import EntityFilterReport, Report
 from datahub.ingestion.api.source_helpers import (
     AutoSystemMetadata,
     auto_browse_path_v2,
@@ -548,3 +548,25 @@ class TestableSource(Source):
     @abstractmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
         raise NotImplementedError("This class does not implement this method")
+
+
+class AllowDenyPatternWithReport:
+    """A wrapper around AllowDenyPattern that adds reporting capabilities."""
+
+    def __init__(self, pattern: AllowDenyPattern, report: EntityFilterReport) -> None:
+        self._pattern = pattern
+        self._report = report
+
+    @property
+    def report(self) -> EntityFilterReport:
+        return self._report
+
+    def allowed(self, string: str) -> bool:
+        ret = self._pattern.allowed(string)
+        self._report.processed(string) if ret else self._report.dropped(string)
+        return ret
+
+    def denied(self, string: str) -> bool:
+        ret = self._pattern.denied(string)
+        self._report.dropped(string) if ret else self._report.processed(string)
+        return ret

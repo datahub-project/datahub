@@ -2,7 +2,7 @@ import datetime
 import json
 import logging
 from collections import defaultdict
-from dataclasses import dataclass, field as dataclass_field
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import (
     Any,
@@ -113,7 +113,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
-from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
@@ -220,10 +219,8 @@ class GlueSourceConfig(
 @dataclass
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     catalog_id: Optional[str] = None
-    tables_scanned = 0
-    filtered: LossyList[str] = dataclass_field(default_factory=LossyList)
-    databases: EntityFilterReport = EntityFilterReport.field(type="database")
-
+    databases_filter: EntityFilterReport = EntityFilterReport.field(type="database")
+    tables_filter: EntityFilterReport = EntityFilterReport.field(type="table")
     num_job_script_location_missing: int = 0
     num_job_script_location_invalid: int = 0
     num_job_script_failed_download: int = 0
@@ -232,12 +229,6 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_dataset_to_dataset_edges_in_job: int = 0
     num_dataset_invalid_delta_schema: int = 0
     num_dataset_valid_delta_schema: int = 0
-
-    def report_table_scanned(self) -> None:
-        self.tables_scanned += 1
-
-    def report_table_dropped(self, table: str) -> None:
-        self.filtered.append(table)
 
 
 @platform_name("Glue")
@@ -317,6 +308,9 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_owners = config.extract_owners
         self.source_config = config
         self.report = GlueSourceReport()
+        self.source_config.database_pattern.set_report(self.report.databases_filter)
+        self.source_config.table_pattern.set_report(self.report.tables_filter)
+
         self.report.catalog_id = self.source_config.catalog_id
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
@@ -702,15 +696,20 @@ class GlueSource(StatefulIngestionSourceBase):
             pattern += "[?!TargetDatabase]"
 
         for database in paginator_response.search(pattern):
-            if (not self.source_config.database_pattern.allowed(database["Name"])) or (
+            database_name = database["Name"]
+            non_matching_catalog = (
                 self.source_config.catalog_id
                 and database.get("CatalogId")
                 and database.get("CatalogId") != self.source_config.catalog_id
-            ):
-                self.report.databases.dropped(database["Name"])
+            )
+            if non_matching_catalog:
+                logger.debug(
+                    f"Dropping database {database_name} because it is not in the catalog {self.source_config.catalog_id}"
+                )
+                self.report.databases_filter.dropped(database_name)
             else:
-                self.report.databases.processed(database["Name"])
-                yield database
+                if self.source_config.database_pattern.allowed(database_name):
+                    yield database
 
     def get_tables_from_database(self, database: Mapping[str, Any]) -> Iterable[Dict]:
         logger.debug(f"Getting tables from database {database['Name']}")
@@ -1092,11 +1091,9 @@ class GlueSource(StatefulIngestionSourceBase):
         database_name = table["DatabaseName"]
         table_name = table["Name"]
         full_table_name = f"{database_name}.{table_name}"
-        self.report.report_table_scanned()
         if not self.source_config.database_pattern.allowed(
             database_name
         ) or not self.source_config.table_pattern.allowed(full_table_name):
-            self.report.report_table_dropped(full_table_name)
             return
 
         dataset_urn = make_dataset_urn_with_platform_instance(
