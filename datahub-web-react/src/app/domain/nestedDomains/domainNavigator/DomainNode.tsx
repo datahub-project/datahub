@@ -8,6 +8,7 @@ import { useDomainsContext } from '@app/domain/DomainsContext';
 import useHasDomainChildren from '@app/domain/nestedDomains/domainNavigator/useHasDomainChildren';
 import useListDomains from '@app/domain/useListDomains';
 import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import { RotatingTriangle } from '@app/shared/sidebar/components';
 import { applyOpacity } from '@app/shared/styleUtils';
@@ -66,10 +67,17 @@ interface Props {
     domain: Domain;
     numDomainChildren: number;
     domainUrnToHide?: string;
+    displayDomainColoredIcon?: boolean;
     selectDomainOverride?: (domain: Domain) => void;
 }
 
-export default function DomainNode({ domain, numDomainChildren, domainUrnToHide, selectDomainOverride }: Props) {
+export default function DomainNode({
+    domain,
+    numDomainChildren,
+    domainUrnToHide,
+    selectDomainOverride,
+    displayDomainColoredIcon,
+}: Props) {
     const shouldHideDomain = domainUrnToHide === domain.urn;
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
@@ -117,8 +125,9 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
                     isSelected={!!isOnEntityPage && !isInSelectMode}
                     addLeftPadding={!hasDomainChildren}
                 >
-                    {!isInSelectMode && <DomainIcon />}
-                    {displayName}
+                    {!isInSelectMode && !displayDomainColoredIcon && <DomainIcon />}
+                    {displayDomainColoredIcon && <DomainColoredIcon domain={domain} size={24} fontSize={12} />}
+                    <span style={{ marginLeft: 8 }}>{displayName}</span>
                 </NameWrapper>
             </RowWrapper>
             <StyledExpander isOpen={isOpen && !isClosing}>
@@ -130,6 +139,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
                             numDomainChildren={childDomain.children?.total || 0}
                             domainUrnToHide={domainUrnToHide}
                             selectDomainOverride={selectDomainOverride}
+                            displayDomainColoredIcon={displayDomainColoredIcon}
                         />
                     ))}
                 </BodyContainer>
