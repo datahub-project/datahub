@@ -303,8 +303,8 @@ As of current writing, the Spark agent produces metadata related to the Spark jo
 For Spark on Databricks,
 
 - A pipeline is created per
-  - cluster_identifier: specified with spark.datahub.databricks.cluster
-  - applicationID: on every restart of the cluster new spark applicationID will be created.
+  - **cluster_identifier**: specified with spark.datahub.databricks.cluster
+  - **applicationID**: on every restart of the cluster new spark applicationID will be created.
 - A task is created per unique Spark query execution.
 
 ### Custom properties & relating to Spark UI
@@ -346,7 +346,13 @@ Hdfs-based platforms supported explicitly:
 - AWS S3 (s3)
 - Google Cloud Storage (gcs)
 - local (local file system) (local)
-  All other platforms will have "hdfs" as a platform.
+- Azure Blob Storage (wasbs, wasb)
+- Azure Data Lake Storage Gen2 (abfss, abfs)
+- Azure Files (azure_files)
+- S3-compatible storage (s3) - Access via s3:// URIs for MinIO, Ceph, etc.
+- Databricks File System (dbfs) - Databricks-specific file system
+
+All other platforms will have "hdfs" as a platform.
 
 **Name**:
 By default, the name is the complete path. For Hdfs based datasets, tables can be at different levels in the path than
@@ -359,17 +365,34 @@ list. The first one to match will be used to generate URN.
 **path_spec Examples**
 
 ```
+# S3 examples
 spark.datahub.platform.s3.path_spec_list=s3://my-bucket/foo/{table}/year=*/month=*/day=*/*,s3://my-other-bucket/foo/{table}/year=*/month=*/day=*/*
+
+# Azure Blob Storage examples
+spark.datahub.platform.wasbs.path_spec_list=wasbs://container@account.blob.core.windows.net/{table}/year=*/month=*/day=*/*
+
+# Azure Data Lake Storage Gen2 examples
+spark.datahub.platform.abfss.path_spec_list=abfss://container@account.dfs.core.windows.net/path/{table}/partition=*/*
+
+# S3-compatible storage (same format as S3, different endpoint)
+spark.datahub.platform.s3.path_spec_list=s3://minio-bucket/{table}/partition=*/*
+
+# Databricks File System examples
+spark.datahub.platform.dbfs.path_spec_list=dbfs:/mnt/data/{table}/partition=*/*
 ```
 
-| Absolute path                        | path_spec                        | Urn                                                                          |
-| ------------------------------------ | -------------------------------- | ---------------------------------------------------------------------------- |
-| s3://my-bucket/foo/tests/bar.avro    | Not provided                     | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)    |
-| s3://my-bucket/foo/tests/bar.avro    | s3://my-bucket/foo/{table}/\*    | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)             |
-| s3://my-bucket/foo/tests/bar.avro    | s3://my-bucket/foo/tests/{table} | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)    |
-| gs://my-bucket/foo/tests/bar.avro    | gs://my-bucket/{table}/_/_       | urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo,PROD)                  |
-| gs://my-bucket/foo/tests/bar.avro    | gs://my-bucket/{table}           | urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo,PROD)                  |
-| file:///my-bucket/foo/tests/bar.avro | file:///my-bucket/_/_/{table}    | urn:li:dataset:(urn:li:dataPlatform:local,my-bucket/foo/tests/bar.avro,PROD) |
+| Absolute path                                                     | path_spec                                               | Urn                                                                          |
+| ----------------------------------------------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| s3://my-bucket/foo/tests/bar.avro                                 | Not provided                                            | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)    |
+| s3://my-bucket/foo/tests/bar.avro                                 | s3://my-bucket/foo/{table}/\*                           | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests,PROD)             |
+| s3://my-bucket/foo/tests/bar.avro                                 | s3://my-bucket/foo/tests/{table}                        | urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/foo/tests/bar.avro,PROD)    |
+| gs://my-bucket/foo/tests/bar.avro                                 | gs://my-bucket/{table}/_/_                              | urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo,PROD)                  |
+| gs://my-bucket/foo/tests/bar.avro                                 | gs://my-bucket/{table}                                  | urn:li:dataset:(urn:li:dataPlatform:gcs,my-bucket/foo,PROD)                  |
+| file:///my-bucket/foo/tests/bar.avro                              | file:///my-bucket/_/_/{table}                           | urn:li:dataset:(urn:li:dataPlatform:local,my-bucket/foo/tests/bar.avro,PROD) |
+| wasbs://container@account.blob.core.windows.net/foo/data.csv      | wasbs://container@account.blob.core.windows.net/{table} | urn:li:dataset:(urn:li:dataPlatform:abs,container/foo,PROD)                  |
+| abfss://container@account.dfs.core.windows.net/data/sales.parquet | abfss://container@account.dfs.core.windows.net/{table}  | urn:li:dataset:(urn:li:dataPlatform:abs,container/data,PROD)                 |
+| s3://minio-bucket/test/data.parquet                               | s3://minio-bucket/{table}                               | urn:li:dataset:(urn:li:dataPlatform:s3,minio-bucket/test,PROD)               |
+| dbfs:/mnt/data/sales/region=US/data.parquet                       | dbfs:/mnt/data/{table}/region=_/_                       | urn:li:dataset:(urn:li:dataPlatform:dbfs,mnt/data/sales,PROD)                |
 
 **Platform instance and env:**
 
@@ -393,6 +416,113 @@ spark.datahub.platform.s3.path1.platform_instance: instance-1
 spark.datahub.platform.s3.path2.env: DEV
 spark.datahub.platform.s3.path2.path_spec_list: s3://bucket2/*/{table}
 ```
+
+### Azure Storage Configuration
+
+When working with Azure storage, there are a few additional considerations:
+
+1. **Azure Blob Storage** (wasbs://, wasb://)
+
+   - Use the platform name "abs" (Azure Blob Storage) for both secure and non-secure connections
+   - Protocol to platform mapping:
+     - wasb:// → platform: abs
+     - wasbs:// → platform: abs
+   - The URN structure will typically be: `urn:li:dataset:(urn:li:dataPlatform:abs,<container>/<path>,<env>)`
+
+2. **Azure Data Lake Storage Gen2** (abfss://, abfs://)
+
+   - Use the platform name "abs" (Azure Blob Storage) for ADLS Gen2
+   - Protocol to platform mapping:
+     - abfs:// → platform: abs
+     - abfss:// → platform: abs
+   - The URN structure will typically be: `urn:li:dataset:(urn:li:dataPlatform:abs,<filesystem>/<path>,<env>)`
+
+3. **S3-compatible Storage**
+   - For S3-compatible storage like MinIO, Ceph, etc., use the same configuration as AWS S3
+   - If you need to specify a different endpoint, you can use the standard Hadoop configuration:
+   ```
+   spark.hadoop.fs.s3a.endpoint=http://minio.example.com:9000
+   spark.hadoop.fs.s3a.path.style.access=true
+   ```
+
+**Platform Name Consistency**:
+
+To ensure your lineage is properly connected, it's important to understand how filesystem protocols map to DataHub platform names:
+
+| Protocol            | DataHub Platform Name |
+| ------------------- | --------------------- |
+| s3://               | s3                    |
+| gs:// or gcs://     | gcs                   |
+| abfs:// or abfss:// | abs                   |
+| wasb:// or wasbs:// | abs                   |
+| dbfs://             | dbfs                  |
+| file://             | file                  |
+| hdfs://             | hdfs                  |
+
+**Authentication for Azure Storage**:
+
+For Azure authentication, you typically need to set up Hadoop configurations:
+
+```
+# For Azure Blob Storage
+spark.hadoop.fs.azure.account.key.<storage-account-name>.blob.core.windows.net=<storage-account-key>
+
+# For Azure Data Lake Storage Gen2
+spark.hadoop.fs.azure.account.auth.type.<storage-account>.dfs.core.windows.net=SharedKey
+spark.hadoop.fs.azure.account.key.<storage-account>.dfs.core.windows.net=<storage-account-key>
+
+# Alternatively, for Azure AD authentication
+spark.hadoop.fs.azure.account.auth.type.<storage-account>.dfs.core.windows.net=OAuth
+spark.hadoop.fs.azure.account.oauth.provider.type.<storage-account>.dfs.core.windows.net=org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider
+spark.hadoop.fs.azure.account.oauth2.client.id.<storage-account>.dfs.core.windows.net=<application-id>
+spark.hadoop.fs.azure.account.oauth2.client.secret.<storage-account>.dfs.core.windows.net=<application-secret>
+spark.hadoop.fs.azure.account.oauth2.client.endpoint.<storage-account>.dfs.core.windows.net=https://login.microsoftonline.com/<tenant-id>/oauth2/token
+```
+
+### Databricks File System (DBFS) Configuration
+
+When working with Databricks File System, there are some special considerations:
+
+1. **DBFS Paths** (dbfs://)
+
+   - Use the platform name "dbfs" for Databricks File System paths
+   - The URN structure will typically be: `urn:li:dataset:(urn:li:dataPlatform:dbfs,<path>,<env>)`
+
+2. **DBFS Mount Points**
+
+   - In Databricks, DBFS paths often represent mounted cloud storage (like S3 or ADLS)
+   - By default, the agent uses the dbfs:/ path for lineage, but you can configure it to resolve to the underlying storage:
+
+   ```
+   spark.datahub.dbfs.resolveToMountSource=true
+   ```
+
+   - When enabled, dbfs:/mnt/s3bucket will be treated as s3://s3bucket for lineage purposes
+
+3. **Working with DBFS and Cloud Storage**
+
+   - If your Spark jobs access the same data via both dbfs:/ paths and direct cloud storage paths (s3://, abfss://, etc.):
+     - Consider using `spark.datahub.dbfs.resolveToMountSource=true` to unify lineage
+     - Or set up appropriate path_spec configurations to normalize dataset URNs
+
+4. **Unity Catalog Considerations**
+   - If you're using Databricks Unity Catalog, tables might be accessed both via SQL and direct file paths
+   - For proper lineage matching with SQL ingestion sources, use path_spec patterns that match your catalog structure
+
+**Example Configuration for DBFS:**
+
+```
+# Basic DBFS configuration
+spark.datahub.platform.dbfs.path_spec_list=dbfs:/mnt/data/{table}/partition=*/*
+
+# Optional: Resolve DBFS mount points to source storage
+spark.datahub.dbfs.resolveToMountSource=true
+
+# For Unity Catalog matching
+spark.datahub.metadata.dataset.hivePlatformAlias=databricks
+```
+
+**Note:** The `spark.datahub.dbfs.resolveToMountSource` option is available in acryl-spark-lineage version 0.2.18 and later. Check your version before using this feature.
 
 ## Troubleshooting
 
