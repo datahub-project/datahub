@@ -113,6 +113,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
         showIntroducePage: false,
+        showLineageExpandMore: false,
         showTaskCenterRedesign: false,
         usePropagationsFramework: false,
         displayExecutorPools: false,

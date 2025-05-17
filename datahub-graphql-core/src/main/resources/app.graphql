@@ -1448,6 +1448,11 @@ type FeatureFlagsConfig {
   showIntroducePage: Boolean!
 
   """
+  # If enabled, show the expand more button (>>) in the lineage graph
+  """
+  showLineageExpandMore: Boolean!
+
+  """
   If enabled, allow on-demand creation of smart assertions.
   """
   onlineSmartAssertionsEnabled: Boolean!

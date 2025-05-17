@@ -316,6 +316,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                 _featureFlags.isShowSearchBarAutocompleteRedesign())
             .setShowManageTags(_featureFlags.isShowManageTags())
             .setShowIntroducePage(_featureFlags.isShowIntroducePage())
+            .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setDatasetHealthDashboardV2Enabled(_featureFlags.isDatasetHealthDashboardV2Enabled())
