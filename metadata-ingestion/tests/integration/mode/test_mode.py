@@ -10,7 +10,7 @@ from requests.models import HTTPError
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
