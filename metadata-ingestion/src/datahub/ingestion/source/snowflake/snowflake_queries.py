@@ -241,6 +241,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
+        if self.config.local_temp_path is None:
+            self._exit_stack.callback(lambda: audit_log_file.unlink(missing_ok=True))
+
+        shared_connection = self._exit_stack.enter_context(
+            ConnectionWrapper(audit_log_file)
+        )
         queries: FileBackedList[
             Union[
                 KnownLineageMapping,
@@ -249,16 +255,12 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 TableSwap,
                 ObservedQuery,
             ]
-        ]
-        if use_cached_audit_log:
-            logger.info("Using cached audit log")
-            shared_connection = ConnectionWrapper(audit_log_file)
-            queries = FileBackedList(shared_connection)
-        else:
-            audit_log_file.unlink(missing_ok=True)
+        ] = self._exit_stack.enter_context(FileBackedList(shared_connection))
 
-            shared_connection = ConnectionWrapper(audit_log_file)
-            queries = FileBackedList(shared_connection)
+        if use_cached_audit_log:
+            logger.info(f"Using cached audit log at {audit_log_file}")
+        else:
+            logger.info(f"Fetching audit log into {audit_log_file}")
             entry: Union[
                 KnownLineageMapping,
                 PreparsedQuery,
@@ -282,10 +284,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
-        if not use_cached_audit_log:
-            queries.close()
-            shared_connection.close()
-            audit_log_file.unlink(missing_ok=True)
 
     def fetch_users(self) -> UsersMapping:
         users: UsersMapping = dict()
@@ -418,6 +416,16 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 res["user_name"], users.get(res["user_name"])
             )
         )
+        extra_info = {
+            "snowflake_query_id": res["query_id"],
+            "snowflake_root_query_id": res["root_query_id"],
+            "snowflake_query_type": res["query_type"],
+            "snowflake_role_name": res["role_name"],
+            "query_duration": res["query_duration"],
+            "rows_inserted": res["rows_inserted"],
+            "rows_updated": res["rows_updated"],
+            "rows_deleted": res["rows_deleted"],
+        }
 
         # Use direct_objects_accessed instead objects_modified
         # objects_modified returns $SYS_VIEW_X with no mapping
@@ -438,6 +446,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 query_hash=get_query_fingerprint(
                     res["query_text"], self.identifiers.platform, fast=True
                 ),
+                extra_info=extra_info,
             )
 
         upstreams = []
@@ -532,6 +541,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             timestamp=timestamp,
             session_id=res["session_id"],
             query_type=query_type,
+            extra_info=extra_info,
         )
         return entry
 
@@ -644,7 +654,7 @@ def _build_enriched_query_log_query(
     start_time_millis = int(start_time.timestamp() * 1000)
     end_time_millis = int(end_time.timestamp() * 1000)
 
-    users_filter = ""
+    users_filter = "TRUE"
     if deny_usernames:
         user_not_in = ",".join(f"'{user.upper()}'" for user in deny_usernames)
         users_filter = f"user_name NOT IN ({user_not_in})"
@@ -671,10 +681,10 @@ fingerprinted_queries as (
     FROM
         snowflake.account_usage.query_history
     WHERE
-        query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3)
-        AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3)
+        query_history.start_time >= to_timestamp_ltz({start_time_millis}, 3) -- {start_time.isoformat()}
+        AND query_history.start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
         AND execution_status = 'SUCCESS'
-        AND {users_filter or "TRUE"}
+        AND {users_filter}
 )
 , deduplicated_queries as (
     SELECT
@@ -692,6 +702,7 @@ fingerprinted_queries as (
 , raw_access_history AS (
     SELECT
         query_id,
+        root_query_id,
         query_start_time,
         user_name,
         direct_objects_accessed,
@@ -700,9 +711,9 @@ fingerprinted_queries as (
     FROM
         snowflake.account_usage.access_history
     WHERE
-        query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
-        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3)
-        AND {users_filter or "TRUE"}
+        query_start_time >= to_timestamp_ltz({start_time_millis}, 3) -- {start_time.isoformat()}
+        AND query_start_time < to_timestamp_ltz({end_time_millis}, 3) -- {end_time.isoformat()}
+        AND {users_filter}
         AND query_id IN (
             SELECT query_id FROM deduplicated_queries
         )
@@ -711,6 +722,7 @@ fingerprinted_queries as (
     -- TODO: Add table filter clause.
     SELECT
         query_id,
+        root_query_id,
         query_start_time,
         ARRAY_SLICE(
             FILTER(direct_objects_accessed, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}),
@@ -741,6 +753,7 @@ fingerprinted_queries as (
         q.rows_deleted AS "ROWS_DELETED",
         q.user_name AS "USER_NAME",
         q.role_name AS "ROLE_NAME",
+        a.root_query_id,
         a.direct_objects_accessed,
         a.objects_modified,
         a.object_modified_by_ddl
