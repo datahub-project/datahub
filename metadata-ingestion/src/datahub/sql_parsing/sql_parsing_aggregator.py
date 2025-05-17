@@ -140,6 +140,7 @@ class QueryMetadata:
 
     used_temp_tables: bool = True
 
+    extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 
     def make_created_audit_stamp(self) -> models.AuditStampClass:
@@ -948,6 +949,7 @@ class SqlParsingAggregator(Closeable):
                 column_usage=parsed.column_usage or {},
                 confidence_score=parsed.confidence_score,
                 used_temp_tables=session_has_temp_tables,
+                extra_info=parsed.extra_info,
                 origin=parsed.origin,
             )
         )
