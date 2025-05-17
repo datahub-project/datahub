@@ -455,6 +455,48 @@ database_servers_graphql_query = """
 }
 """
 
+virtual_connection_graphql_query = """
+{
+    id
+    name
+    luid
+    description
+    createdAt
+    updatedAt
+    owner {
+        username
+    }
+    tables {
+        id
+        name
+        schema
+        fullName
+        connectionType
+        database {
+            name
+            id
+            connectionType
+        }
+        columns {
+            name
+            remoteType
+            description
+        }
+    }
+    connectionAttributes {
+        name
+        value
+    }
+    project {
+        id
+        name
+    }
+    tags {
+        name
+    }
+}
+"""
+
 # https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
 FIELD_TYPE_MAPPING = {
     "INTEGER": NumberTypeClass,
