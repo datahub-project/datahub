@@ -96,6 +96,7 @@ query appConfig {
             showSearchBarAutocompleteRedesign
             showManageTags
             showIntroducePage
+            showIngestionPageRedesign
         }
         chromeExtensionConfig {
             enabled

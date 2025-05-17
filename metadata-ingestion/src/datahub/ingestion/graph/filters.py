@@ -168,7 +168,7 @@ def _get_env_filters(env: str) -> List[RawSearchFilterRule]:
         # For most entity types, we look at the origin field.
         {
             "field": "origin",
-            "value": env,
+            "values": [env],
             "condition": "EQUAL",
         },
         # For containers, we look at the customProperties field.
@@ -176,15 +176,15 @@ def _get_env_filters(env: str) -> List[RawSearchFilterRule]:
         # we look for the "env" property. Otherwise, we use the "instance" property.
         {
             "field": "customProperties",
-            "value": f"env={env}",
+            "values": [f"env={env}"],
         },
         {
             "field": "customProperties",
-            "value": f"instance={env}",
+            "values": [f"instance={env}"],
         },
         {
             "field": "env",
-            "value": env,
+            "values": [env],
         },
         # Note that not all entity types have an env (e.g. dashboards / charts).
         # If the env filter is specified, these will be excluded.

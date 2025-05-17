@@ -165,6 +165,7 @@ dockerCompose {
             buildBeforePull = false
             stopContainers = false
             removeVolumes = false
+            retainContainersOnStartupFailure = config.isDebug ? true: false //forcing nulls to bool
 
             // Apply common configuration
             common_config.each { key, value ->
