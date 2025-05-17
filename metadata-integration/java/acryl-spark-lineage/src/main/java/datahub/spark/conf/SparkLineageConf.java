@@ -18,8 +18,12 @@ public class SparkLineageConf {
   @Builder.Default final boolean coalesceEnabled = true;
   @Builder.Default final boolean emitCoalescePeriodically = false;
   @Builder.Default final boolean logMcps = true;
+  @Builder.Default final boolean excludeEmptyJobs = true;
+  @Builder.Default final boolean useLegacyJobNames = false;
   final SparkAppContext sparkAppContext;
   final DatahubEmitterConfig datahubEmitterConfig;
+  final List<String> disabledPlanVisitors;
+  final String platformInstance;
   @Builder.Default final List<String> tags = new LinkedList<>();
 
   @Builder.Default final List<String> domains = new LinkedList<>();
@@ -34,6 +38,7 @@ public class SparkLineageConf {
     builder.openLineageConf(datahubOpenlineageConfig);
     builder.coalesceEnabled(SparkConfigParser.isCoalesceEnabled(sparkConfig));
     builder.logMcps(SparkConfigParser.isLogMcps(sparkConfig));
+    builder.excludeEmptyJobs(SparkConfigParser.isExcludeEmptyJobs(sparkConfig));
     if (SparkConfigParser.getTags(sparkConfig) != null) {
       builder.tags(Arrays.asList(Objects.requireNonNull(SparkConfigParser.getTags(sparkConfig))));
     }
