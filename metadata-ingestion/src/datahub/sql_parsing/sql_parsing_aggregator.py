@@ -264,7 +264,7 @@ class PreparsedQuery:
     query_type_props: QueryTypeProps = dataclasses.field(
         default_factory=lambda: QueryTypeProps()
     )
-    # Use this to store addtitional key-value information about query for debugging
+    # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
     origin: Optional[Urn] = None
 

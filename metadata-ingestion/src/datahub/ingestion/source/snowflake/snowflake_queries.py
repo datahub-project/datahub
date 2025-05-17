@@ -63,7 +63,10 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
 )
 from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
-from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedList,
+)
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
@@ -263,17 +266,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             logger.info(f"Using cached audit log at {audit_log_file}")
         else:
             logger.info(f"Fetching audit log into {audit_log_file}")
-            entry: Union[
-                KnownLineageMapping,
-                PreparsedQuery,
-                TableRename,
-                TableSwap,
-                ObservedQuery,
-            ]
 
             with self.report.copy_history_fetch_timer:
-                for entry in self.fetch_copy_history():
-                    queries.append(entry)
+                for copy_entry in self.fetch_copy_history():
+                    queries.append(copy_entry)
 
             with self.report.query_log_fetch_timer:
                 for entry in self.fetch_query_log(users):
@@ -283,6 +279,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             for i, query in enumerate(queries):
                 if i % 1000 == 0:
                     logger.info(f"Added {i} query log entries to SQL aggregator")
+
                 self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
@@ -401,8 +398,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         # TODO need to map snowflake query types to ours
         query_text: str = res["query_text"]
+        snowflake_query_type: str = res["query_type"]
         query_type: QueryType = SNOWFLAKE_QUERY_TYPE_MAPPING.get(
-            res["query_type"], QueryType.UNKNOWN
+            snowflake_query_type, QueryType.UNKNOWN
         )
 
         direct_objects_accessed = res["direct_objects_accessed"]
@@ -419,7 +417,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     res["session_id"],
                     timestamp,
                     object_modified_by_ddl,
-                    res["query_type"],
+                    snowflake_query_type,
                 )
             if known_ddl_entry:
                 return known_ddl_entry
