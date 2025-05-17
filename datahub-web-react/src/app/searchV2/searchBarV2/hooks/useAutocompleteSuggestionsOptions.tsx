@@ -46,6 +46,7 @@ export default function useSearchResultsOptions(
                             query={searchQuery}
                             siblings={shouldCombineSiblings ? combinedEntity.matchedEntities : undefined}
                             matchedFields={combinedEntity.matchedFields}
+                            dataTestId={`autocomplete-item-${combinedEntity.entity.urn}`}
                         />
                     ),
                     type: combinedEntity.entity.type,
