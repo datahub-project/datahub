@@ -127,6 +127,8 @@ class SnowflakeQueriesExtractorReport(Report):
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
     num_ddl_queries_dropped: int = 0
+    num_stream_queries_observed: int = 0
+    num_create_temp_view_queries_observed: int = 0
     num_users: int = 0
 
 
@@ -453,6 +455,11 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         is_create_temp_view = is_create_view and self._has_temp_keyword(query_text)
 
         if has_stream_objects or is_create_temp_view:
+            if has_stream_objects:
+                self.report.num_stream_queries_observed += 1
+            elif is_create_temp_view:
+                self.report.num_create_temp_view_queries_observed += 1
+
             return ObservedQuery(
                 query=query_text,
                 session_id=res["session_id"],
