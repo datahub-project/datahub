@@ -1,0 +1,70 @@
+[
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "key": "value"
+            },
+            "externalUrl": "https://example.com/assertion/1234",
+            "type": "FRESHNESS",
+            "freshnessAssertion": {
+                "type": "DATASET_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)",
+                "schedule": {
+                    "type": "FIXED_INTERVAL",
+                    "fixedInterval": {
+                        "unit": "HOUR",
+                        "multiple": 6
+                    }
+                },
+                "filter": {
+                    "type": "SQL",
+                    "sql": "SELECT * FROM my_table WHERE my_column = 'my_value'"
+                }
+            },
+            "source": {
+                "type": "NATIVE"
+            },
+            "lastUpdated": {
+                "time": 1234567890,
+                "actor": "urn:li:corpuser:test_user"
+            },
+            "description": "This is a test assertion"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,my_instance)"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:tag1"
+                },
+                {
+                    "tag": "urn:li:tag:tag2"
+                }
+            ]
+        }
+    }
+}
+]

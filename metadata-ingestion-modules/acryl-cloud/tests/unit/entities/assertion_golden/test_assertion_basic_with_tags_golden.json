@@ -1,0 +1,37 @@
+[
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)",
+                "scope": "DATASET_ROWS",
+                "operator": "GREATER_THAN"
+            }
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:tag2"
+                },
+                {
+                    "tag": "urn:li:tag:tag3"
+                }
+            ]
+        }
+    }
+}
+]

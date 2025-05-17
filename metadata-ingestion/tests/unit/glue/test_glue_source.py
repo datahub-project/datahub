@@ -27,8 +27,8 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     RecordTypeClass,
     StringTypeClass,
 )
+from datahub.testing import mce_helpers
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
-from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,

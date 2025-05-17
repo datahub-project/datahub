@@ -1,7 +1,7 @@
 import pathlib
 
 from datahub.sdk.entity import Entity
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
 def assert_entity_golden(entity: Entity, golden_path: pathlib.Path) -> None:

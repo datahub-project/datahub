@@ -21,7 +21,7 @@ from datahub.metadata.urns import (
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.dataset import Dataset
-from tests.test_helpers.sdk_v2_helpers import assert_entity_golden
+from datahub.testing.sdk_v2_helpers import assert_entity_golden
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "dataset_golden"
 

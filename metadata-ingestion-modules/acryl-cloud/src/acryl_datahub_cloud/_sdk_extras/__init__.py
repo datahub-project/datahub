@@ -5,6 +5,7 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     FixedRangeExclusionWindow,
     InferenceSensitivity,
 )
+from acryl_datahub_cloud._sdk_extras.assertions_client import AssertionsClient
 
 __all__ = [
     "SmartFreshnessAssertion",
@@ -12,4 +13,5 @@ __all__ = [
     "InferenceSensitivity",
     "FixedRangeExclusionWindow",
     "AssertionIncidentBehavior",
+    "AssertionsClient",
 ]

@@ -21,7 +21,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeProposal,
 )
 from datahub.metadata.schema_classes import OperationClass, OperationTypeClass
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-09-15 09:00:00"
 

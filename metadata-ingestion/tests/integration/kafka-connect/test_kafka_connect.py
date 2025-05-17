@@ -12,7 +12,7 @@ from freezegun import freeze_time
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.kafka_connect.kafka_connect import SinkTopicFilter
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,

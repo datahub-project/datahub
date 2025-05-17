@@ -48,7 +48,7 @@ from datahub.ingestion.source.looker.looker_query_model import (
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import GlobalTagsClass, MetadataChangeEventClass
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
