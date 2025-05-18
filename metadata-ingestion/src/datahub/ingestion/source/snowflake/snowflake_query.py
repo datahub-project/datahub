@@ -45,6 +45,16 @@ class SnowflakeQuery:
         ",".join(f"'{domain}'" for domain in ACCESS_HISTORY_TABLE_VIEW_DOMAINS)
     )
 
+    # Domains that can be downstream tables in lineage
+    DOWNSTREAM_TABLE_DOMAINS = {
+        SnowflakeObjectDomain.TABLE.capitalize(),
+        SnowflakeObjectDomain.DYNAMIC_TABLE.capitalize(),
+    }
+
+    DOWNSTREAM_TABLE_DOMAINS_FILTER = "({})".format(
+        ",".join(f"'{domain}'" for domain in DOWNSTREAM_TABLE_DOMAINS)
+    )
+
     @staticmethod
     def current_account() -> str:
         return "select CURRENT_ACCOUNT()"
@@ -687,7 +697,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND downstream_table_domain in {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER}
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         column_upstream_jobs AS (
@@ -844,7 +854,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND t.query_start_time >= to_timestamp_ltz({start_time_millis}, 3)
                 AND t.query_start_time < to_timestamp_ltz({end_time_millis}, 3)
                 AND upstream_table_domain in {allowed_upstream_table_domains}
-                AND downstream_table_domain = '{SnowflakeObjectDomain.TABLE.capitalize()}'
+                AND downstream_table_domain in {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER}
                 {("AND " + upstream_sql_filter) if upstream_sql_filter else ""}
             ),
         table_upstream_jobs_unique AS (
