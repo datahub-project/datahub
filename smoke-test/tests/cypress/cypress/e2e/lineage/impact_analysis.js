@@ -1,4 +1,4 @@
-import { getTimestampMillisNumDaysAgo } from "../../support/commands";
+import { getTimestampMillisNumDaysAgo } from "../../support/utils";
 
 const JAN_1_2021_TIMESTAMP = 1609553357755;
 const JAN_1_2022_TIMESTAMP = 1641089357755;

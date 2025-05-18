@@ -1,4 +1,4 @@
-import { aliasQuery, hasOperationName } from "../utils";
+import { aliasQuery, hasOperationName } from "../support/utils";
 
 const test_id = Math.floor(Math.random() * 100000);
 

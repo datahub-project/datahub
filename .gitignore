@@ -64,6 +64,8 @@ smoke-test/spark-smoke-test/__pycache__/
 **/cypress/videos
 **/cypress/screenshots
 **/cypress/node_modules
+# cypress env var file for local dev
+**/cypress.env.json
 
 # Metadata Ingestion Generated
 metadata-ingestion/generated/**
