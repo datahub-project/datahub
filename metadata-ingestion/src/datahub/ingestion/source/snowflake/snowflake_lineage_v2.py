@@ -390,6 +390,39 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                         check_query = f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN {db_name}.{schema_name}"
                         result = self.connection.query(check_query)
 
+                        # If the dynamic table is not found, it may have been moved
+                        location_check_results = list(result)
+                        if not location_check_results:
+                            # Try to locate the dynamic table across the account
+                            locate_query = (
+                                f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN ACCOUNT"
+                            )
+                            locate_result = self.connection.query(locate_query)
+
+                            # If found, update the downstream table name to the new location
+                            locate_rows = list(locate_result)
+                            if locate_rows and len(locate_rows) > 0:
+                                new_location = locate_rows[0]
+                                new_db_name = new_location.get("database_name")
+                                new_schema_name = new_location.get("schema_name")
+                                if new_db_name and new_schema_name:
+                                    new_downstream_name = (
+                                        f"{new_db_name}.{new_schema_name}.{table_name}"
+                                    )
+                                    logger.info(
+                                        f"Dynamic table downstream moved: {downstream_table_name} -> {new_downstream_name}"
+                                    )
+                                    # Report the change
+                                    self.report.num_dynamic_table_location_changes += 1
+                                    # Update the downstream table name in the db_row
+                                    db_row["DOWNSTREAM_TABLE_NAME"] = (
+                                        new_downstream_name
+                                    )
+                                    # Update local variable for further processing
+                                    downstream_table_name = new_downstream_name
+                                    # Update db_name and schema_name for refresh history query
+                                    db_name, schema_name = new_db_name, new_schema_name
+
                         # Get refresh history to track refresh patterns
                         if self.config.include_table_lineage:
                             try:
