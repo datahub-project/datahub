@@ -104,6 +104,12 @@ class SnowflakeTable(BaseTable):
 
 
 @dataclass
+class SnowflakeDynamicTable(SnowflakeTable):
+    def get_subtype(self) -> DatasetSubTypes:
+        return DatasetSubTypes.DYNAMIC_TABLE
+
+
+@dataclass
 class SnowflakeView(BaseView):
     materialized: bool = False
     columns: List[SnowflakeColumn] = field(default_factory=list)
@@ -355,8 +361,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
             if table["TABLE_SCHEMA"] not in tables:
                 tables[table["TABLE_SCHEMA"]] = []
 
+            is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
+            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+
             tables[table["TABLE_SCHEMA"]].append(
-                SnowflakeTable(
+                table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
                     created=table["CREATED"],
@@ -365,7 +374,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
-                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
@@ -382,8 +391,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
         )
 
         for table in cur:
+            is_dynamic = table.get("IS_DYNAMIC", "NO").upper() == "YES"
+            table_cls = SnowflakeDynamicTable if is_dynamic else SnowflakeTable
+
             tables.append(
-                SnowflakeTable(
+                table_cls(
                     name=table["TABLE_NAME"],
                     type=table["TABLE_TYPE"],
                     created=table["CREATED"],
@@ -392,7 +404,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
-                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_dynamic=is_dynamic,
                     is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )

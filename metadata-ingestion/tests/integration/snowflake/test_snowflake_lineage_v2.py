@@ -105,6 +105,9 @@ def test_dynamic_table_moved_lineage_handling():
     # Verify the query calls
     expected_calls = [
         mock.call("SHOW DYNAMIC TABLES LIKE 'DYNAMIC_TABLE' IN OLD_DB.OLD_SCHEMA"),
+        mock.call(
+            "SELECT REFRESH_HISTORY FROM OLD_DB.INFORMATION_SCHEMA.DYNAMIC_TABLES WHERE TABLE_NAME = 'DYNAMIC_TABLE' AND TABLE_SCHEMA = 'OLD_SCHEMA'"
+        ),
         mock.call("SHOW DYNAMIC TABLES LIKE 'DYNAMIC_TABLE' IN ACCOUNT"),
     ]
     mock_connection.query.assert_has_calls(expected_calls, any_order=False)

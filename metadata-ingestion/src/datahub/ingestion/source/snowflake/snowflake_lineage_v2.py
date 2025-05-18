@@ -377,6 +377,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 == SnowflakeObjectDomain.DYNAMIC_TABLE.lower()
                 and downstream_table_name is not None
             ):
+                # Track dynamic table in our reporting
+                self.report.num_dynamic_tables_with_known_upstreams += 1
+
                 # Try to locate the actual table to ensure we have the correct identifier
                 try:
                     # Split the qualified name to extract database and schema
@@ -386,6 +389,25 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                         # Query to check if the table exists at the current location
                         check_query = f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN {db_name}.{schema_name}"
                         result = self.connection.query(check_query)
+
+                        # Get refresh history to track refresh patterns
+                        if self.config.include_table_lineage:
+                            try:
+                                refresh_query = f"SELECT REFRESH_HISTORY FROM {db_name}.INFORMATION_SCHEMA.DYNAMIC_TABLES WHERE TABLE_NAME = '{table_name}' AND TABLE_SCHEMA = '{schema_name}'"
+                                refresh_result = self.connection.query(refresh_query)
+                                refresh_data = list(refresh_result)
+                                if refresh_data and len(refresh_data) > 0:
+                                    self.report.num_dynamic_table_refresh_tracked += 1
+                                    # Store refresh history in a custom property if available
+                                    if not db_row.get("DYNAMIC_TABLE_METADATA"):
+                                        db_row["DYNAMIC_TABLE_METADATA"] = {}
+                                    db_row["DYNAMIC_TABLE_METADATA"][
+                                        "REFRESH_HISTORY"
+                                    ] = refresh_data[0].get("REFRESH_HISTORY")
+                            except Exception as e:
+                                logger.debug(
+                                    f"Error fetching dynamic table refresh history: {e}"
+                                )
 
                         # If the dynamic table is not found, it may have been moved
                         if not list(result):
@@ -408,6 +430,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                                     logger.info(
                                         f"Dynamic table moved: {downstream_table_name} -> {new_downstream_name}"
                                     )
+                                    self.report.num_dynamic_table_location_changes += 1
                                     db_row["DOWNSTREAM_TABLE_NAME"] = (
                                         new_downstream_name
                                     )
@@ -471,6 +494,47 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                     parts = split_qualified_name(upstream_table.upstream_object_name)
                     if len(parts) == 3:
                         db_name, schema_name, table_name = parts
+
+                        # Check if we can get additional info about the dynamic table's dependencies
+                        try:
+                            dependency_query = f"SELECT TARGET_LAG, TARGET_LAG_TYPE, WAREHOUSE, SCHEDULE, QUERY_TEXT FROM {db_name}.INFORMATION_SCHEMA.DYNAMIC_TABLES WHERE TABLE_NAME = '{table_name}' AND TABLE_SCHEMA = '{schema_name}'"
+                            result = self.connection.query(dependency_query)
+                            dependency_data = list(result)
+                            if dependency_data and len(dependency_data) > 0:
+                                logger.info(
+                                    f"Found additional dynamic table dependency info for {upstream_table.upstream_object_name}"
+                                )
+                                # We could use this info to create more detailed lineage or properties
+                                # This data could be added to the graph through custom properties
+                                if self.sql_aggregator:
+                                    # Store dependency info for the dynamic table
+                                    dependency_info = dependency_data[0]
+                                    if (
+                                        "QUERY_TEXT" in dependency_info
+                                        and dependency_info["QUERY_TEXT"]
+                                    ):
+                                        # We can potentially parse the query to extract more upstreams
+                                        # This would show what tables the dynamic table depends on
+                                        dataset_identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
+                                            upstream_table.upstream_object_name
+                                        )
+                                        if dataset_identifier:
+                                            dt_urn = self.identifiers.gen_dataset_urn(
+                                                dataset_identifier
+                                            )
+                                            self.sql_aggregator.add_view_definition(
+                                                view_urn=dt_urn,
+                                                view_definition=dependency_info[
+                                                    "QUERY_TEXT"
+                                                ],
+                                                default_db=db_name,
+                                                default_schema=schema_name,
+                                            )
+                        except Exception as e:
+                            logger.debug(
+                                f"Error fetching dynamic table dependency info: {e}"
+                            )
+
                         # Check if the dynamic table exists at the specified location
                         check_query = f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN {db_name}.{schema_name}"
                         result = self.connection.query(check_query)
@@ -496,6 +560,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                                     logger.info(
                                         f"Dynamic table upstream moved: {upstream_table.upstream_object_name} -> {new_upstream_name}"
                                     )
+                                    self.report.num_dynamic_table_location_changes += 1
                                     upstream_table.upstream_object_name = (
                                         new_upstream_name
                                     )

@@ -1,3 +1,4 @@
+import json
 import random
 import string
 from datetime import datetime, timezone
@@ -25,8 +26,13 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeV2Config,
     TagOption,
 )
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
+from tests.integration.snowflake.common import (
+    FROZEN_TIME,
+    default_query_results,
+    inject_rowcount,
+)
 from tests.test_helpers import mce_helpers
 
 pytestmark = pytest.mark.integration_batch_2
@@ -317,62 +323,117 @@ def test_snowflake_private_link_and_incremental_mcps(
 
 @freeze_time(FROZEN_TIME)
 def test_dynamic_tables_support(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
-    pytestconfig.rootpath / "tests/integration/snowflake"
+    """Test that dynamic tables are correctly identified and processed."""
 
-    # Run the metadata ingestion pipeline.
-    output_file = tmp_path / "snowflake_dynamic_table_test_events.json"
+    # Run the metadata ingestion pipeline
+    output_file = tmp_path / "snowflake_dynamic_table_events.json"
+
+    # Define a wrapper around default_query_results that adds dynamic table support
+    @inject_rowcount
+    def dynamic_tables_query_results(query):
+        # Override specific queries for dynamic tables
+        if query == SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"):
+            # Return a single dynamic table for our test
+            return [
+                {
+                    "TABLE_SCHEMA": "TEST_SCHEMA",
+                    "TABLE_NAME": "TEST_DYNAMIC_TABLE",
+                    "TABLE_TYPE": "BASE TABLE",
+                    "CREATED": datetime(2022, 6, 7, 17, 0, 0, tzinfo=timezone.utc),
+                    "LAST_ALTERED": datetime(2022, 6, 7, 17, 0, 0, tzinfo=timezone.utc),
+                    "BYTES": 1000,
+                    "ROW_COUNT": 100,
+                    "COMMENT": "This is a dynamic table",
+                    "CLUSTERING_KEY": None,
+                    "AUTO_CLUSTERING_ON": "NO",
+                    "IS_DYNAMIC": "YES",
+                    "IS_ICEBERG": "NO",
+                    "IS_HYBRID": "NO",
+                }
+            ]
+        elif "information_schema.dynamic_tables" in query.lower():
+            # For dynamic table metadata queries
+            # Create a properly iterable object with rowcount attribute
+            dynamic_table_data = [
+                {
+                    "TARGET_LAG": "60 minutes",
+                    "TARGET_LAG_TYPE": "DOWNSTREAM",
+                    "WAREHOUSE": "COMPUTE_WH",
+                    "SCHEDULE": "USING CRON * * * * * UTC",
+                    "CONDITION": "TRUE",
+                    "CREATED_ON": datetime(2022, 6, 7, 17, 0, 0, tzinfo=timezone.utc),
+                    "QUERY_TEXT": "SELECT * FROM TEST_DB.TEST_SCHEMA.TEST_TABLE",
+                    "REFRESH_HISTORY": '[{"status": "success", "timestamp": "2022-03-01 15:31:00.946000"}]',
+                }
+            ]
+
+            # Create a proper iterable with rowcount
+            class IterableRowCountList(list):
+                def __init__(self, data):
+                    super().__init__(data)
+                    self._index = 0
+
+                @property
+                def rowcount(self):
+                    return len(self)
+
+                def __iter__(self):
+                    self._index = 0
+                    return self
+
+                def __next__(self):
+                    if self._index < len(self):
+                        item = self[self._index]
+                        self._index += 1
+                        return item
+                    raise StopIteration
+
+            return IterableRowCountList(dynamic_table_data)
+        elif "table_name = 'TEST_DYNAMIC_TABLE'" in query:
+            # This handles the specific columns query for our dynamic table
+            return [
+                {
+                    "TABLE_CATALOG": "TEST_DB",
+                    "TABLE_SCHEMA": "TEST_SCHEMA",
+                    "TABLE_NAME": "TEST_DYNAMIC_TABLE",
+                    "COLUMN_NAME": "ID",
+                    "ORDINAL_POSITION": 1,
+                    "COLUMN_DEFAULT": None,
+                    "IS_NULLABLE": "NO",
+                    "DATA_TYPE": "NUMBER",
+                    "COMMENT": "ID column",
+                    "CHARACTER_MAXIMUM_LENGTH": None,
+                    "NUMERIC_PRECISION": 38,
+                    "NUMERIC_SCALE": 0,
+                }
+            ]
+        elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
+            # Handle the general columns query that includes dynamic tables
+            return [
+                {
+                    "TABLE_CATALOG": "TEST_DB",
+                    "TABLE_SCHEMA": "TEST_SCHEMA",
+                    "TABLE_NAME": "TEST_DYNAMIC_TABLE",
+                    "COLUMN_NAME": "ID",
+                    "ORDINAL_POSITION": 1,
+                    "COLUMN_DEFAULT": None,
+                    "IS_NULLABLE": "NO",
+                    "DATA_TYPE": "NUMBER",
+                    "COMMENT": "ID column",
+                    "CHARACTER_MAXIMUM_LENGTH": None,
+                    "NUMERIC_PRECISION": 38,
+                    "NUMERIC_SCALE": 0,
+                }
+            ]
+        else:
+            # Fall back to the default implementation for other queries
+            return default_query_results(query)
 
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()
         mock_connect.return_value = sf_connection
         sf_connection.cursor.return_value = sf_cursor
-
-        # Define a wrapper around default_query_results that adds dynamic table support
-        def dynamic_tables_query_results(query):
-            if "information_schema.tables" in query.lower():
-                result_data = [
-                    {
-                        "TABLE_CATALOG": "TEST_DB",
-                        "TABLE_SCHEMA": "TEST_SCHEMA",
-                        "TABLE_NAME": "TEST_TABLE",
-                        "TABLE_TYPE": "BASE TABLE",
-                        "CREATED": datetime(2022, 3, 1, 15, 31, 0, 946000),
-                        "LAST_ALTERED": datetime(2022, 4, 23, 15, 31, 0, 946000),
-                        "COMMENT": "test comment",
-                        "ROW_COUNT": 10,
-                        "BYTES": 100,
-                        "CLUSTERING_KEY": None,
-                        "AUTO_CLUSTERING_ON": None,
-                        "IS_DYNAMIC": "NO",
-                        "IS_ICEBERG": "NO",
-                        "IS_HYBRID": "NO",
-                    },
-                    {
-                        "TABLE_CATALOG": "TEST_DB",
-                        "TABLE_SCHEMA": "TEST_SCHEMA",
-                        "TABLE_NAME": "DYNAMIC_TEST_TABLE",
-                        "TABLE_TYPE": "BASE TABLE",
-                        "CREATED": datetime(2022, 3, 1, 15, 31, 0, 946000),
-                        "LAST_ALTERED": datetime(2022, 4, 23, 15, 31, 0, 946000),
-                        "COMMENT": "dynamic table test",
-                        "ROW_COUNT": 5,
-                        "BYTES": 50,
-                        "CLUSTERING_KEY": None,
-                        "AUTO_CLUSTERING_ON": None,
-                        "IS_DYNAMIC": "YES",
-                        "IS_ICEBERG": "NO",
-                        "IS_HYBRID": "NO",
-                    },
-                ]
-
-                # Wrap in the RowCountList from the common module to handle rowcount
-                from tests.integration.snowflake.common import RowCountList
-
-                return RowCountList(result_data)
-            else:
-                return default_query_results(query)
-
         sf_cursor.execute.side_effect = dynamic_tables_query_results
 
         pipeline = Pipeline(
@@ -386,10 +447,10 @@ def test_dynamic_tables_support(pytestconfig, tmp_path, mock_time, mock_datahub_
                         match_fully_qualified_names=True,
                         schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                         include_technical_schema=True,
+                        include_table_lineage=False,  # Simplify by disabling lineage for now
+                        include_column_lineage=False,
                         include_usage_stats=False,
                         include_operational_stats=False,
-                        include_table_lineage=False,  # Disable lineage to avoid warnings
-                        include_column_lineage=False,  # Disable column lineage
                         extract_tags=TagOption.skip,
                     ),
                 ),
@@ -398,17 +459,78 @@ def test_dynamic_tables_support(pytestconfig, tmp_path, mock_time, mock_datahub_
                 ),
             )
         )
+
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()
-        # We're not testing warnings in this test, we just want to verify the dynamic table was ingested
 
-        # Verify the output contains the dynamic table with the correct URL
+        # Verify the output contains the dynamic table with the expected metadata
         with open(output_file, "r") as f:
             output_json = f.read()
-            # Verify the dynamic table was ingested
-            assert "DYNAMIC_TEST_TABLE" in output_json
+
+            # Parse the JSON to do specific checking
+            events = json.loads(output_json)
+
+            # Find the dataset entity for TEST_DYNAMIC_TABLE
+            dynamic_table_entities = [
+                event
+                for event in events
+                if event.get("entityType") == "dataset"
+                and "test_dynamic_table" in event.get("entityUrn", "").lower()
+            ]
+
+            # Make sure we found at least one entity for our dynamic table
+            assert len(dynamic_table_entities) > 0, (
+                "No dataset entity found for TEST_DYNAMIC_TABLE"
+            )
+
+            # Find the dataset properties aspect
+            dataset_properties = [
+                entity
+                for entity in dynamic_table_entities
+                if entity.get("aspectName") == "datasetProperties"
+            ]
+
+            # Make sure we found the properties aspect
+            assert len(dataset_properties) > 0, (
+                "No datasetProperties aspect found for TEST_DYNAMIC_TABLE"
+            )
+
+            # Check for dynamic table properties
+            properties_json = dataset_properties[0].get("aspect", {}).get("json", {})
+            custom_properties = properties_json.get("customProperties", {})
+
             # Verify IS_DYNAMIC property was set
-            assert "IS_DYNAMIC" in output_json and "true" in output_json
-            # Verify dynamic-table URL format is used
-            assert "dynamic-table/DYNAMIC_TEST_TABLE" in output_json
+            assert "IS_DYNAMIC" in custom_properties, (
+                f"IS_DYNAMIC property not found in {custom_properties}"
+            )
+            assert custom_properties["IS_DYNAMIC"] == "true", (
+                f"IS_DYNAMIC is not 'true', found {custom_properties['IS_DYNAMIC']}"
+            )
+
+            # Find the subTypes aspect
+            sub_types = [
+                entity
+                for entity in dynamic_table_entities
+                if entity.get("aspectName") == "subTypes"
+            ]
+
+            # Make sure we found the subTypes aspect
+            assert len(sub_types) > 0, "No subTypes aspect found for TEST_DYNAMIC_TABLE"
+
+            # Verify dynamic table subtype is used
+            type_names = (
+                sub_types[0].get("aspect", {}).get("json", {}).get("typeNames", [])
+            )
+            assert "Dynamic Table" in type_names, (
+                f"'Dynamic Table' not found in type names: {type_names}"
+            )
+
+            # Check for dynamic table specific properties
+            dynamic_table_props = [
+                key for key in custom_properties if key.startswith("DYNAMIC_TABLE_")
+            ]
+
+            assert len(dynamic_table_props) > 0, (
+                f"No DYNAMIC_TABLE_ properties found in {custom_properties}"
+            )

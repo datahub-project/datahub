@@ -2069,13 +2069,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Table"
+                "Dynamic Table"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00",
+        "runId": "snowflake-2022_06_07-17_00_00-7ozgxz",
         "lastRunId": "no-run-id-provided"
     }
 },

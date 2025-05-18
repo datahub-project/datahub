@@ -45,6 +45,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeColumn,
     SnowflakeDatabase,
     SnowflakeDataDictionary,
+    SnowflakeDynamicTable,
     SnowflakeFK,
     SnowflakePK,
     SnowflakeSchema,
@@ -935,6 +936,35 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 }
             )
 
+            # Add additional metadata for dynamic tables if available
+            if isinstance(table, SnowflakeDynamicTable):
+                try:
+                    query = f"""
+                    SELECT 
+                        TARGET_LAG,
+                        TARGET_LAG_TYPE,
+                        WAREHOUSE,
+                        SCHEDULE,
+                        CONDITION,
+                        CREATED_ON
+                    FROM {db_name}.INFORMATION_SCHEMA.DYNAMIC_TABLES 
+                    WHERE TABLE_NAME = '{table.name}' 
+                    AND TABLE_SCHEMA = '{schema_name}'
+                    """
+                    result = self.connection.query(query)
+                    row = next(result, None)
+                    if row:
+                        # Add dynamic table specific properties
+                        dynamic_table_props = {
+                            f"DYNAMIC_TABLE_{k}": str(v) if v is not None else None
+                            for k, v in row.items()
+                        }
+                        custom_properties.update(
+                            {k: v for k, v in dynamic_table_props.items() if v}
+                        )
+                except Exception as e:
+                    logger.debug(f"Failed to get dynamic table metadata: {e}")
+
         if isinstance(table, SnowflakeView) and table.is_secure:
             custom_properties["IS_SECURE"] = "true"
 
@@ -981,8 +1011,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     db_name,
                     (
                         SnowflakeObjectDomain.DYNAMIC_TABLE
-                        if isinstance(table, SnowflakeTable)
-                        and table.is_dynamic is True
+                        if isinstance(table, SnowflakeTable) and table.is_dynamic
                         else SnowflakeObjectDomain.TABLE
                         if isinstance(table, SnowflakeTable)
                         else SnowflakeObjectDomain.VIEW

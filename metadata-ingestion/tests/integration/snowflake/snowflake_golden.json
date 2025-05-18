@@ -839,13 +839,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Table"
+                "Dynamic Table"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2025_05_18-15_43_14-froog5",
         "lastRunId": "no-run-id-provided"
     }
 },

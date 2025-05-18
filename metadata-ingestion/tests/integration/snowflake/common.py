@@ -175,10 +175,22 @@ large_sql_query = """WITH object_access_history AS
 class RowCountList(list):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self._index = 0
 
     @property
     def rowcount(self):
         return len(self)
+
+    def __iter__(self):
+        self._index = 0
+        return self
+
+    def __next__(self):
+        if self._index < len(self):
+            item = self[self._index]
+            self._index += 1
+            return item
+        raise StopIteration
 
 
 def inject_rowcount(func):

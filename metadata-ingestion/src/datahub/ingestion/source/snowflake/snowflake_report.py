@@ -143,6 +143,11 @@ class SnowflakeV2Report(
 
     edition: Optional[SnowflakeEdition] = None
 
+    num_copy_history_edges_scanned: int = 0
+    num_dynamic_tables_with_known_upstreams: int = 0
+    num_dynamic_table_refresh_tracked: int = 0
+    num_dynamic_table_location_changes: int = 0
+
     def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
         """
         Entity could be a view or a table or a schema or a database
