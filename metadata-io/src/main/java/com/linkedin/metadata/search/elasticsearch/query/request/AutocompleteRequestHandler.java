@@ -2,12 +2,13 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.search.utils.ESAccessControlUtil.restrictUrn;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
+import static com.linkedin.metadata.search.utils.ESUtils.applyResultLimit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
@@ -58,7 +59,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
   private final EntitySpec entitySpec;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
-  private final SearchConfiguration searchConfiguration;
+  private final ElasticSearchConfiguration searchConfiguration;
   @Nonnull private final HighlightBuilder highlights;
 
   public AutocompleteRequestHandler(
@@ -66,7 +67,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nonnull EntitySpec entitySpec,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
-      @Nonnull SearchConfiguration searchConfiguration) {
+      @Nonnull ElasticSearchConfiguration searchConfiguration) {
     this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
@@ -106,7 +107,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nonnull EntitySpec entitySpec,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
-      @Nonnull SearchConfiguration searchConfiguration) {
+      @Nonnull ElasticSearchConfiguration searchConfiguration) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
         entitySpec,
         k ->
@@ -126,7 +127,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       int limit) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.size(limit);
+    searchSourceBuilder.size(applyResultLimit(searchConfiguration, limit));
 
     AutocompleteConfiguration customAutocompleteConfig =
         customizedQueryHandler.lookupAutocompleteConfig(input).orElse(null);
@@ -240,13 +241,13 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
             multiMatchQueryBuilder.field(fieldName + ".ngram", boostScore);
             multiMatchQueryBuilder.field(
                 fieldName + ".ngram._2gram",
-                boostScore * (searchConfiguration.getWordGram().getTwoGramFactor()));
+                boostScore * (searchConfiguration.getSearch().getWordGram().getTwoGramFactor()));
             multiMatchQueryBuilder.field(
                 fieldName + ".ngram._3gram",
-                boostScore * (searchConfiguration.getWordGram().getThreeGramFactor()));
+                boostScore * (searchConfiguration.getSearch().getWordGram().getThreeGramFactor()));
             multiMatchQueryBuilder.field(
                 fieldName + ".ngram._4gram",
-                boostScore * (searchConfiguration.getWordGram().getFourGramFactor()));
+                boostScore * (searchConfiguration.getSearch().getWordGram().getFourGramFactor()));
             finalQuery.should(
                 QueryBuilders.matchQuery(fieldName + ".keyword", query).boost(boostScore));
           }

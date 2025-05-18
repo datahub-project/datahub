@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildExistsCriterion;
 import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -16,6 +17,8 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -1141,5 +1144,54 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
     Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testApplyResultLimit() {
+    // Create SearchConfiguration with strict limits
+    ElasticSearchConfiguration strictConfig =
+        TEST_SEARCH_CONFIG.toBuilder()
+            .search(
+                new SearchConfiguration()
+                    .setLimit(
+                        new SearchConfiguration.SearchLimitConfig()
+                            .setResults(
+                                new SearchConfiguration.SearchResultsLimit()
+                                    .setMax(100)
+                                    .setStrict(true))))
+            .build();
+
+    // Create SearchConfiguration with non-strict limits
+    ElasticSearchConfiguration nonStrictConfig =
+        TEST_SEARCH_CONFIG.toBuilder()
+            .search(
+                new SearchConfiguration()
+                    .setLimit(
+                        new SearchConfiguration.SearchLimitConfig()
+                            .setResults(
+                                new SearchConfiguration.SearchResultsLimit()
+                                    .setMax(100)
+                                    .setStrict(false))))
+            .build();
+
+    // Test case 1: Count below limit
+    int result = ESUtils.applyResultLimit(strictConfig, 50);
+    Assert.assertEquals(50, result);
+
+    // Test case 2: Count below limit with non-strict config
+    result = ESUtils.applyResultLimit(nonStrictConfig, 50);
+    Assert.assertEquals(50, result);
+
+    // Test case 3: Count exceeds limit with non-strict config
+    result = ESUtils.applyResultLimit(nonStrictConfig, 200);
+    Assert.assertEquals(100, result);
+
+    // Test case 4: Count exceeds limit with strict config - should throw IllegalArgumentException
+    try {
+      ESUtils.applyResultLimit(strictConfig, 200);
+      Assert.fail("Expected IllegalArgumentException was not thrown");
+    } catch (IllegalArgumentException e) {
+      Assert.assertTrue(e.getMessage().contains("Elasticsearch result count exceeds limit of 100"));
+    }
   }
 }

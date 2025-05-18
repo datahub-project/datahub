@@ -44,6 +44,7 @@ dependencies {
     runtimeOnly externalDependency.logbackClassic
 
     testImplementation externalDependency.mockito
+    testImplementation(testFixtures(project(":metadata-io")))
     implementation externalDependency.awsMskIamAuth
     implementation externalDependency.azureIdentityExtensions
     implementation externalDependency.azureIdentity
