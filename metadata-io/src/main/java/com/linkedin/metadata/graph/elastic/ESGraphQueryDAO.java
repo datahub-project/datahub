@@ -358,6 +358,8 @@ public class ESGraphQueryDAO {
       Map<Urn, LineageRelationship> result,
       int i) {
 
+    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+
     // Do one hop on the lineage graph
     int numHops = i + 1; // Zero indexed for loop counter, one indexed count
     int remainingHops = maxHops - numHops;
@@ -374,8 +376,6 @@ public class ESGraphQueryDAO {
             existingPaths,
             exploreMultiplePaths);
 
-    final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
-
     for (LineageRelationship oneHopRelnship : oneHopRelationships) {
       if (result.containsKey(oneHopRelnship.getEntity())) {
         log.debug("Urn encountered again during graph walk {}", oneHopRelnship.getEntity());
@@ -388,8 +388,8 @@ public class ESGraphQueryDAO {
     }
     Stream<Urn> intermediateStream =
         oneHopRelationships.stream().map(LineageRelationship::getEntity);
-    if (lineageFlags != null) {
 
+    if (lineageFlags != null) {
       // Recursively increase the size of the list and append
       if (lineageFlags.getIgnoreAsHops() != null) {
         List<Urn> additionalCurrentLevel = new ArrayList<>();
@@ -1525,8 +1525,47 @@ public class ESGraphQueryDAO {
   }
 
   /**
-   * Execute a single direction query with pagination and entity limit checks, respecting the
-   * exploreMultiplePaths setting.
+   * Executes a search query with adaptive pagination, dynamically adjusting page size to
+   * efficiently discover lineage relationships while respecting entity exploration limits.
+   *
+   * <p>This method implements an intelligent pagination strategy that:
+   *
+   * <ul>
+   *   <li>Starts with an initial page size calculated based on the number of input entities and the
+   *       desired entities per hop limit
+   *   <li>Dynamically increases page size to explore more relationships
+   *   <li>Stops when all input entities have reached their exploration limits
+   * </ul>
+   *
+   * @param opContext The operation context containing metadata and configuration for the search
+   * @param query The base Elasticsearch query builder to execute
+   * @param pageSize The max page size if different then global max
+   * @param exploreMultiplePaths Flag to determine if multiple paths to the same entity should be
+   *     explored
+   * @param entitiesPerHopLimit Optional limit on the number of entities to discover per input
+   *     entity
+   * @param direction A descriptive string indicating the relationship direction (for logging)
+   * @param originalEntityUrns The set of input entity URNs to explore relationships from
+   * @return A list of SearchResponse objects containing the discovered lineage relationships
+   * @throws ESQueryException if there are issues executing the Elasticsearch search requests
+   *     <p>Pagination Strategy Details:
+   *     <ul>
+   *       <li>Initial page size = min(2 * entitiesPerHopLimit * number of input URNs, max page
+   *           size)
+   *       <li>Page size increases exponentially when more entities need to be discovered
+   *       <li>Ensures no single request exceeds the maximum configured page size
+   *     </ul>
+   *     <p>Example scenarios:
+   *     <pre>
+   * // Scenario 1: Multiple input entities with hop limit
+   * executeQueryWithLimit(context, query, 10, false, 5, "outgoing", inputUrns)
+   *
+   * // Scenario 2: Single input entity without hop limit
+   * executeQueryWithLimit(context, query, 100, true, null, "incoming", singleInputUrn)
+   * </pre>
+   *
+   * @see #processResponseForEntityLimits Processing method for entity limit tracking
+   * @see #createSearchAfterRequest Search request creation method
    */
   private List<SearchResponse> executeQueryWithLimit(
       OperationContext opContext,
@@ -1536,6 +1575,22 @@ public class ESGraphQueryDAO {
       Integer entitiesPerHopLimit,
       String direction,
       Set<Urn> originalEntityUrns) {
+
+    // Determine maximum page size
+    int maxPageSize = Math.min(pageSize, config.getSearch().getLimit().getResults().getMax());
+
+    // Initial page size calculation
+    int currentPageSize = maxPageSize;
+    if (entitiesPerHopLimit != null) {
+      // Calculate initial page size: 2 * entitiesPerHopLimit * number of original entity URNs
+      currentPageSize = Math.min(2 * entitiesPerHopLimit * originalEntityUrns.size(), maxPageSize);
+      log.debug(
+          "{} direction: initial page size calculated as {} (limit: {}, input urns: {})",
+          direction,
+          currentPageSize,
+          entitiesPerHopLimit,
+          originalEntityUrns.size());
+    }
 
     List<SearchResponse> results = new ArrayList<>();
 
@@ -1547,9 +1602,10 @@ public class ESGraphQueryDAO {
     Map<Urn, Boolean> inputUrnLimitReached = new HashMap<>();
     originalEntityUrns.forEach(urn -> inputUrnLimitReached.put(urn, false));
 
-    // Initial request with no search_after
-    SearchRequest nextRequest = createSearchAfterRequest(query, pageSize, null);
+    // Initial request with calculated page size
+    SearchRequest nextRequest = createSearchAfterRequest(query, currentPageSize, null);
     Object[] searchAfter = null;
+    int iterationCount = 0;
 
     while (nextRequest != null) {
       // Check if all input URNs have reached their limit
@@ -1584,7 +1640,37 @@ public class ESGraphQueryDAO {
         // Prepare for the next page
         SearchHit lastHit = hits[hits.length - 1];
         searchAfter = lastHit.getSortValues();
-        nextRequest = createSearchAfterRequest(query, pageSize, searchAfter);
+
+        if (hits.length < currentPageSize) {
+          log.debug("{} direction: no more results, incomplete page", direction);
+          break;
+        }
+
+        // Adaptive page size strategy for scenarios with entitiesPerHopLimit
+        if (entitiesPerHopLimit != null && currentPageSize <= maxPageSize) {
+          boolean needMoreEntities =
+              inputUrnLimitReached.values().stream().noneMatch(Boolean::booleanValue)
+                  && entitiesPerInputUrn.values().stream()
+                      .anyMatch(set -> set.size() < entitiesPerHopLimit);
+
+          // Increase page size exponentially, but not beyond max
+          if (needMoreEntities) {
+            iterationCount++;
+            currentPageSize =
+                Math.min(
+                    maxPageSize,
+                    Math.max(
+                        currentPageSize * 2, // Double the current page size
+                        entitiesPerHopLimit * originalEntityUrns.size() * (1 << iterationCount)));
+            log.debug(
+                "{} direction: increasing page size to {} (iteration: {})",
+                direction,
+                currentPageSize,
+                iterationCount);
+          }
+        }
+
+        nextRequest = createSearchAfterRequest(query, currentPageSize, searchAfter);
 
       } catch (Exception e) {
         log.error("{} direction: error executing search request", direction, e);
@@ -1592,7 +1678,14 @@ public class ESGraphQueryDAO {
       }
     }
 
+    // Log final results and entity discovery
     log.debug("{} direction: completed, collected {} results", direction, results.size());
+    log.debug(
+        "{} direction: entities discovered per input urn: {}",
+        direction,
+        entitiesPerInputUrn.entrySet().stream()
+            .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size())));
+
     return results;
   }
 
@@ -1713,6 +1806,10 @@ public class ESGraphQueryDAO {
     // Sort by `via` existence first, then by unique edge for stable pagination
     searchSourceBuilder.sort(
         SortBuilders.fieldSort(EDGE_FIELD_VIA).order(SortOrder.ASC).missing("_last"));
+    searchSourceBuilder.sort(
+        SortBuilders.fieldSort(EDGE_FIELD_UPDATED_ON).order(SortOrder.DESC).missing("_first"));
+    searchSourceBuilder.sort(
+        SortBuilders.fieldSort(EDGE_FIELD_CREATED_ON).order(SortOrder.DESC).missing("_first"));
     KEY_SORTS.forEach(
         sort -> {
           if (Objects.requireNonNull(sort.getValue())
