@@ -386,12 +386,26 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                     parts = split_qualified_name(str(downstream_table_name))
                     if len(parts) == 3:
                         db_name, schema_name, table_name = parts
-                        # Query to check if the table exists at the current location
+
+                        # 1. First check if the dynamic table exists at the original location
                         check_query = f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN {db_name}.{schema_name}"
                         result = self.connection.query(check_query)
-
-                        # If the dynamic table is not found, it may have been moved
                         location_check_results = list(result)
+
+                        # 2. Get refresh history using original location before we check for a move
+                        refresh_query = f"SELECT REFRESH_HISTORY FROM {db_name}.INFORMATION_SCHEMA.DYNAMIC_TABLES WHERE TABLE_NAME = '{table_name}' AND TABLE_SCHEMA = '{schema_name}'"
+                        refresh_result = self.connection.query(refresh_query)
+                        refresh_data = list(refresh_result)
+                        if refresh_data and len(refresh_data) > 0:
+                            self.report.num_dynamic_table_refresh_tracked += 1
+                            # Store refresh history in a custom property if available
+                            if not db_row.get("DYNAMIC_TABLE_METADATA"):
+                                db_row["DYNAMIC_TABLE_METADATA"] = {}
+                            db_row["DYNAMIC_TABLE_METADATA"]["REFRESH_HISTORY"] = (
+                                refresh_data[0].get("REFRESH_HISTORY")
+                            )
+
+                        # 3. Only look for a moved table if it wasn't found at the original location
                         if not location_check_results:
                             # Try to locate the dynamic table across the account
                             locate_query = (
@@ -420,53 +434,59 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                                     )
                                     # Update local variable for further processing
                                     downstream_table_name = new_downstream_name
-                                    # Update db_name and schema_name for refresh history query
-                                    db_name, schema_name = new_db_name, new_schema_name
 
-                        # Get refresh history to track refresh patterns
-                        if self.config.include_table_lineage:
-                            try:
-                                refresh_query = f"SELECT REFRESH_HISTORY FROM {db_name}.INFORMATION_SCHEMA.DYNAMIC_TABLES WHERE TABLE_NAME = '{table_name}' AND TABLE_SCHEMA = '{schema_name}'"
-                                refresh_result = self.connection.query(refresh_query)
-                                refresh_data = list(refresh_result)
-                                if refresh_data and len(refresh_data) > 0:
-                                    self.report.num_dynamic_table_refresh_tracked += 1
-                                    # Store refresh history in a custom property if available
-                                    if not db_row.get("DYNAMIC_TABLE_METADATA"):
-                                        db_row["DYNAMIC_TABLE_METADATA"] = {}
-                                    db_row["DYNAMIC_TABLE_METADATA"][
-                                        "REFRESH_HISTORY"
-                                    ] = refresh_data[0].get("REFRESH_HISTORY")
-                            except Exception as e:
-                                logger.debug(
-                                    f"Error fetching dynamic table refresh history: {e}"
-                                )
+                                    # Get additional metadata for the dynamic table at its new location
+                                    try:
+                                        dependency_query = f"SELECT TARGET_LAG, TARGET_LAG_TYPE, WAREHOUSE, SCHEDULE, QUERY_TEXT FROM {new_db_name}.INFORMATION_SCHEMA.DYNAMIC_TABLES WHERE TABLE_NAME = '{table_name}' AND TABLE_SCHEMA = '{new_schema_name}'"
+                                        result = self.connection.query(dependency_query)
+                                        dependency_data = list(result)
+                                        if dependency_data and len(dependency_data) > 0:
+                                            # Add metadata to the db_row if not already present
+                                            if not db_row.get("DYNAMIC_TABLE_METADATA"):
+                                                db_row["DYNAMIC_TABLE_METADATA"] = {}
 
-                        # If the dynamic table is not found, it may have been moved
-                        if not list(result):
-                            # Try to locate the dynamic table across the account
-                            locate_query = (
-                                f"SHOW DYNAMIC TABLES LIKE '{table_name}' IN ACCOUNT"
-                            )
-                            locate_result = self.connection.query(locate_query)
+                                            # Store core properties in metadata
+                                            dependency_info = dependency_data[0]
+                                            for key in [
+                                                "TARGET_LAG",
+                                                "TARGET_LAG_TYPE",
+                                                "WAREHOUSE",
+                                                "SCHEDULE",
+                                            ]:
+                                                if (
+                                                    key in dependency_info
+                                                    and dependency_info[key]
+                                                ):
+                                                    db_row["DYNAMIC_TABLE_METADATA"][
+                                                        key
+                                                    ] = dependency_info[key]
 
-                            # If found, update the downstream table name to the new location
-                            locate_rows = list(locate_result)
-                            if locate_rows and len(locate_rows) > 0:
-                                new_location = locate_rows[0]
-                                new_db_name = new_location.get("database_name")
-                                new_schema_name = new_location.get("schema_name")
-                                if new_db_name and new_schema_name:
-                                    new_downstream_name = (
-                                        f"{new_db_name}.{new_schema_name}.{table_name}"
-                                    )
-                                    logger.info(
-                                        f"Dynamic table moved: {downstream_table_name} -> {new_downstream_name}"
-                                    )
-                                    self.report.num_dynamic_table_location_changes += 1
-                                    db_row["DOWNSTREAM_TABLE_NAME"] = (
-                                        new_downstream_name
-                                    )
+                                            # If SQL definition is available, send it to SQL parser
+                                            if (
+                                                "QUERY_TEXT" in dependency_info
+                                                and dependency_info["QUERY_TEXT"]
+                                                and self.sql_aggregator
+                                            ):
+                                                dataset_identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
+                                                    downstream_table_name
+                                                )
+                                                if dataset_identifier:
+                                                    dt_urn = self.identifiers.gen_dataset_urn(
+                                                        dataset_identifier
+                                                    )
+                                                    self.sql_aggregator.add_view_definition(
+                                                        view_urn=dt_urn,
+                                                        view_definition=dependency_info[
+                                                            "QUERY_TEXT"
+                                                        ],
+                                                        default_db=new_db_name,
+                                                        default_schema=new_schema_name,
+                                                    )
+                                    except Exception as e:
+                                        logger.debug(
+                                            f"Error extracting dynamic table metadata after move: {e}"
+                                        )
+
                 except Exception as e:
                     # Log but continue with original name if there's an error
                     logger.debug(f"Error checking dynamic table location: {e}")
