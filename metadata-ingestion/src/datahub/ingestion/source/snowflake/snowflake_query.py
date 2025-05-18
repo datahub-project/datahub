@@ -240,6 +240,17 @@ class SnowflakeQuery:
         """
 
     @staticmethod
+    def show_single_view_for_database_and_schema(
+        db_name: str, schema_name: str, view_name: str
+    ) -> str:
+        return f"""\
+SHOW VIEWS
+LIKE '{view_name}'
+IN SCHEMA {db_name}.{schema_name}
+LIMIT 1;
+"""
+
+    @staticmethod
     def show_views_for_database(
         db_name: str,
         limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,

@@ -472,9 +472,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
         )
         return views
 
-    @classmethod
-    def _map_view(cls, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
+    def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
         schema_name = row["VIEW_SCHEMA"]
+        if row["VIEW_DEFINITION"] == "" or row["VIEW_DEFINITION"] is None:
+            # we need to fetch the view definition from show views
+            cur = self.connection.query(
+                # TODO(gabe): optimize this to come up with more efficient LIKE patterns to group this fetching
+                SnowflakeQuery.show_single_view_for_database_and_schema(
+                    db_name, schema_name, row["VIEW_NAME"]
+                )
+            )
+            result = cur[0]
+            logger.info(
+                f"Fetched view definition for {db_name}.{schema_name}.{row['VIEW_NAME']}: {result['text']}"
+            )
+            row["VIEW_DEFINITION"] = result["text"]
+
         return schema_name, SnowflakeView(
             name=row["VIEW_NAME"],
             created=row["CREATED"],
@@ -500,7 +513,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         views: Dict[str, List[SnowflakeView]] = {}
         for row in cur:
-            schema_name, view = self._map_view(row)
+            schema_name, view = self._map_view(db_name, row)
             views.setdefault(schema_name, []).append(view)
         return views
 
@@ -510,7 +523,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         cur = self.connection.query(
             SnowflakeQuery.get_views_for_schema(schema_name, db_name),
         )
-        return [self._map_view(row)[1] for row in cur]
+        return [self._map_view(db_name, row)[1] for row in cur]
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
