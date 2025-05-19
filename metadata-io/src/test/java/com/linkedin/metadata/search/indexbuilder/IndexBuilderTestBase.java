@@ -59,7 +59,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             getSearchClient(),
             1,
             0,
-            0,
+            3,
             0,
             Map.of(),
             false,
@@ -72,7 +72,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             getSearchClient(),
             1,
             REPLICASTEST,
-            0,
+            3,
             0,
             Map.of(),
             false,
@@ -182,7 +182,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             new ElasticSearchConfiguration(),
             gitVersion);
-    // add a doc
+    // index one doc
+    IndexRequest indexRequest =
+        new IndexRequest(TEST_INDEX_NAME).id("1").source(new HashMap<>(), XContentType.JSON);
+    IndexResponse indexResponse = getSearchClient().index(indexRequest, RequestOptions.DEFAULT);
     // reindex
     ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
     Map.Entry<String, List<AliasMetadata>> newIndex =
@@ -197,6 +200,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     assertNotEquals(
         beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
     assertNotEquals(rr, ReindexResult.REINDEXED_SKIPPED_0DOCS);
+    long nbdocs = changedShardBuilder.getCount(newIndex.getKey());
+    assertEquals(1, nbdocs);
   }
 
   @Test
@@ -233,6 +238,8 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     assertNotEquals(
         beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
     assertEquals(rr, ReindexResult.REINDEXED_SKIPPED_0DOCS);
+    long nbdocs = changedShardBuilder.getCount(newIndex.getKey());
+    assertEquals(0, nbdocs);
   }
 
   @Test

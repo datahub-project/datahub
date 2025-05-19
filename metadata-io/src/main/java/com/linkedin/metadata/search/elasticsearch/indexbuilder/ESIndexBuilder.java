@@ -676,8 +676,7 @@ public class ESIndexBuilder {
       } else {
         // Create new index
         createIndex(tempIndexName, indexState);
-        Pair<Long, Long> documentCounts = getDocumentCounts(indexState.name(), tempIndexName);
-        long curDocCount = documentCounts.getSecond();
+        long curDocCount = getCount(indexState.name());
         if (curDocCount == 0) {
           reindexTaskCompleted = true;
           result = ReindexResult.REINDEXED_SKIPPED_0DOCS;
@@ -1042,6 +1041,12 @@ public class ESIndexBuilder {
       @Nullable QueryBuilder sourceFilterQuery,
       int targetShards)
       throws IOException {
+    // make sure we get all docs from source
+    _searchClient
+        .indices()
+        .refresh(
+            new org.opensearch.action.admin.indices.refresh.RefreshRequest(sourceIndices),
+            RequestOptions.DEFAULT);
     Map<String, Object> reindexInfo = setReindexOptimalSettings(destinationIndex, targetShards);
     ReindexRequest reindexRequest =
         new ReindexRequest()
@@ -1075,7 +1080,7 @@ public class ESIndexBuilder {
     // try multiple times
     long originalCount = 0;
     long reindexedCount = 0;
-    for (int i = 0; i < this.numRetries; i++) {
+    for (int i = 0; i <= this.numRetries; i++) {
       // Check if reindex succeeded by comparing document counts
       originalCount =
           retryRegistry
@@ -1150,9 +1155,13 @@ public class ESIndexBuilder {
     }
   }
 
-  private long getCount(@Nonnull String indexName) throws IOException {
+  public long getCount(@Nonnull String indexName) throws IOException {
     // we need to refresh cause we are reindexing with refresh_interval=-1
-    ESUtils.refresh(_searchClient.getLowLevelClient(), indexName);
+    _searchClient
+        .indices()
+        .refresh(
+            new org.opensearch.action.admin.indices.refresh.RefreshRequest(indexName),
+            RequestOptions.DEFAULT);
     return _searchClient
         .count(
             new CountRequest(indexName).query(QueryBuilders.matchAllQuery()),
