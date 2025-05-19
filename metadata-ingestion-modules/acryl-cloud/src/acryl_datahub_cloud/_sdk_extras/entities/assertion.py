@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from typing import (
     Dict,
+    List,
     Optional,
     Tuple,
     Type,
@@ -45,6 +46,13 @@ LastUpdatedInputType: TypeAlias = Union[
     Tuple[datetime, str],  # (datetime, actor)
     models.AuditStampClass,
 ]
+AssertionActionsInputType: TypeAlias = List[
+    Union[
+        str,  # assertion action type: RAISE_INCIDENT, RESOLVE_INCIDENT
+        models.AssertionActionTypeClass,
+        models.AssertionActionClass,
+    ]
+]
 
 
 class Assertion(HasPlatformInstance, HasTags, Entity):
@@ -81,6 +89,9 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         platform_instance: Optional[str] = None,
         # Standard aspects
         tags: Optional[TagsInputType] = None,
+        # Assertion actions
+        on_success: Optional[AssertionActionsInputType] = None,
+        on_failure: Optional[AssertionActionsInputType] = None,
     ):
         super().__init__(urn=Assertion._ensure_id(id))
 
@@ -101,6 +112,9 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
 
         if tags is not None:
             self.set_tags(tags)
+
+        if on_success is not None or on_failure is not None:
+            self._set_actions(on_success or [], on_failure or [])
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -136,6 +150,11 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
                 # TBC: just because we need to set one!
                 type=models.AssertionTypeClass.DATASET
             )
+        )
+
+    def _ensure_actions(self) -> models.AssertionActionsClass:
+        return self._setdefault_aspect(
+            models.AssertionActionsClass(onSuccess=[], onFailure=[])
         )
 
     @property
@@ -314,3 +333,55 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         return actor.startswith("urn:li:corpuser:") or actor.startswith(
             "urn:li:corpGroup:"
         )
+
+    @property
+    def on_success(self) -> List[models.AssertionActionClass]:
+        """Get the actions to perform on success.
+
+        Returns:
+            The actions to perform on success, it may be empty if not set.
+        """
+        return self._ensure_actions().onSuccess
+
+    @property
+    def on_failure(self) -> List[models.AssertionActionClass]:
+        """Get the actions to perform on failure.
+
+        Returns:
+            The actions to perform on failure, it may be empty if not set.
+        """
+        return self._ensure_actions().onFailure
+
+    def _set_actions(
+        self,
+        on_success: AssertionActionsInputType,
+        on_failure: AssertionActionsInputType,
+    ) -> None:
+        """Set the actions to perform on success or failure.
+
+        Args:
+            on_success: The actions to perform on success.
+            on_failure: The actions to perform on failure.
+        """
+        for action in on_success + on_failure:
+            if isinstance(action, str) and action not in [
+                models.AssertionActionTypeClass.RAISE_INCIDENT,
+                models.AssertionActionTypeClass.RESOLVE_INCIDENT,
+            ]:
+                raise SdkUsageError(
+                    f"Invalid action type {str} for on_success or on_failure actions, expected valid str or AssertionActionTypeClass"
+                )
+
+        actions = self._ensure_actions()
+        actions.onSuccess = [
+            action
+            if isinstance(action, models.AssertionActionClass)
+            else models.AssertionActionClass(type=action)
+            for action in on_success
+        ]
+        actions.onFailure = [
+            action
+            if isinstance(action, models.AssertionActionClass)
+            else models.AssertionActionClass(type=action)
+            for action in on_failure
+        ]

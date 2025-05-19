@@ -35,6 +35,8 @@ _any_additional_args_for_complex_assertion: Dict[str, Any] = dict(
     tags=[TagUrn("tag1"), TagUrn("tag2")],
     last_updated=(1234567890, "urn:li:corpuser:test_user"),
     source=models.AssertionSourceTypeClass.NATIVE,
+    on_success=[models.AssertionActionTypeClass.RESOLVE_INCIDENT],
+    on_failure=[models.AssertionActionTypeClass.RAISE_INCIDENT],
 )
 
 
@@ -55,6 +57,8 @@ def test_assertion_basic() -> None:
     assert assertion.platform is None
     assert assertion.platform_instance is None
     assert assertion.tags is None
+    assert assertion.on_success == []
+    assert assertion.on_failure == []
 
     assert_entity_golden(assertion, _GOLDEN_DIR / "test_assertion_basic_golden.json")
 
@@ -291,6 +295,98 @@ def test_assertion_basic_with_last_updated() -> None:
                 time=tm,
                 actor="urn:li:this-is-not-a-valid-actor-urn",
             ),
+        )
+
+
+def test_assertion_basic_with_on_success_actions() -> None:
+    action_type = "RESOLVE_INCIDENT"
+    action_type_from_enum = models.AssertionActionTypeClass.RESOLVE_INCIDENT
+    action = models.AssertionActionClass(
+        type=action_type_from_enum,
+    )
+
+    assertion = Assertion(
+        id=_any_assertion_urn,
+        info=_any_dataset_assertion_info,
+        on_success=[action_type],
+    )
+    assert assertion.on_success is not None
+    assert len(assertion.on_success) == 1
+    assert assertion.on_success[0] == action
+
+    assertion = Assertion(
+        id=_any_assertion_urn,
+        info=_any_dataset_assertion_info,
+        on_success=[action_type_from_enum],
+    )
+    assert assertion.on_success is not None
+    assert len(assertion.on_success) == 1
+    assert assertion.on_success[0] == action
+
+    assertion = Assertion(
+        id=_any_assertion_urn,
+        info=_any_dataset_assertion_info,
+        on_success=[action],
+    )
+    assert assertion.on_success is not None
+    assert len(assertion.on_success) == 1
+    assert assertion.on_success[0] == action
+
+    assert_entity_golden(
+        assertion, _GOLDEN_DIR / "test_assertion_basic_with_on_success_actions.json"
+    )
+
+    with pytest.raises(SdkUsageError):
+        Assertion(
+            id=_any_assertion_urn,
+            info=_any_dataset_assertion_info,
+            on_success=["this-is-not-a-valid-action"],
+        )
+
+
+def test_assertion_basic_with_on_failure_actions() -> None:
+    action_type = "RAISE_INCIDENT"
+    action_type_from_enum = models.AssertionActionTypeClass.RAISE_INCIDENT
+    action = models.AssertionActionClass(
+        type=action_type_from_enum,
+    )
+
+    assertion = Assertion(
+        id=_any_assertion_urn,
+        info=_any_dataset_assertion_info,
+        on_failure=[action_type],
+    )
+    assert assertion.on_failure is not None
+    assert len(assertion.on_failure) == 1
+    assert assertion.on_failure[0] == action
+
+    assertion = Assertion(
+        id=_any_assertion_urn,
+        info=_any_dataset_assertion_info,
+        on_failure=[action_type_from_enum],
+    )
+    assert assertion.on_failure is not None
+    assert len(assertion.on_failure) == 1
+    assert assertion.on_failure[0] == action
+
+    assertion = Assertion(
+        id=_any_assertion_urn,
+        info=_any_dataset_assertion_info,
+        on_failure=[action],
+    )
+    assert assertion.on_failure is not None
+    assert len(assertion.on_failure) == 1
+    assert assertion.on_failure[0] == action
+
+    assert_entity_golden(
+        assertion, _GOLDEN_DIR / "test_assertion_basic_with_on_failure_actions.json"
+    )
+
+    with pytest.raises(SdkUsageError):
+        Assertion(
+            id=_any_assertion_urn,
+            info=_any_dataset_assertion_info,
+            on_failure=["this-is-not-a-valid-action"],
         )
 
 

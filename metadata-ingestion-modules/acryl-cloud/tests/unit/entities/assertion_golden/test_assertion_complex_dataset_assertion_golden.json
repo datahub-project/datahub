@@ -73,5 +73,25 @@
             ]
         }
     }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "assertionActions",
+    "aspect": {
+        "json": {
+            "onSuccess": [
+                {
+                    "type": "RESOLVE_INCIDENT"
+                }
+            ],
+            "onFailure": [
+                {
+                    "type": "RAISE_INCIDENT"
+                }
+            ]
+        }
+    }
 }
 ]

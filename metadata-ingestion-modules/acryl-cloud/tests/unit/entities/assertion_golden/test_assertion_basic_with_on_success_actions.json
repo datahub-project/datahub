@@ -23,7 +23,11 @@
     "aspectName": "assertionActions",
     "aspect": {
         "json": {
-            "onSuccess": [],
+            "onSuccess": [
+                {
+                    "type": "RESOLVE_INCIDENT"
+                }
+            ],
             "onFailure": []
         }
     }

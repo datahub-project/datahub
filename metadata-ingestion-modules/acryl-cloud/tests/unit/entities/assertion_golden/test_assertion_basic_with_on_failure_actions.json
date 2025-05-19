@@ -24,7 +24,11 @@
     "aspect": {
         "json": {
             "onSuccess": [],
-            "onFailure": []
+            "onFailure": [
+                {
+                    "type": "RAISE_INCIDENT"
+                }
+            ]
         }
     }
 }
