@@ -15,6 +15,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.platformresource.PlatformResourceInfo;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.rest.secure.AbstractControllerTest;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.InputStream;
 import org.apache.iceberg.TableMetadata;
@@ -136,6 +137,12 @@ public class PublicIcebergApiControllerTest
 
   @Override
   protected PublicIcebergApiController newController() {
-    return new PublicIcebergApiController();
+    return new PublicIcebergApiController() {
+      @Override
+      protected DataHubIcebergWarehouse warehouse(
+          String platformInstance, OperationContext operationContext) {
+        return PublicIcebergApiControllerTest.super.warehouse();
+      }
+    };
   }
 }
