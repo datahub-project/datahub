@@ -44,6 +44,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   - SYNC_PRIMARY: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
   - ASYNC: Queues the metadata change for asynchronous processing and returns immediately. The client continues execution without waiting for the change to be fully processed. Best for high-throughput scenarios where eventual consistency is acceptable.
   - ASYNC_WAIT: Queues the metadata change asynchronously but blocks until confirmation that the write has been fully persisted. More efficient than fully synchronous operations due to backend parallelization and batching while still providing strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
+- #13499 - Added ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH configuration for ElasticSearch index config. If modified from the default, this configuration can have significant impact on search performance if changed and will trigger reindexing causing large delays in updates. Most users will not want to modify this.
 
 ## 1.0.0
 
@@ -66,6 +67,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
 - #12714: API Tracing requires at least one mutation of the aspect being updated using this version of DataHub.
 - #12797: See Breaking Change above. Entity Type names are case sensitive, this will result in 4xx exceptions when this rule is violated.
+- Python SDK v1.0.0.3 - direct accesses to the `server_config` property on `DataHubRestEmitter` can throw an unknown attribute error if `test_connection` is not called prior to directly accessing it as the default empty map initialization was removed. This is resolved in v1.1.0.
 
 ### Potential Downtime
 

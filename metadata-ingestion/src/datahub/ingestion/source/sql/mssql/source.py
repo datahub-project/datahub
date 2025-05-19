@@ -13,6 +13,7 @@ from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -59,6 +60,15 @@ register_custom_type(sqlalchemy.dialects.mssql.MONEY, models.NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, models.NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, models.UnionTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, models.StringTypeClass)
+
+# Patterns copied from Snowflake source
+DEFAULT_TEMP_TABLES_PATTERNS = [
+    r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
+    r".*__DBT_TMP$",  # dbt
+    rf".*\.SEGMENT_{UUID_REGEX}",  # segment
+    rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
+    r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
+]
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
@@ -113,6 +123,12 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     include_containers_for_pipelines: bool = Field(
         default=False,
         description="Enable the container aspects ingestion for both pipelines and tasks. Note that this feature requires the corresponding model support in the backend, which was introduced in version 0.15.0.1.",
+    )
+    temporary_tables_pattern: List[str] = Field(
+        default=DEFAULT_TEMP_TABLES_PATTERNS,
+        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to "
+        "match the entire table name in database.schema.table format. Defaults are to set in such a way "
+        "to ignore the temporary staging tables created by known ETL tools.",
     )
 
     @pydantic.validator("uri_args")
@@ -179,6 +195,14 @@ class SQLServerSource(SQLAlchemySource):
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
         self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
+
+        self.report = SQLSourceReport()
+        if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
+            self.report.warning(
+                title="Potential issue with lineage",
+                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
+            )
+
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
@@ -774,6 +798,13 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
     def is_temp_table(self, name: str) -> bool:
+        if any(
+            re.match(pattern, name, flags=re.IGNORECASE)
+            for pattern in self.config.temporary_tables_pattern
+        ):
+            logger.debug(f"temp table matched by pattern {name}")
+            return True
+
         try:
             parts = name.split(".")
             table_name = parts[-1]
