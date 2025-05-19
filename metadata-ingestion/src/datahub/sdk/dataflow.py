@@ -73,7 +73,7 @@ class DataFlow(
         platform: str,
         name: Optional[str] = None,
         platform_instance: Optional[str] = None,
-        env: str = DEFAULT_ENV,  # TODO: is this reasonable?
+        env: str = DEFAULT_ENV,
         # Dataflow properties.
         description: Optional[str] = None,
         display_name: Optional[str] = None,
