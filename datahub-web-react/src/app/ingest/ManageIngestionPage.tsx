@@ -1,6 +1,6 @@
 import { Tabs, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -68,9 +68,6 @@ export const ManageIngestionPage = () => {
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
-    const location = useLocation();
-    const history = useHistory();
-
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
         if (loaded && me.loaded && !showIngestionTab && selectedTab === TabType.Sources) {
@@ -78,18 +75,7 @@ export const ManageIngestionPage = () => {
         }
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
-    // Add this useEffect to handle the create query parameter
-    useEffect(() => {
-        const searchParams = new URLSearchParams(location.search);
-        const shouldCreate = searchParams.get('create') === 'true';
-
-        if (shouldCreate && showIngestionTab) {
-            setShowCreateSourceModal(true);
-            // Remove the create parameter from the URL without adding a new history entry
-            history.replace(location.pathname);
-        }
-    }, [location.search, showIngestionTab, history, location.pathname]);
-
+    const history = useHistory();
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
         const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
         setSelectedTab(matchingTab || selectedTab);

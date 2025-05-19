@@ -6,7 +6,6 @@ import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { HorizontalListSkeletons } from '@app/homeV2/content/HorizontalListSkeletons';
 import { Section } from '@app/homeV2/content/tabs/discovery/sections/Section';
-import { OnboardingCards } from '@app/homeV2/content/tabs/discovery/sections/onboarding/OnboardingCards';
 import { PlatformCard } from '@app/homeV2/content/tabs/discovery/sections/platform/PlatformCard';
 import { useGetPlatforms } from '@app/homeV2/content/tabs/discovery/sections/platform/useGetPlatforms';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
@@ -38,10 +37,6 @@ export const Platforms = () => {
     };
 
     const showSkeleton = isUserInitializing || !user || loading;
-
-    if (!loading && !platforms.length) {
-        return <OnboardingCards />;
-    }
 
     return (
         <div id={HOME_PAGE_PLATFORMS_ID}>
