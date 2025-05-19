@@ -11,7 +11,7 @@ from datahub.metadata.urns import DatasetUrn, TagUrn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.main_client import DataHubClient
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "entity_client_goldens"
 

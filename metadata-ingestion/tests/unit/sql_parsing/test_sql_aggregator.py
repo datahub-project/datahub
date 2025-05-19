@@ -26,7 +26,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
