@@ -3,8 +3,9 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, MutableMapping, Optional
+from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional, Tuple
 
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
@@ -229,7 +230,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def __init__(self, connection: SnowflakeConnection) -> None:
         self.connection = connection
 
-    def as_obj(self) -> Dict[str, Dict[str, int]]:
+        self._use_information_schema_for_views = get_boolean_env_variable(
+            "DATAHUB_SNOWFLAKE_USE_INFORMATION_SCHEMA_FOR_VIEWS", default=False
+        )
+
+    def as_obj(self) -> Dict[str, Any]:
         # TODO: Move this into a proper report type that gets computed.
 
         # Reports how many times we reset in-memory `functools.lru_cache` caches of data,
@@ -245,7 +250,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
             self.get_fk_constraints_for_schema,
         ]
 
-        report = {}
+        report: Dict[str, Any] = {
+            "use_information_schema_for_views": self._use_information_schema_for_views,
+        }
         for func in lru_cache_functions:
             report[func.__name__] = func.cache_info()._asdict()  # type: ignore
         return report
@@ -400,7 +407,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return tables
 
     @serialized_lru_cache(maxsize=1)
-    def get_views_for_database(self, db_name: str) -> Dict[str, List[SnowflakeView]]:
+    def get_views_for_database(
+        self, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        if self._use_information_schema_for_views:
+            return self._get_views_for_database_using_information_schema(db_name)
+        else:
+            return self._get_views_for_database_using_show(db_name)
+
+    def _get_views_for_database_using_show(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeView]]:
         page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
 
         views: Dict[str, List[SnowflakeView]] = {}
@@ -431,10 +448,9 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     SnowflakeView(
                         name=view_name,
                         created=view["created_on"],
-                        # last_altered=table["last_altered"],
                         comment=view["comment"],
                         view_definition=view["text"],
-                        last_altered=view["created_on"],
+                        last_altered=view["created_on"],  # TODO: This is not correct.
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
                         ),
@@ -449,7 +465,73 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
                 view_pagination_marker = view_name
 
+        # Because this is in a cached function, this will only log once per database.
+        view_counts = {schema_name: len(views[schema_name]) for schema_name in views}
+        logger.info(
+            f"Finished fetching views in {db_name}; counts by schema {view_counts}"
+        )
         return views
+
+    def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
+        schema_name = row["VIEW_SCHEMA"]
+        logger.info(f"Mapping view {db_name}.{schema_name}.{row['VIEW_NAME']}")
+        if row["VIEW_DEFINITION"] == "" or row["VIEW_DEFINITION"] is None:
+            logger.info(
+                f"View definition is empty for {db_name}.{schema_name}.{row['VIEW_NAME']}, fetching from show views"
+            )
+            # we need to fetch the view definition from show views
+            cur = self.connection.query(
+                # TODO(gabe): optimize this to come up with more efficient LIKE patterns to group this fetching
+                SnowflakeQuery.show_single_view_for_database_and_schema(
+                    db_name, schema_name, row["VIEW_NAME"]
+                )
+            )
+            for result in cur:
+                logger.info(
+                    f"Fetched view definition for {db_name}.{schema_name}.{row['VIEW_NAME']}: {result['text']}"
+                )
+                row["VIEW_DEFINITION"] = result["text"]
+        else:
+            logger.info(
+                f"View definition is not empty for {db_name}.{schema_name}.{row['VIEW_NAME']}"
+            )
+
+        return schema_name, SnowflakeView(
+            name=row["VIEW_NAME"],
+            created=row["CREATED"],
+            comment=row["COMMENT"],
+            view_definition=row["VIEW_DEFINITION"],
+            last_altered=row["LAST_ALTERED"],
+            is_secure=(row.get("IS_SECURE", "false").lower() == "true"),
+            # TODO: This doesn't work for materialized views.
+            materialized=False,
+        )
+
+    def _get_views_for_database_using_information_schema(
+        self, db_name: str
+    ) -> Optional[Dict[str, List[SnowflakeView]]]:
+        try:
+            cur = self.connection.query(
+                SnowflakeQuery.get_views_for_database(db_name),
+            )
+        except Exception as e:
+            logger.debug(f"Failed to get all views for database {db_name}", exc_info=e)
+            # Error - Information schema query returned too much data. Please repeat query with more selective predicates.
+            return None
+
+        views: Dict[str, List[SnowflakeView]] = {}
+        for row in cur:
+            schema_name, view = self._map_view(db_name, row)
+            views.setdefault(schema_name, []).append(view)
+        return views
+
+    def get_views_for_schema_using_information_schema(
+        self, *, schema_name: str, db_name: str
+    ) -> List[SnowflakeView]:
+        cur = self.connection.query(
+            SnowflakeQuery.get_views_for_schema(schema_name, db_name),
+        )
+        return [self._map_view(db_name, row)[1] for row in cur]
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
