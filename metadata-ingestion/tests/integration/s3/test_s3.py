@@ -11,7 +11,7 @@ from pydantic import ValidationError
 
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.s3.source import S3Source
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2020-04-14 07:00:00"
 
