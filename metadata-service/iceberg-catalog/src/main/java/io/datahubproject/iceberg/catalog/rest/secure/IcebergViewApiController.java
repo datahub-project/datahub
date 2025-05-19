@@ -9,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.rest.CatalogHandlers;
 import org.apache.iceberg.rest.requests.CreateViewRequest;
@@ -172,18 +173,35 @@ public class IcebergViewApiController extends AbstractIcebergController {
     OperationContext operationContext = opContext(request);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
-    authorize(
-        operationContext,
-        warehouse,
-        renameTableRequest.source().namespace(),
-        DataOperation.MANAGE_VIEWS,
-        false);
-    authorize(
-        operationContext,
-        warehouse,
-        renameTableRequest.destination().namespace(),
-        DataOperation.MANAGE_VIEWS,
-        false);
+    ForbiddenException sourceAuthEx = null;
+    try {
+      authorize(
+          operationContext,
+          warehouse,
+          renameTableRequest.source().namespace(),
+          DataOperation.MANAGE_VIEWS,
+          false);
+    } catch (ForbiddenException e) {
+      sourceAuthEx = e;
+    }
+    try {
+      authorize(
+          operationContext,
+          warehouse,
+          renameTableRequest.destination().namespace(),
+          DataOperation.MANAGE_VIEWS,
+          false);
+    } catch (ForbiddenException e) {
+      throw sourceAuthEx == null
+          ? e
+          : new ForbiddenException(
+              "Data operation MANAGE_VIEWS not authorized on %s & %s",
+              renameTableRequest.source().namespace(),
+              renameTableRequest.destination().namespace());
+    }
+    if (sourceAuthEx != null) {
+      throw sourceAuthEx;
+    }
 
     catalogOperation(
         warehouse,
