@@ -474,29 +474,22 @@ virtual_connection_graphql_query = """
             name
             remoteType
             description
-        }
-        upstreamTables {
-            id
-            name
-            schema
-            fullName
-            connectionType
-            database {
-                name
-                id
-                connectionType
-            }
-            columns {
+            upstreamFields {
                 id
                 name
-                remoteType
-                description
+                dataType
+                table {
+                    id
+                    name
+                    fullName
+                    connection {
+                        id
+                        name
+                        connectionType
+                    }
+                }
             }
         }
-    }
-    connectionAttributes {
-        name
-        value
     }
     project {
         id

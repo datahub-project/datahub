@@ -3595,32 +3595,90 @@ class TableauSiteSource:
         upstream_tables = []
         fine_grained_lineages = []
 
+        # Track URNs to avoid duplicates
+        upstream_table_urns = set()
+
         virtual_connection_tables = virtual_connection.get(c.TABLES, [])
         for table in virtual_connection_tables:
             try:
-                ref = TableauUpstreamReference.create(
-                    table, default_schema_map=self.config.default_schema_map
-                )
+                # Process all columns to extract upstream tables
+                for column in table.get(c.COLUMNS, []):
+                    # Process upstream fields for each column
+                    for upstream_field in column.get("upstreamFields", []):
+                        try:
+                            # Get information about the source table
+                            upstream_table = upstream_field.get("table", {})
+                            if not upstream_table:
+                                continue
 
-                table_urn = ref.make_dataset_urn(
-                    self.config.env,
-                    self.config.platform_instance_map,
-                    self.config.lineage_overrides,
-                    self.config.database_hostname_to_platform_instance_map,
-                    self.database_server_hostname_map,
-                )
+                            upstream_table_name = upstream_table.get(c.NAME)
+                            upstream_table_fullname = upstream_table.get(c.FULL_NAME)
+                            if not upstream_table_name or not upstream_table_fullname:
+                                continue
 
-                upstream_table = Upstream(
-                    dataset=table_urn,
-                    type=DatasetLineageType.TRANSFORMED,
-                )
-                upstream_tables.append(upstream_table)
+                            # Get connection information
+                            connection = upstream_table.get("connection", {})
+                            connection_type = connection.get(c.CONNECTION_TYPE)
+                            if not connection_type:
+                                continue
 
-                # Generate column-level lineage if column-level lineage is enabled
+                            # Create reference for the upstream table using the available information
+                            upstream_table_info = {
+                                c.NAME: upstream_table_name,
+                                c.FULL_NAME: upstream_table_fullname,
+                                c.CONNECTION_TYPE: connection_type,
+                                c.ID: upstream_table.get(c.ID, ""),
+                            }
+
+                            # Parse and extract database and schema from the full name if available
+                            if upstream_table_fullname:
+                                parsed_parts = TableauUpstreamReference.parse_full_name(
+                                    upstream_table_fullname
+                                )
+                                if parsed_parts and len(parsed_parts) >= 3:
+                                    upstream_table_info["database"] = {
+                                        "name": parsed_parts[0]
+                                    }
+                                    upstream_table_info["schema"] = parsed_parts[1]
+
+                            upstream_ref = TableauUpstreamReference.create(
+                                upstream_table_info,
+                                default_schema_map=self.config.default_schema_map,
+                            )
+
+                            upstream_table_urn = upstream_ref.make_dataset_urn(
+                                self.config.env,
+                                self.config.platform_instance_map,
+                                self.config.lineage_overrides,
+                                self.config.database_hostname_to_platform_instance_map,
+                                self.database_server_hostname_map,
+                            )
+
+                            # Only add each upstream table once
+                            if upstream_table_urn not in upstream_table_urns:
+                                upstream_table_urns.add(upstream_table_urn)
+                                upstream_tables.append(
+                                    Upstream(
+                                        dataset=upstream_table_urn,
+                                        type=DatasetLineageType.TRANSFORMED,
+                                    )
+                                )
+
+                        except Exception as e:
+                            self.report.warning(
+                                title="Virtual Connection Upstream Table Extraction Error",
+                                message="Failed to extract upstream table from virtual connection column",
+                                context=f"table={table.get(c.NAME)}, column={column.get(c.NAME)}",
+                                exc=e,
+                            )
+
+                # Generate column-level lineage
                 if self.config.extract_column_level_lineage:
                     table_fine_grained_lineages = (
                         self._get_virtual_connection_column_lineage(
-                            table, table_urn, vc_urn
+                            table,
+                            None,
+                            vc_urn,  # table_urn not needed with new implementation
                         )
                     )
                     fine_grained_lineages.extend(table_fine_grained_lineages)
@@ -3811,7 +3869,7 @@ class TableauSiteSource:
             )
 
     def _get_virtual_connection_column_lineage(
-        self, table: dict, table_urn: str, vc_urn: str
+        self, table: dict, table_urn: Optional[str], vc_urn: str
     ) -> List[FineGrainedLineage]:
         """
         Generate column-level lineage for a virtual connection table.
@@ -3826,93 +3884,92 @@ class TableauSiteSource:
                 if not column_name:
                     continue
 
-                # Source field in the upstream table
-                upstream_field = builder.make_schema_field_urn(
-                    parent_urn=table_urn,
-                    field_path=column_name,
-                )
-
-                # Target field in the virtual connection (tableName.columnName format)
-                downstream_field = f"{table.get(c.NAME)}.{column_name}"
-
-                # Create the fine-grained lineage entry using the same pattern as elsewhere
-                fine_grained_lineages.append(
-                    FineGrainedLineage(
-                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                        downstreams=[
-                            builder.make_schema_field_urn(vc_urn, downstream_field)
-                        ],
-                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                        upstreams=[upstream_field],
-                        transformOperation="DIRECT_COPY",
-                    )
-                )
-
-            # Process upstream tables for more detailed lineage if available
-            upstream_tables = table.get("upstreamTables", [])
-            for upstream_table in upstream_tables:
-                # Skip if we can't identify the upstream table
-                if not upstream_table.get("id") or not upstream_table.get("name"):
-                    continue
-
-                # Create reference for the upstream table
-                try:
-                    upstream_ref = TableauUpstreamReference.create(
-                        upstream_table,
-                        default_schema_map=self.config.default_schema_map,
-                    )
-
-                    upstream_table_urn = upstream_ref.make_dataset_urn(
-                        self.config.env,
-                        self.config.platform_instance_map,
-                        self.config.lineage_overrides,
-                        self.config.database_hostname_to_platform_instance_map,
-                        self.database_server_hostname_map,
-                    )
-
-                    # Process columns from upstream table to create column-level lineage
-                    for upstream_column in upstream_table.get("columns", []):
-                        upstream_column_name = upstream_column.get("name")
-                        if not upstream_column_name:
+                # Process upstream fields for each column
+                for upstream_field in column.get("upstreamFields", []):
+                    try:
+                        # Get information about the source table
+                        upstream_table = upstream_field.get("table", {})
+                        if not upstream_table:
                             continue
 
-                        # Find matching columns in the virtual connection table
-                        for vc_column in table.get(c.COLUMNS, []):
-                            vc_column_name = vc_column.get(c.NAME)
-                            if not vc_column_name:
-                                continue
+                        upstream_table_name = upstream_table.get(c.NAME)
+                        upstream_table_fullname = upstream_table.get(c.FULL_NAME)
+                        if not upstream_table_name or not upstream_table_fullname:
+                            continue
 
-                            # If names match, create lineage (this is a simple matching heuristic)
-                            if upstream_column_name == vc_column_name:
-                                upstream_field = builder.make_schema_field_urn(
-                                    parent_urn=upstream_table_urn,
-                                    field_path=upstream_column_name,
-                                )
+                        # Get connection information
+                        connection = upstream_table.get("connection", {})
+                        connection_type = connection.get(c.CONNECTION_TYPE)
+                        if not connection_type:
+                            continue
 
-                                downstream_field = (
-                                    f"{table.get(c.NAME)}.{vc_column_name}"
-                                )
+                        # Create reference for the upstream table using the available information
+                        upstream_table_info = {
+                            c.NAME: upstream_table_name,
+                            c.FULL_NAME: upstream_table_fullname,
+                            c.CONNECTION_TYPE: connection_type,
+                            c.ID: upstream_table.get(c.ID, ""),
+                        }
 
-                                fine_grained_lineages.append(
-                                    FineGrainedLineage(
-                                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                        downstreams=[
-                                            builder.make_schema_field_urn(
-                                                vc_urn, downstream_field
-                                            )
-                                        ],
-                                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                        upstreams=[upstream_field],
-                                        transformOperation="DIRECT_COPY",
+                        # Parse and extract database and schema from the full name if available
+                        if upstream_table_fullname:
+                            parsed_parts = TableauUpstreamReference.parse_full_name(
+                                upstream_table_fullname
+                            )
+                            if parsed_parts and len(parsed_parts) >= 3:
+                                upstream_table_info["database"] = {
+                                    "name": parsed_parts[0]
+                                }
+                                upstream_table_info["schema"] = parsed_parts[1]
+
+                        upstream_ref = TableauUpstreamReference.create(
+                            upstream_table_info,
+                            default_schema_map=self.config.default_schema_map,
+                        )
+
+                        upstream_table_urn = upstream_ref.make_dataset_urn(
+                            self.config.env,
+                            self.config.platform_instance_map,
+                            self.config.lineage_overrides,
+                            self.config.database_hostname_to_platform_instance_map,
+                            self.database_server_hostname_map,
+                        )
+
+                        # Get upstream field name
+                        upstream_field_name = upstream_field.get(c.NAME)
+                        if not upstream_field_name:
+                            continue
+
+                        # Create URNs for source and target fields
+                        upstream_field_urn = builder.make_schema_field_urn(
+                            parent_urn=upstream_table_urn,
+                            field_path=upstream_field_name,
+                        )
+
+                        # Target field in the virtual connection (tableName.columnName format)
+                        downstream_field = f"{table.get(c.NAME)}.{column_name}"
+
+                        # Create the fine-grained lineage entry
+                        fine_grained_lineages.append(
+                            FineGrainedLineage(
+                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                downstreams=[
+                                    builder.make_schema_field_urn(
+                                        vc_urn, downstream_field
                                     )
-                                )
-                except Exception as e:
-                    self.report.warning(
-                        title="Virtual Connection Upstream Table Reference Error",
-                        message="Failed to generate upstream reference for upstream table in virtual connection",
-                        context=f"vc_table={table.get(c.NAME)}, upstream_table={upstream_table.get(c.NAME)}",
-                        exc=e,
-                    )
+                                ],
+                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                upstreams=[upstream_field_urn],
+                                transformOperation="DIRECT_COPY",
+                            )
+                        )
+                    except Exception as e:
+                        self.report.warning(
+                            title="Virtual Connection Column Upstream Field Error",
+                            message=f"Failed to process upstream field for column {column_name}",
+                            context=f"table={table.get(c.NAME)}, upstream_field={upstream_field.get(c.NAME)}",
+                            exc=e,
+                        )
 
         except Exception as e:
             self.report.warning(
