@@ -313,6 +313,9 @@ fragment autoCompleteFields on Entity {
             }
         }
     }
+    ... on DataPlatformInstance {
+        ...dataPlatformInstanceFields
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
