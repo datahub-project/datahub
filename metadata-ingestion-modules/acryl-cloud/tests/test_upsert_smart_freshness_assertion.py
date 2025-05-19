@@ -1,15 +1,18 @@
+from datetime import datetime
 from typing import Optional
 
 import pytest
 
-from acryl_datahub_cloud._sdk_extras.assertion_input import (
-    DEFAULT_DETECTION_MECHANISM,
-    DEFAULT_NAME_PREFIX,
-    DEFAULT_NAME_SUFFIX_LENGTH,
-    DEFAULT_SENSITIVITY,
-    AssertionUrn,
+from acryl_datahub_cloud._sdk_extras.assertion import (
+    AssertionIncidentBehavior,
+    AssertionMode,
+    DetectionMechanism,
+    FixedRangeExclusionWindow,
+    InferenceSensitivity,
 )
 from acryl_datahub_cloud._sdk_extras.assertions_client import AssertionsClient
+from datahub.metadata.urns import AssertionUrn, DatasetUrn
+from datahub.utilities.urns.urn import Urn
 
 
 class DummyDataHubClient:
@@ -31,15 +34,22 @@ def test_upsert_smart_freshness_assertion_with_default_values(
         urn=assertion_urn,
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
     )
-    # TODO: Make assertions on the Assertion Entity once created, not the AssertionInput entity
-    assert assertion.assertion_input.urn == assertion_urn
-    assert assertion.assertion_input.name.startswith(DEFAULT_NAME_PREFIX)
-    assert (
-        len(assertion.assertion_input.name)
-        == len(DEFAULT_NAME_PREFIX) + DEFAULT_NAME_SUFFIX_LENGTH + 1
-    )  # +1 for the dash
-    assert assertion.assertion_input.detection_mechanism == DEFAULT_DETECTION_MECHANISM
-    assert assertion.assertion_input.sensitivity == DEFAULT_SENSITIVITY
-    assert assertion.assertion_input.exclusion_windows == []
-    assert assertion.assertion_input.training_data_lookback_days == 60
-    assert assertion.assertion_input.incident_behavior == []
+    assert assertion is not None
+    assert assertion.urn == AssertionUrn("urn:li:assertion:smart_freshness_assertion")
+    assert assertion.dataset_urn == DatasetUrn.from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)"
+    )
+    assert assertion.display_name == "Smart Freshness Assertion"
+    assert assertion.mode == AssertionMode.ACTIVE
+    assert assertion.sensitivity == InferenceSensitivity.LOW
+    assert assertion.exclusion_windows == [
+        FixedRangeExclusionWindow(start=datetime(2021, 1, 1), end=datetime(2021, 1, 2))
+    ]
+    assert assertion.training_data_lookback_days == 30
+    assert assertion.incident_behavior == [AssertionIncidentBehavior.RAISE_ON_FAIL]
+    assert assertion.detection_mechanism == DetectionMechanism.INFORMATION_SCHEMA
+    assert assertion.created_by == Urn.from_string("urn:li:corpuser:acryl-cloud-user")
+    assert assertion.created_at == datetime(2021, 1, 1)
+    assert assertion.updated_by == Urn.from_string("urn:li:corpuser:acryl-cloud-user")
+    assert assertion.updated_at == datetime(2021, 1, 1)
+    assert assertion.tags == []

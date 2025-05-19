@@ -225,6 +225,11 @@ class FixedRangeExclusionWindow(BaseModel):
     end: datetime
 
 
+ExclusionWindowTypes: TypeAlias = Union[
+    FixedRangeExclusionWindow,
+    # Add other exclusion window types here as they are added to the SDK.
+]
+
 FIXED_RANGE_EXCLUSION_WINDOW_EXAMPLES = {
     "Exclusion Window from datetimes": {
         "start": "datetime(2025, 1, 1, 0, 0, 0)",
@@ -247,6 +252,7 @@ FixedRangeExclusionWindowInputTypes: TypeAlias = Union[
 
 ExclusionWindowInputTypes: TypeAlias = Union[
     FixedRangeExclusionWindowInputTypes,
+    # Add other exclusion window types here as they are added to the SDK.
     None,
 ]
 
@@ -425,3 +431,10 @@ class _AssertionInput:
             training_data_lookback_days
         )
         self.incident_behavior = _try_parse_incident_behavior(incident_behavior)
+
+    # TODO: Implement the following methods:
+    # def to_assertion_entity(self) -> Assertion:
+    #     pass
+
+    # def to_monitor_entity(self) -> Monitor:
+    #     pass

@@ -57,7 +57,7 @@ class AssertionsClient:
             dataset_urn: The urn of the dataset to be monitored.
             urn: The urn of the assertion. If not provided, a urn will be generated and the assertion will be _created_ in the DataHub instance (not updated).
             display_name: The display name of the assertion. If not provided, a random display name will be generated.
-            detection_mechanism: The detection mechanism to be used for the assertion.
+            detection_mechanism: The detection mechanism to be used for the assertion. Information schema is recommended.
                 Valid values are:
                 - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
                 - "audit_log" or DetectionMechanism.AUDIT_LOG
@@ -95,7 +95,7 @@ class AssertionsClient:
                 - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
         """
         _print_experimental_warning()
-        assertion_input = _AssertionInput(
+        assertion_input = _AssertionInput(  # noqa: F841 - This will be used
             urn=urn,
             dataset_urn=dataset_urn,
             display_name=display_name,
@@ -105,15 +105,13 @@ class AssertionsClient:
             training_data_lookback_days=training_data_lookback_days,
             incident_behavior=incident_behavior,
         )
-        # TODO: Create the Assertion Entity from the AssertionInput
-        # assertion_to_create = SmartFreshnessAssertion(assertion_input)
-        # TODO: Call the DataHub API to create the assertion
-        # created_assertion = self.client.entity.create(assertion_to_create)
-        created_assertion = SmartFreshnessAssertion(
-            assertion_input
-        )  # TODO: Remove this placeholder line
-        # TODO: Return the assertion after creating from the input
-        return created_assertion
+        # TODO: Create the Entities from the AssertionInput
+        # assertion_entity = assertion_input.to_assertion_entity()
+        # monitor_entity = assertion_input.to_monitor_entity()
+        # TODO: Call the DataHub API to upsert the assertion and monitor entities
+        # upserted_assertion = self.client.entity.upsert(assertion_to_upsert)
+        # upserted_monitor = self.client.entity.upsert(monitor_to_upsert)
+        return SmartFreshnessAssertion.from_entities()  # TODO: Pass entities here
 
 
 def _print_experimental_warning() -> None:
