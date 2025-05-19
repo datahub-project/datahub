@@ -4,9 +4,9 @@ import React, { ReactNode } from 'react';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { clearSecretListCache } from '@app/ingest/secret/cacheUtils';
-import CreateSecretButton from '@app/ingest/source/builder/RecipeForm/SecretField/CreateSecretButton';
-import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { clearSecretListCache } from '@app/ingestV2/secret/cacheUtils';
+import CreateSecretButton from '@app/ingestV2/source/builder/RecipeForm/SecretField/CreateSecretButton';
+import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 import { Secret } from '@types';
 

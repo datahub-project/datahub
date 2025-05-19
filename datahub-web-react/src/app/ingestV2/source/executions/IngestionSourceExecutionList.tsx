@@ -2,10 +2,10 @@ import { Modal, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ExecutionDetailsModal } from '@app/ingest/source/executions/ExecutionRequestDetailsModal';
-import IngestionExecutionTable from '@app/ingest/source/executions/IngestionExecutionTable';
-import useRefreshIngestionData from '@app/ingest/source/executions/useRefreshIngestionData';
-import { ROLLING_BACK, RUNNING } from '@app/ingest/source/utils';
+import { ExecutionDetailsModal } from '@app/ingestV2/source/executions/ExecutionRequestDetailsModal';
+import IngestionExecutionTable from '@app/ingestV2/source/executions/IngestionExecutionTable';
+import useRefreshIngestionData from '@app/ingestV2/source/executions/useRefreshIngestionData';
+import { ROLLING_BACK, RUNNING } from '@app/ingestV2/source/utils';
 import { Message } from '@app/shared/Message';
 import { SearchCfg } from '@src/conf';
 

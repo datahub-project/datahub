@@ -8,8 +8,8 @@ import {
     SourceColumn,
     StatusColumn,
     TimeColumn,
-} from '@app/ingest/source/executions/IngestionExecutionTableColumns';
-import { SUCCESS, getIngestionSourceStatus } from '@app/ingest/source/utils';
+} from '@app/ingestV2/source/executions/IngestionExecutionTableColumns';
+import { SUCCESS, getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { formatDuration } from '@app/shared/formatDuration';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';

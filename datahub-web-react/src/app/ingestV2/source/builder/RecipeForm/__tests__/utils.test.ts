@@ -1,4 +1,4 @@
-import { validateURL } from '@app/ingest/source/utils';
+import { validateURL } from '@app/ingestV2/source/utils';
 
 describe('validateURL function', () => {
     it('should resolve if the URL is valid', async () => {

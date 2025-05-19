@@ -4,11 +4,11 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { DataPlatformCard } from '@app/ingest/source/builder/DataPlatformCard';
-import { CUSTOM } from '@app/ingest/source/builder/constants';
-import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
-import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingest/source/builder/types';
-import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
+import { DataPlatformCard } from '@app/ingestV2/source/builder/DataPlatformCard';
+import { CUSTOM } from '@app/ingestV2/source/builder/constants';
+import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
+import { SourceBuilderState, SourceConfig, StepProps } from '@app/ingestV2/source/builder/types';
+import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 import { Button } from '@src/alchemy-components';
 
 const Container = styled.div`

@@ -4,9 +4,9 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { SecretsList } from '@app/ingest/secret/SecretsList';
-import { IngestionSourceList } from '@app/ingest/source/IngestionSourceList';
-import { TabType } from '@app/ingest/types';
+import { SecretsList } from '@app/ingestV2/secret/SecretsList';
+import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
+import { TabType } from '@app/ingestV2/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     INGESTION_CREATE_SOURCE_ID,

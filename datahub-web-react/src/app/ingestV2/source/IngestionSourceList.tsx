@@ -9,19 +9,19 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { ONE_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
-import IngestionSourceTable from '@app/ingest/source/IngestionSourceTable';
-import RecipeViewerModal from '@app/ingest/source/RecipeViewerModal';
-import { IngestionSourceBuilderModal } from '@app/ingest/source/builder/IngestionSourceBuilderModal';
-import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingest/source/builder/types';
-import { ExecutionDetailsModal } from '@app/ingest/source/executions/ExecutionRequestDetailsModal';
-import { isExecutionRequestActive } from '@app/ingest/source/executions/IngestionSourceExecutionList';
-import useRefreshIngestionData from '@app/ingest/source/executions/useRefreshIngestionData';
-import { useCommandS } from '@app/ingest/source/hooks';
+import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
+import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
+import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
+import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
+import { ExecutionDetailsModal } from '@app/ingestV2/source/executions/ExecutionRequestDetailsModal';
+import { isExecutionRequestActive } from '@app/ingestV2/source/executions/IngestionSourceExecutionList';
+import useRefreshIngestionData from '@app/ingestV2/source/executions/useRefreshIngestionData';
+import { useCommandS } from '@app/ingestV2/source/hooks';
 import {
     CLI_EXECUTOR_ID,
     addToListIngestionSourcesCache,
     removeFromListIngestionSourcesCache,
-} from '@app/ingest/source/utils';
+} from '@app/ingestV2/source/utils';
 import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,

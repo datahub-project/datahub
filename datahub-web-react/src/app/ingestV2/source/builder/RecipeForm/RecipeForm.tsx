@@ -6,16 +6,16 @@ import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import FormField from '@app/ingest/source/builder/RecipeForm/FormField';
-import TestConnectionButton from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { RecipeField, setFieldValueOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import FormField from '@app/ingestV2/source/builder/RecipeForm/FormField';
+import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import {
     CONNECTORS_WITH_TEST_CONNECTION,
     RECIPE_FIELDS,
     RecipeSections,
-} from '@app/ingest/source/builder/RecipeForm/constants';
-import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
-import { jsonToYaml } from '@app/ingest/source/utils';
+} from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
+import { jsonToYaml } from '@app/ingestV2/source/utils';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';

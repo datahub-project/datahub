@@ -3,13 +3,13 @@ import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import RecipeBuilder from '@app/ingest/source/builder/RecipeBuilder';
-import { getRecipeJson } from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionButton';
-import { CONNECTORS_WITH_FORM } from '@app/ingest/source/builder/RecipeForm/constants';
-import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
-import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
-import { StepProps } from '@app/ingest/source/builder/types';
-import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingest/source/utils';
+import RecipeBuilder from '@app/ingestV2/source/builder/RecipeBuilder';
+import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { CONNECTORS_WITH_FORM } from '@app/ingestV2/source/builder/RecipeForm/constants';
+import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
+import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
+import { StepProps } from '@app/ingestV2/source/builder/types';
+import { getPlaceholderRecipe, getSourceConfigs, jsonToYaml } from '@app/ingestV2/source/utils';
 import { Button } from '@src/alchemy-components';
 
 const LOOKML_DOC_LINK = 'https://docs.datahub.com/docs/generated/ingestion/sources/looker#module-lookml';

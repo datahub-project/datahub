@@ -14,7 +14,7 @@ import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-} from '@app/ingest/source/utils';
+} from '@app/ingestV2/source/utils';
 import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
 import CustomAvatar from '@src/app/shared/avatar/CustomAvatar';
 

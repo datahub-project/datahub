@@ -1,7 +1,7 @@
 import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
 
-import { NameSourceStep } from '@app/ingest/source/builder/NameSourceStep';
+import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 
 describe('NameSourceStep', () => {
     it('should trim leading and trailing whitespaces from the text field on blur', () => {

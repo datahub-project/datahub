@@ -1,7 +1,7 @@
 import { Form, Input, Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 
-import { SecretBuilderState } from '@app/ingest/secret/types';
+import { SecretBuilderState } from '@app/ingestV2/secret/types';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { Button } from '@src/alchemy-components';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';

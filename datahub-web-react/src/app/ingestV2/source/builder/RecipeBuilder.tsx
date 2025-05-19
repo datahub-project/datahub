@@ -5,13 +5,13 @@ import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { CSVInfo } from '@app/ingest/source/builder/CSVInfo';
-import { IngestionDocumentationHint } from '@app/ingest/source/builder/IngestionDocumentationHint';
-import { LookerWarning } from '@app/ingest/source/builder/LookerWarning';
-import RecipeForm from '@app/ingest/source/builder/RecipeForm/RecipeForm';
-import { YamlEditor } from '@app/ingest/source/builder/YamlEditor';
-import { CSV, LOOKER, LOOK_ML } from '@app/ingest/source/builder/constants';
-import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
+import { CSVInfo } from '@app/ingestV2/source/builder/CSVInfo';
+import { IngestionDocumentationHint } from '@app/ingestV2/source/builder/IngestionDocumentationHint';
+import { LookerWarning } from '@app/ingestV2/source/builder/LookerWarning';
+import RecipeForm from '@app/ingestV2/source/builder/RecipeForm/RecipeForm';
+import { YamlEditor } from '@app/ingestV2/source/builder/YamlEditor';
+import { CSV, LOOKER, LOOK_ML } from '@app/ingestV2/source/builder/constants';
+import { SourceBuilderState, SourceConfig } from '@app/ingestV2/source/builder/types';
 import { Button } from '@src/alchemy-components';
 
 export const ControlsContainer = styled.div`

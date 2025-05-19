@@ -3,7 +3,7 @@ import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
+import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 

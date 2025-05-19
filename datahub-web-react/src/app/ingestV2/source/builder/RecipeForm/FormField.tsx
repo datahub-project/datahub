@@ -10,9 +10,9 @@ import DictField, {
     Label,
     ListWrapper,
     StyledQuestion,
-} from '@app/ingest/source/builder/RecipeForm/DictField';
-import SecretField, { StyledFormItem } from '@app/ingest/source/builder/RecipeForm/SecretField/SecretField';
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+} from '@app/ingestV2/source/builder/RecipeForm/DictField';
+import SecretField, { StyledFormItem } from '@app/ingestV2/source/builder/RecipeForm/SecretField/SecretField';
+import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 import { Secret } from '@types';
 

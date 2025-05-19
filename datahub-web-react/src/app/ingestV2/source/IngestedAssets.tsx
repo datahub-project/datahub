@@ -8,7 +8,7 @@ import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByType,
     getTotalEntitiesIngested,
-} from '@app/ingest/source/utils';
+} from '@app/ingestV2/source/utils';
 import { UnionType } from '@app/search/utils/constants';
 import { Message } from '@app/shared/Message';
 import { formatNumber } from '@app/shared/formatNumber';

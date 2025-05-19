@@ -1,4 +1,4 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 // TODO: Currently platform_instance is required to be present for stateful ingestion to work
 // We need to solve this prior to enabling by default here.

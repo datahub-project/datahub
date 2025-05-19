@@ -1,4 +1,4 @@
-import { SourceConfig } from '@app/ingest/source/conf/types';
+import { SourceConfig } from '@app/ingestV2/source/conf/types';
 
 import mysqlLogo from '@images/mysqllogo-2.png';
 

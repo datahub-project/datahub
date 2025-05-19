@@ -5,8 +5,8 @@ import styled from 'styled-components';
 import YAML from 'yamljs';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import IngestedAssets from '@app/ingest/source/IngestedAssets';
-import { StructuredReport } from '@app/ingest/source/executions/reporting/StructuredReport';
+import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
+import { StructuredReport } from '@app/ingestV2/source/executions/reporting/StructuredReport';
 import {
     RUNNING,
     SUCCEEDED_WITH_WARNINGS,
@@ -17,7 +17,7 @@ import {
     getExecutionRequestSummaryText,
     getIngestionSourceStatus,
     getStructuredReport,
-} from '@app/ingest/source/utils';
+} from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
 import { Message } from '@app/shared/Message';
 

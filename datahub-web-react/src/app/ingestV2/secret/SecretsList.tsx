@@ -9,13 +9,13 @@ import styled from 'styled-components';
 import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
 import { ONE_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
-import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
+import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';
 import {
     addSecretToListSecretsCache,
     removeSecretFromListSecretsCache,
     updateSecretInListSecretsCache,
-} from '@app/ingest/secret/cacheUtils';
-import { SecretBuilderState } from '@app/ingest/secret/types';
+} from '@app/ingestV2/secret/cacheUtils';
+import { SecretBuilderState } from '@app/ingestV2/secret/types';
 import { SearchBar } from '@app/search/SearchBar';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';

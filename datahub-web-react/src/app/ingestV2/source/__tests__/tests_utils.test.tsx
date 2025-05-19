@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { getEntitiesIngestedByType } from '@app/ingest/source/utils';
+import { getEntitiesIngestedByType } from '@app/ingestV2/source/utils';
 
 import { ExecutionRequestResult } from '@types';
 

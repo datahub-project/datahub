@@ -3,7 +3,7 @@ import { Button, Modal } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { jsonToYaml } from '@app/ingest/source/utils';
+import { jsonToYaml } from '@app/ingestV2/source/utils';
 
 const YamlWrapper = styled.div`
     padding: 24px;

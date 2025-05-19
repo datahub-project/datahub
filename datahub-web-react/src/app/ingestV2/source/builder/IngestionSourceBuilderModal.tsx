@@ -3,12 +3,12 @@ import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { CreateScheduleStep } from '@app/ingest/source/builder/CreateScheduleStep';
-import { DefineRecipeStep } from '@app/ingest/source/builder/DefineRecipeStep';
-import { NameSourceStep } from '@app/ingest/source/builder/NameSourceStep';
-import { SelectTemplateStep } from '@app/ingest/source/builder/SelectTemplateStep';
-import sourcesJson from '@app/ingest/source/builder/sources.json';
-import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
+import { CreateScheduleStep } from '@app/ingestV2/source/builder/CreateScheduleStep';
+import { DefineRecipeStep } from '@app/ingestV2/source/builder/DefineRecipeStep';
+import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
+import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateStep';
+import sourcesJson from '@app/ingestV2/source/builder/sources.json';
+import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 
 const StyledModal = styled(Modal)`
     && .ant-modal-content {

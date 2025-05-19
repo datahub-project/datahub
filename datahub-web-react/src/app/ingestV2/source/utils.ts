@@ -10,8 +10,8 @@ import YAML from 'yamljs';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { SourceConfig } from '@app/ingest/source/builder/types';
-import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingest/source/types';
+import { SourceConfig } from '@app/ingestV2/source/builder/types';
+import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingestV2/source/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
 import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';

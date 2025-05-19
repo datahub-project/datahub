@@ -1,5 +1,5 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
-import { validateURL } from '@app/ingest/source/utils';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { validateURL } from '@app/ingestV2/source/utils';
 
 export const OKTA_DOMAIN_URL: RecipeField = {
     name: 'okta_domain',

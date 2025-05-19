@@ -1,4 +1,4 @@
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const MARIADB = 'mariadb';
 

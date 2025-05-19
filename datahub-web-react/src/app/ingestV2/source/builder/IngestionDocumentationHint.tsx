@@ -4,7 +4,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { SourceConfig } from '@app/ingest/source/builder/types';
+import { SourceConfig } from '@app/ingestV2/source/builder/types';
 
 const Container = styled.div`
     background-color: #ffffff;

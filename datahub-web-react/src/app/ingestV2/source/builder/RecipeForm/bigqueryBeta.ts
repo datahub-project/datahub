@@ -1,4 +1,4 @@
-import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import { FieldType, RecipeField, setListValuesOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const BIGQUERY_BETA_PROJECT_ID: RecipeField = {
     name: 'credential.project_id',

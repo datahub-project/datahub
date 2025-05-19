@@ -1,5 +1,5 @@
-import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
-import { validateURL } from '@app/ingest/source/utils';
+import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
+import { validateURL } from '@app/ingestV2/source/utils';
 
 export const CSV_FILE_URL: RecipeField = {
     name: 'filename',

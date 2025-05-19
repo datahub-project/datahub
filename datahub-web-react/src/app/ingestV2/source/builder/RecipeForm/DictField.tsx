@@ -5,8 +5,8 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { StyledFormItem } from '@app/ingest/source/builder/RecipeForm/SecretField/SecretField';
-import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { StyledFormItem } from '@app/ingestV2/source/builder/RecipeForm/SecretField/SecretField';
+import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
 export const Label = styled.div`
     font-weight: bold;

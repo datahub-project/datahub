@@ -1,5 +1,5 @@
-import { isExecutionRequestActive } from '@app/ingest/source/executions/IngestionSourceExecutionList';
-import { FAILURE, ROLLED_BACK, ROLLING_BACK, RUNNING, SUCCESS } from '@app/ingest/source/utils';
+import { isExecutionRequestActive } from '@app/ingestV2/source/executions/IngestionSourceExecutionList';
+import { FAILURE, ROLLED_BACK, ROLLING_BACK, RUNNING, SUCCESS } from '@app/ingestV2/source/utils';
 
 describe('isExecutionRequestActive', () => {
     it('should return true if the execution is RUNNING', () => {

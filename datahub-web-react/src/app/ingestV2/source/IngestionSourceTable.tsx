@@ -10,9 +10,9 @@ import {
     LastStatusColumn,
     ScheduleColumn,
     TypeColumn,
-} from '@app/ingest/source/IngestionSourceTableColumns';
-import { IngestionSourceExecutionList } from '@app/ingest/source/executions/IngestionSourceExecutionList';
-import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingest/source/utils';
+} from '@app/ingestV2/source/IngestionSourceTableColumns';
+import { IngestionSourceExecutionList } from '@app/ingestV2/source/executions/IngestionSourceExecutionList';
+import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { IngestionSource } from '@types';

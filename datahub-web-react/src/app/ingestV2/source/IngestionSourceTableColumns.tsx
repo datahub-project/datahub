@@ -7,13 +7,13 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import useGetSourceLogoUrl from '@app/ingest/source/builder/useGetSourceLogoUrl';
+import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 import {
     RUNNING,
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
-} from '@app/ingest/source/utils';
+} from '@app/ingestV2/source/utils';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
 
 const PreviewImage = styled(Image)`

@@ -7,9 +7,9 @@ import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
 
 import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { TimezoneSelect } from '@app/ingest/source/builder/TimezoneSelect';
-import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
-import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
+import { TimezoneSelect } from '@app/ingestV2/source/builder/TimezoneSelect';
+import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
+import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { Button } from '@src/alchemy-components';

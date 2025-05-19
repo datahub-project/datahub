@@ -12,20 +12,20 @@ import {
     GROUP_DENY,
     USER_ALLOW,
     USER_DENY,
-} from '@app/ingest/source/builder/RecipeForm/azure';
+} from '@app/ingestV2/source/builder/RecipeForm/azure';
 import {
     BIGQUERY_CLIENT_EMAIL,
     BIGQUERY_CLIENT_ID,
     BIGQUERY_PRIVATE_KEY,
     BIGQUERY_PRIVATE_KEY_ID,
-} from '@app/ingest/source/builder/RecipeForm/bigquery';
+} from '@app/ingestV2/source/builder/RecipeForm/bigquery';
 import {
     BIGQUERY_BETA_PROJECT_ID,
     DATASET_ALLOW,
     DATASET_DENY,
     PROJECT_ALLOW,
     PROJECT_DENY,
-} from '@app/ingest/source/builder/RecipeForm/bigqueryBeta';
+} from '@app/ingestV2/source/builder/RecipeForm/bigqueryBeta';
 import {
     COLUMN_PROFILING_ENABLED,
     DATABASE_ALLOW,
@@ -50,13 +50,13 @@ import {
     TABLE_PROFILING_ENABLED,
     VIEW_ALLOW,
     VIEW_DENY,
-} from '@app/ingest/source/builder/RecipeForm/common';
+} from '@app/ingestV2/source/builder/RecipeForm/common';
 import {
     CSV_ARRAY_DELIMITER,
     CSV_DELIMITER,
     CSV_FILE_URL,
     CSV_WRITE_SEMANTICS,
-} from '@app/ingest/source/builder/RecipeForm/csv';
+} from '@app/ingestV2/source/builder/RecipeForm/csv';
 import {
     DBT_CLOUD_ACCOUNT_ID,
     DBT_CLOUD_JOB_ID,
@@ -72,13 +72,13 @@ import {
     NODE_DENY,
     TARGET_PLATFORM,
     TARGET_PLATFORM_INSTANCE,
-} from '@app/ingest/source/builder/RecipeForm/dbt_cloud';
+} from '@app/ingestV2/source/builder/RecipeForm/dbt_cloud';
 import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
     HIVE_PASSWORD,
     HIVE_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/hive';
+} from '@app/ingestV2/source/builder/RecipeForm/hive';
 import {
     KAFKA_BOOTSTRAP,
     KAFKA_SASL_MECHANISM,
@@ -89,7 +89,7 @@ import {
     KAFKA_SECURITY_PROTOCOL,
     TOPIC_ALLOW,
     TOPIC_DENY,
-} from '@app/ingest/source/builder/RecipeForm/kafka';
+} from '@app/ingestV2/source/builder/RecipeForm/kafka';
 import {
     CHART_ALLOW,
     CHART_DENY,
@@ -98,7 +98,7 @@ import {
     LOOKER_CLIENT_SECRET,
     DASHBOARD_ALLOW as LOOKER_DASHBOARD_ALLOW,
     DASHBOARD_DENY as LOOKER_DASHBOARD_DENY,
-} from '@app/ingest/source/builder/RecipeForm/looker';
+} from '@app/ingestV2/source/builder/RecipeForm/looker';
 import {
     CONNECTION_TO_PLATFORM_MAP,
     DEPLOY_KEY,
@@ -109,22 +109,22 @@ import {
     LOOKML_GITHUB_INFO_REPO,
     PARSE_TABLE_NAMES_FROM_SQL,
     PROJECT_NAME,
-} from '@app/ingest/source/builder/RecipeForm/lookml';
+} from '@app/ingestV2/source/builder/RecipeForm/lookml';
 import {
     MARIADB,
     MARIADB_DATABASE,
     MARIADB_HOST_PORT,
     MARIADB_PASSWORD,
     MARIADB_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/mariadb';
+} from '@app/ingestV2/source/builder/RecipeForm/mariadb';
 import {
     MSSQL,
     MSSQL_DATABASE,
     MSSQL_HOST_PORT,
     MSSQL_PASSWORD,
     MSSQL_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/mssql';
-import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingest/source/builder/RecipeForm/mysql';
+} from '@app/ingestV2/source/builder/RecipeForm/mssql';
+import { MYSQL_HOST_PORT, MYSQL_PASSWORD, MYSQL_USERNAME } from '@app/ingestV2/source/builder/RecipeForm/mysql';
 import {
     INCLUDE_DEPROVISIONED_USERS,
     INCLUDE_SUSPENDED_USERS,
@@ -139,13 +139,13 @@ import {
     POFILE_TO_USER_REGX_ALLOW,
     POFILE_TO_USER_REGX_DENY,
     SKIP_USERS_WITHOUT_GROUP,
-} from '@app/ingest/source/builder/RecipeForm/okta';
+} from '@app/ingestV2/source/builder/RecipeForm/okta';
 import {
     POSTGRES_DATABASE,
     POSTGRES_HOST_PORT,
     POSTGRES_PASSWORD,
     POSTGRES_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/postgres';
+} from '@app/ingestV2/source/builder/RecipeForm/postgres';
 import {
     ADMIN_APIS_ONLY,
     EXTRACT_ENDORSEMENTS_AS_TAGS,
@@ -158,20 +158,20 @@ import {
     POWERBI_TENANT_ID,
     WORKSPACE_ID_ALLOW,
     WORKSPACE_ID_DENY,
-} from '@app/ingest/source/builder/RecipeForm/powerbi';
+} from '@app/ingestV2/source/builder/RecipeForm/powerbi';
 import {
     PRESTO,
     PRESTO_DATABASE,
     PRESTO_HOST_PORT,
     PRESTO_PASSWORD,
     PRESTO_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/presto';
+} from '@app/ingestV2/source/builder/RecipeForm/presto';
 import {
     REDSHIFT_DATABASE,
     REDSHIFT_HOST_PORT,
     REDSHIFT_PASSWORD,
     REDSHIFT_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/redshift';
+} from '@app/ingestV2/source/builder/RecipeForm/redshift';
 import {
     FOLDER_ALLOW,
     FOLDER_DENY,
@@ -185,14 +185,14 @@ import {
     SAC_CLIENT_SECRET,
     SAC_TENANT_URL,
     SAC_TOKEN_URL,
-} from '@app/ingest/source/builder/RecipeForm/sac';
+} from '@app/ingestV2/source/builder/RecipeForm/sac';
 import {
     SNOWFLAKE_ACCOUNT_ID,
     SNOWFLAKE_PASSWORD,
     SNOWFLAKE_ROLE,
     SNOWFLAKE_USERNAME,
     SNOWFLAKE_WAREHOUSE,
-} from '@app/ingest/source/builder/RecipeForm/snowflake';
+} from '@app/ingestV2/source/builder/RecipeForm/snowflake';
 import {
     TABLEAU_CONNECTION_URI,
     TABLEAU_PASSWORD,
@@ -201,14 +201,14 @@ import {
     TABLEAU_TOKEN_NAME,
     TABLEAU_TOKEN_VALUE,
     TABLEAU_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/tableau';
+} from '@app/ingestV2/source/builder/RecipeForm/tableau';
 import {
     TRINO,
     TRINO_DATABASE,
     TRINO_HOST_PORT,
     TRINO_PASSWORD,
     TRINO_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/trino';
+} from '@app/ingestV2/source/builder/RecipeForm/trino';
 import {
     INCLUDE_COLUMN_LINEAGE,
     TOKEN,
@@ -219,7 +219,7 @@ import {
     UNITY_TABLE_ALLOW,
     UNITY_TABLE_DENY,
     WORKSPACE_URL,
-} from '@app/ingest/source/builder/RecipeForm/unity_catalog';
+} from '@app/ingestV2/source/builder/RecipeForm/unity_catalog';
 import {
     INCLUDE_MLMODELS,
     INCLUDE_PROJECTIONS,
@@ -229,7 +229,7 @@ import {
     VERTICA_HOST_PORT,
     VERTICA_PASSWORD,
     VERTICA_USERNAME,
-} from '@app/ingest/source/builder/RecipeForm/vertica';
+} from '@app/ingestV2/source/builder/RecipeForm/vertica';
 import {
     AZURE,
     BIGQUERY_BETA,
@@ -241,15 +241,15 @@ import {
     SAC,
     UNITY_CATALOG,
     VERTICA,
-} from '@app/ingest/source/builder/constants';
-import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
-import { HIVE } from '@app/ingest/source/conf/hive/hive';
-import { KAFKA } from '@app/ingest/source/conf/kafka/kafka';
-import { LOOKER } from '@app/ingest/source/conf/looker/looker';
-import { POSTGRES } from '@app/ingest/source/conf/postgres/postgres';
-import { REDSHIFT } from '@app/ingest/source/conf/redshift/redshift';
-import { SNOWFLAKE } from '@app/ingest/source/conf/snowflake/snowflake';
-import { TABLEAU } from '@app/ingest/source/conf/tableau/tableau';
+} from '@app/ingestV2/source/builder/constants';
+import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
+import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
+import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
+import { POSTGRES } from '@app/ingestV2/source/conf/postgres/postgres';
+import { REDSHIFT } from '@app/ingestV2/source/conf/redshift/redshift';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
+import { TABLEAU } from '@app/ingestV2/source/conf/tableau/tableau';
 
 export enum RecipeSections {
     Connection = 0,
