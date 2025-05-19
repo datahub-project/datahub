@@ -12,6 +12,7 @@ import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.rest.CatalogHandlers;
 import org.apache.iceberg.rest.requests.CreateTableRequest;
@@ -249,18 +250,35 @@ public class IcebergTableApiController extends AbstractIcebergController {
     OperationContext operationContext = opContext(request);
     DataHubIcebergWarehouse warehouse = warehouse(platformInstance, operationContext);
 
-    authorize(
-        operationContext,
-        warehouse,
-        renameTableRequest.source().namespace(),
-        DataOperation.MANAGE_TABLES,
-        false);
-    authorize(
-        operationContext,
-        warehouse,
-        renameTableRequest.destination().namespace(),
-        DataOperation.MANAGE_TABLES,
-        false);
+    ForbiddenException sourceAuthEx = null;
+    try {
+      authorize(
+          operationContext,
+          warehouse,
+          renameTableRequest.source().namespace(),
+          DataOperation.MANAGE_TABLES,
+          false);
+    } catch (ForbiddenException e) {
+      sourceAuthEx = e;
+    }
+    try {
+      authorize(
+          operationContext,
+          warehouse,
+          renameTableRequest.destination().namespace(),
+          DataOperation.MANAGE_TABLES,
+          false);
+    } catch (ForbiddenException e) {
+      throw sourceAuthEx == null
+          ? e
+          : new ForbiddenException(
+              "Data operation MANAGE_TABLES not authorized on %s & %s",
+              renameTableRequest.source().namespace(),
+              renameTableRequest.destination().namespace());
+    }
+    if (sourceAuthEx != null) {
+      throw sourceAuthEx;
+    }
 
     catalogOperation(
         warehouse,
