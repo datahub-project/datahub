@@ -3848,6 +3848,72 @@ class TableauSiteSource:
                     )
                 )
 
+            # Process upstream tables for more detailed lineage if available
+            upstream_tables = table.get("upstreamTables", [])
+            for upstream_table in upstream_tables:
+                # Skip if we can't identify the upstream table
+                if not upstream_table.get("id") or not upstream_table.get("name"):
+                    continue
+
+                # Create reference for the upstream table
+                try:
+                    upstream_ref = TableauUpstreamReference.create(
+                        upstream_table,
+                        default_schema_map=self.config.default_schema_map,
+                    )
+
+                    upstream_table_urn = upstream_ref.make_dataset_urn(
+                        self.config.env,
+                        self.config.platform_instance_map,
+                        self.config.lineage_overrides,
+                        self.config.database_hostname_to_platform_instance_map,
+                        self.database_server_hostname_map,
+                    )
+
+                    # Process columns from upstream table to create column-level lineage
+                    for upstream_column in upstream_table.get("columns", []):
+                        upstream_column_name = upstream_column.get("name")
+                        if not upstream_column_name:
+                            continue
+
+                        # Find matching columns in the virtual connection table
+                        for vc_column in table.get(c.COLUMNS, []):
+                            vc_column_name = vc_column.get(c.NAME)
+                            if not vc_column_name:
+                                continue
+
+                            # If names match, create lineage (this is a simple matching heuristic)
+                            if upstream_column_name == vc_column_name:
+                                upstream_field = builder.make_schema_field_urn(
+                                    parent_urn=upstream_table_urn,
+                                    field_path=upstream_column_name,
+                                )
+
+                                downstream_field = (
+                                    f"{table.get(c.NAME)}.{vc_column_name}"
+                                )
+
+                                fine_grained_lineages.append(
+                                    FineGrainedLineage(
+                                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                        downstreams=[
+                                            builder.make_schema_field_urn(
+                                                vc_urn, downstream_field
+                                            )
+                                        ],
+                                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                        upstreams=[upstream_field],
+                                        transformOperation="DIRECT_COPY",
+                                    )
+                                )
+                except Exception as e:
+                    self.report.warning(
+                        title="Virtual Connection Upstream Table Reference Error",
+                        message="Failed to generate upstream reference for upstream table in virtual connection",
+                        context=f"vc_table={table.get(c.NAME)}, upstream_table={upstream_table.get(c.NAME)}",
+                        exc=e,
+                    )
+
         except Exception as e:
             self.report.warning(
                 title="Column-Level Lineage Error",

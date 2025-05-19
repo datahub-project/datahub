@@ -469,18 +469,29 @@ virtual_connection_graphql_query = """
     tables {
         id
         name
-        schema
-        fullName
-        connectionType
-        database {
-            name
-            id
-            connectionType
-        }
         columns {
+            id
             name
             remoteType
             description
+        }
+        upstreamTables {
+            id
+            name
+            schema
+            fullName
+            connectionType
+            database {
+                name
+                id
+                connectionType
+            }
+            columns {
+                id
+                name
+                remoteType
+                description
+            }
         }
     }
     connectionAttributes {
