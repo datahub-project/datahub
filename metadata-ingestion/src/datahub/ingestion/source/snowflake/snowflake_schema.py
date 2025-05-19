@@ -475,26 +475,23 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
         schema_name = row["VIEW_SCHEMA"]
         logger.info(f"Mapping view {db_name}.{schema_name}.{row['VIEW_NAME']}")
-        if row["VIEW_DEFINITION"] == "" or row["VIEW_DEFINITION"] is None:
-            logger.info(
-                f"View definition is empty for {db_name}.{schema_name}.{row['VIEW_NAME']}, fetching from show views"
-            )
-            # we need to fetch the view definition from show views
-            cur = self.connection.query(
-                # TODO(gabe): optimize this to come up with more efficient LIKE patterns to group this fetching
-                SnowflakeQuery.show_single_view_for_database_and_schema(
-                    db_name, schema_name, row["VIEW_NAME"]
-                )
-            )
-            for result in cur:
-                logger.info(
-                    f"Fetched view definition for {db_name}.{schema_name}.{row['VIEW_NAME']}: {result['text']}"
-                )
-                row["VIEW_DEFINITION"] = result["text"]
-        else:
-            logger.info(
-                f"View definition is not empty for {db_name}.{schema_name}.{row['VIEW_NAME']}"
-            )
+        row["VIEW_DEFINITION"] = ""
+        # if row["VIEW_DEFINITION"] == "" or row["VIEW_DEFINITION"] is None:
+        #     logger.info(f"View definition is empty for {db_name}.{schema_name}.{row['VIEW_NAME']}, fetching from show views")
+        #     # we need to fetch the view definition from show views
+        #     cur = self.connection.query(
+        #         # TODO(gabe): optimize this to come up with more efficient LIKE patterns to group this fetching
+        #         SnowflakeQuery.show_single_view_for_database_and_schema(
+        #             db_name, schema_name, row["VIEW_NAME"]
+        #         )
+        #     )
+        #     for result in cur:
+        #         logger.info(
+        #             f"Fetched view definition for {db_name}.{schema_name}.{row['VIEW_NAME']}: {result['text']}"
+        #         )
+        #         row["VIEW_DEFINITION"] = result["text"]
+        # else:
+        #     logger.info(f"View definition is not empty for {db_name}.{schema_name}.{row['VIEW_NAME']}")
 
         return schema_name, SnowflakeView(
             name=row["VIEW_NAME"],
@@ -506,6 +503,88 @@ class SnowflakeDataDictionary(SupportsAsObj):
             # TODO: This doesn't work for materialized views.
             materialized=False,
         )
+
+    def _populate_empty_view_definitions(
+        self,
+        db_name: str,
+        schema_name: str,
+        views_with_empty_definition: List[SnowflakeView],
+    ) -> List[SnowflakeView]:
+        if not views_with_empty_definition:
+            return views_with_empty_definition
+
+        view_names = [view.name for view in views_with_empty_definition]
+        batches = build_prefix_batches(
+            view_names, max_batch_size=1000, max_groups_in_batch=1
+        )
+
+        view_map: Dict[str, SnowflakeView] = {
+            view.name: view for view in views_with_empty_definition
+        }
+        views_found_count = 0
+
+        logger.info(
+            f"Fetching definitions for {len(view_map)} views in {db_name}.{schema_name} "
+            f"using batched 'SHOW VIEWS ... LIKE ...' queries. Found {len(batches)} batch(es)."
+        )
+
+        for batch_index, prefix_groups_list_for_current_batch in enumerate(batches):
+            if not prefix_groups_list_for_current_batch:  # Defensive check
+                logger.warning(
+                    f"Skipping empty list of prefix groups in batch {batch_index + 1}/{len(batches)} for {db_name}.{schema_name}."
+                )
+                continue
+
+            # Due to max_groups_in_batch=1, this list is expected to contain a single PrefixGroup.
+            prefix_group = prefix_groups_list_for_current_batch[0]
+
+            query = f'SHOW VIEWS LIKE \'{prefix_group.prefix}%\' IN SCHEMA "{db_name}"."{schema_name}"'
+
+            logger.info(
+                f"Processing batch {batch_index + 1}/{len(batches)} for {db_name}.{schema_name} "
+                f"with LIKE pattern: '{prefix_group.prefix}%'"
+            )
+
+            try:
+                cur = self.connection.query(query)
+                for row in cur:
+                    view_name = row["name"]
+                    if view_name in view_map:
+                        view_definition = row.get("text")
+                        if view_definition:  # Ensure definition is not None or empty
+                            view_map[view_name].view_definition = view_definition
+                            views_found_count += 1
+                            logger.debug(
+                                f"Fetched view definition for {db_name}.{schema_name}.{view_name}"
+                            )
+                            # If all targeted views are found, we could theoretically break early,
+                            # but SHOW VIEWS doesn't guarantee order, so we must process all results.
+                        else:
+                            logger.warning(
+                                f"'text' field missing or empty in SHOW VIEWS result for {db_name}.{schema_name}.{view_name}"
+                            )
+
+            except Exception as e:
+                logger.error(
+                    f"Failed to execute query for batch {batch_index + 1} ('{query}') for {db_name}.{schema_name} or process its results.",
+                    exc_info=e,
+                )
+                # Returning the original list; some views might still be missing definitions.
+                # This also means subsequent batches for this schema (in this call) are skipped.
+                return views_with_empty_definition
+
+        logger.info(
+            f"Finished processing 'SHOW VIEWS' batches for {db_name}.{schema_name}. "
+            f"Fetched definitions for {views_found_count} out of {len(view_map)} targeted views."
+        )
+
+        if views_found_count < len(view_map):
+            missing_count = len(view_map) - views_found_count
+            logger.warning(
+                f"Could not fetch definitions for {missing_count} views in {db_name}.{schema_name} after processing all batches."
+            )
+        # The SnowflakeView objects in the original list were modified in place via view_map
+        return views_with_empty_definition
 
     def _get_views_for_database_using_information_schema(
         self, db_name: str
@@ -520,9 +599,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return None
 
         views: Dict[str, List[SnowflakeView]] = {}
+        views_with_empty_definition: Dict[str, List[SnowflakeView]] = {}
+
         for row in cur:
             schema_name, view = self._map_view(db_name, row)
-            views.setdefault(schema_name, []).append(view)
+            if view.view_definition == "" or view.view_definition is None:
+                views_with_empty_definition.setdefault(schema_name, []).append(view)
+            else:
+                views.setdefault(schema_name, []).append(view)
+
+        for schema_name, empty_views in views_with_empty_definition.items():
+            updated_views = self._populate_empty_view_definitions(
+                db_name, schema_name, empty_views
+            )
+            views.setdefault(schema_name, []).extend(updated_views)
+
         return views
 
     def get_views_for_schema_using_information_schema(
@@ -531,7 +622,24 @@ class SnowflakeDataDictionary(SupportsAsObj):
         cur = self.connection.query(
             SnowflakeQuery.get_views_for_schema(schema_name, db_name),
         )
-        return [self._map_view(db_name, row)[1] for row in cur]
+
+        views: List[SnowflakeView] = []
+        views_with_empty_definition: List[SnowflakeView] = []
+
+        for row in cur:
+            schema_name, view = self._map_view(db_name, row)
+            if view.view_definition == "" or view.view_definition is None:
+                views_with_empty_definition.append(view)
+            else:
+                views.append(view)
+
+        if views_with_empty_definition:
+            updated_empty_views = self._populate_empty_view_definitions(
+                db_name, schema_name, views_with_empty_definition
+            )
+            views.extend(updated_empty_views)
+
+        return views
 
     @serialized_lru_cache(maxsize=SCHEMA_PARALLELISM)
     def get_columns_for_schema(
