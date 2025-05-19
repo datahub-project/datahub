@@ -591,7 +591,7 @@ public class PoliciesConfig {
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
                       EDIT_QUERIES_PRIVILEGE,
-                      // CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
+                      // CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE, TODO: Remove this once confirmed safe.
                       DATA_READ_ONLY_PRIVILEGE,
                       DATA_READ_WRITE_PRIVILEGE,
                       EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
