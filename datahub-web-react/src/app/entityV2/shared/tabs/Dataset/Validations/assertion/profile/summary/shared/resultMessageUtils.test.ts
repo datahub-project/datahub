@@ -186,4 +186,69 @@ describe('getFormattedActualVsExpectedText', () => {
         };
         expect(getFormattedActualVsExpectedTextForVolumeAssertion(run)).toBeUndefined();
     });
+
+    it('should handle one-sided ranges correctly', () => {
+        const run = {
+            ...baseRun,
+            result: {
+                type: AssertionResultType.Success,
+                assertion: {
+                    type: AssertionType.Volume,
+                    volumeAssertion: {
+                        type: VolumeAssertionType.RowCountTotal,
+                        entityUrn: 'test-entity-urn',
+                        rowCountTotal: {
+                            operator: AssertionStdOperator.LessThanOrEqualTo,
+                            parameters: {
+                                value: { value: '200', type: AssertionStdParameterType.Number },
+                            },
+                        },
+                    },
+                },
+                rowCount: 150,
+            },
+        };
+        const result = getFormattedActualVsExpectedTextForVolumeAssertion(run);
+        expect(result).toEqual({
+            actualText: '150',
+            expectedLowText: '',
+            expectedHighText: '200 or less',
+            expectedLowTextWithDecimals: '',
+            expectedHighTextWithDecimals: '200 or less',
+        });
+    });
+
+    it('should handle exclusive one-sided ranges correctly', () => {
+        const run = {
+            ...baseRun,
+            result: {
+                type: AssertionResultType.Success,
+                assertion: {
+                    type: AssertionType.Volume,
+                    volumeAssertion: {
+                        type: VolumeAssertionType.RowCountTotal,
+                        entityUrn: 'test-entity-urn',
+                        rowCountTotal: {
+                            operator: AssertionStdOperator.LessThan,
+                            parameters: {
+                                value: { value: '200', type: AssertionStdParameterType.Number },
+                            },
+                            context: {
+                                highType: 'exclusive',
+                            },
+                        },
+                    },
+                },
+                rowCount: 150,
+            },
+        };
+        const result = getFormattedActualVsExpectedTextForVolumeAssertion(run);
+        expect(result).toEqual({
+            actualText: '150',
+            expectedLowText: '',
+            expectedHighText: 'Less than 200',
+            expectedLowTextWithDecimals: '',
+            expectedHighTextWithDecimals: 'Less than 200',
+        });
+    });
 });
