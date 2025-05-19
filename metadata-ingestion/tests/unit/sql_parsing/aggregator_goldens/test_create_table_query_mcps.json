@@ -12,10 +12,11 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "CREATE",
-            "customProperties": {
-                "query_urn": "urn:li:query:f2e61c641cf14eae74147b6280ae40648516c4b7b58cfca6c4f7fb14ab255ce2"
-            },
-            "lastUpdatedTimestamp": 1707182625000
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1707182625000,
+            "queries": [
+                "urn:li:query:f2e61c641cf14eae74147b6280ae40648516c4b7b58cfca6c4f7fb14ab255ce2"
+            ]
         }
     }
 },
@@ -26,6 +27,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE OR REPLACE TABLE `dataset.foo` (\n  date_utc TIMESTAMP,\n  revenue INT64\n)",
                 "language": "SQL"

@@ -867,3 +867,18 @@ class HiveSource(TwoTierSQLAlchemySource):
                 return partition_column.get("column_names")
 
         return []
+
+    def get_table_properties(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
+        (description, properties, location) = super().get_table_properties(
+            inspector, schema, table
+        )
+
+        new_properties = {}
+        for key, value in properties.items():
+            if key and key[-1] == ":":
+                new_properties[key[:-1]] = value
+            else:
+                new_properties[key] = value
+        return (description, new_properties, location)

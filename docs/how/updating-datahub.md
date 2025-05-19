@@ -6,6 +6,8 @@
 
 ### Breaking Changes
 
+### Known Issues
+
 ### Potential Downtime
 
 ### Deprecations
@@ -22,6 +24,13 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
 - #13186: NoCode Migration Removed - This code hasn't been required in many years. If needed, a user should upgrade to DataHub 1.0.x prior to upgrading to a later version.
+- #13397: `async_flag` removed from rest emitter, replaced with emit mode ASYNC
+
+### Known Issues
+
+- #13397: Ingestion Rest Emitter
+  - ASYNC_WAIT/ASYNC - Async modes are impacted by kafka lag.
+  - SYNC_WAIT - Only available with OpenAPI ingestion
 
 ### Potential Downtime
 
@@ -29,7 +38,13 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
-- OpenAPI v3 Patching Improvements
+- #13165 - OpenAPI v3 Patching Improvements
+- #13397 - Ingestion Rest Emitter - Added EmitMode parameter for write guarantees.
+  - SYNC_WAIT: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
+  - SYNC_PRIMARY: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
+  - ASYNC: Queues the metadata change for asynchronous processing and returns immediately. The client continues execution without waiting for the change to be fully processed. Best for high-throughput scenarios where eventual consistency is acceptable.
+  - ASYNC_WAIT: Queues the metadata change asynchronously but blocks until confirmation that the write has been fully persisted. More efficient than fully synchronous operations due to backend parallelization and batching while still providing strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
+- #13499 - Added ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH configuration for ElasticSearch index config. If modified from the default, this configuration can have significant impact on search performance if changed and will trigger reindexing causing large delays in updates. Most users will not want to modify this.
 
 ## 1.0.0
 
@@ -52,6 +67,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #12601: Jetty 12 introduces a stricter handling of url encoding. We are currently applying a workaround to prevent a regression, while technically breaking the official specifications.
 - #12714: API Tracing requires at least one mutation of the aspect being updated using this version of DataHub.
 - #12797: See Breaking Change above. Entity Type names are case sensitive, this will result in 4xx exceptions when this rule is violated.
+- Python SDK v1.0.0.3 - direct accesses to the `server_config` property on `DataHubRestEmitter` can throw an unknown attribute error if `test_connection` is not called prior to directly accessing it as the default empty map initialization was removed. This is resolved in v1.1.0.
 
 ### Potential Downtime
 
@@ -60,7 +76,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Other Notable Changes
 
 - #12641: Adds a new MCP validator that prevents deletes of any `CorpUser` entity that has a newly introduced `CorpUserInfo#system` flag set to true.
-- #12433: Fixes the searchable annotations in the model supporting `Dashboard` to `Dashboard` lineage within the `DashboardInfo` aspect. Mainly, users of Sigma and PowerBI Apps ingestion may be affected by this adjustment. Consequently, a [reindex](https://datahubproject.io/docs/how/restore-indices/) will be automatically triggered during the system upgrade.
+- #12433: Fixes the searchable annotations in the model supporting `Dashboard` to `Dashboard` lineage within the `DashboardInfo` aspect. Mainly, users of Sigma and PowerBI Apps ingestion may be affected by this adjustment. Consequently, a [reindex](https://docs.datahub.com/docs/how/restore-indices/) will be automatically triggered during the system upgrade.
 
 ## 0.15.0
 
@@ -232,7 +248,7 @@ New (optional fields `systemMetadata` and `headers`):
 ### Other Notable Changes
 
 - #10498 - Tableau ingestion can now be configured to ingest multiple sites at once and add the sites as containers. The feature is currently only available for Tableau Server.
-- #10466 - Extends configuration in `~/.datahubenv` to match `DatahubClientConfig` object definition. See full configuration in https://datahubproject.io/docs/python-sdk/clients/. The CLI should now respect the updated configurations specified in `~/.datahubenv` across its functions and utilities. This means that for systems where ssl certification is disabled, setting `disable_ssl_verification: true` in `~./datahubenv` will apply to all CLI calls.
+- #10466 - Extends configuration in `~/.datahubenv` to match `DatahubClientConfig` object definition. See full configuration in https://docs.datahub.com/docs/python-sdk/clients/. The CLI should now respect the updated configurations specified in `~/.datahubenv` across its functions and utilities. This means that for systems where ssl certification is disabled, setting `disable_ssl_verification: true` in `~./datahubenv` will apply to all CLI calls.
 - #11002 - We will not auto-generate a `~/.datahubenv` file. You must either run `datahub init` to create that file, or set environment variables so that the config is loaded.
 - #11023 - Added a new parameter to datahub's `put` cli command: `--run-id`. This parameter is useful to associate a given write to an ingestion process. A use-case can be mimick transformers when a transformer for aspect being written does not exist.
 - #11051 - Ingestion reports will now trim the summary text to a maximum of 800k characters to avoid generating `dataHubExecutionRequestResult` that are too large for GMS to handle.
@@ -474,7 +490,7 @@ for example, using `datahub put` command. Policies can be also removed and re-cr
 **Upgrade Considerations:**
 
 - With the release of Browse V2, we have created a job to run in GMS that will backfill your existing data with new `browsePathsV2` aspects. This job loops over entity types that need a `browsePathsV2` aspect (Dataset, Dashboard, Chart, DataJob, DataFlow, MLModel, MLModelGroup, MLFeatureTable, and MLFeature) and generates one for them. For entities that may have Container parents (Datasets and Dashboards) we will try to fetch their parent containers in order to generate this new aspect. For those deployments with large amounts of data, consider whether running this upgrade job makes sense as it may be a heavy operation and take some time to complete. If you wish to skip this job, simply set the `BACKFILL_BROWSE_PATHS_V2` environment variable flag to `false` in your GMS container. Without this backfill job, though, you will need to rely on the newest CLI of ingestion to create these `browsePathsV2` aspects when running ingestion otherwise your browse sidebar will be out-of-sync.
-- Since the new browse experience replaces the old, consider whether having the `SHOW_BROWSE_V2` environment variable feature flag on is the right decision for your organization. If you’re creating custom browse paths with the `browsePaths` aspect, you can continue to do the same with the new experience, however you will have to generate `browsePathsV2` aspects instead which are documented [here](https://datahubproject.io/docs/browsev2/browse-paths-v2/).
+- Since the new browse experience replaces the old, consider whether having the `SHOW_BROWSE_V2` environment variable feature flag on is the right decision for your organization. If you’re creating custom browse paths with the `browsePaths` aspect, you can continue to do the same with the new experience, however you will have to generate `browsePathsV2` aspects instead which are documented [here](https://docs.datahub.com/docs/browsev2/browse-paths-v2/).
 
 ## 0.10.4
 
@@ -527,7 +543,7 @@ for example, using `datahub put` command. Policies can be also removed and re-cr
 ### Breaking Changes
 
 - #7103 This should only impact users who have configured explicit non-default names for DataHub's Kafka topics. The environment variables used to configure Kafka topics for DataHub used in the `kafka-setup` docker image have been updated to be in-line with other DataHub components, for more info see our docs on [Configuring Kafka in DataHub
-  ](https://datahubproject.io/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
+  ](https://docs.datahub.com/docs/how/kafka-config). They have been suffixed with `_TOPIC` where as now the correct suffix is `_TOPIC_NAME`. This change should not affect any user who is using default Kafka names.
 - #6906 The Redshift source has been reworked and now also includes usage capabilities. The old Redshift source was renamed to `redshift-legacy`. The `redshift-usage` source has also been renamed to `redshift-usage-legacy` will be removed in the future.
 
 ### Potential Downtime
@@ -660,7 +676,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 ### Breaking Changes
 
 - Browse Paths have been upgraded to a new format to align more closely with the intention of the feature.
-  Learn more about the changes, including steps on upgrading, here: <https://datahubproject.io/docs/advanced/browse-paths-upgrade>
+  Learn more about the changes, including steps on upgrading, here: <https://docs.datahub.com/docs/advanced/browse-paths-upgrade>
 - The dbt ingestion source's `disable_dbt_node_creation` and `load_schema` options have been removed. They were no longer necessary due to the recently added sibling entities functionality.
 - The `snowflake` source now uses newer faster implementation (earlier `snowflake-beta`). Config properties `provision_role` and `check_role_grants` are not supported. Older `snowflake` and `snowflake-usage` are available as `snowflake-legacy` and `snowflake-usage-legacy` sources respectively.
 
@@ -695,7 +711,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 
 ### Breaking Changes
 
-- The `should_overwrite` flag in `csv-enricher` has been replaced with `write_semantics` to match the format used for other sources. See the [documentation](https://datahubproject.io/docs/generated/ingestion/sources/csv-enricher/) for more details
+- The `should_overwrite` flag in `csv-enricher` has been replaced with `write_semantics` to match the format used for other sources. See the [documentation](https://docs.datahub.com/docs/generated/ingestion/sources/csv-enricher/) for more details
 - Closing an authorization hole in creating tags adding a Platform Privilege called `Create Tags` for creating tags. This is assigned to `datahub` root user, along
   with default All Users policy. Notice: You may need to add this privilege (or `Manage Tags`) to existing users that need the ability to create tags on the platform.
 - #5329 Below profiling config parameters are now supported in `BigQuery`:
@@ -763,7 +779,7 @@ Helm with `--atomic`: In general, it is recommended to not use the `--atomic` se
 
 ### Breaking Changes
 
-- In this release we introduce a brand new Business Glossary experience. With this new experience comes some new ways of indexing data in order to make viewing and traversing the different levels of your Glossary possible. Therefore, you will have to [restore your indices](https://datahubproject.io/docs/how/restore-indices/) in order for the new Glossary experience to work for users that already have existing Glossaries. If this is your first time using DataHub Glossaries, you're all set!
+- In this release we introduce a brand new Business Glossary experience. With this new experience comes some new ways of indexing data in order to make viewing and traversing the different levels of your Glossary possible. Therefore, you will have to [restore your indices](https://docs.datahub.com/docs/how/restore-indices/) in order for the new Glossary experience to work for users that already have existing Glossaries. If this is your first time using DataHub Glossaries, you're all set!
 
 ### Potential Downtime
 

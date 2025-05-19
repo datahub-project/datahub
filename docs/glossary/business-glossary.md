@@ -149,7 +149,7 @@ and remove new Terms from the `PII` Classification, e.g. without requiring re-an
 
 ## Demo
 
-Check out [our demo site](https://demo.datahubproject.io/glossary) to see an example Glossary and how it works!
+Check out [our demo site](https://demo.datahub.com/glossary) to see an example Glossary and how it works!
 
 ### GraphQL
 
@@ -165,7 +165,7 @@ You can easily fetch the Glossary Terms for an entity with a given its URN using
 
 ## Resources
 
-- [Creating a Business Glossary and Putting it to use in DataHub](https://blog.datahubproject.io/creating-a-business-glossary-and-putting-it-to-use-in-datahub-43a088323c12)
+- [Creating a Business Glossary and Putting it to use in DataHub](https://medium.com/datahub-project/creating-a-business-glossary-and-putting-it-to-use-in-datahub-43a088323c12)
 - [Tags and Terms: Two Powerful DataHub Features, Used in Two Different Scenarios](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e)
 
 ## Feedback / Questions / Concerns

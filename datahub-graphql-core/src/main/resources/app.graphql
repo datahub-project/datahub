@@ -193,6 +193,42 @@ type SearchBarConfig {
 }
 
 """
+Variants of APIs used in the Search bar to get data
+"""
+enum PersonalSidebarSection {
+  """
+  The section containing groups you are in
+  """
+  YOUR_GROUPS
+  """
+  The section containing assets you own
+  """
+  YOUR_ASSETS
+  """
+  The section containing domains you own
+  """
+  YOUR_DOMAINS
+  """
+  The section containing glossary nodes you own
+  """
+  YOUR_GLOSSARY_NODES
+  """
+  The section containing tags you own
+  """
+  YOUR_TAGS
+}
+
+"""
+Configurations related to the Search bar
+"""
+type HomePageConfig {
+  """
+  The section that comes first on the personal sidebar on the homepage
+  """
+  firstInPersonalSidebar: PersonalSidebarSection!
+}
+
+"""
 Config loaded at application boot time
 This configuration dictates the behavior of the UI, such as which features are enabled or disabled
 """
@@ -266,6 +302,11 @@ type AppConfig {
   Configuration related to the DataHub Chrome Extension
   """
   chromeExtensionConfig: ChromeExtensionConfig!
+
+  """
+  Configuration related to the home page
+  """
+  homePageConfig: HomePageConfig!
 }
 
 """
@@ -311,6 +352,11 @@ type VisualConfig {
   Show full title in lineage view by default
   """
   showFullTitleInLineage: Boolean
+
+  """
+  Configuration for custom theme-ing
+  """
+  theme: ThemeConfig
 }
 
 """
@@ -531,7 +577,7 @@ type FeatureFlagsConfig {
   lineageGraphV2: Boolean!
 
   """
-  Whether we should show CTAs in the UI related to moving to DataHub Cloud by Acryl.
+  Whether we should show CTAs in the UI related to moving to DataHub Cloud by DataHub.
   """
   showAcrylInfo: Boolean!
   """
@@ -641,6 +687,16 @@ type FeatureFlagsConfig {
   If enabled, users will be able to view the tags management experience
   """
   showManageTags: Boolean!
+
+  """
+  If enabled, we will show the introduce page in the V2 UI experience to add a title and select platforms
+  """
+  showIntroducePage: Boolean!
+
+  """
+  If turned on, show the re-designed Ingestions page
+  """
+  showIngestionPageRedesign: Boolean!
 }
 
 """
@@ -697,4 +753,14 @@ type ChromeExtensionConfig {
   Whether lineage is enabled
   """
   lineageEnabled: Boolean!
+}
+
+"""
+Configuration for any custom theme-ing
+"""
+type ThemeConfig {
+  """
+  The optional custom theme ID to determine which theme config we use in the frontend
+  """
+  themeId: String
 }

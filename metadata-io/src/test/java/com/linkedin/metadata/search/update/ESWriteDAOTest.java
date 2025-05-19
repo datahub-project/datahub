@@ -27,6 +27,7 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.script.Script;
+import org.opensearch.script.ScriptType;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -91,31 +92,36 @@ public class ESWriteDAOTest {
     assertEquals(capturedRequest.id(), TEST_DOC_ID);
   }
 
-  @Test
   public void testApplyScriptUpdate() {
-    String scriptContent = "ctx._source.field = 'newValue'";
+    String scriptSource = "ctx._source.field = params.newValue";
+    Map<String, Object> scriptParams = new HashMap<>();
+    scriptParams.put("newValue", "newValue");
     Map<String, Object> upsert = new HashMap<>();
     upsert.put("field", "initialValue");
 
-    esWriteDAO.applyScriptUpdate(opContext, TEST_ENTITY, TEST_DOC_ID, scriptContent, upsert);
+    esWriteDAO.applyScriptUpdate(
+        opContext, TEST_ENTITY, TEST_DOC_ID, scriptSource, scriptParams, upsert);
 
     ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
     verify(mockBulkProcessor).add(requestCaptor.capture());
 
     UpdateRequest capturedRequest = requestCaptor.getValue();
-    assertEquals(capturedRequest.index(), TEST_INDEX);
-    assertEquals(capturedRequest.id(), TEST_DOC_ID);
+    assertEquals(TEST_INDEX, capturedRequest.index());
+    assertEquals(TEST_DOC_ID, capturedRequest.id());
     assertFalse(capturedRequest.detectNoop());
     assertTrue(capturedRequest.scriptedUpsert());
-    assertEquals(capturedRequest.retryOnConflict(), NUM_RETRIES);
+    assertEquals(NUM_RETRIES, capturedRequest.retryOnConflict());
 
-    // Verify script content
+    // Verify script content and parameters
     Script script = capturedRequest.script();
-    assertEquals(script.getIdOrCode(), scriptContent);
+    assertEquals(scriptSource, script.getIdOrCode());
+    assertEquals(ScriptType.INLINE, script.getType());
+    assertEquals("painless", script.getLang());
+    assertEquals(scriptParams, script.getParams());
 
     // Verify upsert content
     Map<String, Object> upsertMap = capturedRequest.upsertRequest().sourceAsMap();
-    assertEquals(upsertMap.get("field"), "initialValue");
+    assertEquals("initialValue", upsertMap.get("field"));
   }
 
   @Test

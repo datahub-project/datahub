@@ -6,10 +6,10 @@ import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const ActionButton = styled.div<{ privilege: boolean }>`
     color: ${(props) =>
-        props.privilege ? `${REDESIGN_COLORS.TITLE_PURPLE}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
+        props.privilege ? `${props.theme.styles['primary-color']}` : `${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     border: ${(props) =>
         props.privilege
-            ? `1px solid ${REDESIGN_COLORS.TITLE_PURPLE}`
+            ? `1px solid ${props.theme.styles['primary-color']}`
             : `1px solid ${REDESIGN_COLORS.SECONDARY_LIGHT_GREY}`};
     ${(props) => (props.privilege ? 'cursor: pointer;' : 'pointer-events: none;')}
     height: 20px;
@@ -26,7 +26,7 @@ export const ActionButton = styled.div<{ privilege: boolean }>`
             props.privilege &&
             `
         color: ${REDESIGN_COLORS.WHITE};
-        background: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background: ${props.theme.styles['primary-color']};
         `}
     
 `;

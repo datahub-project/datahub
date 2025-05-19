@@ -8,6 +8,6 @@ datahub:
 source:
   type: "datahub-cloud"
 # 3. Action: What action to take on events. 
-# To learn how to develop a custom Action, see https://datahubproject.io/docs/actions/guides/developing-an-action	
+# To learn how to develop a custom Action, see https://docs.datahub.com/docs/actions/guides/developing-an-action	
 action:
   type: "hello_world"

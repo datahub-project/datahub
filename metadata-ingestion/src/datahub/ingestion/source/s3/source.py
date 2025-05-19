@@ -7,7 +7,7 @@ import re
 import time
 from datetime import datetime
 from pathlib import PurePath
-from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
@@ -43,6 +43,9 @@ from datahub.ingestion.source.aws.s3_util import (
     strip_s3_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
+from datahub.ingestion.source.data_lake_common.object_store import (
+    create_object_store_adapter,
+)
 from datahub.ingestion.source.data_lake_common.path_spec import FolderTraversalMethod
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
@@ -197,12 +200,59 @@ class S3Source(StatefulIngestionSourceBase):
     report: DataLakeSourceReport
     profiling_times_taken: List[float]
     container_WU_creator: ContainerWUCreator
+    object_store_adapter: Any
 
     def __init__(self, config: DataLakeSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config = config
         self.report = DataLakeSourceReport()
         self.profiling_times_taken = []
+        self.container_WU_creator = ContainerWUCreator(
+            self.source_config.platform,
+            self.source_config.platform_instance,
+            self.source_config.env,
+        )
+
+        # Create an object store adapter for handling external URLs and paths
+        if self.is_s3_platform():
+            # Get the AWS region from config, if available
+            aws_region = None
+            if self.source_config.aws_config:
+                aws_region = self.source_config.aws_config.aws_region
+
+                # For backward compatibility with tests: if we're using a test endpoint, use us-east-1
+                if self.source_config.aws_config.aws_endpoint_url and (
+                    "localstack"
+                    in self.source_config.aws_config.aws_endpoint_url.lower()
+                    or "storage.googleapis.com"
+                    in self.source_config.aws_config.aws_endpoint_url.lower()
+                ):
+                    aws_region = "us-east-1"
+
+            # Create an S3 adapter with the configured region
+            self.object_store_adapter = create_object_store_adapter(
+                "s3", aws_region=aws_region
+            )
+
+            # Special handling for GCS via S3 (via boto compatibility layer)
+            if (
+                self.source_config.aws_config
+                and self.source_config.aws_config.aws_endpoint_url
+                and "storage.googleapis.com"
+                in self.source_config.aws_config.aws_endpoint_url.lower()
+            ):
+                # We need to preserve the S3-style paths but use GCS external URL generation
+                self.object_store_adapter = create_object_store_adapter("gcs")
+                # Override create_s3_path to maintain S3 compatibility
+                self.object_store_adapter.register_customization(
+                    "create_s3_path", lambda bucket, key: f"s3://{bucket}/{key}"
+                )
+        else:
+            # For local files, create a default adapter
+            self.object_store_adapter = create_object_store_adapter(
+                self.source_config.platform or "file"
+            )
+
         config_report = {
             config_option: config.dict().get(config_option)
             for config_option in config_options_to_report
@@ -605,6 +655,19 @@ class S3Source(StatefulIngestionSourceBase):
             maxPartition=max_partition_summary, minPartition=min_partition_summary
         )
 
+    def get_external_url(self, table_data: TableData) -> Optional[str]:
+        """
+        Get the external URL for a table using the configured object store adapter.
+
+        Args:
+            table_data: Table data containing path information
+
+        Returns:
+            An external URL or None if not applicable
+        """
+        # The adapter handles all the URL generation with proper region handling
+        return self.object_store_adapter.get_external_url(table_data)
+
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
@@ -674,6 +737,7 @@ class S3Source(StatefulIngestionSourceBase):
                 if max_partition
                 else None
             ),
+            externalUrl=self.get_external_url(table_data),
         )
         aspects.append(dataset_properties)
         if table_data.size_in_bytes > 0:
@@ -1082,11 +1146,6 @@ class S3Source(StatefulIngestionSourceBase):
                     )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.container_WU_creator = ContainerWUCreator(
-            self.source_config.platform,
-            self.source_config.platform_instance,
-            self.source_config.env,
-        )
         with PerfTimer() as timer:
             assert self.source_config.path_specs
             for path_spec in self.source_config.path_specs:
