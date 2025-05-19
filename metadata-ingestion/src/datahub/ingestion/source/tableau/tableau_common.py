@@ -457,47 +457,40 @@ database_servers_graphql_query = """
 
 virtual_connection_graphql_query = """
 {
+  id
+  name
+  luid
+  description
+  createdAt
+  updatedAt
+  owner {
+    username
+  }
+  tables {
     id
     name
-    luid
-    description
-    createdAt
-    updatedAt
-    owner {
-        username
-    }
-    tables {
+    columns {
+      id
+      name
+      remoteType
+      description
+      upstreamFields {
         id
         name
-        columns {
-            id
-            name
-            remoteType
-            description
-            upstreamFields {
-                id
-                name
-                dataType
-                table {
-                    id
-                    name
-                    fullName
-                    connection {
-                        id
-                        name
-                        connectionType
-                    }
-                }
-            }
+        description
+        upstreamDatasources {
+          id
         }
+        datasource {
+          id
+          name
+        }
+      }
     }
-    project {
-        id
-        name
-    }
-    tags {
-        name
-    }
+  }
+  tags {
+    name
+  }
 }
 """
 
