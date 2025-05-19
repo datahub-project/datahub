@@ -12,7 +12,6 @@ import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { HOME_PAGE_PLATFORMS_ID } from '@app/onboarding/config/HomePageOnboardingConfig';
 import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEducationStepsAllowList';
 import { Carousel } from '@app/sharedV2/carousel/Carousel';
-import { OnboardingCards } from '@app/homeV2/content/tabs/discovery/sections/onboarding/OnboardingCards';
 
 const SkeletonCard = styled(Skeleton.Button)<{ width: string }>`
     &&& {
@@ -38,10 +37,6 @@ export const Platforms = () => {
     };
 
     const showSkeleton = isUserInitializing || !user || loading;
-
-    if (!loading && !platforms.length) {
-        return <OnboardingCards />;
-    }
 
     return (
         <div id={HOME_PAGE_PLATFORMS_ID}>
