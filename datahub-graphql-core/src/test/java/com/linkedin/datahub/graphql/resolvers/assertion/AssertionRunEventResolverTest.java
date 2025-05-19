@@ -5,10 +5,14 @@ import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.anomaly.AnomalySource;
+import com.linkedin.anomaly.AnomalySourceType;
+import com.linkedin.anomaly.MonitorAnomalyEvent;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.common.TimeStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Assertion;
@@ -17,6 +21,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.SystemMetadata;
 import graphql.schema.DataFetchingEnvironment;
@@ -28,8 +33,10 @@ public class AssertionRunEventResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
+    AssertionService mockAssertionService = Mockito.mock(AssertionService.class);
 
     final Urn assertionUrn = Urn.createFromString("urn:li:assertion:guid-1");
+    final Urn monitorUrn = Urn.createFromString("urn:li:monitor:guid-2");
     final Urn asserteeUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
     final AssertionRunEvent gmsRunEvent =
         new AssertionRunEvent()
@@ -45,6 +52,13 @@ public class AssertionRunEventResolverTest {
                     .setRowCount(1L)
                     .setType(AssertionResultType.SUCCESS)
                     .setUnexpectedCount(2L));
+
+    final MonitorAnomalyEvent gmsAnomalyEvent =
+        new MonitorAnomalyEvent()
+            .setTimestampMillis(12L)
+            .setLastUpdated(new TimeStamp().setTime(0L))
+            .setCreated(new TimeStamp().setTime(0L))
+            .setSource(new AnomalySource().setType(AnomalySourceType.USER_FEEDBACK));
 
     Mockito.when(
             mockClient.getTimeseriesAspectValues(
@@ -64,7 +78,26 @@ public class AssertionRunEventResolverTest {
                     .setAspect(GenericRecordUtils.serializeAspect(gmsRunEvent))
                     .setSystemMetadata(new SystemMetadata().setLastObserved(12L))));
 
-    AssertionRunEventResolver resolver = new AssertionRunEventResolver(mockClient);
+    Mockito.when(mockAssertionService.getMonitorUrnForAssertion(any(), Mockito.eq(assertionUrn)))
+        .thenReturn(monitorUrn);
+    Mockito.when(
+            mockClient.getTimeseriesAspectValues(
+                any(),
+                Mockito.eq(monitorUrn.toString()),
+                Mockito.eq(Constants.MONITOR_ENTITY_NAME),
+                Mockito.eq(Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME),
+                Mockito.eq(0L),
+                Mockito.eq(10L),
+                Mockito.eq(5),
+                Mockito.isNull()))
+        .thenReturn(
+            ImmutableList.of(
+                new EnvelopedAspect()
+                    .setAspect(GenericRecordUtils.serializeAspect(gmsAnomalyEvent))
+                    .setSystemMetadata(new SystemMetadata().setLastObserved(12L))));
+
+    AssertionRunEventResolver resolver =
+        new AssertionRunEventResolver(mockClient, mockAssertionService);
 
     // Execute resolver
     QueryContext mockContext = Mockito.mock(QueryContext.class);
@@ -100,6 +133,19 @@ public class AssertionRunEventResolverTest {
             Mockito.eq(5),
             Mockito.any(Filter.class));
 
+    Mockito.verify(mockAssertionService, Mockito.times(1))
+        .getMonitorUrnForAssertion(any(), Mockito.eq(assertionUrn));
+    Mockito.verify(mockClient, Mockito.times(1))
+        .getTimeseriesAspectValues(
+            any(),
+            Mockito.eq(monitorUrn.toString()),
+            Mockito.eq(Constants.MONITOR_ENTITY_NAME),
+            Mockito.eq(Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME),
+            Mockito.eq(0L),
+            Mockito.eq(10L),
+            Mockito.eq(5),
+            Mockito.isNull());
+
     // Assert that GraphQL assertion run event matches expectations
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getFailed(), 0);
@@ -123,5 +169,8 @@ public class AssertionRunEventResolverTest {
     assertEquals(
         graphqlRunEvent.getResult().getType(),
         com.linkedin.datahub.graphql.generated.AssertionResultType.SUCCESS);
+    assertEquals(
+        graphqlRunEvent.getAnomalyEvent().getTimestampMillis(),
+        gmsAnomalyEvent.getTimestampMillis());
   }
 }

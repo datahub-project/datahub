@@ -975,6 +975,13 @@ extend type Assertion {
   monitor: Monitor
 }
 
+extend type AssertionRunEvent {
+  """
+  The anomaly event that was raised for this run event, if any.
+  """
+  anomalyEvent: MonitorAnomalyEvent
+}
+
 input ReportAnomalyInput {
   """
   The urn of the monitor that we're reporting an anomaly for.
