@@ -22,7 +22,6 @@ def test_datajob_basic(pytestconfig: pytest.Config) -> None:
 
     # Create a basic datajob
     job = DataJob(
-        platform="airflow",
         id="example_task",
         flow_urn=flow.urn,
     )
@@ -73,8 +72,6 @@ def test_datajob_complex() -> None:
 
     # Create a complex datajob with all attributes
     job = DataJob(
-        platform="airflow",
-        platform_instance="my_instance",
         id="complex_task",
         flow_urn=flow.urn,
         name="Complex Task",
@@ -90,6 +87,7 @@ def test_datajob_complex() -> None:
         owners=[
             CorpUserUrn("admin@datahubproject.io"),
         ],
+        platform_instance="my_instance",
     )
 
     # Check attributes
@@ -112,6 +110,8 @@ def test_datajob_complex() -> None:
         str(job.urn.get_data_flow_urn())
         == "urn:li:dataFlow:(airflow,my_instance.example_dag,PROD)"
     )
+
+    assert job.flow_urn == "urn:li:dataFlow:(airflow,my_instance.example_dag,PROD)"
 
     # Validate golden file
     assert_entity_golden(job, _GOLDEN_DIR / "test_datajob_complex_golden.json")

@@ -21,7 +21,8 @@
             "name": "example_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "flowUrn": "urn:li:dataFlow:(airflow,example_dag,PROD)"
         }
     }
 }

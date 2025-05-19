@@ -65,10 +65,9 @@ class DataJob(
         # Identity
         id: str,
         flow_urn: DataflowUrnOrStr,
-        platform: str,
         name: Optional[str] = None,
+        platform: Optional[str] = None,
         platform_instance: Optional[str] = None,
-        # Data job properties
         description: Optional[str] = None,
         external_url: Optional[str] = None,
         custom_properties: Optional[Dict[str, str]] = None,
@@ -90,6 +89,8 @@ class DataJob(
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
 
+        if platform is None:
+            platform = self.urn.get_data_flow_urn().orchestrator
         self._set_platform_instance(platform, platform_instance)
 
         # Initialize DataJobInfoClass with default type
@@ -98,6 +99,7 @@ class DataJob(
             type=AzkabanJobTypeClass.COMMAND,  # Default type
         )
         self._setdefault_aspect(job_info)
+        self._ensure_datajob_props().flowUrn = str(flow_urn)
 
         # Set properties if provided
         if description is not None:
@@ -230,3 +232,12 @@ class DataJob(
     def set_last_modified(self, last_modified: datetime) -> None:
         """Set the last modification timestamp of the data job."""
         self._ensure_datajob_props().lastModified = make_time_stamp(last_modified)
+
+    @property
+    def flow_urn(self) -> Optional[str]:
+        """Get the URN of the data flow associated with the data job."""
+        return str(self._ensure_datajob_props().flowUrn)
+
+    def set_flow_urn(self, flow_urn: str) -> None:
+        """Set the URN of the data flow associated with the data job."""
+        self._ensure_datajob_props().flowUrn = flow_urn

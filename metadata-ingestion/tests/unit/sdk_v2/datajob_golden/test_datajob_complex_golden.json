@@ -27,6 +27,7 @@
             "type": {
                 "string": "COMMAND"
             },
+            "flowUrn": "urn:li:dataFlow:(airflow,my_instance.example_dag,PROD)",
             "created": {
                 "time": 1735787045000
             },
