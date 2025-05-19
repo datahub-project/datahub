@@ -97,13 +97,13 @@ class DatabricksSource(Source):
 
     def _get_num_rows_via_count(
         self, database_params: DatabaseParams, filter_sql: str
-    ) -> int:
+    ) -> Optional[int]:
         query = setup_row_count_query(
             self._get_database_string(database_params),
             filter_sql,
         )
         resp = self._execute_fetchone_query(query)
-        return resp[0] if resp else 0
+        return resp[0] if resp else None
 
     def _get_operation_types_filter(
         self, operation_types: Optional[List[str]]
@@ -326,7 +326,7 @@ class DatabricksSource(Source):
         operation_params: SourceOperationParams,
         filter_sql: str,
         current_field_value: str,
-    ) -> int:
+    ) -> Optional[int]:
         # if this is a date or timestamp we need to convert
         if (
             column_type.upper()
@@ -343,7 +343,7 @@ class DatabricksSource(Source):
             current_field_value,
         )
         resp = self._execute_fetchone_query(get_count_query)
-        return resp[0] if resp else 0
+        return resp[0] if resp else None
 
     def _convert_value_for_comparison(self, column_value: str, column_type: str) -> str:
         return convert_value_for_comparison(column_value, column_type.upper())

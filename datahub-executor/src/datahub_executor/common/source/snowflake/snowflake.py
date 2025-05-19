@@ -332,7 +332,7 @@ class SnowflakeSource(Source):
         operation_params: SourceOperationParams,
         filter_sql: str,
         current_field_value: str,
-    ) -> int:
+    ) -> Optional[int]:
         # if this is a date or timestamp we need to convert
         if (
             column_type in self._get_supported_high_watermark_date_and_time_types()
@@ -349,9 +349,11 @@ class SnowflakeSource(Source):
             current_field_value,
         )
         resp = self._execute_fetchone_query(get_count_query)
-        return resp[0] if resp else 0
+        return resp[0] if resp else None
 
-    def _get_num_rows_via_stats_table(self, database_params: DatabaseParams) -> int:
+    def _get_num_rows_via_stats_table(
+        self, database_params: DatabaseParams
+    ) -> Optional[int]:
         query = f"""
             SELECT row_count
             FROM {database_params.catalog.upper()}.information_schema.tables
@@ -361,11 +363,11 @@ class SnowflakeSource(Source):
 
         logger.debug(query)
         resp = self._execute_fetchone_query(query)
-        return resp[0] if resp else 0
+        return resp[0] if resp else None
 
     def _get_num_rows_via_count(
         self, database_params: DatabaseParams, filter_sql: str
-    ) -> int:
+    ) -> Optional[int]:
         query = setup_row_count_query(
             self._get_database_string(database_params),
             filter_sql,
@@ -373,4 +375,4 @@ class SnowflakeSource(Source):
 
         logger.debug(query)
         resp = self._execute_fetchone_query(query)
-        return resp[0] if resp else 0
+        return resp[0] if resp else None

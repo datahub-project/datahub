@@ -15,6 +15,7 @@ from datahub_executor.common.exceptions import (
     AssertionResultException,
     CustomSQLErrorException,
     FieldAssertionErrorException,
+    InsufficientDataException,
     InvalidParametersException,
     InvalidSourceTypeException,
     SourceQueryFailedException,
@@ -80,12 +81,14 @@ class Source:
     ) -> List[EntityEvent]:
         raise NotImplementedError()
 
-    def _get_num_rows_via_stats_table(self, database_params: DatabaseParams) -> int:
+    def _get_num_rows_via_stats_table(
+        self, database_params: DatabaseParams
+    ) -> Optional[int]:
         raise NotImplementedError()
 
     def _get_num_rows_via_count(
         self, database_params: DatabaseParams, filter_sql: str
-    ) -> int:
+    ) -> Optional[int]:
         raise NotImplementedError()
 
     def _get_single_value_from_custom_sql(self, custom_sql: str) -> Union[int, float]:
@@ -114,7 +117,7 @@ class Source:
         operation_params: SourceOperationParams,
         filter_sql: str,
         current_field_value: str,
-    ) -> int:
+    ) -> Optional[int]:
         raise NotImplementedError()
 
     def _get_high_watermark_for_column(
@@ -154,6 +157,10 @@ class Source:
                 filter_sql,
                 current_field_value,
             )
+            if current_row_count is None:
+                raise InsufficientDataException(
+                    f"No row count data found for column {column_name} with type {column_type}.",
+                )
             return (str(current_field_value), current_row_count)
 
         raise InvalidParametersException(
@@ -317,7 +324,7 @@ class Source:
         database_params: DatabaseParams,
         volume_parameters: DatasetVolumeAssertionParameters,
         filter_params: Optional[dict],
-    ) -> int:
+    ) -> Optional[int]:
         if volume_parameters.source_type == DatasetVolumeSourceType.INFORMATION_SCHEMA:
             return self._get_num_rows_via_stats_table(database_params)
         elif volume_parameters.source_type == DatasetVolumeSourceType.QUERY:
@@ -335,7 +342,7 @@ class Source:
         database_parameters: AssertionDatabaseParams,
         volume_parameters: DatasetVolumeAssertionParameters,
         filter_params: Optional[dict],
-    ) -> int:
+    ) -> Optional[int]:
         database_params = self._get_database_params(entity_urn, database_parameters)
         return self._get_row_count(database_params, volume_parameters, filter_params)
 

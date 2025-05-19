@@ -373,7 +373,7 @@ class BigQuerySource(Source):
         operation_params: SourceOperationParams,
         filter_sql: str,
         current_field_value: str,
-    ) -> int:
+    ) -> Optional[int]:
         # if this is a date or timestamp we need to convert
         if (
             column_type in self._get_supported_high_watermark_date_and_time_types()
@@ -391,7 +391,10 @@ class BigQuerySource(Source):
         )
 
         try:
+            # This should be a single row since it is a count * query
             rows = self._execute_fetchall_query(get_count_query)
+            if len(rows) == 0:
+                return None
             current_row_count = 0
             for row in rows:
                 current_row_count = row[0]
@@ -409,7 +412,9 @@ class BigQuerySource(Source):
                 query=get_count_query,
             )
 
-    def _get_num_rows_via_stats_table(self, database_params: DatabaseParams) -> int:
+    def _get_num_rows_via_stats_table(
+        self, database_params: DatabaseParams
+    ) -> Optional[int]:
         query = f"""
             SELECT row_count
             FROM {database_params.project}.`{database_params.dataset}`.__TABLES__
@@ -419,6 +424,8 @@ class BigQuerySource(Source):
 
         try:
             rows = self._execute_fetchall_query(query)
+            if len(rows) == 0:
+                return None
             current_row_count = 0
             for row in rows:
                 current_row_count = int(row[0])
@@ -438,7 +445,7 @@ class BigQuerySource(Source):
 
     def _get_num_rows_via_count(
         self, database_params: DatabaseParams, filter_sql: str
-    ) -> int:
+    ) -> Optional[int]:
         query = setup_row_count_query(
             self._get_database_string(database_params),
             filter_sql,
@@ -448,6 +455,8 @@ class BigQuerySource(Source):
 
         try:
             rows = self._execute_fetchall_query(query)
+            if len(rows) == 0:
+                return None
             current_row_count = 0
             for row in rows:
                 current_row_count = int(row[0])
