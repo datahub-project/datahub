@@ -132,6 +132,12 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
     sql_parser_column_errors: int = 0
     sql_parser_successes: int = 0
 
+    # Details on where column info comes from.
+    nodes_with_catalog_columns: int = 0
+    nodes_with_inferred_columns: int = 0
+    nodes_with_graph_columns: int = 0
+    nodes_with_no_columns: int = 0
+
     sql_parser_parse_failures_list: LossyList[str] = field(default_factory=LossyList)
     sql_parser_detach_ctes_failures_list: LossyList[str] = field(
         default_factory=LossyList
@@ -619,14 +625,8 @@ class DBTNode:
     def exists_in_target_platform(self):
         return not (self.is_ephemeral_model() or self.node_type == "test")
 
-    def columns_setdefault(self, schema_fields: List[SchemaField]) -> None:
-        """
-        Update the column list if they are not already set.
-        """
-
-        if self.columns:
-            # If we already have columns, don't overwrite them.
-            return
+    def set_columns(self, schema_fields: List[SchemaField]) -> None:
+        """Update the column list."""
 
         self.columns = [
             DBTColumn(
@@ -1252,13 +1252,24 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             # 1. Schema from the dbt catalog
             # 2. Inferred schema
             # 3. Schema fetched from the graph
-            if inferred_schema_fields:
-                node.columns_setdefault(inferred_schema_fields)
+            if node.columns:
+                self.report.nodes_with_catalog_columns += 1
+                pass  # we already have columns from the dbt catalog
+            elif inferred_schema_fields:
+                logger.debug(
+                    f"Using {len(inferred_schema_fields)} inferred columns for {node.dbt_name}"
+                )
+                self.report.nodes_with_inferred_columns += 1
+                node.set_columns(inferred_schema_fields)
             elif schema_fields:
-                # If we don't have a schema for this node from the dbt catalog
-                # and were unable to infer it (e.g. for sources), then we use
-                # the schema from the graph.
-                node.columns_setdefault(schema_fields)
+                logger.debug(
+                    f"Using {len(schema_fields)} graph columns for {node.dbt_name}"
+                )
+                self.report.nodes_with_graph_columns += 1
+                node.set_columns(schema_fields)
+            else:
+                logger.debug(f"No columns found for {node.dbt_name}")
+                self.report.nodes_with_no_columns += 1
 
     def _parse_cll(
         self,
