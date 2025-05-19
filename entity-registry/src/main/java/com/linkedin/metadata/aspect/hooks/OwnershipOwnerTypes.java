@@ -11,7 +11,6 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.util.Pair;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -33,9 +32,7 @@ public class OwnershipOwnerTypes extends MutationHook {
             item ->
                 aspectFilter(item)
                     ? Pair.of(item, processOwnershipAspect(item))
-                    : Pair.of(item, false))
-        .collect(Collectors.toList())
-        .stream();
+                    : Pair.of(item, false));
   }
 
   private static boolean aspectFilter(ReadItem item) {
