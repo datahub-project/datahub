@@ -19,6 +19,8 @@ public interface ElasticSearchIndexed {
   List<ReindexConfig> buildReindexConfigs(
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) throws IOException;
 
+  ESIndexBuilder getIndexBuilder();
+
   /**
    * Mirrors the service's functions which are expected to build/reindex as needed based on the
    * reindex configurations above
@@ -26,5 +28,14 @@ public interface ElasticSearchIndexed {
   void reindexAll(Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
       throws IOException;
 
-  ESIndexBuilder getIndexBuilder();
+  public default void tweakReplicasAll(
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties, boolean dryRun) {
+    try {
+      for (ReindexConfig config : buildReindexConfigs(properties)) {
+        getIndexBuilder().tweakReplicas(config, dryRun);
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
 }

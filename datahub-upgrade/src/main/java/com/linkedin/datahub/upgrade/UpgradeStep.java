@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 /** Represents a single executable step in an {@link Upgrade}. */
@@ -22,6 +24,10 @@ public interface UpgradeStep {
    */
   default boolean isOptional() {
     return false;
+  }
+
+  default boolean containsKey(final Map<String, Optional<String>> parsedArgs, String key) {
+    return parsedArgs.containsKey(key) && parsedArgs.get(key).isPresent();
   }
 
   /** Returns whether or not to skip the step based on the UpgradeContext */

@@ -40,4 +40,5 @@ public class FeatureFlags {
   private boolean showSearchBarAutocompleteRedesign = false;
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;
+  private boolean showIngestionPageRedesign = false;
 }
