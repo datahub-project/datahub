@@ -26,8 +26,8 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     TagOption,
 )
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.testing import mce_helpers
 from tests.integration.snowflake.common import FROZEN_TIME, default_query_results
-from tests.test_helpers import mce_helpers
 
 pytestmark = pytest.mark.integration_batch_2
 
