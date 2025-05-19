@@ -25,7 +25,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
 - #13186: NoCode Migration Removed - This code hasn't been required in many years. If needed, a user should upgrade to DataHub 1.0.x prior to upgrading to a later version.
 - #13397: `async_flag` removed from rest emitter, replaced with emit mode ASYNC
-- #13456: Remove the exposure of CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE due to unsupported functionality and reported confusion among end users. 
+- #13456: Remove the exposure of `CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE` due to unsupported / incomplete functionality causing confusion among admins of DataHub. 
 
 ### Known Issues
 
