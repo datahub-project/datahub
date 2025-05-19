@@ -20,8 +20,8 @@ from datahub.sql_parsing.sqlglot_lineage import (
     DownstreamColumnRef,
     SqlParsingResult,
 )
+from datahub.testing import mce_helpers
 from datahub.utilities.urns.error import InvalidUrnError
-from tests.test_helpers import mce_helpers
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "lineage_client_golden"
 _GOLDEN_DIR.mkdir(exist_ok=True)

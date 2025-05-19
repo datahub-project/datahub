@@ -22,8 +22,8 @@ from datahub.ingestion.source.file import (
 )
 from datahub.metadata.schema_classes import MetadataChangeEventClass
 from datahub.metadata.schemas import getMetadataChangeEventSchema
+from datahub.testing import mce_helpers
 from datahub.testing.pytest_hooks import get_golden_settings
-from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 FROZEN_TIME = "2021-07-22 18:54:06"

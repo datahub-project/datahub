@@ -1,7 +1,7 @@
 import pytest
 from freezegun import freeze_time
 
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 FROZEN_TIME = "2020-04-14 07:00:00"
