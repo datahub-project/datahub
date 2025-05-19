@@ -146,7 +146,6 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                             },
                             {
                                 type: 'url',
-                                warningOnly: true,
                                 message: 'This field must be a valid url.',
                             },
                         ]}
