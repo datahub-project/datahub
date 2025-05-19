@@ -121,6 +121,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showDefaultExternalLinks: true,
         datasetHealthDashboardV2Enabled: false,
         showCreatedAtFilter: false,
+        showIngestionPageRedesign: false,
     },
     chromeExtensionConfig: {
         enabled: false,

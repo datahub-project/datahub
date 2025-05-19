@@ -45,6 +45,7 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.*;
 import org.opensearch.client.core.CountRequest;
+import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetIndexResponse;
@@ -358,6 +359,149 @@ public class ESIndexBuilder {
         throw new RuntimeException(e);
       }
     }
+  }
+
+  /**
+   * Check if a specific index has 0 replicas and >0 documents, then increase its replica count to
+   * 1.
+   *
+   * @param indexName The name of the index to check
+   * @param dryRun If true, report what would happen without making changes
+   * @return Map containing operation details
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  private Map<String, Object> increaseReplicasForActiveIndices(String indexName, boolean dryRun)
+      throws IOException {
+    Map<String, Object> result = new HashMap<>();
+    result.put("indexName", indexName);
+    result.put("changed", false);
+    result.put("dryRun", dryRun);
+    GetIndexRequest getIndexRequest = new GetIndexRequest(indexName);
+    GetIndexResponse response =
+        _searchClient.indices().get(getIndexRequest, RequestOptions.DEFAULT);
+    Map<String, Settings> indexToSettings = response.getSettings();
+    Settings indexSettings = indexToSettings.get(indexName);
+    int replicaCount = Integer.parseInt(indexSettings.get("index.number_of_replicas", "1"));
+    CountRequest countRequest = new CountRequest(indexName);
+    CountResponse countResponse = _searchClient.count(countRequest, RequestOptions.DEFAULT);
+    long docCount = countResponse.getCount();
+    result.put("currentReplicas", replicaCount);
+    result.put("documentCount", docCount);
+    // Check if index has 0 replicas and >0 documents
+    if (replicaCount == 0 && docCount > 0) {
+      if (!dryRun) {
+        // Update replica count to X
+        UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(indexName);
+        Settings.Builder settingsBuilder =
+            Settings.builder().put("index.number_of_replicas", getNumReplicas());
+        updateSettingsRequest.settings(settingsBuilder);
+        _searchClient.indices().putSettings(updateSettingsRequest, RequestOptions.DEFAULT);
+      }
+      result.put("changed", true);
+      result.put("action", "Increase replicas from 0 to " + getNumReplicas());
+    } else {
+      result.put("action", "No change needed");
+    }
+    return result;
+  }
+
+  /**
+   * Check if a specific index has 0 documents and replicas > 0, then set its replica count to 0.
+   *
+   * @param indexName The name of the index to check
+   * @param dryRun If true, report what would happen without making changes
+   * @return Map containing operation details
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  private Map<String, Object> reduceReplicasForEmptyIndices(String indexName, boolean dryRun)
+      throws IOException {
+    Map<String, Object> result = new HashMap<>();
+    result.put("indexName", indexName);
+    result.put("changed", false);
+    result.put("dryRun", dryRun);
+    GetIndexRequest getIndexRequest = new GetIndexRequest(indexName);
+    if (!_searchClient.indices().exists(getIndexRequest, RequestOptions.DEFAULT)) {
+      result.put("skipped", true);
+      result.put("reason", "Index does not exist");
+      return result;
+    }
+    GetIndexResponse response =
+        _searchClient.indices().get(getIndexRequest, RequestOptions.DEFAULT);
+    Map<String, Settings> indexToSettings = response.getSettings();
+    Settings indexSettings = indexToSettings.get(indexName);
+    int replicaCount = Integer.parseInt(indexSettings.get("index.number_of_replicas", "1"));
+    CountRequest countRequest = new CountRequest(indexName);
+    CountResponse countResponse = _searchClient.count(countRequest, RequestOptions.DEFAULT);
+    long docCount = countResponse.getCount();
+    result.put("currentReplicas", replicaCount);
+    result.put("documentCount", docCount);
+    // Check if index has 0 documents and replicas > 0
+    if (docCount == 0 && replicaCount > 0) {
+      if (!dryRun) {
+        // Set replica count to 0
+        UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(indexName);
+        Settings.Builder settingsBuilder = Settings.builder().put("index.number_of_replicas", 0);
+        updateSettingsRequest.settings(settingsBuilder);
+        _searchClient.indices().putSettings(updateSettingsRequest, RequestOptions.DEFAULT);
+      }
+      result.put("changed", true);
+      result.put("action", "Decrease replicas from " + replicaCount + " to 0");
+    } else {
+      result.put("action", "No change needed");
+    }
+    return result;
+  }
+
+  public String createOperationSummary(
+      Map<String, Object> increaseResult, Map<String, Object> reduceResult) {
+    StringBuilder summary = new StringBuilder();
+    String indexName = (String) increaseResult.get("indexName");
+    boolean dryRun = (Boolean) increaseResult.get("dryRun");
+    summary
+        .append("Index: ")
+        .append(indexName)
+        .append(" (")
+        .append(dryRun ? "DRY RUN" : "LIVE")
+        .append(")\n");
+    // Document count info
+    long docCount = (long) increaseResult.get("documentCount");
+    summary
+        .append("Status: ")
+        .append(docCount > 0 ? "Active" : "Empty")
+        .append(" (")
+        .append(docCount)
+        .append(" docs)\n");
+    // Replica changes summary
+    int currentReplicas = (int) increaseResult.get("currentReplicas");
+    summary.append("Replicas: ").append(currentReplicas).append(" → ");
+    boolean increased =
+        increaseResult.containsKey("changed") && (Boolean) increaseResult.get("changed");
+    boolean reduced = reduceResult.containsKey("changed") && (Boolean) reduceResult.get("changed");
+    if (increased) {
+      summary.append("" + getNumReplicas() + " (increased)");
+    } else if (reduced) {
+      summary.append("0 (reduced)");
+    } else {
+      summary.append(currentReplicas).append(" (unchanged)");
+    }
+    // Add reason if no change
+    if (!increased && !reduced) {
+      if (docCount > 0 && currentReplicas > 0) {
+        summary.append(" - already optimized");
+      } else if (docCount == 0 && currentReplicas == 0) {
+        summary.append(" - already optimized");
+      }
+    }
+    return summary.toString();
+  }
+
+  public void tweakReplicas(ReindexConfig indexState, boolean dryRun) throws IOException {
+    Map<String, Object> result = increaseReplicasForActiveIndices(indexState.name(), dryRun);
+    Map<String, Object> resultb = reduceReplicasForEmptyIndices(indexState.name(), dryRun);
+    log.info(
+        "Tweaked replicas index {}: {}",
+        indexState.name(),
+        createOperationSummary(result, resultb));
   }
 
   /**

@@ -10,6 +10,7 @@ import com.linkedin.datahub.upgrade.secret.RotateSecrets;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
+import com.linkedin.datahub.upgrade.system.cron.SystemUpdateCron;
 import com.linkedin.datahub.upgrade.test.EvaluateTests;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -64,6 +65,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("systemOperationContext")
   private OperationContext systemOperationContext;
 
+  @Autowired(required = false)
+  @Named("systemUpdateCron")
+  private SystemUpdateCron systemUpdateCron;
+
   // Saas-only
 
   @Inject
@@ -95,6 +100,9 @@ public class UpgradeCli implements CommandLineRunner {
     }
     if (systemUpdateNonBlocking != null) {
       _upgradeManager.register(systemUpdateNonBlocking);
+    }
+    if (systemUpdateCron != null) {
+      _upgradeManager.register(systemUpdateCron);
     }
 
     // Saas-only

@@ -9,8 +9,7 @@ Traces let us track the life of a request across multiple components. Each trace
 are units of work, containing various context about the work being done as well as time taken to finish the work. By
 looking at the trace, we can more easily identify performance bottlenecks.
 
-We enable tracing by using
-the [OpenTelemetry java instrumentation library](https://github.com/open-telemetry/opentelemetry-java-instrumentation).
+We enable tracing by using the [OpenTelemetry java instrumentation library](https://github.com/open-telemetry/opentelemetry-java-instrumentation).
 This project provides a Java agent JAR that is attached to java applications. The agent injects bytecode to capture
 telemetry from popular libraries.
 
