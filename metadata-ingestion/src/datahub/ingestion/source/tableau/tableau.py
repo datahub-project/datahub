@@ -1250,7 +1250,7 @@ class TableauSiteSource:
         This happens because project C is not explicitly included in the `allow` list, nor is it part of the `deny` list.
         However, since `extract_project_hierarchy` is enabled, project C should ideally be included in the ingestion process unless explicitly denied.
 
-        To address this, the function explicitly checks the deny regex to ensure that project C’s assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
+        To address this, the function explicitly checks the deny regex to ensure that project C's assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
         """
 
         # Either project_pattern or project_path_pattern is set in a recipe
@@ -3585,6 +3585,56 @@ class TableauSiteSource:
                 exc=e,
             )
 
+    def _create_virtual_connection_lineage(
+        self, virtual_connection: dict, vc_urn: str
+    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
+        """
+        Create table and column level lineage for a virtual connection.
+        Returns a tuple of (upstream_tables, fine_grained_lineages).
+        """
+        upstream_tables = []
+        fine_grained_lineages = []
+
+        virtual_connection_tables = virtual_connection.get(c.TABLES, [])
+        for table in virtual_connection_tables:
+            try:
+                ref = TableauUpstreamReference.create(
+                    table, default_schema_map=self.config.default_schema_map
+                )
+
+                table_urn = ref.make_dataset_urn(
+                    self.config.env,
+                    self.config.platform_instance_map,
+                    self.config.lineage_overrides,
+                    self.config.database_hostname_to_platform_instance_map,
+                    self.database_server_hostname_map,
+                )
+
+                upstream_table = Upstream(
+                    dataset=table_urn,
+                    type=DatasetLineageType.TRANSFORMED,
+                )
+                upstream_tables.append(upstream_table)
+
+                # Generate column-level lineage if column-level lineage is enabled
+                if self.config.extract_column_level_lineage:
+                    table_fine_grained_lineages = (
+                        self._get_virtual_connection_column_lineage(
+                            table, table_urn, vc_urn
+                        )
+                    )
+                    fine_grained_lineages.extend(table_fine_grained_lineages)
+
+            except Exception as e:
+                self.report.warning(
+                    title="Upstream Table Reference Error",
+                    message="Failed to generate upstream reference for virtual connection table",
+                    context=f"virtual_connection={virtual_connection.get(c.NAME)}, table={table.get(c.NAME)}",
+                    exc=e,
+                )
+
+        return upstream_tables, fine_grained_lineages
+
     def emit_virtual_connection(
         self, virtual_connection: dict
     ) -> Iterable[MetadataWorkUnit]:
@@ -3632,7 +3682,8 @@ class TableauSiteSource:
 
         # Schema metadata
         schema_fields = []
-        for table in virtual_connection.get(c.TABLES, []):
+        virtual_connection_tables = virtual_connection.get(c.TABLES, [])
+        for table in virtual_connection_tables:
             for column in table.get(c.COLUMNS, []):
                 if column.get(c.NAME) is None:
                     self.report.num_vc_field_skipped_no_name += 1
@@ -3715,37 +3766,17 @@ class TableauSiteSource:
             )
 
         # Add lineage from source tables
-        upstream_tables = []
-        for table in virtual_connection.get(c.TABLES, []):
-            try:
-                ref = TableauUpstreamReference.create(
-                    table, default_schema_map=self.config.default_schema_map
-                )
-
-                table_urn = ref.make_dataset_urn(
-                    self.config.env,
-                    self.config.platform_instance_map,
-                    self.config.lineage_overrides,
-                    self.config.database_hostname_to_platform_instance_map,
-                    self.database_server_hostname_map,
-                )
-
-                upstream_table = Upstream(
-                    dataset=table_urn,
-                    type=DatasetLineageType.TRANSFORMED,
-                )
-                upstream_tables.append(upstream_table)
-
-            except Exception as e:
-                self.report.warning(
-                    title="Upstream Table Reference Error",
-                    message="Failed to generate upstream reference for virtual connection table",
-                    context=f"virtual_connection={virtual_connection.get(c.NAME)}, table={table.get(c.NAME)}",
-                    exc=e,
-                )
+        upstream_tables, fine_grained_lineages = (
+            self._create_virtual_connection_lineage(virtual_connection, vc_urn)
+        )
 
         if upstream_tables:
-            upstream_lineage = UpstreamLineage(upstreams=upstream_tables)
+            upstream_lineage = UpstreamLineage(
+                upstreams=upstream_tables,
+                fineGrainedLineages=fine_grained_lineages
+                if (fine_grained_lineages and self.config.extract_column_level_lineage)
+                else None,
+            )
             yield self.get_metadata_change_proposal(
                 vc_urn,
                 aspect_name=c.UPSTREAM_LINEAGE,
@@ -3753,6 +3784,11 @@ class TableauSiteSource:
             )
             self.report.num_tables_with_upstream_lineage += 1
             self.report.num_upstream_table_lineage += len(upstream_tables)
+            self.report.num_upstream_fine_grained_lineage += (
+                len(fine_grained_lineages) if fine_grained_lineages else 0
+            )
+
+        # No need for separate column-level lineage aspect - it's part of UpstreamLineage
 
     def emit_embedded_datasources(self) -> Iterable[MetadataWorkUnit]:
         datasource_filter = {c.ID_WITH_IN: self.embedded_datasource_ids_being_used}
@@ -3773,6 +3809,54 @@ class TableauSiteSource:
                 datasource.get(c.WORKBOOK),
                 is_embedded_ds=True,
             )
+
+    def _get_virtual_connection_column_lineage(
+        self, table: dict, table_urn: str, vc_urn: str
+    ) -> List[FineGrainedLineage]:
+        """
+        Generate column-level lineage for a virtual connection table.
+        Maps columns from the source table to the virtual connection.
+        """
+        fine_grained_lineages = []
+
+        try:
+            # For each column in the table, create a fine-grained lineage entry
+            for column in table.get(c.COLUMNS, []):
+                column_name = column.get(c.NAME)
+                if not column_name:
+                    continue
+
+                # Source field in the upstream table
+                upstream_field = builder.make_schema_field_urn(
+                    parent_urn=table_urn,
+                    field_path=column_name,
+                )
+
+                # Target field in the virtual connection (tableName.columnName format)
+                downstream_field = f"{table.get(c.NAME)}.{column_name}"
+
+                # Create the fine-grained lineage entry using the same pattern as elsewhere
+                fine_grained_lineages.append(
+                    FineGrainedLineage(
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[
+                            builder.make_schema_field_urn(vc_urn, downstream_field)
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=[upstream_field],
+                        transformOperation="DIRECT_COPY",
+                    )
+                )
+
+        except Exception as e:
+            self.report.warning(
+                title="Column-Level Lineage Error",
+                message="Failed to generate column-level lineage for virtual connection table",
+                context=f"table={table.get(c.NAME)}",
+                exc=e,
+            )
+
+        return fine_grained_lineages
 
     @lru_cache(maxsize=None)
     def get_last_modified(
