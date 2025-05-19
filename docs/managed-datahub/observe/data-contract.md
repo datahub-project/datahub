@@ -44,11 +44,7 @@ For creation via CLI, it’s a simple CLI upsert command that you can integrate 
 1. Define your data contract.
 
 ```yaml
-{
-  {
-    inline /metadata-ingestion/examples/library/create_data_contract.yml show_path_as_comment,
-  },
-}
+{{ inline /metadata-ingestion/examples/library/create_data_contract.yml show_path_as_comment }}
 ```
 
 2. Use the CLI to create the contract by running the below command.
