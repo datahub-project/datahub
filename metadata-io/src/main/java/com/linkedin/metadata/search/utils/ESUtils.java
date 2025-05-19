@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -38,7 +39,12 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.StringUtils;
+import org.apache.http.util.EntityUtils;
+import org.json.JSONObject;
+import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
+import org.opensearch.client.Response;
+import org.opensearch.client.RestClient;
 import org.opensearch.common.unit.TimeValue;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
@@ -131,6 +137,41 @@ public class ESUtils {
   private static final String ELASTICSEARCH_REGEXP_RESERVED_CHARACTERS = "?+*|{}[]()#@&<>~";
 
   private ESUtils() {}
+
+  /**
+   * Refreshes one or more indices in OpenSearch.
+   *
+   * @param restClient The low-level RestClient to use for the request
+   * @param indices Array of index names to refresh. Pass empty array to refresh all indices.
+   * @return true if the refresh was successful, false otherwise
+   * @throws IOException If there's an error communicating with OpenSearch
+   */
+  public static boolean refresh(RestClient restClient, String... indices) throws IOException {
+    // Build the endpoint path
+    String endpoint;
+    if (indices != null && indices.length > 0) {
+      endpoint = String.join(",", indices) + "/_refresh";
+    } else {
+      endpoint = "_refresh";
+    }
+
+    // Create and execute the request
+    Request request = new Request("POST", endpoint);
+    Response response = restClient.performRequest(request);
+
+    // Parse the response
+    String responseBody = EntityUtils.toString(response.getEntity());
+    JSONObject jsonResponse = new JSONObject(responseBody);
+    JSONObject shards = jsonResponse.getJSONObject("_shards");
+
+    // Check if all shards were successful
+    int totalShards = shards.getInt("total");
+    int successfulShards = shards.getInt("successful");
+    int failedShards = shards.getInt("failed");
+
+    // Return true if no shards failed
+    return failedShards == 0;
+  }
 
   /**
    * Constructs the filter query given filter map.
