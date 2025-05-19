@@ -130,6 +130,7 @@ query appConfig {
             showSearchBarAutocompleteRedesign
             showManageTags
             showIntroducePage
+            showLineageExpandMore
             showFormAnalytics
             showStatsTabRedesign
             requestMinimalSlackPermissions

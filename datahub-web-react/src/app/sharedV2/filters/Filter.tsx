@@ -27,9 +27,10 @@ interface Props {
     labelStyle?: CSSProperties;
     customFilterLabels?: FilterLabels;
     aggregationsEntityTypes?: Array<EntityType>;
+    shouldApplyView?: boolean;
 }
 
-const FilterLabel = styled(Button)<{ $isActive: boolean }>`
+export const FilterLabel = styled(Button)<{ $isActive: boolean }>`
     display: flex;
     align-items: center;
     padding: 8px;
@@ -69,12 +70,14 @@ export default function Filter({
     labelStyle,
     customFilterLabels,
     aggregationsEntityTypes,
+    shouldApplyView,
 }: Props) {
     const { finalAggregations, updateFilters, numActiveFilters } = useFilterDropdown({
         filter,
         activeFilters,
         onChangeFilters,
         aggregationsEntityTypes,
+        shouldApplyView,
     });
 
     const currentFilterPredicate = filterPredicates?.find((obj) => obj.field.field === filter.field) as FilterPredicate;

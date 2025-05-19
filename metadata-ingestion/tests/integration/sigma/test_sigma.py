@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
 def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -> None:

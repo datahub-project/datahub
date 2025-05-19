@@ -34,7 +34,7 @@ export default function useGetEntitySuggestions({ activeFilters, facets }: Props
     });
 
     const aggregations = isEntityFilterApplied
-        ? data?.aggregateAcrossEntities?.facets?.[0]?.aggregations
+        ? data?.aggregateAcrossEntities?.facets?.find((f) => f.field === 'resource')?.aggregations
         : entityFilter?.aggregations;
 
     const suggestions = useMemo(() => aggregations?.map((e) => e.entity), [aggregations]);

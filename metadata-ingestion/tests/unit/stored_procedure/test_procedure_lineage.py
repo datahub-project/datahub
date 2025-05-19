@@ -8,7 +8,7 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 PROCEDURE_SQLS_DIR = pathlib.Path(__file__).parent / "procedures"
 PROCEDURES_GOLDEN_DIR = pathlib.Path(__file__).parent / "golden_files"

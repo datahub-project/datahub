@@ -13,7 +13,7 @@ import {
 import { ACTION_REQUEST_DISPLAY_FACETS } from '@app/taskCenterV2/utils/constants';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 
-import { ActionRequest, ActionRequestStatus, AssigneeType, CorpGroup, FilterOperator } from '@types';
+import { ActionRequest, ActionRequestStatus, AssigneeType, FilterOperator } from '@types';
 
 const StyledButtonGroup = styled(Button.Group)`
     margin: 8px 16px;
@@ -102,25 +102,6 @@ export const Proposals = ({ onProposalClick }: Props) => {
                     },
                 ],
             },
-            ...(authenticatedUser?.corpUser?.groups?.relationships?.map((rel) => {
-                const group = rel.entity as CorpGroup;
-                return {
-                    name: group.name,
-                    displayName: group.properties?.displayName || group.name,
-                    assignee: {
-                        type: AssigneeType.Group,
-                        urn: group.urn,
-                    },
-                    initialFilters: [
-                        {
-                            field: 'status',
-                            condition: FilterOperator.Equal,
-                            values: [ActionRequestStatus.Pending],
-                            negated: false,
-                        },
-                    ],
-                };
-            }) || []),
         ]) ||
         [];
 

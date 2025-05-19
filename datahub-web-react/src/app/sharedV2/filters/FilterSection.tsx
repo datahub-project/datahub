@@ -23,6 +23,7 @@ interface Props {
     aggregationsEntityTypes?: Array<EntityType>;
     customFilterLabels?: FilterLabels;
     noOfLoadingSkeletons?: number;
+    shouldApplyView?: boolean;
 }
 
 export default function FilterSection({
@@ -34,6 +35,7 @@ export default function FilterSection({
     aggregationsEntityTypes,
     customFilterLabels,
     noOfLoadingSkeletons,
+    shouldApplyView,
 }: Props) {
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
 
@@ -62,6 +64,7 @@ export default function FilterSection({
                     filterPredicates={filterPredicates}
                     customFilterLabels={customFilterLabels}
                     aggregationsEntityTypes={aggregationsEntityTypes}
+                    shouldApplyView={shouldApplyView}
                 />
             ))}
         </Section>

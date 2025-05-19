@@ -9,8 +9,9 @@ from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
+from datahub.testing import mce_helpers
 from tests.integration.kafka import oauth  # type: ignore
-from tests.test_helpers import mce_helpers, test_connection_helpers
+from tests.test_helpers import test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
 

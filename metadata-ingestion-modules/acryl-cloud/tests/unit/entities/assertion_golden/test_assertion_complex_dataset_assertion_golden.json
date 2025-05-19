@@ -1,0 +1,97 @@
+[
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "key": "value"
+            },
+            "externalUrl": "https://example.com/assertion/1234",
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)",
+                "scope": "DATASET_ROWS",
+                "aggregation": "ROW_COUNT",
+                "operator": "BETWEEN",
+                "parameters": {
+                    "maxValue": {
+                        "value": "100",
+                        "type": "NUMBER"
+                    },
+                    "minValue": {
+                        "value": "10000",
+                        "type": "NUMBER"
+                    }
+                },
+                "nativeType": "expect_table_row_count_to_be_between",
+                "nativeParameters": {
+                    "max_value": "10000",
+                    "min_value": "10000"
+                },
+                "logic": "assertion_logic"
+            },
+            "source": {
+                "type": "NATIVE"
+            },
+            "lastUpdated": {
+                "time": 1234567890,
+                "actor": "urn:li:corpuser:test_user"
+            },
+            "description": "This is a test assertion"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:bigquery,my_instance)"
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:tag1"
+                },
+                {
+                    "tag": "urn:li:tag:tag2"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "assertionActions",
+    "aspect": {
+        "json": {
+            "onSuccess": [
+                {
+                    "type": "RESOLVE_INCIDENT"
+                }
+            ],
+            "onFailure": [
+                {
+                    "type": "RAISE_INCIDENT"
+                }
+            ]
+        }
+    }
+}
+]

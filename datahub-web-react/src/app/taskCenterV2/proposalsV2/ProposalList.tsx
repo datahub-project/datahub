@@ -1,5 +1,6 @@
 import { NetworkStatus } from '@apollo/client';
 import { Typography, message } from 'antd';
+import { isEqual, sortBy } from 'lodash';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -22,7 +23,8 @@ import usePagination from '@src/app/sharedV2/pagination/usePagination';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { useListActionRequestsQuery } from '@graphql/actionRequest.generated';
-import { ActionRequest, ActionRequestAssignee, EntityType, FacetFilterInput, FilterOperator } from '@types';
+import { useGetEntitiesQuery } from '@graphql/entity.generated';
+import { ActionRequest, ActionRequestAssignee, Entity, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -54,7 +56,6 @@ const ActionRequestsTitle = styled(Typography.Title)`
 
 const ProposalsTableHeader = styled.div`
     display: flex;
-    justify-content: space-between;
     padding: 2px;
 `;
 
@@ -103,6 +104,10 @@ export const ProposalList = ({
     });
 
     const entitiesSelected = filters?.find((f) => f.field === 'resource')?.values || [];
+    const { data: selectedEntityData } = useGetEntitiesQuery({
+        variables: { urns: entitiesSelected },
+        fetchPolicy: 'cache-first',
+    });
 
     const input = {
         start,
@@ -115,24 +120,45 @@ export const ProposalList = ({
     };
     const { loading, error, data, refetch, networkStatus } = useListActionRequestsQuery({
         variables: {
-            input,
+            input: {
+                start,
+                count: pageSize,
+                orFilters,
+                assignee,
+                resourceUrn,
+                allActionRequests: getAllActionRequests,
+            },
         },
         fetchPolicy: 'cache-and-network',
         nextFetchPolicy: 'cache-first',
         notifyOnNetworkStatusChange: true,
     });
+    const isLoading = loading && networkStatus !== NetworkStatus.refetch;
 
-    const isLoading = loading && networkStatus !== NetworkStatus.refetch && !data;
+    const { loading: facetsLoading, data: facetsData } = useListActionRequestsQuery({
+        variables: {
+            input: {
+                start,
+                count: 0,
+                orFilters,
+                assignee,
+                resourceUrn,
+                facets: ACTION_REQUEST_DEFAULT_FACETS,
+                allActionRequests: getAllActionRequests,
+            },
+        },
+        fetchPolicy: 'cache-and-network',
+    });
 
     // Filtering the facets to be shown in the UI
     const facets =
-        data?.listActionRequests?.facets?.filter((facet) =>
+        facetsData?.listActionRequests?.facets?.filter((facet) =>
             (filterFacets || ACTION_REQUEST_DISPLAY_FACETS).includes(facet?.field || ''),
         ) || [];
 
     const { suggestions: entitySuggestions, loading: entitySuggestionsLoading } = useGetEntitySuggestions({
         activeFilters: filters,
-        facets: data?.listActionRequests?.facets || [],
+        facets: facetsData?.listActionRequests?.facets || [],
     });
 
     const actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
@@ -145,7 +171,6 @@ export const ProposalList = ({
         if (completedUrns.length > 1) {
             setCompletedProposalUrns((existingUrns) => {
                 const newCompletedUrns = [...existingUrns, ...completedUrns];
-
                 const completedProposalUrnsFilter = [
                     { and: [{ field: 'urn', values: newCompletedUrns, negated: true }] },
                 ];
@@ -159,10 +184,17 @@ export const ProposalList = ({
                 return newCompletedUrns;
             });
         } else {
+            setSelectedUrns((prev) => prev.filter((u) => !completedUrns.includes(u)));
             // otherwise normal refetch will help reload the current page without showing loading
             setTimeout(() => {
                 refetch();
-            }, 3000);
+            }, 5000);
+        }
+
+        // if we are selecting more than the pageSize, the pagination changes in the backend,
+        // and it's better to redirect to page 1 here
+        if (selectedUrns.length > pageSize) {
+            setPage(1);
         }
 
         setTimeout(() => {
@@ -183,10 +215,17 @@ export const ProposalList = ({
     };
 
     const handleFiltersChange = (newFilters: FacetFilterInput[]): void => {
-        // clear the table selection upon filters change
-        setSelectedUrns([]);
-        setPage(1);
-        onChangeFilters(newFilters);
+        const filtersChanged = !isEqual(
+            // Sort both arrays by field to ensure consistent comparison order
+            sortBy(filters, 'field'),
+            sortBy(newFilters, 'field'),
+        );
+
+        // Set the page to 1 only when the filters have changed
+        if (filtersChanged) {
+            setPage(1);
+            onChangeFilters(newFilters);
+        }
     };
 
     // If there are no action requests when no filters are applied, the filter header shouldn't be shown
@@ -200,27 +239,30 @@ export const ProposalList = ({
                 {showFiltersHeader && (
                     <ProposalsTableHeader>
                         <ProposalsEntitySelect
-                            defaultSuggestionsLoading={entitySuggestionsLoading}
+                            defaultSuggestionsLoading={entitySuggestionsLoading && !entitySuggestions}
                             defaultSuggestions={entitySuggestions}
                             selected={entitiesSelected}
                             onUpdate={onSelectEntities}
+                            fetchedSelectedEntityData={selectedEntityData?.entities as Entity[]}
+                            loading={facetsLoading && !facetsData}
                         />
                         <FilterSection
                             name="proposals"
-                            loading={isLoading}
+                            loading={facetsLoading && !facetsData}
                             availableFilters={facets || []}
                             activeFilters={filters}
                             onChangeFilters={handleFiltersChange}
                             customFilterLabels={PROPOSALS_FILTER_LABELS}
                             aggregationsEntityTypes={[EntityType.ActionRequest]}
-                            noOfLoadingSkeletons={1}
+                            noOfLoadingSkeletons={3}
+                            shouldApplyView={false}
                         />
                     </ProposalsTableHeader>
                 )}
                 <ProposalsTable
                     onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
-                    isLoading={isLoading}
+                    isLoading={isLoading && !data}
                     enableSelection={enableSelection}
                     isRowSelectionDisabled={(record: ActionRequest) => {
                         return record.status === 'COMPLETED';
@@ -246,7 +288,6 @@ export const ProposalList = ({
                         onPageChange={(newPage) => setPage(newPage)}
                         showSizeChanger
                         onShowSizeChange={(_currNum, newNum) => setPageSize(newNum)}
-                        loading={isLoading}
                         hideOnSinglePage
                         showLessItems
                     />

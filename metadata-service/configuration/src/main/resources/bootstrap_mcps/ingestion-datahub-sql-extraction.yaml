@@ -12,7 +12,7 @@
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
       interval: '{{schedule.interval}}{{^schedule.interval}}0 1 30 2 *{{/schedule.interval}}'
     config:
-      version: '{{&ingestion.version}}{{^ingestion.version}}0.15.0.5{{/ingestion.version}}'
+      version: '{{&ingestion.version}}{{^ingestion.version}}{{/ingestion.version}}'
       recipe:
         source:
           type: 'datahub-reporting-extract-sql'

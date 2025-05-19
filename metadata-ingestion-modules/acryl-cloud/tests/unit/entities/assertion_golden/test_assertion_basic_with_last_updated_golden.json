@@ -1,0 +1,25 @@
+[
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:1234",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "type": "DATASET",
+            "datasetAssertion": {
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)",
+                "scope": "DATASET_ROWS",
+                "operator": "GREATER_THAN"
+            },
+            "lastUpdated": {
+                "time": 1747267200000,
+                "actor": "urn:li:corpuser:test_user",
+                "impersonator": "urn:li:corpuser:impersonator_user",
+                "message": "This is a test message"
+            }
+        }
+    }
+}
+]

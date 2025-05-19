@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { useUserContext } from '@app/context/useUserContext';
 import { updateActionRequestsList } from '@app/taskCenterV2/proposalsV2/proposalsTable/cacheUtils';
 import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
-import { Button, Modal, Text, TextArea, colors } from '@src/alchemy-components';
+import { Button, Icon, Modal, Text, TextArea, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
 
@@ -40,12 +40,19 @@ const SelectedContainer = styled.div`
     border-radius: 8px;
     border: 1px solid ${colors.gray[100]};
     padding: 6px 8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 `;
 
 const VerticalDivider = styled(Divider)`
     height: auto;
     margin: 0 4px;
     align-self: stretch;
+`;
+
+const StyledIcon = styled(Icon)`
+    cursor: pointer;
 `;
 
 type ModalType = ProposalModalType | null;
@@ -133,6 +140,7 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
         <ActionsContainer $hasPagination={hasPagination}>
             <SelectedContainer>
                 <Text color="gray">{`${selectedUrns.length} Selected`}</Text>
+                <StyledIcon source="phosphor" icon="X" size="md" color="gray" onClick={() => setSelectedUrns([])} />
             </SelectedContainer>
             <VerticalDivider type="vertical" />
             <ButtonsContainer>
