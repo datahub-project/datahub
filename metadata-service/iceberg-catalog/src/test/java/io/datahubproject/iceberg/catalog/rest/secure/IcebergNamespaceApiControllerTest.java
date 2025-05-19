@@ -1,13 +1,11 @@
 package io.datahubproject.iceberg.catalog.rest.secure;
 
-import static com.linkedin.metadata.Constants.CONTAINER_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
-import com.linkedin.container.ContainerProperties;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.DataHubRestCatalog;
 import io.datahubproject.iceberg.catalog.Utils;
@@ -45,6 +43,12 @@ public class IcebergNamespaceApiControllerTest
           OperationContext operationContext, DataHubIcebergWarehouse warehouse) {
         return catalog;
       }
+
+      @Override
+      protected DataHubIcebergWarehouse warehouse(
+          String platformInstance, OperationContext operationContext) {
+        return IcebergNamespaceApiControllerTest.super.warehouse();
+      }
     };
   }
 
@@ -58,11 +62,6 @@ public class IcebergNamespaceApiControllerTest
 
     when(entityService.exists(any(OperationContext.class), eq(parentContainerUrn)))
         .thenReturn(true);
-
-    ContainerProperties containerProperties = new ContainerProperties();
-    when(entityService.getLatestAspect(
-            any(OperationContext.class), eq(containerUrn), eq(CONTAINER_PROPERTIES_ASPECT_NAME)))
-        .thenReturn(containerProperties);
   }
 
   @Test
