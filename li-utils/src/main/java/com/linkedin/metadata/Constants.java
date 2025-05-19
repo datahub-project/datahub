@@ -146,6 +146,9 @@ public class Constants {
   public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
   public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
   public static final String ASSERTIONS_SUMMARY_ASPECT_NAME = "assertionsSummary";
+  public static final String ASSERTION_RUN_SUMMARY_ASPECT_NAME = "assertionRunSummary";
+  public static final String ASSERTION_ANALYTICS_RUN_EVENT_ASPECT_NAME =
+      "assertionAnalyticsRunEvent";
   public static final String SHARE_ASPECT_NAME = "share";
   public static final String ASSERTION_INFERENCE_DETAILS_ASPECT_NAME = "assertionInferenceDetails";
 

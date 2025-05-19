@@ -19,6 +19,7 @@ import com.linkedin.assertion.AssertionResultErrorType;
 import com.linkedin.assertion.AssertionResultType;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionRunSummary;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
 import com.linkedin.assertion.AssertionStdOperator;
@@ -63,6 +64,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.AssertionRunSummaryPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.query.filter.Condition;
@@ -154,7 +156,8 @@ public class AssertionServiceTest {
                     Constants.ASSERTION_INFO_ASPECT_NAME,
                     Constants.ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    Constants.GLOBAL_TAGS_ASPECT_NAME)));
+                    Constants.GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Case 2: Info does not exist
     info = service.getAssertionInfo(opContext, TEST_NON_EXISTENT_ASSERTION_URN);
@@ -169,7 +172,8 @@ public class AssertionServiceTest {
                     Constants.ASSERTION_INFO_ASPECT_NAME,
                     Constants.ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    Constants.GLOBAL_TAGS_ASPECT_NAME)));
+                    Constants.GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
   }
 
   @Test
@@ -193,7 +197,8 @@ public class AssertionServiceTest {
                     Constants.ASSERTION_INFO_ASPECT_NAME,
                     Constants.ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    Constants.GLOBAL_TAGS_ASPECT_NAME)));
+                    Constants.GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Case 2: data platform info does not exist
     instance = service.getAssertionDataPlatformInstance(opContext, TEST_NON_EXISTENT_ASSERTION_URN);
@@ -208,7 +213,8 @@ public class AssertionServiceTest {
                     Constants.ASSERTION_INFO_ASPECT_NAME,
                     Constants.ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    Constants.GLOBAL_TAGS_ASPECT_NAME)));
+                    Constants.GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
   }
 
   @Test
@@ -240,6 +246,22 @@ public class AssertionServiceTest {
   }
 
   @Test
+  private void testGetAssertionRunSummary() throws Exception {
+    final SystemEntityClient mockClient = createMockEntityClient();
+    final AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    // Case 1: Summary exists
+    AssertionRunSummary summary = service.getAssertionRunSummary(opContext, TEST_ASSERTION_URN);
+    Assert.assertEquals(summary, mockAssertionRunSummary());
+
+    // Case 2: Summary does not exist
+    summary = service.getAssertionRunSummary(opContext, TEST_NON_EXISTENT_ASSERTION_URN);
+    Assert.assertNull(summary);
+  }
+
+  @Test
   private void testUpdateAssertionsSummary() throws Exception {
     final SystemEntityClient mockClient = createMockEntityClient();
     final AssertionService service =
@@ -267,7 +289,8 @@ public class AssertionServiceTest {
                         Constants.ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
                         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
+                        Constants.GLOBAL_TAGS_ASPECT_NAME,
+                        ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -1387,6 +1410,29 @@ public class AssertionServiceTest {
   }
 
   @Test
+  public void testPatchAssertionRunSummary() throws Exception {
+    // Test data and mocks
+
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    AssertionService service =
+        new AssertionService(
+            mockClient, mock(GraphClient.class), mock(OpenApiClient.class), objectMapper);
+
+    AssertionRunSummaryPatchBuilder mockPatchBuilder = mock(AssertionRunSummaryPatchBuilder.class);
+    Mockito.when(mockPatchBuilder.build()).thenReturn(mockAssertionRunSummaryMcp());
+
+    // Test method
+    service.patchAssertionRunSummary(opContext, mockPatchBuilder);
+
+    // Verify that ingestProposal was called once
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            any(OperationContext.class),
+            Mockito.eq(mockAssertionRunSummaryMcp()),
+            Mockito.eq(false));
+  }
+
+  @Test
   public void testListEntitiesWithAssertionInSummary() throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
 
@@ -1646,7 +1692,8 @@ public class AssertionServiceTest {
                         Constants.ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
                         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
+                        Constants.GLOBAL_TAGS_ASPECT_NAME,
+                        ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -1656,6 +1703,9 @@ public class AssertionServiceTest {
                         ImmutableMap.of(
                             ASSERTION_INFO_ASPECT_NAME,
                             new EnvelopedAspect().setValue(new Aspect(mockAssertionInfo().data())),
+                            ASSERTION_RUN_SUMMARY_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(mockAssertionRunSummary().data())),
                             DATA_PLATFORM_INSTANCE_ASPECT_NAME,
                             new EnvelopedAspect()
                                 .setValue(new Aspect(mockDataPlatformInstance().data()))))));
@@ -1669,7 +1719,8 @@ public class AssertionServiceTest {
                         Constants.ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
                         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
+                        Constants.GLOBAL_TAGS_ASPECT_NAME,
+                        ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_NON_EXISTENT_ASSERTION_URN)
@@ -1685,7 +1736,8 @@ public class AssertionServiceTest {
                         ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
                         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
+                        Constants.GLOBAL_TAGS_ASPECT_NAME,
+                        ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -1706,7 +1758,8 @@ public class AssertionServiceTest {
                         ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
                         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
+                        Constants.GLOBAL_TAGS_ASPECT_NAME,
+                        ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_VOLUME_ASSERTION_URN)
@@ -1727,7 +1780,8 @@ public class AssertionServiceTest {
                         ASSERTION_INFO_ASPECT_NAME,
                         ASSERTION_ACTIONS_ASPECT_NAME,
                         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                        Constants.GLOBAL_TAGS_ASPECT_NAME))))
+                        Constants.GLOBAL_TAGS_ASPECT_NAME,
+                        ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_SQL_ASSERTION_URN)
@@ -1819,6 +1873,12 @@ public class AssertionServiceTest {
     return summary;
   }
 
+  private static AssertionRunSummary mockAssertionRunSummary() throws Exception {
+    final AssertionRunSummary summary = new AssertionRunSummary();
+    summary.setLastErroredAtMillis(10L);
+    return summary;
+  }
+
   private static AssertionActions mockAssertionActions() throws Exception {
     final AssertionActions actions = new AssertionActions();
     actions.setOnFailure(
@@ -1838,6 +1898,18 @@ public class AssertionServiceTest {
     mcp.setAspectName(ASSERTIONS_SUMMARY_ASPECT_NAME);
     mcp.setChangeType(ChangeType.UPSERT);
     mcp.setAspect(GenericRecordUtils.serializeAspect(mockAssertionSummary()));
+
+    return mcp;
+  }
+
+  private static MetadataChangeProposal mockAssertionRunSummaryMcp() throws Exception {
+
+    final MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(TEST_ASSERTION_URN);
+    mcp.setEntityType(ASSERTION_ENTITY_NAME);
+    mcp.setAspectName(ASSERTION_RUN_SUMMARY_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setAspect(GenericRecordUtils.serializeAspect(mockAssertionRunSummary()));
 
     return mcp;
   }

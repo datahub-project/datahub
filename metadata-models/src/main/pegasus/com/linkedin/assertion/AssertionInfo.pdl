@@ -60,6 +60,14 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     * If the source type of the Assertion is EXTERNAL, it is expected to have a corresponding dataPlatformInstance aspect detailing
     * the platform where it was ingested from.
     */
+    @Searchable = {
+      "/created/actor": {
+        "fieldName": "creator",
+        "fieldType": "URN",
+        "hasValuesFieldName": "hasCreator",
+        "filterNameOverride": "Created By"
+      }
+    }
     source: optional AssertionSource
 
     /**
