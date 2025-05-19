@@ -109,7 +109,7 @@ class ObservedQuery:
     query_hash: Optional[str] = None
     usage_multiplier: int = 1
 
-    # Use this to store addtitional key-value information about query for debugging
+    # Use this to store additional key-value information about the query for debugging.
     extra_info: Optional[dict] = None
 
 
