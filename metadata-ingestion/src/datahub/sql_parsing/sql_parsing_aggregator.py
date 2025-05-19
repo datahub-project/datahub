@@ -58,6 +58,7 @@ from datahub.sql_parsing.tool_meta_extractor import (
     ToolMetaExtractorReport,
 )
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
+from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -1708,7 +1709,7 @@ class SqlParsingAggregator(Closeable):
         )
 
         merged_query_text = ";\n\n".join(
-            [q.formatted_query_string for q in ordered_queries]
+            deduplicate_list([q.formatted_query_string for q in ordered_queries])
         )
 
         resolved_query = dataclasses.replace(
