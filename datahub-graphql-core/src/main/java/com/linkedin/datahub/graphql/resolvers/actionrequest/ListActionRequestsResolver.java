@@ -17,6 +17,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -182,7 +183,7 @@ public class ListActionRequestsResolver
         "get");
   }
 
-  private Filter createFilter(
+  Filter createFilter(
       final @Nullable Urn actorUrn,
       final @Nullable List<Urn> groupUrns,
       final @Nullable List<Urn> roleUrns,
@@ -193,7 +194,43 @@ public class ListActionRequestsResolver
       final @Nullable Long endTimestampMillis) {
     final Filter filter = new Filter();
     final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
-    // If more than 1 different type of urn are provided, "or" the results.
+
+    if (hasAssigneeFilters(actorUrn, groupUrns, roleUrns)) {
+      addAssigneeFilters(
+          disjunction,
+          actorUrn,
+          groupUrns,
+          roleUrns,
+          type,
+          status,
+          resourceUrn,
+          startTimestampMillis,
+          endTimestampMillis);
+    } else {
+      addNonAssigneeFilters(
+          disjunction, type, status, resourceUrn, startTimestampMillis, endTimestampMillis);
+    }
+
+    filter.setOr(disjunction);
+    return filter;
+  }
+
+  private boolean hasAssigneeFilters(Urn actorUrn, List<Urn> groupUrns, List<Urn> roleUrns) {
+    return actorUrn != null
+        || (groupUrns != null && !groupUrns.isEmpty())
+        || (roleUrns != null && !roleUrns.isEmpty());
+  }
+
+  private void addAssigneeFilters(
+      ConjunctiveCriterionArray disjunction,
+      Urn actorUrn,
+      List<Urn> groupUrns,
+      List<Urn> roleUrns,
+      ActionRequestType type,
+      ActionRequestStatus status,
+      Urn resourceUrn,
+      Long startTimestampMillis,
+      Long endTimestampMillis) {
     if (actorUrn != null) {
       disjunction.add(
           createUserFilterConjunction(
@@ -209,8 +246,61 @@ public class ListActionRequestsResolver
           createRoleFilterDisjunction(
               roleUrns, type, status, startTimestampMillis, endTimestampMillis));
     }
-    filter.setOr(disjunction);
-    return filter;
+  }
+
+  private void addNonAssigneeFilters(
+      ConjunctiveCriterionArray disjunction,
+      ActionRequestType type,
+      ActionRequestStatus status,
+      Urn resourceUrn,
+      Long startTimestampMillis,
+      Long endTimestampMillis) {
+    if (hasNonAssigneeFilters(
+        type, status, resourceUrn, startTimestampMillis, endTimestampMillis)) {
+      final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+      final CriterionArray andCriterion = new CriterionArray();
+
+      if (status != null) {
+        andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
+      }
+      if (type != null) {
+        andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
+      }
+      if (resourceUrn != null) {
+        andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
+      }
+      if (startTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
+      }
+      if (endTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
+      }
+
+      conjunction.setAnd(andCriterion);
+      disjunction.add(conjunction);
+    }
+  }
+
+  private boolean hasNonAssigneeFilters(
+      ActionRequestType type,
+      ActionRequestStatus status,
+      Urn resourceUrn,
+      Long startTimestampMillis,
+      Long endTimestampMillis) {
+    return status != null
+        || type != null
+        || resourceUrn != null
+        || startTimestampMillis != null
+        || endTimestampMillis != null;
+  }
+
+  private <T> void addCriterionIfNotNull(
+      CriterionArray criteria,
+      T value,
+      java.util.function.Function<T, Criterion> criterionCreator) {
+    if (value != null) {
+      criteria.add(criterionCreator.apply(value));
+    }
   }
 
   private ConjunctiveCriterion createUserFilterConjunction(
