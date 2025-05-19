@@ -475,23 +475,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
         schema_name = row["VIEW_SCHEMA"]
         logger.info(f"Mapping view {db_name}.{schema_name}.{row['VIEW_NAME']}")
-        row["VIEW_DEFINITION"] = ""
-        # if row["VIEW_DEFINITION"] == "" or row["VIEW_DEFINITION"] is None:
-        #     logger.info(f"View definition is empty for {db_name}.{schema_name}.{row['VIEW_NAME']}, fetching from show views")
-        #     # we need to fetch the view definition from show views
-        #     cur = self.connection.query(
-        #         # TODO(gabe): optimize this to come up with more efficient LIKE patterns to group this fetching
-        #         SnowflakeQuery.show_single_view_for_database_and_schema(
-        #             db_name, schema_name, row["VIEW_NAME"]
-        #         )
-        #     )
-        #     for result in cur:
-        #         logger.info(
-        #             f"Fetched view definition for {db_name}.{schema_name}.{row['VIEW_NAME']}: {result['text']}"
-        #         )
-        #         row["VIEW_DEFINITION"] = result["text"]
-        # else:
-        #     logger.info(f"View definition is not empty for {db_name}.{schema_name}.{row['VIEW_NAME']}")
 
         return schema_name, SnowflakeView(
             name=row["VIEW_NAME"],
