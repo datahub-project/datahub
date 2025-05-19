@@ -88,7 +88,15 @@ class MonitorClient:
             filter={
                 "or": [
                     {
-                        "and": self._build_timeseries_filter(start_time, end_time),
+                        "and": self._build_timeseries_filter(start_time, end_time)
+                        + [
+                            {
+                                "field": "state",
+                                "condition": "EQUAL",
+                                "value": "REJECTED",
+                                "negated": True,
+                            }
+                        ],
                     }
                 ]
             },

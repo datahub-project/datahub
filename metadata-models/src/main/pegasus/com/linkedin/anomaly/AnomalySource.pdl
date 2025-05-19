@@ -14,19 +14,24 @@ record AnomalySource {
     /**
      * An assertion has failed, triggering the anomaly.
      */
-     INFERRED_ASSERTION_FAILURE
+     INFERRED_ASSERTION_FAILURE,
+     /**
+     * An anomaly was reported by a user.
+     */
+     USER_FEEDBACK,
   }
 
   /**
   * Reference to an URN related to the source of an anomaly.
   * If this anomaly was raised due to an inferred assertion failure, then this will contain the urn of the source Assertion.
+  * If this anomaly was raised by a user, then this will contain the urn of the user who reported the anomaly.
   */
   @TimeseriesField = {}
   sourceUrn: optional Urn
 
   /**
-  * Additional properties about the source, for example which evaluation
-  * of an assertion generated an Anomaly.
+  * Additional properties about the source, for example which metric
+  * of an assertion generated the anomaly.
   */
   properties: optional AnomalySourceProperties
 }

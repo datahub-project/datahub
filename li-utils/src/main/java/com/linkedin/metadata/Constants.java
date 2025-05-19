@@ -481,7 +481,7 @@ public class Constants {
   public static final String MONITOR_ENTITY_NAME = "monitor";
   public static final String MONITOR_KEY_ASPECT_NAME = "monitorKey";
   public static final String MONITOR_INFO_ASPECT_NAME = "monitorInfo";
-  public static final String MONITOR_ANOMALY_EVENT_ASPECT_NAME = "monitorInfo";
+  public static final String MONITOR_ANOMALY_EVENT_ASPECT_NAME = "monitorAnomalyEvent";
 
   // Data Contracts
   public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";

@@ -8355,6 +8355,26 @@ type AssertionResult {
   Acryl Only! Contextual details populated here if this assertion was inferred with AI
   """
   assertionInferenceDetails: AssertionInferenceDetails
+
+  """
+  Acryl Only! The metric that was sampled & used when evaluating the assertion.
+  """
+  metric: AssertionMetric
+}
+
+"""
+The metric that was sampled & used when evaluating the assertion.
+"""
+type AssertionMetric {
+  """
+  The timestamp of the metric.
+  """
+  timestampMillis: Long!
+
+  """
+  The value of the metric.
+  """
+  value: Float!
 }
 
 """

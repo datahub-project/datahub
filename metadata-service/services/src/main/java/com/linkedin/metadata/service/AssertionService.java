@@ -430,6 +430,42 @@ public class AssertionService extends BaseService {
 
   /**
    * Returns an instance of {@link com.linkedin.assertion.AssertionRunEvent} for the specified
+   * assertion URN, at the given timestamp, if one exists.
+   */
+  @Nullable
+  public AssertionRunEvent getAssertionRunEvent(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final long timestampMillis) {
+    Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(timestampMillis, "timestampMillis must not be null");
+    try {
+      final List<EnvelopedAspect> aspects =
+          this.entityClient.getTimeseriesAspectValues(
+              opContext,
+              assertionUrn.toString(),
+              Constants.ASSERTION_ENTITY_NAME,
+              Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+              timestampMillis,
+              null,
+              1,
+              null);
+      if (aspects != null && !aspects.isEmpty()) {
+        final EnvelopedAspect envelopedAspect = aspects.get(0);
+        return GenericRecordUtils.deserializeAspect(
+            envelopedAspect.getAspect().getValue(),
+            envelopedAspect.getAspect().getContentType(),
+            AssertionRunEvent.class);
+      }
+      return null;
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
+    }
+  }
+
+  /**
+   * Returns an instance of {@link com.linkedin.assertion.AssertionRunEvent} for the specified
    * assertion URN, if one exists, null if one is not found.
    */
   @Nullable

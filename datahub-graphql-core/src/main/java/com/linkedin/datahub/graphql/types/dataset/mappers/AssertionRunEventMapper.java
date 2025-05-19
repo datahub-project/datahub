@@ -116,7 +116,18 @@ public class AssertionRunEventMapper
       datasetAssertionResult.setError(mapAssertionResultError(context, gmsResult.getError()));
     }
 
+    if (gmsResult.hasMetric()) {
+      datasetAssertionResult.setMetric(mapAssertionMetric(gmsResult.getMetric()));
+    }
+
     return datasetAssertionResult;
+  }
+
+  private AssertionMetric mapAssertionMetric(com.linkedin.assertion.AssertionMetric gmsMetric) {
+    AssertionMetric datasetAssertionMetric = new AssertionMetric();
+    datasetAssertionMetric.setTimestampMillis(gmsMetric.getTimestampMs());
+    datasetAssertionMetric.setValue(gmsMetric.getValue());
+    return datasetAssertionMetric;
   }
 
   private AssertionResultError mapAssertionResultError(

@@ -6,12 +6,17 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.codec.JacksonDataCodec;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AnomalyReviewState;
+import com.linkedin.datahub.graphql.generated.AnomalySource;
+import com.linkedin.datahub.graphql.generated.AnomalySourceProperties;
+import com.linkedin.datahub.graphql.generated.AnomalySourceType;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionAdjustmentSettingsInput;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationContext;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParameters;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationParametersType;
 import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
+import com.linkedin.datahub.graphql.generated.AssertionMetric;
 import com.linkedin.datahub.graphql.generated.AssertionMonitor;
 import com.linkedin.datahub.graphql.generated.AssertionMonitorBootstrapStatus;
 import com.linkedin.datahub.graphql.generated.AssertionMonitorMetricsCubeBootstrapState;
@@ -34,6 +39,7 @@ import com.linkedin.datahub.graphql.generated.EvaluationTimeWindow;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldKind;
 import com.linkedin.datahub.graphql.generated.FreshnessFieldSpec;
 import com.linkedin.datahub.graphql.generated.Monitor;
+import com.linkedin.datahub.graphql.generated.MonitorAnomalyEvent;
 import com.linkedin.datahub.graphql.generated.MonitorError;
 import com.linkedin.datahub.graphql.generated.MonitorErrorType;
 import com.linkedin.datahub.graphql.generated.MonitorInfo;
@@ -465,6 +471,47 @@ public class MonitorMapper {
     monitorError.setType(MonitorErrorType.valueOf(backendError.getType().toString()));
     monitorError.setMessage(backendError.getMessage(GetMode.NULL));
     return monitorError;
+  }
+
+  public static MonitorAnomalyEvent mapMonitorAnomalyEvent(
+      com.linkedin.anomaly.MonitorAnomalyEvent gmsEvent) {
+    MonitorAnomalyEvent event = new MonitorAnomalyEvent();
+    if (gmsEvent.hasState()) {
+      event.setState(AnomalyReviewState.valueOf(gmsEvent.getState().name()));
+    }
+    event.setSource(mapAnomalySource(gmsEvent.getSource()));
+    event.setTimestampMillis(gmsEvent.getTimestampMillis());
+    event.setCreated(gmsEvent.getCreated().getTime());
+    event.setLastUpdated(gmsEvent.getLastUpdated().getTime());
+    return event;
+  }
+
+  private static AnomalySource mapAnomalySource(
+      com.linkedin.anomaly.AnomalySource gmsAnomalySource) {
+    AnomalySource anomalySource = new AnomalySource();
+    anomalySource.setType(AnomalySourceType.valueOf(gmsAnomalySource.getType().name()));
+
+    if (gmsAnomalySource.hasSourceUrn()) {
+      anomalySource.setSourceUrn(gmsAnomalySource.getSourceUrn().toString());
+    }
+
+    if (gmsAnomalySource.hasProperties()) {
+      mapAnomalySourceProperties(gmsAnomalySource.getProperties());
+    }
+    return anomalySource;
+  }
+
+  private static AnomalySourceProperties mapAnomalySourceProperties(
+      com.linkedin.anomaly.AnomalySourceProperties gmsAnomalySourceProperties) {
+    AnomalySourceProperties anomalySourceProperties = new AnomalySourceProperties();
+    if (gmsAnomalySourceProperties.hasAssertionMetric()) {
+      final AssertionMetric assertionMetric = new AssertionMetric();
+      assertionMetric.setTimestampMillis(
+          gmsAnomalySourceProperties.getAssertionMetric().getTimestampMs());
+      assertionMetric.setValue(gmsAnomalySourceProperties.getAssertionMetric().getValue());
+      anomalySourceProperties.setAssertionMetric(assertionMetric);
+    }
+    return anomalySourceProperties;
   }
 
   private MonitorMapper() {}
