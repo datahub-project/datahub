@@ -1,7 +1,6 @@
 package io.datahubproject.iceberg.catalog.rest.secure;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 import com.datahub.authentication.Actor;
@@ -12,15 +11,13 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.google.common.net.HttpHeaders;
-import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.dataplatforminstance.IcebergWarehouseInfo;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.client.CacheEvictionService;
-import com.linkedin.secret.DataHubSecretValue;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
-import io.datahubproject.iceberg.catalog.Utils;
 import io.datahubproject.iceberg.catalog.credentials.CredentialProvider;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.SecretService;
@@ -29,6 +26,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.util.*;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 
@@ -53,7 +51,8 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
   private OperationContext systemOperationContext;
   private Authentication authentication;
   private Actor actor;
-  private IcebergWarehouseInfo icebergWarehouse;
+  private DataHubIcebergWarehouse warehouse;
+
   @Mock private RecordTemplate warehouseAspect;
   protected T controller;
 
@@ -61,9 +60,10 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
   public void setup() throws Exception {
     MockitoAnnotations.openMocks(this);
     when(request.getHeader(HttpHeaders.X_FORWARDED_FOR)).thenReturn("1.2.3.4");
+    warehouse = mock(DataHubIcebergWarehouse.class);
+    when(warehouse.getPlatformInstance()).thenReturn(TEST_PLATFORM);
     setupAuthentication();
     setupController();
-    setupWarehouseConfiguration();
     onSetup();
   }
 
@@ -107,55 +107,18 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
     field.set(controller, value);
   }
 
-  private IcebergWarehouseInfo createTestWarehouse() throws Exception {
+  private IcebergWarehouseInfo createTestWarehouse() {
     IcebergWarehouseInfo warehouse = new IcebergWarehouseInfo();
-    warehouse.setClientId(Urn.createFromString("urn:li:secret:clientId"));
-    warehouse.setClientSecret(Urn.createFromString("urn:li:secret:clientSecret"));
+    warehouse.setClientId(UrnUtils.getUrn("urn:li:secret:clientId"));
+    warehouse.setClientSecret(UrnUtils.getUrn("urn:li:secret:clientSecret"));
     warehouse.setDataRoot("s3://data-root/test/");
     warehouse.setRegion("us-east-1");
     warehouse.setRole("testRole");
     return warehouse;
   }
 
-  private void setupWarehouseConfiguration() throws Exception {
-    // Configure warehouse settings
-    icebergWarehouse = createTestWarehouse();
-    setupWarehouseMocks();
-    setupSecretValues();
-  }
-
-  private void setupWarehouseMocks() {
-    when(entityService.getLatestAspect(
-            any(),
-            eq(Utils.platformInstanceUrn(TEST_PLATFORM)),
-            eq(DataHubIcebergWarehouse.DATAPLATFORM_INSTANCE_ICEBERG_WAREHOUSE_ASPECT_NAME)))
-        .thenReturn(warehouseAspect);
-    when(warehouseAspect.data()).thenReturn(icebergWarehouse.data());
-  }
-
-  private void setupSecretValues() throws Exception {
-
-    String clientId = "testClientId";
-    String clientSecret = "testClientSecret";
-    when(secretService.decrypt(clientId)).thenReturn("decrypt-" + clientId);
-    when(secretService.decrypt(clientSecret)).thenReturn("decrypt-" + clientSecret);
-
-    DataHubSecretValue clientIdValue = new DataHubSecretValue();
-    clientIdValue.setValue("testClientId");
-
-    DataHubSecretValue clientSecretValue = new DataHubSecretValue();
-    clientSecretValue.setValue("testClientSecret");
-
-    Map<Urn, List<RecordTemplate>> aspectsMap = new HashMap<>();
-    aspectsMap.put(icebergWarehouse.getClientId(), Arrays.asList(clientIdValue));
-    aspectsMap.put(icebergWarehouse.getClientSecret(), Arrays.asList(clientSecretValue));
-
-    when(entityService.getLatestAspects(
-            any(),
-            eq(Set.of(icebergWarehouse.getClientId(), icebergWarehouse.getClientSecret())),
-            eq(Set.of("dataHubSecretValue")),
-            eq(false)))
-        .thenReturn(aspectsMap);
+  protected DataHubIcebergWarehouse warehouse() {
+    return warehouse;
   }
 
   protected void onSetup() {}
