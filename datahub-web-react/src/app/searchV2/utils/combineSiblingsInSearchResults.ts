@@ -28,7 +28,9 @@ export function combineSiblingsInSearchResults(
 
     const originalUrnList = searchResults.map((result) => result.entity.urn);
 
-    // we need to apply this fix up because
+    // With usage propagation from snowflake to dbt, dbt and snowflake siblings do not rank
+    // consistently in search. in cases where they both show up in the same page, we should have
+    // the warehouse urn win for consistency.
     searchResults.forEach((searchResult) => {
         let entityToProcess = searchResult.entity;
 
