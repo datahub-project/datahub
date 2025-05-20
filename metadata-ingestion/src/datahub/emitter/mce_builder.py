@@ -406,6 +406,8 @@ def make_ml_model_group_urn(platform: str, group_name: str, env: str) -> str:
 
 def validate_ownership_type(ownership_type: str) -> Tuple[str, Optional[str]]:
     if ownership_type.startswith("urn:li:"):
+        if not ownership_type.startswith("urn:li:ownershipType:") or ownership_type == "urn:li:ownershipType:__system__":
+            raise ValueError(f"Invalid ownership type urn: {ownership_type}"  )
         return OwnershipTypeClass.CUSTOM, ownership_type
     ownership_type = ownership_type.upper()
     if ownership_type in get_enum_options(OwnershipTypeClass):
