@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.hook;
 
+import com.linkedin.metadata.kafka.generic.EventHook;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
@@ -11,36 +12,13 @@ import javax.annotation.Nonnull;
  * with the same message. In the future, we intend to migrate to "at least once" semantics, meaning
  * that the hook will be responsible for implementing idempotency.
  */
-public interface MetadataChangeLogHook {
+public interface MetadataChangeLogHook extends EventHook<MetadataChangeLog> {
 
   /** Initialize the hook */
   default MetadataChangeLogHook init(@Nonnull OperationContext systemOperationContext) {
     return this;
   }
 
-  /**
-   * Suffix for the consumer group
-   *
-   * @return suffix
-   */
-  @Nonnull
-  String getConsumerGroupSuffix();
-
-  /**
-   * Return whether the hook is enabled or not. If not enabled, the below invoke method is not
-   * triggered
-   */
-  boolean isEnabled();
-
   /** Invoke the hook when a MetadataChangeLog is received */
-  void invoke(@Nonnull MetadataChangeLog log) throws Exception;
-
-  /**
-   * Controls hook execution ordering
-   *
-   * @return order to execute
-   */
-  default int executionOrder() {
-    return 100;
-  }
+  void invoke(@Nonnull MetadataChangeLog event) throws Exception;
 }
