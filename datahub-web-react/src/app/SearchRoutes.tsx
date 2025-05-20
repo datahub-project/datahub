@@ -44,7 +44,7 @@ export const SearchRoutes = (): JSX.Element => {
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
-    const { config } = useAppConfig();
+    const { config, loaded } = useAppConfig();
     const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
 
@@ -127,7 +127,7 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
-                <Route component={NoPageFound} />
+                {me.loaded && loaded && <Route component={NoPageFound} />}
             </Switch>
         </FinalSearchablePage>
     );
