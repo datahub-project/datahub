@@ -424,11 +424,13 @@ def test_operation_processor_datahub_props():
     assert isinstance(aspect_map["add_domain"], DomainsClass)
     assert aspect_map["add_domain"].domains == ["urn:li:domain:domain1"]
 
+
 def test_validate_ownership_type_with_urn_valid():
     # Valid urn starting with "urn:li:ownershipType:" (and not __system__)
     input_urn = "urn:li:ownershipType:TEST"
     result = validate_ownership_type(input_urn)
     assert result == (OwnershipTypeClass.CUSTOM, input_urn)
+
 
 def test_validate_ownership_type_with_urn_invalid_system():
     # Invalid if __system__ is provided
@@ -436,11 +438,13 @@ def test_validate_ownership_type_with_urn_invalid_system():
     with pytest.raises(ValueError):
         validate_ownership_type(invalid_urn)
 
+
 def test_validate_ownership_type_with_wrong_prefix():
     # Invalid if urn does not have the correct prefix
     wrong_urn = "urn:li:notOwnership:INVALID"
     with pytest.raises(ValueError):
         validate_ownership_type(wrong_urn)
+
 
 def test_validate_ownership_type_non_urn_valid():
     # Non-urn input should be uppercased and found in valid options.
@@ -448,6 +452,7 @@ def test_validate_ownership_type_non_urn_valid():
     input_type = "dataowner"
     result = validate_ownership_type(input_type)
     assert result == ("DATAOWNER", None)
+
 
 def test_validate_ownership_type_non_urn_invalid():
     # Non-urn input that is not valid should raise ValueError.
