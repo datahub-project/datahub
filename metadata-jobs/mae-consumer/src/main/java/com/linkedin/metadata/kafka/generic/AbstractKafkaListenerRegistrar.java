@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.InitializingBean;
@@ -68,7 +69,7 @@ public abstract class AbstractKafkaListenerRegistrar<E, H extends EventHook<E>>
   @Nonnull
   public KafkaListenerEndpoint createListenerEndpoint(
       @Nonnull String consumerGroupId, @Nonnull List<String> topics, @Nonnull List<H> groupHooks) {
-    MethodKafkaListenerEndpoint<String, Object> kafkaListenerEndpoint =
+    MethodKafkaListenerEndpoint<String, GenericRecord> kafkaListenerEndpoint =
         new MethodKafkaListenerEndpoint<>();
     kafkaListenerEndpoint.setId(consumerGroupId);
     kafkaListenerEndpoint.setGroupId(consumerGroupId);

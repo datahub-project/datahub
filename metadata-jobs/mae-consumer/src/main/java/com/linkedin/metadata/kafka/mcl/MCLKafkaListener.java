@@ -13,7 +13,6 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
-import com.linkedin.mxe.Topics;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
