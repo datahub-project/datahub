@@ -8,6 +8,7 @@ import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdow
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
 import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
@@ -98,6 +99,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             component: SidebarAboutSection,
             properties: {
                 hideLinksButton: true,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
             },
         },
         {

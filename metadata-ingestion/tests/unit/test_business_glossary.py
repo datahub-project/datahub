@@ -1,4 +1,19 @@
-from datahub.ingestion.source.metadata.business_glossary import clean_url, create_id
+from typing import Dict
+from unittest.mock import MagicMock
+
+import datahub.metadata.schema_classes as models
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.metadata.business_glossary import (
+    BusinessGlossarySourceConfig,
+    DefaultConfig,
+    GlossaryNodeConfig,
+    GlossaryTermConfig,
+    Owners,
+    clean_url,
+    create_id,
+    get_mces_from_node,
+    get_mces_from_term,
+)
 
 
 def test_clean_url():
@@ -83,3 +98,121 @@ def test_create_id_with_default():
     # Test with URN as default_id
     id_ = create_id(["any", "path"], "urn:li:glossaryTerm:custom-id", False)
     assert id_ == "urn:li:glossaryTerm:custom-id"
+
+
+def test_glossary_node_tags():
+    """Test that tags are properly handled for glossary nodes"""
+    # Create a glossary node with tags
+    node = GlossaryNodeConfig(
+        name="Test Node",
+        description="Test node description",
+        tags=["Tag1", "Tag2"],
+    )
+    node._urn = "urn:li:glossaryNode:test-node"
+
+    # Mock objects required for get_mces_from_node
+    path_vs_id: Dict[str, str] = {}
+    parent_owners = models.OwnershipClass(owners=[])
+    defaults = DefaultConfig(
+        source="test-source",
+        owners=Owners(users=["testuser"]),
+        url="http://example.com",
+        source_type="INTERNAL",
+    )
+    ingestion_config = BusinessGlossarySourceConfig(
+        file="test.yml", enable_auto_id=False
+    )
+
+    # Create a mock PipelineContext
+    mock_ctx = MagicMock(spec=PipelineContext)
+    mock_ctx.graph = None
+
+    # Get MCEs from the node
+    mces = list(
+        get_mces_from_node(
+            node, path_vs_id, None, parent_owners, defaults, ingestion_config, mock_ctx
+        )
+    )
+
+    # Ensure we have at least 2 MCEs (snapshot and tags MCP)
+    assert len(mces) >= 2
+
+    # Find the GlobalTags MCP
+    tags_mcp = next(
+        (
+            mce
+            for mce in mces
+            if hasattr(mce, "aspect") and isinstance(mce.aspect, models.GlobalTagsClass)
+        ),
+        None,
+    )
+
+    # Verify the tags MCP exists and contains the expected tags
+    assert tags_mcp is not None
+    assert isinstance(tags_mcp.aspect, models.GlobalTagsClass)
+    assert len(tags_mcp.aspect.tags) == 2
+    tag_values = [tag.tag.split(":")[-1] for tag in tags_mcp.aspect.tags]
+    assert "Tag1" in tag_values
+    assert "Tag2" in tag_values
+
+
+def test_glossary_term_tags():
+    """Test that tags are properly handled for glossary terms"""
+    # Create a glossary term with tags
+    term = GlossaryTermConfig(
+        name="Test Term",
+        description="Test term description",
+        tags=["Tag1", "Tag2"],
+    )
+    term._urn = "urn:li:glossaryTerm:test-term"
+
+    # Mock objects required for get_mces_from_term
+    path_vs_id: Dict[str, str] = {}
+    parent_ownership = models.OwnershipClass(owners=[])
+    defaults = DefaultConfig(
+        source="test-source",
+        owners=Owners(users=["testuser"]),
+        url="http://example.com",
+        source_type="INTERNAL",
+    )
+    ingestion_config = BusinessGlossarySourceConfig(
+        file="test.yml", enable_auto_id=False
+    )
+
+    # Create a mock PipelineContext
+    mock_ctx = MagicMock(spec=PipelineContext)
+    mock_ctx.graph = None
+
+    # Get MCEs from the term
+    mces = list(
+        get_mces_from_term(
+            term,
+            path_vs_id,
+            None,
+            parent_ownership,
+            defaults,
+            ingestion_config,
+            mock_ctx,
+        )
+    )
+
+    # Ensure we have at least 2 MCEs (snapshot and tags MCP)
+    assert len(mces) >= 2
+
+    # Find the GlobalTags MCP
+    tags_mcp = next(
+        (
+            mce
+            for mce in mces
+            if hasattr(mce, "aspect") and isinstance(mce.aspect, models.GlobalTagsClass)
+        ),
+        None,
+    )
+
+    # Verify the tags MCP exists and contains the expected tags
+    assert tags_mcp is not None
+    assert isinstance(tags_mcp.aspect, models.GlobalTagsClass)
+    assert len(tags_mcp.aspect.tags) == 2
+    tag_values = [tag.tag.split(":")[-1] for tag in tags_mcp.aspect.tags]
+    assert "Tag1" in tag_values
+    assert "Tag2" in tag_values

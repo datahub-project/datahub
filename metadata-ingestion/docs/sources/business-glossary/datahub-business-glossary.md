@@ -37,6 +37,9 @@ Example **GlossaryNode**:
   knowledge_links: # (optional) list of **KnowledgeCard** objects
     - label: Wiki link for shipping
       url: "https://en.wikipedia.org/wiki/Freight_transport"
+  tags: # (optional) list of tags to apply to this node
+    - "Shipping"
+    - "Logistics"
 ```
 
 **GlossaryTerm**: a term in your business glossary
@@ -67,6 +70,9 @@ Example **GlossaryTerm**:
     - url: "https://en.wikipedia.org/wiki/Address"
       label: Wiki link
   domain: "urn:li:domain:Logistics" # (optional) domain name or domain urn
+  tags: # (optional) list of tags to apply to this term
+    - "PII"
+    - "Customer-Info"
 ```
 
 ## ID Management and URL Generation
@@ -170,20 +176,30 @@ nodes:
     knowledge_links:
       - label: Wiki link for classification
         url: "https://en.wikipedia.org/wiki/Classification"
+    tags:
+      - "Classification"
+      - "Governance"
     terms:
       - name: "Sensitive Data" # Will generate: Data-Classification.Sensitive-Data
         description: Sensitive Data
         custom_properties:
           is_confidential: "false"
+        tags:
+          - "Sensitive"
       - name: "Confidential Information" # Will generate: Data-Classification.Confidential-Information
         description: Confidential Data
         custom_properties:
           is_confidential: "true"
+        tags:
+          - "Confidential"
       - name: "Highly Confidential" # Will generate: Data-Classification.Highly-Confidential
         description: Highly Confidential Data
         custom_properties:
           is_confidential: "true"
         domain: Marketing
+        tags:
+          - "Highly-Confidential"
+          - "Restricted"
 
   - name: "Personal Information"
     description: All terms related to personal information

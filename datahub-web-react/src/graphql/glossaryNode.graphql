@@ -47,6 +47,9 @@ fragment glossaryNodeFields on GlossaryNode {
     displayProperties {
         ...displayPropertiesFields
     }
+    globalTags {
+        ...globalTagsFields
+    }
     ...notes
 }
 
