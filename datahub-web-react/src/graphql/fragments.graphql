@@ -409,6 +409,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     platformNativeType
     properties {
         name
+        qualifiedName
         description
         customProperties {
             key
@@ -493,6 +494,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     ...entityDataProduct
     deprecation {
         ...deprecationFields
+    }
+    subTypes {
+        typeNames
     }
 }
 
@@ -1818,4 +1822,10 @@ fragment dataTransformLogicFields on DataTransformLogic {
             language
         }
     }
+}
+
+fragment customPropertiesFields on CustomPropertiesEntry {
+    key
+    value
+    associatedUrn
 }

@@ -91,7 +91,7 @@ public interface AspectsBatch {
       Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
     for (MutationHook mutationHook :
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks()) {
-      mutationHook.applyWriteMutation(changeMCPS, retrieverContext);
+      mutationHook.applyWriteMutation(changeMCPS, retrieverContext).count();
     }
   }
 

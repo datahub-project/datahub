@@ -3,7 +3,7 @@ from unittest import mock
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
 def test_stateful_ingestion(tmp_path, pytestconfig):

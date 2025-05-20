@@ -31,6 +31,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.bar,PROD),a)"
                     ],
+                    "transformOperation": "COPY: \"BAZ\".\"A\" AS \"A\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:e2629e6fd3a70a223cb3e2c9e5bd3416763782de3ec32124bc56cb835b60978a"
                 },
@@ -43,6 +44,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.bar,PROD),b)"
                     ],
+                    "transformOperation": "COPY: \"BAZ\".\"B\" AS \"B\"",
                     "confidenceScore": 0.2,
                     "query": "urn:li:query:e2629e6fd3a70a223cb3e2c9e5bd3416763782de3ec32124bc56cb835b60978a"
                 }
@@ -57,6 +59,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE bar AS\nSELECT\n  a,\n  b\nFROM baz",
                 "language": "SQL"
@@ -174,6 +177,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE person_info_swap CLONE person_info;\n\nCREATE TABLE person_info_incremental AS\nSELECT\n  *\nFROM person_info_dep;\n\nINSERT INTO person_info_swap\nSELECT\n  *\nFROM person_info_incremental;\n\nALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info /* Datahub generated query text-- */",
                 "language": "SQL"
@@ -288,6 +292,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE TABLE person_info_swap CLONE person_info;\n\nCREATE TABLE person_info_incremental AS\nSELECT\n  *\nFROM person_info_dep;\n\nINSERT INTO person_info_swap\nSELECT\n  *\nFROM person_info_incremental;\n\nCREATE TABLE person_info_backup AS\nSELECT\n  *\nFROM person_info_swap",
                 "language": "SQL"

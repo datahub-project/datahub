@@ -7,7 +7,6 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.mxe.TopicConventionImpl;
 import io.ebean.Database;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -30,8 +29,6 @@ public class UpgradeCliApplicationTestConfiguration {
   @MockBean public EntityRegistry entityRegistry;
 
   @MockBean public ConfigEntityRegistry configEntityRegistry;
-
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
 
   @Bean
   public SchemaRegistryService schemaRegistryService() {
