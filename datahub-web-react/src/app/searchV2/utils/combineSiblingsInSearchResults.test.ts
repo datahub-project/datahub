@@ -632,6 +632,119 @@ const searchResultsDbtFirstSnowflakeSecond = [dbtSearchResultItem, snowflakeSear
 const searchResultsSnowflakeFirstDbtSecond = [snowflakeSearchResultItem, dbtSearchResultItem];
 // --- End of test data for DBT/Snowflake ---
 
+// --- Test data for non-DBT sibling handling ---
+const platformACommonName = 'platform_a_plus_platform_b_asset';
+const platformAName = 'platformA';
+const platformBName = 'platformB';
+
+const platformAUrn = `urn:li:dataset:(urn:li:dataPlatform:${platformAName},${platformACommonName},PROD)`;
+const platformBUrn = `urn:li:dataset:(urn:li:dataPlatform:${platformBName},${platformACommonName},PROD)`;
+
+const platformASiblingEntityData = {
+    urn: platformAUrn,
+    exists: true,
+    type: 'DATASET',
+    name: platformACommonName,
+    platform: {
+        urn: `urn:li:dataPlatform:${platformAName}`,
+        type: 'DATA_PLATFORM',
+        name: platformAName,
+        properties: {
+            type: 'OTHERS',
+            displayName: 'Platform A',
+            datasetNameDelimiter: '.',
+            logoUrl: '/assets/platforms/platformAlogo.png',
+            __typename: 'DataPlatformProperties',
+        },
+        __typename: 'DataPlatform',
+    },
+    properties: { name: platformACommonName, __typename: 'DatasetProperties' },
+    __typename: 'Dataset',
+};
+
+const platformBSiblingEntityData = {
+    urn: platformBUrn,
+    exists: true,
+    type: 'DATASET',
+    name: platformACommonName,
+    platform: {
+        urn: `urn:li:dataPlatform:${platformBName}`,
+        type: 'DATA_PLATFORM',
+        name: platformBName,
+        properties: {
+            type: 'OTHERS',
+            displayName: 'Platform B',
+            datasetNameDelimiter: '.',
+            logoUrl: '/assets/platforms/platformBlogo.png',
+            __typename: 'DataPlatformProperties',
+        },
+        __typename: 'DataPlatform',
+    },
+    properties: { name: platformACommonName, __typename: 'DatasetProperties' },
+    __typename: 'Dataset',
+};
+
+const platformASearchResultItem = {
+    entity: {
+        urn: platformAUrn,
+        exists: true,
+        type: 'DATASET',
+        name: platformACommonName,
+        platform: {
+            urn: `urn:li:dataPlatform:${platformAName}`,
+            type: 'DATA_PLATFORM',
+            name: platformAName,
+            properties: {
+                type: 'OTHERS',
+                displayName: 'Platform A',
+                datasetNameDelimiter: '.',
+                logoUrl: '/assets/platforms/platformAlogo.png',
+                __typename: 'DataPlatformProperties',
+            },
+            __typename: 'DataPlatform',
+        },
+        properties: { name: platformACommonName, __typename: 'DatasetProperties' },
+        siblingsSearch: {
+            searchResults: [{ entity: platformBSiblingEntityData }],
+        },
+        __typename: 'Dataset',
+    },
+    matchedFields: [{ name: 'name', value: platformACommonName, __typename: 'MatchedField' }],
+    __typename: 'SearchResult',
+};
+
+const platformBSearchResultItem = {
+    entity: {
+        urn: platformBUrn,
+        exists: true,
+        type: 'DATASET',
+        name: platformACommonName,
+        platform: {
+            urn: `urn:li:dataPlatform:${platformBName}`,
+            type: 'DATA_PLATFORM',
+            name: platformBName,
+            properties: {
+                type: 'OTHERS',
+                displayName: 'Platform B',
+                datasetNameDelimiter: '.',
+                logoUrl: '/assets/platforms/platformBlogo.png',
+                __typename: 'DataPlatformProperties',
+            },
+            __typename: 'DataPlatform',
+        },
+        properties: { name: platformACommonName, __typename: 'DatasetProperties' },
+        siblingsSearch: {
+            searchResults: [{ entity: platformASiblingEntityData }],
+        },
+        __typename: 'Dataset',
+    },
+    matchedFields: [{ name: 'name', value: platformACommonName, __typename: 'MatchedField' }],
+    __typename: 'SearchResult',
+};
+
+const searchResultsPlatformAFirstPlatformBSecond = [platformASearchResultItem, platformBSearchResultItem];
+// --- End of test data for non-DBT sibling handling ---
+
 describe('siblingUtils', () => {
     describe('combineSiblingsInSearchResults', () => {
         it('combines search results to deduplicate siblings', () => {
@@ -707,6 +820,44 @@ describe('siblingUtils', () => {
                     expect((result[1] as any).urn).toEqual(dbtUrn);
                     expect((result[1] as any).platform?.name).toEqual(dbtPlatformName);
                 });
+            });
+        });
+
+        describe('non-DBT sibling handling', () => {
+            it('combines two non-DBT siblings generically (no URN swapping) when showSeparateSiblings is false', () => {
+                const result = combineSiblingsInSearchResults(false, searchResultsPlatformAFirstPlatformBSecond as any);
+
+                expect(result).toHaveLength(1);
+                const combinedEntry = result[0] as any;
+
+                // Assuming platformA is chosen as the primary by the generic combine() because it's first in the input list
+                // The `entity` property of the result should be the main display entity.
+                expect(combinedEntry.entity.urn).toEqual(platformAUrn);
+                expect(combinedEntry.entity.platform?.name).toEqual(platformAName);
+
+                // Both original entities should be present in matchedEntities
+                expect(combinedEntry.matchedEntities).toHaveLength(2);
+                const entityAInMatched = combinedEntry.matchedEntities.find((e: any) => e.urn === platformAUrn);
+                const entityBInMatched = combinedEntry.matchedEntities.find((e: any) => e.urn === platformBUrn);
+
+                expect(entityAInMatched).toBeDefined();
+                expect(entityAInMatched.platform.name).toEqual(platformAName); // Verify no platform swapping
+                expect(entityBInMatched).toBeDefined();
+                expect(entityBInMatched.platform.name).toEqual(platformBName); // Verify no platform swapping
+            });
+
+            it('does not combine two non-DBT siblings when showSeparateSiblings is true', () => {
+                const result = combineSiblingsInSearchResults(true, searchResultsPlatformAFirstPlatformBSecond as any);
+
+                expect(result).toHaveLength(2);
+                // The structure for showSeparateSiblings: true currently spreads entity properties to the top level of the result item.
+                // First entity should be the original Platform A entity
+                expect((result[0] as any).urn).toEqual(platformAUrn);
+                expect((result[0] as any).platform?.name).toEqual(platformAName);
+
+                // Second entity should be the original Platform B entity
+                expect((result[1] as any).urn).toEqual(platformBUrn);
+                expect((result[1] as any).platform?.name).toEqual(platformBName);
             });
         });
     });

@@ -13,6 +13,8 @@ type UncombinedSeaerchResults = {
     paths?: EntityPath[];
 };
 
+const DBT_PLATFORM = 'dbt';
+
 export type CombinedSearchResult = CombinedEntity &
     Pick<UncombinedSeaerchResults, 'matchedFields'> &
     Pick<UncombinedSeaerchResults, 'paths'>;
@@ -26,34 +28,38 @@ export function combineSiblingsInSearchResults(
 
     const originalUrnList = searchResults.map((result) => result.entity.urn);
 
+    // we need to apply this fix up because
     searchResults.forEach((searchResult) => {
         let entityToProcess = searchResult.entity;
 
-        // properly handle cases where snowflake and dbt siblings are both present in results.
+        // properly handle cases where non-dbt and dbt siblings are both present in results.
         const siblingUrn = entityToProcess?.siblingsSearch?.searchResults?.[0]?.entity?.urn || 'not-available';
         const hasSiblingInList = originalUrnList.includes(siblingUrn);
         const entityPlatform = entityToProcess?.platform?.name;
+        const siblingPlatform = entityToProcess?.siblingsSearch?.searchResults?.[0]?.entity?.platform?.name;
+        const isDbtAndWarehouseSibling = entityPlatform === DBT_PLATFORM && siblingPlatform !== DBT_PLATFORM;
+
         const isSiblingAheadInTheList =
             originalUrnList.indexOf(siblingUrn) < originalUrnList.indexOf(entityToProcess?.urn);
 
-        if (hasSiblingInList && !showSeparateSiblings) {
-            if (entityPlatform === 'dbt' && isSiblingAheadInTheList) {
-                // skip this- the snowflake will render
+        if (hasSiblingInList && isDbtAndWarehouseSibling && !showSeparateSiblings) {
+            if (entityPlatform === DBT_PLATFORM && isSiblingAheadInTheList) {
+                // skip this- the warehouse is already rendering above
                 return;
             }
-            if (entityPlatform === 'dbt' && !isSiblingAheadInTheList) {
-                // Use the snowflake sibling's URN
-                // render with snowflake urn and skip dbt result
+            if (entityPlatform === DBT_PLATFORM && !isSiblingAheadInTheList) {
+                // Use the warehouse sibling's URN
+                // render with warehouse urn and skip dbt result
                 entityToProcess = {
                     ...entityToProcess,
                     urn: siblingUrn,
                 };
             }
-            if (entityPlatform === 'snowflake' && !isSiblingAheadInTheList) {
+            if (entityPlatform !== DBT_PLATFORM && !isSiblingAheadInTheList) {
                 // do nothing - render as normal
             }
-            if (entityPlatform === 'snowflake' && isSiblingAheadInTheList) {
-                // hide this because dbt will render above with snowflake urn
+            if (entityPlatform !== DBT_PLATFORM && isSiblingAheadInTheList) {
+                // hide this because dbt will render above with warehouse urn
                 return;
             }
         }
