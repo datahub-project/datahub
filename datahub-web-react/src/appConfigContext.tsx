@@ -122,6 +122,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         datasetHealthDashboardV2Enabled: false,
         showCreatedAtFilter: false,
         showIngestionPageRedesign: false,
+        showLineageExpandMore: false,
     },
     chromeExtensionConfig: {
         enabled: false,

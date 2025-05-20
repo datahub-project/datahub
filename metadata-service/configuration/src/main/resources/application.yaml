@@ -776,6 +776,7 @@ featureFlags:
   # If turned on, the "Created At" filter will be visible in search results page
   showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false}
   # If turned on, show the re-designed Ingestion page
+  # If turned on, show the expand more button (>>) in the lineage graph
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
