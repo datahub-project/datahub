@@ -970,7 +970,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         # We need to run this before filtering nodes, because the info generated
         # for a filtered node may be used by an unfiltered node.
         # NOTE: This method mutates the DBTNode objects directly.
-        # self._infer_schemas_and_update_cll(all_nodes_map)
+        self._infer_schemas_and_update_cll(all_nodes_map)
 
         nodes = self._filter_nodes(all_nodes)
         non_test_nodes = [
