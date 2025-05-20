@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Callable, Dict, Iterable, Union, cast
+from typing import Any, Callable, Dict, Iterable, Optional, cast
 
 from pyiceberg.conversions import from_bytes
 from pyiceberg.schema import Schema
@@ -24,8 +24,6 @@ from pyiceberg.utils.datetime import (
 )
 
 from datahub.emitter.mce_builder import get_sys_time
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.iceberg.iceberg_common import (
     IcebergProfilingConfig,
     IcebergSourceReport,
@@ -33,6 +31,7 @@ from datahub.ingestion.source.iceberg.iceberg_common import (
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
+    _Aspect,
 )
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -86,9 +85,8 @@ class IcebergProfiler:
     def profile_table(
         self,
         dataset_name: str,
-        dataset_urn: str,
         table: Table,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[_Aspect]:
         """This method will profile the supplied Iceberg table by looking at the table's manifest.
 
         The overall profile of the table is aggregated from the individual manifest files.
@@ -167,11 +165,11 @@ class IcebergProfiler:
                             )
                         total_count += data_file.record_count
             except Exception as e:
-                # Catch any errors that arise from attempting to read the Iceberg table's manifests
-                # This will prevent stateful ingestion from being blocked by an error (profiling is not critical)
-                self.report.report_warning(
-                    "profiling",
-                    f"Error while profiling dataset {dataset_name}: {e}",
+                self.report.warning(
+                    title="Error when profiling a table",
+                    message="Skipping profiling of the table due to errors",
+                    context=dataset_name,
+                    exc=e,
                 )
             if row_count:
                 # Iterating through fieldPaths introduces unwanted stats for list element fields...
@@ -211,14 +209,11 @@ class IcebergProfiler:
                 f"Finished profiling of dataset: {dataset_name} in {time_taken}"
             )
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=dataset_profile,
-        ).as_workunit()
+        yield dataset_profile
 
     def _render_value(
         self, dataset_name: str, value_type: IcebergType, value: Any
-    ) -> Union[str, None]:
+    ) -> Optional[str]:
         try:
             if isinstance(value_type, TimestampType):
                 return to_human_timestamp(value)
@@ -230,9 +225,17 @@ class IcebergProfiler:
                 return to_human_time(value)
             return str(value)
         except Exception as e:
-            self.report.report_warning(
-                "profiling",
-                f"Error in dataset {dataset_name} when profiling a {value_type} field with value {value}: {e}",
+            self.report.warning(
+                title="Couldn't render value when profiling a table",
+                message="Encountered error, when trying to redner a value for table profile.",
+                context=str(
+                    {
+                        "value": value,
+                        "value_type": value_type,
+                        "dataset_name": dataset_name,
+                    }
+                ),
+                exc=e,
             )
             return None
 

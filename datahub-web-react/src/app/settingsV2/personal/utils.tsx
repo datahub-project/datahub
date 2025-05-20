@@ -1,7 +1,9 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Entity, EntityType } from '../../../types.generated';
-import EntityRegistry from '../../entity/EntityRegistry';
+
+import EntityRegistry from '@app/entity/EntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 const StyledIcon = styled.img`
     width: 28px;

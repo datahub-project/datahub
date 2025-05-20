@@ -230,7 +230,8 @@ class RedshiftSqlLineageV2(Closeable):
             )
 
         # Populate lineage for external tables.
-        self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
+        if not self.config.skip_external_tables:
+            self._process_external_tables(all_tables=all_tables, db_schemas=db_schemas)
 
     def _populate_lineage_agg(
         self,
@@ -400,6 +401,10 @@ class RedshiftSqlLineageV2(Closeable):
         db_schemas: Dict[str, Dict[str, RedshiftSchema]],
     ) -> None:
         for schema_name, tables in all_tables[self.database].items():
+            logger.info(f"External table lineage: checking schema {schema_name}")
+            if not db_schemas[self.database].get(schema_name):
+                logger.warning(f"Schema {schema_name} not found")
+                continue
             for table in tables:
                 schema = db_schemas[self.database][schema_name]
                 if (
@@ -407,6 +412,9 @@ class RedshiftSqlLineageV2(Closeable):
                     and schema.is_external_schema()
                     and schema.external_platform
                 ):
+                    logger.info(
+                        f"External table lineage: processing table {schema_name}.{table.name}"
+                    )
                     # external_db_params = schema.option
                     upstream_platform = schema.external_platform.lower()
 

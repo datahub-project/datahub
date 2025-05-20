@@ -2,13 +2,15 @@ import { CloseCircleOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { getFilterEntity, getFilterIconAndLabel, getNewFilters } from './utils';
-import useGetBrowseV2LabelOverride from './useGetBrowseV2LabelOverride';
-import { useFilterRendererRegistry } from './render/useFilterRenderer';
-import { IconSpacer, Label } from './styledComponents';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useFilterRendererRegistry } from '@app/search/filters/render/useFilterRenderer';
+import { IconSpacer, Label } from '@app/search/filters/styledComponents';
+import useGetBrowseV2LabelOverride from '@app/search/filters/useGetBrowseV2LabelOverride';
+import { getFilterEntity, getFilterIconAndLabel, getNewFilters } from '@app/search/filters/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const ActiveFilterWrapper = styled.div`
     border: 1px solid ${ANTD_GRAY[5]};

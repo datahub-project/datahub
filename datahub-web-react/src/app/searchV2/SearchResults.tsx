@@ -1,36 +1,29 @@
+import { colors } from '@components';
+import { Pagination } from 'antd';
 import React, { useState } from 'react';
-import { Pagination, Typography } from 'antd';
-import { Tooltip } from '@components';
-import ViewHeadlineOutlinedIcon from '@mui/icons-material/ViewHeadlineOutlined';
-import ViewDayOutlinedIcon from '@mui/icons-material/ViewDayOutlined';
 import styled from 'styled-components/macro';
-import { Entity, FacetFilterInput, MatchedField, SearchSuggestion, FacetMetadata } from '../../types.generated';
-import { SearchCfg } from '../../conf';
-import { SearchSelectBar } from '../entityV2/shared/components/styled/search/SearchSelectBar';
-import { SearchResultList } from './SearchResultList';
-import { isListSubset } from '../entity/shared/utils';
-import { EntityAndType } from '../entity/shared/types';
-import { ErrorSection } from '../shared/error/ErrorSection';
-import { UnionType } from './utils/constants';
-import { generateOrFilters } from './utils/generateOrFilters';
-import { DownloadSearchResults, DownloadSearchResultsInput } from './utils/types';
-import { SidebarProvider } from './sidebar/SidebarContext';
-import { BrowseProvider } from './sidebar/BrowseContext';
-import { useIsBrowseV2, useIsSearchV2 } from './useSearchAndBrowseVersion';
-import SearchSortSelect from './sorting/SearchSortSelect';
-import { combineSiblingsInSearchResults } from './utils/combineSiblingsInSearchResults';
-import SearchQuerySuggester from './suggestions/SearchQuerySugggester';
-import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
-import BrowseSidebar from './sidebar';
-import SearchResultsLoadingSection from './SearchResultsLoadingSection';
-import { SearchEntitySidebarContainer } from './SearchEntitySidebarContainer';
-import SearchMenuItems from '../sharedV2/search/SearchMenuItems';
-import { RecommendedFilters } from './recommendation/RecommendedFilters';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { PreviewType } from '../entity/Entity';
-import { useSearchContext } from '../search/context/SearchContext';
-import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+
+import { PreviewType } from '@app/entity/Entity';
+import { EntityAndType } from '@app/entity/shared/types';
+import { isListSubset } from '@app/entity/shared/utils';
+import { SearchSelectBar } from '@app/entityV2/shared/components/styled/search/SearchSelectBar';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { SearchEntitySidebarContainer } from '@app/searchV2/SearchEntitySidebarContainer';
+import { SearchResultList } from '@app/searchV2/SearchResultList';
+import SearchResultsLoadingSection from '@app/searchV2/SearchResultsLoadingSection';
+import BrowseSidebar from '@app/searchV2/sidebar';
+import { BrowseProvider } from '@app/searchV2/sidebar/BrowseContext';
+import { SidebarProvider } from '@app/searchV2/sidebar/SidebarContext';
+import SearchQuerySuggester from '@app/searchV2/suggestions/SearchQuerySugggester';
+import { useIsBrowseV2, useIsSearchV2 } from '@app/searchV2/useSearchAndBrowseVersion';
+import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { SearchCfg } from '@src/conf';
+
+import { Entity, FacetFilterInput, MatchedField, SearchSuggestion } from '@types';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -67,15 +60,12 @@ const ResultContainer = styled.div<{ v2Styles: boolean }>`
 `;
 
 const PaginationControlContainer = styled.div`
-    padding-top: 16px;
-    padding-bottom: 16px;
-    text-align: center;
+    padding: 16px;
+    text-align: start;
 `;
 
 const PaginationInfoContainer = styled.div<{ v2Styles: boolean }>`
-    padding: 12px 24px 14px 24px;
-    min-height: 47px;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    padding: 4px 8px 4px 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -95,7 +85,8 @@ const SearchResultsScrollContainer = styled.div<{ $isShowNavBarRedesign?: boolea
 
 const LeftControlsContainer = styled.div`
     display: flex;
-    gap: 12px;
+    color: ${colors.gray[1700]};
+    gap: 4px;
 `;
 
 const StyledTabToolbar = styled.div`
@@ -107,11 +98,6 @@ const StyledTabToolbar = styled.div`
     align-items: center;
     justify-content: space-between;
     border: 1.5px solid ${ANTD_GRAY[4]};
-`;
-
-const SearchMenuContainer = styled.div`
-    display: flex;
-    align-items: center;
 `;
 
 const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`
@@ -128,41 +114,9 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarR
     margin: ${(props) => (props.$isShowNavBarRedesign ? '5px 4px 5px 0px' : '4px 12px 4px 0px')};
 `;
 
-const CustomSwitch = styled.div`
-    background: #F6F6F6;
-    border: 1px solid #EBECF0;
-    border-radius: 30px;
-    display: flex;
-    gap: 2px;
-    align-items: center;
-    padding: 2px;
-    width: fit-content;
-    justify-content: space-between;
-    margin-left: 8px;
-}
-`;
-
-const IconContainer = styled.div<{ isActive?: boolean }>`
-    cursor: pointer;
-    align-items: center;
-    display: flex;
-    padding: 4px;
-    transition: left 0.5s ease;
-
-    ${(props) =>
-        props.isActive &&
-        `
-        background: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border-radius: 100%;
-        color: white;
-    `}
-`;
-
 interface Props {
     loading: boolean;
-    unionType?: UnionType;
     query: string;
-    viewUrn?: string;
     page: number;
     searchResponse?: {
         start: number;
@@ -173,12 +127,10 @@ interface Props {
             matchedFields: MatchedField[];
         }[];
     } | null;
-    availableFilters: Array<FacetMetadata> | null;
     selectedFilters: Array<FacetFilterInput>;
     error: any;
     onChangeFilters: (filters: Array<FacetFilterInput>) => void;
     onChangePage: (page: number) => void;
-    downloadSearchResults: (input: DownloadSearchResultsInput) => Promise<DownloadSearchResults | null | undefined>;
     numResultsPerPage: number;
     setNumResultsPerPage: (numResults: number) => void;
     isSelectMode: boolean;
@@ -196,26 +148,22 @@ interface Props {
 
 export const SearchResults = ({
     loading,
-    unionType = UnionType.AND,
     query,
-    viewUrn,
     page,
     searchResponse,
-    availableFilters,
     selectedFilters,
     error,
     onChangeFilters,
     onChangePage,
-    downloadSearchResults,
     numResultsPerPage,
     setNumResultsPerPage,
     isSelectMode,
     selectedEntities,
+    suggestions,
+    setSelectedEntities,
     areAllEntitiesSelected,
     setAreAllEntitiesSelected,
-    suggestions,
     setIsSelectMode,
-    setSelectedEntities,
     onChangeSelectAll,
     refetch,
     previewType,
@@ -233,10 +181,8 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
-    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
     // For vertical sidebar
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
-    const { isFullViewCard, setIsFullViewCard } = useSearchContext();
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -277,70 +223,8 @@ export const SearchResults = ({
                                             v2Styles={showSearchFiltersV2}
                                             $isShowNavBarRedesign={isShowNavBarRedesign}
                                         >
-                                            <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
-                                                <LeftControlsContainer>
-                                                    <Typography.Text>
-                                                        Showing{' '}
-                                                        <b>
-                                                            {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} -{' '}
-                                                            {lastResultIndex}
-                                                        </b>{' '}
-                                                        of{' '}
-                                                        <b>
-                                                            {totalResults >= 10000
-                                                                ? `${formatNumberWithoutAbbreviation(10000)}+`
-                                                                : formatNumberWithoutAbbreviation(totalResults)}
-                                                        </b>{' '}
-                                                        results
-                                                    </Typography.Text>
-                                                </LeftControlsContainer>
-                                                <SearchMenuContainer>
-                                                    <SearchSortSelect
-                                                        selectedSortOption={selectedSortOption}
-                                                        setSelectedSortOption={setSelectedSortOption}
-                                                    />
-                                                    <SearchMenuItems
-                                                        downloadSearchResults={downloadSearchResults}
-                                                        filters={generateOrFilters(unionType, selectedFilters)}
-                                                        query={query}
-                                                        viewUrn={viewUrn}
-                                                        setShowSelectMode={setIsSelectMode}
-                                                        totalResults={totalResults}
-                                                    />
-                                                    <CustomSwitch>
-                                                        <IconContainer
-                                                            isActive={isFullViewCard}
-                                                            onClick={() => setIsFullViewCard(true)}
-                                                        >
-                                                            <Tooltip showArrow={false} title="Full Card View">
-                                                                <ViewDayOutlinedIcon
-                                                                    style={{
-                                                                        fontSize: '16px',
-                                                                    }}
-                                                                />
-                                                            </Tooltip>
-                                                        </IconContainer>
-                                                        <IconContainer
-                                                            isActive={!isFullViewCard}
-                                                            onClick={() => setIsFullViewCard(false)}
-                                                        >
-                                                            <Tooltip showArrow={false} title="Compact Card View">
-                                                                <ViewHeadlineOutlinedIcon
-                                                                    style={{
-                                                                        fontSize: '16px',
-                                                                    }}
-                                                                />
-                                                            </Tooltip>
-                                                        </IconContainer>
-                                                    </CustomSwitch>
-                                                </SearchMenuContainer>
-                                            </PaginationInfoContainer>
                                             {totalResults > 0 && <SearchQuerySuggester suggestions={suggestions} />}
-                                            <RecommendedFilters
-                                                availableFilters={availableFilters || []}
-                                                selectedFilters={selectedFilters}
-                                                onChangeFilters={onChangeFilters}
-                                            />
+
                                             {isSelectMode && (
                                                 <StyledTabToolbar>
                                                     <SearchSelectBar
@@ -359,6 +243,22 @@ export const SearchResults = ({
                                                     />
                                                 </StyledTabToolbar>
                                             )}
+                                            <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
+                                                <LeftControlsContainer>
+                                                    Showing{' '}
+                                                    <b>
+                                                        {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} -{' '}
+                                                        {lastResultIndex}
+                                                    </b>{' '}
+                                                    of{' '}
+                                                    <b>
+                                                        {totalResults >= 10000
+                                                            ? `${formatNumberWithoutAbbreviation(10000)}+`
+                                                            : formatNumberWithoutAbbreviation(totalResults)}
+                                                    </b>{' '}
+                                                    results
+                                                </LeftControlsContainer>
+                                            </PaginationInfoContainer>
                                             <SearchResultList
                                                 setHighlightedIndex={setHighlightedIndex}
                                                 highlightedIndex={highlightedIndex}

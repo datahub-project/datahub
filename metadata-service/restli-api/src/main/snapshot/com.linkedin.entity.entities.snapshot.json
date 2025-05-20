@@ -491,11 +491,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 64,
+          "maxLength" : 128,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 81,
+        "maxLength" : 145,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],
@@ -1264,7 +1264,7 @@
           "CUSTOM" : "Set when ownership type is unknown or a when new one is specified as an ownership type entity for which we have no\nenum value for. This is used for backwards compatibility",
           "DATAOWNER" : "A person or group that is owning the data\nDeprecated! Use TECHNICAL_OWNER instead.",
           "DATA_STEWARD" : "A steward, expert, or delegate responsible for the asset.",
-          "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
+          "DELEGATE" : "A person or a group that oversees the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
           "DEVELOPER" : "A person or group that is in charge of developing the code\nDeprecated! Use TECHNICAL_OWNER instead.",
           "NONE" : "No specific type associated to the owner.",
           "PRODUCER" : "A person, group, or service that produces/generates the data\nDeprecated! Use TECHNICAL_OWNER instead.",
@@ -2946,6 +2946,14 @@
                     "name" : "email",
                     "type" : "string",
                     "doc" : "Email address to contact the user",
+                    "optional" : true
+                  }, {
+                    "name" : "informationSources",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "Information sources that have been used to populate this CorpUserEditableInfo.\nThese include platform resources, such as Slack members or Looker users.\nThey can also refer to other semantic urns in the future.",
                     "optional" : true
                   } ],
                   "Aspect" : {
@@ -5032,7 +5040,7 @@
                   "name" : "MLModelGroupProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with an ML Model Group",
-                  "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo" ],
+                  "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo", "com.linkedin.common.ExternalReference" ],
                   "fields" : [ {
                     "name" : "name",
                     "type" : "string",
@@ -6635,6 +6643,16 @@
       "doc" : "The total number of entities directly under searched path"
     } ]
   }, "com.linkedin.metadata.search.LineageSearchEntity", {
+    "type" : "enum",
+    "name" : "LineageSearchPath",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "The path taken when doing search across lineage",
+    "symbols" : [ "TORTOISE", "LIGHTNING" ],
+    "symbolDocs" : {
+      "LIGHTNING" : "Designates the lightning lineage code path",
+      "TORTOISE" : "Designates the tortoise lineage code path"
+    }
+  }, {
     "type" : "record",
     "name" : "LineageSearchResult",
     "namespace" : "com.linkedin.metadata.search",
@@ -6663,6 +6681,11 @@
       "name" : "numEntities",
       "type" : "int",
       "doc" : "The total number of entities directly under searched path"
+    }, {
+      "name" : "lineageSearchPath",
+      "type" : "LineageSearchPath",
+      "doc" : "The path taken when doing search across lineage",
+      "optional" : true
     } ]
   }, "com.linkedin.metadata.search.MatchedField", {
     "type" : "record",

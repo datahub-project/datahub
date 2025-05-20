@@ -81,6 +81,8 @@ dependencies {
   implementation externalDependency.playFilters
   implementation externalDependency.kafkaClients
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
 
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito
@@ -94,6 +96,9 @@ dependencies {
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   runtimeOnly externalDependency.guicePlay
+  runtimeOnly externalDependency.opentelemetryExporter
+  runtimeOnly externalDependency.openTelemetryExporterLogging
+  runtimeOnly externalDependency.openTelemetryExporterCommon
   runtimeOnly (externalDependency.playDocs) {
     exclude group: 'com.typesafe.akka', module: "akka-http-core_$playScalaVersion"
   }

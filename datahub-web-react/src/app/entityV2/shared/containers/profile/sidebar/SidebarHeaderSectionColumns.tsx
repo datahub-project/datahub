@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
-import { REDESIGN_COLORS } from '../../../constants';
-import { SidebarStatsColumn } from '../utils';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SidebarStatsColumn } from '@app/entityV2/shared/containers/profile/utils';
+import HorizontalScroller from '@app/sharedV2/carousel/HorizontalScroller';
 
 const ColumnsContainer = styled(HorizontalScroller)`
     display: flex;

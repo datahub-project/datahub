@@ -6,14 +6,17 @@ from unittest.mock import patch
 from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.testing import mce_helpers
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
+    gen_mock_experiment,
+    gen_mock_experiment_run,
     gen_mock_model,
     gen_mock_models,
     gen_mock_training_automl_job,
     gen_mock_training_custom_job,
+    get_mock_pipeline_job,
 )
-from tests.test_helpers import mce_helpers
 
 T = TypeVar("T")
 
@@ -87,6 +90,21 @@ def test_vertexai_source_ingestion(pytestconfig: Config, tmp_path: Path) -> None
             patch("google.cloud.aiplatform.models.Model")
         )
         mock_model.return_value = gen_mock_model()
+
+        mock_exp = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.Experiment.list")
+        )
+        mock_exp.return_value = [gen_mock_experiment()]
+
+        mock_exp_run = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.ExperimentRun.list")
+        )
+        mock_exp_run.return_value = [gen_mock_experiment_run()]
+
+        mock = exit_stack.enter_context(
+            patch("google.cloud.aiplatform.PipelineJob.list")
+        )
+        mock.return_value = [get_mock_pipeline_job()]
 
         golden_file_path = (
             pytestconfig.rootpath

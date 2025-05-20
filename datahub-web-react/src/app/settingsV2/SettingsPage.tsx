@@ -1,6 +1,3 @@
-import React from 'react';
-import { useHistory, useLocation, useRouteMatch, Redirect, Route, Switch } from 'react-router';
-import { Button, colors } from '@src/alchemy-components';
 import {
     Bank,
     Bell,
@@ -10,18 +7,22 @@ import {
     Star,
     ToggleRight,
     Users,
-    Wrench,
     UsersThree,
+    Wrench,
 } from '@phosphor-icons/react';
+import React from 'react';
+import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
-import { useUserContext } from '../context/useUserContext';
-import { PATHS, DEFAULT_PATH } from './settingsPaths';
-import { NavBarMenuItems, NavBarMenuItemTypes } from '../homeV2/layout/navBarRedesign/types';
-import NavBarMenu from '../homeV2/layout/navBarRedesign/NavBarMenu';
-import { useIsThemeV2 } from '../useIsThemeV2';
-import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
-import useGetLogoutHandler from '../auth/useGetLogoutHandler';
-import { useAppConfig } from '../useAppConfig';
+
+import useGetLogoutHandler from '@app/auth/useGetLogoutHandler';
+import { useUserContext } from '@app/context/useUserContext';
+import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
+import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
+import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
+import { useAppConfig } from '@app/useAppConfig';
+import { useIsThemeV2 } from '@app/useIsThemeV2';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { Button, colors } from '@src/alchemy-components';
 
 const PageContainer = styled.div`
     display: flex;

@@ -10,14 +10,14 @@ from requests.models import HTTPError
 from datahub.configuration.common import PipelineExecutionError
 from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 
 JSON_RESPONSE_MAP = {
     "https://app.mode.com/api/verify": "verify.json",
     "https://app.mode.com/api/account": "user.json",
-    "https://app.mode.com/api/acryl/spaces?filter=all": "spaces.json",
+    "https://app.mode.com/api/acryl/spaces": "spaces.json",
     "https://app.mode.com/api/acryl/spaces/157933cc1168/reports": "reports_157933cc1168.json",
     "https://app.mode.com/api/acryl/spaces/75737b70402e/reports": "reports_75737b70402e.json",
     "https://app.mode.com/api/modeuser": "user.json",
@@ -32,6 +32,10 @@ JSON_RESPONSE_MAP = {
 }
 
 ERROR_URL = "https://app.mode.com/api/acryl/spaces/75737b70402e/reports"
+
+EMBEDDED_KEY_LOOKUP = {
+    "datasets": "reports",
+}
 
 test_resources_dir = pathlib.Path(__file__).parent
 
@@ -52,6 +56,11 @@ class MockResponse:
         return self
 
     def get(self, url, timeout=40):
+        base_url = url.split("?")[0]
+        next_page = "page=2" in url
+        self.url = base_url
+        self.timeout = timeout
+
         if self.error_list is not None and self.url in self.error_list:
             http_error_msg = "{} Client Error: {} for url: {}".format(
                 400,
@@ -60,13 +69,35 @@ class MockResponse:
             )
             raise HTTPError(http_error_msg, response=self)
 
-        self.url = url
-        self.timeout = timeout
-        response_json_path = f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(url)}"
-        with open(response_json_path) as file:
-            data = json.loads(file.read())
-            self.json_data = data
+        if next_page:
+            with open(f"{test_resources_dir}/setup/final_page.json") as file:
+                data = json.loads(file.read())
+                data["_links"]["self"]["href"] = base_url
+                endpoint_paths = base_url.rstrip("/").split("/")
+                last_path = endpoint_paths[-1]
+                if last_path in EMBEDDED_KEY_LOOKUP:
+                    last_path = EMBEDDED_KEY_LOOKUP[last_path]
+                data["_embedded"][last_path] = []
+                self.json_data = data
+        else:
+            response_json_path = (
+                f"{test_resources_dir}/setup/{JSON_RESPONSE_MAP.get(base_url)}"
+            )
+            with open(response_json_path) as file:
+                data = json.loads(file.read())
+                self.json_data = data
         return self
+
+    @property
+    def text(self) -> str:
+        return json.dumps(self.json_data)
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise HTTPError(
+                f"MockResponse for {self.url} has status code {self.status_code}",
+                response=self,
+            )
 
 
 class MockResponseJson(MockResponse):
@@ -173,9 +204,9 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
         with pytest.raises(PipelineExecutionError) as exec_error:
             pipeline.raise_from_status()
         assert exec_error.value.args[0] == "Source reported errors"
-        assert len(exec_error.value.args[1].failures) == 1
+        assert len(exec_error.value.args[1]) == 1
         error_dict: StructuredLogEntry
-        _level, error_dict = exec_error.value.args[1].failures[0]
+        _level, error_dict = exec_error.value.args[1][0]
         error = next(iter(error_dict.context))
         assert "Simulate error" in error
         assert ERROR_URL in error
@@ -251,8 +282,8 @@ def test_mode_ingest_json_failure(pytestconfig, tmp_path):
         pipeline.raise_from_status(raise_warnings=False)
         with pytest.raises(PipelineExecutionError) as exec_error:
             pipeline.raise_from_status(raise_warnings=True)
-        assert len(exec_error.value.args[1].warnings) > 0
+        assert len(exec_error.value.args[1]) > 0
         error_dict: StructuredLogEntry
-        _level, error_dict = exec_error.value.args[1].warnings[0]
+        _level, error_dict = exec_error.value.args[1][0]
         error = next(iter(error_dict.context))
         assert "Expecting property name enclosed in double quotes" in error

@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import { REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { REDESIGN_COLORS } from '../../../../../../../entity/shared/constants';
 
 const Card = styled.div<{
     clickable: boolean;

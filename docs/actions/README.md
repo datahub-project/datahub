@@ -2,12 +2,11 @@
 
 Welcome to DataHub Actions! The Actions framework makes responding to realtime changes in your Metadata Graph easy, enabling you to seamlessly integrate [DataHub](https://github.com/datahub-project/datahub) into a broader events-based architecture.
 
-For a detailed introduction, check out the [original announcement](https://www.youtube.com/watch?v=7iwNxHgqxtg&t=2189s) of the DataHub Actions Framework at the DataHub April 2022 Town Hall. For a more in-depth look at use cases and concepts, check out [DataHub Actions Concepts](concepts.md). 
+For a detailed introduction, check out the [original announcement](https://www.youtube.com/watch?v=7iwNxHgqxtg&t=2189s) of the DataHub Actions Framework at the DataHub April 2022 Town Hall. For a more in-depth look at use cases and concepts, check out [DataHub Actions Concepts](concepts.md).
 
 ## Quickstart
 
 To get started right away, check out the [DataHub Actions Quickstart](quickstart.md) Guide.
-
 
 ## Prerequisites
 
@@ -22,7 +21,6 @@ datahub --version
 
 > Note that the Actions Framework requires a version of `acryl-datahub` >= v0.8.34
 
-
 ## Installation
 
 Next, simply install the `acryl-datahub-actions` package from PyPi:
@@ -32,7 +30,6 @@ python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub-actions
 datahub actions version
 ```
-
 
 ## Configuring an Action
 
@@ -45,7 +42,7 @@ Actions are configured using a YAML file, much in the same way DataHub ingestion
 5. Pipeline Options (Optional)
 6. DataHub API configs (Optional - required for select actions)
 
-With each component being independently pluggable and configurable. 
+With each component being independently pluggable and configurable.
 
 ```yml
 # 1. Required: Action Pipeline Name
@@ -58,7 +55,7 @@ source:
     # Event Source specific configs (map)
 
 # 3a. Optional: Filter to run on events (map)
-filter: 
+filter:
   event_type: <filtered-event-type>
   event:
     # Filter event fields by exact-match
@@ -67,20 +64,20 @@ filter:
 # 3b. Optional: Custom Transformers to run on events (array)
 transform:
   - type: <transformer-type>
-    config: 
+    config:
       # Transformer-specific configs (map)
 
-# 4. Required: Action - What action to take on events. 
+# 4. Required: Action - What action to take on events.
 action:
   type: <action-type>
   config:
     # Action-specific configs (map)
 
 # 5. Optional: Additional pipeline options (error handling, etc)
-options: 
-  retry_count: 0 # The number of times to retry an Action with the same event. (If an exception is thrown). 0 by default. 
-  failure_mode: "CONTINUE" # What to do when an event fails to be processed. Either 'CONTINUE' to make progress or 'THROW' to stop the pipeline. Either way, the failed event will be logged to a failed_events.log file. 
-  failed_events_dir: "/tmp/datahub/actions"  # The directory in which to write a failed_events.log file that tracks events which fail to be processed. Defaults to "/tmp/logs/datahub/actions". 
+options:
+  retry_count: 0 # The number of times to retry an Action with the same event. (If an exception is thrown). 0 by default.
+  failure_mode: "CONTINUE" # What to do when an event fails to be processed. Either 'CONTINUE' to make progress or 'THROW' to stop the pipeline. Either way, the failed event will be logged to a failed_events.log file.
+  failed_events_dir: "/tmp/datahub/actions" # The directory in which to write a failed_events.log file that tracks events which fail to be processed. Defaults to "/tmp/logs/datahub/actions".
 
 # 6. Optional: DataHub API configuration
 datahub:
@@ -102,7 +99,7 @@ source:
     connection:
       bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
-# 3. Action: What action to take on events. 
+# 3. Action: What action to take on events.
 action:
   type: "hello_world"
 ```
@@ -129,11 +126,10 @@ filter:
     operation: "ADD"
     modifier: "urn:li:tag:pii"
 
-# 4. Action - What action to take on events. 
+# 4. Action - What action to take on events.
 action:
   type: "hello_world"
 ```
-
 
 ## Running an Action
 
@@ -142,7 +138,7 @@ To run a new Action, just use the `actions` CLI command
 ```
 datahub actions -c <config.yml>
 ```
- 
+
 Once the Action is running, you will see
 
 ```
@@ -151,7 +147,7 @@ Action Pipeline with name '<action-pipeline-name>' is now running.
 
 ### Running multiple Actions
 
-You can run multiple actions pipeline within the same command. Simply provide multiple 
+You can run multiple actions pipeline within the same command. Simply provide multiple
 config files by restating the "-c" command line argument.
 
 For example,
@@ -178,14 +174,12 @@ summary of processing results.
 Actions Pipeline with name '<action-pipeline-name' has been stopped.
 ```
 
-
 ## Supported Events
 
 Two event types are currently supported. Read more about them below.
 
 - [Entity Change Event V1](events/entity-change-event.md)
 - [Metadata Change Log V1](events/metadata-change-log-event.md)
-
 
 ## Supported Event Sources
 
@@ -197,7 +191,7 @@ Currently, the following event sources are supported:
 ## Supported Actions
 
 By default, DataHub supports a set of standard actions plugins. These can be found inside the folder
-`src/datahub-actions/plugins`. 
+`src/datahub-actions/plugins`.
 
 Some pre-included Actions include
 
@@ -206,12 +200,11 @@ Some pre-included Actions include
 - [Slack](actions/slack.md)
 - [Microsoft Teams](actions/teams.md)
 
-
 ## Development
 
 ### Build and Test
 
-Notice that we support all actions command using a separate `datahub-actions` CLI entry point. Feel free 
+Notice that we support all actions command using a separate `datahub-actions` CLI entry point. Feel free
 to use this during development.
 
 ```
@@ -219,36 +212,33 @@ to use this during development.
 ./gradlew datahub-actions:build
 
 # Drop into virtual env
-cd datahub-actions && source venv/bin/activate 
+cd datahub-actions && source venv/bin/activate
 
-# Start hello world action 
+# Start hello world action
 datahub-actions actions -c ../examples/hello_world.yaml
 
 # Start ingestion executor action
 datahub-actions actions -c ../examples/executor.yaml
 
-# Start multiple actions 
+# Start multiple actions
 datahub-actions actions -c ../examples/executor.yaml -c ../examples/hello_world.yaml
 ```
 
 ### Developing a Transformer
 
-To develop a new Transformer, check out the [Developing a Transformer](guides/developing-a-transformer.md) guide. 
+To develop a new Transformer, check out the [Developing a Transformer](guides/developing-a-transformer.md) guide.
 
 ### Developing an Action
 
-To develop a new Action, check out the [Developing an Action](guides/developing-an-action.md) guide. 
-
+To develop a new Action, check out the [Developing an Action](guides/developing-an-action.md) guide.
 
 ## Contributing
 
 Contributing guidelines follow those of the [main DataHub project](docs/CONTRIBUTING.md). We are accepting contributions for Actions, Transformers, and general framework improvements (tests, error handling, etc).
 
-
 ## Resources
 
-Check out the [original announcement](https://www.youtube.com/watch?v=7iwNxHgqxtg&t=2189s) of the DataHub Actions Framework at the DataHub April 2022 Town Hall. 
-
+Check out the [original announcement](https://www.youtube.com/watch?v=7iwNxHgqxtg&t=2189s) of the DataHub Actions Framework at the DataHub April 2022 Town Hall.
 
 ## License
 
