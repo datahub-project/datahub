@@ -1,9 +1,14 @@
+import json
+import os
+import pathlib
+import subprocess
 import threading
 from collections import defaultdict
+from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 import yaml
-from pydantic import BaseModel, Field, create_model, validator
+from pydantic import BaseConfig, BaseModel, Field, create_model, validator
 
 
 class MetricScoringCriteria(BaseModel):
@@ -16,6 +21,10 @@ class MetricConfig(BaseModel):
     definition: str
     type: str
     scoring_criteria: MetricScoringCriteria
+    alias: Optional[str] = None
+
+    def name_for_ai_annotation(self) -> str:
+        return self.alias if self.alias is not None else self.name
 
 
 class HumanGuidelines(BaseModel):
@@ -54,9 +63,10 @@ class MetricValue(BaseModel):
                 return "pass"
             elif v_lower in ("false", "0", "0.0", "fail"):
                 return "fail"
-        assert v in ["pass", "fail"], (
-            f"Invalid value: {v} for type {type(v)}, should be one of ['pass', 'fail']"
-        )
+        assert v in [
+            "pass",
+            "fail",
+        ], f"Invalid value: {v} for type {type(v)}, should be one of ['pass', 'fail']"
         return v
 
 
@@ -112,9 +122,23 @@ METRICS_CONFIG = get_metric_configs_from_config(
 METRIC_NAMES = [metric.name for metric in METRICS_CONFIG]
 
 
+class Config(BaseConfig):
+    allow_population_by_field_name = True
+
+
 AIJudgeVerdict = create_model(
     "AIJudgeVerdict",
-    **{metric_name: (Optional[MetricValue], None) for metric_name in METRIC_NAMES},
+    __config__=Config,
+    **{
+        metric.name: (
+            Optional[MetricValue],
+            # This is in order to support different metric name only for AI judge.
+            # Ideally we can also simply rename the metric but we don't want to lose
+            # earlier annotations with different metric name, so this is workaround.
+            Field(None, alias=metric.alias) if metric.alias else None,
+        )
+        for metric in METRICS_CONFIG
+    },
 )
 
 HumanJudgeVerdict = create_model(
@@ -178,3 +202,51 @@ def update_guidelines_file(guidelines_dict: Dict[str, HumanGuidelines]):
         guidelines_path = "eval_config/eval_set_guidelines.yaml"
         with open(guidelines_path, "w") as f:
             yaml.dump({"config": list(guidelines_dict.values())}, f)
+
+
+def get_deployment_details() -> List[Dict[str, str]]:
+    return json.load(open("eval_config/deployment_details.json"))
+
+
+def execute_notebook(notebook_path: pathlib.Path, output_dir: pathlib.Path) -> str:
+    """
+    Executes a Jupyter Notebook and saves the executed version as HTML.
+
+    Args:
+        notebook_path (str): The path to the Jupyter Notebook file (.ipynb).
+        output_dir (str): The directory to save the executed notebook.
+
+    Returns:
+        str: The path to the successfully executed HTML notebook.
+
+    Raises:
+        FileNotFoundError: If the 'jupyter' command is not found.
+        subprocess.CalledProcessError: If the notebook execution fails.
+        Exception: For any other unexpected errors during execution.
+    """
+    notebook_filename = os.path.basename(notebook_path)
+    notebook_name_without_ext, _ = os.path.splitext(notebook_filename)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    executed_notebook_filename_html = (
+        f"{notebook_name_without_ext}_executed_{timestamp}.html"
+    )
+    executed_notebook_path_html = os.path.join(
+        output_dir, executed_notebook_filename_html
+    )
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    print(f"Executing notebook: {notebook_path}")
+    command = [
+        "jupyter",
+        "nbconvert",
+        "--to",
+        "html",
+        "--execute",
+        notebook_path,
+        "--output",
+        executed_notebook_path_html,
+    ]
+    subprocess.run(command, check=True)
+    print(f"Executed notebook saved to: {executed_notebook_path_html}")
+    return executed_notebook_path_html

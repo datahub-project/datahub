@@ -19,10 +19,10 @@ experiment_id = experiment.experiment_id
 
 import json
 import pandas as pd
-from run_prompt_experiment import has_description_metric_fn
+from run_prompt_experiment import has_table_description_metric_fn
 
 has_description_metric = mlflow.metrics.make_metric(
-    eval_fn=has_description_metric_fn,
+    eval_fn=has_table_description_metric_fn,
     name="has_description",
     greater_is_better=True,
 )

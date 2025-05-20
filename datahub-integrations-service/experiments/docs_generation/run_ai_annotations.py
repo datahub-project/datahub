@@ -14,7 +14,6 @@ import numpy as np
 import tenacity
 import typer
 from eval_common import (
-    METRIC_NAMES,
     METRICS_CONFIG,
     AIJudgeVerdict,
     HumanGuidelines,
@@ -26,9 +25,8 @@ from eval_common import (
 from mlflow_common import get_run_or_fail
 from pydantic import BaseModel
 
-from datahub_integrations.gen_ai.bedrock import call_bedrock_llm
+from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
 from datahub_integrations.gen_ai.description_v2 import (
-    DESCRIPTION_GENERATION_MODEL,
     ColumnMetadataInfo,
     ExtractedTableInfo,
     TableInfo,
@@ -39,6 +37,7 @@ dotenv.load_dotenv()
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 mlflow.bedrock.autolog()
+AI_JUDGE_MODEL = BedrockModel.CLAUDE_3_HAIKU
 
 
 class FewShotExample(BaseModel):
@@ -59,7 +58,7 @@ Generated Description To Evaluate:
 {self.description}
 
 Output:
-{json.dumps(self.ai_judge_verdict.dict(exclude_none=True), indent=4)}
+{json.dumps(self.ai_judge_verdict.dict(exclude_none=True, by_alias=True), indent=4)}
 """
 
 
@@ -174,7 +173,7 @@ def try_fix_text_for_error(text, e):
             Output:
             """.format(text=text, e=e)
     fixed_text = call_bedrock_llm(
-        prompt=fix_prompt, model=DESCRIPTION_GENERATION_MODEL, max_tokens=5000
+        prompt=fix_prompt, model=AI_JUDGE_MODEL, max_tokens=5000
     )
     if not fixed_text.startswith("{"):
         json_start_idx = fixed_text.index("{")
@@ -188,9 +187,14 @@ def try_fix_text_for_error(text, e):
 @functools.cache
 @mlflow.trace(name="llm_judge_common_eval_fn", span_type="function")
 def llm_judge_common_eval_fn(
-    table_description, entity_info_str, table_metric_guidelines_str
+    table_description: Optional[str],
+    entity_info_str: str,
+    table_metric_guidelines_str: Optional[str],
 ) -> AIJudgeVerdict:
     metrics = AIJudgeVerdict()
+    metric_alias_map = {
+        metric.name: metric.name_for_ai_annotation() for metric in METRICS_CONFIG
+    }
 
     metric_definitions, response_format = gen_dynamic_metric_contents()
 
@@ -213,13 +217,17 @@ def llm_judge_common_eval_fn(
             print(f"Error building few shot examples: {e}")
             examples_str = ""
 
-        table_metric_guidelines = HumanGuidelines.parse_raw(table_metric_guidelines_str)
+        table_metric_guidelines: Optional[HumanGuidelines] = None
+        if table_metric_guidelines_str is not None:
+            table_metric_guidelines = HumanGuidelines.parse_raw(
+                table_metric_guidelines_str
+            )
         if table_metric_guidelines is None or not table_metric_guidelines.guidelines:
             table_level_guidelines = ""
         else:
             metric_guidelines = "\n".join(
                 [
-                    f"""Metric {metric}:
+                    f"""Metric {metric_alias_map[metric]}:
 {guidelines}"""
                     for metric, guidelines in table_metric_guidelines.guidelines.items()
                     if guidelines
@@ -245,7 +253,7 @@ Table Level Guidelines:
         )
 
         judge_verdict = call_bedrock_llm(
-            prompt=judge_prompt, model=DESCRIPTION_GENERATION_MODEL, max_tokens=5000
+            prompt=judge_prompt, model=AI_JUDGE_MODEL, max_tokens=5000
         )
         metrics = parse_llm_judge_output(judge_verdict)
     except Exception as e:
@@ -260,7 +268,7 @@ Table Level Guidelines:
 def gen_dynamic_metric_contents():
     metric_definitions = "\n".join(
         [
-            f"""Metric {metric.name}:
+            f"""Metric {metric.name_for_ai_annotation()}:
 {metric.definition}
 """
             for metric in METRICS_CONFIG
@@ -269,11 +277,11 @@ def gen_dynamic_metric_contents():
 
     response_format = json.dumps(
         {
-            metric_name: {
+            metric.name_for_ai_annotation(): {
                 "reasoning": "reasoning for the value",
                 "value": "Pass or Fail",
             }
-            for metric_name in METRIC_NAMES
+            for metric in METRICS_CONFIG
         },
         indent=2,
     )
@@ -315,10 +323,11 @@ async def eval_metrics(metric, predictions, targets) -> List[Optional[MetricValu
 
 def eval_metric_value_ai_judge(metric, prediction, target) -> Optional[MetricValue]:
     human_guidelines = get_human_guidelines()
+    human_guidelines_str: Optional[str] = None
+    if target["urn"] in human_guidelines:
+        human_guidelines_str = human_guidelines[target["urn"]].json()
     judged_metric = getattr(
-        llm_judge_common_eval_fn(
-            prediction, json.dumps(target), human_guidelines[target["urn"]].json()
-        ),
+        llm_judge_common_eval_fn(prediction, json.dumps(target), human_guidelines_str),
         metric,
     )
 
@@ -330,9 +339,12 @@ def overall_score_eval_fn(predictions, targets):
     justifications = []
     human_guidelines = get_human_guidelines()
     for prediction, target in zip(predictions, targets, strict=False):
+        table_human_guidelines_str: Optional[str] = None
+        if target["urn"] in human_guidelines:
+            table_human_guidelines_str = human_guidelines[target["urn"]].json()
         judged_metric = get_overall_score(
             llm_judge_common_eval_fn(
-                prediction, json.dumps(target), human_guidelines[target["urn"]].json()
+                prediction, json.dumps(target), table_human_guidelines_str
             )
         )
         if judged_metric is not None:
@@ -384,7 +396,7 @@ def model_fn(x):
     return x
 
 
-def run_ai_annotations_experiment(run_name: str):
+def run_ai_annotations_experiment(run_name: str, run_description: Optional[str] = None):
     run = get_run_or_fail(run_name)
 
     artifact_path = "eval_results_table.json"
@@ -397,8 +409,10 @@ def run_ai_annotations_experiment(run_name: str):
     with mlflow.start_run(
         experiment_id=run.info.experiment_id,
         run_name=ai_annotation_run_name,
+        description=run_description,
     ):
         mlflow.set_tag("evaluation_type", "ai_judge")
+        mlflow.log_params({"ai_judge_model": AI_JUDGE_MODEL})
 
         mlflow.evaluate(
             model=model_fn,
