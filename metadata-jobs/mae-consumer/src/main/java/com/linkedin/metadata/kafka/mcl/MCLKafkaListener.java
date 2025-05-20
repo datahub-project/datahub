@@ -94,17 +94,6 @@ public class MCLKafkaListener
   }
 
   @Override
-  protected String getTopic(MetadataChangeLog event) {
-    // Choose appropriate topic based on event type
-    if (event.hasEntityType()
-        && event.hasAspectName()
-        && "timeseriesAspect".equals(event.getAspectName())) {
-      return Topics.METADATA_CHANGE_LOG_TIMESERIES;
-    }
-    return Topics.METADATA_CHANGE_LOG_VERSIONED;
-  }
-
-  @Override
   protected String getEventDisplayString(MetadataChangeLog event) {
     return String.format(
         "urn: %s, aspect name: %s, entity type: %s, change type: %s",

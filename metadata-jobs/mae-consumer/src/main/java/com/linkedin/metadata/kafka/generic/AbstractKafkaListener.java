@@ -96,7 +96,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>>
 
       List<String> loggingAttributes = getFineGrainedLoggingAttributes(event);
 
-      processWithHooks(event, loggingAttributes);
+      processWithHooks(event, loggingAttributes, consumerRecord.topic());
 
     } finally {
       MDC.clear();
@@ -109,11 +109,11 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>>
    * @param event The event to process
    * @param loggingAttributes Attributes for logging
    */
-  protected void processWithHooks(E event, List<String> loggingAttributes) {
+  protected void processWithHooks(E event, List<String> loggingAttributes, String topic) {
     systemOperationContext.withQueueSpan(
         "consume",
         getSystemMetadata(event),
-        getTopic(event),
+        topic,
         () -> {
           log.info(
               "Invoking hooks for consumer: {} event: {}",
@@ -199,14 +199,6 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>>
    * @return System metadata object
    */
   protected abstract SystemMetadata getSystemMetadata(E event);
-
-  /**
-   * Gets the topic associated with this event.
-   *
-   * @param event The event
-   * @return Topic name
-   */
-  protected abstract String getTopic(E event);
 
   /**
    * Gets a display string for the event for logging.
