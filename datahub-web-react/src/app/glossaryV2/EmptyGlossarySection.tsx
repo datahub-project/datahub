@@ -51,10 +51,10 @@ function EmptyGlossarySection(props: Props) {
                 }
             >
                 {/* not disabled on acryl-main due to ability to propose */}
-                <StyledButton onClick={() => setIsCreateTermModalVisible(true)}>
+                <StyledButton data-testid="add-term-button" onClick={() => setIsCreateTermModalVisible(true)}>
                     <PlusOutlined /> Add Term
                 </StyledButton>
-                <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
+                <StyledButton data-testid="add-term-group-button" onClick={() => setIsCreateNodeModalVisible(true)}>
                     <PlusOutlined /> Add Term Group
                 </StyledButton>
             </StyledEmpty>
