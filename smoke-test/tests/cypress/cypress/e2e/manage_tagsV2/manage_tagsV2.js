@@ -10,7 +10,44 @@ const SAMPLE_DATASET_NAME = "SampleCypressHiveDataset";
 describe("tags", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
+    cy.login();
+  });
+
+  it("verify search bar placeholder", () => {
+    cy.visit("/tags");
+    cy.get('[data-testid="tag-search-input"]').should(
+      "have.attr",
+      "placeholder",
+      "Search tags...",
+    );
+  });
+
+  it("verify title, search, and results", () => {
+    cy.visit("/tags");
+    cy.get('[data-testid="page-title"]').should("contain.text", "Manage Tags");
+    cy.get('[data-testid="urn:li:tag:Cypress-name"]').should(
+      "contain.text",
+      "Cypress",
+    );
+    cy.get('[data-testid="tag-search-input"]').type("Cypress");
+    cy.get('[data-testid="urn:li:tag:Cypress-name"]').should(
+      "contain.text",
+      "Cypress",
+    );
+  });
+
+  it("verify search not exists", () => {
+    cy.visit("/tags");
+    cy.get('[data-testid="page-title"]').should("contain.text", "Manage Tags");
+    cy.get('[data-testid="urn:li:tag:Cypress-name"]').should(
+      "contain.text",
+      "Cypress",
+    );
+    cy.get('[data-testid="tag-search-input"]').type("invalidvalue");
+    cy.get('[data-testid="tags-not-found"]').should(
+      "contain.text",
+      "No tags found for your search query",
+    );
   });
 
   it("should allow to create/edit/remove tags on tags page", () => {
