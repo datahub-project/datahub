@@ -1,9 +1,17 @@
 import logging
-import re
-import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, cast
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    cast,
+)
 
 from dateutil.relativedelta import relativedelta
 
@@ -11,9 +19,25 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
-    BigqueryTable,
-    PartitionInfo,
+from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+
+# Import the new specialized components
+from datahub.ingestion.source.bigquery_v2.profiling_cache_manager import (
+    BigQueryCacheManager,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_config import BigQueryProfilerConfig
+from datahub.ingestion.source.bigquery_v2.profiling_filter_builder import (
+    BigQueryFilterBuilder,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_partition_manager import (
+    BigQueryPartitionManager,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_strategy import (
+    BasicProfileStrategy,
+    get_profile_strategy,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_table_metadata_manager import (
+    BigQueryTableMetadataManager,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
@@ -26,8 +50,23 @@ logger = logging.getLogger(__name__)
 
 
 class BigqueryProfiler(GenericProfiler):
+    """
+    Refactored BigQuery profiler that uses the strategy pattern and specialized
+    components to better manage the complexity of profiling BigQuery tables.
+    """
+
     config: BigQueryV2Config
     report: BigQueryV2Report
+    cache_manager: BigQueryCacheManager
+    table_metadata_manager: BigQueryTableMetadataManager
+    filter_builder: BigQueryFilterBuilder
+    partition_manager: BigQueryPartitionManager
+    execute_query: Callable
+    profiler_config: BigQueryProfilerConfig
+    _problematic_tables: Set[str]
+    _table_strategies: Dict[str, str]
+    _successful_filters_cache: Dict[str, List[str]]
+    _queried_tables: Set[str]
 
     def __init__(
         self,
@@ -38,207 +77,495 @@ class BigqueryProfiler(GenericProfiler):
         super().__init__(config, report, "bigquery", state_handler)
         self.config = config
         self.report = report
-        # Initialize cache for query results to avoid redundant queries
-        self._query_cache: Dict[str, Any] = {}
-        # Cache for partition information
-        self._partition_info_cache: Dict[str, Dict[str, Any]] = {}
-        # Cache for table metadata
-        self._table_metadata_cache: Dict[str, Dict[str, Any]] = {}
-        # Track queried tables to avoid redundant API calls
-        self._queried_tables: Set[str] = set()
-        # Cache for successful partition filters
+
+        # Create profiler config from BigQueryV2Config
+        self.profiler_config = self._create_profiler_config()
+
+        # Initialize specialized components with dependency injection
+        self.cache_manager = BigQueryCacheManager(
+            max_cache_size=self.profiler_config.max_cache_size
+        )
+
+        # Set up the execute_query function with proper caching
+        self.execute_query = self._create_execute_query_function()
+
+        # Initialize components in proper order (dependency injection)
+        self.table_metadata_manager = BigQueryTableMetadataManager(self.execute_query)
+        self.filter_builder = BigQueryFilterBuilder(self.execute_query)
+        self.partition_manager = BigQueryPartitionManager(
+            self.execute_query, self.filter_builder
+        )
+
+        # Track tables that had issues during profiling
+        self._problematic_tables: Set[str] = set()
+
+        # Track profiling strategies for each table
+        self._table_strategies: Dict[str, str] = {}
+
+        # For compatibility with tests
         self._successful_filters_cache: Dict[str, List[str]] = {}
-        # Detect BigQuery schema version and set up column mappings
-        self._detect_bq_schema_version()
+        self._queried_tables: Set[str] = set()
 
-    def _execute_cached_query(
-        self,
-        query: str,
-        cache_key: Optional[str] = None,
-        timeout: int = 60,
-        max_retries: int = 2,
-    ) -> List[Any]:
-        """Execute a query with caching and retry logic to avoid redundant database calls."""
-        if cache_key and cache_key in self._query_cache:
-            return self._query_cache[cache_key]
+    def _create_profiler_config(self) -> BigQueryProfilerConfig:
+        """Convert BigQueryV2Config to BigQueryProfilerConfig"""
+        # Extract profiling parameters from config
+        sample_size = getattr(self.config.profiling, "sample_size", 100_000)
+        query_timeout = getattr(self.config.profiling, "query_timeout", 60)
+        max_queries_per_table = getattr(self.config.profiling, "max_workers", 50)
+        profile_table_level_only = getattr(
+            self.config.profiling, "profile_table_level_only", False
+        )
+        tables_pattern = getattr(self.config, "tables", None)
+        schema_pattern = getattr(self.config, "schema", None)
+        external_table_sampling_percent = 0.1  # Default value
+        large_table_sampling_percent = 1.0  # Default value
 
-        retries = 0
-        last_exception = None
+        # Create and return profiler config
+        return BigQueryProfilerConfig(
+            sample_size=sample_size,
+            query_timeout=query_timeout,
+            max_queries_per_table=max_queries_per_table,
+            profile_table_level_only=profile_table_level_only,
+            tables_pattern=tables_pattern,
+            schema_pattern=schema_pattern,
+            external_table_sampling_percent=external_table_sampling_percent,
+            large_table_sampling_percent=large_table_sampling_percent,
+        )
 
-        while retries <= max_retries:
-            try:
-                # Define a function to execute the query to avoid lambda binding issues
-                def execute_query(query_to_execute=query):
-                    return list(
-                        self.config.get_bigquery_client()
-                        .query(query_to_execute)
-                        .result()
-                    )
+    def _create_execute_query_function(self) -> Callable:
+        """
+        Create a function for executing BigQuery queries with caching.
+        """
 
-                with ThreadPoolExecutor(max_workers=1) as executor:
-                    future = executor.submit(execute_query)
-                    try:
-                        # Use a slightly longer timeout for the future to account for overhead
-                        results = future.result(timeout=timeout + 10)
-                        if cache_key:
-                            self._query_cache[cache_key] = results
-                        return results
-                    except TimeoutError:
-                        logger.warning(
-                            f"Query timed out after {timeout} seconds (attempt {retries + 1}/{max_retries + 1})"
+        def execute_query(
+            query: str,
+            cache_key: Optional[str] = None,
+            timeout: int = 60,
+            max_retries: int = 2,
+        ) -> List[Any]:
+            # Check cache first if a cache key is provided
+            if cache_key and cache_key in self.cache_manager._query_cache:
+                cached_result = self.cache_manager.get_query_result(cache_key)
+                # Ensure we never return None from the cache
+                return [] if cached_result is None else cached_result
+
+            # Get the BigQuery client from config
+            client = self.config.get_bigquery_client()
+
+            def execute_with_timeout() -> List[Any]:
+                try:
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(
+                            lambda: list(client.query(query).result())
                         )
-                        retries += 1
-                        if retries > max_retries:
-                            logger.warning(f"Final timeout for query: {query[:200]}...")
-                            return []
-                        # Increase timeout for retries
-                        timeout = min(timeout * 2, 300)  # Max 5 minutes
-            except Exception as e:
+                        # Add a bit of extra time to the timeout for processing
+                        result = future.result(timeout=timeout + 5)
+
+                        # Cache the result if a cache key was provided
+                        if cache_key and result is not None:
+                            self.cache_manager.add_query_result(cache_key, result)
+
+                        # Ensure we always return a list, never None
+                        return [] if result is None else result
+                except TimeoutError:
+                    logger.warning(f"Query timed out after {timeout} seconds")
+                    return []
+                except Exception as e:
+                    logger.warning(f"Query execution error: {str(e)}")
+                    return []
+
+            # Execute the query with retries
+            result = execute_with_timeout()
+            retries = 0
+
+            while not result and retries < max_retries:
                 retries += 1
-                last_exception = e
+                logger.info(f"Retrying query, attempt {retries + 1}/{max_retries + 1}")
+                result = execute_with_timeout()
 
-                # Check for specific error indicating TABLE_STORAGE does not exist
-                if "TABLE_STORAGE was not found" in str(e):
-                    logger.info(
-                        f"TABLE_STORAGE view not found: {str(e)}. This view might not be available in this region or project."
+            # Ensure we never return None
+            if result is None:
+                return []
+            return result
+
+        return execute_query
+
+    def _should_profile_table(
+        self, table: BigqueryTable, schema_name: str, db_name: str
+    ) -> bool:
+        """
+        Determine if a table should be profiled based on configuration.
+
+        Args:
+            table: BigqueryTable instance
+            schema_name: Dataset name
+            db_name: Project ID
+
+        Returns:
+            True if the table should be profiled, False otherwise
+        """
+        if not self.config.profiling.enabled:
+            return False
+
+        # Skip tables that had issues during profiling
+        table_key = f"{db_name}.{schema_name}.{table.name}"
+        if table_key in self._problematic_tables:
+            logger.info(f"Skipping problematic table: {table_key}")
+            return False
+
+        # Check if table matches configuration patterns
+        return self.profiler_config.should_profile_table(
+            db_name, schema_name, table.name
+        )
+
+    def get_profile_request(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> Optional[TableProfilerRequest]:
+        """
+        Create a profile request for a table.
+
+        Args:
+            table: BaseTable instance
+            schema_name: Dataset name
+            db_name: Project ID
+
+        Returns:
+            TableProfilerRequest if the table should be profiled, None otherwise
+        """
+        # Cast to BigqueryTable
+        bq_table = cast(BigqueryTable, table)
+
+        # Check if table should be profiled
+        if not self._should_profile_table(bq_table, schema_name, db_name):
+            return None
+
+        # Create the profiler request
+        profile_request = TableProfilerRequest(
+            pretty_name=bq_table.name,
+            batch_kwargs=self.get_batch_kwargs(bq_table, schema_name, db_name),
+            table=bq_table,
+        )
+
+        return profile_request
+
+    def get_batch_kwargs(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> dict:
+        """
+        Get batch kwargs for profiling a table.
+
+        Args:
+            table: BaseTable instance
+            schema_name: Dataset name
+            db_name: Project ID
+
+        Returns:
+            Dictionary of batch kwargs
+        """
+        # Cast to BigqueryTable
+        bq_table = cast(BigqueryTable, table)
+
+        # Get table key
+        table_key = f"{db_name}.{schema_name}.{bq_table.name}"
+
+        # Determine which profiling strategy to use
+        profile_strategy = self._select_profile_strategy(bq_table, db_name, schema_name)
+
+        # Get partition filters if needed
+        partition_filters = None
+        if getattr(self.profiler_config, "enable_partition_optimization", True):
+            try:
+                partition_filters = (
+                    self.partition_manager.get_required_partition_filters(
+                        bq_table, db_name, schema_name
                     )
-                    # Return empty results for this specific case
-                    return []
-
-                logger.debug(
-                    f"Query execution error (attempt {retries}/{max_retries + 1}): {str(e)}"
                 )
-                if retries > max_retries:
-                    logger.warning(f"Query failed after {retries} attempts: {str(e)}")
-                    return []
-                # Add exponential backoff
-                time.sleep(2**retries)
-
-        if last_exception:
-            logger.warning(
-                f"Query execution error after retries: {str(last_exception)}"
-            )
-        return []
-
-    def _adjust_query_for_bq_version(self, query: str) -> str:
-        """
-        Adjust column names in INFORMATION_SCHEMA queries based on BigQuery version.
-        This handles differences between older and newer versions of BigQuery.
-        """
-        # Initialize with the original query
-        modified_query = query
-
-        # If we haven't determined BQ version yet, try to do so
-        if not hasattr(self, "_bq_uses_new_schema"):
-            self._detect_bq_schema_version()
-
-        # Make column name replacements based on detected version
-        if hasattr(self, "_bq_uses_new_schema") and self._bq_uses_new_schema:
-            # For newer versions (total_rows/total_logical_bytes)
-            if (
-                "row_count" in modified_query
-                and "total_rows as row_count" not in modified_query
-            ):
-                modified_query = modified_query.replace(
-                    "row_count", "total_rows as row_count"
-                )
-            if (
-                "size_bytes" in modified_query
-                and "total_logical_bytes as size_bytes" not in modified_query
-            ):
-                modified_query = modified_query.replace(
-                    "size_bytes", "total_logical_bytes as size_bytes"
-                )
-        else:
-            # For older versions (row_count/size_bytes)
-            if "total_rows as row_count" in modified_query:
-                modified_query = modified_query.replace(
-                    "total_rows as row_count", "row_count"
-                )
-            if "total_logical_bytes as size_bytes" in modified_query:
-                modified_query = modified_query.replace(
-                    "total_logical_bytes as size_bytes", "size_bytes"
+            except Exception as e:
+                logger.warning(
+                    f"Error getting partition filters for {table_key}: {str(e)}"
                 )
 
-        return modified_query
+        # Generate the profile query
+        strategy = get_profile_strategy(
+            profile_strategy, self.execute_query, self.profiler_config
+        )
 
-    def _detect_bq_schema_version(self) -> None:
-        """
-        Detect which version of INFORMATION_SCHEMA we're working with.
-        Sets self._column_name_mapping with the appropriate column mappings.
-        """
         try:
-            # Try to execute a simple test query that works on all versions
-            # This just gets us a small amount of data to check column names
-            test_query = """
-            SELECT * 
-            FROM INFORMATION_SCHEMA.TABLES
-            LIMIT 1
-            """
-
-            results = list(self.config.get_bigquery_client().query(test_query).result())
-            if not results:
-                # If no results, default to old schema (safer choice)
-                self._column_name_mapping = {
-                    "row_count": "row_count",
-                    "size_bytes": "size_bytes",
-                }
-                logger.info(
-                    "No test results returned. Defaulting to old schema column names."
-                )
-                return
-
-            # Check what column names are available in the result
-            row = results[0]
-
-            # Initialize mapping dict
-            self._column_name_mapping = {}
-
-            # Check for row count column
-            if hasattr(row, "total_rows"):
-                self._column_name_mapping["row_count"] = "total_rows"
-            elif hasattr(row, "row_count"):
-                self._column_name_mapping["row_count"] = "row_count"
-            else:
-                # Default
-                self._column_name_mapping["row_count"] = "row_count"
-
-            # Check for size bytes column
-            if hasattr(row, "total_logical_bytes"):
-                self._column_name_mapping["size_bytes"] = "total_logical_bytes"
-            elif hasattr(row, "size_bytes"):
-                self._column_name_mapping["size_bytes"] = "size_bytes"
-            else:
-                # Default
-                self._column_name_mapping["size_bytes"] = "size_bytes"
-
-            logger.info(
-                f"Detected BigQuery INFORMATION_SCHEMA column mapping: {self._column_name_mapping}"
+            profile_query = strategy.generate_profile_query(
+                bq_table, db_name, schema_name, partition_filters
             )
-
         except Exception as e:
-            # If detection fails, default to old schema as it's more common
-            self._column_name_mapping = {
-                "row_count": "row_count",
-                "size_bytes": "size_bytes",
-            }
+            logger.warning(f"Error generating profile query for {table_key}: {str(e)}")
+            # Fall back to basic profiling
+            profile_query = BasicProfileStrategy(
+                self.execute_query, self.profiler_config
+            ).generate_profile_query(bq_table, db_name, schema_name, partition_filters)
+
+        # Store which strategy was used for this table
+        self._table_strategies[table_key] = profile_strategy
+
+        # Set up the batch kwargs
+        batch_kwargs = {
+            "schema": schema_name,
+            "table": bq_table.name,
+            "project": db_name,
+            "custom_sql": profile_query,
+            "partition_filters": partition_filters,
+            "profile_strategy": profile_strategy,
+            # Add partition_handling for test compatibility
+            "partition_handling": "optimize" if partition_filters else "none",
+        }
+
+        return batch_kwargs
+
+    def _select_profile_strategy(
+        self, table: BigqueryTable, project: str, schema: str
+    ) -> str:
+        """
+        Select the appropriate profiling strategy based on table characteristics.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+
+        Returns:
+            String name of the profiling strategy to use
+        """
+        # Start with configuration preference
+        if getattr(self.profiler_config, "profile_table_level_only", False):
+            return "basic"
+
+        if getattr(self.profiler_config, "profile_partition_columns_only", False):
+            return "partition_columns_only"
+
+        # Special case for external tables
+        if table.external:
+            # Simplified profiling is more reliable for external tables
+            return "basic"
+
+        # Check table size and complexity
+        is_large_table = False
+        if (
+            table.size_in_bytes
+            and table.size_in_bytes > 10_000_000_000
+            or table.rows_count
+            and table.rows_count > 50_000_000
+        ):  # > 10 GB
+            is_large_table = True
+
+        # Count complex columns (arrays, structs, etc.)
+        complex_columns = 0
+        if hasattr(table, "columns") and table.columns:
+            for col in table.columns:
+                if col.data_type in ("ARRAY", "STRUCT", "JSON"):
+                    complex_columns += 1
+
+        # Large complex tables get simplified profiling
+        if is_large_table and complex_columns > 5:
+            return "basic"
+        # Large tables get standard profiling
+        elif (
+            is_large_table
+            or (table.size_in_bytes and table.size_in_bytes > 1_000_000_000)
+            or complex_columns > 0
+        ):
+            return "standard"
+        # Small, simple tables can get histogram profiling
+        else:
+            return "standard"  # Default to standard for now
+
+    def _process_profile_results(
+        self, results: List[Any], table: BigqueryTable, batch_kwargs: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Process profile query results using the appropriate strategy.
+
+        Args:
+            results: Query results
+            table: BigqueryTable instance
+            batch_kwargs: Batch kwargs used for profiling
+
+        Returns:
+            Processed profile data
+        """
+        # Get the strategy used for this table
+        strategy_name = batch_kwargs.get("profile_strategy", "standard")
+
+        # Get strategy instance
+        strategy = get_profile_strategy(
+            strategy_name, self.execute_query, self.profiler_config
+        )
+
+        # Process results
+        try:
+            profile_data = strategy.extract_profile_data(results, table)
+            return profile_data
+        except Exception as e:
             logger.warning(
-                f"Error detecting BigQuery schema version: {e}. Defaulting to old schema column names."
+                f"Error processing profile results: {str(e)}. Falling back to basic processing."
             )
+            # Fall back to basic profiling
+            basic_strategy = BasicProfileStrategy(
+                self.execute_query, self.profiler_config
+            )
+            return basic_strategy.extract_profile_data(results, table)
+
+    def get_workunits(
+        self, project_id: str, tables: Dict[str, List[BigqueryTable]]
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate profile workunits for tables.
+
+        Args:
+            project_id: Project ID
+            tables: Dictionary mapping dataset names to lists of tables
+
+        Returns:
+            Iterable of MetadataWorkUnit
+        """
+        # Similar implementation to parent class, but using our specialized components
+
+        for schema_name, schema_tables in tables.items():
+            # Profile tables
+            for table in schema_tables:
+                # Get profile request
+                profile_request = self.get_profile_request(
+                    table, schema_name, project_id
+                )
+
+                if profile_request is None:
+                    continue
+
+                # Execute profile query
+                batch_kwargs = profile_request.batch_kwargs
+
+                try:
+                    # Get custom SQL and execute
+                    custom_sql = batch_kwargs.get("custom_sql")
+                    if not custom_sql:
+                        continue
+
+                    # Set an appropriate timeout based on table size
+                    timeout = self.profiler_config.get_timeout_for_table(
+                        table.size_in_bytes
+                    )
+
+                    # Execute the query
+                    results = self.execute_query(
+                        custom_sql,
+                        f"profile_{project_id}_{schema_name}_{table.name}",
+                        timeout=timeout,
+                    )
+
+                    if not results:
+                        logger.warning(f"No results for {table.name}, skipping profile")
+                        continue
+
+                    # Process results
+                    profile_data = self._process_profile_results(
+                        results, table, batch_kwargs
+                    )
+
+                    # Create dataset URN
+                    dataset_urn = self.get_dataset_name(
+                        table.name, schema_name, project_id
+                    )
+
+                    # Create profile workunit
+                    profile_wu = self.get_profile_as_workunit(
+                        dataset_urn=dataset_urn,
+                        profile=profile_data,
+                    )
+
+                    # Update report
+                    if hasattr(self.report, "num_table_profiles_produced"):
+                        self.report.num_table_profiles_produced += 1
+
+                    # Update state
+                    table_urn = BigqueryTableIdentifier(
+                        project_id=project_id,
+                        dataset=schema_name,
+                        table=table.name,
+                    ).get_table_name()
+
+                    if self.state_handler:
+                        # Handle both old and new APIs
+                        if hasattr(self.state_handler, "add_profiled_table"):
+                            self.state_handler.add_profiled_table(table_urn)
+                        elif hasattr(self.state_handler, "record_profiled_dataset"):
+                            now_millis = int(
+                                datetime.now(timezone.utc).timestamp() * 1000
+                            )
+                            self.state_handler.record_profiled_dataset(
+                                dataset_urn=table_urn,
+                                last_profiled_timestamp=now_millis,
+                            )
+
+                    yield profile_wu
+
+                except Exception as e:
+                    # Mark as problematic to avoid retrying
+                    table_key = f"{project_id}.{schema_name}.{table.name}"
+                    self._problematic_tables.add(table_key)
+
+                    # Log error
+                    logger.error(f"Error profiling table {table_key}: {str(e)}")
+
+                    # Update report
+                    self.report.report_warning(
+                        "profile",
+                        f"Error profiling table {table_key}: {str(e)}",
+                    )
+
+    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        """Get the dataset URN for a table."""
+        return (
+            f"urn:li:dataset:("
+            f"urn:li:dataPlatform:{self.platform},"
+            f"{db_name}.{schema_name}.{table_name}"
+            f")"
+        )
+
+    def get_profile_as_workunit(
+        self, dataset_urn: str, profile: Dict[str, Any]
+    ) -> MetadataWorkUnit:
+        """
+        Wrapper method to create a profile workunit from profile data.
+
+        Args:
+            dataset_urn: Dataset URN
+            profile: Profile data dictionary
+
+        Returns:
+            MetadataWorkUnit for the profile
+        """
+        from datahub.emitter.mcp import MetadataChangeProposalWrapper
+        from datahub.metadata.schema_classes import DatasetProfileClass
+
+        # Convert to DatasetProfileClass
+        dataset_profile = DatasetProfileClass(**profile)
+
+        # Create MCP
+        mcp = MetadataChangeProposalWrapper(
+            entityType="dataset",
+            entityUrn=dataset_urn,
+            aspectName="datasetProfile",
+            aspect=dataset_profile,
+        )
+
+        # Create workunit
+        wu = MetadataWorkUnit(id=f"{dataset_urn}-profile", mcp=mcp)
+        return wu
+
+    # ----- Compatibility methods for tests -----
 
     @staticmethod
     def get_partition_range_from_partition_id(
         partition_id: str, partition_datetime: Optional[datetime] = None
     ) -> Tuple[datetime, datetime]:
         """
-        Calculate date range from a partition ID with enhanced flexibility.
-
-        Args:
-            partition_id: String representing a partition (e.g., '20220101', 'year=2022/month=01')
-            partition_datetime: Optional reference datetime
-
-        Returns:
-            Tuple of (start_datetime, end_datetime)
+        Compatibility method for tests that calculates date range from a partition ID.
         """
         # Handle Hive-style partitions like 'year=2022/month=01/day=01'
         if "=" in partition_id:
@@ -320,3091 +647,6 @@ class BigqueryProfiler(GenericProfiler):
         self, table: BigqueryTable, project: str, schema: str
     ) -> Dict[str, Any]:
         """
-        Get comprehensive metadata about a table efficiently.
-        Uses a multi-tiered approach to minimize API calls while gathering all needed information.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: Dataset name
-
-        Returns:
-            Dictionary containing table metadata
+        Compatibility method for tests that forwards to the table metadata manager.
         """
-        cache_key = f"{project}.{schema}.{table.name}"
-
-        if cache_key in self._table_metadata_cache:
-            return self._table_metadata_cache[cache_key]
-
-        # Start with basic info from the table object
-        metadata = self._fetch_basic_table_metadata(table)
-
-        # Track if we need to query INFORMATION_SCHEMA
-        need_schema_query = len(metadata["partition_columns"]) == 0 or any(
-            v is None for v in metadata["partition_columns"].values()
-        )
-
-        # If we still need more information or no partition columns were found,
-        # fetch from INFORMATION_SCHEMA with a single efficient query
-        if need_schema_query:
-            metadata = self._fetch_schema_info(table, project, schema, metadata)
-
-        # If still no partition columns but we have DDL, parse it
-        if not metadata["partition_columns"] and metadata.get("ddl"):
-            if "PARTITION BY" in metadata["ddl"].upper():
-                self._extract_partitioning_from_ddl(
-                    metadata["ddl"], metadata, project, schema, table.name
-                )
-
-        # If we need more specific table stats and didn't get them above, fetch them
-        if not table.external:  # Only for internal tables
-            metadata = self._fetch_table_stats(project, schema, table.name, metadata)
-
-        # Cache the result
-        self._table_metadata_cache[cache_key] = metadata
-        return metadata
-
-    def _get_time_hierarchy_values(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        available_time_columns: List[str],
-        is_large_table: bool,
-        timeout: int,
-    ) -> Dict[str, Any]:
-        """Get values for time hierarchy columns."""
-        result: Dict[str, Any] = {}
-        current_time = datetime.now(timezone.utc)
-
-        # Set defaults from current time
-        time_values = {
-            "year": current_time.year,
-            "month": current_time.month,
-            "day": current_time.day,
-            "hour": current_time.hour,
-        }
-
-        # For large tables, we'll be more aggressive with partitioning
-        if is_large_table:
-            for col_name in available_time_columns:
-                col_lower = col_name.lower()
-
-                # Try to find optimal values with data
-                query = f"""
-                WITH PartitionValues AS (
-                    SELECT 
-                        {col_name} as value,
-                        COUNT(*) as row_count
-                    FROM 
-                        `{project}.{schema}.{table.name}`
-                    WHERE 
-                        {col_name} IS NOT NULL
-                    GROUP BY 
-                        {col_name}
-                    ORDER BY 
-                        row_count DESC
-                    LIMIT 5
-                )
-                SELECT * FROM PartitionValues
-                """
-
-                try:
-                    # Use shorter timeout for this optimization query
-                    col_results = self._execute_cached_query(
-                        query,
-                        f"time_col_values_{project}_{schema}_{table.name}_{col_name}",
-                        timeout=min(30, timeout // 2),
-                    )
-
-                    if col_results and col_results[0].value is not None:
-                        result[col_name] = col_results[0].value
-                        logger.info(
-                            f"Selected value for {col_name} = {result[col_name]} with {col_results[0].row_count} rows"
-                        )
-                    else:
-                        # Fall back to current time values
-                        result[col_name] = time_values[col_lower]
-                except Exception as e:
-                    logger.debug(f"Error getting optimal time column value: {e}")
-                    result[col_name] = time_values[col_lower]
-        else:
-            # For normal tables, just use current time values
-            for col_name in available_time_columns:
-                col_lower = col_name.lower()
-                result[col_name] = time_values[col_lower]
-
-        return result
-
-    def _get_date_column_values(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        date_columns: List[str],
-        timeout: int,
-    ) -> Dict[str, Any]:
-        """Get values for date columns."""
-        result: Dict[str, Any] = {}
-
-        if not date_columns:
-            return result
-
-        logger.info(f"Using date columns for partitioning: {date_columns}")
-
-        # For efficient batch processing, try to get values for multiple date columns at once
-        date_cols_list = ", ".join(
-            [f"{col}" for col in date_columns[:3]]
-        )  # Limit to 3 columns
-
-        combined_query = f"""
-        WITH DateValues AS (
-            SELECT 
-                {date_cols_list},
-                COUNT(*) as row_count
-            FROM 
-                `{project}.{schema}.{table.name}`
-            WHERE 
-                {" AND ".join([f"{col} IS NOT NULL" for col in date_columns[:3]])}
-            GROUP BY 
-                {date_cols_list}
-            ORDER BY 
-                row_count DESC
-            LIMIT 1
-        )
-        SELECT * FROM DateValues
-        """
-
-        try:
-            date_results = self._execute_cached_query(
-                combined_query,
-                f"date_cols_combined_{project}_{schema}_{table.name}",
-                timeout=min(timeout, 45),
-            )
-
-            if date_results:
-                # Extract values for each date column
-                for col in date_columns[:3]:
-                    val = getattr(date_results[0], col, None)
-                    if val is not None:
-                        result[col] = val
-                        logger.info(f"Selected combined value for {col} = {val}")
-        except Exception as e:
-            logger.debug(f"Combined date query failed: {e}")
-
-        # For any date columns not handled by combined query, query individually
-        for col in date_columns:
-            if col in result:
-                continue
-
-            query = f"""
-            WITH DateValues AS (
-                SELECT 
-                    {col} as value,
-                    COUNT(*) as row_count
-                FROM 
-                    `{project}.{schema}.{table.name}`
-                WHERE 
-                    {col} IS NOT NULL
-                GROUP BY 
-                    {col}
-                ORDER BY 
-                    value DESC
-                LIMIT 3
-            )
-            SELECT * FROM DateValues
-            """
-
-            try:
-                col_results = self._execute_cached_query(
-                    query,
-                    f"date_col_{project}_{schema}_{table.name}_{col}",
-                    timeout=min(30, timeout // 2),
-                )
-
-                if col_results and col_results[0].value is not None:
-                    result[col] = col_results[0].value
-                    logger.info(f"Selected value for {col} = {result[col]}")
-            except Exception as e:
-                logger.debug(f"Date column query failed for {col}: {e}")
-
-        return result
-
-    def _get_remaining_column_values(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        remaining_columns: List[str],
-        is_large_table: bool,
-        timeout: int,
-    ) -> Dict[str, Any]:
-        """Get values for remaining partition columns."""
-        result: Dict[str, Any] = {}
-
-        if not remaining_columns:
-            return result
-
-        logger.info(f"Processing remaining partition columns: {remaining_columns}")
-
-        # For large tables use a much more cautious approach
-        if is_large_table:
-            # Try columns one by one, with sampling for efficiency
-            for col_name in remaining_columns:
-                try:
-                    sample_query = f"""
-                    WITH SampleValues AS (
-                        SELECT 
-                            {col_name} as value,
-                            COUNT(*) as row_count
-                        FROM 
-                            `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM (0.1 PERCENT)
-                        WHERE 
-                            {col_name} IS NOT NULL
-                        GROUP BY 
-                            {col_name}
-                        ORDER BY 
-                            row_count DESC
-                        LIMIT 1
-                    )
-                    SELECT * FROM SampleValues
-                    """
-
-                    sample_results = self._execute_cached_query(
-                        sample_query,
-                        f"sample_col_{project}_{schema}_{table.name}_{col_name}",
-                        timeout=min(20, timeout // 3),
-                    )
-
-                    if sample_results and sample_results[0].value is not None:
-                        result[col_name] = sample_results[0].value
-                        logger.info(
-                            f"Selected sampled value for {col_name} = {result[col_name]} with {sample_results[0].row_count} rows"
-                        )
-                except Exception as e:
-                    logger.debug(f"Sampling query failed for {col_name}: {e}")
-        else:
-            # For normal tables, try to get values for all remaining columns at once
-            try:
-                # Try combined approach first for efficiency (limit to 5 columns)
-                combined_cols = remaining_columns[:5]
-                cols_list = ", ".join([f"{col}" for col in combined_cols])
-                group_by = ", ".join(combined_cols)
-
-                combined_query = f"""
-                WITH PartitionStats AS (
-                    SELECT 
-                        {cols_list}, 
-                        COUNT(*) as row_count
-                    FROM 
-                        `{project}.{schema}.{table.name}`
-                    WHERE 
-                        {" AND ".join([f"{col} IS NOT NULL" for col in combined_cols])}
-                    GROUP BY 
-                        {group_by}
-                    ORDER BY 
-                        row_count DESC
-                    LIMIT 1
-                )
-                SELECT * FROM PartitionStats
-                """
-
-                combined_results = self._execute_cached_query(
-                    combined_query,
-                    f"combined_cols_{project}_{schema}_{table.name}",
-                    timeout=min(30, timeout // 2),
-                )
-
-                if combined_results:
-                    for col in combined_cols:
-                        val = getattr(combined_results[0], col, None)
-                        if val is not None:
-                            result[col] = val
-                            logger.info(f"Selected combined value for {col} = {val}")
-            except Exception as e:
-                logger.debug(f"Combined query failed: {e}")
-
-            # Get values for any columns not handled by the combined query
-            remaining_to_query = [col for col in remaining_columns if col not in result]
-            for col in remaining_to_query:
-                try:
-                    # Query for the value with the most data
-                    query = f"""
-                    WITH PartitionStats AS (
-                        SELECT 
-                            {col} as value,
-                            COUNT(*) as row_count
-                        FROM 
-                            `{project}.{schema}.{table.name}`
-                        WHERE 
-                            {col} IS NOT NULL
-                        GROUP BY 
-                            {col}
-                        ORDER BY 
-                            row_count DESC
-                        LIMIT 1
-                    )
-                    SELECT * FROM PartitionStats
-                    """
-
-                    col_results = self._execute_cached_query(
-                        query,
-                        f"col_value_{project}_{schema}_{table.name}_{col}",
-                        timeout=min(20, timeout // 3),
-                    )
-
-                    if col_results and col_results[0].value is not None:
-                        result[col] = col_results[0].value
-                        logger.info(f"Selected value for {col} = {result[col]}")
-                except Exception as e:
-                    logger.debug(f"Column query failed for {col}: {e}")
-
-        return result
-
-    def _extract_partitioning_from_ddl(
-        self,
-        ddl: str,
-        metadata: Dict[str, Any],
-        project: str,
-        schema: str,
-        table_name: str,
-    ) -> None:
-        """
-        Extract partition columns from table DDL with enhanced pattern matching.
-        Handles various DDL formats including:
-        - Standard PARTITION BY (column)
-        - PARTITION BY DATE(column)
-        - PARTITION BY TIMESTAMP_TRUNC(column, DAY)
-        - Time-unit partitioning (DAY, MONTH, YEAR)
-        """
-        if not ddl:
-            return
-
-        # Normalize DDL for easier parsing, but preserve case for extraction
-        ddl_upper = ddl.upper().replace("\n", " ").replace("\t", " ")
-        ddl_norm = ddl.replace("\n", " ").replace("\t", " ")  # Preserve case
-
-        # Track found partition cols
-        found_partition_cols: Set[str] = set()
-
-        # Case 1: Standard PARTITION BY column
-        if "PARTITION BY" in ddl_upper:
-            # Use case-preserved version for extraction
-            partition_start = ddl_upper.find("PARTITION BY")
-            if partition_start >= 0:
-                # Get the same position in the original case version
-                self._extract_partition_by_clause(
-                    ddl_upper[partition_start:],
-                    ddl_norm[partition_start:],
-                    found_partition_cols,
-                )
-
-        # Case 2: Check for external table partitioning with URI pattern
-        if (
-            metadata.get("is_external")
-            and "EXTERNAL" in ddl_upper
-            and "URI_TEMPLATE" in ddl_upper
-        ):
-            uri_start = ddl_upper.find("URI_TEMPLATE")
-            if uri_start >= 0:
-                # Use the same position in the original case version
-                self._extract_uri_template_partitioning(
-                    ddl_upper[uri_start:], ddl_norm[uri_start:], found_partition_cols
-                )
-
-        # Get data types for identified partition columns
-        if found_partition_cols:
-            self._get_partition_column_types(
-                found_partition_cols, metadata, project, schema, table_name
-            )
-
-        # Special case: If no partition columns found but table has partition_info
-        # with time-based partitioning, add the implicit _PARTITIONTIME column
-        if (
-            not metadata["partition_columns"]
-            and isinstance(metadata.get("partition_info"), PartitionInfo)
-            and metadata["partition_info"].type in ["DAY", "MONTH", "YEAR", "HOUR"]
-        ):
-            metadata["partition_columns"]["_PARTITIONTIME"] = "TIMESTAMP"
-
-    def _extract_partition_by_clause(
-        self, upper_clause: str, original_clause: str, found_partition_cols: Set[str]
-    ) -> None:
-        """Extract partition columns from a PARTITION BY clause in DDL."""
-        try:
-            # Extract up to the next major clause using upper case for detection
-            partition_clause_upper = self._extract_partition_clause(upper_clause)
-
-            # Get the corresponding part from the original case
-            # The length should be the same since we're just changing case
-            partition_clause = original_clause[: len(partition_clause_upper)]
-
-            # Remove the "PARTITION BY" part (using upper for the length)
-            partition_by_len = len("PARTITION BY")
-            if partition_clause_upper.startswith("PARTITION BY"):
-                partition_clause_upper = partition_clause_upper[
-                    partition_by_len:
-                ].strip()
-                partition_clause = partition_clause[partition_by_len:].strip()
-
-            # Handle different partition specifications using both versions
-            if partition_clause_upper.startswith(
-                "DATE("
-            ) or partition_clause_upper.startswith("TIMESTAMP("):
-                self._extract_date_timestamp_function(
-                    partition_clause_upper, partition_clause, found_partition_cols
-                )
-            elif (
-                "TIMESTAMP_TRUNC" in partition_clause_upper
-                or "DATE_TRUNC" in partition_clause_upper
-            ):
-                self._extract_trunc_function(
-                    partition_clause_upper, partition_clause, found_partition_cols
-                )
-            elif any(
-                unit in partition_clause_upper
-                for unit in ["DAY", "MONTH", "YEAR", "HOUR"]
-            ):
-                # This is a time-unit partitioning without explicit column
-                # Use _PARTITIONTIME as the implicit partition column
-                found_partition_cols.add("_PARTITIONTIME")
-            else:
-                # Simple column partitioning
-                self._extract_simple_columns(partition_clause, found_partition_cols)
-        except Exception as e:
-            logger.warning(f"Error parsing PARTITION BY clause from DDL: {e}")
-
-    def _extract_partition_clause(self, partition_clause: str) -> str:
-        """Extract the partition clause up to the next major clause."""
-        for end_token in ["OPTIONS", "CLUSTER BY", "AS SELECT", ";"]:
-            end_pos = partition_clause.find(end_token)
-            if end_pos > 0:
-                partition_clause = partition_clause[:end_pos].strip()
-        return partition_clause
-
-    def _extract_date_timestamp_function(
-        self, upper_clause: str, original_clause: str, found_partition_cols: set
-    ) -> None:
-        """Extract column from DATE(...) or TIMESTAMP(...) function."""
-        col_start = upper_clause.find("(") + 1
-        col_end = upper_clause.find(")")
-        if 0 < col_start < col_end:
-            # Use the original case version to get the actual column name
-            col_name = original_clause[col_start:col_end].strip(", `'\"")
-            found_partition_cols.add(col_name)
-
-    def _extract_trunc_function(
-        self, upper_clause: str, original_clause: str, found_partition_cols: set
-    ) -> None:
-        """Extract column from TIMESTAMP_TRUNC(column, DAY) or DATE_TRUNC(column, DAY)."""
-        trunc_start = upper_clause.find("(") + 1
-        trunc_end = upper_clause.find(",")
-        if trunc_end == -1:  # No comma found
-            trunc_end = upper_clause.find(")")
-        if 0 < trunc_start < trunc_end:
-            # Use the original case version to get the actual column name
-            col_name = original_clause[trunc_start:trunc_end].strip(", `'\"")
-            found_partition_cols.add(col_name)
-
-    def _extract_simple_columns(
-        self, partition_clause: str, found_partition_cols: set
-    ) -> None:
-        """Extract simple column names from partition clause."""
-        for part in partition_clause.split():
-            # Get the part without quotes, parentheses, etc.
-            cleaned_col = part.strip(", `'\"()").split(".")[-1]
-
-            # Skip known keywords and empty strings (check lowercase)
-            if cleaned_col and cleaned_col.upper() not in [
-                "DATE",
-                "TIMESTAMP",
-                "BY",
-                "PARTITION",
-            ]:
-                # Keep the original case
-                found_partition_cols.add(cleaned_col)
-
-    def _extract_uri_template_partitioning(
-        self, upper_part: str, original_part: str, found_partition_cols: set
-    ) -> None:
-        """Extract partition columns from URI_TEMPLATE in external table DDL."""
-        try:
-            end_pos = upper_part.find(",")
-            if end_pos > 0:
-                upper_part = upper_part[:end_pos].strip(" ='\"`")
-                original_part = original_part[:end_pos].strip(" ='\"`")
-
-            # Look for Hive-style partitioning in URI template
-            if "{" in original_part and "}" in original_part:
-                parts = original_part.split("{")
-                for _i, part in enumerate(parts):
-                    if "}" in part:
-                        # Extract the part between { and }
-                        partition_var = part.split("}")[0].strip()
-                        # Keep the original case
-                        found_partition_cols.add(partition_var)
-        except Exception as e:
-            logger.debug(f"Error parsing URI_TEMPLATE for partitioning: {e}")
-
-    def _get_partition_column_types(
-        self,
-        found_partition_cols: set,
-        metadata: Dict[str, Any],
-        project: str,
-        schema: str,
-        table_name: str,
-    ) -> None:
-        """Get data types for identified partition columns."""
-        # For testing compatibility - if no columns, no query needed
-        if not found_partition_cols:
-            return
-
-        try:
-            # Construct query
-            cols_list = "', '".join(found_partition_cols)
-            col_types_query = f"""
-            SELECT 
-                column_name, 
-                data_type
-            FROM 
-                `{project}.INFORMATION_SCHEMA.COLUMNS`
-            WHERE 
-                table_name = '{table_name}'
-                AND column_name IN ('{cols_list}')
-            """
-
-            # Execute query
-            results = self._execute_cached_query(
-                col_types_query,
-                f"partition_cols_types_{project}_{schema}_{table_name}",
-            )
-
-            # Process results - handle mock objects directly
-            for result in results:
-                try:
-                    # In mock objects, these might be attributes
-                    column_name = result.column_name
-                    data_type = result.data_type
-
-                    # Store the data type in the metadata
-                    metadata["partition_columns"][column_name] = data_type
-                except AttributeError:
-                    # Handle regular dictionary results (just in case)
-                    if hasattr(result, "items"):
-                        column_name = result.get("column_name")
-                        data_type = result.get("data_type")
-                        if column_name and data_type:
-                            metadata["partition_columns"][column_name] = data_type
-
-        except Exception as e:
-            logger.warning(f"Error fetching partition column types: {e}")
-
-        # Add missing columns with None type
-        for col in found_partition_cols:
-            if col not in metadata["partition_columns"]:
-                metadata["partition_columns"][col] = None
-
-    def _get_accurate_column_types(
-        self, table: BigqueryTable, project: str, schema: str, columns: List[str]
-    ) -> Dict[str, Dict[str, Any]]:
-        """
-        Get accurate column type information directly from the table.
-
-        Args:
-            table: BigqueryTable instance
-            project: Project ID
-            schema: Dataset name
-            columns: List of column names to check
-
-        Returns:
-            Dictionary mapping column names to detailed type information
-        """
-        if not columns:
-            return {}
-
-        # Safely quote column names for SQL
-        quoted_columns = ", ".join(f"'{col}'" for col in columns)
-
-        query = f"""
-        SELECT 
-            column_name,
-            data_type,
-            is_partitioning_column
-        FROM 
-            `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-        WHERE 
-            table_name = '{table.name}'
-            AND column_name IN ({quoted_columns})
-        """
-
-        cache_key = f"col_types_{project}_{schema}_{table.name}_{hash(quoted_columns)}"
-        results = self._execute_cached_query(query, cache_key, timeout=30)
-
-        column_info = {}
-        for row in results:
-            column_info[row.column_name] = {
-                "data_type": row.data_type,
-                "is_partition": row.is_partitioning_column == "YES",
-            }
-
-        return column_info
-
-    def _create_robust_filter(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        col_name: str,
-        value: Any,
-        col_type: Optional[str] = None,
-    ) -> str:
-        """
-        Create a filter with explicit type casting based on the actual column type.
-
-        This method handles type mismatches by explicitly casting values to the correct type.
-
-        Args:
-            table: BigqueryTable instance
-            project: Project ID
-            schema: Dataset name
-            col_name: Column name
-            value: Column value
-            col_type: Optional column type if already known
-
-        Returns:
-            Filter string with appropriate type casting
-        """
-        # Handle NULL values
-        if value is None:
-            return f"`{col_name}` IS NULL"
-
-        # Get accurate column type if not provided
-        if not col_type:
-            col_info = self._get_accurate_column_types(
-                table, project, schema, [col_name]
-            )
-            if col_name in col_info:
-                col_type = col_info[col_name]["data_type"]
-            else:
-                # Default handling if we can't determine type
-                return self._create_safe_filter(col_name, value)
-
-        col_type_upper = col_type.upper() if col_type else ""
-
-        try:
-            # Group column types into categories and call specialized handlers
-            if col_type_upper in ("INT64", "INTEGER", "INT"):
-                return self._create_integer_filter(col_name, value)
-            elif col_type_upper == "DATE":
-                return self._create_date_filter(col_name, value)
-            elif col_type_upper in ("TIMESTAMP", "DATETIME"):
-                return self._create_timestamp_filter(col_name, value)
-            elif col_type_upper in ("STRING", "VARCHAR"):
-                return self._create_string_filter(col_name, value)
-            elif col_type_upper in ("BOOL", "BOOLEAN"):
-                return self._create_boolean_filter(col_name, value)
-            elif col_type_upper in ("FLOAT64", "FLOAT", "NUMERIC", "DECIMAL"):
-                return self._create_numeric_filter(col_name, value)
-            else:
-                # Default case for other types
-                return self._create_default_filter(col_name, value)
-
-        except Exception as e:
-            logger.debug(f"Error creating robust filter for {col_name}: {e}")
-            return self._create_safe_filter(col_name, value)
-
-    def _create_integer_filter(self, col_name: str, value: Any) -> str:
-        """Create a filter for integer columns with type conversion handling."""
-        if isinstance(value, datetime):
-            # Convert datetime to integer
-            return f"`{col_name}` = {int(value.timestamp())}"
-        elif isinstance(value, (int, float)):
-            return f"`{col_name}` = {int(value)}"
-        else:
-            # Try to convert string to int
-            try:
-                # Handle TIMESTAMP literals in string
-                if "TIMESTAMP" in str(value):
-                    ts_str = str(value).replace("TIMESTAMP", "").strip().strip("'\"")
-                    dt = datetime.fromisoformat(ts_str.replace(" ", "T"))
-                    return f"`{col_name}` = {int(dt.timestamp())}"
-                # Otherwise just convert to int
-                return f"`{col_name}` = {int(float(str(value)))}"
-            except (ValueError, TypeError):
-                # Last resort - try IS NOT NULL
-                return f"`{col_name}` IS NOT NULL"
-
-    def _create_date_filter(self, col_name: str, value: Any) -> str:
-        """Create a filter for DATE columns with type conversion handling."""
-        if isinstance(value, datetime):
-            return f"`{col_name}` = DATE '{value.strftime('%Y-%m-%d')}'"
-        else:
-            # Handle DATE, TIMESTAMP, or plain string literals
-            val_str = str(value)
-            if "DATE" in val_str or "TIMESTAMP" in val_str:
-                # Extract date part
-                date_str = (
-                    val_str.replace("DATE", "")
-                    .replace("TIMESTAMP", "")
-                    .strip()
-                    .strip("'\"")
-                )
-                # Extract just YYYY-MM-DD part if it's a timestamp
-                if " " in date_str:
-                    date_str = date_str.split(" ")[0]
-                return f"`{col_name}` = DATE '{date_str}'"
-            else:
-                # Assume it's already a date string
-                val_str = val_str.replace("'", "").strip()
-                return f"`{col_name}` = DATE '{val_str}'"
-
-    def _create_timestamp_filter(self, col_name: str, value: Any) -> str:
-        """Create a filter for TIMESTAMP columns with type conversion handling."""
-        if isinstance(value, datetime):
-            return f"`{col_name}` = TIMESTAMP '{value.strftime('%Y-%m-%d %H:%M:%S')}'"
-        elif isinstance(value, (int, float)):
-            return f"`{col_name}` = TIMESTAMP_SECONDS({int(value)})"
-        else:
-            val_str = str(value).replace("TIMESTAMP", "").strip().strip("'\"")
-            return f"`{col_name}` = TIMESTAMP '{val_str}'"
-
-    def _create_string_filter(self, col_name: str, value: Any) -> str:
-        """Create a filter for STRING columns with type conversion handling."""
-        if isinstance(value, datetime):
-            # Format datetime for string representation
-            return f"`{col_name}` = '{value.strftime('%Y-%m-%d')}'"
-        else:
-            val_str = str(value).replace("'", "\\'")
-            # Remove type keywords if present
-            for keyword in ["TIMESTAMP", "DATE"]:
-                if keyword in val_str:
-                    val_str = val_str.replace(keyword, "").strip().strip("'\"")
-            return f"`{col_name}` = '{val_str}'"
-
-    def _create_boolean_filter(self, col_name: str, value: Any) -> str:
-        """Create a filter for BOOLEAN columns with type conversion handling."""
-        if isinstance(value, bool):
-            bool_val = "true" if value else "false"
-        else:
-            bool_val = "true" if str(value).lower() in ("true", "1", "yes") else "false"
-        return f"`{col_name}` = {bool_val}"
-
-    def _create_safe_filter(self, col_name: str, value: Any) -> str:
-        """
-        Create a filter that's least likely to cause type mismatch errors.
-        """
-        if value is None:
-            return f"`{col_name}` IS NULL"
-
-        # IS NOT NULL is the safest filter as it doesn't involve value type matching
-        return f"`{col_name}` IS NOT NULL"
-
-    def _try_alternative_filters(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        col_name: str,
-        timeout: int = 20,
-    ) -> Optional[str]:
-        """
-        Try alternative filters for a column when standard approaches fail.
-
-        This method attempts various common filter patterns that are likely
-        to work for different column types.
-
-        Args:
-            table: BigqueryTable instance
-            project: Project ID
-            schema: Dataset name
-            col_name: Column name
-            timeout: Query timeout
-
-        Returns:
-            Working filter string or None if none found
-        """
-        # Get column type
-        col_info = self._get_accurate_column_types(table, project, schema, [col_name])
-        if not col_info or col_name not in col_info:
-            return None
-
-        col_type = col_info[col_name]["data_type"].upper()
-
-        # Try different filter approaches based on column type
-        filters_to_try = []
-
-        # For date/timestamp columns
-        if col_type in ("DATE", "TIMESTAMP", "DATETIME"):
-            # Try last 30 days
-            filters_to_try.extend(
-                [
-                    f"`{col_name}` >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)",
-                    f"`{col_name}` >= DATE_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)",
-                    f"`{col_name}` >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)",
-                ]
-            )
-
-        # For integer columns
-        elif col_type in ("INT64", "INTEGER"):
-            current_year = datetime.now().year
-            # Try current year and previous year
-            filters_to_try.extend(
-                [
-                    f"`{col_name}` = {current_year}",
-                    f"`{col_name}` = {current_year - 1}",
-                    f"`{col_name}` > 0",
-                ]
-            )
-
-        # For any column type - IS NOT NULL is the most permissive filter
-        filters_to_try.append(f"`{col_name}` IS NOT NULL")
-
-        # Try each filter
-        for filter_str in filters_to_try:
-            try:
-                # Check if this filter returns data
-                test_query = f"""
-                SELECT 1 
-                FROM `{project}.{schema}.{table.name}`
-                WHERE {filter_str}
-                LIMIT 1
-                """
-
-                results = self._execute_cached_query(test_query, None, timeout=timeout)
-                if results:
-                    logger.info(f"Found working alternative filter: {filter_str}")
-                    return filter_str
-            except Exception as e:
-                logger.debug(f"Alternative filter {filter_str} failed: {e}")
-
-        return None
-
-    def _create_partition_filters(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: Dict[str, str],
-        partition_values: Dict[str, Any],
-    ) -> List[str]:
-        """
-        Create partition filter strings with robust type handling.
-
-        Args:
-            table: BigqueryTable instance
-            project: Project ID
-            schema: Dataset name
-            partition_columns: Dictionary mapping column names to data types
-            partition_values: Dictionary mapping column names to values
-
-        Returns:
-            List of filter strings
-        """
-        filters = []
-
-        # Get accurate column types first
-        col_names = list(partition_values.keys())
-        accurate_types = self._get_accurate_column_types(
-            table, project, schema, col_names
-        )
-
-        for col_name, value in partition_values.items():
-            if value is None:
-                continue
-
-            # Use accurate type if available, otherwise use provided type
-            if col_name in accurate_types:
-                col_type = accurate_types[col_name]["data_type"]
-            else:
-                col_type = partition_columns.get(col_name, "")
-
-            # Create robust filter with explicit type handling
-            filter_str = self._create_robust_filter(
-                table, project, schema, col_name, value, col_type
-            )
-
-            if filter_str:
-                filters.append(filter_str)
-
-        # If we couldn't create any filters, try alternative approaches
-        if not filters and col_names:
-            # Try each partition column with alternative filters
-            for col_name in col_names:
-                alt_filter = self._try_alternative_filters(
-                    table, project, schema, col_name
-                )
-                if alt_filter:
-                    filters.append(alt_filter)
-                    break
-
-        return filters
-
-    def _create_filter_for_column(
-        self, col_name: str, value: Any, data_type: str
-    ) -> Optional[str]:
-        """
-        Create a filter string for a single column based on its data type,
-        with improved handling of type mismatches.
-
-        Args:
-            col_name: Column name
-            value: Column value
-            data_type: Column data type from BigQuery
-
-        Returns:
-            Filter string or None if no filter could be created
-        """
-        # Handle NULL values
-        if value is None:
-            return f"`{col_name}` IS NULL"
-
-        # Normalize data type for comparison
-        normalized_data_type = data_type.upper() if data_type else ""
-
-        # Check if we're dealing with a time-related column
-        is_time_related_column = self._is_time_related_column(col_name)
-
-        # Handle special cases first
-        if is_time_related_column:
-            # Time-related columns have special handling based on data type
-            if normalized_data_type in ("INT64", "INTEGER", "INT"):
-                return self._create_int_timestamp_filter(col_name, value)
-            elif normalized_data_type in ("STRING", "VARCHAR"):
-                return self._create_string_date_filter(col_name, value)
-
-        # Handle standard types
-        type_handlers = {
-            "TIMESTAMP": self._create_timestamp_filter,
-            "DATETIME": self._create_timestamp_filter,
-            "DATE": self._create_date_filter,
-            "STRING": self._create_string_filter,
-            "VARCHAR": self._create_string_filter,
-            "BIGNUMERIC": self._create_string_filter,
-            "JSON": self._create_string_filter,
-            "INT64": self._create_numeric_filter,
-            "INTEGER": self._create_numeric_filter,
-            "INT": self._create_numeric_filter,
-            "SMALLINT": self._create_numeric_filter,
-            "BIGINT": self._create_numeric_filter,
-            "TINYINT": self._create_numeric_filter,
-            "FLOAT64": self._create_numeric_filter,
-            "FLOAT": self._create_numeric_filter,
-            "NUMERIC": self._create_numeric_filter,
-            "DECIMAL": self._create_numeric_filter,
-            "BOOL": self._create_boolean_filter,
-            "BOOLEAN": self._create_boolean_filter,
-        }
-
-        # Find the right handler for this data type
-        for type_prefix, handler in type_handlers.items():
-            if normalized_data_type.startswith(type_prefix):
-                return handler(col_name, value)
-
-        # Default case for any other data type
-        return self._create_default_filter(col_name, value)
-
-    def _is_time_related_column(self, col_name: str) -> bool:
-        """Check if column name indicates time-related data."""
-        time_terms = ["date", "time", "dt", "created", "modified", "updated"]
-        return any(time_term in col_name.lower() for time_term in time_terms)
-
-    def _create_int_timestamp_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for INT64 columns with time-related names."""
-        if isinstance(value, datetime):
-            # Convert datetime to epoch seconds for INT64 columns
-            epoch_seconds = int(value.timestamp())
-            return f"`{col_name}` = {epoch_seconds}"
-        elif isinstance(value, (int, float)):
-            # Already numeric, use directly
-            return f"`{col_name}` = {int(value)}"
-        else:
-            # Try to handle string dates by converting to epoch
-            try:
-                dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-                epoch_seconds = int(dt.timestamp())
-                return f"`{col_name}` = {epoch_seconds}"
-            except (ValueError, TypeError):
-                # Fallback to a safe filter
-                return f"`{col_name}` IS NOT NULL"
-
-    def _create_string_date_filter(self, col_name: str, value: Any) -> str:
-        """Create filter for STRING columns with time-related names."""
-        if isinstance(value, datetime):
-            # For STRING date columns, convert datetime to string format
-            date_str = value.strftime("%Y-%m-%d")
-            return f"`{col_name}` = '{date_str}'"
-        else:
-            # Ensure it's a properly formatted string
-            val_str = str(value).replace("'", "\\'")
-            # Remove TIMESTAMP keyword if present
-            if val_str.startswith("TIMESTAMP "):
-                val_str = val_str.replace("TIMESTAMP ", "").strip("'\"")
-            return f"`{col_name}` = '{val_str}'"
-
-    def _create_numeric_filter(self, col_name: str, value: Any) -> str:
-        """Create a filter for numeric columns (FLOAT64, NUMERIC, etc.)."""
-        if isinstance(value, (int, float)):
-            return f"`{col_name}` = {value}"
-        else:
-            try:
-                # Try to convert to numeric
-                numeric_value = float(str(value))
-                return f"`{col_name}` = {numeric_value}"
-            except (ValueError, TypeError):
-                # Fall back to safe filter
-                return f"`{col_name}` IS NOT NULL"
-
-    def _create_default_filter(self, col_name: str, value: Any) -> str:
-        """Create a filter for unknown column types."""
-        if isinstance(value, (int, float)):
-            return f"`{col_name}` = {value}"
-        elif isinstance(value, str):
-            # Escape quotes for string values
-            val_str = value.replace("'", "\\'")
-            return f"`{col_name}` = '{val_str}'"
-        else:
-            # Convert to string for other types
-            val_str = str(value).replace("'", "\\'")
-            return f"`{col_name}` = '{val_str}'"
-
-    def _verify_partition_has_data(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        timeout: int = 30,
-        max_retries: int = 2,
-    ) -> bool:
-        """
-        Verify that partition filters return data.
-        """
-        if not filters:
-            return False
-
-        # Check cache first
-        cache_key = f"{project}.{schema}.{table.name}.{hash(tuple(sorted(filters)))}"
-        if cache_key in self._successful_filters_cache:
-            logger.debug(f"Using cached filter verification result for {cache_key}")
-            return True
-
-        # Build WHERE clause from filters
-        where_clause = " AND ".join(filters)
-
-        # Try each verification strategy in order
-        verification_strategies = [
-            self._try_existence_check,
-            self._try_count_query,
-            self._try_sample_query,
-            self._try_syntax_check,
-        ]
-
-        for strategy in verification_strategies:
-            result = strategy(
-                table,
-                project,
-                schema,
-                filters,
-                where_clause,
-                timeout,
-                max_retries,
-                cache_key,
-            )
-            if result:
-                return True
-
-        logger.warning(
-            f"Partition verification found no data with filters: {where_clause}"
-        )
-        return False
-
-    def _is_type_mismatch_error(self, error_str: str) -> bool:
-        """Check if the error is a type mismatch."""
-        return "No matching signature for operator =" in error_str and (
-            "TIMESTAMP" in error_str or "INT64" in error_str
-        )
-
-    def _fix_type_mismatch_filters(
-        self, filters: List[str], error_str: str
-    ) -> List[str]:
-        """
-        Fix type mismatch errors in filters with improved detection and conversion.
-        """
-        logger.warning(f"Type mismatch error in filter: {error_str}")
-
-        fixed_filters = []
-        for filter_str in filters:
-            if "=" in filter_str:
-                parts = filter_str.split("=", 1)
-                if len(parts) == 2:
-                    col, val = parts
-                    col = col.strip()
-                    val = val.strip()
-
-                    # INT64 column with TIMESTAMP value
-                    if "INT64" in error_str and "TIMESTAMP" in error_str:
-                        if "TIMESTAMP" in val:
-                            # Convert TIMESTAMP to unix seconds
-                            fixed_filter = f"{col} = UNIX_SECONDS({val})"
-                            fixed_filters.append(fixed_filter)
-                            continue
-                        elif val.isdigit():
-                            # Convert numeric to TIMESTAMP
-                            fixed_filter = f"{col} = TIMESTAMP_SECONDS({val})"
-                            fixed_filters.append(fixed_filter)
-                            continue
-                    # Special case for other type mismatches
-                    elif "INT64" in error_str and "'" in val:
-                        # String value being compared to INT64
-                        try:
-                            # Try to convert string to int
-                            cleaned_val = val.strip("'")
-                            int_val = int(float(cleaned_val))
-                            fixed_filter = f"{col} = {int_val}"
-                            fixed_filters.append(fixed_filter)
-                            continue
-                        except (ValueError, TypeError):
-                            # If conversion fails, use a safe filter that will evaluate to false
-                            fixed_filter = f"{col} = -1 AND FALSE /* Placeholder for incompatible filter */"
-                            fixed_filters.append(fixed_filter)
-                            continue
-
-            # Keep unchanged filters
-            fixed_filters.append(filter_str)
-
-        return fixed_filters
-
-    def _try_count_query(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        where_clause: str,
-        timeout: int,
-        max_retries: int,
-        cache_key: str,
-    ) -> bool:
-        """Try a COUNT query."""
-        count_query = f"""
-        SELECT COUNT(*) as cnt
-        FROM `{project}.{schema}.{table.name}`
-        WHERE {where_clause}
-        LIMIT 1000
-        """
-
-        count_key = f"verify_count_{project}_{schema}_{table.name}_{hash(where_clause)}"
-
-        try:
-            count_results = self._execute_cached_query(count_query, count_key, timeout)
-            if (
-                count_results
-                and hasattr(count_results[0], "cnt")
-                and count_results[0].cnt > 0
-            ):
-                logger.info(f"Verified filters return {count_results[0].cnt} rows")
-                self._successful_filters_cache[cache_key] = filters
-                return True
-        except Exception as e:
-            logger.debug(f"Count verification failed: {e}")
-
-        return False
-
-    def _try_sample_query(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        where_clause: str,
-        timeout: int,
-        max_retries: int,
-        cache_key: str,
-    ) -> bool:
-        """Try a TABLESAMPLE query for large tables."""
-        if not (
-            table.external
-            or (table.size_in_bytes and table.size_in_bytes > 1_000_000_000)
-        ):
-            return False
-
-        try:
-            sample_rate = 0.01 if table.external else 0.1
-            sample_query = f"""
-            SELECT 1 
-            FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM ({sample_rate} PERCENT)
-            WHERE {where_clause}
-            LIMIT 1
-            """
-
-            sample_key = (
-                f"verify_sample_{project}_{schema}_{table.name}_{hash(where_clause)}"
-            )
-            sample_results = self._execute_cached_query(
-                sample_query, sample_key, timeout
-            )
-
-            if sample_results:
-                logger.info(f"Verified filters using {sample_rate}% sample")
-                self._successful_filters_cache[cache_key] = filters
-                return True
-        except Exception as e:
-            logger.debug(f"Sample verification failed: {e}")
-
-        return False
-
-    def _try_existence_check(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        where_clause: str,
-        timeout: int,
-        max_retries: int,
-        cache_key: str,
-    ) -> bool:
-        """Try a simple existence check with improved error handling."""
-        existence_query = f"""
-        SELECT 1 
-        FROM `{project}.{schema}.{table.name}`
-        WHERE {where_clause}
-        LIMIT 1
-        """
-
-        query_cache_key = (
-            f"verify_exists_{project}_{schema}_{table.name}_{hash(where_clause)}"
-        )
-
-        # First try with shorter timeout (fast path)
-        initial_timeout = max(5, timeout // 2)
-        initial_result = self._execute_existence_query(
-            existence_query, query_cache_key, initial_timeout, cache_key, filters
-        )
-        if initial_result is not None:
-            return initial_result
-
-        # If first attempt failed, try with longer timeout and retries
-        for attempt in range(max_retries):
-            try:
-                existence_results = self._execute_cached_query(
-                    existence_query, query_cache_key, timeout
-                )
-
-                if existence_results:
-                    logger.info("Verified filters return data (existence check)")
-                    self._successful_filters_cache[cache_key] = filters
-                    return True
-
-            except Exception as e:
-                error_str = str(e)
-
-                # Handle type mismatch errors
-                if "No matching signature for operator" in error_str:
-                    fixed_filters = self._handle_type_mismatch(
-                        filters,
-                        error_str,
-                        table,
-                        project,
-                        schema,
-                        timeout,
-                        max_retries - attempt - 1,
-                    )
-                    if fixed_filters:
-                        return fixed_filters
-
-                logger.debug(
-                    f"Existence check attempt {attempt + 1} failed: {e}, retrying..."
-                )
-                time.sleep(1)  # Brief pause before retry
-
-        logger.debug("All existence check attempts failed")
-        return False
-
-    def _execute_existence_query(
-        self,
-        query: str,
-        query_cache_key: str,
-        timeout: int,
-        filter_cache_key: str,
-        filters: List[str],
-    ) -> Optional[bool]:
-        """Execute existence query with caching and return result status."""
-        try:
-            existence_results = self._execute_cached_query(
-                query, query_cache_key, timeout
-            )
-
-            if existence_results:
-                logger.info("Verified filters return data (existence check)")
-                self._successful_filters_cache[filter_cache_key] = filters
-                return True
-            return None
-        except Exception:
-            return None
-
-    def _handle_type_mismatch(
-        self,
-        filters: List[str],
-        error_str: str,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        timeout: int,
-        retries_left: int,
-    ) -> bool:
-        """Handle type mismatch errors by fixing filter expressions."""
-        logger.warning(f"Type mismatch detected: {error_str}")
-
-        # Handle INT64 vs TIMESTAMP mismatch
-        if "INT64" in error_str and "TIMESTAMP" in error_str:
-            fixed_filters = self._fix_int64_timestamp_mismatch(filters)
-            if fixed_filters != filters:
-                logger.info(
-                    f"Attempting with fixed INT64/TIMESTAMP filters: {fixed_filters}"
-                )
-                return self._verify_partition_has_data(
-                    table, project, schema, fixed_filters, timeout, retries_left
-                )
-
-        # Handle STRING vs TIMESTAMP/DATE mismatch
-        elif "STRING" in error_str and (
-            "TIMESTAMP" in error_str or "DATE" in error_str
-        ):
-            fixed_filters = self._fix_string_date_mismatch(filters)
-            if fixed_filters != filters:
-                logger.info(
-                    f"Attempting with fixed STRING/TIMESTAMP filters: {fixed_filters}"
-                )
-                return self._verify_partition_has_data(
-                    table, project, schema, fixed_filters, timeout, retries_left
-                )
-
-        # For any type mismatch, try IS NOT NULL as a last resort
-        simple_filters = self._create_is_not_null_filters(filters)
-        if simple_filters != filters:
-            logger.info(f"Attempting with IS NOT NULL filters: {simple_filters}")
-            return self._verify_partition_has_data(
-                table, project, schema, simple_filters, timeout // 2, 1
-            )
-
-        return False
-
-    def _fix_int64_timestamp_mismatch(self, filters: List[str]) -> List[str]:
-        """Fix filters with INT64/TIMESTAMP type mismatches."""
-        fixed_filters = []
-        for filter_str in filters:
-            if "=" in filter_str:
-                parts = filter_str.split("=", 1)
-                if len(parts) == 2:
-                    col, val = parts[0].strip(), parts[1].strip()
-
-                    # Fix INT64 column with TIMESTAMP value
-                    if "TIMESTAMP" in val:
-                        try:
-                            # Extract timestamp and convert to epoch seconds
-                            timestamp_str = (
-                                val.replace("TIMESTAMP", "").strip().strip("'\"")
-                            )
-                            dt = datetime.fromisoformat(timestamp_str.replace(" ", "T"))
-                            epoch_seconds = int(dt.timestamp())
-                            fixed_filters.append(f"{col} = {epoch_seconds}")
-                            continue
-                        except (ValueError, TypeError):
-                            pass
-
-                    # Integer value with TIMESTAMP column - use TIMESTAMP_SECONDS
-                    if val.isdigit():
-                        fixed_filters.append(f"{col} = TIMESTAMP_SECONDS({val})")
-                        continue
-
-            # Keep unchanged filters
-            fixed_filters.append(filter_str)
-
-        return fixed_filters
-
-    def _fix_string_date_mismatch(self, filters: List[str]) -> List[str]:
-        """Fix filters with STRING/DATE type mismatches."""
-        fixed_filters = []
-        for filter_str in filters:
-            if "=" in filter_str:
-                parts = filter_str.split("=", 1)
-                if len(parts) == 2:
-                    col, val = parts[0].strip(), parts[1].strip()
-
-                    # Fix STRING column with TIMESTAMP/DATE value
-                    if "TIMESTAMP" in val or "DATE" in val:
-                        # Extract just the date/time part
-                        date_str = (
-                            val.replace("TIMESTAMP", "")
-                            .replace("DATE", "")
-                            .strip()
-                            .strip("'\"")
-                        )
-                        fixed_filters.append(f"{col} = '{date_str}'")
-                        continue
-
-            # Keep unchanged filters
-            fixed_filters.append(filter_str)
-
-        return fixed_filters
-
-    def _create_is_not_null_filters(self, filters: List[str]) -> List[str]:
-        """Create IS NOT NULL filters from equality filters."""
-        simple_filters = []
-        for filter_str in filters:
-            if "=" in filter_str:
-                col = filter_str.split("=")[0].strip()
-                simple_filters.append(f"{col} IS NOT NULL")
-            else:
-                simple_filters.append(filter_str)
-
-        return simple_filters
-
-    def _try_syntax_check(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        filters: List[str],
-        where_clause: str,
-        timeout: int,
-        max_retries: int,
-        cache_key: str,
-    ) -> bool:
-        """Try a syntax-only verification."""
-        if table.external or (
-            table.size_in_bytes and table.size_in_bytes > 10_000_000_000
-        ):
-            return False
-
-        try:
-            dummy_query = f"""SELECT 1 WHERE {where_clause} LIMIT 0"""
-            dummy_key = f"verify_dummy_{hash(where_clause)}"
-            self._execute_cached_query(dummy_query, dummy_key, 5)
-
-            logger.warning(
-                "Using syntactically valid filters without data verification"
-            )
-            self._successful_filters_cache[cache_key] = filters
-            return True
-        except Exception as e:
-            logger.debug(f"Filter syntax check failed: {e}")
-
-        return False
-
-    def _check_sample_rate_in_ddl(self, table: BigqueryTable) -> Optional[List[str]]:
-        """Helper method to check for SAMPLE_RATE in table DDL and create filter if found."""
-        if table.ddl and "SAMPLE_RATE" in table.ddl.upper():
-            logger.info(
-                f"External table {table.name} has SAMPLE_RATE specified, using TABLESAMPLE"
-            )
-            # Extract sample rate or use a safe default
-            sample_rate = 0.01  # Default to 1%
-            try:
-                # Try to extract the sample rate from DDL
-                if "SAMPLE_RATE=" in table.ddl:
-                    sample_part = (
-                        table.ddl.split("SAMPLE_RATE=")[1].split()[0].strip(",;()")
-                    )
-                    if sample_part.isdigit():
-                        extracted_rate = float(sample_part) / 100
-                        if 0.001 <= extracted_rate <= 0.1:  # Between 0.1% and 10%
-                            sample_rate = extracted_rate
-            except Exception:
-                pass  # Stick with default if extraction fails
-
-            # Use TABLESAMPLE for profiling
-            return [f"TRUE TABLESAMPLE SYSTEM ({sample_rate * 100:.2f} PERCENT)"]
-
-        return None
-
-    def _try_date_based_filtering_for_external(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: Dict[str, str],
-        timeout: int,
-    ) -> Optional[List[str]]:
-        """Helper method to try date-based filtering for external tables."""
-        date_columns = [
-            col
-            for col in partition_columns.keys()
-            if col.lower()
-            in {
-                "date",
-                "dt",
-                "partition_date",
-                "timestamp",
-                "datetime",
-                "created_at",
-                "modified_at",
-                "event_date",
-                "year",
-                "month",
-                "day",
-            }
-        ]
-
-        if not date_columns:
-            return None
-
-        date_filters = []
-        time_now = datetime.now(timezone.utc)
-
-        # For date columns, try specific dates from newer to older
-        for col_name in date_columns:
-            col_type = (
-                partition_columns.get(col_name, "").upper()
-                if partition_columns.get(col_name)
-                else ""
-            )
-
-            # Try dates from recent to older
-            test_dates = []
-
-            # For year columns, try current and previous years
-            if col_name.lower() == "year":
-                test_dates = [
-                    time_now.year,
-                    time_now.year - 1,
-                    time_now.year - 2,
-                ]
-
-                for year in test_dates:
-                    filter_str = f"`{col_name}` = {year}"
-                    if self._verify_partition_has_data(
-                        table, project, schema, [filter_str], timeout // 2
-                    ):
-                        date_filters.append(filter_str)
-                        logger.info(f"Found data for year {year}")
-                        break
-
-            # For month columns
-            elif col_name.lower() == "month":
-                month_values = []
-                for i in range(12):  # Try up to 12 months back
-                    test_date = time_now - timedelta(days=i * 30)
-                    month_values.append(test_date.month)
-
-                for month in month_values:
-                    filter_str = f"`{col_name}` = {month}"
-                    if self._verify_partition_has_data(
-                        table, project, schema, [filter_str], timeout // 3
-                    ):
-                        date_filters.append(filter_str)
-                        logger.info(f"Found data for month {month}")
-                        break
-
-            # For date columns, try specific dates
-            elif col_type in ("DATE", "DATETIME", "TIMESTAMP") or col_name.lower() in (
-                "date",
-                "dt",
-                "day",
-            ):
-                # Try today, yesterday, last week, last month, etc.
-                test_dates_datetime = [
-                    time_now,
-                    time_now - timedelta(days=1),
-                    time_now - timedelta(days=7),
-                    time_now - timedelta(days=30),
-                    time_now - timedelta(days=90),
-                    time_now.replace(day=1),  # First of month
-                    datetime(time_now.year, 1, 1),  # First of year
-                ]
-
-                for test_date in test_dates_datetime:
-                    if col_type == "DATE":
-                        date_str = test_date.strftime("%Y-%m-%d")
-                        filter_value = f"DATE '{date_str}'"
-                    else:
-                        date_str = test_date.strftime("%Y-%m-%d")
-                        filter_value = f"TIMESTAMP '{date_str} 00:00:00'"
-
-                    filter_str = f"`{col_name}` = {filter_value}"
-                    if self._verify_partition_has_data(
-                        table, project, schema, [filter_str], timeout // 3
-                    ):
-                        date_filters.append(filter_str)
-                        logger.info(f"Found data for date {date_str}")
-                        break
-
-        # If we found date filters, return them
-        if date_filters:
-            logger.info(f"Using date-based filters for external table: {date_filters}")
-            return date_filters
-
-        return None
-
-    def _try_standard_approach_for_external(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: Dict[str, str],
-        is_large_table: bool,
-        timeout: int,
-    ) -> Optional[List[str]]:
-        """Helper method to try standard filtering approach for external tables."""
-        logger.info(
-            f"Trying standard approach for external table with {len(partition_columns)} partition columns"
-        )
-
-        # Get optimal partition values with a shorter timeout to avoid long-running queries
-        partition_values = self._get_partition_values(
-            table, project, schema, partition_columns, timeout // 2
-        )
-
-        # If we couldn't get values for any partition columns, use empty list as fallback
-        if not partition_values:
-            logger.warning("Couldn't determine partition values, returning empty list")
-            return []
-
-        # Create filter strings using the robust method
-        filters = self._create_partition_filters(
-            table, project, schema, partition_columns, partition_values
-        )
-
-        # Verify these filters return data with a shorter timeout
-        if filters and self._verify_partition_has_data(
-            table, project, schema, filters, timeout // 2
-        ):
-            logger.info(f"Using partition filters for external table: {filters}")
-            return filters
-
-        # If verification failed but we have filters, try them individually
-        if filters:
-            working_filters = []
-            for filter_str in filters:
-                if self._verify_partition_has_data(
-                    table, project, schema, [filter_str], timeout // 3
-                ):
-                    working_filters.append(filter_str)
-
-            if working_filters:
-                logger.info(f"Using individual partition filters: {working_filters}")
-                return working_filters
-
-        # Return the original filters if we have them, even if verification failed
-        # This ensures the test gets the expected filters
-        if filters:
-            logger.warning(f"Using unverified filters as fallback: {filters}")
-            return filters
-
-        return []
-
-    def _get_external_table_partition_filters(
-        self, table: BigqueryTable, project: str, schema: str, timeout: int = 60
-    ) -> Optional[List[str]]:
-        """
-        Get partition filters specifically for external tables efficiently.
-        For external tables, we need to be especially careful to avoid scanning entire datasets.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: Dataset name
-            timeout: Query timeout in seconds
-
-        Returns:
-            List of partition filter strings, empty list, or None
-        """
-        try:
-            # First check if SAMPLE_RATE is specified in the table DDL
-            sample_rate_filters = self._check_sample_rate_in_ddl(table)
-            if sample_rate_filters:
-                return sample_rate_filters
-
-            # Get table metadata including partition columns
-            metadata = self._get_table_metadata(table, project, schema)
-            partition_columns = metadata["partition_columns"]
-
-            # If no partition columns, use TABLESAMPLE for safe profiling
-            if not partition_columns:
-                logger.info(
-                    f"No partition columns found for external table {table.name}, using TABLESAMPLE"
-                )
-                # Return empty list for external tables with no partitions
-                # (TABLESAMPLE will be applied when generating SQL)
-                return []
-
-            # IMPORTANT: Always treat external tables as large tables, regardless of reported size
-            is_large_table = True
-            logger.info(
-                f"External table {table.name} is being treated as a large table for safe profiling"
-            )
-
-            # For external tables, prioritize date/time-based partitioning first
-            date_filters = self._try_date_based_filtering_for_external(
-                table, project, schema, partition_columns, timeout
-            )
-            if date_filters:
-                return date_filters
-
-            # If date-based approach fails or no date columns, try the standard approach
-            standard_filters = self._try_standard_approach_for_external(
-                table, project, schema, partition_columns, is_large_table, timeout
-            )
-            if standard_filters is not None:  # Could be empty list []
-                return standard_filters
-
-            # Last resort - return empty list
-            logger.warning("No working partition filters found, returning empty list")
-            return []
-
-        except Exception as e:
-            logger.error(f"Error determining partition filters for external table: {e}")
-            # Return empty list on errors to match test expectations
-            return []
-
-    def _fetch_basic_table_metadata(self, table: BigqueryTable) -> Dict[str, Any]:
-        """Get basic metadata from table object."""
-        metadata: Dict[str, Any] = {
-            "partition_columns": {},
-            "clustering_columns": {},
-            "row_count": table.rows_count,
-            "size_bytes": table.size_in_bytes,
-            "is_external": table.external,
-            "ddl": table.ddl,
-            "creation_time": table.created,
-            "last_modified_time": table.last_altered,
-        }
-
-        # Process partition info if available
-        if table.partition_info:
-            if isinstance(table.partition_info.fields, list):
-                for field in table.partition_info.fields:
-                    metadata["partition_columns"][field] = None
-
-            if table.partition_info.columns:
-                for col in table.partition_info.columns:
-                    if col and col.name:
-                        metadata["partition_columns"][col.name] = col.data_type
-
-        # Process clustering fields if available
-        if table.clustering_fields:
-            for i, field in enumerate(table.clustering_fields):
-                metadata["clustering_columns"][field] = {"position": i}
-
-        return metadata
-
-    def _fetch_schema_info(
-        self, table: BigqueryTable, project: str, schema: str, metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """Fetch schema information from INFORMATION_SCHEMA."""
-        try:
-            # Get partition and clustering info from COLUMNS
-            columns_query = f"""
-            SELECT 
-                column_name,
-                data_type,
-                is_partitioning_column,
-                clustering_ordinal_position
-            FROM 
-                `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-            WHERE 
-                table_name = '{table.name}'
-                AND (is_partitioning_column = 'YES' OR clustering_ordinal_position IS NOT NULL)
-            """
-
-            columns_results = self._execute_cached_query(
-                columns_query,
-                f"columns_info_{project}_{schema}_{table.name}",
-                timeout=45,
-            )
-
-            # Process partition and clustering columns
-            for row in columns_results:
-                # Update partition columns
-                if row.is_partitioning_column == "YES":
-                    metadata["partition_columns"][row.column_name] = row.data_type
-
-                # Update clustering columns
-                if row.clustering_ordinal_position is not None:
-                    metadata["clustering_columns"][row.column_name] = {
-                        "position": row.clustering_ordinal_position,
-                        "data_type": row.data_type,
-                    }
-
-            # Get tables info - schema definition, creation time, etc.
-            table_query = f"""
-            SELECT
-                ddl,
-                creation_time,
-                table_type
-            FROM
-                `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
-            WHERE
-                table_name = '{table.name}'
-            """
-
-            table_results = self._execute_cached_query(
-                table_query,
-                f"table_info_{project}_{schema}_{table.name}",
-                timeout=30,
-            )
-
-            if table_results and len(table_results) > 0:
-                row = table_results[0]
-                if hasattr(row, "ddl") and row.ddl:
-                    metadata["ddl"] = row.ddl
-                if hasattr(row, "creation_time") and row.creation_time:
-                    metadata["creation_time"] = row.creation_time
-                if hasattr(row, "table_type") and row.table_type:
-                    metadata["table_type"] = row.table_type
-
-            # Try to get storage statistics - this might fail if TABLE_STORAGE doesn't exist
-            try:
-                storage_query = f"""
-                SELECT
-                    total_rows,
-                    total_logical_bytes,
-                    storage_last_modified_time
-                FROM
-                    `{project}.INFORMATION_SCHEMA.TABLE_STORAGE`
-                WHERE
-                    table_name = '{table.name}'
-                """
-
-                storage_results = self._execute_cached_query(
-                    storage_query,
-                    f"storage_info_{project}_{schema}_{table.name}",
-                    timeout=30,
-                )
-
-                if storage_results and len(storage_results) > 0:
-                    row = storage_results[0]
-                    if hasattr(row, "total_rows") and row.total_rows is not None:
-                        metadata["row_count"] = row.total_rows
-                    if (
-                        hasattr(row, "total_logical_bytes")
-                        and row.total_logical_bytes is not None
-                    ):
-                        metadata["size_bytes"] = row.total_logical_bytes
-                    if (
-                        hasattr(row, "storage_last_modified_time")
-                        and row.storage_last_modified_time is not None
-                    ):
-                        metadata["last_modified_time"] = row.storage_last_modified_time
-            except Exception as e:
-                logger.info(
-                    f"TABLE_STORAGE not available, getting table info from alternative source: {e}"
-                )
-
-                # Try to get basic table info from INFORMATION_SCHEMA.TABLES
-                try:
-                    basic_info_query = f"""
-                    SELECT
-                        row_count,
-                        size_bytes,
-                        last_modified_time
-                    FROM
-                        `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
-                    WHERE
-                        table_name = '{table.name}'
-                    """
-
-                    basic_info_results = self._execute_cached_query(
-                        basic_info_query,
-                        f"basic_info_{project}_{schema}_{table.name}",
-                        timeout=30,
-                    )
-
-                    if basic_info_results and len(basic_info_results) > 0:
-                        row = basic_info_results[0]
-                        if hasattr(row, "row_count") and row.row_count is not None:
-                            metadata["row_count"] = row.row_count
-                        if hasattr(row, "size_bytes") and row.size_bytes is not None:
-                            metadata["size_bytes"] = row.size_bytes
-                        if (
-                            hasattr(row, "last_modified_time")
-                            and row.last_modified_time is not None
-                        ):
-                            metadata["last_modified_time"] = row.last_modified_time
-                except Exception as inner_e:
-                    logger.warning(f"Failed to get alternative table info: {inner_e}")
-
-        except Exception as e:
-            logger.warning(f"Error fetching schema information: {e}")
-
-        return metadata
-
-    def _fetch_table_stats(
-        self, project: str, schema: str, table_name: str, metadata: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Get additional statistics for tables using region-aware queries.
-
-        Args:
-            project: Project ID
-            schema: Dataset name
-            table_name: Table name
-            metadata: Existing metadata dictionary
-
-        Returns:
-            Updated metadata dictionary
-        """
-        if (
-            metadata.get("row_count") is not None
-            and metadata.get("size_bytes") is not None
-            and metadata.get("last_modified_time") is not None
-        ):
-            return metadata  # Already have all the stats
-
-        # Get the correct INFORMATION_SCHEMA path
-        info_schema_path = self._get_information_schema_path(project)
-
-        try:
-            # Try using TABLE_STORAGE for detailed stats with region handling
-            storage_query = f"""
-            SELECT 
-                total_rows as row_count,
-                total_logical_bytes as size_bytes,
-                storage_last_modified_time as last_modified_time
-            FROM 
-                `{info_schema_path}.TABLE_STORAGE`
-            WHERE 
-                table_name = '{table_name}'
-            """
-
-            storage_results = self._execute_cached_query(
-                storage_query, f"table_stats_{project}_{schema}_{table_name}"
-            )
-
-            if storage_results and len(storage_results) > 0:
-                row = storage_results[0]
-                if hasattr(row, "row_count") and row.row_count is not None:
-                    metadata["row_count"] = row.row_count
-                if hasattr(row, "size_bytes") and row.size_bytes is not None:
-                    metadata["size_bytes"] = row.size_bytes
-                if (
-                    hasattr(row, "last_modified_time")
-                    and row.last_modified_time is not None
-                ):
-                    metadata["last_modified_time"] = row.last_modified_time
-        except Exception as e:
-            logger.info(f"TABLE_STORAGE query failed: {e}, trying alternative source")
-
-            # Fall back to TABLES view
-            try:
-                basic_info_query = f"""
-                SELECT
-                    row_count,
-                    size_bytes,
-                    last_modified_time
-                FROM
-                    `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
-                WHERE
-                    table_name = '{table_name}'
-                """
-
-                basic_info_results = self._execute_cached_query(
-                    basic_info_query,
-                    f"basic_info_{project}_{schema}_{table_name}",
-                    timeout=30,
-                )
-
-                if basic_info_results and len(basic_info_results) > 0:
-                    row = basic_info_results[0]
-                    if hasattr(row, "row_count") and row.row_count is not None:
-                        metadata["row_count"] = row.row_count
-                    if hasattr(row, "size_bytes") and row.size_bytes is not None:
-                        metadata["size_bytes"] = row.size_bytes
-                    if (
-                        hasattr(row, "last_modified_time")
-                        and row.last_modified_time is not None
-                    ):
-                        metadata["last_modified_time"] = row.last_modified_time
-            except Exception as inner_e:
-                logger.warning(f"Failed to get alternative table info: {inner_e}")
-
-        return metadata
-
-    def _get_information_schema_path(
-        self, project_id: str, dataset_name: Optional[str] = None
-    ) -> str:
-        """
-        Get the correct path for INFORMATION_SCHEMA based on the project's region.
-
-        Args:
-            project_id: BigQuery project ID
-            dataset_name: Optional dataset name for dataset-specific schemas
-
-        Returns:
-            Fully qualified path to INFORMATION_SCHEMA
-        """
-        # First check if we have a cached version for this project
-        cache_key = f"info_schema_path_{project_id}"
-        if cache_key in self._query_cache:
-            return self._query_cache[cache_key]
-
-        # Try regions in order - US, EU, etc.
-        regions = ["region-us", "region-eu", "region-asia"]
-
-        for region in regions:
-            try:
-                # Try a simple test query with this region
-                test_query = f"""
-                SELECT 1 
-                FROM `{region}.INFORMATION_SCHEMA.TABLES`
-                LIMIT 1
-                """
-                results = self.config.get_bigquery_client().query(test_query).result()
-                if list(results):
-                    # Region works, cache and return it
-                    path = f"{region}.INFORMATION_SCHEMA"
-                    self._query_cache[cache_key] = path
-                    logger.info(f"Using {path} for project {project_id}")
-                    return path
-            except Exception as e:
-                logger.debug(f"Region {region} not accessible: {e}")
-
-        # If no region-specific path works, fall back to project-level
-        fallback_path = f"{project_id}.INFORMATION_SCHEMA"
-        self._query_cache[cache_key] = fallback_path
-        logger.info(f"Using fallback path {fallback_path} for project {project_id}")
-        return fallback_path
-
-    def _build_external_table_query(
-        self, table: BigqueryTable, project: str, schema: str, approach: str
-    ) -> str:
-        """
-        Build an appropriate query for an external table based on the determined approach.
-
-        Args:
-            table: BigqueryTable instance
-            project: Project ID
-            schema: Dataset name
-            approach: Query approach from _get_external_table_query_approach
-
-        Returns:
-            SQL query string with appropriate sampling or filtering
-        """
-        table_path = f"`{project}.{schema}.{table.name}`"
-
-        if approach == "sample":
-            # Use sampling for compatible sources
-            sample_rate = 0.1  # Conservative default
-
-            # Try to extract sample rate from DDL if specified
-            if table.ddl and "SAMPLE_RATE" in table.ddl.upper():
-                try:
-                    rate_match = re.search(r"SAMPLE_RATE\s*=\s*(\d+)", table.ddl)
-                    if rate_match:
-                        extracted_rate = float(rate_match.group(1)) / 100
-                        if 0.001 <= extracted_rate <= 0.1:  # Between 0.1% and 10%
-                            sample_rate = extracted_rate
-                except Exception:
-                    pass  # Use default if extraction fails
-
-            return f"SELECT * FROM {table_path} TABLESAMPLE SYSTEM ({sample_rate * 100:.2f} PERCENT)"
-
-        elif approach == "filter":
-            # Try to get partition filters
-            filters = self._get_required_partition_filters(table, project, schema)
-            if filters:
-                filter_clause = " AND ".join(filters)
-                return f"SELECT * FROM {table_path} WHERE {filter_clause}"
-
-            # If no partition filters, try a reasonable date range limit
-            return f"""
-            SELECT * FROM {table_path} 
-            WHERE _PARTITIONTIME >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
-            """
-
-        elif approach == "direct":
-            # Direct approach with no sampling or filtering
-            # Add a LIMIT to avoid scanning the entire table
-            return f"SELECT * FROM {table_path} LIMIT 10000"
-
-        # Default fallback
-        return f"SELECT * FROM {table_path} LIMIT 1000"
-
-    def _check_external_table_capabilities(
-        self, table: BigqueryTable
-    ) -> Dict[str, bool]:
-        """
-        Determine capabilities of an external table based on its type.
-
-        Args:
-            table: BigqueryTable instance
-
-        Returns:
-            Dictionary of capabilities (supports_sampling, supports_partitioning, etc.)
-        """
-        if not table.external or not table.ddl:
-            return {
-                "supports_sampling": True,
-                "supports_partitioning": True,
-                "supports_filtering": True,
-            }
-
-        ddl_upper = table.ddl.upper()
-        capabilities = {
-            "supports_sampling": False,
-            "supports_partitioning": False,
-            "supports_filtering": False,
-        }
-
-        # File-based sources generally support all features
-        if any(
-            fmt in ddl_upper
-            for fmt in [
-                "FORMAT = 'CSV'",
-                "FORMAT = 'AVRO'",
-                "FORMAT = 'PARQUET'",
-                "FORMAT = 'ORC'",
-                "FORMAT = 'NEWLINE_DELIMITED_JSON'",
-            ]
-        ):
-            capabilities.update(
-                {
-                    "supports_sampling": True,
-                    "supports_partitioning": True,
-                    "supports_filtering": True,
-                }
-            )
-
-        # Iceberg tables support partitioning and filtering
-        elif (
-            "ICEBERG" in ddl_upper
-            or "DELTA" in ddl_upper
-            or "DELTA LAKE" in ddl_upper
-            or "HIVE" in ddl_upper
-        ):
-            capabilities.update(
-                {
-                    "supports_sampling": False,
-                    "supports_partitioning": True,
-                    "supports_filtering": True,
-                }
-            )
-
-        # External DBMS sources
-        elif any(
-            src in ddl_upper
-            for src in [
-                "BIGTABLE",
-                "SPANNER",
-                "GOOGLE_SHEETS",
-                "BIGQUERY_VIEW",
-                "CLOUD_SQL",
-                "ALLOYDB",
-                "JDBC",
-                "ODBC",
-            ]
-        ):
-            capabilities.update(
-                {
-                    "supports_sampling": False,
-                    "supports_partitioning": False,
-                    "supports_filtering": True,
-                }
-            )
-
-        # Cloud storage
-        elif any(src in ddl_upper for src in ["GCS", "GCS_PATH", "S3", "AZURE_BLOB"]):
-            capabilities.update(
-                {
-                    "supports_sampling": True,
-                    "supports_partitioning": True,
-                    "supports_filtering": True,
-                }
-            )
-
-        return capabilities
-
-    def _get_external_table_query_approach(
-        self, table: BigqueryTable, project: str, schema: str
-    ) -> str:
-        """
-        Determine the best query approach for an external table based on its source type.
-
-        Args:
-            table: BigqueryTable instance
-            project: Project ID
-            schema: Dataset name
-
-        Returns:
-            Query approach: "sample", "filter", "direct", or "custom"
-        """
-        if not table.external:
-            return "direct"
-
-        # Check table capabilities to determine the best approach
-        capabilities = self._check_external_table_capabilities(table)
-
-        # If sampling is supported and we have SAMPLE_RATE in DDL, prioritize that
-        if (
-            capabilities["supports_sampling"]
-            and table.ddl
-            and "SAMPLE_RATE" in table.ddl.upper()
-        ):
-            return "sample"
-
-        # If we support partitioning, try filters first - safest for most external sources
-        if capabilities["supports_partitioning"]:
-            # Check if we have partition columns
-            metadata = self._get_table_metadata(table, project, schema)
-            if metadata["partition_columns"]:
-                return "filter"
-
-        # If sampling is supported, use that as fallback
-        if capabilities["supports_sampling"]:
-            return "sample"
-
-        # Last resort - direct approach with limits
-        return "direct"
-
-    def _try_time_hierarchy_approach(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: Dict[str, str],
-        timeout: int,
-    ) -> Optional[List[str]]:
-        """Helper method to try time hierarchy partitioning approach"""
-        # Time hierarchy columns in order of precedence
-        time_hierarchy_cols = ["year", "month", "day", "hour"]
-        hierarchy_filters: List[str] = []
-
-        # Build a filter using time hierarchy
-        time_now = datetime.now(timezone.utc)
-        for col_name in time_hierarchy_cols:
-            matching_cols = [
-                c for c in partition_columns.keys() if c.lower() == col_name
-            ]
-            if matching_cols:
-                col = matching_cols[0]
-                data_type = partition_columns.get(col, "")
-
-                # For time columns, several values might work - try a few
-                # Start with current and go back
-                time_values = []
-                if col.lower() == "year":
-                    time_values = [time_now.year, time_now.year - 1]
-                elif col.lower() == "month":
-                    time_values = [time_now.month]
-                    # Add previous months
-                    for i in range(1, 6):  # Try up to 6 months back
-                        prev_month = (
-                            (time_now.month - i - 1) % 12
-                        ) + 1  # Handle year wraparound
-                        time_values.append(prev_month)
-                elif col.lower() == "day":
-                    time_values = [time_now.day]
-                    # Add a few common day values (1st, 15th)
-                    time_values.extend([1, 15])
-                elif col.lower() == "hour":
-                    time_values = [time_now.hour]
-                    # Add common hours (noon, midnight)
-                    time_values.extend([0, 12])
-
-                # Try each value
-                for val in time_values:
-                    if data_type and data_type.upper() in ("STRING",):
-                        filter_str = f"`{col}` = '{val}'"
-                    else:
-                        filter_str = f"`{col}` = {val}"
-
-                    # If we already have hierarchy filters, combine with those
-                    test_filters = hierarchy_filters + [filter_str]
-
-                    # Verify data exists with this filter
-                    if self._verify_partition_has_data(
-                        table, project, schema, test_filters, timeout // 2
-                    ):
-                        hierarchy_filters.append(filter_str)
-                        logger.info(f"Added hierarchy filter: {filter_str}")
-                        break  # Found a working value for this column
-
-        # If we found working hierarchy filters, return them
-        if hierarchy_filters:
-            logger.info(f"Using time hierarchy filters: {hierarchy_filters}")
-            return hierarchy_filters
-
-        return None
-
-    def _try_date_columns_approach(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: Dict[str, str],
-        timeout: int,
-    ) -> Optional[List[str]]:
-        """Helper method to try date columns partitioning approach"""
-        # Find date columns
-        date_columns = [
-            col
-            for col in partition_columns.keys()
-            if col.lower()
-            in {
-                "date",
-                "dt",
-                "partition_date",
-                "timestamp",
-                "datetime",
-                "created_at",
-                "modified_at",
-                "event_date",
-            }
-        ]
-
-        if date_columns:
-            date_filters = []
-            time_now = datetime.now(timezone.utc)
-
-            # Try specific dates for date columns from newer to older
-            for col_name in date_columns:
-                col_type = (
-                    partition_columns.get(col_name, "").upper()
-                    if partition_columns.get(col_name)
-                    else ""
-                )
-
-                # Try dates from recent to older
-                test_dates = [
-                    time_now,
-                    time_now - timedelta(days=1),
-                    time_now - timedelta(days=7),
-                    time_now - timedelta(days=30),
-                    time_now - timedelta(days=90),
-                    time_now.replace(day=1),  # First of month
-                    datetime(time_now.year, 1, 1),  # First of year
-                ]
-
-                for test_date in test_dates:
-                    if col_type == "DATE":
-                        date_str = test_date.strftime("%Y-%m-%d")
-                        filter_value = f"DATE '{date_str}'"
-                    else:
-                        date_str = test_date.strftime("%Y-%m-%d")
-                        filter_value = f"TIMESTAMP '{date_str} 00:00:00'"
-
-                    filter_str = f"`{col_name}` = {filter_value}"
-                    if self._verify_partition_has_data(
-                        table, project, schema, [filter_str], timeout // 2
-                    ):
-                        date_filters.append(filter_str)
-                        logger.info(f"Found data for date {date_str}")
-                        break
-
-            # If we found date filters, return them
-            if date_filters:
-                logger.info(f"Using date-based filters: {date_filters}")
-                return date_filters
-
-        return None
-
-    def _try_last_resort_approach(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: Dict[str, str],
-        timeout: int,
-    ) -> Optional[List[str]]:
-        """Helper method for last resort partitioning approach"""
-        logger.warning(
-            f"Standard approach failed for large table {table.name}, trying last-resort options"
-        )
-
-        # Try to find ANY partition that has data - even a small amount - to make profiling possible
-        for col_name, _data_type in partition_columns.items():
-            try:
-                # Find the value with ANY data (not necessarily the most data)
-                query = f"""
-                SELECT DISTINCT {col_name} as value
-                FROM `{project}.{schema}.{table.name}` TABLESAMPLE SYSTEM (0.1 PERCENT)
-                WHERE {col_name} IS NOT NULL
-                LIMIT 5
-                """
-
-                try:
-                    distinct_results = self._execute_cached_query(
-                        query,
-                        f"last_resort_{project}_{schema}_{table.name}_{col_name}",
-                        timeout // 3,
-                    )
-
-                    for row in distinct_results:
-                        val = row.value
-                        if val is not None:
-                            if isinstance(val, str):
-                                filter_str = f"`{col_name}` = '{val}'"
-                            else:
-                                filter_str = f"`{col_name}` = {val}"
-
-                            # Quick check if this returns data
-                            if self._verify_partition_has_data(
-                                table, project, schema, [filter_str], timeout // 3
-                            ):
-                                logger.info(f"Last resort filter found: {filter_str}")
-                                return [filter_str]
-                except Exception as e:
-                    logger.warning(f"Error in last resort sampling: {e}")
-            except Exception as e:
-                logger.warning(f"Error in last resort approach: {e}")
-
-        return None
-
-    def _get_partition_values(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        partition_columns: Dict[str, str],
-        timeout: int = 60,
-    ) -> Dict[str, Any]:
-        """
-        Get the best partition values for profiling with adaptive approach.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: Dataset name
-            partition_columns: Dictionary of partition column names to data types
-            timeout: Query timeout in seconds
-
-        Returns:
-            Dictionary mapping column names to optimal partition values
-        """
-        # Check table size to determine approach
-        is_large_table = False
-        if table.size_in_bytes and table.size_in_bytes > 10_000_000_000:  # 10 GB
-            is_large_table = True
-            logger.info(
-                f"Table {table.name} is large ({table.size_in_bytes / 1_000_000_000:.2f} GB), using optimized partitioning"
-            )
-        elif table.rows_count and table.rows_count > 100_000_000:  # 100M rows
-            is_large_table = True
-            logger.info(
-                f"Table {table.name} has many rows ({table.rows_count:,}), using optimized partitioning"
-            )
-
-        # Standard time column hierarchy (year -> month -> day -> hour)
-        time_hierarchy = ["year", "month", "day", "hour"]
-
-        result: Dict[str, Any] = {}
-
-        # STRATEGY 1: For time hierarchy columns - find values intelligently
-        available_time_columns = []
-        for col in time_hierarchy:
-            matching_cols = [c for c in partition_columns.keys() if c.lower() == col]
-            if matching_cols:
-                available_time_columns.append(matching_cols[0])
-
-        if available_time_columns:
-            # Process time hierarchy columns
-            time_hierarchy_values = self._get_time_hierarchy_values(
-                table, project, schema, available_time_columns, is_large_table, timeout
-            )
-            result.update(time_hierarchy_values)
-
-            # If we added any time hierarchy columns, return early
-            if result:
-                return result
-
-        # STRATEGY 2: Look for date columns
-        date_columns = [
-            col
-            for col in partition_columns.keys()
-            if col.lower()
-            in {
-                "date",
-                "dt",
-                "partition_date",
-                "timestamp",
-                "datetime",
-                "created_at",
-                "modified_at",
-                "event_time",
-                "event_date",
-            }
-        ]
-
-        if date_columns:
-            date_column_values = self._get_date_column_values(
-                table, project, schema, date_columns, timeout
-            )
-            result.update(date_column_values)
-
-            # If we added any date columns, return early
-            if result:
-                return result
-
-        # STRATEGY 3: Handle remaining partition columns
-        remaining_columns = [
-            col
-            for col in partition_columns.keys()
-            if col not in result and col not in available_time_columns + date_columns
-        ]
-
-        if remaining_columns:
-            remaining_values = self._get_remaining_column_values(
-                table, project, schema, remaining_columns, is_large_table, timeout
-            )
-            result.update(remaining_values)
-
-        return result
-
-    def _process_time_partitioning(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        metadata: Dict[str, Any],
-        timeout: int,
-    ) -> Optional[List[str]]:
-        """Handle time-based partitioning."""
-        partition_columns = metadata["partition_columns"]
-
-        # Try time hierarchy columns (year/month/day/hour)
-        time_hierarchy_filters = self._try_time_hierarchy_approach(
-            table, project, schema, partition_columns, timeout
-        )
-        if time_hierarchy_filters:
-            return time_hierarchy_filters
-
-        # Next try date-named columns
-        date_filters = self._try_date_columns_approach(
-            table, project, schema, partition_columns, timeout
-        )
-        if date_filters:
-            return date_filters
-
-        return None
-
-    def _process_standard_partitioning(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        metadata: Dict[str, Any],
-        timeout: int,
-    ) -> Optional[List[str]]:
-        """Handle standard partitioning."""
-        partition_columns = metadata["partition_columns"]
-        is_external = metadata["is_external"]
-        is_large_table = False
-
-        if (
-            metadata.get("size_bytes", 0) > 5_000_000_000
-            or metadata.get("row_count", 0) > 50_000_000
-        ):
-            is_large_table = True
-
-        # Get partition values
-        partition_values = self._get_partition_values(
-            table, project, schema, partition_columns, timeout
-        )
-
-        if not partition_values:
-            if is_external:
-                # For external tables without partition values, use empty filter list
-                logger.info(
-                    "No partition values for external table, returning empty filter list"
-                )
-                return []
-            else:
-                # For internal tables, no partition values means we can't filter
-                logger.warning(f"Couldn't determine partition values for {table.name}")
-                return None
-
-        # Create filter strings using the robust method
-        filters = self._create_partition_filters(
-            table, project, schema, partition_columns, partition_values
-        )
-
-        # Verify these filters together
-        if filters and self._verify_partition_has_data(
-            table, project, schema, filters, timeout
-        ):
-            logger.info(f"Using combined filters: {filters}")
-            return filters
-
-        # Try individual filters if combined don't work
-        if filters:
-            working_filters = []
-            for filter_str in filters:
-                if self._verify_partition_has_data(
-                    table, project, schema, [filter_str], timeout // 2
-                ):
-                    working_filters.append(filter_str)
-                    break  # One working filter is enough
-
-            if working_filters:
-                logger.info(f"Using individual filters: {working_filters}")
-                return working_filters
-
-        # Last resort for large tables
-        if is_large_table or is_external:
-            last_resort_filters = self._try_last_resort_approach(
-                table, project, schema, partition_columns, timeout
-            )
-            if last_resort_filters:
-                return last_resort_filters
-
-        # Final decision
-        if is_external:
-            logger.warning(f"Using empty filter list for external table {table.name}")
-            return []
-        else:
-            logger.warning(f"Couldn't find valid partition filters for {table.name}")
-            return None
-
-    def _get_required_partition_filters(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-    ) -> Optional[List[str]]:
-        """
-        Get required partition filters using an adaptive, unified strategy
-        with multiple fallback options to maximize profiling success.
-
-        Args:
-            table: BigqueryTable instance
-            project: BigQuery project ID
-            schema: Dataset name
-
-        Returns:
-            List of partition filter strings, empty list, or None (no partitioning needed)
-        """
-        # Check if we already have cached filters for this table
-        table_key = f"{project}.{schema}.{table.name}"
-        if table_key in self._successful_filters_cache:
-            logger.info(f"Using cached filters for {table_key}")
-            return self._successful_filters_cache[table_key]
-
-        # Important change - External tables should always be considered "large" for profiling
-        # This ensures we use proper strategies even if their reported size is 0
-        is_small_table = False
-        if table.external:
-            logger.info(
-                f"Table {table.name} is an external table, treating as large table for profiling"
-            )
-            is_small_table = False
-        elif table.rows_count == 0 or table.rows_count is None:
-            logger.info(
-                f"Table {table.name} reports 0 rows or unknown row count, treating more carefully"
-            )
-            is_small_table = False
-        elif (
-            table.size_in_bytes is not None
-            and table.size_in_bytes < 100_000_000  # Less than 100MB
-            and table.rows_count is not None
-            and table.rows_count < 100_000
-        ):  # Less than 100K rows
-            is_small_table = True
-            logger.info(
-                f"Table {table.name} is small ({table.size_in_bytes / 1_000_000:.2f} MB, {table.rows_count:,} rows)"
-            )
-
-        try:
-            # Get table metadata including partition columns
-            metadata = self._get_table_metadata(table, project, schema)
-            partition_columns = metadata["partition_columns"]
-
-            # If no partition columns found, this table doesn't require partition filters
-            if not partition_columns:
-                logger.debug(f"No partition columns found for table {table.name}")
-                return None
-
-            logger.info(
-                f"Found partition columns for {table.name}: {partition_columns}"
-            )
-
-            # For small tables with partitioning, we can try without filters first
-            # But NOT for external tables - they should be handled cautiously
-            if is_small_table and not table.external:
-                logger.info(
-                    "Small table with partitioning, checking if full scan is viable"
-                )
-                try:
-                    count_query = f"""
-                            SELECT COUNT(*) 
-                            FROM `{project}.{schema}.{table.name}`
-                            LIMIT 10
-                            """
-                    results = self._execute_cached_query(
-                        count_query,
-                        f"small_table_check_{project}_{schema}_{table.name}",
-                        timeout=15,
-                    )
-                    if results:
-                        logger.info(
-                            "Small partitioned table can be scanned without filters"
-                        )
-                        self._successful_filters_cache[table_key] = []
-                        return []
-                except Exception as e:
-                    logger.debug(f"Small table scan check failed: {e}")
-
-            # Handle external tables specially
-            if table.external:
-                filters = self._get_external_table_partition_filters(
-                    table, project, schema, timeout=60
-                )
-                if filters is not None:  # Could be empty list []
-                    self._successful_filters_cache[table_key] = filters
-                    return filters
-
-            # Handle different partitioning approaches
-            # First, try time-based partitioning
-            time_filters = self._process_time_partitioning(
-                table, project, schema, metadata, timeout=45
-            )
-            if time_filters is not None:
-                self._successful_filters_cache[table_key] = time_filters
-                return time_filters
-
-            # Then try standard partitioning approach
-            standard_filters = self._process_standard_partitioning(
-                table, project, schema, metadata, timeout=60
-            )
-            if standard_filters is not None:
-                self._successful_filters_cache[table_key] = standard_filters
-                return standard_filters
-
-            # If we reach here, we couldn't find any working filters
-            logger.warning(f"No partition filters could be determined for {table.name}")
-
-            # Emergency fallback for external tables
-            if table.external:
-                logger.warning("Using empty filter list for external table as fallback")
-                return []
-
-            # Emergency fallback for regular tables with partitioning
-            if partition_columns:
-                emergency_filter = self._get_emergency_partition_filter(
-                    table, project, schema
-                )
-                if emergency_filter:
-                    logger.info(f"Using emergency partition filter: {emergency_filter}")
-                    self._successful_filters_cache[table_key] = [emergency_filter]
-                    return [emergency_filter]
-
-            return None
-
-        except Exception as e:
-            logger.warning(f"Error determining partition filters: {e}")
-
-            # Handle error cases gracefully
-            if table.external:
-                # For external tables, use TABLESAMPLE as fallback
-                logger.info("Using empty filter list for external table due to error")
-                return []
-
-            # Try emergency filter for regular tables
-            try:
-                emergency_filter = self._get_emergency_partition_filter(
-                    table, project, schema
-                )
-                if emergency_filter:
-                    logger.info(f"Using emergency partition filter: {emergency_filter}")
-                    return [emergency_filter]
-            except Exception:
-                pass
-
-            return None
-
-    def get_batch_kwargs(
-        self, table: BaseTable, schema_name: str, db_name: str
-    ) -> dict:
-        """
-        Handle partition-aware querying for all operations including COUNT.
-        Optimized to use cached information and add appropriate query hints for large tables.
-
-        Args:
-            table: BaseTable instance
-            schema_name: Dataset name
-            db_name: Project ID
-
-        Returns:
-            Dictionary of batch kwargs for the profiler
-        """
-        start_time = time.time()
-        bq_table = cast(BigqueryTable, table)
-
-        # Base kwargs that will work for non-partitioned tables
-        base_kwargs = {
-            "schema": db_name,  # <project>
-            "table": f"{schema_name}.{table.name}",  # <dataset>.<table>
-            "project": db_name,
-            "dataset": schema_name,
-            "table_name": bq_table.name,
-        }
-
-        # Add tracking to avoid redundant processing of the same table
-        table_key = f"{db_name}.{schema_name}.{table.name}"
-        if table_key in self._queried_tables:
-            logger.info(f"Using cached query configuration for {table_key}")
-            return base_kwargs
-
-        self._queried_tables.add(table_key)
-
-        # For external tables, determine the best approach based on table type
-        if bq_table.external:
-            approach = self._get_external_table_query_approach(
-                bq_table, db_name, schema_name
-            )
-            custom_sql = self._build_external_table_query(
-                bq_table, db_name, schema_name, approach
-            )
-
-            logger.info(
-                f"Using {approach} approach for external table {table_key} "
-                f"(took {time.time() - start_time:.2f}s)"
-            )
-
-            base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
-            return base_kwargs
-
-        # For regular tables, get partition filters
-        partition_filters = self._get_required_partition_filters(
-            bq_table, db_name, schema_name
-        )
-
-        if partition_filters is None:
-            logger.info(
-                f"No partition filters needed for {table_key} "
-                f"(took {time.time() - start_time:.2f}s)"
-            )
-            return base_kwargs
-
-        # If no partition filters needed, return base kwargs
-        if not partition_filters:
-            logger.info(
-                f"Empty partition filters for {table_key} "
-                f"(took {time.time() - start_time:.2f}s)"
-            )
-            return base_kwargs
-
-        # Construct query with partition filters and appropriate optimization hints
-        partition_where = " AND ".join(partition_filters)
-
-        # Check if we need to add optimization hints based on table size
-        needs_optimization_hints = False
-        if (
-            bq_table.size_in_bytes
-            and bq_table.size_in_bytes > 5_000_000_000
-            or bq_table.rows_count
-            and bq_table.rows_count > 50_000_000
-            or bq_table.rows_count == 0  # IMPORTANT: Be careful with 0 row tables
-            or bq_table.rows_count
-            is None  # IMPORTANT: Be careful with unknown row counts
-        ):  # > 5GB or has many rows
-            needs_optimization_hints = True
-
-        if needs_optimization_hints:
-            custom_sql = f"""-- This query uses partition filters for efficient profiling
-        SELECT * 
-        FROM `{db_name}.{schema_name}.{table.name}`
-        WHERE {partition_where}
-        """
-        else:
-            custom_sql = f"""SELECT * 
-        FROM `{db_name}.{schema_name}.{table.name}`
-        WHERE {partition_where}"""
-
-        logger.info(
-            f"Using partition filters for {table_key}: {partition_where} "
-            f"(took {time.time() - start_time:.2f}s)"
-        )
-
-        base_kwargs.update({"custom_sql": custom_sql, "partition_handling": "true"})
-        return base_kwargs
-
-    def _get_emergency_partition_filter(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-    ) -> Optional[str]:
-        """Get an emergency partition filter that will work with minimal data."""
-        try:
-            # Check for date/time columns with simple filters
-            # that won't trigger type conversion issues
-            query = f"""
-            SELECT column_name 
-            FROM `{project}.INFORMATION_SCHEMA.COLUMNS`
-            WHERE table_name = '{table.name}'
-            AND data_type IN ('DATE', 'TIMESTAMP', 'DATETIME')
-            LIMIT 5
-            """
-
-            results = self._execute_cached_query(query, timeout=10)
-            for row in results:
-                col_name = row.column_name
-
-                # Try a simple date comparison that worked in the last week
-                filter_str = f"`{col_name}` >= DATE_SUB(CURRENT_DATE(), INTERVAL 7 DAY)"
-
-                # Check if filter works
-                test_query = f"""
-                SELECT 1 FROM `{project}.{schema}.{table.name}`
-                WHERE {filter_str}
-                LIMIT 1
-                """
-
-                try:
-                    test_results = self._execute_cached_query(test_query, timeout=10)
-                    if test_results:
-                        return filter_str
-                except Exception:
-                    pass
-
-            # If no date/time columns work, try other simple filters
-            return None
-        except Exception as e:
-            logger.warning(f"Emergency filter generation failed: {e}")
-            return None
-
-    def get_profile_request(
-        self, table: BaseTable, schema_name: str, db_name: str
-    ) -> Optional[TableProfilerRequest]:
-        """
-        Get profile request with appropriate partition handling.
-
-        Args:
-            table: BaseTable instance
-            schema_name: Dataset name
-            db_name: Project ID
-
-        Returns:
-            TableProfilerRequest object or None
-        """
-        profile_request = super().get_profile_request(table, schema_name, db_name)
-
-        if not profile_request:
-            return None
-
-        bq_table = cast(BigqueryTable, table)
-
-        # Skip external tables if configured to do so
-        if bq_table.external and not self.config.profiling.profile_external_tables:
-            self.report.report_warning(
-                title="Profiling skipped for external table",
-                message="profiling.profile_external_tables is disabled",
-                context=profile_request.pretty_name,
-            )
-            return None
-
-        # Don't profile if partition profiling is disabled
-        if not self.config.profiling.partition_profiling_enabled:
-            logger.debug(
-                f"{profile_request.pretty_name} is skipped because profiling.partition_profiling_enabled property is disabled"
-            )
-            self.report.profiling_skipped_partition_profiling_disabled.append(
-                profile_request.pretty_name
-            )
-            return None
-
-        # If the table is very large, add some additional configuration to avoid timeouts
-        if (bq_table.size_in_bytes and bq_table.size_in_bytes > 50_000_000_000) or (
-            bq_table.rows_count and bq_table.rows_count > 500_000_000
-        ):
-            logger.info(
-                f"Using extended timeouts for very large table {profile_request.pretty_name}"
-            )
-            # Add extended query timeouts for very large tables
-            if hasattr(profile_request, "profiler_config"):
-                profile_request.profiler_config.update(
-                    {
-                        "query_timeout": 300,  # 5 minutes
-                        "chunk_size": 5000,
-                    }
-                )
-            else:
-                logger.debug("profiler_config not available on TableProfilerRequest")
-
-        return profile_request
-
-    def get_workunits(
-        self, project_id: str, tables: Dict[str, List[BigqueryTable]]
-    ) -> Iterable[MetadataWorkUnit]:
-        """
-        Get profile workunits handling both internal and external tables.
-
-        Args:
-            project_id: BigQuery project ID
-            tables: Dictionary mapping datasets to lists of tables
-
-        Returns:
-            Iterable of MetadataWorkUnit objects
-        """
-        # Clear caches at the start of a new profiling run
-        self._query_cache.clear()
-        self._partition_info_cache.clear()
-        self._table_metadata_cache.clear()
-        self._queried_tables.clear()
-        self._successful_filters_cache.clear()
-
-        profile_requests: List[TableProfilerRequest] = []
-
-        # Group tables by dataset for batch operations
-        for dataset, dataset_tables in tables.items():
-            # Only process external tables if enabled
-            if not self.config.profiling.profile_external_tables:
-                dataset_tables = [t for t in dataset_tables if not t.external]
-
-            if not dataset_tables:
-                continue
-
-            # Process tables in dataset
-            for table in dataset_tables:
-                normalized_table_name = BigqueryTableIdentifier(
-                    project_id=project_id, dataset=dataset, table=table.name
-                ).get_table_name()
-
-                # Create profile request
-                logger.debug(
-                    f"Creating profile request for table {normalized_table_name}"
-                )
-                profile_request = self.get_profile_request(table, dataset, project_id)
-
-                if profile_request is not None:
-                    self.report.report_entity_profiled(profile_request.pretty_name)
-                    profile_requests.append(profile_request)
-                else:
-                    logger.debug(
-                        f"Table {normalized_table_name} was not eligible for profiling"
-                    )
-
-        if not profile_requests:
-            return
-
-        # Generate the profiling workunits
-        yield from self.generate_profile_workunits(
-            profile_requests,
-            max_workers=self.config.profiling.max_workers,
-            platform=self.platform,
-            profiler_args=self.get_profile_args(),
-        )
-
-        # Clear caches after profiling is complete
-        self._query_cache.clear()
-        self._partition_info_cache.clear()
-        self._table_metadata_cache.clear()
-        self._queried_tables.clear()
-        self._successful_filters_cache.clear()
-
-    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
-        """
-        Get dataset name in BigQuery format.
-
-        Args:
-            table_name: Table name
-            schema_name: Dataset name
-            db_name: Project ID
-
-        Returns:
-            Fully qualified table name
-        """
-        return BigqueryTableIdentifier(
-            project_id=db_name, dataset=schema_name, table=table_name
-        ).get_table_name()
+        return self.table_metadata_manager.get_table_metadata(table, project, schema)
