@@ -168,6 +168,12 @@ class GlueSourceConfig(
         default=False,
         description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
     )
+
+    extract_lakeformation_tags: Optional[bool] = Field(
+        default=True,
+        description="If set to True, extract lakeformation tags for glue tables.",
+    )
+
     profiling: GlueProfilingConfig = Field(
         default_factory=GlueProfilingConfig,
         description="Configs to ingest data profiles from glue table",
@@ -176,6 +182,7 @@ class GlueSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
+
     extract_delta_schema_from_parameters: Optional[bool] = Field(
         default=False,
         description="If enabled, delta schemas can be alternatively fetched from table parameters.",
@@ -315,6 +322,8 @@ class GlueSource(StatefulIngestionSourceBase):
     source_config: GlueSourceConfig
     report: GlueSourceReport
 
+    lf_tag_cache:Dict[str, List[str]] = {}
+
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.ctx = ctx
@@ -328,6 +337,153 @@ class GlueSource(StatefulIngestionSourceBase):
         self.lf_client = config.lakeformation_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
+
+        self.get_lf_tags()
+
+    def get_lf_tags(self) -> Dict[str, List[str]]:
+        """
+        Efficiently retrieve all resources with Lake Formation tags using batch operations
+        to minimize API calls.
+
+        Returns:
+            dict: Dictionary of resources and their associated LF-Tags
+        """
+        all_lf_tags = self.get_all_lf_tags()
+
+        # 2. Create expressions to search for resources with multiple tags at once
+        resources_with_tags = {}
+        self.get_lf_table_tags(all_lf_tags, resources_with_tags)
+        self.get_lf_database_tags(all_lf_tags, resources_with_tags)
+
+        self.lf_tag_cache =  resources_with_tags
+
+    def get_lf_table_tags(self, all_lf_tags, resources_with_tags):
+        batch_size = 5  # AWS typically limits the number of expressions in a single call
+        # Process tags in batches to minimize API calls
+        for i in range(0, len(all_lf_tags), batch_size):
+            batch_tags = all_lf_tags[i:i + batch_size]
+
+            # Create a combined expression for this batch of tags
+            expression = []
+            for tag in batch_tags:
+                tag_key = tag['TagKey']
+                # Include all values for this key in one expression element
+                expression.append({
+                    'TagKey': tag_key,
+                    'TagValues': tag['TagValues']
+                })
+
+            # Skip if empty expression
+            if not expression:
+                continue
+
+            # Search for resources with these tags
+            search_response = self.lf_client.search_tables_by_lf_tags(
+                Expression=expression,
+                MaxResults=50
+            )
+
+            # Process the found resources
+            self.process_search_results(search_response, resources_with_tags)
+
+            # Handle pagination
+            while 'NextToken' in search_response:
+                search_response = self.lf_client.search_tables_by_lf_tags(
+                    Expression=expression,
+                    NextToken=search_response['NextToken'],
+                    MaxResults=50
+                )
+                self.process_search_results(search_response, resources_with_tags)
+
+    def get_lf_database_tags(self, all_lf_tags, resources_with_tags):
+        batch_size = 5  # AWS typically limits the number of expressions in a single call
+        # Process tags in batches to minimize API calls
+        for i in range(0, len(all_lf_tags), batch_size):
+            batch_tags = all_lf_tags[i:i + batch_size]
+
+            # Create a combined expression for this batch of tags
+            expression = []
+            for tag in batch_tags:
+                tag_key = tag['TagKey']
+                # Include all values for this key in one expression element
+                expression.append({
+                    'TagKey': tag_key,
+                    'TagValues': tag['TagValues']
+                })
+
+            # Skip if empty expression
+            if not expression:
+                continue
+
+            # Search for resources with these tags
+            search_response = self.lf_client.search_databases_by_lf_tags(
+                Expression=expression,
+                MaxResults=50
+            )
+
+            # Process the found resources
+            self.process_search_results(search_response, resources_with_tags)
+
+            # Handle pagination
+            while 'NextToken' in search_response:
+                search_response = self.lf_client.search_databases_by_lf_tags(
+                    Expression=expression,
+                    NextToken=search_response['NextToken'],
+                    MaxResults=50
+                )
+                self.process_search_results(search_response, resources_with_tags)
+
+    def get_all_lf_tags(self):
+        # 1. Get all LF-Tags in your account (metadata only)
+        response = self.lf_client.list_lf_tags(
+            MaxResults=50  # Adjust as needed
+        )
+        all_lf_tags = response['LFTags']
+        # Continue pagination if necessary
+        while 'NextToken' in response:
+            response = self.lf_client.list_lf_tags(
+                NextToken=response['NextToken'],
+                MaxResults=50
+            )
+            all_lf_tags.extend(response['LFTags'])
+        return all_lf_tags
+
+    def process_search_results(self, search_response, resources_with_tags):
+        """
+        Helper function to process search results and update the resources dictionary
+
+        Args:
+            search_response (dict): Response from search_tables_by_lf_tags API call
+            resources_with_tags (dict): Dictionary to update with found resources
+        """
+        for table in search_response.get('TableList', []):
+            resource_id = f"{table['Table']['CatalogId']}.{table['Table']['DatabaseName']}.{table['Table']['Name']}"
+            # Extract tag information directly from the response
+            lf_tags = table.get('LFTagsOnTable', [])
+            lf_database_tags = table.get('LFTagOnDatabase', [])
+
+            # Store the tag information
+            existing_tags = {}
+            if resource_id  in resources_with_tags:
+                # Merge tags (avoiding duplicates)
+                existing_tags = resources_with_tags[resource_id]
+
+            # Add LF-Tags to the resource
+            for lf_tag in lf_tags:
+                tag_key =f"{lf_tag['CatalogId']}.{lf_tag['TagKey']}"
+                tag_values = lf_tag['TagValues']
+                existing_tags[tag_key] = tag_values
+
+            for db_lf_tag in lf_database_tags:
+                tag_key = f"{db_lf_tag['CatalogId']}.{db_lf_tag['TagKey']}"
+                tag_values = db_lf_tag['TagValues']
+                if tag_key not in existing_tags:
+                    existing_tags[tag_key] = tag_values
+
+            if existing_tags:
+                resources_with_tags[resource_id]  = existing_tags
+
+        return resources_with_tags
 
     def get_glue_arn(
         self, account_id: str, database: str, table: Optional[str] = None
@@ -1524,6 +1680,24 @@ class GlueSource(StatefulIngestionSourceBase):
             s3_tags = get_s3_tags()
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
+
+        if (
+                self.source_config.extract_lakeformation_tags
+                or self.source_config.extract_lakeformation_tags
+        ):
+            if self.lf_tag_cache:
+                tags = self.lf_tag_cache.get(f"{table['CatalogId']}.{table['DatabaseName']}.{table['Name']}", {})
+                tag_urns=[]
+                for tag_key, tag_values in tags.items():
+                    for tag_value in tag_values:
+                        tag_urn = make_tag_urn(f"""{tag_key.split(".",1)[-1]}:{tag_value}""")
+                        tag_urns.append(TagAssociationClass(tag_urn))
+                if tag_urns:
+                    dataset_snapshot.aspects.append(
+                        GlobalTagsClass(
+                            tags=tag_urns
+                        )
+                    )
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         return metadata_record
