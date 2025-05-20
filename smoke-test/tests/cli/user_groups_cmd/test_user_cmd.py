@@ -5,13 +5,10 @@ import time
 from typing import Any, Dict, Iterable, List
 
 import yaml
-from click.testing import CliRunner, Result
 
 from datahub.api.entities.corpuser.corpuser import CorpUser
-from datahub.entrypoints import datahub
 from tests.consistency_utils import wait_for_writes_to_sync
-
-runner = CliRunner(mix_stderr=False)
+from tests.utils import run_datahub_cmd
 
 
 def datahub_upsert_user(auth_session, user: CorpUser) -> None:
@@ -24,8 +21,7 @@ def datahub_upsert_user(auth_session, user: CorpUser) -> None:
             "-f",
             user_file.name,
         ]
-        user_create_result = runner.invoke(
-            datahub,
+        user_create_result = run_datahub_cmd(
             upsert_args,
             env={
                 "DATAHUB_GMS_URL": auth_session.gms_url(),
@@ -55,8 +51,7 @@ def gen_datahub_users(num_users: int) -> Iterable[CorpUser]:
 
 def datahub_get_user(auth_session: Any, user_urn: str):
     get_args: List[str] = ["get", "--urn", user_urn]
-    get_result: Result = runner.invoke(
-        datahub,
+    get_result = run_datahub_cmd(
         get_args,
         env={
             "DATAHUB_GMS_URL": auth_session.gms_url(),

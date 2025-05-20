@@ -292,11 +292,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
       log.info("Setting new latest version: {}", updatedLatestVersionUrn);
       VersionSetProperties newVersionSetProperties =
           new VersionSetProperties()
-              .setVersioningScheme(
-                  VersioningScheme
-                      .ALPHANUMERIC_GENERATED_BY_DATAHUB) // Only one available, will need to add
-              // to input properties once more are
-              // added.
+              .setVersioningScheme(versionSetProperties.getVersioningScheme())
               .setLatest(UrnUtils.getUrn(updatedLatestVersionUrn));
       MetadataChangeProposal versionSetPropertiesProposal = new MetadataChangeProposal();
       versionSetPropertiesProposal.setEntityUrn(versionSetUrn);
