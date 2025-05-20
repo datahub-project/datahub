@@ -47,12 +47,12 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+// import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+// import java.util.concurrent.ExecutionException;
+// import java.util.concurrent.TimeUnit;
+// import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -420,6 +420,7 @@ public class DatahubEventEmitter extends EventEmitter {
   protected void emitMcps(List<MetadataChangeProposal> mcps) {
     Optional<Emitter> emitter = getEmitter();
     if (emitter.isPresent()) {
+      /*
       mcps.stream()
           .map(
               mcp -> {
@@ -449,6 +450,41 @@ public class DatahubEventEmitter extends EventEmitter {
                   log.error("Failed to emit metadata to DataHub", e);
                 }
               });
+              */
+      mcps.stream()
+          .forEach(
+              mcp -> {
+                try {
+                  // 1. 로그 출력 (기존과 동일)
+                  if (this.datahubConf.isLogMcps()) {
+                    DataMap map = mcp.data();
+                    String serializedMCP = dataTemplateCodec.mapToString(map);
+                    log.info("Submitting MCP emission: {}", serializedMCP); // 로그 메시지 명확화
+                  } else {
+                    log.info(
+                        "Submitting MCP emission for aspect: {} for urn: {}",
+                        mcp.getAspectName(),
+                        mcp.getEntityUrn()); // 로그 메시지 명확화
+                  }
+                  // 2. 비동기 전송 제출 (emit 호출) - Future를 받지만 사용하지 않음
+                  emitter.get().emit(mcp);
+
+                } catch (IOException ioException) {
+                  // emit 호출 자체 또는 직렬화 등 준비 과정에서의 오류 처리
+                  log.error(
+                      "Failed to prepare or submit MCP emission to DataHub for URN: {}",
+                      mcp.getEntityUrn(),
+                      ioException);
+                  // 이 MCP는 실패했지만, 루프는 계속되어 다음 MCP 처리 시도
+                } catch (Exception e) {
+                  // emit 호출 중 발생할 수 있는 다른 예외들 처리 (더 넓은 범위)
+                  log.error(
+                      "Unexpected error during MCP submission attempt for URN: {}",
+                      mcp.getEntityUrn(),
+                      e);
+                  // 루프는 계속
+                }
+              }); // 스트림의 forEach 종료
       try {
         emitter.get().close();
       } catch (IOException e) {
