@@ -5,6 +5,7 @@ import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entity/Entity';
 import { ERModelRelationshipPreviewCard } from '@app/entity/ermodelrelationships/preview/ERModelRelationshipPreviewCard';
+import ERModelRelationshipSidebarCardinality from '@app/entity/ermodelrelationships/profile/sidebar/ERModelRelationshipSidebarCardinality';
 import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
@@ -20,7 +21,6 @@ import {
     useUpdateErModelRelationshipMutation,
 } from '@graphql/ermodelrelationship.generated';
 import { EntityType, ErModelRelationship, OwnershipType, SearchResult } from '@types';
-import ERModelRelationshipSidebarCardinality from './profile/sidebar/ERModelRelationshipSidebarCardinality';
 import ermodelrelationshipIcon from '@images/ermodelrelationshipIcon.svg';
 
 /**

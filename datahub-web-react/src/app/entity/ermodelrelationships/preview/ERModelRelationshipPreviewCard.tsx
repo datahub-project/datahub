@@ -18,7 +18,7 @@ export const ERModelRelationshipPreviewCard = ({
     description,
     globalTags,
     glossaryTerms,
-    cardinality
+    cardinality,
 }: {
     urn: string;
     name: string | any;

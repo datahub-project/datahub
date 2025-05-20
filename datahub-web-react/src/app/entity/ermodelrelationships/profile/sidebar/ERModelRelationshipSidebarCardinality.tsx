@@ -1,7 +1,8 @@
+import React from 'react';
 import styled from 'styled-components/macro';
-import { ErModelRelationship } from '../../../../../types.generated';
-import { useEntityData } from '../../../shared/EntityContext';
-import { SidebarHeader } from '../../../shared/containers/profile/sidebar/SidebarHeader';
+import { ErModelRelationship } from '@src/types.generated';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
 
 const CardinalitySidebar = styled.div`
     color: #000000;

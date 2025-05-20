@@ -43,7 +43,7 @@ export const validateERModelRelation = async (
     tableSchema: ERModelRelationDataType[],
     editFlag,
     getSearchResultsERModelRelations,
-    entityName
+    entityName,
 ) => {
     const errors: string[] = [];
     const bDuplicateName = await checkDuplicateERModelRelation(

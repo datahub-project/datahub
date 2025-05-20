@@ -12,7 +12,7 @@ import { ERModelRelationPreview } from '@app/entity/shared/components/styled/ERM
 import { SearchSelectModal } from '@app/entity/shared/components/styled/search/SearchSelectModal';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { GetDatasetQuery, useGetDatasetLazyQuery, useGetDatasetSchemaLazyQuery } from '@graphql/dataset.generated';
 import { useGetSearchResultsQuery } from '@graphql/search.generated';

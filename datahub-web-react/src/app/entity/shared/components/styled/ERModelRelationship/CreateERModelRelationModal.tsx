@@ -53,7 +53,7 @@ export const CreateERModelRelationModal = ({
     editERModelRelation,
     isEditing,
     refetch,
-    entityName
+    entityName,
 }: Props) => {
     const [form] = Form.useForm();
     const { user } = useUserContext();
@@ -231,7 +231,7 @@ export const CreateERModelRelationModal = ({
             tableData,
             isEditing,
             getSearchResultsERModelRelations,
-            entityName
+            entityName,
         );
         if ((await errors).length > 0) {
             const err = (await errors).join(`, `);
