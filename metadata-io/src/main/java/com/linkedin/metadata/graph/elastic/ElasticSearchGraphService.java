@@ -138,6 +138,11 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return _indexBuilder;
+  }
+
+  @Override
   public LineageRegistry getLineageRegistry() {
     return _lineageRegistry;
   }
