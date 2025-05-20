@@ -3,7 +3,7 @@ import '@app/entity/shared/tabs/Dataset/Relationship/RelationshipsTab.less';
 import { ExclamationCircleFilled, LoadingOutlined, PlusOutlined } from '@ant-design/icons';
 import { Icon } from '@components';
 import { Button, Card, Divider, Empty, Input, Modal, Pagination } from 'antd';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
@@ -157,7 +157,7 @@ export const RelationshipsTab = () => {
         },
     });
 
-    const schemaIssueModal = () => {
+    const schemaIssueModal = useCallback(() => {
         Modal.error({
             title: `Schema error`,
             className: 'schema-modal',
@@ -177,7 +177,7 @@ export const RelationshipsTab = () => {
             maskClosable: true,
             closable: true,
         });
-    };
+    }, [entityName]);
     useEffect(() => {
         if (
             table2LazySchema?.dataset !== undefined &&
@@ -192,7 +192,7 @@ export const RelationshipsTab = () => {
             setermodelrelationModalVisible(false);
             setModalVisible(true);
         }
-    }, [table2LazySchema]);
+    }, [table2LazySchema, schemaIssueModal]);
     return (
         <>
             {ermodelrelationModalVisible && (

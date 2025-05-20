@@ -21,6 +21,7 @@ import {
     useUpdateErModelRelationshipMutation,
 } from '@graphql/ermodelrelationship.generated';
 import { EntityType, ErModelRelationship, OwnershipType, SearchResult } from '@types';
+
 import ermodelrelationshipIcon from '@images/ermodelrelationshipIcon.svg';
 
 /**

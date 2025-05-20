@@ -1,7 +1,7 @@
 import '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal.less';
 
 import { PlusOutlined } from '@ant-design/icons';
-import { Button, Form, Input, Modal, Table, message, Select } from 'antd';
+import { Button, Form, Input, Modal, Select, Table, message } from 'antd';
 import TextArea from 'antd/lib/input/TextArea';
 import React, { useState } from 'react';
 
@@ -420,10 +420,7 @@ export const CreateERModelRelationModal = ({
                         />
                     </Form.Item>
                     <p className="all-content-heading">Cardinality</p>
-                    <Form.Item
-                        style={{ margin: 0 }}
-                        name="ermodelrelationCardinality"
-                    >
+                    <Form.Item style={{ margin: 0 }} name="ermodelrelationCardinality">
                         <Select className="cardinality-select" onChange={(e) => setERModelRelationCardinality(e)}>
                             <Select.Option value="ONE_ONE">ONE_ONE</Select.Option>
                             <Select.Option value="ONE_N">ONE_N</Select.Option>

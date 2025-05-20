@@ -38,7 +38,11 @@ export const ERModelRelationshipPreviewCard = ({
                     urn={urn}
                     description={description || ''}
                     logoComponent={
-                        <img src={ermodelrelationshipIcon} alt={entityRegistry.getEntityName(EntityType.ErModelRelationship)} style={{ fontSize: '20px' }} />
+                        <img
+                            src={ermodelrelationshipIcon}
+                            alt={entityRegistry.getEntityName(EntityType.ErModelRelationship)}
+                            style={{ fontSize: '20px' }}
+                        />
                     }
                     tags={globalTags || undefined}
                     glossaryTerms={glossaryTerms || undefined}

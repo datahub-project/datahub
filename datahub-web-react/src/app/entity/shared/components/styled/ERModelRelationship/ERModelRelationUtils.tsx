@@ -54,9 +54,7 @@ export const validateERModelRelation = async (
         errors.push(`${entityName} name is required`);
     }
     if (bDuplicateName && !editFlag) {
-        errors.push(
-            `This ${entityName} name already exists. A unique name for each ${entityName} is required`,
-        );
+        errors.push(`This ${entityName} name already exists. A unique name for each ${entityName} is required`);
     }
     const faultyRows = tableSchema.filter((item) => validateTableData(item) !== true);
     if (faultyRows.length > 0) {
