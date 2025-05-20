@@ -316,7 +316,7 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
 
 
 def resolve_snowflake_modified_type(type_string: str) -> Any:
-    # Match types with precision and scale, e.g., 'DECIMAL(38,0)'
+    # Match types with precision and scale, e.g., 'DECIMAL(38,0)' or TIME(3)
     match = re.match(r"([a-z A-Z_]+)\(\d+(,(\s+)?\d+)?\)", type_string)
     if match:
         modified_type_base = match.group(1)  # Extract the base type
