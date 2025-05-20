@@ -141,7 +141,7 @@ public class PublicIcebergApiControllerTest
       @Override
       protected DataHubIcebergWarehouse warehouse(
           String platformInstance, OperationContext operationContext) {
-        return PublicIcebergApiControllerTest.super.warehouse();
+        return warehouse;
       }
     };
   }
