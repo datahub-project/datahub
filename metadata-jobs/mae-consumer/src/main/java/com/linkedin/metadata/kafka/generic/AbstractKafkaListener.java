@@ -15,13 +15,12 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.MDC;
 
 @Slf4j
-public abstract class AbstractKafkaListener<E, H extends EventHook<E>>
-    implements GenericKafkaListener<E, H> {
+public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
+    implements GenericKafkaListener<E, H, R> {
 
   protected OperationContext systemOperationContext;
 
@@ -36,7 +35,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>>
       MetricUtils.get().histogram(MetricRegistry.name(this.getClass(), "kafkaLag"));
 
   @Override
-  public GenericKafkaListener<E, H> init(
+  public GenericKafkaListener<E, H, R> init(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull String consumerGroup,
       @Nonnull List<H> hooks,
@@ -59,10 +58,10 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>>
   }
 
   @Override
-  public void consume(@Nonnull final ConsumerRecord<String, GenericRecord> consumerRecord) {
+  public void consume(@Nonnull final ConsumerRecord<String, R> consumerRecord) {
     try {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());
-      final GenericRecord record = consumerRecord.value();
+      final R record = consumerRecord.value();
       log.debug(
           "Got event consumer: {} key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
           consumerGroupId,

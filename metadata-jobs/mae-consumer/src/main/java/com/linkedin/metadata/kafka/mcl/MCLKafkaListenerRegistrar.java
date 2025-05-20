@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import org.apache.avro.generic.GenericRecord;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,14 +27,9 @@ import org.springframework.stereotype.Component;
 @Component
 @Conditional(MetadataChangeLogProcessorCondition.class)
 public class MCLKafkaListenerRegistrar
-    extends AbstractKafkaListenerRegistrar<MetadataChangeLog, MetadataChangeLogHook> {
-
-  @Autowired
-  @Qualifier("systemOperationContext")
-  private OperationContext systemOperationContext;
-
-  @Autowired private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
-
+    extends AbstractKafkaListenerRegistrar<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
+  private final OperationContext systemOperationContext;
+  private final ConfigurationProvider configurationProvider;
   @Autowired
   @Qualifier(MCL_EVENT_CONSUMER_NAME)
   private KafkaListenerContainerFactory<?> kafkaListenerContainerFactory;
@@ -48,11 +44,17 @@ public class MCLKafkaListenerRegistrar
       "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES + "}")
   private String mclTimeseriesTopicName;
 
-  @Autowired private List<MetadataChangeLogHook> hooks;
-
-  @Autowired private ConfigurationProvider configurationProvider;
-
-  @Autowired private ObjectMapper objectMapper;
+  public MCLKafkaListenerRegistrar(KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry,
+      @Qualifier(MCL_EVENT_CONSUMER_NAME) KafkaListenerContainerFactory<?> kafkaListenerContainerFactory,
+      @Value("${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}") String consumerGroupBase,
+      List<MetadataChangeLogHook> hooks,
+      ObjectMapper objectMapper,
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      ConfigurationProvider configurationProvider) {
+    super(kafkaListenerEndpointRegistry, kafkaListenerContainerFactory, consumerGroupBase, hooks, objectMapper);
+    this.systemOperationContext = systemOperationContext;
+    this.configurationProvider = configurationProvider;
+  }
 
   @Override
   protected String getProcessorType() {
@@ -76,7 +78,7 @@ public class MCLKafkaListenerRegistrar
 
   @Override
   @Nonnull
-  public GenericKafkaListener<MetadataChangeLog, MetadataChangeLogHook> createListener(
+  public GenericKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> createListener(
       @Nonnull String consumerGroupId,
       @Nonnull List<MetadataChangeLogHook> hooks,
       boolean fineGrainedLoggingEnabled,

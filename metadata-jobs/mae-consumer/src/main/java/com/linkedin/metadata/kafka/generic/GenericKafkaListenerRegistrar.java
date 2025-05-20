@@ -9,9 +9,11 @@ import org.springframework.kafka.config.KafkaListenerEndpoint;
 /**
  * Generic interface for registering Kafka listeners for different event types.
  *
- * @param <T> The hook type
+ * @param <E> The event type
+ * @param <H> The hook type
+ * @param <R> The record type
  */
-public interface GenericKafkaListenerRegistrar<E, H extends EventHook<E>> {
+public interface GenericKafkaListenerRegistrar<E, H extends EventHook<E>, R> {
 
   /**
    * Gets the enabled hooks for this registrar.
@@ -61,7 +63,7 @@ public interface GenericKafkaListenerRegistrar<E, H extends EventHook<E>> {
    * @return The created Kafka listener
    */
   @Nonnull
-  GenericKafkaListener<E, H> createListener(
+  GenericKafkaListener<E, H, R> createListener(
       @Nonnull String consumerGroupId,
       @Nonnull List<H> hooks,
       boolean fineGrainedLoggingEnabled,

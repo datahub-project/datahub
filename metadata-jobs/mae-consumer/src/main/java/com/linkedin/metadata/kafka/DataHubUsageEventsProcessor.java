@@ -24,6 +24,9 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.SIMPLE_EVENT_CONSUMER_NAME;
+
+
 @Slf4j
 @Component
 @EnableKafka
@@ -53,7 +56,7 @@ public class DataHubUsageEventsProcessor {
   @KafkaListener(
       id = "${DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}",
       topics = "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}",
-      containerFactory = "simpleKafkaConsumer",
+      containerFactory = SIMPLE_EVENT_CONSUMER_NAME,
       autoStartup = "false")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
     systemOperationContext.withSpan(

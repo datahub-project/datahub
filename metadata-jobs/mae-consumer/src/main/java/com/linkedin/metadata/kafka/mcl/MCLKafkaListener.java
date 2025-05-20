@@ -25,7 +25,7 @@ import org.slf4j.MDC;
 
 @Slf4j
 public class MCLKafkaListener
-    extends AbstractKafkaListener<MetadataChangeLog, MetadataChangeLogHook> {
+    extends AbstractKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
 
   private static final String WILDCARD = "*";
 

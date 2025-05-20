@@ -1,11 +1,12 @@
 package com.linkedin.metadata.kafka.usage;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.metadata.kafka.generic.EventHook;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
-public interface DataHubUsageEventHook extends EventHook<ConsumerRecord<String, String>> {
+public interface DataHubUsageEventHook extends EventHook<JsonNode> {
 
   default DataHubUsageEventHook init(@Nonnull OperationContext systemOperationContext) {
     return this;

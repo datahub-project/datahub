@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 /**
@@ -14,8 +13,9 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
  *
  * @param <E> The event type the hook processes
  * @param <H> The hook type this listener processes
+ * @param <R> The record type
  */
-public interface GenericKafkaListener<E, H extends EventHook<E>> {
+public interface GenericKafkaListener<E, H extends EventHook<E>, R> {
 
   /**
    * Initializes the listener with system context and hooks.
@@ -27,7 +27,7 @@ public interface GenericKafkaListener<E, H extends EventHook<E>> {
    * @param aspectsToDrop Map of aspects to drop during processing
    * @return this listener instance for chaining
    */
-  GenericKafkaListener<E, H> init(
+  GenericKafkaListener<E, H, R> init(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull String consumerGroup,
       @Nonnull List<H> hooks,
@@ -39,7 +39,7 @@ public interface GenericKafkaListener<E, H extends EventHook<E>> {
    *
    * @param consumerRecord The Kafka consumer record to process
    */
-  void consume(@Nonnull ConsumerRecord<String, GenericRecord> consumerRecord);
+  void consume(@Nonnull ConsumerRecord<String, R> consumerRecord);
 
   /**
    * Converts a generic record to the specific event type.
@@ -47,7 +47,7 @@ public interface GenericKafkaListener<E, H extends EventHook<E>> {
    * @param record The generic record to convert
    * @return The converted event object
    */
-  E convertRecord(@Nonnull GenericRecord record) throws IOException;
+  E convertRecord(@Nonnull R record) throws IOException;
 
   /**
    * Gets the consumer group ID for this listener.

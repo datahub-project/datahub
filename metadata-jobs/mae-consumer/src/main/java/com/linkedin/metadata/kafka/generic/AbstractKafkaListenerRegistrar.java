@@ -22,14 +22,24 @@ import org.springframework.kafka.config.MethodKafkaListenerEndpoint;
 import org.springframework.messaging.handler.annotation.support.DefaultMessageHandlerMethodFactory;
 
 @Slf4j
-public abstract class AbstractKafkaListenerRegistrar<E, H extends EventHook<E>>
-    implements GenericKafkaListenerRegistrar<E, H>, InitializingBean {
+public abstract class AbstractKafkaListenerRegistrar<E, H extends EventHook<E>, R>
+    implements GenericKafkaListenerRegistrar<E, H, R>, InitializingBean {
 
-  protected KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
-  protected KafkaListenerContainerFactory<?> kafkaListenerContainerFactory;
-  protected String consumerGroupBase;
-  protected List<H> hooks;
-  protected ObjectMapper objectMapper;
+  protected final KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
+  protected final KafkaListenerContainerFactory<?> kafkaListenerContainerFactory;
+  protected final String consumerGroupBase;
+  protected final List<H> hooks;
+  protected final ObjectMapper objectMapper;
+
+  protected AbstractKafkaListenerRegistrar(KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry,
+      KafkaListenerContainerFactory<?> kafkaListenerContainerFactory, String consumerGroupBase, List<H> hooks,
+      ObjectMapper objectMapper) {
+    this.kafkaListenerEndpointRegistry = kafkaListenerEndpointRegistry;
+    this.kafkaListenerContainerFactory = kafkaListenerContainerFactory;
+    this.consumerGroupBase = consumerGroupBase;
+    this.hooks = hooks;
+    this.objectMapper = objectMapper;
+  }
 
   @Override
   public void afterPropertiesSet() {
@@ -69,7 +79,7 @@ public abstract class AbstractKafkaListenerRegistrar<E, H extends EventHook<E>>
   @Nonnull
   public KafkaListenerEndpoint createListenerEndpoint(
       @Nonnull String consumerGroupId, @Nonnull List<String> topics, @Nonnull List<H> groupHooks) {
-    MethodKafkaListenerEndpoint<String, GenericRecord> kafkaListenerEndpoint =
+    MethodKafkaListenerEndpoint<String, R> kafkaListenerEndpoint =
         new MethodKafkaListenerEndpoint<>();
     kafkaListenerEndpoint.setId(consumerGroupId);
     kafkaListenerEndpoint.setGroupId(consumerGroupId);
@@ -79,7 +89,7 @@ public abstract class AbstractKafkaListenerRegistrar<E, H extends EventHook<E>>
 
     Map<String, Set<String>> aspectsToDrop = parseAspectsToDrop();
 
-    GenericKafkaListener<E, H> listener =
+    GenericKafkaListener<E, H, R> listener =
         createListener(consumerGroupId, groupHooks, isFineGrainedLoggingEnabled(), aspectsToDrop);
 
     kafkaListenerEndpoint.setBean(listener);
