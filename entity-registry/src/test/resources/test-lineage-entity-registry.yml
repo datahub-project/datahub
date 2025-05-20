@@ -290,6 +290,7 @@ entities:
       - forms
       - testResults
       - subTypes
+      - globalTags
   - name: glossaryNode
     category: core
     keyAspect: glossaryNodeKey
@@ -303,6 +304,7 @@ entities:
       - testResults
       - subTypes
       - displayProperties
+      - globalTags
   - name: dataHubIngestionSource
     category: internal
     keyAspect: dataHubIngestionSourceKey
