@@ -24,7 +24,6 @@ import org.testng.annotations.*;
 public class IcebergNamespaceApiControllerTest
     extends AbstractControllerTest<IcebergNamespaceApiController> {
 
-  private static final String TEST_PLATFORM = "test-platform";
   private Namespace namespace;
   private String namespaceString;
   private Urn containerUrn;
@@ -47,7 +46,7 @@ public class IcebergNamespaceApiControllerTest
       @Override
       protected DataHubIcebergWarehouse warehouse(
           String platformInstance, OperationContext operationContext) {
-        return IcebergNamespaceApiControllerTest.super.warehouse();
+        return warehouse;
       }
     };
   }

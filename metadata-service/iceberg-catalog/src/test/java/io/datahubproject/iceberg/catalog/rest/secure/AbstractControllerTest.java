@@ -26,7 +26,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.lang.reflect.Field;
 import java.util.*;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
 
@@ -51,7 +50,7 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
   private OperationContext systemOperationContext;
   private Authentication authentication;
   private Actor actor;
-  private DataHubIcebergWarehouse warehouse;
+  protected DataHubIcebergWarehouse warehouse;
 
   @Mock private RecordTemplate warehouseAspect;
   protected T controller;
@@ -62,6 +61,7 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
     when(request.getHeader(HttpHeaders.X_FORWARDED_FOR)).thenReturn("1.2.3.4");
     warehouse = mock(DataHubIcebergWarehouse.class);
     when(warehouse.getPlatformInstance()).thenReturn(TEST_PLATFORM);
+    when(warehouse.getDataRoot()).thenReturn("s3://someRootLocation");
     setupAuthentication();
     setupController();
     onSetup();
@@ -114,10 +114,6 @@ public abstract class AbstractControllerTest<T extends AbstractIcebergController
     warehouse.setDataRoot("s3://data-root/test/");
     warehouse.setRegion("us-east-1");
     warehouse.setRole("testRole");
-    return warehouse;
-  }
-
-  protected DataHubIcebergWarehouse warehouse() {
     return warehouse;
   }
 
