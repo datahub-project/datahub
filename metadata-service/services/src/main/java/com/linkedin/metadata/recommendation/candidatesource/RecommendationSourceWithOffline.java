@@ -4,11 +4,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.recommendation.RecommendationModule;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** Base interface for defining a candidate source for recommendation module */
 public interface RecommendationSourceWithOffline extends RecommendationSource {
@@ -34,7 +36,9 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
    */
   @Override
   default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
+      @Nonnull OperationContext opContext,
+      @Nonnull RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
     if (!isEligible(opContext, requestContext)) {
       return Optional.empty();
     }
@@ -61,6 +65,6 @@ public interface RecommendationSourceWithOffline extends RecommendationSource {
       }
     }
 
-    return RecommendationSource.super.getRecommendationModule(opContext, requestContext);
+    return RecommendationSource.super.getRecommendationModule(opContext, requestContext, filter);
   }
 }
