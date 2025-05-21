@@ -1,13 +1,7 @@
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Empty, Typography } from 'antd';
-import React, { useState } from 'react';
+import React from 'react';
 import styled from 'styled-components/macro';
-
-import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
-
-import { EntityType } from '@types';
 
 const StyledEmpty = styled(Empty)`
     padding: 80px 40px;
@@ -25,20 +19,12 @@ const StyledButton = styled(Button)`
 interface Props {
     title?: string;
     description?: string;
-    refetchForTerms?: () => void;
-    refetchForNodes?: () => void;
+    onAddTerm: () => void;
+    onAddtermGroup: () => void;
 }
 
 function EmptyGlossarySection(props: Props) {
-    const { title, description, refetchForTerms, refetchForNodes } = props;
-
-    const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
-    const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
-
-    const user = useUserContext();
-    const canManageGlossaries = user?.platformPrivileges?.manageGlossaries;
-    const { entityData } = useEntityData();
-    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren || canManageGlossaries;
+    const { title, description, onAddTerm, onAddtermGroup } = props;
 
     return (
         <>
@@ -51,29 +37,13 @@ function EmptyGlossarySection(props: Props) {
                 }
             >
                 {/* not disabled on acryl-main due to ability to propose */}
-                <StyledButton onClick={() => setIsCreateTermModalVisible(true)}>
+                <StyledButton data-testid="add-term-button" onClick={onAddTerm}>
                     <PlusOutlined /> Add Term
                 </StyledButton>
-                <StyledButton onClick={() => setIsCreateNodeModalVisible(true)}>
+                <StyledButton data-testid="add-term-group-button" onClick={onAddtermGroup}>
                     <PlusOutlined /> Add Term Group
                 </StyledButton>
             </StyledEmpty>
-            {isCreateTermModalVisible && (
-                <CreateGlossaryEntityModal
-                    entityType={EntityType.GlossaryTerm}
-                    canCreateGlossaryEntity={!!canCreateGlossaryEntity}
-                    onClose={() => setIsCreateTermModalVisible(false)}
-                    refetchData={refetchForTerms}
-                />
-            )}
-            {isCreateNodeModalVisible && (
-                <CreateGlossaryEntityModal
-                    entityType={EntityType.GlossaryNode}
-                    canCreateGlossaryEntity={!!canCreateGlossaryEntity}
-                    onClose={() => setIsCreateNodeModalVisible(false)}
-                    refetchData={refetchForNodes}
-                />
-            )}
         </>
     );
 }
