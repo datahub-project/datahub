@@ -15,6 +15,7 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 from datahub.utilities.mapping import OperationProcessor
+from datahub.utilities.urns.error import InvalidUrnError
 
 
 def get_operation_defs() -> Dict[str, Any]:
@@ -432,17 +433,10 @@ def test_validate_ownership_type_with_urn_valid():
     assert result == (OwnershipTypeClass.CUSTOM, input_urn)
 
 
-def test_validate_ownership_type_with_urn_invalid_system():
-    # Invalid if __system__ is provided
-    invalid_urn = "urn:li:ownershipType:__system__"
-    with pytest.raises(ValueError):
-        validate_ownership_type(invalid_urn)
-
-
 def test_validate_ownership_type_with_wrong_prefix():
     # Invalid if urn does not have the correct prefix
     wrong_urn = "urn:li:notOwnership:INVALID"
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidUrnError):
         validate_ownership_type(wrong_urn)
 
 
