@@ -42,6 +42,8 @@ type Props = {
     showPropose?: boolean;
     inferOnMount?: boolean;
     isEmbeddedProfile?: boolean;
+    canEditDescription?: boolean;
+    canProposeDescription?: boolean;
 };
 
 export default function UpdateDescriptionModal({
@@ -58,6 +60,8 @@ export default function UpdateDescriptionModal({
     showPropose,
     inferOnMount,
     isEmbeddedProfile,
+    canEditDescription = true,
+    canProposeDescription = true,
 }: Props) {
     const urn = useMutationUrn();
     const [updatedDesc, setDesc] = useState(description || original || '');
@@ -80,14 +84,14 @@ export default function UpdateDescriptionModal({
                             type="button"
                             variant="outline"
                             onClick={() => onPropose(updatedDesc)}
-                            disabled={updatedDesc === description}
+                            disabled={updatedDesc === description || !canProposeDescription}
                         >
                             Propose
                         </Button>
                     )}
                     <Button
                         onClick={() => onSubmit(updatedDesc)}
-                        disabled={updatedDesc === description}
+                        disabled={updatedDesc === description || !canEditDescription}
                         data-testid="description-modal-update-button"
                     >
                         Publish

@@ -77,8 +77,11 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
     const [proposeUpdateDescription] = useProposeUpdateDescriptionMutation();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [inferOnModalVisible, setInferOnModalVisible] = useState(false);
-    const { entityType } = useEntityData();
+    const { entityType, entityData } = useEntityData();
     const shouldShowInferenceButton = useShouldShowInferDocumentationButton(entityType);
+
+    const canEditDescription = !!entityData?.privileges?.canEditSchemaFieldDescription;
+    const canProposeDescription = !!entityData?.privileges?.canProposeSchemaFieldDescription;
 
     const sendAnalytics = () => {
         analytics.event({
@@ -208,6 +211,8 @@ export default function FieldDescription({ expandedField, editableFieldInfo }: P
                     }}
                     isAddDesc={!displayedDescription}
                     inferOnMount={inferOnModalVisible}
+                    canEditDescription={canEditDescription}
+                    canProposeDescription={canProposeDescription}
                 />
             )}
             <StyledDivider dashed />

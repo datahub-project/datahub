@@ -128,6 +128,8 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditSchemaFieldTags(LabelUtils.isAuthorizedToUpdateTags(context, urn, "ignored"));
     result.setCanEditSchemaFieldGlossaryTerms(
         LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));
+    result.setCanEditSchemaFieldStructuredProperties(
+        AuthorizationUtils.canEditProperties(urn, context, "ignored"));
     result.setCanEditSchemaFieldDescription(
         DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn));
     result.setCanViewDatasetUsage(AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn));
@@ -169,7 +171,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
   private void addCommonPrivileges(
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
     result.setCanEditLineage(canEditEntityLineage(urn, context));
-    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
+    result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context, null));
     result.setCanEditAssertions(
         AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, urn));
     result.setCanEditIncidents(IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context));
@@ -199,5 +201,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         ProposalUtils.isAuthorizedToProposeTerms(context, urn, "ignored"));
     result.setCanProposeSchemaFieldTags(
         ProposalUtils.isAuthorizedToProposeTags(context, urn, "ignored"));
+    result.setCanProposeSchemaFieldStructuredProperties(
+        ProposalUtils.isAuthorizedToProposeStructuredProperties(context, urn, "ignored"));
   }
 }

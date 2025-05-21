@@ -241,7 +241,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
 
   // udpates editable dataset properties aspect's name field
   private Boolean updateDatasetName(Urn targetUrn, UpdateNameInput input, QueryContext context) {
-    if (AuthorizationUtils.canEditProperties(targetUrn, context)) {
+    if (AuthorizationUtils.canEditProperties(targetUrn, context, null)) {
       try {
         if (input.getName() != null) {
           final EditableDatasetProperties editableDatasetProperties =

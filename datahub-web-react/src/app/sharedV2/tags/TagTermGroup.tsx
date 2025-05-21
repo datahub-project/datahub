@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
+import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
 import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
@@ -150,6 +151,7 @@ export default function TagTermGroup({
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
     const [selectedActionRequest, setSelectedActionRequest] = useState<ActionRequest | null | undefined>(null);
+    const { entityData } = useEntityData();
 
     const tagsEmpty = !editableTags?.tags?.length && !uneditableTags?.tags?.length && !proposedTags?.length;
 
@@ -177,6 +179,11 @@ export default function TagTermGroup({
 
     let renderedTags = 0;
     let renderedTerms = 0;
+
+    const canEditSchemaFieldTags = !!entityData?.privileges?.canEditSchemaFieldTags;
+    const canProposeSchemaFieldTags = !!entityData?.privileges?.canProposeSchemaFieldTags;
+    const canEditSchemaFieldTerms = !!entityData?.privileges?.canEditSchemaFieldGlossaryTerms;
+    const canProposeSchemaFieldTerms = !!entityData?.privileges?.canProposeSchemaFieldGlossaryTerms;
 
     return (
         <TagTermWrapper $showOneAndCount={showOneAndCount}>
@@ -401,6 +408,10 @@ export default function TagTermGroup({
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                canAddTag={canEditSchemaFieldTags}
+                canProposeTag={canProposeSchemaFieldTags}
+                canAddTerm={canEditSchemaFieldTerms}
+                canProposeTerm={canProposeSchemaFieldTerms}
             />
             {selectedActionRequest && (
                 <ProposalModal
