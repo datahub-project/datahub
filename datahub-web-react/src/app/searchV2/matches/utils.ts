@@ -1,12 +1,14 @@
 import * as QueryString from 'query-string';
-import { EntityType, MatchedField } from '../../../types.generated';
+
 import {
     HIGHLIGHTABLE_ENTITY_TYPES,
     MATCHED_FIELD_CONFIG,
     MatchedFieldConfig,
     MatchedFieldName,
     MatchesGroupedByFieldName,
-} from './constants';
+} from '@app/searchV2/matches/constants';
+
+import { EntityType, MatchedField } from '@types';
 
 const getFieldConfigsByEntityType = (entityType: EntityType | undefined): Array<MatchedFieldConfig> => {
     return entityType && entityType in MATCHED_FIELD_CONFIG
@@ -80,6 +82,39 @@ function fromQueryGetBestMatch(
     return [...exactMatches, ...containedMatches, ...rest];
 }
 
+const orderMatchedFieldsByPriorityInGroup = (entityType: EntityType, matchedFields: MatchedField[]) => {
+    const configs = getFieldConfigsByEntityType(entityType);
+
+    return matchedFields
+        .map((matchedField) => {
+            const fieldConfig = configs.find((config) => config.name === matchedField.name);
+            return {
+                priority: fieldConfig?.priorityInGroup,
+                matchedField,
+            };
+        })
+        .sort((matchedFieldA, matchedFieldB) => {
+            // Both have a priority, order by priority
+            if (matchedFieldA.priority !== undefined && matchedFieldB.priority !== undefined) {
+                return matchedFieldA.priority - matchedFieldB.priority;
+            }
+
+            // Only 'matchedFieldA' has a priority, it comes first
+            if (matchedFieldA.priority !== undefined && matchedFieldB.priority === undefined) {
+                return -1;
+            }
+
+            // Only 'matchedFieldB' has a priority, it comes first
+            if (matchedFieldA.priority === undefined && matchedFieldB.priority !== undefined) {
+                return 1;
+            }
+
+            // Neither has a priority, maintain original order
+            return 0;
+        })
+        .map((matchedFieldWithPriority) => matchedFieldWithPriority.matchedField);
+};
+
 const getMatchesGroupedByFieldName = (
     entityType: EntityType,
     matchedFields: Array<MatchedField>,
@@ -98,11 +133,21 @@ const getMatchesGroupedByFieldName = (
     });
     return fieldNames.map((fieldName) => ({
         fieldName,
-        matchedFields: fieldNameToMatches.get(fieldName) ?? [],
+        matchedFields: orderMatchedFieldsByPriorityInGroup(entityType, fieldNameToMatches.get(fieldName) ?? []),
     }));
 };
 
 export const getMatchesPrioritized = (
+    entityType: EntityType,
+    query: string,
+    matchedFields: MatchedField[],
+    prioritizedField: string,
+): Array<MatchesGroupedByFieldName> => {
+    const matches = fromQueryGetBestMatch(matchedFields, query, prioritizedField);
+    return getMatchesGroupedByFieldName(entityType, matches);
+};
+
+export const getMatchesPrioritizedByQueryInQueryParams = (
     entityType: EntityType,
     matchedFields: MatchedField[],
     prioritizedField: string,
@@ -110,8 +155,7 @@ export const getMatchesPrioritized = (
     const { location } = window;
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const query: string = decodeURIComponent(params.query ? (params.query as string) : '');
-    const matches = fromQueryGetBestMatch(matchedFields, query, prioritizedField);
-    return getMatchesGroupedByFieldName(entityType, matches);
+    return getMatchesPrioritized(entityType, query, matchedFields, prioritizedField);
 };
 
 export const isHighlightableEntityField = (field: MatchedField) =>
@@ -123,7 +167,7 @@ const SURROUNDING_DESCRIPTION_CHARS = 10;
 const MAX_DESCRIPTION_CHARS = 50;
 
 export const getDescriptionSlice = (text: string, target: string) => {
-    const queryIndex = text.indexOf(target);
+    const queryIndex = text.toLowerCase().indexOf(target.toLowerCase());
     const start = Math.max(0, queryIndex - SURROUNDING_DESCRIPTION_CHARS);
     const end = Math.min(
         start + MAX_DESCRIPTION_CHARS,

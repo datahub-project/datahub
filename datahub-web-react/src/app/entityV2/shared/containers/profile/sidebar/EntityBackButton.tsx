@@ -1,6 +1,7 @@
 import React from 'react';
 import { useHistory } from 'react-router';
-import { BackButton } from '../../../../../sharedV2/buttons/BackButton';
+
+import { BackButton } from '@app/sharedV2/buttons/BackButton';
 
 export const EntityBackButton = () => {
     const history = useHistory();

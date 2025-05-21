@@ -1,7 +1,9 @@
 import { useContext, useEffect, useState } from 'react';
-import { LineageTabContext } from '../../../tabs/Lineage/LineageTabContext';
-import { PreviewSection } from '../../../../../shared/MatchesContext';
-import { EntityType, SearchResult } from '../../../../../../types.generated';
+
+import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
+import { PreviewSection } from '@app/shared/MatchesContext';
+
+import { EntityType, SearchResult } from '@types';
 
 export const useInitializeColumnLineageCards = (
     searchResults: SearchResult[],

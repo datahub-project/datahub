@@ -11,6 +11,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.AssertionResultInput;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
@@ -53,7 +54,7 @@ public class ReportAssertionResultResolver implements DataFetcher<CompletableFut
     final AssertionResultInput input =
         bindArgument(environment.getArgument("result"), AssertionResultInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final Urn asserteeUrn =
               _assertionService.getEntityUrnForAssertion(
@@ -80,7 +81,9 @@ public class ReportAssertionResultResolver implements DataFetcher<CompletableFut
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private static StringMap mapContextParameters(List<StringMapEntryInput> input) {

@@ -1,8 +1,9 @@
-import React from 'react';
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
 import { RenderExpandIconProps } from 'rc-table/lib/interface';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../../constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Prefix = styled.div<{ padding: number }>`
     padding-left: ${(props) => props.padding}px;

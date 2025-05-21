@@ -1,19 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
-import { useLocation } from 'react-router';
-import { Button, message, Pagination } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
+import { Button, Pagination, message } from 'antd';
 import * as QueryString from 'query-string';
-import { useListMyViewsQuery } from '../../../graphql/view.generated';
-import { SearchBar } from '../../search/SearchBar';
-import TabToolbar from '../shared/components/styled/TabToolbar';
-import { Message } from '../../shared/Message';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { scrollToTop } from '../../shared/searchUtils';
-import { ViewsTable } from './ViewsTable';
-import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from './utils';
-import { ViewBuilder } from './builder/ViewBuilder';
-import { ViewBuilderMode } from './builder/types';
+import React, { useEffect, useState } from 'react';
+import { useLocation } from 'react-router';
+import styled from 'styled-components';
+
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ViewsTable } from '@app/entity/view/ViewsTable';
+import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
+import { ViewBuilderMode } from '@app/entity/view/builder/types';
+import { DEFAULT_LIST_VIEWS_PAGE_SIZE, searchViews } from '@app/entity/view/utils';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useListMyViewsQuery } from '@graphql/view.generated';
 
 const PaginationContainer = styled.div`
     display: flex;

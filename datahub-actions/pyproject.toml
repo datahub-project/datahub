@@ -1,0 +1,60 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools>65.5.1", "wheel>0.38.1", "pip>=21.0.0"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+exclude = [
+    ".git",
+    "venv",
+    ".tox",
+    "__pycache__",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+combine-as-imports = true
+known-first-party = ["datahub"]
+extra-standard-library = ["__future__"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+force-sort-within-sections = false
+force-wrap-aliases = false
+split-on-trailing-comma = false
+order-by-type = true
+relative-imports-order = "closest-to-furthest"
+force-single-line = false
+single-line-exclusions = ["typing"]
+length-sort = false
+from-first = false
+required-imports = []
+classes = ["typing"]
+
+[tool.ruff.lint]
+extend-select = [
+    "B",    # flake8-bugbear
+    "C90",  # mccabe complexity
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "G010", # logging.warn -> logging.warning
+    "I",    # isort
+    "TID",  # flake8-tidy-imports
+    "RUF100",  # unused-noqa
+]
+ignore = [
+    "E501",  # Line length violations (handled by formatter)
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 15
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]

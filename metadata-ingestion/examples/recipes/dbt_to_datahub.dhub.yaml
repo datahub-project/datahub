@@ -1,5 +1,5 @@
 ---
-# see https://datahubproject.io/docs/generated/ingestion/sources/dbt for complete documentation
+# see https://docs.datahub.com/docs/generated/ingestion/sources/dbt for complete documentation
 source:
   type: "dbt"
   config:
@@ -7,7 +7,7 @@ source:
     catalog_path: "./tests/integration/dbt/dbt_catalog.json"
     sources_path: "./tests/integration/dbt/dbt_sources.json"
     target_platform: "dbt"
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:

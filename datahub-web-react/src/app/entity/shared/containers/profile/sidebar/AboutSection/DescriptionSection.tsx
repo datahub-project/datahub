@@ -1,15 +1,18 @@
 import { Typography } from 'antd';
+import DOMPurify from 'dompurify';
 import React, { useState } from 'react';
-import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import CompactContext from '../../../../../../shared/CompactContext';
-import MarkdownViewer, { MarkdownView } from '../../../../components/legacy/MarkdownViewer';
-import NoMarkdownViewer, { removeMarkdown } from '../../../../components/styled/StripMarkdownText';
-import { useRouteToTab } from '../../../../EntityContext';
-import { useIsOnTab } from '../../utils';
-import { ANTD_GRAY } from '../../../../constants';
-import { EntityType } from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import styled from 'styled-components/macro';
+
+import { useRouteToTab } from '@app/entity/shared/EntityContext';
+import MarkdownViewer, { MarkdownView } from '@app/entity/shared/components/legacy/MarkdownViewer';
+import NoMarkdownViewer, { removeMarkdown } from '@app/entity/shared/components/styled/StripMarkdownText';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useIsOnTab } from '@app/entity/shared/containers/profile/utils';
+import CompactContext from '@app/shared/CompactContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const ABBREVIATED_LIMIT = 150;
 
@@ -68,12 +71,15 @@ export default function DescriptionSection({ description, baDescription, isExpan
         }
     }
 
+    const sanitizedDescription = DOMPurify.sanitize(description);
+    const sanitizedBADescription = DOMPurify.sanitize(baDescription || '');
+
     return (
         <>
             <ContentWrapper>
                 {isExpanded && (
                     <>
-                        <MarkdownViewer source={description} ignoreLimit />
+                        <MarkdownViewer source={sanitizedDescription} ignoreLimit />
                         {isOverLimit && (
                             <Typography.Link onClick={() => setIsExpanded(false)}>Read Less</Typography.Link>
                         )}
@@ -89,14 +95,14 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         }
                         shouldWrap
                     >
-                        {description}
+                        {sanitizedDescription}
                     </NoMarkdownViewer>
                 )}
             </ContentWrapper>
             <BaContentWrapper>
                 {isBaExpanded && (
                     <>
-                        <MarkdownViewer source={baDescription || ''} ignoreLimit />
+                        <MarkdownViewer source={sanitizedBADescription || ''} ignoreLimit />
                         {isBaOverLimit && (
                             <Typography.Link onClick={() => setIsBaExpanded(false)}>Read Less</Typography.Link>
                         )}
@@ -112,7 +118,7 @@ export default function DescriptionSection({ description, baDescription, isExpan
                         }
                         shouldWrap
                     >
-                        {baDescription}
+                        {sanitizedBADescription}
                     </NoMarkdownViewer>
                 )}
             </BaContentWrapper>

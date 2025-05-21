@@ -1,4 +1,4 @@
-import { Button, ButtonProps, Heading, typography, Text, Icon } from '@components';
+import { Button, ButtonProps, Heading, Icon, Text, typography } from '@components';
 import { Modal as AntModal, ModalProps as AntModalProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';

@@ -1,10 +1,12 @@
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Popover } from '@components';
-import PropagationEntityLink from './PropagationEntityLink';
-import { usePropagationDetails } from './utils';
-import { PropagateThunderbolt, PropagateThunderboltFilled } from './PropagationIcon';
-import { StringMapEntry } from '../../../types.generated';
+
+import PropagationEntityLink from '@app/sharedV2/propagation/PropagationEntityLink';
+import { PropagateThunderbolt, PropagateThunderboltFilled } from '@app/sharedV2/propagation/PropagationIcon';
+import { usePropagationDetails } from '@app/sharedV2/propagation/utils';
+
+import { StringMapEntry } from '@types';
 
 const PopoverWrapper = styled.div`
     display: flex;
@@ -67,7 +69,7 @@ export default function DocumentationPropagationDetails({ sourceDetail }: Props)
                 <PopoverDescription>
                     This description was automatically propagated from an upstream column.{' '}
                     <PopoverDocumentation
-                        href="https://datahubproject.io/docs/automation/docs-propagation"
+                        href="https://docs.datahub.com/docs/automation/docs-propagation"
                         target="_blank"
                         rel="noopener noreferrer"
                     >

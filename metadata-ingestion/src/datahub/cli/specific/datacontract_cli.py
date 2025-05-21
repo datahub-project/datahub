@@ -6,6 +6,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.datacontract.datacontract import DataContract
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -28,7 +29,7 @@ def upsert(file: str) -> None:
     data_contract: DataContract = DataContract.from_yaml(file)
     urn = data_contract.urn
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if not graph.exists(data_contract.entity):
             raise ValueError(
                 f"Cannot define a data contract for non-existent entity {data_contract.entity}"
@@ -72,7 +73,7 @@ def delete(urn: Optional[str], file: Optional[str], hard: bool) -> None:
         data_contract = DataContract.from_yaml(file)
         urn = data_contract.urn
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if not graph.exists(urn):
             raise ValueError(f"Data Contract {urn} does not exist")
 

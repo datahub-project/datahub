@@ -1,26 +1,28 @@
+import { AppstoreOutlined } from '@ant-design/icons';
 import React, { useEffect } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { AppstoreOutlined } from '@ant-design/icons';
-import { useEntityContext, useEntityData } from '../../../entity/shared/EntityContext';
-import { useGetDomainEntitySummaryQuery } from '../../../../graphql/domain.generated';
+
+import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     getContentsSummary,
     getDomainEntitiesFilterUrl,
     navigateToDomainEntities,
-} from '../../shared/containers/profile/sidebar/Domain/utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import ContentSectionLoading from './ContentSectionLoading';
-import { EntityCountCard } from '../../../sharedV2/cards/EntityCountCard';
-import { pluralize } from '../../../shared/textUtil';
+} from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
 import {
     SectionContainer,
     SummaryTabHeaderTitle,
     SummaryTabHeaderWrapper,
-} from '../../shared/summary/HeaderComponents';
-import { getContentTypeIcon } from '../../shared/summary/IconComponents';
-import { ANTD_GRAY } from '../../shared/constants';
-import { Carousel } from '../../../sharedV2/carousel/Carousel';
+} from '@app/entityV2/shared/summary/HeaderComponents';
+import { getContentTypeIcon } from '@app/entityV2/shared/summary/IconComponents';
+import { pluralize } from '@app/shared/textUtil';
+import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
+import { Carousel } from '@app/sharedV2/carousel/Carousel';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetDomainEntitySummaryQuery } from '@graphql/domain.generated';
 
 const ViewAllButton = styled.div`
     color: ${ANTD_GRAY[7]};

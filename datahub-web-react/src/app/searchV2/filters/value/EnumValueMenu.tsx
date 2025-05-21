@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
-import { FilterField, FilterValue, FilterValueOption } from '../types';
-import { mapFilterOption } from '../mapFilterOption';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import OptionsDropdownMenu from '../OptionsDropdownMenu';
-import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadAggregationOptions } from './utils';
-import { OptionMenu } from './styledComponents';
-import { getStructuredPropFilterDisplayName, useFilterDisplayName } from '../utils';
-import { STRUCTURED_PROPERTIES_FILTER_NAME } from '../../utils/constants';
+
+import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
+import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
+import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
+import { getFilterDisplayName, useFilterDisplayName } from '@app/searchV2/filters/utils';
+import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import {
+    deduplicateOptions,
+    useFilterOptionsBySearchQuery,
+    useLoadAggregationOptions,
+} from '@app/searchV2/filters/value/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityType } from '@src/types.generated';
 
 interface Props {
     field: FilterField;
@@ -17,6 +22,7 @@ interface Props {
     type?: 'card' | 'default';
     includeCount?: boolean;
     className?: string;
+    aggregationsEntityTypes?: Array<EntityType>;
 }
 
 export default function EnumValueMenu({
@@ -28,6 +34,7 @@ export default function EnumValueMenu({
     onChangeValues,
     onApply,
     className,
+    aggregationsEntityTypes,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = useFilterDisplayName(field);
@@ -36,7 +43,12 @@ export default function EnumValueMenu({
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
     // Here we optionally load the aggregation options, which are the options that are displayed by default.
-    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions(field, true, includeCount);
+    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions({
+        field,
+        visible: true,
+        includeCounts: includeCount,
+        aggregationsEntityTypes,
+    });
 
     const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
 
@@ -52,10 +64,7 @@ export default function EnumValueMenu({
                 value: option.value,
                 count: option.count,
                 entity: option.entity,
-                displayName:
-                    option.displayName || field.field.startsWith(STRUCTURED_PROPERTIES_FILTER_NAME)
-                        ? getStructuredPropFilterDisplayName(field.field, option.value)
-                        : undefined,
+                displayName: getFilterDisplayName(option, field),
             },
             entityRegistry,
             selectedFilterOptions: values.map((value) => {

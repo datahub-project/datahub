@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
 import { Typography } from 'antd';
-import { EntityType, Ownership } from '../../../types.generated';
-import { ExpandedOwner } from '../shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { EditOwnersModal } from '../shared/containers/profile/sidebar/Ownership/EditOwnersModal';
-import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
-import { TagsSection } from '../shared/SidebarStyledComponents';
+import React, { useState } from 'react';
+
+import { TagsSection } from '@app/entityV2/shared/SidebarStyledComponents';
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
+import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
+import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+
+import { EntityType, Ownership } from '@types';
 
 type Props = {
     ownership: Ownership;

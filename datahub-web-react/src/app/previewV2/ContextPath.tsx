@@ -1,16 +1,18 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { BrowsePathEntry, BrowsePathV2, Entity, EntityType } from '../../types.generated';
-import { getSubTypeIcon } from '../entityV2/shared/components/subtypes';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import ParentEntities from '../searchV2/filters/ParentEntities';
-import { capitalizeFirstLetterOnly } from '../shared/textUtil';
-import { useEntityRegistryV2 } from '../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../entityV2/Entity';
-import BrowsePaths from './BrowsePaths';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { isDefaultBrowsePath } from './utils';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import BrowsePaths from '@app/previewV2/BrowsePaths';
+import { isDefaultBrowsePath } from '@app/previewV2/utils';
+import ParentEntities from '@app/searchV2/filters/ParentEntities';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+
+import { BrowsePathEntry, BrowsePathV2, Entity, EntityType } from '@types';
 
 const PlatformContentWrapper = styled.div`
     display: flex;
@@ -26,8 +28,9 @@ export const PlatformText = styled.div<{
     $maxWidth?: number;
     $previewType?: Maybe<PreviewType>;
     $isCompactView?: boolean;
+    $color?: string;
 }>`
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: ${(props) => props.$color ?? REDESIGN_COLORS.TEXT_GREY};
     white-space: nowrap;
     font-family: Mulish;
     font-style: normal;
@@ -71,12 +74,12 @@ const TypeIconWrapper = styled.span`
     }
 `;
 
-const PlatFormTitle = styled.span`
+const PlatFormTitle = styled.span<{ $color?: string }>`
     display: inline-block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${REDESIGN_COLORS.TEXT_GREY};
+    color: ${(props) => props.$color ?? REDESIGN_COLORS.TEXT_GREY};
 `;
 
 interface Props {
@@ -96,6 +99,8 @@ interface Props {
     contentRef: React.RefObject<HTMLDivElement>;
     isContentTruncated?: boolean;
     linksDisabled?: boolean;
+    showPlatformText?: boolean;
+    color?: string;
 }
 
 function ContextPath(props: Props) {
@@ -110,6 +115,8 @@ function ContextPath(props: Props) {
         contentRef,
         isContentTruncated = false,
         linksDisabled,
+        showPlatformText = true,
+        color,
     } = props;
 
     const entityRegistry = useEntityRegistryV2();
@@ -125,15 +132,18 @@ function ContextPath(props: Props) {
 
     return (
         <PlatformContentWrapper>
-            <PlatformText
-                $maxWidth={entityTitleWidth}
-                $isCompactView={isCompactView}
-                title={capitalizeFirstLetterOnly(type)}
-            >
-                {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
-                <PlatFormTitle>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
-                {showEntityTypeDivider && divider}
-            </PlatformText>
+            {showPlatformText && (
+                <PlatformText
+                    $color={color}
+                    $maxWidth={entityTitleWidth}
+                    $isCompactView={isCompactView}
+                    title={capitalizeFirstLetterOnly(type)}
+                >
+                    {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
+                    <PlatFormTitle $color={color}>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
+                    {showEntityTypeDivider && divider}
+                </PlatformText>
+            )}
             {hasBrowsePath ? (
                 <BrowsePaths
                     browsePaths={browsePaths}
@@ -141,9 +151,15 @@ function ContextPath(props: Props) {
                     contentRef={contentRef}
                     isContentTruncated={isContentTruncated}
                     linksDisabled={linksDisabled}
+                    color={color}
                 />
             ) : (
-                <ParentEntities parentEntities={parentEntities || []} numVisible={3} linksDisabled={linksDisabled} />
+                <ParentEntities
+                    parentEntities={parentEntities || []}
+                    numVisible={3}
+                    linksDisabled={linksDisabled}
+                    color={color}
+                />
             )}
         </PlatformContentWrapper>
     );

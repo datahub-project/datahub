@@ -3,7 +3,8 @@ import Icon from '@ant-design/icons/lib/components/Icon';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import ExternalLink from '../../../../../images/link-out.svg?react';
+
+import ExternalLink from '@images/link-out.svg?react';
 
 const DatasetWrapper = styled.div`
     display: flex;

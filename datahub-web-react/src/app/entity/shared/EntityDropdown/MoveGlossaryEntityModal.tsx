@@ -1,13 +1,16 @@
+import { Button, Form, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { message, Button, Modal, Typography, Form } from 'antd';
-import { useEntityData, useRefetch } from '../EntityContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.generated';
-import NodeParentSelect from './NodeParentSelect';
-import { useGlossaryEntityData } from '../GlossaryEntityContext';
-import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
-import { getModalDomContainer } from '../../../../utils/focus';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import NodeParentSelect from '@app/entity/shared/EntityDropdown/NodeParentSelect';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Entity } from '@src/types.generated';
+import { getModalDomContainer } from '@utils/focus';
+
+import { useUpdateParentNodeMutation } from '@graphql/glossary.generated';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -24,7 +27,8 @@ interface Props {
 function MoveGlossaryEntityModal(props: Props) {
     const { onClose } = props;
     const { urn: entityDataUrn, entityData, entityType } = useEntityData();
-    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate } = useGlossaryEntityData();
+    const { isInGlossaryContext, urnsToUpdate, setUrnsToUpdate, setNodeToDeletedUrn, setNodeToNewEntity } =
+        useGlossaryEntityData();
     const [form] = Form.useForm();
     const entityRegistry = useEntityRegistry();
     const [selectedParentUrn, setSelectedParentUrn] = useState('');
@@ -52,7 +56,18 @@ function MoveGlossaryEntityModal(props: Props) {
                     if (isInGlossaryContext) {
                         const oldParentToUpdate = getParentNodeToUpdate(entityData, entityType);
                         const newParentToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
+                        if (oldParentToUpdate === newParentToUpdate) return;
                         updateGlossarySidebar([oldParentToUpdate, newParentToUpdate], urnsToUpdate, setUrnsToUpdate);
+                        setNodeToDeletedUrn((currData) => ({
+                            ...currData,
+                            [oldParentToUpdate]: entityDataUrn,
+                        }));
+                        if (selectedParentUrn) {
+                            setNodeToNewEntity((currData) => ({
+                                ...currData,
+                                [selectedParentUrn]: entityData as Entity,
+                            }));
+                        }
                     }
                 }, 2000);
             })

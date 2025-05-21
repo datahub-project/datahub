@@ -2,14 +2,16 @@ import { Badge } from 'antd';
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { EntityType } from '../../../../../../../types.generated';
-import { decodeSchemaField } from '../../../../../../lineage/utils/columnLineageUtils';
-import CompactContext from '../../../../../../shared/CompactContext';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../../constants';
-import { useBaseEntity } from '../../../../EntityContext';
-import { FkContext } from '../utils/selectedFkContext';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FkContext } from '@app/entity/shared/tabs/Dataset/Schema/utils/selectedFkContext';
+import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import CompactContext from '@app/shared/CompactContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { EntityType } from '@types';
 
 const ForeignKeyContent = styled.tr`
     position: absolute;

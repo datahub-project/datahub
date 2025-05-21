@@ -61,7 +61,8 @@ public class TrackingController extends Controller {
     } catch (Exception e) {
       logger.error(
           String.format(
-              "Failed to emit product analytics event. actor: %s, event: %s", actor, event));
+              "Failed to emit product analytics event. actor: %s, event: %s", actor, event),
+          e);
       return internalServerError(e.getMessage());
     }
   }

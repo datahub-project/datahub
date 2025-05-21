@@ -1,7 +1,8 @@
 import { Typography } from 'antd';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../shared/constants';
-import { HeaderTitle } from '../../shared/summary/HeaderComponents';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 
 export const MainSection = styled.div`
     display: flex;

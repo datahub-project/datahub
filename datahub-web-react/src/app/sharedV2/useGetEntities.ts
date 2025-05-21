@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useGetEntitiesQuery } from '../../graphql/entity.generated';
-import { Entity } from '../../types.generated';
+
+import { useGetEntitiesQuery } from '@graphql/entity.generated';
+import { Entity } from '@types';
 
 export function useGetEntities(urns: string[]): Entity[] {
     const [verifiedUrns, setVerifiedUrns] = useState<string[]>([]);

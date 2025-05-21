@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { MetricPointProps } from '../types';
+
+import { MetricPointProps } from '@components/components/WhiskerChart/types';
 
 const StyledRect = styled.rect`
     cursor: pointer;

@@ -1,11 +1,13 @@
 import { Typography } from 'antd';
-import { ColumnsType, ColumnType } from 'antd/lib/table';
+import { ColumnType, ColumnsType } from 'antd/lib/table';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
-import { DatasetFieldProfile } from '../../../../../../../types.generated';
-import { StyledTable } from '../../../../components/styled/StyledTable';
-import { ANTD_GRAY } from '../../../../constants';
-import SampleValueTag from './SampleValueTag';
+
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import SampleValueTag from '@app/entity/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
+
+import { DatasetFieldProfile } from '@types';
 
 type Props = {
     columnStats: Array<DatasetFieldProfile>;

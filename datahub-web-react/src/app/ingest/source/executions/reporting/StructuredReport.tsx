@@ -1,10 +1,10 @@
+import { CloseCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import React from 'react';
 import styled from 'styled-components';
-import { CloseCircleOutlined, ExclamationCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 
-import { StructuredReportItemLevel, StructuredReport as StructuredReportType } from '../../types';
-import { StructuredReportItemList } from './StructuredReportItemList';
-import { REDESIGN_COLORS } from '../../../../entity/shared/constants';
+import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { StructuredReportItemList } from '@app/ingest/source/executions/reporting/StructuredReportItemList';
+import { StructuredReportItemLevel, StructuredReport as StructuredReportType } from '@app/ingest/source/types';
 
 const Container = styled.div`
     display: flex;

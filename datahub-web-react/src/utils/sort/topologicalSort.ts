@@ -1,4 +1,4 @@
-import { DataJob } from '../../types.generated';
+import { DataJob } from '@types';
 
 function topologicalSortVisit(nodeUrn: string, result: string[], visited: string[], nodes: DataJob[]) {
     if (result.indexOf(nodeUrn) !== -1 || visited.indexOf(nodeUrn) !== -1) {

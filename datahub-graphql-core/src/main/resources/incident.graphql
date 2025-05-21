@@ -6,7 +6,8 @@ extend type Mutation {
     """
     Input required to create a new incident
     """
-    input: RaiseIncidentInput!): String
+    input: RaiseIncidentInput!
+  ): String
 
   """
   Update the status of an existing incident for a resource (asset)
@@ -20,7 +21,8 @@ extend type Mutation {
     """
     Input required to update the state of an existing incident
     """
-    input: IncidentStatusInput!): Boolean
+    input: IncidentStatusInput!
+  ): Boolean
 
   """
   Update an existing data incident. Any fields that are omitted will simply not be updated.
@@ -34,7 +36,8 @@ extend type Mutation {
     """
     Input required to update an existing incident
     """
-    input: UpdateIncidentInput!): Boolean
+    input: UpdateIncidentInput!
+  ): Boolean
 }
 
 """
@@ -257,7 +260,6 @@ enum IncidentType {
   CUSTOM
 }
 
-
 """
 Details about the status of an asset incident
 """
@@ -459,27 +461,28 @@ extend type Dataset {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional incident stage to filter by, defaults to any state.
     """
-    stage: IncidentStage,
+    stage: IncidentStage
     """
     Optional incident priority to filter by, defaults to any state.
     """
-    priority: IncidentPriority,
+    priority: IncidentPriority
     """
     Optional assignee urns for an incident.
     """
-    assigneeUrns: [String!],
+    assigneeUrns: [String!]
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type DataJob {
@@ -490,27 +493,28 @@ extend type DataJob {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional incident stage to filter by, defaults to any state.
     """
-    stage: IncidentStage,
+    stage: IncidentStage
     """
     Optional incident priority to filter by, defaults to any state.
     """
-    priority: IncidentPriority,
+    priority: IncidentPriority
     """
     Optional assignee urns for an incident.
     """
-    assigneeUrns: [String!],
+    assigneeUrns: [String!]
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type DataFlow {
@@ -521,27 +525,28 @@ extend type DataFlow {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional incident stage to filter by, defaults to any state.
     """
-    stage: IncidentStage,
+    stage: IncidentStage
     """
     Optional incident priority to filter by, defaults to any state.
     """
-    priority: IncidentPriority,
+    priority: IncidentPriority
     """
     Optional assignee urns for an incident.
     """
-    assigneeUrns: [String!],
+    assigneeUrns: [String!]
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type Dashboard {
@@ -552,27 +557,28 @@ extend type Dashboard {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional incident stage to filter by, defaults to any state.
     """
-    stage: IncidentStage,
+    stage: IncidentStage
     """
     Optional incident priority to filter by, defaults to any state.
     """
-    priority: IncidentPriority,
+    priority: IncidentPriority
     """
     Optional assignee urns for an incident.
     """
-    assigneeUrns: [String!],
+    assigneeUrns: [String!]
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }
 
 extend type Chart {
@@ -583,25 +589,26 @@ extend type Chart {
     """
     Optional incident state to filter by, defaults to any state.
     """
-    state: IncidentState,
+    state: IncidentState
     """
     Optional incident stage to filter by, defaults to any state.
     """
-    stage: IncidentStage,
+    stage: IncidentStage
     """
     Optional incident priority to filter by, defaults to any state.
     """
-    priority: IncidentPriority,
+    priority: IncidentPriority
     """
     Optional assignee urns for an incident.
     """
-    assigneeUrns: [String!],
+    assigneeUrns: [String!]
     """
     Optional start offset, defaults to 0.
     """
-    start: Int,
+    start: Int
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult
+    count: Int
+  ): EntityIncidentsResult
 }

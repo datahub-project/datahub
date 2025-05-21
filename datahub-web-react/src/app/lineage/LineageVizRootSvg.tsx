@@ -2,10 +2,10 @@ import { ProvidedZoom, TransformMatrix } from '@visx/zoom/lib/types';
 import React, { SVGProps, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components/macro';
 
-import { useEntityRegistry } from '../useEntityRegistry';
-import LineageTree from './LineageTree';
-import { EntityAndType, FetchedEntity, EntitySelectParams, Direction, UpdatedLineages } from './types';
-import constructTree from './utils/constructTree';
+import LineageTree from '@app/lineage/LineageTree';
+import { Direction, EntityAndType, EntitySelectParams, FetchedEntity, UpdatedLineages } from '@app/lineage/types';
+import constructTree from '@app/lineage/utils/constructTree';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 type Props = {
     margin: { top: number; right: number; bottom: number; left: number };

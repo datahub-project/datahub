@@ -1,9 +1,40 @@
 import argparse
+from datetime import datetime
 
 from dh_ai_client import DatahubAIClient
 
-import datahub.metadata.schema_classes as models
+from datahub.emitter.mcp_builder import (
+    ContainerKey,
+)
+from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import RunResultType
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    DataProcessInstancePropertiesClass,
+    MLHyperParamClass,
+    MLMetricClass,
+    MLTrainingRunPropertiesClass,
+)
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    DataProcessInstanceUrn,
+    GlossaryTermUrn,
+    TagUrn,
+)
+from datahub.sdk.container import Container
+from datahub.sdk.dataset import Dataset
+from datahub.sdk.mlmodel import MLModel
+from datahub.sdk.mlmodelgroup import MLModelGroup
+
+run_id = "simple_training_run"
+run_name = "Simple Training Run"
+experiment_id = "airline_forecast_experiment"
+experiment_name = "Airline Forecast Experiment"
+model_id = "arima_model"
+model_name = "ARIMA Model"
+model_group_id = "airline_forecast_models_group"
+model_group_name = "Airline Forecast Models Group"
+
 
 if __name__ == "__main__":
     # Example usage
@@ -18,117 +49,146 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     client = DatahubAIClient(token=args.token, server_url=args.server_url)
-
     # Create model group
-    model_group_urn = client.create_model_group(
-        group_id="airline_forecast_models_group",
-        properties=models.MLModelGroupPropertiesClass(
-            name="Airline Forecast Models Group",
-            description="Group of models for airline passenger forecasting",
-            created=models.TimeStampClass(
-                time=1628580000000, actor="urn:li:corpuser:datahub"
-            ),
-        ),
+    model_group = MLModelGroup(
+        id=model_group_id,
+        platform="mlflow",
+        name=model_group_name,
+        description="Group of models for airline passenger forecasting",
+        created=datetime.now(),
+        last_modified=datetime.now(),
+        owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+        external_url="https://www.linkedin.com/in/datahub",
+        tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
+        terms=["urn:li:glossaryTerm:forecasting"],
+        # training_jobs=[DataProcessInstanceUrn(run_id)],
+        custom_properties={"team": "forecasting"},
     )
 
-    # Creating a model with property classes
-    model_urn = client.create_model(
-        model_id="arima_model",
-        properties=models.MLModelPropertiesClass(
-            name="ARIMA Model",
-            description="ARIMA model for airline passenger forecasting",
-            customProperties={"team": "forecasting"},
-            trainingMetrics=[
-                models.MLMetricClass(name="accuracy", value="0.9"),
-                models.MLMetricClass(name="precision", value="0.8"),
-            ],
-            hyperParams=[
-                models.MLHyperParamClass(name="learning_rate", value="0.01"),
-                models.MLHyperParamClass(name="batch_size", value="32"),
-            ],
-            externalUrl="https:localhost:5000",
-            created=models.TimeStampClass(
-                time=1628580000000, actor="urn:li:corpuser:datahub"
-            ),
-            lastModified=models.TimeStampClass(
-                time=1628580000000, actor="urn:li:corpuser:datahub"
-            ),
-            tags=["forecasting", "arima"],
-        ),
-        version="1.0",
-        alias="champion",
+    client._emit_mcps(model_group.as_mcps())
+
+    # Create model
+    model = MLModel(
+        id=model_id,
+        platform="mlflow",
+        name=model_name,
+        description="ARIMA model for airline passenger forecasting",
+        created=datetime.now(),
+        last_modified=datetime.now(),
+        owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+        external_url="https://www.linkedin.com/in/datahub",
+        tags=["urn:li:tag:forecasting", "urn:li:tag:arima"],
+        terms=["urn:li:glossaryTerm:forecasting"],
+        # training_jobs=[DataProcessInstanceUrn(run_id)],
+        custom_properties={"team": "forecasting"},
+        version="1",
+        aliases=["champion"],
+        model_group=str(model_group.urn),
+        hyper_params={"learning_rate": "0.01"},
+        training_metrics={"accuracy": "0.9"},
     )
 
-    # Creating an experiment with property class
-    experiment_urn = client.create_experiment(
-        experiment_id="airline_forecast_experiment",
-        properties=models.ContainerPropertiesClass(
-            name="Airline Forecast Experiment",
-            description="Experiment to forecast airline passenger numbers",
-            customProperties={"team": "forecasting"},
-            created=models.TimeStampClass(
-                time=1628580000000, actor="urn:li:corpuser:datahub"
-            ),
-            lastModified=models.TimeStampClass(
-                time=1628580000000, actor="urn:li:corpuser:datahub"
-            ),
+    client._emit_mcps(model.as_mcps())
+
+    # Creating an experiment
+    experiment = Container(
+        container_key=ContainerKey(
+            platform="mlflow",
+            name=experiment_id,
         ),
+        display_name=experiment_name,
+        description="Experiment to forecast airline passenger numbers",
+        extra_properties={"team": "forecasting"},
+        created=datetime(2025, 4, 9, 22, 30),
+        last_modified=datetime(2025, 4, 9, 22, 30),
+        subtype=MLAssetSubTypes.MLFLOW_EXPERIMENT,
     )
+
+    client._emit_mcps(experiment.as_mcps())
 
     run_urn = client.create_training_run(
-        run_id="simple_training_run",
-        properties=models.DataProcessInstancePropertiesClass(
-            name="Simple Training Run",
-            created=models.AuditStampClass(
+        run_id=run_id,
+        properties=DataProcessInstancePropertiesClass(
+            name=run_name,
+            created=AuditStampClass(
                 time=1628580000000, actor="urn:li:corpuser:datahub"
             ),
             customProperties={"team": "forecasting"},
         ),
-        training_run_properties=models.MLTrainingRunPropertiesClass(
-            id="simple_training_run",
+        training_run_properties=MLTrainingRunPropertiesClass(
+            id=run_id,
             outputUrls=["s3://my-bucket/output"],
-            trainingMetrics=[models.MLMetricClass(name="accuracy", value="0.9")],
-            hyperParams=[models.MLHyperParamClass(name="learning_rate", value="0.01")],
+            trainingMetrics=[MLMetricClass(name="accuracy", value="0.9")],
+            hyperParams=[MLHyperParamClass(name="learning_rate", value="0.01")],
             externalUrl="https:localhost:5000",
         ),
         run_result=RunResultType.FAILURE,
         start_timestamp=1628580000000,
         end_timestamp=1628580001000,
     )
-    # Create datasets
-    input_dataset_urns = [
-        client.create_dataset(
-            platform="snowflake",
-            name="iris_input",
-        )
-    ]
 
-    output_dataset_urns = [
-        client.create_dataset(
-            platform="snowflake",
-            name="iris_ouptut",
-        )
-    ]
+    # Create datasets
+    input_dataset = Dataset(
+        platform="snowflake",
+        name="iris_input",
+        description="Raw Iris dataset used for training ML models",
+        schema=[("id", "number"), ("name", "string"), ("species", "string")],
+        display_name="Iris Training Input Data",
+        tags=["urn:li:tag:ml_data", "urn:li:tag:iris"],
+        terms=["urn:li:glossaryTerm:raw_data"],
+        owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+        custom_properties={
+            "data_source": "UCI Repository",
+            "records": "150",
+            "features": "4",
+        },
+    )
+    client._emit_mcps(input_dataset.as_mcps())
+
+    output_dataset = Dataset(
+        platform="snowflake",
+        name="iris_output",
+        description="Processed Iris dataset with model predictions",
+        schema=[("id", "number"), ("name", "string"), ("species", "string")],
+        display_name="Iris Model Output Data",
+        tags=["urn:li:tag:ml_data", "urn:li:tag:predictions"],
+        terms=["urn:li:glossaryTerm:model_output"],
+        owners=[CorpUserUrn("urn:li:corpuser:datahub")],
+        custom_properties={
+            "model_version": "1.0",
+            "records": "150",
+            "accuracy": "0.95",
+        },
+    )
+    client._emit_mcps(output_dataset.as_mcps())
 
     # Add run to experiment
-    client.add_run_to_experiment(run_urn=run_urn, experiment_urn=experiment_urn)
-
-    # Add model to model group
-    client.add_model_to_model_group(model_urn=model_urn, group_urn=model_group_urn)
-
-    # Add run to model
-    client.add_run_to_model(
-        model_urn=model_urn,
-        run_urn=run_urn,
-    )
-
-    # add run to model group
-    client.add_run_to_model_group(
-        model_group_urn=model_group_urn,
-        run_urn=run_urn,
-    )
+    print(experiment.urn)
+    client.add_run_to_experiment(run_urn=run_urn, experiment_urn=str(experiment.urn))
 
     # Add input and output datasets to run
-    client.add_input_datasets_to_run(run_urn=run_urn, dataset_urns=input_dataset_urns)
+    client.add_input_datasets_to_run(
+        run_urn=run_urn, dataset_urns=[str(input_dataset.urn)]
+    )
 
-    client.add_output_datasets_to_run(run_urn=run_urn, dataset_urns=output_dataset_urns)
+    client.add_output_datasets_to_run(
+        run_urn=run_urn, dataset_urns=[str(output_dataset.urn)]
+    )
+
+    model.add_training_job(DataProcessInstanceUrn(run_id))
+
+    model_group.add_training_job(DataProcessInstanceUrn(run_id))
+
+    model.set_model_group(model_group.urn)
+
+    model.add_version_alias("challenger")
+
+    model.add_term(GlossaryTermUrn("marketing"))
+
+    model.add_tag(TagUrn("marketing"))
+
+    model.set_version("2")
+
+    client._emit_mcps(model.as_mcps())
+
+    client._emit_mcps(model_group.as_mcps())

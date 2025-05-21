@@ -1,6 +1,7 @@
 ---
 title: Configuration
 ---
+
 # Configuring Your Redshift Connector to DataHub
 
 Now that you have created a DataHub user in Redshift in [the prior step](setup.md), it's time to set up a connection via the DataHub UI.
@@ -27,11 +28,11 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
 
 This will securely store your Redshift User's password within DataHub
 
-* Click **Create new secret** again
-* Enter a name like `REDSHIFT_PASSWORD` - we will use this later to refer to the secret
-* Enter your `datahub` redshift user's password
-* Optionally add a description
-* Click **Create**
+- Click **Create new secret** again
+- Enter a name like `REDSHIFT_PASSWORD` - we will use this later to refer to the secret
+- Enter your `datahub` redshift user's password
+- Optionally add a description
+- Click **Create**
 
 <p align="center">
    <img width="75%" alt="Redshift Password Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_password_secret.png"/>
@@ -81,13 +82,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_scheduled_execution.png"/>
-</p>  
+</p>
 
 8. Ensure you've configured your correct timezone
 
 <p align="center">
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_timezone_selector.png"/>
-</p>  
+</p>
 
 9. Click **Next** when you are done
 
@@ -97,13 +98,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 
 <p align="center">
   <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_name_ingestion.png"/>
-</p>  
+</p>
 
 You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_running.png"/>
-</p>  
+</p>
 
 ## Validate Ingestion Runs
 
@@ -111,7 +112,7 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_succeeded.png"/>
-</p>  
+</p>
 
 12. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
@@ -123,14 +124,12 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_details_view_all.png"/>
-</p>  
+</p>
 
-14. Pick an entity from the list to manually validate if it contains the detail you expected  
+14. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_ingested_assets.png"/>
-</p>  
+</p>
 
 **Congratulations!** You've successfully set up Redshift as an ingestion source for DataHub!
-
-

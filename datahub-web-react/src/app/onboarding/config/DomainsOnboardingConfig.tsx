@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const DOMAINS_INTRO_ID = 'domains-intro';
 export const DOMAINS_CREATE_DOMAIN_ID = 'domains-create-domain';
@@ -20,7 +21,7 @@ export const DomainsOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Domains</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/domains">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains">
                         {' '}
                         here.
                     </a>

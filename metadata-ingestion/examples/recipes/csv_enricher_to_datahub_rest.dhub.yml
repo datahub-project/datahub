@@ -1,5 +1,5 @@
 ---
-# see https://datahubproject.io/docs/metadata-ingestion/source_docs/csv for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/source_docs/csv for complete documentation
 source:
   type: "csv-enricher"
   config:
@@ -9,7 +9,7 @@ source:
     array_delimiter: "|"
 
 
-# see https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for complete documentation
+# see https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for complete documentation
 sink:
   type: "datahub-rest"
   config:

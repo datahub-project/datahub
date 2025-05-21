@@ -1,5 +1,5 @@
-import { UnionType } from '../utils/constants';
-import { mergeFilterSets } from '../utils/filterUtils';
+import { UnionType } from '@app/search/utils/constants';
+import { mergeFilterSets } from '@app/search/utils/filterUtils';
 
 describe('filterUtils', () => {
     describe('mergeFilterSets', () => {

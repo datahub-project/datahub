@@ -51,3 +51,9 @@ class GCPCredential(ConfigModel):
             cred_json = json.dumps(configs, indent=4, separators=(",", ": "))
             fp.write(cred_json.encode())
             return fp.name
+
+    def to_dict(self, project_id: Optional[str] = None) -> Dict[str, str]:
+        configs = self.dict()
+        if project_id:
+            configs["project_id"] = project_id
+        return configs

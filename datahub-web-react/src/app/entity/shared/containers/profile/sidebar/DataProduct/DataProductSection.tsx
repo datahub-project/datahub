@@ -2,13 +2,15 @@ import { EditOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { SidebarHeader } from '../SidebarHeader';
-import { useEntityData } from '../../../../EntityContext';
-import { EMPTY_MESSAGES } from '../../../../constants';
-import SetDataProductModal from './SetDataProductModal';
-import { DataProductLink } from '../../../../../../shared/tags/DataProductLink';
-import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
-import { DataProduct } from '../../../../../../../types.generated';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import SetDataProductModal from '@app/entity/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
+import { DataProductLink } from '@app/shared/tags/DataProductLink';
+
+import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
+import { DataProduct } from '@types';
 
 const EmptyText = styled(Typography.Paragraph)`
     &&& {

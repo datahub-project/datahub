@@ -107,7 +107,9 @@ def run_tests(auth_session, fixture_globs, num_workers=3):
     """
     with concurrent.futures.ThreadPoolExecutor(max_workers=num_workers) as executor:
         futures = []
+        logger.info(f"Processing openapi test glob: {fixture_globs}")
         for fixture_glob in fixture_globs:
+            logger.info(f"Processing openapi test: {fixture_glob}")
             for test_fixture, test_data in load_tests(fixture_glob=fixture_glob):
                 futures.append(
                     executor.submit(

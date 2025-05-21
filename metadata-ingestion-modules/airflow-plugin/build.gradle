@@ -14,6 +14,9 @@ ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -
 if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
 }
+if (!project.hasProperty("extra_pip_constraints")) {
+    ext.extra_pip_constraints = ""
+}
 if (!project.hasProperty("extra_pip_extras")) {
     ext.extra_pip_extras = ""
 }
@@ -22,7 +25,7 @@ if (extra_pip_extras != "") {
     ext.extra_pip_extras = "," + extra_pip_extras
 }
 
-def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
+def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion ${extra_pip_requirements}"
 
 task environmentSetup(type: Exec) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
@@ -40,7 +43,7 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_requirements} &&" +
+    "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_constraints} &&" +
     "touch ${sentinel_file}"
 }
 
@@ -63,7 +66,7 @@ task installTest(type: Exec, dependsOn: [installDev]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pip_install_command} -e .[integration-tests${extra_pip_extras}] ${extra_pip_requirements} && " +
+    "${pip_install_command} -e .[integration-tests${extra_pip_extras}] ${extra_pip_constraints} && " +
     "touch ${sentinel_file}"
 }
 

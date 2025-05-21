@@ -8,6 +8,7 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
@@ -345,7 +346,7 @@ public class UpsertDataContractResolverTest {
       Mockito.when(
               client.getRelatedEntities(
                   Mockito.eq(TEST_DATASET_URN.toString()),
-                  Mockito.eq(ImmutableList.of(CONTRACT_FOR_RELATIONSHIP)),
+                  Mockito.eq(ImmutableSet.of(CONTRACT_FOR_RELATIONSHIP)),
                   Mockito.eq(RelationshipDirection.INCOMING),
                   Mockito.eq(0),
                   Mockito.eq(1),
@@ -367,7 +368,7 @@ public class UpsertDataContractResolverTest {
       Mockito.when(
               client.getRelatedEntities(
                   Mockito.eq(TEST_DATASET_URN.toString()),
-                  Mockito.eq(ImmutableList.of(CONTRACT_FOR_RELATIONSHIP)),
+                  Mockito.eq(ImmutableSet.of(CONTRACT_FOR_RELATIONSHIP)),
                   Mockito.eq(RelationshipDirection.INCOMING),
                   Mockito.eq(0),
                   Mockito.eq(1),

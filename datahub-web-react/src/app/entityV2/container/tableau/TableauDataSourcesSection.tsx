@@ -1,12 +1,14 @@
 import React from 'react';
-import { useEntityData } from '../../../entity/shared/EntityContext';
-import { useGetSearchResultsForMultipleQuery } from '../../../../graphql/search.generated';
-import { EntityType, FilterOperator } from '../../../../types.generated';
-import { HorizontalList } from '../../shared/summary/ListComponents';
-import { HeaderTitle } from '../../shared/summary/HeaderComponents';
-import { getSubTypeIcon, SubType } from '../../shared/components/subtypes';
-import { CONTAINER_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '../../../searchV2/utils/constants';
-import SummaryEntityCard from '../../../sharedV2/cards/SummaryEntityCard';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { SubType, getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
+import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
+import { CONTAINER_FILTER_NAME, TYPE_NAMES_FILTER_NAME } from '@app/searchV2/utils/constants';
+import SummaryEntityCard from '@app/sharedV2/cards/SummaryEntityCard';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { EntityType, FilterOperator } from '@types';
 
 export default function TableauDataSourcesSection() {
     const { urn } = useEntityData();

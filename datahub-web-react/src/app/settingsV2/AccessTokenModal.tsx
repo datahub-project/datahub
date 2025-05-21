@@ -1,7 +1,7 @@
-import React from 'react';
-import { Alert, Button, Modal, Typography } from 'antd';
-import styled from 'styled-components';
 import { InfoCircleOutlined } from '@ant-design/icons';
+import { Alert, Button, Modal, Typography } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 
 const ModalSection = styled.div`
     display: flex;

@@ -1,13 +1,15 @@
+import { Button } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
+import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
+import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
-import { Button } from '@components';
-import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
-import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import { GlossaryNode, GlossaryTerm } from '../../types.generated';
-import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
-import EmptyGlossarySection from './EmptyGlossarySection';
-import GlossaryEntitiesList from './GlossaryEntitiesList';
+
+import { GlossaryNodeFragment } from '@graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
+import { GlossaryNode, GlossaryTerm } from '@types';
 
 const MainContentWrapper = styled.div`
     display: flex;
@@ -67,7 +69,7 @@ const GlossaryContentProvider = (props: Props) => {
                         data-testid="add-term-group-button-v2"
                         id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
                         size="md"
-                        icon="Add"
+                        icon={{ icon: 'Add', source: 'material' }}
                         // can not be disabled on acryl-main due to ability to propose
                         onClick={() => setIsCreateNodeModalVisible(true)}
                     >

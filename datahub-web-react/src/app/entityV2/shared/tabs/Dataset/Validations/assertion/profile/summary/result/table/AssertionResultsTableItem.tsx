@@ -1,16 +1,20 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Tooltip } from '@components';
+import React from 'react';
+import styled from 'styled-components';
 
-import { Assertion, AssertionRunEvent } from '../../../../../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../../../../../constants';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../../../../../../../../shared/time/timeUtils';
-import { getFormattedTimeString } from '../timeline/utils';
-import { ResultStatusType, getFormattedReasonText, getFormattedResultText } from '../../shared/resultMessageUtils';
-import { getResultColor } from '../../../../../assertionUtils';
-import { AssertionResultPopover } from '../../../shared/result/AssertionResultPopover';
-import { applyOpacityToHexColor } from '../../../../../../../../../../shared/styleUtils';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
+import { getFormattedTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
+import {
+    ResultStatusType,
+    getFormattedReasonText,
+    getFormattedResultText,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+import { applyOpacityToHexColor } from '@app/shared/styleUtils';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+
+import { Assertion, AssertionRunEvent } from '@types';
 
 const Container = styled.div<{ highlightColor?: string }>`
     display: flex;

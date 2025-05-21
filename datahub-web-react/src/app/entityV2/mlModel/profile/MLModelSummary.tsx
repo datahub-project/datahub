@@ -1,16 +1,18 @@
+import { Pill } from '@components';
+import { Space, Table, Typography } from 'antd';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
 import { notEmpty } from '@app/entityV2/shared/utils';
+import { TimestampPopover } from '@app/sharedV2/TimestampPopover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Pill } from '@components';
+import { colors } from '@src/alchemy-components/theme';
+
 import { GetMlModelQuery } from '@graphql/mlModel.generated';
 import { EntityType, MlHyperParam, MlMetric } from '@types';
-import React from 'react';
-import styled from 'styled-components';
-import { Space, Table, Typography } from 'antd';
-import { Link } from 'react-router-dom';
-import { colors } from '@src/alchemy-components/theme';
-import moment from 'moment';
 
 const TabContent = styled.div`
     padding: 16px;
@@ -87,21 +89,13 @@ export default function MLModelSummary() {
                         <InfoItemContent>{model?.versionProperties?.version?.versionTag}</InfoItemContent>
                     </InfoItem>
                     <InfoItem title="Registered At">
-                        <InfoItemContent>
-                            {model?.properties?.created?.time
-                                ? moment(model.properties.created.time).format('YYYY-MM-DD HH:mm:ss')
-                                : '-'}
-                        </InfoItemContent>
+                        <TimestampPopover timestamp={model?.properties?.created?.time} title="Registered At" />
                     </InfoItem>
                     <InfoItem title="Last Modified At">
-                        <InfoItemContent>
-                            {model?.properties?.lastModified?.time
-                                ? moment(model.properties.lastModified.time).format('YYYY-MM-DD HH:mm:ss')
-                                : '-'}
-                        </InfoItemContent>
+                        <TimestampPopover timestamp={model?.properties?.lastModified?.time} title="Last Modified At" />
                     </InfoItem>
                     <InfoItem title="Created By">
-                        <InfoItemContent>{model?.properties?.created?.actor}</InfoItemContent>
+                        <InfoItemContent>{model?.properties?.created?.actor || '-'}</InfoItemContent>
                     </InfoItem>
                 </InfoItemContainer>
                 <InfoItemContainer justifyContent="left">

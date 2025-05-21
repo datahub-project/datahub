@@ -37,6 +37,7 @@ from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.telemetry import telemetry
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging
@@ -117,7 +118,7 @@ def version(include_server: bool = False) -> None:
     click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
     if include_server:
-        server_config = get_default_graph().get_config()
+        server_config = get_default_graph(ClientMode.CLI).get_config()
         click.echo(f"Server config: {server_config}")
 
 

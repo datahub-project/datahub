@@ -1,8 +1,9 @@
-import buildEntityRegistryV2 from '@app/buildEntityRegistryV2';
 import React from 'react';
-import { EntityRegistryContext } from '../entityRegistryContext';
-import EntityRegistry from './entity/EntityRegistry';
-import useBuildEntityRegistry from './useBuildEntityRegistry';
+
+import buildEntityRegistryV2 from '@app/buildEntityRegistryV2';
+import EntityRegistry from '@app/entity/EntityRegistry';
+import useBuildEntityRegistry from '@app/useBuildEntityRegistry';
+import { EntityRegistryContext } from '@src/entityRegistryContext';
 
 export const globalEntityRegistryV2 = buildEntityRegistryV2();
 

@@ -1,7 +1,8 @@
 import * as React from 'react';
+
+import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import { UnionType } from '@app/search/utils/constants';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { UnionType } from '../../../search/utils/constants';
-import { EmbeddedListSearchSection } from '../../shared/components/styled/search/EmbeddedListSearchSection';
 
 export default function BusinessAttributeRelatedEntity() {
     const { entityData } = useEntityData();

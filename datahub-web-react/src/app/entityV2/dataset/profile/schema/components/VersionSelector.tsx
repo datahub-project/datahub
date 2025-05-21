@@ -1,14 +1,16 @@
 import { CaretDownOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
+import { Select } from 'antd';
+import React, { useEffect, useMemo } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
+import styled from 'styled-components/macro';
+
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import navigateToUrl from '@app/utils/navigateToUrl';
+
 import { DataPlatform, SemanticVersionStruct } from '@types';
-import { Select } from 'antd';
-import { Tooltip } from '@components';
-import React, { useEffect, useMemo } from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
-import styled from 'styled-components/macro';
 
 export const SEMANTIC_VERSION_PARAM = 'semantic_version';
 export const SIBLING_VERSION_PARAM = 'secondary_version'; // Note: Currently unused

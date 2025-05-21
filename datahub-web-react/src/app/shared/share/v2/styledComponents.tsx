@@ -1,6 +1,7 @@
 import { Button, Checkbox, Form, Menu, Modal, Typography } from 'antd';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 export const StyledMenuItem = styled(Menu.Item)`
     min-width: 120px;
@@ -72,7 +73,9 @@ export const StyledModal = styled(Modal)`
     max-width: 680px;
 
     &&& .ant-modal-content {
-        box-shadow: 0px 4px 4px 0px rgba(0, 0, 0, 0.25), 0px 4px 8px 3px rgba(0, 0, 0, 0.15);
+        box-shadow:
+            0px 4px 4px 0px rgba(0, 0, 0, 0.25),
+            0px 4px 8px 3px rgba(0, 0, 0, 0.15);
         border-radius: 12px;
     }
 
@@ -91,7 +94,7 @@ export const StyledModal = styled(Modal)`
     }
 
     .ant-modal-close-x {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.styles['primary-color']};
         display: flex;
         align-items: center;
         justify-content: center;
@@ -99,7 +102,7 @@ export const StyledModal = styled(Modal)`
         padding-top: 20px;
 
         :hover {
-            stroke: ${REDESIGN_COLORS.TITLE_PURPLE};
+            stroke: ${(props) => props.theme.styles['primary-color']};
         }
     }
 `;
@@ -125,12 +128,12 @@ export const StyledFormItem = styled(Form.Item)`
         &:hover,
         &:focus,
         &:active {
-            border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            border-color: ${(props) => props.theme.styles['primary-color']};
         }
 
         &:focus,
         &:active {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            color: ${(props) => props.theme.styles['primary-color']};
             box-shadow: 0px 0px 4px 0px rgba(83, 63, 209, 0.5);
         }
     }

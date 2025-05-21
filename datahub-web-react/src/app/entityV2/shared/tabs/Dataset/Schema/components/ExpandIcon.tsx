@@ -1,10 +1,12 @@
 import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { Typography } from 'antd';
 import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import RowIcon from '../../../../../../../images/row-icon.svg?react';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+
+import RowIcon from '@images/row-icon.svg?react';
 
 const Prefix = styled.div<{ padding: number }>`
     position: absolute;
@@ -25,8 +27,8 @@ const Padding = styled.span<{ padding: number }>`
 
 const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
     :hover {
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
-        stroke: ${SEARCH_COLORS.TITLE_PURPLE};
+        color: ${(props) => props.theme.styles['primary-color']};
+        stroke: ${(props) => props.theme.styles['primary-color']};
         stroke-width: 140px;
     }
     color: ${REDESIGN_COLORS.DARK_GREY};
@@ -43,8 +45,8 @@ const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
 
 const Right = styled(RightOutlined)<{ isCompact?: boolean }>`
     :hover {
-        stroke: ${SEARCH_COLORS.TITLE_PURPLE};
-        color: ${SEARCH_COLORS.TITLE_PURPLE};
+        stroke: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.styles['primary-color']};
         stroke-width: 140px;
     }
     color: ${REDESIGN_COLORS.DARK_GREY};

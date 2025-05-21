@@ -1,13 +1,15 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import React from 'react';
 import { BookmarkSimple } from '@phosphor-icons/react';
-import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType, PreviewType } from '../../Entity';
-import UrlButton from '../../shared/UrlButton';
-import { getRelatedAssetsUrl } from '../utils';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+import React from 'react';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import UrlButton from '@app/entityV2/shared/UrlButton';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '@types';
 
 export const Preview = ({
     urn,

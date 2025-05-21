@@ -1,10 +1,12 @@
+import { Popover } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Popover } from 'antd';
-import { StringMapEntry } from '../../../../types.generated';
-import PropagationEntityLink from './PropagationEntityLink';
-import { usePropagationDetails } from './utils';
-import { PropagateThunderbolt, PropagateThunderboltFilled } from './PropagationIcon';
+
+import PropagationEntityLink from '@app/entity/shared/propagation/PropagationEntityLink';
+import { PropagateThunderbolt, PropagateThunderboltFilled } from '@app/entity/shared/propagation/PropagationIcon';
+import { usePropagationDetails } from '@app/entity/shared/propagation/utils';
+
+import { StringMapEntry } from '@types';
 
 const PopoverWrapper = styled.div`
     display: flex;
@@ -69,7 +71,7 @@ export default function PropagationDetails({ sourceDetail }: Props) {
                     <PopoverDocumentation
                         target="_blank"
                         rel="noreferrer"
-                        href="https://datahubproject.io/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=propagation_details"
+                        href="https://docs.datahub.com/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=propagation_details"
                     >
                         Learn more
                     </PopoverDocumentation>

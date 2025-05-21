@@ -1,8 +1,10 @@
 import React from 'react';
-import { Entity, EntityType, Tag } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import TagLabel from '../TagLabel';
-import TermLabel from '../TermLabel';
+
+import TagLabel from '@app/shared/TagLabel';
+import TermLabel from '@app/shared/TermLabel';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Entity, EntityType, Tag } from '@types';
 
 type Props = {
     // default behavior is to accept an entity and render label based on that

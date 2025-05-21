@@ -1,4 +1,4 @@
-import { FIELD_TO_LABEL, ORDERED_FIELDS } from '../utils/constants';
+import { FIELD_TO_LABEL, ORDERED_FIELDS } from '@app/search/utils/constants';
 
 describe('constants', () => {
     it('ensure that all ordered fields have a corresponding label', () => {

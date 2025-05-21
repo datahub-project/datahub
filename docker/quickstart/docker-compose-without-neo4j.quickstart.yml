@@ -47,7 +47,7 @@ services:
     - METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME=MetadataChangeLog_Versioned_v1
     - SCHEMA_REGISTRY_URL=http://schema-registry:8081
     hostname: actions
-    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${DATAHUB_VERSION:-head}-slim
   datahub-frontend-react:
     depends_on:
       datahub-gms:
@@ -204,6 +204,7 @@ services:
     - MYSQL_USER=datahub
     - MYSQL_PASSWORD=datahub
     - MYSQL_ROOT_PASSWORD=datahub
+    - MYSQL_ROOT_HOST=%
     healthcheck:
       interval: 1s
       retries: 5

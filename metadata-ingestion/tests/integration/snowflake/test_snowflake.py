@@ -209,6 +209,9 @@ def test_snowflake_tags_as_structured_properties(
                     type="snowflake",
                     config=SnowflakeV2Config(
                         extract_tags_as_structured_properties=True,
+                        structured_property_pattern=AllowDenyPattern(
+                            deny=["test_db.test_schema.my_tag_2"]
+                        ),
                         extract_tags=TagOption.without_lineage,
                         account_id="ABC12345.ap-south-1.aws",
                         username="TST_USR",

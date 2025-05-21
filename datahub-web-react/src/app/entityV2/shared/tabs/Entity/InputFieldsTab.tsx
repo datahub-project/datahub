@@ -1,14 +1,16 @@
 import { Empty } from 'antd';
 import React, { useMemo, useState } from 'react';
-import styled from 'styled-components';
 import { useLocation } from 'react-router';
-import { SchemaField } from '../../../../../types.generated';
-import SchemaEditableContext from '../../../../shared/SchemaEditableContext';
-import { groupByFieldPath } from '../../../dataset/profile/schema/utils/utils';
-import { useEntityData } from '../../../../entity/shared/EntityContext';
-import { ANTD_GRAY } from '../../constants';
-import SchemaTable from '../Dataset/Schema/SchemaTable';
-import getExpandedDrawerFieldPath from '../Dataset/Schema/utils/getExpandedDrawerFieldPath';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
+import getExpandedDrawerFieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getExpandedDrawerFieldPath';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+
+import { SchemaField } from '@types';
 
 const NoSchema = styled(Empty)`
     color: ${ANTD_GRAY[6]};

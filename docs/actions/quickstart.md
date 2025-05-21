@@ -1,6 +1,5 @@
 # DataHub Actions Quickstart
 
-
 ## Prerequisites
 
 The DataHub Actions CLI commands are an extension of the base `datahub` CLI commands. We recommend
@@ -13,7 +12,6 @@ datahub --version
 ```
 
 > Note that the Actions Framework requires a version of `acryl-datahub` >= v0.8.34
-
 
 ## Installation
 
@@ -93,10 +91,10 @@ Hello world! Received event:
     }
 }
 ```
-*An example of an event emitted when a 'pii' tag has been added to a Dataset.* 
+
+_An example of an event emitted when a 'pii' tag has been added to a Dataset._
 
 Woohoo! You've successfully started using the Actions framework. Now, let's see how we can get fancy.
-
 
 #### Filtering events
 
@@ -117,8 +115,8 @@ filter:
 action:
   type: "hello_world"
 ```
-*Filtering for events of type EntityChangeEvent_v1 only*
 
+_Filtering for events of type EntityChangeEvent_v1 only_
 
 #### Advanced Filtering
 
@@ -137,14 +135,15 @@ source:
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
 filter:
   event_type: "EntityChangeEvent_v1"
-  event: 
+  event:
     category: "TAG"
     operation: "ADD"
     modifier: "urn:li:tag:pii"
 action:
   type: "hello_world"
 ```
-*This filter only matches events representing "PII" tag additions to an entity.*
+
+_This filter only matches events representing "PII" tag additions to an entity._
 
 And more, we can achieve "OR" semantics on a particular field by providing an array of values.
 
@@ -159,11 +158,12 @@ source:
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
 filter:
   event_type: "EntityChangeEvent_v1"
-  event: 
+  event:
     category: "TAG"
-    operation: [ "ADD", "REMOVE" ]
+    operation: ["ADD", "REMOVE"]
     modifier: "urn:li:tag:pii"
 action:
   type: "hello_world"
 ```
-*This filter only matches events representing "PII" tag additions to OR removals from an entity. How fancy!*
+
+_This filter only matches events representing "PII" tag additions to OR removals from an entity. How fancy!_

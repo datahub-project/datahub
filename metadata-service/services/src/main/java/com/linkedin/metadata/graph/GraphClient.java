@@ -2,7 +2,7 @@ package com.linkedin.metadata.graph;
 
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -16,7 +16,7 @@ public interface GraphClient {
   @Nonnull
   EntityRelationships getRelatedEntities(
       String rawUrn,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection direction,
       @Nullable Integer start,
       @Nullable Integer count,

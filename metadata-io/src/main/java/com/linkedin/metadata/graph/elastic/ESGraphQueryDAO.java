@@ -16,7 +16,7 @@ import com.linkedin.data.template.IntegerArray;
 import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
-import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.models.registry.LineageRegistry;
 import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
@@ -49,7 +49,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -94,6 +93,10 @@ public class ESGraphQueryDAO {
   static final String SOURCE = "source";
   static final String DESTINATION = "destination";
   static final String RELATIONSHIP_TYPE = "relationshipType";
+  static final String SOURCE_TYPE = SOURCE + ".entityType";
+  static final String SOURCE_URN = SOURCE + ".urn";
+  static final String DESTINATION_TYPE = DESTINATION + ".entityType";
+  static final String DESTINATION_URN = DESTINATION + ".urn";
   static final String SEARCH_EXECUTIONS_METRIC = "num_elasticSearch_reads";
   static final String CREATED_ON = "createdOn";
   static final String CREATED_ACTOR = "createdActor";
@@ -180,7 +183,7 @@ public class ESGraphQueryDAO {
       @Nonnull final QueryBuilder query,
       final int offset,
       final int count,
-      final Set<Pair<String, EdgeInfo>> validEdges) {
+      final LineageGraphFilters lineageGraphFilters) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = sharedSourceBuilder(query, offset, 0);
@@ -190,7 +193,8 @@ public class ESGraphQueryDAO {
     // set up filters for each relationship type in the correct direction to limit buckets
     BoolQueryBuilder sourceFilterQuery = QueryBuilders.boolQuery();
 
-    validEdges.stream()
+    lineageGraphFilters
+        .streamEdgeInfo()
         .filter(pair -> RelationshipDirection.OUTGOING.equals(pair.getValue().getDirection()))
         .forEach(
             pair ->
@@ -201,7 +205,8 @@ public class ESGraphQueryDAO {
     }
 
     BoolQueryBuilder destFilterQuery = QueryBuilders.boolQuery();
-    validEdges.stream()
+    lineageGraphFilters
+        .streamEdgeInfo()
         .filter(pair -> RelationshipDirection.INCOMING.equals(pair.getValue().getDirection()))
         .forEach(
             pair ->
@@ -274,34 +279,20 @@ public class ESGraphQueryDAO {
     }
 
     TermQueryBuilder sourceTypeTerm =
-        QueryBuilders.termQuery(SOURCE + ".entityType", sourceType).caseInsensitive(true);
+        QueryBuilders.termQuery(SOURCE_TYPE, sourceType).caseInsensitive(true);
     subFilter.must(sourceTypeTerm);
     TermQueryBuilder destinationTypeTerm =
-        QueryBuilders.termQuery(DESTINATION + ".entityType", destinationType).caseInsensitive(true);
+        QueryBuilders.termQuery(DESTINATION_TYPE, destinationType).caseInsensitive(true);
     subFilter.must(destinationTypeTerm);
     return subFilter;
   }
 
   public SearchResponse getSearchResponse(
       @Nonnull final OperationContext opContext,
-      @Nullable final List<String> sourceTypes,
-      @Nonnull final Filter sourceEntityFilter,
-      @Nullable final List<String> destinationTypes,
-      @Nonnull final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter,
+      @Nonnull final GraphFilters graphFilters,
       final int offset,
       final int count) {
-    BoolQueryBuilder finalQuery =
-        buildQuery(
-            opContext,
-            graphQueryConfiguration,
-            sourceTypes,
-            sourceEntityFilter,
-            destinationTypes,
-            destinationEntityFilter,
-            relationshipTypes,
-            relationshipFilter);
+    BoolQueryBuilder finalQuery = buildQuery(opContext, graphQueryConfiguration, graphFilters);
 
     return executeLineageSearchQuery(opContext, finalQuery, offset, count);
   }
@@ -309,76 +300,62 @@ public class ESGraphQueryDAO {
   public static BoolQueryBuilder buildQuery(
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphQueryConfiguration graphQueryConfiguration,
-      @Nullable final List<String> sourceTypes,
-      @Nullable final Filter sourceEntityFilter,
-      @Nullable final List<String> destinationTypes,
-      @Nullable final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter) {
-    return buildQuery(
-        opContext,
-        graphQueryConfiguration,
-        sourceTypes,
-        sourceEntityFilter,
-        destinationTypes,
-        destinationEntityFilter,
-        relationshipTypes,
-        relationshipFilter,
-        null);
+      @Nonnull final GraphFilters graphFilters) {
+    return buildQuery(opContext, graphQueryConfiguration, graphFilters, null);
   }
 
   public static BoolQueryBuilder buildQuery(
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphQueryConfiguration graphQueryConfiguration,
-      @Nullable final List<String> sourceTypes,
-      @Nonnull final Filter sourceEntityFilter,
-      @Nullable final List<String> destinationTypes,
-      @Nonnull final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter,
+      @Nonnull final GraphFilters graphFilters,
       @Nullable final String lifecycleOwner) {
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
 
-    final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
+    final RelationshipDirection relationshipDirection = graphFilters.getRelationshipDirection();
 
     // set source filter
     String sourceNode =
         relationshipDirection == RelationshipDirection.OUTGOING ? SOURCE : DESTINATION;
-    if (sourceTypes != null && sourceTypes.size() > 0) {
-      finalQuery.filter(QueryBuilders.termsQuery(sourceNode + ".entityType", sourceTypes));
+    if (graphFilters.isSourceTypesFilterEnabled()) {
+      finalQuery.filter(
+          QueryBuilders.termsQuery(sourceNode + ".entityType", graphFilters.getSourceTypes()));
     }
-    if (sourceEntityFilter != null) {
-      addFilterToQueryBuilder(sourceEntityFilter, sourceNode, finalQuery);
-    }
+    Optional.ofNullable(graphFilters.getSourceEntityFilter())
+        .ifPresent(
+            sourceEntityFilter ->
+                addFilterToQueryBuilder(sourceEntityFilter, sourceNode, finalQuery));
 
     // set destination filter
     String destinationNode =
         relationshipDirection == RelationshipDirection.OUTGOING ? DESTINATION : SOURCE;
-    if (destinationTypes != null && destinationTypes.size() > 0) {
+    if (graphFilters.isDestinationTypesFilterEnabled()) {
       finalQuery.filter(
-          QueryBuilders.termsQuery(destinationNode + ".entityType", destinationTypes));
+          QueryBuilders.termsQuery(
+              destinationNode + ".entityType", graphFilters.getDestinationTypes()));
     }
-    if (destinationEntityFilter != null) {
-      addFilterToQueryBuilder(destinationEntityFilter, destinationNode, finalQuery);
-    }
+    Optional.ofNullable(graphFilters.getDestinationEntityFilter())
+        .ifPresent(
+            destinationEntityFilter ->
+                addFilterToQueryBuilder(destinationEntityFilter, destinationNode, finalQuery));
 
     // set relationship filter
-    if (relationshipTypes.size() > 0) {
+    if (!graphFilters.getRelationshipTypes().isEmpty()) {
       BoolQueryBuilder relationshipQuery = QueryBuilders.boolQuery();
-      relationshipTypes.forEach(
-          relationshipType ->
-              relationshipQuery.should(
-                  QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType)));
-      if (!relationshipQuery.should().isEmpty()) {
-        relationshipQuery.minimumShouldMatch(1);
-      }
+      graphFilters
+          .getRelationshipTypes()
+          .forEach(
+              relationshipType ->
+                  relationshipQuery.should(
+                      QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType)));
+      relationshipQuery.minimumShouldMatch(1);
       finalQuery.filter(relationshipQuery);
     }
 
     // general filter
-    if (relationshipFilter.getOr() != null) {
-      addFilterToQueryBuilder(new Filter().setOr(relationshipFilter.getOr()), null, finalQuery);
-    }
+    Optional.ofNullable(graphFilters.getRelationshipFilter())
+        .map(RelationshipFilter::getOr)
+        .ifPresent(or -> addFilterToQueryBuilder(new Filter().setOr(or), null, finalQuery));
+
     if (lifecycleOwner != null) {
       finalQuery.filter(QueryBuilders.termQuery(EDGE_FIELD_LIFECYCLE_OWNER, lifecycleOwner));
     }
@@ -394,8 +371,7 @@ public class ESGraphQueryDAO {
   public LineageResponse getLineage(
       @Nonnull final OperationContext opContext,
       @Nonnull Urn entityUrn,
-      @Nonnull LineageDirection direction,
-      GraphFilters graphFilters,
+      LineageGraphFilters lineageGraphFilters,
       int offset,
       int count,
       int maxHops) {
@@ -421,7 +397,7 @@ public class ESGraphQueryDAO {
         log.info(
             "Timed out while fetching lineage for {} with direction {}, maxHops {}. Returning results so far",
             entityUrn,
-            direction,
+            lineageGraphFilters.getLineageDirection(),
             maxHops);
         break;
       }
@@ -432,9 +408,8 @@ public class ESGraphQueryDAO {
               opContext,
               currentLevel,
               remainingTime,
-              direction,
               maxHops,
-              graphFilters,
+              lineageGraphFilters,
               visitedEntities,
               viaEntities,
               existingPaths,
@@ -465,9 +440,8 @@ public class ESGraphQueryDAO {
       @Nonnull OperationContext opContext,
       List<Urn> currentLevel,
       Long remainingTime,
-      LineageDirection direction,
       int maxHops,
-      GraphFilters graphFilters,
+      LineageGraphFilters graphFilters,
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
       Map<Urn, UrnArrayArray> existingPaths,
@@ -482,7 +456,6 @@ public class ESGraphQueryDAO {
         getLineageRelationshipsInBatches(
             opContext,
             currentLevel,
-            direction,
             graphFilters,
             visitedEntities,
             viaEntities,
@@ -534,7 +507,6 @@ public class ESGraphQueryDAO {
                   opContext,
                   additionalCurrentLevel,
                   remainingTime,
-                  direction,
                   maxHops,
                   graphFilters,
                   visitedEntities,
@@ -606,8 +578,7 @@ public class ESGraphQueryDAO {
   public List<LineageRelationship> getLineageRelationshipsInBatches(
       @Nonnull final OperationContext opContext,
       @Nonnull List<Urn> entityUrns,
-      @Nonnull LineageDirection direction,
-      GraphFilters graphFilters,
+      LineageGraphFilters graphFilters,
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
       int numHops,
@@ -625,7 +596,6 @@ public class ESGraphQueryDAO {
                                 getLineageRelationships(
                                     opContext,
                                     batchUrns,
-                                    direction,
                                     graphFilters,
                                     visitedEntities,
                                     viaEntities,
@@ -646,8 +616,7 @@ public class ESGraphQueryDAO {
   private List<LineageRelationship> getLineageRelationships(
       @Nonnull final OperationContext opContext,
       @Nonnull List<Urn> entityUrns,
-      @Nonnull LineageDirection direction,
-      GraphFilters graphFilters,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
       int numHops,
@@ -655,34 +624,26 @@ public class ESGraphQueryDAO {
       Map<Urn, UrnArrayArray> existingPaths,
       boolean exploreMultiplePaths) {
     final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
-    Map<String, List<Urn>> urnsPerEntityType =
-        entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType));
-    Map<String, List<EdgeInfo>> edgesPerEntityType =
-        urnsPerEntityType.keySet().stream()
-            .collect(
-                Collectors.toMap(
-                    Function.identity(),
-                    entityType -> lineageRegistry.getLineageRelationships(entityType, direction)));
-    Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
-    // Get all valid edges given the set of urns to hop from
-    Set<Pair<String, EdgeInfo>> validEdges =
-        edgesPerEntityType.entrySet().stream()
-            .flatMap(
-                entry ->
-                    entry.getValue().stream().map(edgeInfo -> Pair.of(entry.getKey(), edgeInfo)))
-            .collect(Collectors.toSet());
 
-    QueryBuilder finalQuery =
-        getLineageQuery(opContext, urnsPerEntityType, edgesPerEntityType, graphFilters);
+    Map<String, Set<Urn>> urnsPerEntityType =
+        entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+    Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
+
+    QueryBuilder finalQuery = getLineageQuery(opContext, urnsPerEntityType, lineageGraphFilters);
+
     SearchResponse response;
     if (lineageFlags != null && lineageFlags.getEntitiesExploredPerHopLimit() != null) {
       response =
           executeGroupByLineageSearchQuery(
-              opContext, finalQuery, 0, lineageFlags.getEntitiesExploredPerHopLimit(), validEdges);
+              opContext,
+              finalQuery,
+              0,
+              lineageFlags.getEntitiesExploredPerHopLimit(),
+              lineageGraphFilters);
       return extractRelationshipsGroupByQuery(
           entityUrnSet,
           response,
-          validEdges,
+          lineageGraphFilters,
           visitedEntities,
           viaEntities,
           numHops,
@@ -696,7 +657,7 @@ public class ESGraphQueryDAO {
       return extractRelationships(
           entityUrnSet,
           response,
-          validEdges,
+          lineageGraphFilters,
           visitedEntities,
           viaEntities,
           numHops,
@@ -707,32 +668,24 @@ public class ESGraphQueryDAO {
   }
 
   @VisibleForTesting
-  public static QueryBuilder getLineageQuery(
+  public QueryBuilder getLineageQuery(
       @Nonnull OperationContext opContext,
-      @Nonnull Map<String, List<Urn>> urnsPerEntityType,
-      @Nonnull Map<String, List<EdgeInfo>> edgesPerEntityType,
-      @Nonnull GraphFilters graphFilters) {
+      @Nonnull Map<String, Set<Urn>> urnsPerEntityType,
+      @Nonnull LineageGraphFilters lineageGraphFilters) {
     final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
+
     BoolQueryBuilder entityTypeQueries = QueryBuilders.boolQuery();
+
     // Get all relation types relevant to the set of urns to hop from
     urnsPerEntityType.forEach(
         (entityType, urns) -> {
-          if (edgesPerEntityType.containsKey(entityType)
-              && !edgesPerEntityType.get(entityType).isEmpty()) {
-            entityTypeQueries.should(
-                getLineageQueryForEntityType(
-                    urns, edgesPerEntityType.get(entityType), graphFilters));
-          }
+          buildLineageGraphFiltersQuery(entityType, urns, lineageGraphFilters)
+              .ifPresent(entityTypeQueries::should);
         });
-    if (!entityTypeQueries.should().isEmpty()) {
-      entityTypeQueries.minimumShouldMatch(1);
-    }
+    entityTypeQueries.minimumShouldMatch(1);
 
     BoolQueryBuilder finalQuery = QueryBuilders.boolQuery();
-
     finalQuery.filter(entityTypeQueries);
-    finalQuery.filter(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), SOURCE));
-    finalQuery.filter(buildEntityTypesFilter(graphFilters.getAllowedEntityTypes(), DESTINATION));
 
     /*
      * Optional - Add edge filtering based on time windows.
@@ -752,26 +705,25 @@ public class ESGraphQueryDAO {
 
   @VisibleForTesting
   static QueryBuilder getLineageQueryForEntityType(
-      @Nonnull List<Urn> urns,
-      @Nonnull List<EdgeInfo> lineageEdges,
-      @Nonnull GraphFilters graphFilters) {
+      @Nonnull Set<Urn> urns, @Nonnull Set<EdgeInfo> lineageEdges) {
     BoolQueryBuilder query = QueryBuilders.boolQuery();
-    Map<RelationshipDirection, List<EdgeInfo>> edgesByDirection =
-        lineageEdges.stream().collect(Collectors.groupingBy(EdgeInfo::getDirection));
+    Map<RelationshipDirection, Set<EdgeInfo>> edgesByDirection =
+        lineageEdges.stream()
+            .collect(Collectors.groupingBy(EdgeInfo::getDirection, Collectors.toSet()));
 
-    List<EdgeInfo> outgoingEdges =
-        edgesByDirection.getOrDefault(RelationshipDirection.OUTGOING, Collections.emptyList());
+    Set<EdgeInfo> outgoingEdges =
+        edgesByDirection.getOrDefault(RelationshipDirection.OUTGOING, Collections.emptySet());
     if (!outgoingEdges.isEmpty()) {
-      query.should(getOutGoingEdgeQuery(urns, outgoingEdges, graphFilters));
+      query.should(getOutGoingEdgeQuery(urns, outgoingEdges));
     }
 
-    List<EdgeInfo> incomingEdges =
-        edgesByDirection.getOrDefault(RelationshipDirection.INCOMING, Collections.emptyList());
+    Set<EdgeInfo> incomingEdges =
+        edgesByDirection.getOrDefault(RelationshipDirection.INCOMING, Collections.emptySet());
     if (!incomingEdges.isEmpty()) {
-      query.should(getIncomingEdgeQuery(urns, incomingEdges, graphFilters));
+      query.should(getIncomingEdgeQuery(urns, incomingEdges));
     }
 
-    if (!query.should().isEmpty()) {
+    if (!incomingEdges.isEmpty() || !outgoingEdges.isEmpty()) {
       query.minimumShouldMatch(1);
     }
 
@@ -895,7 +847,7 @@ public class ESGraphQueryDAO {
   private static List<LineageRelationship> extractRelationships(
       @Nonnull Set<Urn> entityUrns,
       @Nonnull SearchResponse searchResponse,
-      Set<Pair<String, EdgeInfo>> validEdges,
+      LineageGraphFilters lineageGraphFilters,
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
       int numHops,
@@ -914,7 +866,7 @@ public class ESGraphQueryDAO {
             index,
             exploreMultiplePaths,
             visitedEntities,
-            validEdges,
+            lineageGraphFilters,
             existingPaths,
             numHops,
             false,
@@ -939,7 +891,7 @@ public class ESGraphQueryDAO {
       int index,
       boolean exploreMultiplePaths,
       Set<Urn> visitedEntities,
-      Set<Pair<String, EdgeInfo>> validEdges,
+      LineageGraphFilters lineageGraphFilters,
       Map<Urn, UrnArrayArray> existingPaths,
       int numHops,
       boolean truncatedChildren,
@@ -996,7 +948,7 @@ public class ESGraphQueryDAO {
           exploreMultiplePaths,
           visitedEntities,
           destinationUrn,
-          validEdges,
+          lineageGraphFilters,
           type,
           existingPaths,
           viaEntity,
@@ -1019,7 +971,7 @@ public class ESGraphQueryDAO {
           exploreMultiplePaths,
           visitedEntities,
           destinationUrn,
-          validEdges,
+          lineageGraphFilters,
           type,
           existingPaths,
           viaEntity,
@@ -1042,7 +994,7 @@ public class ESGraphQueryDAO {
       boolean exploreMultiplePaths,
       Set<Urn> visitedEntities,
       Urn destinationUrn,
-      Set<Pair<String, EdgeInfo>> validEdges,
+      LineageGraphFilters lineageGraphFilters,
       String type,
       Map<Urn, UrnArrayArray> existingPaths,
       Urn viaEntity,
@@ -1060,13 +1012,9 @@ public class ESGraphQueryDAO {
       // Skip if already visited or if we're exploring multiple paths
       // Skip if edge is not a valid outgoing edge
       if ((exploreMultiplePaths || !visitedEntities.contains(destinationUrn))
-          && validEdges.contains(
-              Pair.of(
-                  sourceUrn.getEntityType(),
-                  new EdgeInfo(
-                      type,
-                      RelationshipDirection.OUTGOING,
-                      destinationUrn.getEntityType().toLowerCase())))) {
+          && lineageGraphFilters.containsEdgeInfo(
+              sourceUrn.getEntityType(),
+              new EdgeInfo(type, RelationshipDirection.OUTGOING, destinationUrn.getEntityType()))) {
 
         if (visitedEntities.contains(destinationUrn)) {
           log.debug("Found a second path to the same urn {}", destinationUrn);
@@ -1118,7 +1066,7 @@ public class ESGraphQueryDAO {
       boolean exploreMultiplePaths,
       Set<Urn> visitedEntities,
       Urn destinationUrn,
-      Set<Pair<String, EdgeInfo>> validEdges,
+      LineageGraphFilters lineageGraphFilters,
       String type,
       Map<Urn, UrnArrayArray> existingPaths,
       Urn viaEntity,
@@ -1136,13 +1084,9 @@ public class ESGraphQueryDAO {
       // Skip if edge is not a valid outgoing edge
       log.debug("entity urns contains destination urn {}", destinationUrn);
       if ((exploreMultiplePaths || !visitedEntities.contains(sourceUrn))
-          && validEdges.contains(
-              Pair.of(
-                  destinationUrn.getEntityType(),
-                  new EdgeInfo(
-                      type,
-                      RelationshipDirection.INCOMING,
-                      sourceUrn.getEntityType().toLowerCase())))) {
+          && lineageGraphFilters.containsEdgeInfo(
+              destinationUrn.getEntityType(),
+              new EdgeInfo(type, RelationshipDirection.INCOMING, sourceUrn.getEntityType()))) {
         if (visitedEntities.contains(sourceUrn)) {
           log.debug("Found a second path to the same urn {}", sourceUrn);
         }
@@ -1245,7 +1189,7 @@ public class ESGraphQueryDAO {
   private static List<LineageRelationship> extractRelationshipsGroupByQuery(
       @Nonnull Set<Urn> entityUrns,
       @Nonnull SearchResponse searchResponse,
-      Set<Pair<String, EdgeInfo>> validEdges,
+      LineageGraphFilters lineageGraphFilters,
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
       int numHops,
@@ -1272,7 +1216,7 @@ public class ESGraphQueryDAO {
               index,
               exploreMultiplePaths,
               visitedEntities,
-              validEdges,
+              lineageGraphFilters,
               existingPaths,
               numHops,
               truncatedChildren,
@@ -1298,7 +1242,7 @@ public class ESGraphQueryDAO {
               index,
               exploreMultiplePaths,
               visitedEntities,
-              validEdges,
+              lineageGraphFilters,
               existingPaths,
               numHops,
               truncatedChildren,
@@ -1320,9 +1264,7 @@ public class ESGraphQueryDAO {
   }
 
   private static BoolQueryBuilder getOutGoingEdgeQuery(
-      @Nonnull List<Urn> urns,
-      @Nonnull List<EdgeInfo> outgoingEdges,
-      @Nonnull GraphFilters graphFilters) {
+      @Nonnull Set<Urn> urns, @Nonnull Set<EdgeInfo> outgoingEdges) {
     BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
     outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
     outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
@@ -1330,7 +1272,7 @@ public class ESGraphQueryDAO {
   }
 
   private static BoolQueryBuilder getIncomingEdgeQuery(
-      @Nonnull List<Urn> urns, List<EdgeInfo> incomingEdges, @Nonnull GraphFilters graphFilters) {
+      @Nonnull Set<Urn> urns, Set<EdgeInfo> incomingEdges) {
     BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
     incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
     incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
@@ -1345,21 +1287,14 @@ public class ESGraphQueryDAO {
     }
   }
 
-  private static QueryBuilder buildEntityTypesFilter(
-      @Nonnull List<String> entityTypes, @Nonnull String prefix) {
-    return QueryBuilders.termsQuery(
-        prefix + ".entityType",
-        entityTypes.stream().map(Object::toString).collect(Collectors.toList()));
-  }
-
-  private static QueryBuilder buildUrnFilters(@Nonnull List<Urn> urns, @Nonnull String prefix) {
+  private static QueryBuilder buildUrnFilters(@Nonnull Set<Urn> urns, @Nonnull String prefix) {
     // dedup urns while preserving order
     LinkedHashSet<String> urnSet = new LinkedHashSet<>();
     urns.forEach(urn -> urnSet.add(urn.toString()));
     return QueryBuilders.termsQuery(prefix + ".urn", urnSet);
   }
 
-  private static QueryBuilder buildEdgeFilters(@Nonnull List<EdgeInfo> edgeInfos) {
+  private static QueryBuilder buildEdgeFilters(@Nonnull Set<EdgeInfo> edgeInfos) {
     return QueryBuilders.termsQuery(
         "relationshipType",
         edgeInfos.stream().map(EdgeInfo::getType).distinct().collect(Collectors.toList()));
@@ -1373,26 +1308,12 @@ public class ESGraphQueryDAO {
 
   public SearchResponse getSearchResponse(
       @Nonnull final OperationContext opContext,
-      @Nullable final List<String> sourceTypes,
-      @Nullable final Filter sourceEntityFilter,
-      @Nullable final List<String> destinationTypes,
-      @Nullable final Filter destinationEntityFilter,
-      @Nonnull final List<String> relationshipTypes,
-      @Nonnull final RelationshipFilter relationshipFilter,
+      @Nonnull final GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count) {
 
-    BoolQueryBuilder finalQuery =
-        buildQuery(
-            opContext,
-            graphQueryConfiguration,
-            sourceTypes,
-            sourceEntityFilter,
-            destinationTypes,
-            destinationEntityFilter,
-            relationshipTypes,
-            relationshipFilter);
+    BoolQueryBuilder finalQuery = buildQuery(opContext, graphQueryConfiguration, graphFilters);
 
     return executeScrollSearchQuery(opContext, finalQuery, sortCriteria, scrollId, count);
   }
@@ -1447,6 +1368,105 @@ public class ESGraphQueryDAO {
                       GraphFilterUtils.getUrnStatusFieldName(edgeUrnType), "true"))
           .filter(statusQuery -> !boolQueryBuilder.mustNot().contains(statusQuery))
           .forEach(boolQueryBuilder::mustNot);
+    }
+  }
+
+  /**
+   * @param lineageGraphFilters lineage graph filters being applied
+   * @return elasticsearch boolean filter query
+   */
+  private Optional<BoolQueryBuilder> buildLineageGraphFiltersQuery(
+      @Nonnull String entityType,
+      @Nonnull Set<Urn> urns,
+      @Nonnull LineageGraphFilters lineageGraphFilters) {
+
+    if (urns.stream().anyMatch(urn -> !entityType.equals(urn.getEntityType()))) {
+      throw new IllegalArgumentException("Urns must be of the same entity type.");
+    }
+
+    Set<EdgeInfo> edgeInfo = lineageGraphFilters.getEdgeInfo(lineageRegistry, entityType);
+
+    if (urns.isEmpty() || edgeInfo.isEmpty()) {
+      return Optional.empty();
+    } else {
+      // Create the main bool query
+      BoolQueryBuilder mainQuery = QueryBuilders.boolQuery();
+      Set<String> entityUrns = urns.stream().map(Urn::toString).collect(Collectors.toSet());
+
+      // Group edge info by relationship type AND direction
+      Map<Pair<String, RelationshipDirection>, List<LineageRegistry.EdgeInfo>> edgeGroups =
+          edgeInfo.stream()
+              .collect(Collectors.groupingBy(edge -> Pair.of(edge.getType(), edge.getDirection())));
+
+      // Special handling for UNDIRECTED - they need to be included in both directions
+      List<LineageRegistry.EdgeInfo> undirectedEdges =
+          edgeInfo.stream()
+              .filter(edge -> edge.getDirection() == RelationshipDirection.UNDIRECTED)
+              .collect(Collectors.toList());
+
+      // Add undirected edges to both INCOMING and OUTGOING groups
+      for (LineageRegistry.EdgeInfo undirectedEdge : undirectedEdges) {
+        // Create virtual INCOMING edge
+        edgeGroups
+            .computeIfAbsent(
+                Pair.of(undirectedEdge.getType(), RelationshipDirection.INCOMING),
+                k -> new ArrayList<>())
+            .add(undirectedEdge);
+
+        // Create virtual OUTGOING edge
+        edgeGroups
+            .computeIfAbsent(
+                Pair.of(undirectedEdge.getType(), RelationshipDirection.OUTGOING),
+                k -> new ArrayList<>())
+            .add(undirectedEdge);
+      }
+
+      // Process each group
+      for (Map.Entry<Pair<String, RelationshipDirection>, List<LineageRegistry.EdgeInfo>> entry :
+          edgeGroups.entrySet()) {
+        String relationshipType = entry.getKey().getLeft();
+        RelationshipDirection direction = entry.getKey().getRight();
+        List<LineageRegistry.EdgeInfo> edges = entry.getValue();
+
+        // Skip the UNDIRECTED in the main loop as we've already processed them
+        if (direction == RelationshipDirection.UNDIRECTED) {
+          continue;
+        }
+
+        // Collect the entity types for this relationship type and direction
+        List<String> entityTypes =
+            edges.stream()
+                .map(LineageRegistry.EdgeInfo::getOpposingEntityType)
+                .collect(Collectors.toList());
+
+        // Build the appropriate query based on direction
+        if (direction == RelationshipDirection.OUTGOING) {
+          BoolQueryBuilder outgoingQuery =
+              QueryBuilders.boolQuery()
+                  .filter(QueryBuilders.termsQuery(SOURCE_URN, entityUrns))
+                  .filter(QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType));
+
+          // Use termsQuery for multiple types
+          outgoingQuery.filter(QueryBuilders.termsQuery(DESTINATION_TYPE, entityTypes));
+
+          mainQuery.should(outgoingQuery);
+        } else if (direction == RelationshipDirection.INCOMING) {
+          BoolQueryBuilder incomingQuery =
+              QueryBuilders.boolQuery()
+                  .filter(QueryBuilders.termsQuery(DESTINATION_URN, entityUrns))
+                  .filter(QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType));
+
+          // Use termsQuery for multiple types
+          incomingQuery.filter(QueryBuilders.termsQuery(SOURCE_TYPE, entityTypes));
+
+          mainQuery.should(incomingQuery);
+        }
+      }
+
+      // Require that at least one of the "should" clauses matches
+      mainQuery.minimumShouldMatch(1);
+
+      return Optional.of(mainQuery);
     }
   }
 }

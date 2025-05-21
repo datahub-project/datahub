@@ -1,4 +1,4 @@
-import { useAppConfig } from '../../../../../../../../useAppConfig';
+import { useAppConfig } from '@app/useAppConfig';
 
 export const useIsContractsEnabled = () => {
     const appConfig = useAppConfig();

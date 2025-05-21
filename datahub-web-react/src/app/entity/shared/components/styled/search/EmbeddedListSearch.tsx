@@ -1,33 +1,34 @@
-import React, { useState, useEffect } from 'react';
-import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
+
+import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityContext } from '@app/entity/shared/EntityContext';
+import EmbeddedListSearchHeader from '@app/entity/shared/components/styled/search/EmbeddedListSearchHeader';
+import { EmbeddedListSearchResults } from '@app/entity/shared/components/styled/search/EmbeddedListSearchResults';
+import { EntityActionProps } from '@app/entity/shared/components/styled/search/EntitySearchResults';
 import {
-    EntityType,
-    FacetFilterInput,
-    FacetMetadata,
-    SearchAcrossEntitiesInput,
-} from '../../../../../../types.generated';
-import { DEGREE_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
-import { SearchCfg } from '../../../../../../conf';
-import { EmbeddedListSearchResults } from './EmbeddedListSearchResults';
-import EmbeddedListSearchHeader from './EmbeddedListSearchHeader';
-import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
-import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
-import { isListSubset } from '../../../utils';
-import { EntityAndType } from '../../../types';
-import { Message } from '../../../../../shared/Message';
-import { generateOrFilters } from '../../../../../search/utils/generateOrFilters';
-import { mergeFilterSets } from '../../../../../search/utils/filterUtils';
-import { useDownloadScrollAcrossEntitiesSearchResults } from '../../../../../search/utils/useDownloadScrollAcrossEntitiesSearchResults';
+    FilterSet,
+    GetSearchResultsParams,
+    SearchResultsInterface,
+} from '@app/entity/shared/components/styled/search/types';
+import { EntityAndType } from '@app/entity/shared/types';
+import { isListSubset } from '@app/entity/shared/utils';
+import { DEGREE_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { mergeFilterSets } from '@app/search/utils/filterUtils';
+import { generateOrFilters } from '@app/search/utils/generateOrFilters';
 import {
-    DownloadSearchResultsParams,
-    DownloadSearchResultsInput,
     DownloadSearchResults,
-} from '../../../../../search/utils/types';
-import { useEntityContext } from '../../../EntityContext';
-import { EntityActionProps } from './EntitySearchResults';
-import { useUserContext } from '../../../../../context/useUserContext';
-import analytics, { EventType } from '../../../../../analytics';
+    DownloadSearchResultsInput,
+    DownloadSearchResultsParams,
+} from '@app/search/utils/types';
+import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/search/utils/useDownloadScrollAcrossEntitiesSearchResults';
+import { Message } from '@app/shared/Message';
+import { SearchCfg } from '@src/conf';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { EntityType, FacetFilterInput, FacetMetadata, SearchAcrossEntitiesInput } from '@types';
 
 const Container = styled.div`
     display: flex;

@@ -79,10 +79,10 @@ def test_redshift_usage_source(mock_cursor, mock_connection, pytestconfig, tmp_p
     ]
 
     mock_cursor_usage_query.description = [
-        [key] for key in mock_usage_query_result_dict[0].keys()
+        [key] for key in mock_usage_query_result_dict[0]
     ]
     mock_cursor_operational_query.description = [
-        [key] for key in mock_operational_query_result_dict[0].keys()
+        [key] for key in mock_operational_query_result_dict[0]
     ]
 
     mock_connection.cursor.side_effect = [
@@ -187,10 +187,10 @@ def test_redshift_usage_filtering(mock_cursor, mock_connection, pytestconfig, tm
     ]
 
     mock_cursor_usage_query.description = [
-        [key] for key in mock_usage_query_result_dict[0].keys()
+        [key] for key in mock_usage_query_result_dict[0]
     ]
     mock_cursor_operational_query.description = [
-        [key] for key in mock_operational_query_result_dict[0].keys()
+        [key] for key in mock_operational_query_result_dict[0]
     ]
 
     mock_connection.cursor.side_effect = [

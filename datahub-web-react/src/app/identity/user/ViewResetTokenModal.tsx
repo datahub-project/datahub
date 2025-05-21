@@ -1,10 +1,12 @@
 import { RedoOutlined } from '@ant-design/icons';
-import { Button, message, Modal, Typography } from 'antd';
+import { Button, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { PageRoutes } from '../../../conf/Global';
-import { useCreateNativeUserResetTokenMutation } from '../../../graphql/user.generated';
-import analytics, { EventType } from '../../analytics';
+
+import analytics, { EventType } from '@app/analytics';
+import { PageRoutes } from '@conf/Global';
+
+import { useCreateNativeUserResetTokenMutation } from '@graphql/user.generated';
 
 const ModalSection = styled.div`
     display: flex;

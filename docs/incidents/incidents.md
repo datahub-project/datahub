@@ -1,8 +1,8 @@
 ---
 description: This page provides an overview of working with the DataHub Incidents API.
 ---
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Incidents
 
@@ -34,31 +34,31 @@ the 3-dot menu icon on the right side of the header, and click **Raise Incident*
 
 Choose an existing type, or define your own, and then author a title and description of the issue. Finally,
 click `Add` to create the new issue. This will mark the asset with a health status badge indicating that it
-is possibly unfit for use due to an ongoing issue. 
+is possibly unfit for use due to an ongoing issue.
 
 ## Resolving an Incident
 
 To resolve an incident, simply naviagte to the profile page for the asset of interest, click
 the **Incidents** tab, and then click the **Resolve** button for the incident of interest.
-This will resolve the incident from the list of active incidents for the asset, removing it from the 
+This will resolve the incident from the list of active incidents for the asset, removing it from the
 asset's health status.
 
 ## Finding Assets with Active Incidents
 
-To view all assets with active incidents, simply apply the `Has Active Incidents` filter on the search results page of DataHub. 
+To view all assets with active incidents, simply apply the `Has Active Incidents` filter on the search results page of DataHub.
 To view all assets first, click **Explore all** on the DataHub homepage.
 
 ## Creating an Incident via API
 
 Oftentimes it is desirable to raise and resolve incidents for particular data assets in automated fashion using the DataHub API, e.g. as part of an
-orchestration pipeline. 
+orchestration pipeline.
 
 To create (i.e. raise) a new incident for a data asset, simply create a GraphQL request using the `raiseIncident` mutation.
 
 ```
 type Mutation {
     """
-    Raise a new incident for a data asset 
+    Raise a new incident for a data asset
     """
     raiseIncident(input: RaiseIncidentInput!): String! # Returns new Incident URN.
 }
@@ -192,7 +192,7 @@ type Dataset {
     """
     Optional start offset, defaults to 20.
     """
-    count: Int): EntityIncidentsResult # Returns a list of incidents. 
+    count: Int): EntityIncidentsResult # Returns a list of incidents.
 }
 ```
 
@@ -342,7 +342,7 @@ _Request_
 
 ```
 mutation updateIncidentStatus {
-  updateIncidentStatus(urn: "urn:li:incident:bfecab62-dc10-49a6-a305-78ce0cc6e5b1", 
+  updateIncidentStatus(urn: "urn:li:incident:bfecab62-dc10-49a6-a305-78ce0cc6e5b1",
   input: {
     state: RESOLVED
     message: "Dataset is now passing validations. Verified by John Joyce on Data Platform eng."
@@ -398,7 +398,7 @@ json = {
 
 response = datahub_session.post(f"https://your-account.acryl.io/api/graphql", headers=headers, json=json)
 response.raise_for_status()
-res_data = response.json() # Get result as JSON  
+res_data = response.json() # Get result as JSON
 ```
 
 ## Tips
@@ -427,5 +427,4 @@ These notifications are also able to tag the immediate asset's owners, along wit
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/Screen-Shot-2022-03-22-at-6.46.41-PM.png"/>
 </p>
 
-To do so, simply follow the [Slack Integration Guide](docs/managed-datahub/slack/saas-slack-setup.md) and contact your Acryl customer success team to enable the feature! 
-
+To do so, simply follow the [Slack Integration Guide](docs/managed-datahub/slack/saas-slack-setup.md) and contact your DataHub Cloud customer success team to enable the feature!

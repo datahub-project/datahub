@@ -471,7 +471,10 @@ def get_view_file_path(
     logger.debug("Entered")
 
     for field in lkml_fields:
-        if field.view == view_name:
+        if (
+            LookerUtil.extract_view_name_from_lookml_model_explore_field(field)
+            == view_name
+        ):
             # This path is relative to git clone directory
             logger.debug(f"Found view({view_name}) file-path {field.source_file}")
             return field.source_file
@@ -1103,7 +1106,7 @@ class LookerExplore:
                     [column_ref] if column_ref is not None else []
                 )
 
-            return cls(
+            looker_explore = cls(
                 name=explore_name,
                 model_name=model,
                 project_name=explore.project_name,
@@ -1121,6 +1124,8 @@ class LookerExplore:
                 source_file=explore.source_file,
                 tags=list(explore.tags) if explore.tags is not None else [],
             )
+            logger.debug(f"Created LookerExplore from API: {looker_explore}")
+            return looker_explore
         except SDKError as e:
             if "<title>Looker Not Found (404)</title>" in str(e):
                 logger.info(
@@ -1160,6 +1165,9 @@ class LookerExplore:
     def get_explore_urn(self, config: LookerCommonConfig) -> str:
         dataset_name = config.explore_naming_pattern.replace_variables(
             self.get_mapping(config)
+        )
+        logger.debug(
+            f"Generated dataset_name={dataset_name} for explore with model_name={self.model_name}, name={self.name}"
         )
 
         return builder.make_dataset_urn_with_platform_instance(
@@ -1362,6 +1370,7 @@ class LookerExploreRegistry:
 
     @lru_cache(maxsize=200)
     def get_explore(self, model: str, explore: str) -> Optional[LookerExplore]:
+        logger.debug(f"Retrieving explore: model={model}, explore={explore}")
         looker_explore = LookerExplore.from_api(
             model,
             explore,
@@ -1369,6 +1378,12 @@ class LookerExploreRegistry:
             self.report,
             self.source_config,
         )
+        if looker_explore is not None:
+            logger.debug(
+                f"Found explore with model_name={looker_explore.model_name}, name={looker_explore.name}"
+            )
+        else:
+            logger.debug(f"No explore found for model={model}, explore={explore}")
         return looker_explore
 
     def compute_stats(self) -> Dict:

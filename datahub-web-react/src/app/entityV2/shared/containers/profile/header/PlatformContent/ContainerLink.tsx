@@ -1,12 +1,14 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Link } from 'react-router-dom';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { Container, EntityType } from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import ContainerIcon from './ContainerIcon';
-import { ANTD_GRAY } from '../../../../constants';
-import { useEmbeddedProfileLinkProps } from '../../../../../../shared/useEmbeddedProfileLinkProps';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import ContainerIcon from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerIcon';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Container, EntityType } from '@types';
 
 const ContainerText = styled.span`
     font-size: 14px;

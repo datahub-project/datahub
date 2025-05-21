@@ -1,15 +1,16 @@
-import React, { useContext } from 'react';
-import { Col, Row, Skeleton } from 'antd';
-import styled from 'styled-components';
 import { ApiOutlined } from '@ant-design/icons';
-import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
 import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
+import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
 import { BookmarkSimple } from '@phosphor-icons/react';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
-import { PersonaType } from '../../shared/types';
-import { useUserPersona } from '../../persona/useUserPersona';
-import { useAppConfig } from '../../../useAppConfig';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
+import { Col, Row, Skeleton } from 'antd';
+import React, { useContext } from 'react';
+import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
+import { PersonaType } from '@app/homeV2/shared/types';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useAppConfig } from '@app/useAppConfig';
 
 const Header = styled.div`
     display: flex;
@@ -57,7 +58,10 @@ const ResourceLink = styled.a`
     align-items: center;
     justify-content: center;
     opacity: 0.9;
-    transition: transform 0.3s ease, color 0.3s ease, opacity 0.3s ease;
+    transition:
+        transform 0.3s ease,
+        color 0.3s ease,
+        opacity 0.3s ease;
     :hover {
         transform: scale(1.05); // Slightly scale up the link on hover
         opacity: 1;
@@ -105,14 +109,14 @@ const ALL_GUIDES = [
     {
         id: 'integrations',
         title: 'Connect Sources',
-        url: 'https://datahubproject.io/docs/ui-ingestion',
+        url: 'https://docs.datahub.com/docs/ui-ingestion',
         icon: ApiOutlined,
         personas: [PersonaType.TECHNICAL_USER, PersonaType.DATA_ENGINEER],
     },
     {
         id: 'features',
         title: 'Feature Guides',
-        url: 'https://datahubproject.io/docs/category/features?utm_source=acryl_datahub_app',
+        url: 'https://docs.datahub.com/docs/category/features?utm_source=acryl_datahub_app',
         icon: HelpCenterOutlined,
         personas: [
             PersonaType.TECHNICAL_USER,
@@ -139,7 +143,7 @@ const ALL_GUIDES = [
     {
         id: 'blog',
         title: 'Subscribe to the Blog',
-        url: 'https://www.acryldata.io/blog?utm_source=acryl_datahub_app&utm_content=blog',
+        url: 'https://www.medium.com/datahub-project',
         icon: AutoStoriesOutlinedIcon,
         personas: [
             PersonaType.TECHNICAL_USER,

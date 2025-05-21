@@ -1,0 +1,2 @@
+PLATFORM_EVENT_TOPIC_NAME = "PlatformEvent_v1"
+ENTITY_CHANGE_EVENT_NAME = "entityChangeEvent"

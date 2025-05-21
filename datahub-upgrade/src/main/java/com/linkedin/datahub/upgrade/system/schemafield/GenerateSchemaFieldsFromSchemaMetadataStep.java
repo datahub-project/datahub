@@ -175,8 +175,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                                       ebeanAspectV2 ->
                                           EntityUtils.toSystemAspectFromEbeanAspects(
                                               opContext.getRetrieverContext(),
-                                              Set.of(ebeanAspectV2),
-                                              true)
+                                              Set.of(ebeanAspectV2))
                                               .stream())
                                   .map(
                                       systemAspect ->

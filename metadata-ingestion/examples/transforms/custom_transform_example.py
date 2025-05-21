@@ -1,4 +1,4 @@
-# see https://datahubproject.io/docs/metadata-ingestion/transformers for original tutorial
+# see https://docs.datahub.com/docs/metadata-ingestion/transformers for original tutorial
 import json
 from typing import List, Optional
 

@@ -65,7 +65,7 @@ public abstract class LineageDataFixtureTestBase extends AbstractTestNGSpringCon
             Pair.of(2, 5), // Hop 2 -> 5 results
             Pair.of(3, 12) // Hop 3 -> 12 results
             );
-    hopsExpectedResultsStream.forEach(
+    hopsExpectedResultsStream.forEachOrdered(
         hopsExpectedResults -> {
           LineageSearchResult lineageResult =
               lineage(

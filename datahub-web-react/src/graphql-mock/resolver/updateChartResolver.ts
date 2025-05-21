@@ -1,6 +1,6 @@
-import { Chart, ChartUpdateInput } from '../../types.generated';
-import { findChartByURN } from '../fixtures/searchResult/chartSearchResult';
-import { updateEntityOwners, updateEntityTag } from '../mutationHelper';
+import { findChartByURN } from '@graphql-mock/fixtures/searchResult/chartSearchResult';
+import { updateEntityOwners, updateEntityTag } from '@graphql-mock/mutationHelper';
+import { Chart, ChartUpdateInput } from '@types';
 
 type UpdateChart = {
     data: { updateChart: Chart };

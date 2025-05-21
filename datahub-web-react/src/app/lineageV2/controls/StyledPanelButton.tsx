@@ -1,5 +1,5 @@
-import styled from 'styled-components';
 import { Button } from 'antd';
+import styled from 'styled-components';
 
 export const StyledPanelButton = styled(Button)`
     margin: 2px 0;

@@ -40,7 +40,7 @@ describe("run managed ingestion", () => {
         cy.contains("Succeeded", { timeout: 180000 });
         cy.clickOptionWithTestId(`delete-ingestion-source-${testName}`);
       });
-    cy.clickOptionWithText("Yes");
+    cy.get(`[data-testid="confirm-delete-ingestion-source"]`).click();
     cy.ensureTextNotPresent(testName);
   });
 });

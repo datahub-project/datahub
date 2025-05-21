@@ -93,7 +93,7 @@ const SocialMedia = ({}) => {
     },
     {
         videoUrl: useBaseUrl("/img/home-social-media/hashi.mp4"),
-        title: "Why Sean Rice of HashiCorp loves the time to value of Acryl Data.",
+        title: "Why Sean Rice of HashiCorp loves the time to value of DataHub.",
         link: 'https://www.youtube.com/watch?v=a3Rgb9QYbUk',
         // description: "VP Data Analytics, Experian",
         date: "July 2024",

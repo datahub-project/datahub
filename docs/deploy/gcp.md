@@ -13,8 +13,7 @@ skip the corresponding sections.
 This guide requires the following tools:
 
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) to manage kubernetes resources
-- [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm
-    3.
+- [helm](https://helm.sh/docs/intro/install/) to deploy the resources based on helm charts. Note, we only support Helm 3.
 - [gcloud](https://cloud.google.com/sdk/docs/install) to manage GCP resources
 
 Follow the
@@ -65,28 +64,22 @@ the GKE page on [GCP website](https://console.cloud.google.com/kubernetes/discov
 
 Once all deploy is successful, you should see a page like below in the "Services & Ingress" tab on the left.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gcp/services_ingress.png"/>
 </p>
 
-
 Tick the checkbox for datahub-datahub-frontend and click "CREATE INGRESS" button. You should land on the following page.
-
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gcp/ingress1.png"/>
 </p>
 
-
 Type in an arbitrary name for the ingress and click on the second step "Host and path rules". You should land on the
 following page.
-
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gcp/ingress2.png"/>
 </p>
-
 
 Select "datahub-datahub-frontend" in the dropdown menu for backends, and then click on "ADD HOST AND PATH RULE" button.
 In the second row that got created, add in the host name of choice (here gcp.datahubproject.io) and select
@@ -95,32 +88,25 @@ In the second row that got created, add in the host name of choice (here gcp.dat
 This step adds the rule allowing requests from the host name of choice to get routed to datahub-frontend service. Click
 on step 3 "Frontend configuration". You should land on the following page.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gcp/ingress3.png"/>
 </p>
-
 
 Choose HTTPS in the dropdown menu for protocol. To enable SSL, you need to add a certificate. If you do not have one,
 you can click "CREATE A NEW CERTIFICATE" and input the host name of choice. GCP will create a certificate for you.
 
 Now press "CREATE" button on the left to create ingress! After around 5 minutes, you should see the following.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gcp/ingress_ready.png"/>
 </p>
-
 
 In your domain provider, add an A record for the host name set above using the IP address on the ingress page (noted
 with the red box). Once DNS updates, you should be able to access DataHub through the host name!!
 
 Note, ignore the warning icon next to ingress. It takes about ten minutes for ingress to check that the backend service
-is ready and show a check mark as follows. However, ingress is fully functional once you see the above page. 
-
+is ready and show a check mark as follows. However, ingress is fully functional once you see the above page.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/gcp/ingress_final.png"/>
 </p>
-
-

@@ -8,4 +8,5 @@ export type LoaderProps = {
     size?: SizeOptions;
     justifyContent?: JustifyContentOptions;
     alignItems?: AlignItemsOptions;
+    padding?: number;
 };

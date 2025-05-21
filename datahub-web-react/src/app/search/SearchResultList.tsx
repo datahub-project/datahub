@@ -1,16 +1,18 @@
-import React from 'react';
 import { Checkbox, Divider, List, ListProps } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { SEPARATE_SIBLINGS_URL_PARAM } from '../entity/shared/siblingUtils';
-import { CompactEntityNameList } from '../recommendations/renderer/component/CompactEntityNameList';
-import { useEntityRegistry } from '../useEntityRegistry';
-import { SearchResult, SearchSuggestion } from '../../types.generated';
-import analytics, { EventType } from '../analytics';
-import { EntityAndType } from '../entity/shared/types';
-import { useIsSearchV2 } from './useSearchAndBrowseVersion';
-import { CombinedSearchResult } from './utils/combineSiblingsInSearchResults';
-import EmptySearchResults from './EmptySearchResults';
+
+import analytics, { EventType } from '@app/analytics';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SEPARATE_SIBLINGS_URL_PARAM } from '@app/entity/shared/siblingUtils';
+import { EntityAndType } from '@app/entity/shared/types';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import EmptySearchResults from '@app/search/EmptySearchResults';
+import { useIsSearchV2 } from '@app/search/useSearchAndBrowseVersion';
+import { CombinedSearchResult } from '@app/search/utils/combineSiblingsInSearchResults';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { SearchResult, SearchSuggestion } from '@types';
 
 const ResultList = styled(List)`
     &&& {

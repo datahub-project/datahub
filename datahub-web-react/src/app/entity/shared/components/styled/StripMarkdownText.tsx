@@ -1,5 +1,5 @@
-import React from 'react';
 import removeMd from '@tommoor/remove-markdown';
+import React from 'react';
 import styled from 'styled-components';
 
 const RemoveMarkdownContainer = styled.div<{ shouldWrap: boolean }>`

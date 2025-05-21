@@ -10,16 +10,13 @@ disparate tools & systems.
 
 The figures below describe the high-level architecture of DataHub.
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-architecture.png"/>
 </p>
 
-
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/DataHub-Architecture.png"/>
 </p>
-
 
 For a more detailed look at the components that make up the Architecture, check out [Components](../components.md).
 

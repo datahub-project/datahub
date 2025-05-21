@@ -1,5 +1,6 @@
-import { EntityType, PlatformPrivileges } from '../../../../types.generated';
-import { GenericEntityProperties } from '../types';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+
+import { EntityType, PlatformPrivileges } from '@types';
 
 export function isDeleteDisabled(
     entityType: EntityType,

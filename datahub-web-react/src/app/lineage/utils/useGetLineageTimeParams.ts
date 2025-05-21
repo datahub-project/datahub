@@ -1,6 +1,6 @@
 import * as QueryString from 'query-string';
-import { useLocation } from 'react-router-dom';
 import { useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 
 export const START_TIME_MILLIS_URL_PARAM = 'start_time_millis';
 export const END_TIME_MILLIS_URL_PARAM = 'end_time_millis';

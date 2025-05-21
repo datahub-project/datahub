@@ -1,11 +1,13 @@
+import { ClockCircleOutlined } from '@ant-design/icons';
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { ClockCircleOutlined } from '@ant-design/icons';
-import { FreshnessContract } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
-import { DataContractSummaryFooter } from './DataContractSummaryFooter';
-import { FreshnessScheduleSummary } from './FreshnessScheduleSummary';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
+import { FreshnessScheduleSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/FreshnessScheduleSummary';
+
+import { FreshnessContract } from '@types';
 
 const Container = styled.div`
     padding: 28px;
@@ -66,7 +68,7 @@ export const FreshnessContractSummary = ({ contracts, showAction = false }: Prop
             <SummaryContainer>
                 <Header>
                     <ClockCircleOutlined style={{ marginRight: 8 }} />
-                    UPDATE FREQUENCY
+                    Update Frequency
                 </Header>
                 <Body>
                     {!assertionDefinition && <>No contract found :(</>}

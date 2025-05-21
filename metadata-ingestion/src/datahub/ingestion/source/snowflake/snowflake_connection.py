@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Any, Dict, Optional
 
 import pydantic
@@ -27,7 +28,7 @@ from datahub.ingestion.source.snowflake.oauth_config import (
     OAuthIdentityProvider,
 )
 from datahub.ingestion.source.snowflake.oauth_generator import OAuthTokenGenerator
-from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
     remove_suffix,
@@ -192,23 +193,11 @@ class SnowflakeConnectionConfig(ConfigModel):
                 "but should be set when using use_certificate false for oauth_config"
             )
 
-    def get_sql_alchemy_url(
-        self,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[pydantic.SecretStr] = None,
-        role: Optional[str] = None,
-    ) -> str:
-        if username is None:
-            username = self.username
-        if password is None:
-            password = self.password
-        if role is None:
-            role = self.role
+    def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
         return make_sqlalchemy_uri(
             self.scheme,
-            username,
-            password.get_secret_value() if password else None,
+            self.username,
+            self.password.get_secret_value() if self.password else None,
             self.account_id,
             f'"{database}"' if database is not None else database,
             uri_opts={
@@ -217,7 +206,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 for (key, value) in {
                     "authenticator": _VALID_AUTH_TYPES.get(self.authentication_type),
                     "warehouse": self.warehouse,
-                    "role": role,
+                    "role": self.role,
                     "application": _APPLICATION_NAME,
                 }.items()
                 if value
@@ -402,13 +391,30 @@ class SnowflakeConnection(Closeable):
     def __init__(self, connection: NativeSnowflakeConnection):
         self._connection = connection
 
+        self._query_num_lock = threading.Lock()
+        self._query_num = 1
+
     def native_connection(self) -> NativeSnowflakeConnection:
         return self._connection
 
+    def get_query_no(self) -> int:
+        with self._query_num_lock:
+            no = self._query_num
+            self._query_num += 1
+            return no
+
     def query(self, query: str) -> Any:
         try:
-            logger.info(f"Query: {query}", stacklevel=2)
+            # We often run multiple queries in parallel across multiple threads,
+            # so we need to number them to help with log readability.
+            query_num = self.get_query_no()
+            logger.info(f"Query #{query_num}: {query}", stacklevel=2)
             resp = self._connection.cursor(DictCursor).execute(query)
+            if resp is not None and resp.rowcount is not None:
+                logger.info(
+                    f"Query #{query_num} got {resp.rowcount} row(s) back from Snowflake",
+                    stacklevel=2,
+                )
             return resp
 
         except Exception as e:

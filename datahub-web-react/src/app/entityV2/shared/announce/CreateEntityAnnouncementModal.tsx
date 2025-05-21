@@ -1,20 +1,22 @@
-import React, { useEffect, useState } from 'react';
 import { Form, Input, Modal, Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Button, colors } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { useCreatePostMutation, useUpdatePostMutation } from '../../../../graphql/mutations.generated';
-import { MediaType, PostContentType, PostType, SubResourceType } from '../../../../types.generated';
-import { PostEntry } from '../../../settings/posts/PostsListColumns';
+
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { PostEntry } from '@app/settings/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
     TYPE_FIELD_NAME,
-} from '../../../settings/posts/constants';
-import handleGraphQLError from '../../../shared/handleGraphQLError';
-import { useEnterKeyListener } from '../../../shared/useEnterKeyListener';
-import { Editor } from '../tabs/Documentation/components/editor/Editor';
+} from '@app/settings/posts/constants';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { Button, colors } from '@src/alchemy-components';
+import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+
+import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
+import { MediaType, PostContentType, PostType, SubResourceType } from '@types';
 
 const SubFormItem = styled(Form.Item)`
     margin-bottom: 24px;

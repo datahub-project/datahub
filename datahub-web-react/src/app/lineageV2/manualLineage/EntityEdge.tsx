@@ -1,11 +1,13 @@
-import { CloseOutlined } from '@ant-design/icons';
 import Text from 'antd/lib/typography/Text';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { CorpUser, Entity } from '../../../types.generated';
-import { ANTD_GRAY, DEFAULT_SYSTEM_ACTOR_URNS } from '../../entity/shared/constants';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import UserAvatar from './UserAvatar';
+
+import { ANTD_GRAY, DEFAULT_SYSTEM_ACTOR_URNS } from '@app/entity/shared/constants';
+import UserAvatar from '@app/lineageV2/manualLineage/UserAvatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Icon } from '@src/alchemy-components';
+
+import { CorpUser, Entity } from '@types';
 
 const EntityItem = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -25,13 +27,16 @@ const NameAndLogoWrapper = styled.span`
     max-width: 85%;
 `;
 
-const StyledClose = styled(CloseOutlined)`
-    cursor: pointer;
-`;
-
 const EntityName = styled(Text)`
     font-size: 14px;
     font-weight: bold;
+`;
+
+const AvatarWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
 `;
 
 interface Props {
@@ -56,10 +61,14 @@ export default function EntityEdge({ entity, removeEntity, createdOn, createdAct
                     {entityRegistry.getDisplayName(entity.type, entity)}
                 </EntityName>
             </NameAndLogoWrapper>
-            <span>
-                {shouldDisplayAvatar && <UserAvatar createdActor={createdActor} createdOn={createdOn} />}
-                <StyledClose onClick={() => removeEntity(entity)} />
-            </span>
+            <AvatarWrapper>
+                {shouldDisplayAvatar && (
+                    <div style={{ marginRight: '10px' }}>
+                        <UserAvatar createdActor={createdActor} createdOn={createdOn} />
+                    </div>
+                )}
+                <Icon icon="X" source="phosphor" onClick={() => removeEntity(entity)} />
+            </AvatarWrapper>
         </EntityItem>
     );
 }

@@ -1,16 +1,18 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router';
 import styled from 'styled-components/macro';
-import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
-import { EntityType } from '../../types.generated';
-import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
-import { VIEW_ENTITY_PAGE } from '../entity/shared/constants';
-import { decodeUrn } from '../entity/shared/utils';
-import CompactContext from '../shared/CompactContext';
-import { useEntityRegistry } from '../useEntityRegistry';
-import analytics from '../analytics/analytics';
-import { EventType } from '../analytics';
-import { useUserContext } from '../context/useUserContext';
+
+import { EventType } from '@app/analytics';
+import analytics from '@app/analytics/analytics';
+import { UnauthorizedPage } from '@app/authorization/UnauthorizedPage';
+import { useUserContext } from '@app/context/useUserContext';
+import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
+import { decodeUrn } from '@app/entity/shared/utils';
+import CompactContext from '@app/shared/CompactContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetGrantedPrivilegesQuery } from '@graphql/policy.generated';
+import { EntityType } from '@types';
 
 const EmbeddedPageWrapper = styled.div`
     max-height: 100%;

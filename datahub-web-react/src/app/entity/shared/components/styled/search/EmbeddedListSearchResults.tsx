@@ -1,17 +1,22 @@
-import React from 'react';
-import { Button, Pagination, Spin, Typography } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Button, Pagination, Spin, Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '../../../../../../types.generated';
-import { SearchCfg } from '../../../../../../conf';
-import { EntityAndType } from '../../../types';
-import { UnionType } from '../../../../../search/utils/constants';
-import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
-import { EntitySearchResults, EntityActionProps } from './EntitySearchResults';
-import MatchingViewsLabel from './MatchingViewsLabel';
-import { ANTD_GRAY } from '../../../constants';
-import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
-import { combineSiblingsInSearchResults } from '../../../../../search/utils/combineSiblingsInSearchResults';
+
+import {
+    EntityActionProps,
+    EntitySearchResults,
+} from '@app/entity/shared/components/styled/search/EntitySearchResults';
+import MatchingViewsLabel from '@app/entity/shared/components/styled/search/MatchingViewsLabel';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EntityAndType } from '@app/entity/shared/types';
+import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
+import { combineSiblingsInSearchResults } from '@app/search/utils/combineSiblingsInSearchResults';
+import { UnionType } from '@app/search/utils/constants';
+import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
+import { SearchCfg } from '@src/conf';
+
+import { FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
 const SearchBody = styled.div`
     height: 100%;

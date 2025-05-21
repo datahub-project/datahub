@@ -1,18 +1,19 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
+
+import AcrylAssertionListStatusDot from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionListStatusDot';
+import { DataContractBadge } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/DataContractBadge';
+import { AssertionListTableRow } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
+import { AssertionPlatformAvatar } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionPlatformAvatar';
+import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
+import { ResultStatusType } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { useBuildAssertionDescriptionLabels } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/utils';
+import { isAssertionPartOfContract } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/utils';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { EntityType, DataContract } from '@src/types.generated';
 import { UNKNOWN_DATA_PLATFORM } from '@src/app/entityV2/shared/constants';
-import { AssertionResultPopover } from '../assertion/profile/shared/result/AssertionResultPopover';
-import { ResultStatusType } from '../assertion/profile/summary/shared/resultMessageUtils';
-import { AssertionPlatformAvatar } from '../AssertionPlatformAvatar';
-import { isAssertionPartOfContract } from '../contract/utils';
-import { useBuildAssertionDescriptionLabels } from '../assertion/profile/summary/utils';
-import { DataContractBadge } from './DataContractBadge';
-import { AssertionListTableRow } from './types';
-import AcrylAssertionListStatusDot from './AcrylAssertionListStatusDot';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { DataContract, EntityType } from '@src/types.generated';
 
 const StyledAssertionNameContainer = styled.div`
     display: flex;

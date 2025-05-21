@@ -1,7 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { PostContent } from '../../../../../types.generated';
-import getAvatarColor from '../../../../shared/avatar/getAvatarColor';
+
+import getAvatarColor from '@app/shared/avatar/getAvatarColor';
+
+import { PostContent } from '@types';
 
 const PreviewImage = styled.img`
     color: white;

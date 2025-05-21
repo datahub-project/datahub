@@ -1,14 +1,16 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
-import { Domain, EntityType, Owner, SearchInsight } from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import DomainEntitiesSnippet from './DomainEntitiesSnippet';
-import DomainIcon from '../../../domain/DomainIcon';
-import EntityCount from '../../shared/containers/profile/header/EntityCount';
-import { DomainColoredIcon } from '../../shared/links/DomainColoredIcon';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
-import { PreviewType } from '../../Entity';
+
+import DomainIcon from '@app/domain/DomainIcon';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { PreviewType } from '@app/entityV2/Entity';
+import DomainEntitiesSnippet from '@app/entityV2/domain/preview/DomainEntitiesSnippet';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import EntityCount from '@app/entityV2/shared/containers/profile/header/EntityCount';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain, EntityType, Owner, SearchInsight } from '@types';
 
 export const Preview = ({
     domain,

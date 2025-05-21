@@ -1,11 +1,12 @@
+import { Modal, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Modal, Typography } from 'antd';
+
+import { ViewBuilderForm } from '@app/entityV2/view/builder/ViewBuilderForm';
+import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
+import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '@app/entityV2/view/types';
+import ClickOutside from '@app/shared/ClickOutside';
 import { Button } from '@src/alchemy-components';
-import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '../types';
-import { ViewBuilderForm } from './ViewBuilderForm';
-import ClickOutside from '../../../shared/ClickOutside';
-import { ViewBuilderMode } from './types';
 
 const modalWidth = 700;
 const modalStyle = { top: 40 };

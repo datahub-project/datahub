@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
 import com.linkedin.metadata.models.registry.LineageRegistry;
@@ -455,33 +456,29 @@ public class DgraphGraphService implements GraphService {
   @Override
   public RelatedEntitiesResult findRelatedEntities(
       @Nonnull final OperationContext opContext,
-      @Nullable List<String> sourceTypes,
-      @Nonnull Filter sourceEntityFilter,
-      @Nullable List<String> destinationTypes,
-      @Nonnull Filter destinationEntityFilter,
-      @Nonnull List<String> relationshipTypes,
-      @Nonnull RelationshipFilter relationshipFilter,
+      @Nonnull GraphFilters graphFilters,
       int offset,
       int count) {
 
-    if (sourceTypes != null && sourceTypes.isEmpty()
-        || destinationTypes != null && destinationTypes.isEmpty()) {
+    if (graphFilters.noResultsByType()) {
       return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
     }
-    if (relationshipTypes.isEmpty()
-        || relationshipTypes.stream()
+    if (graphFilters.getRelationshipTypes().isEmpty()
+        || graphFilters.getRelationshipTypes().stream()
             .noneMatch(relationship -> get_schema().hasField(relationship))) {
       return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
     }
 
     String query =
         getQueryForRelatedEntities(
-            sourceTypes,
-            sourceEntityFilter,
-            destinationTypes,
-            destinationEntityFilter,
-            relationshipTypes.stream().filter(get_schema()::hasField).collect(Collectors.toList()),
-            relationshipFilter,
+            graphFilters.getSourceTypesOrdered(),
+            graphFilters.getSourceEntityFilter(),
+            graphFilters.getDestinationTypesOrdered(),
+            graphFilters.getDestinationEntityFilter(),
+            graphFilters.getRelationshipTypesOrdered().stream()
+                .filter(get_schema()::hasField)
+                .collect(Collectors.toList()),
+            graphFilters.getRelationshipFilter(),
             offset,
             count);
 
@@ -683,22 +680,25 @@ public class DgraphGraphService implements GraphService {
   public void removeEdgesFromNode(
       @Nonnull final OperationContext opContext,
       @Nonnull Urn urn,
-      @Nonnull List<String> relationshipTypes,
+      @Nonnull Set<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter) {
     if (relationshipTypes.isEmpty()) {
       return;
     }
 
+    List<String> orderedRelationshipTypes =
+        relationshipTypes.stream().sorted().collect(Collectors.toList());
+
     RelationshipDirection direction = relationshipFilter.getDirection();
 
     if (direction == RelationshipDirection.OUTGOING
         || direction == RelationshipDirection.UNDIRECTED) {
-      removeOutgoingEdgesFromNode(urn, relationshipTypes);
+      removeOutgoingEdgesFromNode(urn, orderedRelationshipTypes);
     }
 
     if (direction == RelationshipDirection.INCOMING
         || direction == RelationshipDirection.UNDIRECTED) {
-      removeIncomingEdgesFromNode(urn, relationshipTypes);
+      removeIncomingEdgesFromNode(urn, orderedRelationshipTypes);
     }
   }
 
@@ -786,12 +786,7 @@ public class DgraphGraphService implements GraphService {
   @Override
   public RelatedEntitiesScrollResult scrollRelatedEntities(
       @Nonnull OperationContext opContext,
-      @Nullable List<String> sourceTypes,
-      @Nonnull Filter sourceEntityFilter,
-      @Nullable List<String> destinationTypes,
-      @Nonnull Filter destinationEntityFilter,
-      @Nonnull List<String> relationshipTypes,
-      @Nonnull RelationshipFilter relationshipFilter,
+      @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
       int count,

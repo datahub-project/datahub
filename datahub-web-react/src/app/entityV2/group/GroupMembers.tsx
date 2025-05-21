@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Col, Dropdown, message, Modal, Pagination, Row, Empty, Button, Typography, MenuProps } from 'antd';
+import { Button, Col, Dropdown, Empty, MenuProps, Modal, Pagination, Row, Typography, message } from 'antd';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '../../../graphql/group.generated';
-import { CorpUser, EntityType } from '../../../types.generated';
-import { CustomAvatar } from '../../shared/avatar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { AddGroupMembersModal } from './AddGroupMembersModal';
-import { scrollToTop } from '../../shared/searchUtils';
+
+import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
+import { CustomAvatar } from '@app/shared/avatar';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '@graphql/group.generated';
+import { CorpUser, EntityType } from '@types';
 
 const ADD_MEMBER_STYLE = {
     backGround: '#ffffff',

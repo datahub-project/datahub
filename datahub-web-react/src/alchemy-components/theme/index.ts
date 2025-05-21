@@ -1,8 +1,7 @@
 import * as config from './config';
-import * as utils from './utils';
-
 import { foundations } from './foundations';
 import { semanticTokens } from './semantic-tokens';
+import * as utils from './utils';
 
 const theme = {
     semanticTokens,

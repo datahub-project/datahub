@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import azureLogo from '../../../../../images/azure-ad.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import azureLogo from '@images/azure-ad.png';
 
 const placeholderRecipe = `\
 source:
@@ -33,7 +34,7 @@ const azureAdConfig: SourceConfig = {
     type: 'azure-ad',
     placeholderRecipe,
     displayName: 'Azure AD',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/azure-ad',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/azure-ad',
     logoUrl: azureLogo,
 };
 

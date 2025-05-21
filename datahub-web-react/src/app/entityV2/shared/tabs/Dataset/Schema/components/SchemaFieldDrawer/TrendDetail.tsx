@@ -1,10 +1,11 @@
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { Tooltip } from '@components';
-import { Maybe } from 'graphql/jsutils/Maybe';
-import { decimalToPercentStr } from '../../utils/statsUtil';
-import { REDESIGN_COLORS } from '../../../../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/statsUtil';
 
 interface TrendDetailProps {
     tooltipTitle: string;

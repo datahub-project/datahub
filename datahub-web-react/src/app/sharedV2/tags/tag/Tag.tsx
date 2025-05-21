@@ -1,16 +1,18 @@
-import { message, Modal } from 'antd';
-import styled from 'styled-components';
+import { Modal, message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
+import styled from 'styled-components';
+
+import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
+import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
-import { useRemoveTagMutation } from '../../../../graphql/mutations.generated';
-import { EntityType, SubResourceType, TagAssociation } from '../../../../types.generated';
-import { StyledTag } from '../../../entityV2/shared/components/styled/StyledTag';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { TagProfileDrawer } from '../../../shared/tags/TagProfileDrawer';
-import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
-import LabelPropagationDetails from '../../propagation/LabelPropagationDetails';
+
+import { useRemoveTagMutation } from '@graphql/mutations.generated';
+import { EntityType, SubResourceType, TagAssociation } from '@types';
 
 const TagLink = styled.span<{ $showOneAndCount?: boolean; $shouldNotAddBottomMargin?: boolean }>`
     display: flex;

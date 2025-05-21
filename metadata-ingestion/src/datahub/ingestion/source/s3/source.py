@@ -945,6 +945,17 @@ class S3Source(StatefulIngestionSourceBase):
                     for f in list_folders(
                         bucket_name, f"{folder}", self.source_config.aws_config
                     ):
+                        table_path = self.create_s3_path(bucket_name, f)
+                        table_name, _ = path_spec.extract_table_name_and_path(
+                            table_path
+                        )
+                        if not path_spec.tables_filter_pattern.allowed(table_name):
+                            logger.debug(
+                                f"Table '{table_name}' not allowed and skipping"
+                            )
+                            self.report.report_file_dropped(table_path)
+                            continue
+
                         dirs_to_process = []
                         logger.info(f"Processing folder: {f}")
                         if path_spec.traversal_method == FolderTraversalMethod.ALL:

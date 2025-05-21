@@ -1,12 +1,14 @@
 import React from 'react';
-import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '../../../../../../types.generated';
-import SingleSelectInput from './SingleSelectInput';
-import MultiSelectInput from './MultiSelectInput';
-import StringInput from './StringInput';
-import RichTextInput from './RichTextInput';
-import DateInput from './DateInput';
-import NumberInput from './NumberInput';
-import UrnInput from '../../../entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+
+import DateInput from '@app/entity/shared/components/styled/StructuredProperty/DateInput';
+import MultiSelectInput from '@app/entity/shared/components/styled/StructuredProperty/MultiSelectInput';
+import NumberInput from '@app/entity/shared/components/styled/StructuredProperty/NumberInput';
+import RichTextInput from '@app/entity/shared/components/styled/StructuredProperty/RichTextInput';
+import SingleSelectInput from '@app/entity/shared/components/styled/StructuredProperty/SingleSelectInput';
+import StringInput from '@app/entity/shared/components/styled/StructuredProperty/StringInput';
+import StructuredPropertySearchSelectUrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/StructuredPropertySearchSelectUrnInput';
+import UrnInput from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/UrnInput/UrnInput';
+import { PropertyCardinality, StdDataType, StructuredPropertyEntity } from '@src/types.generated';
 
 interface Props {
     structuredProperty: StructuredPropertyEntity;
@@ -14,6 +16,7 @@ interface Props {
     selectSingleValue: (value: string | number) => void;
     toggleSelectedValue: (value: string | number) => void;
     updateSelectedValues: (value: (string | number | null)[]) => void;
+    canUseSearchSelectUrnInput?: boolean;
 }
 
 export default function StructuredPropertyInput({
@@ -22,6 +25,7 @@ export default function StructuredPropertyInput({
     selectedValues,
     toggleSelectedValue,
     updateSelectedValues,
+    canUseSearchSelectUrnInput = false,
 }: Props) {
     const { allowedValues, cardinality, valueType } = structuredProperty.definition;
 
@@ -66,10 +70,17 @@ export default function StructuredPropertyInput({
                     updateSelectedValues={updateSelectedValues}
                 />
             )}
-            {!allowedValues && valueType.info.type === StdDataType.Urn && (
+            {!allowedValues && valueType.info.type === StdDataType.Urn && canUseSearchSelectUrnInput && (
+                <StructuredPropertySearchSelectUrnInput
+                    structuredProperty={structuredProperty}
+                    selectedValues={selectedValues as string[]}
+                    updateSelectedValues={updateSelectedValues}
+                />
+            )}
+            {!allowedValues && valueType.info.type === StdDataType.Urn && !canUseSearchSelectUrnInput && (
                 <UrnInput
                     structuredProperty={structuredProperty}
-                    selectedValues={selectedValues}
+                    selectedValues={selectedValues as string[]}
                     updateSelectedValues={updateSelectedValues}
                 />
             )}

@@ -1,15 +1,16 @@
+import { ClockCircleOutlined, EyeOutlined, QuestionCircleOutlined, TeamOutlined } from '@ant-design/icons';
+import { Popover, Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { Popover, Tooltip } from '@components';
-import { ClockCircleOutlined, EyeOutlined, TeamOutlined, QuestionCircleOutlined } from '@ant-design/icons';
-import { formatNumber, formatNumberWithoutAbbreviation } from '../../../shared/formatNumber';
-import { ANTD_GRAY } from '../../shared/constants';
-import { toLocalDateTimeString, toRelativeTimeString } from '../../../shared/time/timeUtils';
-import { StatsSummary } from '../../shared/components/styled/StatsSummary';
-import { PercentileLabel } from '../../shared/stats/PercentileLabel';
-import { countFormatter, needsFormatting } from '../../../../utils/formatter';
-import ExpandingStat from '../../dataset/shared/ExpandingStat';
+
+import ExpandingStat from '@app/entityV2/dataset/shared/ExpandingStat';
+import { StatsSummary } from '@app/entityV2/shared/components/styled/StatsSummary';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { PercentileLabel } from '@app/entityV2/shared/stats/PercentileLabel';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { countFormatter, needsFormatting } from '@utils/formatter';
 
 const StatText = styled.span`
     color: ${ANTD_GRAY[8]};

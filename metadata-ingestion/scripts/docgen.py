@@ -468,7 +468,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
             # Using an h2 tag to prevent this from showing up in page's TOC sidebar.
             f.write("\n<h2>Questions</h2>\n\n")
             f.write(
-                f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://slack.datahubproject.io).\n"
+                f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://datahub.com/slack).\n"
             )
             platform_metrics.generated += 1
     print("Ingestion Documentation Generation Complete")
@@ -550,7 +550,7 @@ Below is how column-level lineage can be set with dbt and Postgres tables.
 ### Ingestion Source
 
 If you're using an ingestion source that supports extraction of Lineage (e.g. **Table Lineage Capability**), then lineage information can be extracted automatically.
-For detailed instructions, refer to the [source documentation](https://datahubproject.io/integrations) for the source you are using.
+For detailed instructions, refer to the [source documentation](https://docs.datahub.com/integrations) for the source you are using.
 
 ### UI
 
@@ -674,7 +674,7 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
 If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, 
 we have a SQL queries connector that generates column-level lineage and detailed table usage statistics from the query log.
 
-If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://datahubproject.io/docs/python-sdk/clients/))
+If these does not suit your needs, you can use the new `DataHubGraph.parse_sql_lineage()` method in our SDK. (See the source code [here](https://docs.datahub.com/docs/python-sdk/clients/))
 
 For more information, refer to the [Extracting Column-Level Lineage from SQL](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567) 
 

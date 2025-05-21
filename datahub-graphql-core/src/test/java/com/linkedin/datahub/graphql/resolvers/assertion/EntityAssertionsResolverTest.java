@@ -52,7 +52,7 @@ public class EntityAssertionsResolverTest {
     Mockito.when(
             graphClient.getRelatedEntities(
                 Mockito.eq(datasetUrn.toString()),
-                Mockito.eq(ImmutableList.of("Asserts")),
+                Mockito.eq(ImmutableSet.of("Asserts")),
                 Mockito.eq(RelationshipDirection.INCOMING),
                 Mockito.eq(0),
                 Mockito.eq(10),

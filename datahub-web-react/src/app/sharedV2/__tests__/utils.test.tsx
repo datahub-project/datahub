@@ -1,6 +1,8 @@
 import { render } from '@testing-library/react';
-import { ColumnTypeIcon, TypeTooltipTitle } from '../utils';
-import { SchemaFieldDataType } from '../../../types.generated';
+
+import { ColumnTypeIcon, TypeTooltipTitle } from '@app/sharedV2/utils';
+
+import { SchemaFieldDataType } from '@types';
 
 describe('ColumnTypeIcon', () => {
     it('should return FontColorsOutlined for String type', () => {

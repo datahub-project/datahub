@@ -11,10 +11,14 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBaseNoVia;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
+import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import io.dgraph.DgraphClient;
 import io.dgraph.DgraphGrpc;
 import io.grpc.CallOptions;
@@ -69,7 +73,20 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
 
   @BeforeMethod
   public void connect() {
-    LineageRegistry lineageRegistry = new LineageRegistry(SnapshotEntityRegistry.getInstance());
+    ConfigEntityRegistry configEntityRegistry =
+        new ConfigEntityRegistry(
+            SearchCommonTestConfiguration.class
+                .getClassLoader()
+                .getResourceAsStream("entity-registry.yml"));
+    SnapshotEntityRegistry snapshotEntityRegistry = SnapshotEntityRegistry.getInstance();
+    LineageRegistry lineageRegistry;
+    try {
+      MergedEntityRegistry mergedEntityRegistry =
+          new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+      lineageRegistry = new LineageRegistry(mergedEntityRegistry);
+    } catch (EntityRegistryException e) {
+      throw new RuntimeException(e);
+    }
     _channel =
         ManagedChannelBuilder.forAddress(_container.getHost(), _container.getGrpcPort())
             .usePlaintext()
@@ -639,7 +656,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
                     put("key", "dest-key");
                   }
                 }),
-            Arrays.asList("relationship1", "relationship2"),
+            ImmutableList.of("relationship1", "relationship2"),
             newRelationshipFilter(EMPTY_FILTER, direction),
             0,
             100),
@@ -830,7 +847,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
   @Test(dataProvider = "NoViaFindRelatedEntitiesDestinationTypeTests")
   public void testFindRelatedEntitiesDestinationType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -842,7 +859,7 @@ public class DgraphGraphServiceTest extends GraphServiceTestBaseNoVia {
   @Test(dataProvider = "NoViaFindRelatedEntitiesSourceTypeTests")
   public void testFindRelatedEntitiesSourceType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {

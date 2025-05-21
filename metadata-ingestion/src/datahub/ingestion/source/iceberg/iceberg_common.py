@@ -40,11 +40,11 @@ class TimeoutHTTPAdapter(HTTPAdapter):
             del kwargs["timeout"]
         super().__init__(*args, **kwargs)
 
-    def send(self, request, **kwargs):
+    def send(self, request, *args, **kwargs):
         timeout = kwargs.get("timeout")
         if timeout is None and hasattr(self, "timeout"):
             kwargs["timeout"] = self.timeout
-        return super().send(request, **kwargs)
+        return super().send(request, *args, **kwargs)
 
 
 class IcebergProfilingConfig(ConfigModel):

@@ -1,6 +1,11 @@
-import { applyFacetFilterOverrides, applyOrFilterOverrides } from '../applyFilterOverrides';
-import { CONTAINER_FILTER_NAME, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME, UnionType } from '../constants';
-import { generateOrFilters } from '../generateOrFilters';
+import { applyFacetFilterOverrides, applyOrFilterOverrides } from '@app/searchV2/utils/applyFilterOverrides';
+import {
+    CONTAINER_FILTER_NAME,
+    ORIGIN_FILTER_NAME,
+    PLATFORM_FILTER_NAME,
+    UnionType,
+} from '@app/searchV2/utils/constants';
+import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 
 describe('applyFacetFilterOverrides', () => {
     it('should concatenate overrides to an empty list', () => {

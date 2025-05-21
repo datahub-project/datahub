@@ -6,7 +6,7 @@ x-search-datastore-elasticsearch-env: &search-datastore-env
 
 x-datahub-actions-service: &datahub-actions-service
   hostname: actions
-  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_ACTIONS_REPO:-acryldata}/datahub-actions}:${ACTIONS_VERSION:-v0.1.6}
+  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-actions}:${DATAHUB_VERSION:-head}-slim
   env_file:
     - datahub-actions/env/docker.env
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
@@ -20,6 +20,10 @@ x-datahub-actions-service: &datahub-actions-service
 
 x-datahub-actions-service-dev: &datahub-actions-service-dev
   <<: *datahub-actions-service
+  volumes:
+    - ./datahub-actions/start.sh:/start_datahub_actions.sh
+    - ../../metadata-ingestion/src:/metadata-ingestion/src
+    - ../../datahub-actions/src:/datahub-actions/src
 
 services:
   datahub-actions-quickstart:

@@ -5,6 +5,7 @@ export interface IconLabelProps {
     marginRight?: string;
     imageUrl?: string;
     style?: React.CSSProperties;
+    testId?: string;
 }
 
 export enum IconType {

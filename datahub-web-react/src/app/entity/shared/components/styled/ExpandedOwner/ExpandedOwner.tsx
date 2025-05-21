@@ -1,15 +1,17 @@
-import { message, Modal, Tag } from 'antd';
+import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
-import { EntityType, Owner } from '../../../../../../types.generated';
-import { getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import analytics, { EventType, EntityActionType } from '../../../../../analytics';
-import { useEntityData } from '../../../EntityContext';
-import OwnerContent from './OwnerContent';
-import { useEmbeddedProfileLinkProps } from '../../../../../shared/useEmbeddedProfileLinkProps';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import OwnerContent from '@app/entity/shared/components/styled/ExpandedOwner/OwnerContent';
+import { getNameFromType } from '@app/entity/shared/containers/profile/sidebar/Ownership/ownershipUtils';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveOwnerMutation } from '@graphql/mutations.generated';
+import { EntityType, Owner } from '@types';
 
 const OwnerTag = styled(Tag)`
     margin: 0;

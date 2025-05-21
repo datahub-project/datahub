@@ -1,13 +1,15 @@
-import React from 'react';
 import { Typography } from 'antd';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { EntityType } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../shared/constants';
-import { IconStyleType } from '../../Entity';
-import { CustomAvatar } from '../../../shared/avatar';
-import SearchTextHighlighter from '../../../search/matches/SearchTextHighlighter';
+
+import { IconStyleType } from '@app/entity/Entity';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import SearchTextHighlighter from '@app/search/matches/SearchTextHighlighter';
+import { CustomAvatar } from '@app/shared/avatar';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const PreviewContainer = styled.div`
     display: flex;

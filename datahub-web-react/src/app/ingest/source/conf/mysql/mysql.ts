@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import mysqlLogo from '../../../../../images/mysqllogo-2.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import mysqlLogo from '@images/mysqllogo-2.png';
 
 const placeholderRecipe = `\
 source: 
@@ -27,7 +28,7 @@ const mysqlConfig: SourceConfig = {
     type: 'mysql',
     placeholderRecipe,
     displayName: 'MySQL',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/mysql/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/mysql/',
     logoUrl: mysqlLogo,
 };
 

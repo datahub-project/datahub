@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Form, Input, Modal, Typography } from 'antd';
 import { PictureOutlined } from '@ant-design/icons';
 import { useCommands } from '@remirror/react';
-import { CommandButton } from './CommandButton';
+import { Form, Input, Modal, Typography } from 'antd';
+import React, { useState } from 'react';
+
+import { CommandButton } from '@app/entityV2/shared/tabs/Documentation/components/editor/toolbar/CommandButton';
 
 export const AddImageButton = () => {
     const [isModalVisible, setModalVisible] = useState(false);

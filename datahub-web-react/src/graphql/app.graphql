@@ -49,6 +49,9 @@ query appConfig {
             searchResult {
                 enableNameHighlight
             }
+            theme {
+                themeId
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging
@@ -58,6 +61,12 @@ query appConfig {
         }
         viewsConfig {
             enabled
+        }
+        searchBarConfig {
+            apiVariant
+        }
+        homePageConfig {
+            firstInPersonalSidebar
         }
         featureFlags {
             readOnlyModeEnabled
@@ -83,7 +92,10 @@ query appConfig {
             showNavBarRedesign
             showAutoCompleteResults
             entityVersioningEnabled
+            showHasSiblingsFilter
             showSearchBarAutocompleteRedesign
+            showManageTags
+            showIntroducePage
         }
         chromeExtensionConfig {
             enabled

@@ -125,7 +125,7 @@ class AddDatasetDomain(DatasetDomainTransformer):
             return domain_mcps
 
         for entity_urn, domain_to_add in (
-            (urn, self.config.get_domains_to_add(urn)) for urn in self.entity_map.keys()
+            (urn, self.config.get_domains_to_add(urn)) for urn in self.entity_map
         ):
             if not domain_to_add or not domain_to_add.domains:
                 continue

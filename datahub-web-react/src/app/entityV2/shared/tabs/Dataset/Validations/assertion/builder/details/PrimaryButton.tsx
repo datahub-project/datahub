@@ -1,7 +1,6 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Button, Tooltip } from '@components';
+import React from 'react';
+import styled from 'styled-components';
 
 const Icon = styled.div`
     margin-right: 8px;
@@ -13,9 +12,10 @@ type Props = {
     disabled?: boolean;
     tooltip?: React.ReactNode;
     onClick: () => void;
+    dataTestId?: string;
 };
 
-export const PrimaryButton = ({ icon, title, tooltip, disabled = false, onClick }: Props) => {
+export const PrimaryButton = ({ icon, title, tooltip, disabled = false, onClick, dataTestId }: Props) => {
     return (
         <Tooltip title={tooltip} placement="left" showArrow={false}>
             <Button
@@ -24,6 +24,7 @@ export const PrimaryButton = ({ icon, title, tooltip, disabled = false, onClick 
                     e.stopPropagation();
                     onClick();
                 }}
+                data-testid={dataTestId}
             >
                 {(icon && <Icon>{icon}</Icon>) || null}
                 {title}

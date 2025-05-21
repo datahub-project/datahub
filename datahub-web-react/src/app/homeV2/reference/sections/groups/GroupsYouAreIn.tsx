@@ -1,17 +1,19 @@
 import React, { useState } from 'react';
 import { useHistory } from 'react-router';
-import { useUserContext } from '../../../../context/useUserContext';
-import { EntityLinkList } from '../EntityLinkList';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { EntityType } from '../../../../../types.generated';
-import { useGetGroupsYouAreIn } from './useGetGroupsYouAreIn';
-import { EmptyGroupsYouAreIn } from './EmptyGroupsYouAreIn';
-import { ReferenceSectionProps } from '../../types';
-import { ReferenceSection } from '../../../layout/shared/styledComponents';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { ReferenceSection } from '@app/homeV2/layout/shared/styledComponents';
+import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { EmptyGroupsYouAreIn } from '@app/homeV2/reference/sections/groups/EmptyGroupsYouAreIn';
+import { useGetGroupsYouAreIn } from '@app/homeV2/reference/sections/groups/useGetGroupsYouAreIn';
+import { ReferenceSectionProps } from '@app/homeV2/reference/types';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 5;
 
-export const GroupsYouAreIn = ({ hideIfEmpty }: ReferenceSectionProps) => {
+export const GroupsYouAreIn = ({ hideIfEmpty, trackClickInSection }: ReferenceSectionProps) => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const userContext = useUserContext();
@@ -43,6 +45,7 @@ export const GroupsYouAreIn = ({ hideIfEmpty }: ReferenceSectionProps) => {
                 onClickMore={() => setEntityCount(entityCount + DEFAULT_MAX_ENTITIES_TO_SHOW)}
                 onClickTitle={navigateToUserGroupsTab}
                 empty={<EmptyGroupsYouAreIn />}
+                onClickEntity={trackClickInSection}
             />
         </ReferenceSection>
     );

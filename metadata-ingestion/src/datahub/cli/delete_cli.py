@@ -15,6 +15,7 @@ from datahub.cli import cli_utils
 from datahub.configuration.datetimes import ClickDatetime
 from datahub.emitter.aspect import ASPECT_MAP, TIMESERIES_ASPECT_MAP
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -48,7 +49,7 @@ def delete() -> None:
 
     See `datahub delete by-filter` for the list of available filters.
 
-    See https://datahubproject.io/docs/how/delete-metadata for more detailed docs.
+    See https://docs.datahub.com/docs/how/delete-metadata for more detailed docs.
     """
     pass
 
@@ -124,7 +125,7 @@ def by_registry(
     Delete all metadata written using the given registry id and version pair.
     """
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     if soft and not dry_run:
         raise click.UsageError(
@@ -175,7 +176,7 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
     Delete all references to an entity (but not the entity itself).
     """
 
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.CLI)
     logger.info(f"Using graph: {graph}")
 
     references_count, related_aspects = graph.delete_references_to_urn(
@@ -238,7 +239,7 @@ def undo_by_filter(
     """
     Undo soft deletion by filters
     """
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.CLI)
     logger.info(f"Using {graph}")
     if urn:
         graph.set_soft_delete_status(urn=urn, delete=False)
@@ -410,7 +411,7 @@ def by_filter(
                 abort=True,
             )
 
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.CLI)
     logger.info(f"Using {graph}")
 
     # Determine which urns to delete.

@@ -32,10 +32,10 @@ def deploy_source_vars(
     name: Optional[str],
     config: str,
     urn: Optional[str],
-    executor_id: str,
+    executor_id: Optional[str],
     cli_version: Optional[str],
     schedule: Optional[str],
-    time_zone: str,
+    time_zone: Optional[str],
     extra_pip: Optional[str],
     debug: bool = False,
 ) -> dict:

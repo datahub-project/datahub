@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Query
+ */
+@Aspect = {
+  "name": "dataHubOpenAPISchemaKey"
+}
+record DataHubOpenAPISchemaKey {
+  /**
+  * A unique id for the DataHub OpenAPI schema.
+  */
+  id: string
+}

@@ -1,11 +1,12 @@
+import { LoadingOutlined } from '@ant-design/icons';
 import React, { useEffect } from 'react';
 import { useHistory, useParams } from 'react-router';
 import styled from 'styled-components';
-import { LoadingOutlined } from '@ant-design/icons';
-import { ErrorSection } from '../../shared/error/ErrorSection';
-import useGetEntityByUrl from './useGetEntityByUrl';
-import LookupNotFound from './LookupNotFound';
-import LookupFoundMultiple from './LookupFoundMultiple';
+
+import LookupFoundMultiple from '@app/embed/lookup/LookupFoundMultiple';
+import LookupNotFound from '@app/embed/lookup/LookupNotFound';
+import useGetEntityByUrl from '@app/embed/lookup/useGetEntityByUrl';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
 
 const PageContainer = styled.div`
     display: flex;

@@ -8,14 +8,9 @@
   text-decoration: none !important;
 
   img {
-    width: 3rem;
+    width: auto;
     height: 3rem;
-    margin: auto;
-  }
-  svg {
-    width: 1.5rem;
-    height: 1.5rem;
-    margin-right: 0.75rem;
+    padding: auto;
   }
 
   &:hover {
@@ -25,11 +20,12 @@
 }
 
 .card_content {
-    display: flex;
-    margin: 0 auto;
+  margin: 0 auto;
+  align-items: center;
 }
 
 .card_title {
-    padding-left: 1rem;
+    margin-top: 0.5rem;
     font-weight: 600;
+    text-align: center;
 }

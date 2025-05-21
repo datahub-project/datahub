@@ -1,0 +1,17 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v1/events/poll",
+      "params": {
+        "topic": "PlatformEvent_v1"
+      },
+      "description": "Simple success poll request",
+      "method": "get"
+    },
+    "response": {
+      "status_codes": [
+        200
+      ]
+    }
+  }
+]

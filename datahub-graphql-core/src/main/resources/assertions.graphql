@@ -68,7 +68,6 @@ input UpsertCustomAssertionInput {
   Logic comprising a raw, unstructured assertion. for example - custom SQL query for the assertion.
   """
   logic: String
-
 }
 
 """
@@ -279,7 +278,6 @@ type AssertionAction {
   type: AssertionActionType!
 }
 
-
 """
 The type of the Action
 """
@@ -293,7 +291,6 @@ enum AssertionActionType {
   """
   RESOLVE_INCIDENT
 }
-
 
 """
 Information about an Freshness assertion.

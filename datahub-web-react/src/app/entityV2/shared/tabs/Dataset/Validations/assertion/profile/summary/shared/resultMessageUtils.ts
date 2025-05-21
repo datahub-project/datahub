@@ -1,11 +1,6 @@
-import {
-    Assertion,
-    AssertionResult,
-    AssertionResultType,
-    AssertionRunEvent,
-    AssertionType,
-} from '../../../../../../../../../../types.generated';
-import { getResultErrorMessage } from '../../../../assertionUtils';
+import { getResultErrorMessage } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent, AssertionType } from '@types';
 
 export const getFormattedResultText = (result?: AssertionResultType) => {
     if (result === undefined) {

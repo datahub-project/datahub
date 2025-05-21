@@ -1,14 +1,16 @@
+import { StopOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
-import { StopOutlined } from '@ant-design/icons';
-import { Assertion, AssertionResultType } from '../../../../../../../types.generated';
+
 import {
     StyledCheckOutlined,
     StyledClockCircleOutlined,
     StyledCloseOutlined,
     StyledExclamationOutlined,
-} from '../shared/styledComponents';
+} from '@app/entityV2/shared/tabs/Dataset/Validations/shared/styledComponents';
+
+import { Assertion, AssertionResultType } from '@types';
 
 const StatusContainer = styled.div`
     width: 100%;

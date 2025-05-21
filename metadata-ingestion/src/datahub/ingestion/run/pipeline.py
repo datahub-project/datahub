@@ -31,6 +31,7 @@ from datahub.ingestion.api.source import Extractor, Source
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.extractor.extractor_registry import extractor_registry
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.reporting.reporting_provider_registry import (
     reporting_provider_registry,
 )
@@ -39,9 +40,6 @@ from datahub.ingestion.run.sink_callback import DeadLetterQueueCallback, Logging
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
-from datahub.ingestion.transformer.system_metadata_transformer import (
-    SystemMetadataTransformer,
-)
 from datahub.ingestion.transformer.transform_registry import transform_registry
 from datahub.sdk._attribution import KnownAttribution, change_default_attribution
 from datahub.telemetry import stats
@@ -139,9 +137,8 @@ class CliReport(Report):
 
 
 def _make_default_rest_sink(ctx: PipelineContext) -> DatahubRestSink:
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.INGESTION)
     sink_config = graph._make_rest_sink_config()
-
     return DatahubRestSink(ctx, sink_config)
 
 
@@ -178,6 +175,7 @@ class Pipeline:
             self.graph: Optional[DataHubGraph] = None
             with _add_init_error_context("connect to DataHub"):
                 if self.config.datahub_api:
+                    self.config.datahub_api.client_mode = ClientMode.INGESTION
                     self.graph = exit_stack.enter_context(
                         DataHubGraph(self.config.datahub_api)
                     )
@@ -285,9 +283,6 @@ class Pipeline:
                 logger.debug(
                     f"Transformer type:{transformer_type},{transformer_class} configured"
                 )
-
-        # Add the system metadata transformer at the end of the list.
-        self.transformers.append(SystemMetadataTransformer(self.ctx))
 
     def _configure_reporting(self, report_to: Optional[str]) -> None:
         if self.dry_run:
@@ -561,18 +556,20 @@ class Pipeline:
     def raise_from_status(self, raise_warnings: bool = False) -> None:
         if self.source.get_report().failures:
             raise PipelineExecutionError(
-                "Source reported errors", self.source.get_report()
+                "Source reported errors", self.source.get_report().failures
             )
         if self.sink.get_report().failures:
-            raise PipelineExecutionError("Sink reported errors", self.sink.get_report())
+            raise PipelineExecutionError(
+                "Sink reported errors", self.sink.get_report().failures
+            )
         if raise_warnings:
             if self.source.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Source reported warnings", self.source.get_report()
+                    "Source reported warnings", self.source.get_report().warnings
                 )
             if self.sink.get_report().warnings:
                 raise PipelineExecutionError(
-                    "Sink reported warnings", self.sink.get_report()
+                    "Sink reported warnings", self.sink.get_report().warnings
                 )
 
     def log_ingestion_stats(self) -> None:

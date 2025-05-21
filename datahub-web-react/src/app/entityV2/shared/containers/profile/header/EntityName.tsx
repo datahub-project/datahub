@@ -1,27 +1,29 @@
-import { message, Typography } from 'antd';
-import React, { useState, useEffect } from 'react';
+import { Typography, message } from 'antd';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
+import CompactContext from '@app/shared/CompactContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
-import { useUpdateNameMutation } from '../../../../../../graphql/mutations.generated';
-import { getParentNodeToUpdate, updateGlossarySidebar } from '../../../../../glossary/utils';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
-import { REDESIGN_COLORS } from '../../../constants';
-import CompactContext from '../../../../../shared/CompactContext';
-import { EntityType } from '../../../../../../types.generated';
+
+import { useUpdateNameMutation } from '@graphql/mutations.generated';
+import { EntityType } from '@types';
 
 const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
     font-weight: 700;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     line-height: normal;
 
     ${(props) =>
         props.$showEntityLink &&
         `
     :hover {
-        color: ${REDESIGN_COLORS.HOVER_PURPLE};
+        color: ${(p) => getColor('primary', 600, p.theme)};
     }
     `}
     &&& {
@@ -36,7 +38,7 @@ const EntityTitle = styled(Typography.Text)<{ $showEntityLink?: boolean }>`
         margin-left: 2px;
 
         & svg {
-            fill: #533fd1;
+            fill: ${(p) => p.theme.styles['primary-color']};
         }
     }
 `;

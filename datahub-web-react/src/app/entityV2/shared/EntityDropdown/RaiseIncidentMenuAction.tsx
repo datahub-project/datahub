@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
 import { WarningOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
+import React, { useState } from 'react';
 import { useHistory } from 'react-router';
-import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
-import { ActionMenuItem } from './styledComponents';
-import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
-import { getEntityPath } from '../containers/profile/utils';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { useIsSeparateSiblingsMode } from '../useIsSeparateSiblingsMode';
+
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { ActionMenuItem } from '@app/entityV2/shared/EntityDropdown/styledComponents';
+import { getEntityPath } from '@app/entityV2/shared/containers/profile/utils';
+import { AddIncidentModal } from '@app/entityV2/shared/tabs/Incident/components/AddIncidentModal';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export default function RaiseIncidentMenuAction() {
     const { urn, entityType } = useEntityData();

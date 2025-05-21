@@ -1,13 +1,15 @@
+import { CloseOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { CloseOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
-import { Domain as DomainEntity, EntityType } from '../../../types.generated';
-import { HoverEntityTooltip } from '../../recommendations/renderer/component/HoverEntityTooltip';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import { DomainColoredIcon } from '../../entityV2/shared/links/DomainColoredIcon';
-import { useEmbeddedProfileLinkProps } from '../../shared/useEmbeddedProfileLinkProps';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain as DomainEntity, EntityType } from '@types';
 
 const DomainLinkContainer = styled(Link)`
     display: inline-block;

@@ -40,7 +40,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   protected abstract RestHighLevelClient getSearchClient();
 
   private IndicesClient _indexClient;
-  private static final String TEST_INDEX_NAME = "esindex_builder_test";
+  protected static final String TEST_INDEX_NAME = "esindex_builder_test";
   private ESIndexBuilder testDefaultBuilder;
 
   @BeforeClass
@@ -114,6 +114,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     assertEquals("0", resp.getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
     assertEquals("0s", resp.getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
   }
+
+  @Test
+  protected abstract void testCodec() throws Exception;
 
   @Test
   public void testMappingReindex() throws Exception {

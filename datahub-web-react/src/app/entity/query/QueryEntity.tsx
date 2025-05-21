@@ -1,11 +1,13 @@
+import { ConsoleSqlOutlined } from '@ant-design/icons';
+import * as React from 'react';
+
+import { Entity, IconStyleType } from '@app/entity/Entity';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { ConsoleSqlOutlined } from '@ant-design/icons';
+
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { DataPlatform, EntityType, QueryEntity as Query } from '@types';
-import * as React from 'react';
-import { Entity, IconStyleType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
 
 /**
  * Definition of the DataHub DataPlatformInstance entity.

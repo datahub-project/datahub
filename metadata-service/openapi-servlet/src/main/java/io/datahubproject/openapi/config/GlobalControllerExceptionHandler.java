@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.config;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -108,6 +109,15 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, String>> handleGenericException(
       Exception e, HttpServletRequest request) {
+
+    Throwable cause = e.getCause();
+    while (cause != null) {
+      if (cause instanceof JsonProcessingException || cause instanceof jakarta.json.JsonException) {
+        return handleJsonException((Exception) cause, request);
+      }
+      cause = cause.getCause();
+    }
+
     log.error("Unhandled exception occurred for request: {}", request.getRequestURI(), e);
     return new ResponseEntity<>(
         Map.of("error", "Internal server error occurred"), HttpStatus.INTERNAL_SERVER_ERROR);
@@ -120,5 +130,13 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
 
     log.error("No handler found for request: {}", request.getRequestURI());
     return new ResponseEntity<>(Map.of("error", message), HttpStatus.NOT_FOUND);
+  }
+
+  @ExceptionHandler({JsonProcessingException.class, jakarta.json.JsonException.class})
+  public ResponseEntity<Map<String, String>> handleJsonException(
+      Exception e, HttpServletRequest request) {
+    log.error("Invalid JSON format: {}", request.getRequestURI(), e);
+    return new ResponseEntity<>(
+        Map.of("error", "Invalid JSON format", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
   }
 }

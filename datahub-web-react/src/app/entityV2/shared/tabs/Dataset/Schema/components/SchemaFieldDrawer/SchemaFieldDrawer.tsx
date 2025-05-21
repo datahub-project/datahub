@@ -1,29 +1,28 @@
 import { CodeOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
-import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
-import { TabRenderType } from '@src/app/entityV2/shared/types';
 import { Drawer, Typography } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '../../../../../../../../graphql/dataset.generated';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
+import { AboutFieldTab } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/AboutFieldTab';
+import DrawerFooter from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/DrawerFooter';
+import FieldHeader from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldHeader';
 import {
-    EditableSchemaMetadata,
-    Post,
-    SchemaField,
-    TimeWindow,
-    UsageQueryResult,
-} from '../../../../../../../../types.generated';
-import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
-import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
-import { PropertiesTab } from '../../../../Properties/PropertiesTab';
-import { SchemaTimelineSection } from '../../../Timeline/SchemaTimelineSection';
-import { AboutFieldTab } from './AboutFieldTab';
-import DrawerFooter from './DrawerFooter';
-import FieldHeader from './FieldHeader';
-import { SchemaFieldDrawerTabs, TABS_WIDTH } from './SchemaFieldDrawerTabs';
-import SchemaFieldQueriesSidebarTab from './SchemaFieldQueriesSidebarTab';
-import StatsSidebarView from './StatsSidebarView';
+    SchemaFieldDrawerTabs,
+    TABS_WIDTH,
+} from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
+import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
+import StatsSidebarView from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
+import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { TabRenderType } from '@src/app/entityV2/shared/types';
+
+import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
+import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
+import { EditableSchemaMetadata, Post, SchemaField, TimeWindow, UsageQueryResult } from '@types';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {

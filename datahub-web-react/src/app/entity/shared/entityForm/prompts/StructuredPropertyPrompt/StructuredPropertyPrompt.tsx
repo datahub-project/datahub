@@ -1,12 +1,14 @@
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { FormPrompt, SchemaField, SubmitFormPromptInput } from '../../../../../../types.generated';
-import useStructuredPropertyPrompt from './useStructuredPropertyPrompt';
-import CompletedPromptAuditStamp from './CompletedPromptAuditStamp';
-import { applyOpacity } from '../../../../../shared/styleUtils';
-import usePromptCompletionInfo from '../usePromptCompletionInfo';
-import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
+
+import StructuredPropertyInput from '@app/entity/shared/components/styled/StructuredProperty/StructuredPropertyInput';
+import CompletedPromptAuditStamp from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/CompletedPromptAuditStamp';
+import useStructuredPropertyPrompt from '@app/entity/shared/entityForm/prompts/StructuredPropertyPrompt/useStructuredPropertyPrompt';
+import usePromptCompletionInfo from '@app/entity/shared/entityForm/prompts/usePromptCompletionInfo';
+import { applyOpacity } from '@app/shared/styleUtils';
+
+import { FormPrompt, SchemaField, SubmitFormPromptInput } from '@types';
 
 const PromptWrapper = styled.div<{ displayBulkStyles?: boolean }>`
     display: flex;

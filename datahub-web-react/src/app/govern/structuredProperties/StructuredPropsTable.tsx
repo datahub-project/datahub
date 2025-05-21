@@ -1,5 +1,25 @@
 import { useApolloClient } from '@apollo/client';
 import { Icon, Pill, Table, Text, Tooltip } from '@components';
+import { Dropdown } from 'antd';
+import React, { useState } from 'react';
+import Highlight from 'react-highlighter';
+import { Link } from 'react-router-dom';
+
+import EmptyStructuredProperties from '@app/govern/structuredProperties/EmptyStructuredProperties';
+import { removeFromPropertiesList } from '@app/govern/structuredProperties/cacheUtils';
+import {
+    CardIcons,
+    CreatedByContainer,
+    DataContainer,
+    IconContainer,
+    MenuItem,
+    NameColumn,
+    PillContainer,
+    PillsContainer,
+    PropDescription,
+    PropName,
+} from '@app/govern/structuredProperties/styledComponents';
+import { getDisplayName } from '@app/govern/structuredProperties/utils';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -7,7 +27,7 @@ import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/
 import { CustomAvatar } from '@src/app/shared/avatar';
 import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
+import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
@@ -20,25 +40,6 @@ import {
     SearchResults,
     StructuredPropertyEntity,
 } from '@src/types.generated';
-import { Dropdown } from 'antd';
-import React, { useState } from 'react';
-import Highlight from 'react-highlighter';
-import { Link } from 'react-router-dom';
-import { removeFromPropertiesList } from './cacheUtils';
-import EmptyStructuredProperties from './EmptyStructuredProperties';
-import {
-    CardIcons,
-    CreatedByContainer,
-    DataContainer,
-    IconContainer,
-    MenuItem,
-    NameColumn,
-    PillContainer,
-    PillsContainer,
-    PropDescription,
-    PropName,
-} from './styledComponents';
-import { getDisplayName } from './utils';
 
 interface Props {
     searchQuery: string;

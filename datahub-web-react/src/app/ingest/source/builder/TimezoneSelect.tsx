@@ -1,6 +1,6 @@
 import { Select } from 'antd';
-import React from 'react';
 import moment from 'moment-timezone';
+import React from 'react';
 import styled from 'styled-components';
 
 const StyledSelect = styled(Select)`

@@ -1,4 +1,4 @@
-import { Query } from '../types';
+import { Query } from '@app/entity/shared/tabs/Dataset/Queries/types';
 
 /**
  * Filter queries by a search string. Compares name, description, and query statement.

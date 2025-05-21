@@ -1,13 +1,14 @@
 ## Usage Guide
 
-If you are new to [Delta Lake](https://delta.io/) and want to test out a simple integration with Delta Lake and DataHub, you can follow this guide. 
+If you are new to [Delta Lake](https://delta.io/) and want to test out a simple integration with Delta Lake and DataHub, you can follow this guide.
 
 ### Delta Table on Local File System
 
-#### Step 1 
+#### Step 1
+
 Create a delta table using the sample PySpark code below if you don't have a delta table you can point to.
 
-```python 
+```python
 import uuid
 import random
 from pyspark.sql import SparkSession
@@ -38,14 +39,15 @@ df.show()
 ```
 
 #### Step 2
+
 Create a datahub ingestion yaml file (delta.dhub.yaml) to ingest metadata from the delta table you just created.
 
 ```yaml
 source:
   type: "delta-lake"
   config:
-    base_path:  "quickstart/my-table"
-    
+    base_path: "quickstart/my-table"
+
 sink:
   type: "datahub-rest"
   config:
@@ -54,22 +56,28 @@ sink:
 
 Note: Make sure you run the Spark code as well as recipe from same folder otherwise use absolute paths.
 
-#### Step 3 
+#### Step 3
+
 Execute the ingestion recipe:
+
 ```shell
 datahub ingest -c delta.dhub.yaml
 ```
 
 ### Delta Table on S3
 
-#### Step 1 
+#### Step 1
+
 Set up your AWS credentials by creating an AWS credentials config file; typically in '$HOME/.aws/credentials'.
+
 ```
 [my-creds]
 aws_access_key_id: ######
 aws_secret_access_key: ######
 ```
-Step 2: Create a Delta Table using the PySpark sample code below unless you already have Delta Tables on your S3. 
+
+Step 2: Create a Delta Table using the PySpark sample code below unless you already have Delta Tables on your S3.
+
 ```python
 from pyspark.sql import SparkSession
 from delta.tables import DeltaTable
@@ -113,18 +121,19 @@ df.show()
 ```
 
 #### Step 3
+
 Create a datahub ingestion yaml file (delta.s3.dhub.yaml) to ingest metadata from the delta table you just created.
 
 ```yml
 source:
   type: "delta-lake"
   config:
-    base_path:  "s3://my-bucket/my-folder/sales-table"
+    base_path: "s3://my-bucket/my-folder/sales-table"
     s3:
       aws_config:
         aws_access_key_id: <<Access key>>
         aws_secret_access_key: <<secret key>>
-    
+
 sink:
   type: "datahub-rest"
   config:
@@ -132,7 +141,9 @@ sink:
 ```
 
 #### Step 4
+
 Execute the ingestion recipe:
+
 ```shell
 datahub ingest -c delta.s3.dhub.yaml
 ```

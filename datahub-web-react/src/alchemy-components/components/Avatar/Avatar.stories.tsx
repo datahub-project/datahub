@@ -1,8 +1,10 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
-import { GridList } from '@src/alchemy-components/.docs/mdx-components';
 import { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { Avatar, avatarDefaults } from './Avatar';
+
+import { Avatar, avatarDefaults } from '@components/components/Avatar/Avatar';
+
+import { GridList } from '@src/alchemy-components/.docs/mdx-components';
 
 const IMAGE_URL =
     'https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/78/cb/e1/78cbe16d-28d9-057e-9f73-524c32eb5fe5/AppIcon-0-0-1x_U007emarketing-0-7-0-85-220.png/512x512bb.jpg';

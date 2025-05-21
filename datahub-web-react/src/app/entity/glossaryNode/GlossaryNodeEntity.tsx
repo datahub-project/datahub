@@ -1,18 +1,20 @@
 import { FolderFilled, FolderOutlined } from '@ant-design/icons';
 import React from 'react';
-import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
-import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import ChildrenTab from './ChildrenTab';
-import { Preview } from './preview/Preview';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import ChildrenTab from '@app/entity/glossaryNode/ChildrenTab';
+import { Preview } from '@app/entity/glossaryNode/preview/Preview';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+
+import { useGetGlossaryNodeQuery } from '@graphql/glossaryNode.generated';
+import { EntityType, GlossaryNode, SearchResult } from '@types';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;

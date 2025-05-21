@@ -319,8 +319,10 @@ def classification_workunit_processor(
                         partial(
                             data_reader.get_sample_data_for_table,
                             table_id,
-                            classification_handler.config.classification.sample_size
-                            * SAMPLE_SIZE_MULTIPLIER,
+                            int(
+                                classification_handler.config.classification.sample_size
+                                * SAMPLE_SIZE_MULTIPLIER
+                            ),
                             **(data_reader_kwargs or {}),
                         )
                         if data_reader

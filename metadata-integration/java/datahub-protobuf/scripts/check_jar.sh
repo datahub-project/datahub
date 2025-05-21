@@ -46,7 +46,8 @@ jar -tvf $jarFile |\
       grep -v "org/glassfish/" |\
       grep -v "LICENSE" |\
       grep -v "org/apache/avro" |\
-      grep -v "org/apache"
+      grep -v "org/apache" |\
+      grep -v "org/publicsuffix"
 
 if [ $? -ne 0 ]; then
   echo "✅ No unexpected class paths found in ${jarFile}"

@@ -41,6 +41,7 @@ export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
 export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
 export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
 export const SCHEMA_FIELD_ALIASES_FILTER_NAME = 'schemaFieldAliases';
+export const IS_DEPRECATED_FILTER_NAME = 'deprecated';
 
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 
@@ -167,4 +168,5 @@ export const EMBEDDED_LIST_SEARCH_ENTITY_TYPES = [
     EntityType.Notebook,
     EntityType.BusinessAttribute,
     EntityType.DataProcessInstance,
+    EntityType.SchemaField,
 ];

@@ -1,10 +1,12 @@
-import React from 'react';
 import { Empty } from 'antd';
-import { OwnershipTypeEntity } from '../../../../types.generated';
-import { StyledTable } from '../../shared/components/styled/StyledTable';
-import { NameColumn } from './NameColumn';
-import { DescriptionColumn } from './DescriptionColumn';
-import { ActionsColumn } from './ActionsColumn';
+import React from 'react';
+
+import { ActionsColumn } from '@app/entity/ownership/table/ActionsColumn';
+import { DescriptionColumn } from '@app/entity/ownership/table/DescriptionColumn';
+import { NameColumn } from '@app/entity/ownership/table/NameColumn';
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+
+import { OwnershipTypeEntity } from '@types';
 
 type Props = {
     ownershipTypes: OwnershipTypeEntity[];

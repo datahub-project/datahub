@@ -1,7 +1,8 @@
 import React from 'react';
-import { RecommendationRenderProps } from '../types';
-import { recommendationClickEvent } from '../util/recommendationClickEvent';
-import { DomainSearchList } from './component/DomainSearchList';
+
+import { DomainSearchList } from '@app/recommendations/renderer/component/DomainSearchList';
+import { RecommendationRenderProps } from '@app/recommendations/types';
+import { recommendationClickEvent } from '@app/recommendations/util/recommendationClickEvent';
 
 export const DomainSearchListRenderer = ({
     renderId,

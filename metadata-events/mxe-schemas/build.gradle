@@ -7,7 +7,7 @@ dependencies {
   dataModel project(path: ':li-utils', configuration: 'dataTemplate')
 }
 
-task copyMetadataModels(type: Copy) {
+task copyMetadataModels(type: Sync) {
   from("../../metadata-models/src/main/pegasus/")
   into file("src/main/pegasus")
 }
@@ -19,7 +19,7 @@ generateDataTemplate.dependsOn copyMetadataModels
 mainCopySchemas.dependsOn copyMetadataModels
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
-task renameNamespace(type: Copy, dependsOn: generateAvroSchema) {
+task renameNamespace(type: Sync, dependsOn: generateAvroSchema) {
   from("src/mainGeneratedAvroSchema/avro")
   into file("src/renamed/avro")
 

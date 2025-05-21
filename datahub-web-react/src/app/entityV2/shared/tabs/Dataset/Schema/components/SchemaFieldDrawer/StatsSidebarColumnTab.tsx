@@ -1,13 +1,16 @@
+import Icon from '@ant-design/icons/lib/components/Icon';
 import React from 'react';
 import styled from 'styled-components';
-import Icon from '@ant-design/icons/lib/components/Icon';
-import StatChart, { ChartCard } from '../../../Stats/historical/charts/StatChart';
-import { getFixedLookbackWindow } from '../../../../../../../shared/time/timeUtils';
-import { LookbackWindow } from '../../../Stats/lookbackWindows';
-import { DatasetFieldProfile, SchemaField } from '../../../../../../../../types.generated';
-import NoStatsAvailble from '../../../../../../../../images/no-stats-available.svg?react';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '../../../../../utils';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import StatChart, { ChartCard } from '@app/entityV2/shared/tabs/Dataset/Stats/historical/charts/StatChart';
+import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { computeChartTickInterval, extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
+import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+
+import { DatasetFieldProfile, SchemaField } from '@types';
+
+import NoStatsAvailble from '@images/no-stats-available.svg?react';
 
 const CHART_WIDTH = 460;
 const CHART_HEIGHT = 170;

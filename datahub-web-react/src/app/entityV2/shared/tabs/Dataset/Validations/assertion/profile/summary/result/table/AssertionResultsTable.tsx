@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
-
-import styled from 'styled-components';
 import { Timeline } from 'antd';
+import React, { useState } from 'react';
+import styled from 'styled-components';
 
-import { Assertion, AssertionResultType, AssertionRunEvent } from '../../../../../../../../../../../types.generated';
-import { useGetAssertionRunsQuery } from '../../../../../../../../../../../graphql/assertion.generated';
-import { ANTD_GRAY } from '../../../../../../../../constants';
-import { getResultColor } from '../../../../../assertionUtils';
-import { AssertionResultsTableItem } from './AssertionResultsTableItem';
-import { AssertionResultsLoadingItems } from './AssertionResultsLoadingItems';
-import { NoResultsSummary } from '../../NoResultsSummary';
-import { AssertionResultDot } from '../../../shared/AssertionResultDot';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { AssertionResultDot } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/AssertionResultDot';
+import { NoResultsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/NoResultsSummary';
+import { AssertionResultsLoadingItems } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionResultsLoadingItems';
+import { AssertionResultsTableItem } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/table/AssertionResultsTableItem';
+import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
+
+import { useGetAssertionRunsQuery } from '@graphql/assertion.generated';
+import { Assertion, AssertionResultType, AssertionRunEvent } from '@types';
 
 const Container = styled.div`
     margin-top: 20px;

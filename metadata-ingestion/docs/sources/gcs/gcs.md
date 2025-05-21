@@ -1,4 +1,3 @@
-
 ### Path Specs
 
 **Example - Dataset per file**
@@ -12,6 +11,7 @@ test-gs-bucket
 ```
 
 Path specs config
+
 ```
 path_specs:
     - include: gs://test-gs-bucket/*.csv
@@ -21,6 +21,7 @@ path_specs:
 **Example - Datasets with partitions**
 
 Bucket structure:
+
 ```
 test-gs-bucket
 ├── orders
@@ -36,6 +37,7 @@ test-gs-bucket
 ```
 
 Path specs config:
+
 ```
 path_specs:
     - include: gs://test-gs-bucket/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.parquet
@@ -44,6 +46,7 @@ path_specs:
 **Example - Datasets with partition and exclude**
 
 Bucket structure:
+
 ```
 test-gs-bucket
 ├── orders
@@ -60,15 +63,18 @@ test-gs-bucket
 ```
 
 Path specs config:
+
 ```
 path_specs:
     - include: gs://test-gs-bucket/{table}/{partition_key[0]}={partition[0]}/{partition_key[1]}={partition[1]}/*.parquet
-      exclude: 
+      exclude:
         - **/tmp_orders/**
 ```
+
 **Example - Datasets of mixed nature**
 
 Bucket structure:
+
 ```
 test-gs-bucket
 ├── customers
@@ -89,6 +95,7 @@ test-gs-bucket
 ```
 
 Path specs config:
+
 ```
 path_specs:
     - include: gs://test-gs-bucket/*.csv
@@ -101,7 +108,7 @@ path_specs:
 **Valid path_specs.include**
 
 ```python
-gs://my-bucket/foo/tests/bar.avro # single file table   
+gs://my-bucket/foo/tests/bar.avro # single file table
 gs://my-bucket/foo/tests/*.* # mulitple file level tables
 gs://my-bucket/foo/tests/{table}/*.avro #table without partition
 gs://my-bucket/foo/tests/{table}/*/*.avro #table where partitions are not specified
@@ -115,35 +122,33 @@ gs://my-bucket/*/*/{table}/{partition[0]}/{partition[1]}/{partition[2]}/*.* # ta
 ```
 
 **Valid path_specs.exclude**
-- \**/tests/**
-- gs://my-bucket/hr/**
-- **/tests/*.csv
-- gs://my-bucket/foo/*/my_table/**
+
+- \*\*/tests/\*\*
+- gs://my-bucket/hr/\*\*
+- \*_/tests/_.csv
+- gs://my-bucket/foo/\*/my_table/\*\*
 
 **Notes**
 
 - {table} represents folder for which dataset will be created.
-- include path must end with (*.* or *.[ext]) to represent leaf level.
-- if *.[ext] is provided then only files with specified type will be scanned.
-- /*/ represents single folder.
+- include path must end with (_._ or \*.[ext]) to represent leaf level.
+- if \*.[ext] is provided then only files with specified type will be scanned.
+- /\*/ represents single folder.
 - {partition[i]} represents value of partition.
 - {partition_key[i]} represents name of the partition.
 - While extracting, “i” will be used to match partition_key to partition.
-- all folder levels need to be specified in include. Only exclude path can have ** like matching.
+- all folder levels need to be specified in include. Only exclude path can have \*\* like matching.
 - exclude path cannot have named variables ( {} ).
-- Folder names should not contain {, }, *, / in their names.
+- Folder names should not contain {, }, \*, / in their names.
 - {folder} is reserved for internal working. please do not use in named variables.
-
-
 
 If you would like to write a more complicated function for resolving file names, then a {transformer} would be a good fit.
 
 :::caution
 
-Specify as long fixed prefix ( with out /*/ ) as possible in `path_specs.include`. This will reduce the scanning time and cost, specifically on Google Cloud Storage.
+Specify as long fixed prefix ( with out /\*/ ) as possible in `path_specs.include`. This will reduce the scanning time and cost, specifically on Google Cloud Storage.
 
 :::
-
 
 :::caution
 

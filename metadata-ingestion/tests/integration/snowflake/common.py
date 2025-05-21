@@ -1,7 +1,6 @@
 import json
 import random
 from datetime import datetime, timezone
-from unittest.mock import MagicMock
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.time_window_config import BucketDuration
@@ -173,6 +172,29 @@ large_sql_query = """WITH object_access_history AS
                                                """
 
 
+class RowCountList(list):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    @property
+    def rowcount(self):
+        return len(self)
+
+
+def inject_rowcount(func):
+    def wrapper(*args, **kwargs):
+        result = func(*args, **kwargs)
+        if result is None or isinstance(result, RowCountList):
+            return result
+        if not isinstance(result, list):
+            raise ValueError(f"Mocked result is not a list: {result}")
+        result = RowCountList(result)
+        return result
+
+    return wrapper
+
+
+@inject_rowcount
 def default_query_results(  # noqa: C901
     query,
     num_tables=NUM_TABLES,
@@ -192,10 +214,6 @@ def default_query_results(  # noqa: C901
         return [{"CURRENT_ROLE()": "TEST_ROLE"}]
     elif query == SnowflakeQuery.current_version():
         return [{"CURRENT_VERSION()": "X.Y.Z"}]
-    elif query == SnowflakeQuery.current_database():
-        return [{"CURRENT_DATABASE()": "TEST_DB"}]
-    elif query == SnowflakeQuery.current_schema():
-        return [{"CURRENT_SCHEMA()": "TEST_SCHEMA"}]
     elif query == SnowflakeQuery.current_warehouse():
         return [{"CURRENT_WAREHOUSE()": "TEST_WAREHOUSE"}]
     elif query == SnowflakeQuery.show_databases():
@@ -479,8 +497,7 @@ def default_query_results(  # noqa: C901
             email_filter=AllowDenyPattern.allow_all(),
         )
     ):
-        mock = MagicMock()
-        mock.__iter__.return_value = [
+        return [
             {
                 "OBJECT_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{i}{random.randint(99, 999) if i > num_tables else ''}",
                 "BUCKET_START_TIME": datetime(2022, 6, 6, 0, 0, 0, 0).replace(
@@ -502,7 +519,6 @@ def default_query_results(  # noqa: C901
             }
             for i in range(num_usages)
         ]
-        return mock
     elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
@@ -638,37 +654,6 @@ def default_query_results(  # noqa: C901
             for op_idx in range(1, num_ops + 1)
         ]
     elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies(),
-    ]:
-        return [
-            {
-                "REFERENCED_OBJECT_DOMAIN": "table",
-                "REFERENCING_OBJECT_DOMAIN": "view",
-                "DOWNSTREAM_VIEW": "TEST_DB.TEST_SCHEMA.VIEW_2",
-                "VIEW_UPSTREAM": "TEST_DB.TEST_SCHEMA.TABLE_2",
-            }
-        ]
-    elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
-    ]:
-        # VIEW_2 has dependency on TABLE_2
-        return [
-            {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.VIEW_2",
-                "DOWNSTREAM_TABLE_DOMAIN": "view",
-                "UPSTREAM_TABLES": json.dumps(
-                    [
-                        {
-                            "upstream_object_name": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                            "upstream_object_domain": "table",
-                        }
-                    ]
-                ),
-            }
-        ]
-    elif query in [
-        snowflake_query.SnowflakeQuery.view_dependencies_v2(),
-        snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
         snowflake_query.SnowflakeQuery.copy_lineage_history(
             start_time_millis=1654473600000, end_time_millis=1654621200000
@@ -752,6 +737,33 @@ def default_query_results(  # noqa: C901
                 "OBJECT_NAME": "TEST_DB",
                 "COLUMN_NAME": None,
                 "DOMAIN": "DATABASE",
+            },
+        ]
+    elif query == SnowflakeQuery.procedures_for_database("TEST_DB"):
+        return [
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": "my_procedure",
+                "PROCEDURE_LANGUAGE": "SQL",
+                "ARGUMENT_SIGNATURE": "(arg1 VARCHAR, arg2 VARCHAR)",
+                "PROCEDURE_RETURN_TYPE": "VARCHAR",
+                "PROCEDURE_DEFINITION": "BEGIN RETURN 'Hello World'; END",
+                "CREATED": "2021-01-01T00:00:00.000Z",
+                "LAST_ALTERED": "2021-01-01T00:00:00.000Z",
+                "COMMENT": "This is a test procedure",
+            },
+            {
+                "PROCEDURE_CATALOG": "TEST_DB",
+                "PROCEDURE_SCHEMA": "TEST_SCHEMA",
+                "PROCEDURE_NAME": "my_procedure",
+                "PROCEDURE_LANGUAGE": "SQL",
+                "ARGUMENT_SIGNATURE": "(arg1 VARCHAR)",
+                "PROCEDURE_RETURN_TYPE": "VARCHAR",
+                "PROCEDURE_DEFINITION": "BEGIN RETURN 'Hello World'; END",
+                "CREATED": "2021-01-01T00:00:00.000Z",
+                "LAST_ALTERED": "2021-01-01T00:00:00.000Z",
+                "COMMENT": "This is a test procedure 2",
             },
         ]
     raise ValueError(f"Unexpected query: {query}")

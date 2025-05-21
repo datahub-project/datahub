@@ -1,6 +1,10 @@
-import React from 'react';
-import QueryString from 'query-string';
 import { CheckCircleOutlined, CloseCircleOutlined, ExclamationCircleOutlined, StopOutlined } from '@ant-design/icons';
+import QueryString from 'query-string';
+import React from 'react';
+
+// TODO
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+
 import {
     AssertionResult,
     AssertionResultErrorType,
@@ -8,15 +12,16 @@ import {
     AssertionStdParameter,
     AssertionStdParameterType,
     DatasetAssertionInfo,
-    StringMapEntry,
     Maybe,
-} from '../../../../../../types.generated';
-import AssertionSuccessIcon from '../../../../../../images/assertion_v2_success_dot.svg?react';
-import AssertionFailureIcon from '../../../../../../images/assertion_v2_failure_dot.svg?react';
-import AssertionErrorIcon from '../../../../../../images/assertion_error_dot.svg?react';
-import AssertionInitIcon from '../../../../../../images/assertion_init_dot.svg?react'; // TODO
-import AssertionNoResultsIcon from '../../../../../../images/assertion_no_results_dot.svg?react'; // TODO
-import { ANTD_GRAY } from '../../../constants';
+    StringMapEntry,
+} from '@types';
+
+import AssertionErrorIcon from '@images/assertion_error_dot.svg?react';
+import AssertionInitIcon from '@images/assertion_init_dot.svg?react';
+// TODO
+import AssertionNoResultsIcon from '@images/assertion_no_results_dot.svg?react';
+import AssertionFailureIcon from '@images/assertion_v2_failure_dot.svg?react';
+import AssertionSuccessIcon from '@images/assertion_v2_success_dot.svg?react';
 
 /**
  * Utility methods

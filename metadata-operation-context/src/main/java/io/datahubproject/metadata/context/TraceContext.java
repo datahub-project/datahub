@@ -1,5 +1,7 @@
 package io.datahubproject.metadata.context;
 
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.EVENT_SOURCE;
+import static com.linkedin.metadata.telemetry.OpenTelemetryKeyConstants.SOURCE_IP;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.BATCH_SIZE_ATTR;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.QUEUE_DURATION_MS_ATTR;
 import static com.linkedin.metadata.utils.metrics.MetricUtils.QUEUE_ENQUEUED_AT_ATTR;
@@ -17,7 +19,9 @@ import io.opentelemetry.api.trace.TraceFlags;
 import io.opentelemetry.api.trace.TraceState;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
+import io.opentelemetry.context.ContextKey;
 import io.opentelemetry.sdk.common.CompletableResultCode;
+import io.opentelemetry.sdk.trace.SpanProcessor;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
 import jakarta.servlet.http.Cookie;
@@ -28,6 +32,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -48,6 +53,14 @@ public class TraceContext implements ContextInterface {
   public static final String TELEMETRY_QUEUE_SPAN_KEY = "telemetryQueueSpanId";
   public static final String TELEMETRY_LOG_KEY = "telemetryLog";
   public static final String TELEMETRY_ENQUEUED_AT = "telemetryEnqueuedAt";
+  public static final String EVENT_SOURCE_KEY = "eventSource";
+  public static final String SOURCE_IP_KEY = "sourceIP";
+
+  // OTEL Context Item Keys
+  public static final ContextKey<AtomicReference<String>> EVENT_SOURCE_CONTEXT_KEY =
+      ContextKey.named(EVENT_SOURCE);
+  public static final ContextKey<AtomicReference<String>> SOURCE_IP_CONTEXT_KEY =
+      ContextKey.named(SOURCE_IP);
 
   public static final TraceIdGenerator TRACE_ID_GENERATOR = new TraceIdGenerator();
   public static final SpanExporter LOG_SPAN_EXPORTER = new ConditionalLogSpanExporter();
@@ -86,6 +99,7 @@ public class TraceContext implements ContextInterface {
   }
 
   @Getter @Nonnull private final Tracer tracer;
+  @Getter @Nullable private final SpanProcessor usageSpanExporter;
 
   @Override
   public Optional<Integer> getCacheKeyComponent() {
@@ -230,6 +244,12 @@ public class TraceContext implements ContextInterface {
 
         copy.getProperties().putAll(Map.of(TELEMETRY_TRACE_KEY, currentSpanContext.getTraceId()));
 
+        Optional.ofNullable(Context.current().get(EVENT_SOURCE_CONTEXT_KEY))
+            .ifPresent(
+                eventSource -> copy.getProperties().put(EVENT_SOURCE_KEY, eventSource.get()));
+        Optional.ofNullable(Context.current().get(SOURCE_IP_CONTEXT_KEY))
+            .ifPresent(sourceIP -> copy.getProperties().put(SOURCE_IP_KEY, sourceIP.get()));
+
         return copy;
       }
     }
@@ -268,6 +288,12 @@ public class TraceContext implements ContextInterface {
                 Map.of(
                     TELEMETRY_TRACE_KEY, currentSpanContext.getTraceId(),
                     TELEMETRY_QUEUE_SPAN_KEY, queueSpan.getSpanContext().getSpanId()));
+
+        Optional.ofNullable(Context.current().get(EVENT_SOURCE_CONTEXT_KEY))
+            .ifPresent(
+                eventSource -> copy.getProperties().put(EVENT_SOURCE_KEY, eventSource.get()));
+        Optional.ofNullable(Context.current().get(SOURCE_IP_CONTEXT_KEY))
+            .ifPresent(eventSource -> copy.getProperties().put(SOURCE_IP_KEY, eventSource.get()));
       }
 
       copy.getProperties()

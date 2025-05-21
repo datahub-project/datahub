@@ -1,9 +1,10 @@
-import { useCallback } from 'react';
 import Cookies from 'js-cookie';
+import { useCallback } from 'react';
+
+import analytics, { EventType } from '@app/analytics';
+import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import { useUserContext } from '@app/context/useUserContext';
 import { GlobalCfg } from '@src/conf';
-import analytics, { EventType } from '../analytics';
-import { useUserContext } from '../context/useUserContext';
-import { isLoggedInVar } from './checkAuthStatus';
 
 export default function useGetLogoutHandler() {
     const me = useUserContext();

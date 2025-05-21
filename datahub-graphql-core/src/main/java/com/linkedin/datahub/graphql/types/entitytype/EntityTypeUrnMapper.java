@@ -31,6 +31,7 @@ public class EntityTypeUrnMapper {
           .put(Constants.DASHBOARD_ENTITY_NAME, "urn:li:entityType:datahub.dashboard")
           .put(Constants.NOTEBOOK_ENTITY_NAME, "urn:li:entityType:datahub.notebook")
           .put(Constants.CHART_ENTITY_NAME, "urn:li:entityType:datahub.chart")
+          .put(Constants.DATA_CONTRACT_ENTITY_NAME, "urn:li:entityType:datahub.dataContract")
           .put(Constants.DATA_FLOW_ENTITY_NAME, "urn:li:entityType:datahub.dataFlow")
           .put(Constants.DATA_JOB_ENTITY_NAME, "urn:li:entityType:datahub.dataJob")
           .put(Constants.TAG_ENTITY_NAME, "urn:li:entityType:datahub.tag")

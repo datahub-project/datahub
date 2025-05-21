@@ -1,8 +1,10 @@
 import React from 'react';
 import styled from 'styled-components';
-import { CronSchedule } from '../../../../../../types.generated';
-import { AcrylAssertionDetailsHeader } from './AcrylAssertionDetailsHeader';
-import { AcrylAssertionResultsChart } from './AcrylAssertionResultsChart';
+
+import { AcrylAssertionDetailsHeader } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionDetailsHeader';
+import { AcrylAssertionResultsChart } from '@app/entityV2/shared/tabs/Dataset/Validations/AcrylAssertionResultsChart';
+
+import { CronSchedule } from '@types';
 
 const Container = styled.div`
     width: 100%;

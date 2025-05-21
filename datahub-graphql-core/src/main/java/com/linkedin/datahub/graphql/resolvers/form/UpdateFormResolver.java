@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.UpdateFormInput;
@@ -38,7 +39,7 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
         bindArgument(environment.getArgument("input"), UpdateFormInput.class);
     final Urn formUrn = UrnUtils.getUrn(input.getUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (!AuthorizationUtils.canManageForms(context)) {
@@ -93,6 +94,8 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

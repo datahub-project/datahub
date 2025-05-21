@@ -1,8 +1,9 @@
+import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
+import { Dropdown, Menu, Modal, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, Menu, message, Modal } from 'antd';
-import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
+
+import { useDeleteQueryMutation } from '@graphql/query.generated';
 
 const StyledMoreOutlined = styled(MoreOutlined)`
     font-size: 14px;

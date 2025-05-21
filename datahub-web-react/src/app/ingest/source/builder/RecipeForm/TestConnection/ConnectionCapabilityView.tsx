@@ -1,9 +1,10 @@
+import { green, red } from '@ant-design/colors';
 import { CheckOutlined, CloseOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
 import React from 'react';
-import { green, red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
-import { ANTD_GRAY } from '../../../../../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const CapabilityWrapper = styled.div`
     align-items: center;

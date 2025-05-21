@@ -118,7 +118,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:11:56 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:17 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/_test_table_underscore",
@@ -128,7 +128,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1735218716",
+                            "Table Parameters: transient_lastDdlTime": "1744852937",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -268,7 +268,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:11:56 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:17 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/array_struct_test",
@@ -280,7 +280,7 @@
                             "Table Parameters: numRows": "1",
                             "Table Parameters: rawDataSize": "32",
                             "Table Parameters: totalSize": "33",
-                            "Table Parameters: transient_lastDdlTime": "1735218720",
+                            "Table Parameters: transient_lastDdlTime": "1744852940",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -458,11 +458,11 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:12:03 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Table Type:": "VIRTUAL_VIEW",
-                            "Table Parameters: transient_lastDdlTime": "1735218723",
+                            "Table Parameters: transient_lastDdlTime": "1744852942",
                             "SerDe Library:": "null",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -610,7 +610,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -627,7 +627,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -639,11 +639,11 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:12:03 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Table Type:": "VIRTUAL_VIEW",
-                            "Table Parameters: transient_lastDdlTime": "1735218723",
+                            "Table Parameters: transient_lastDdlTime": "1744852942",
                             "SerDe Library:": "null",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -651,17 +651,18 @@
                             "Num Buckets:": "-1",
                             "Bucket Columns:": "[]",
                             "Sort Columns:": "[]",
-                            "View Original Text:": "select * from db1.array_struct_test_view",
-                            "View Expanded Text:": "select `array_struct_test_view`.`property_id`, `array_struct_test_view`.`service` from `db1`.`array_struct_test_view`",
+                            "View Original Text:": "SELECT",
+                            "None ": "FROM `db1`.`array_struct_test_view`",
+                            "View Expanded Text:": "SELECT",
                             "View Rewrite Enabled:": "No"
                         },
-                        "name": "array_struct_test_view_2",
+                        "name": "array_struct_test_view_multiline",
                         "tags": []
                     }
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "db1.array_struct_test_view_2",
+                        "schemaName": "db1.array_struct_test_view_multiline",
                         "platform": "urn:li:dataPlatform:hive",
                         "version": 0,
                         "created": {
@@ -679,6 +680,30 @@
                             }
                         },
                         "fields": [
+                            {
+                                "fieldPath": "constant1",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
+                            {
+                                "fieldPath": "constant2",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false
+                            },
                             {
                                 "fieldPath": "property_id",
                                 "nullable": true,
@@ -752,7 +777,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -770,7 +795,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -820,7 +845,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:12:04 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/map_test",
@@ -830,7 +855,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1735218724",
+                            "Table Parameters: transient_lastDdlTime": "1744852942",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -974,7 +999,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:12:03 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/nested_struct_test",
@@ -984,7 +1009,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1735218723",
+                            "Table Parameters: transient_lastDdlTime": "1744852942",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -1177,7 +1202,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:11:53 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:15 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/pokes",
@@ -1187,7 +1212,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1735218713",
+                            "Table Parameters: transient_lastDdlTime": "1744852935",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -1340,7 +1365,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:11:56 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:17 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test",
@@ -1350,7 +1375,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1735218716",
+                            "Table Parameters: transient_lastDdlTime": "1744852937",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -1521,14 +1546,14 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:12:02 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/struct_test_view_materialized",
                             "Table Type:": "MATERIALIZED_VIEW",
                             "Table Parameters: numFiles": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1735218722",
+                            "Table Parameters: transient_lastDdlTime": "1744852942",
                             "SerDe Library:": "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
                             "InputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
@@ -1701,7 +1726,7 @@
                         "customProperties": {
                             "Database:": "db1",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:12:03 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:22 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db1.db/union_test",
@@ -1711,7 +1736,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "0",
-                            "Table Parameters: transient_lastDdlTime": "1735218723",
+                            "Table Parameters: transient_lastDdlTime": "1744852942",
                             "SerDe Library:": "org.apache.hadoop.hive.ql.io.orc.OrcSerde",
                             "InputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat",
@@ -1940,13 +1965,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "CREATE VIEW `db1.array_struct_test_view_2` AS select `array_struct_test_view`.`property_id`, `array_struct_test_view`.`service` from `db1`.`array_struct_test_view`",
+            "viewLogic": "CREATE VIEW `db1.array_struct_test_view_multiline` AS SELECT\n'constant1' AS `constant1`,\n2 AS `constant2`,\n`array_struct_test_view`.`property_id`,\n`array_struct_test_view`.`service`\nFROM `db1`.`array_struct_test_view`",
             "viewLanguage": "SQL"
         }
     },
@@ -2075,7 +2100,7 @@
                         "customProperties": {
                             "Database:": "db2",
                             "Owner:": "root",
-                            "CreateTime:": "Thu Dec 26 13:11:55 UTC 2024",
+                            "CreateTime:": "Thu Apr 17 01:22:17 UTC 2025",
                             "LastAccessTime:": "UNKNOWN",
                             "Retention:": "0",
                             "Location:": "hdfs://namenode:8020/user/hive/warehouse/db2.db/pokes",
@@ -2084,7 +2109,7 @@
                             "Table Parameters: numRows": "0",
                             "Table Parameters: rawDataSize": "0",
                             "Table Parameters: totalSize": "5812",
-                            "Table Parameters: transient_lastDdlTime": "1735218716",
+                            "Table Parameters: transient_lastDdlTime": "1744852937",
                             "SerDe Library:": "org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe",
                             "InputFormat:": "org.apache.hadoop.mapred.TextInputFormat",
                             "OutputFormat:": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
@@ -2344,6 +2369,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW `db1.array_struct_test_view` AS\nSELECT\n  `array_struct_test`.`property_id`,\n  `array_struct_test`.`service`\nFROM `db1`.`array_struct_test`",
                 "language": "SQL"
@@ -2418,7 +2444,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -2435,7 +2461,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
                     "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29"
                 }
             ],
             "fineGrainedLineages": [
@@ -2446,10 +2472,10 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD),property_id)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD),property_id)"
                     ],
                     "confidenceScore": 0.35,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2458,10 +2484,10 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD),service)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD),service)"
                     ],
                     "confidenceScore": 0.35,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29"
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29"
                 }
             ]
         }
@@ -2474,13 +2500,14 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
-                "value": "CREATE VIEW `db1.array_struct_test_view_2` AS\nSELECT\n  `array_struct_test_view`.`property_id`,\n  `array_struct_test_view`.`service`\nFROM `db1`.`array_struct_test_view`",
+                "value": "CREATE VIEW `db1.array_struct_test_view_multiline` AS\nSELECT\n  'constant1' AS `constant1`,\n  2 AS `constant2`,\n  `array_struct_test_view`.`property_id`,\n  `array_struct_test_view`.`service`\nFROM `db1`.`array_struct_test_view`",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -2502,7 +2529,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -2518,13 +2545,19 @@
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),service)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD),property_id)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD),constant1)"
                 },
                 {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD),service)"
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD),constant2)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD),property_id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_multiline,PROD),service)"
                 }
             ]
         }
@@ -2537,7 +2570,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -2569,7 +2602,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_multiline%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

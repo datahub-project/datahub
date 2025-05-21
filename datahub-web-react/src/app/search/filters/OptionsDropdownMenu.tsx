@@ -2,12 +2,13 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
 import styled from 'styled-components/macro';
+
+import { SearchBar } from '@app/search/SearchBar';
+import DateRangeMenu from '@app/search/filters/DateRangeMenu/DateRangeMenu';
+import { getIsDateRangeFilter } from '@app/search/filters/utils';
+import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { SearchBar } from '../SearchBar';
-import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { getIsDateRangeFilter } from './utils';
-import DateRangeMenu from './DateRangeMenu/DateRangeMenu';
 
 const StyledButton = styled(Button)`
     width: 100%;
@@ -20,7 +21,10 @@ const StyledButton = styled(Button)`
 export const DropdownMenu = styled.div`
     background-color: white;
     border-radius: 5px;
-    box-shadow: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08), 0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    box-shadow:
+        0 3px 6px -4px rgba(0, 0, 0, 0.12),
+        0 6px 16px 0 rgba(0, 0, 0, 0.08),
+        0 9px 28px 8px rgba(0, 0, 0, 0.05);
     overflow: hidden;
     min-width: 200px;
 

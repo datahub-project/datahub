@@ -1,9 +1,11 @@
 import React from 'react';
-import { useBaseEntity } from '../../../../entity/shared/EntityContext';
-import { EntityType } from '../../../../../types.generated';
-import { EntityList } from '../Entity/components/EntityList';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
-import { GetMlFeatureQuery } from '../../../../../graphql/mlFeature.generated';
+
+import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { EntityList } from '@app/entityV2/shared/tabs/Entity/components/EntityList';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { GetMlFeatureQuery } from '@graphql/mlFeature.generated';
+import { EntityType } from '@types';
 
 export const FeatureTableTab = () => {
     const entity = useBaseEntity() as GetMlFeatureQuery;

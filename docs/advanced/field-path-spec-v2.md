@@ -12,10 +12,10 @@ primary identifier of a field in other places such
 as [EditableSchemaFieldInfo](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaFieldInfo.pdl#L12),
 usage stats and data profiles. Therefore, it must satisfy the following requirements.
 
-* must be unique across all fields within a schema.
-* make schema navigation in the UI more intuitive.
-* allow for identifying the type of schema the field is part of, such as a `key-schema` or a `value-schema`.
-* allow for future-evolution
+- must be unique across all fields within a schema.
+- make schema navigation in the UI more intuitive.
+- allow for identifying the type of schema the field is part of, such as a `key-schema` or a `value-schema`.
+- allow for future-evolution
 
 ## Existing Convention(v1)
 
@@ -102,8 +102,11 @@ unique_v2_field_paths = [
   "[version=2.0].[type=string]"
 ]
 ```
+
 ### Records
+
 **Simple Record**
+
 ```python
 avro_schema = """
 {
@@ -131,7 +134,9 @@ unique_v2_field_paths = [
     "[version=2.0].[type=E].[type=string].b",
 ]
 ```
+
 **Nested Record**
+
 ```python
 avro_schema = """
 {
@@ -159,6 +164,7 @@ unique_v2_field_paths = [
 ```
 
 **Recursive Record**
+
 ```python
 avro_schema = """
 {
@@ -208,7 +214,9 @@ unique_v2_field_paths = [
  "[version=2.0].[type=TreeNode].[type=array].[type=TreeNode].children",
 ]
 ```
+
 ### Unions
+
 ```python
 avro_schema = """
 {
@@ -238,7 +246,9 @@ unique_v2_field_paths: List[str] = [
     "[version=2.0].[key=True].[type=ABUnion].[type=union].[type=B].a.[type=string].f",
 ]
 ```
+
 ### Arrays
+
 ```python
 avro_schema = """
 {
@@ -272,7 +282,9 @@ unique_v2_field_paths: List[str] = [
   "[version=2.0].[type=NestedArray].[type=array].[type=array].[type=Foo].ar.[type=long].a",
 ]
 ```
+
 ### Maps
+
 ```python
 avro_schema = """
 {
@@ -296,7 +308,9 @@ unique_v2_field_paths = [
 
 
 ```
+
 ### Mixed Complex Type Examples
+
 ```python
 # Combines arrays, unions and records.
 avro_schema = """

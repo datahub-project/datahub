@@ -1,13 +1,15 @@
 import Link from 'antd/lib/typography/Link';
 import React from 'react';
 import styled from 'styled-components';
-import PlatformContent from '../../header/PlatformContent';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { StyledDivider } from '../FormInfo/components';
-import { DatasetStatsSummarySubHeader } from '../../../../../dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
-import LinkOut from '../../../../../../../images/link-out.svg?react';
-import FormInfo from '../FormInfo/FormInfo';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
+import PlatformContent from '@app/entityV2/shared/containers/profile/header/PlatformContent';
+import FormInfo from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/FormInfo';
+import { StyledDivider } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import LinkOut from '@images/link-out.svg?react';
 
 const EntityName = styled.div`
     font-size: 16px;

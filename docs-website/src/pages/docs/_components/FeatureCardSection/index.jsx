@@ -19,7 +19,7 @@ const featureCardContent =  [
 {
     title: "Data Governance",
     description: "Define ownership and track PII.",
-    to: "https://www.acryldata.io/blog/the-3-must-haves-of-metadata-management-part-2?utm_source=datahub&utm_medium=referral&utm_content=blog",
+    to: "https://medium.com/datahub-project/the-3-must-haves-of-metadata-management-part-2-35a649f2e2fb?utm_source=datahub&utm_medium=referral&utm_content=blog",
     icon: <CompassTwoTone />
   },
 {

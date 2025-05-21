@@ -180,12 +180,17 @@
                 "op": "add",
                 "path": "/customProperties/IS_HYBRID",
                 "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_3/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -631,12 +636,17 @@
                 "op": "add",
                 "path": "/customProperties/IS_SECURE",
                 "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_1/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ivthci",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -899,12 +909,17 @@
                 "op": "add",
                 "path": "/customProperties/IS_ICEBERG",
                 "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1586,12 +1601,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_10/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1847,12 +1867,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_5/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -1901,12 +1926,17 @@
                 "op": "add",
                 "path": "/customProperties/IS_DYNAMIC",
                 "value": "true"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_2/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2485,12 +2515,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_6/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2827,12 +2862,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_7/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2892,12 +2932,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_4/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3412,12 +3457,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_8/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3574,12 +3624,17 @@
                 "op": "add",
                 "path": "/customProperties/CLUSTERING_KEY",
                 "value": "LINEAR(COL_1)"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_9/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3896,12 +3951,17 @@
                 "op": "add",
                 "path": "/qualifiedName",
                 "value": "TEST_DB.TEST_SCHEMA.VIEW_2"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/VIEW_2/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4459,12 +4519,17 @@
                 "op": "add",
                 "path": "/customProperties/STALE_AFTER",
                 "value": "2021-06-22T00:00:00+00:00"
+            },
+            {
+                "op": "add",
+                "path": "/externalUrl",
+                "value": "https://app.abc12345.ap-south-1.privatelink.snowflakecomputing.com/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/view/STREAM_1/"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ftc9zc",
+        "runId": "snowflake-2022_06_07-17_00_00-9hbbfo",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4487,12 +4552,30 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "test_db.test_schema.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-2xyj8f",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "query",
     "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW view_1 AS\nSELECT\n  *\nFROM table_1",
                 "language": "SQL"
@@ -4511,6 +4594,78 @@
     "systemMetadata": {
         "lastObserved": 1654621200000,
         "runId": "snowflake-2022_06_07-17_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Procedures Container"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-2xyj8f",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "my_procedure",
+            "description": "This is a test procedure",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:900b1327253068cb1537b1b3c807ddab"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-2xyj8f",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-2xyj8f",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4594,6 +4749,258 @@
     "systemMetadata": {
         "lastObserved": 1654621200000,
         "runId": "snowflake-2022_06_07-17_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)"
+                },
+                {
+                    "id": "urn:li:container:900b1327253068cb1537b1b3c807ddab",
+                    "urn": "urn:li:container:900b1327253068cb1537b1b3c807ddab"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-2xyj8f",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "BEGIN RETURN 'Hello World'; END",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-hyhd0l",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "my_procedure",
+            "description": "This is a test procedure 2",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)"
+                },
+                {
+                    "id": "urn:li:container:900b1327253068cb1537b1b3c807ddab",
+                    "urn": "urn:li:container:900b1327253068cb1537b1b3c807ddab"
+                },
+                {
+                    "id": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f",
+                    "urn": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "BEGIN RETURN 'Hello World'; END",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-hyhd0l",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,instance1)"
+                },
+                {
+                    "id": "urn:li:container:900b1327253068cb1537b1b3c807ddab",
+                    "urn": "urn:li:container:900b1327253068cb1537b1b3c807ddab"
+                },
+                {
+                    "id": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f",
+                    "urn": "urn:li:container:eac598ee71ef1b5e24448d650c08aa5f"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4801,6 +5208,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "CREATE VIEW view_2 AS\nSELECT\n  *\nFROM table_2",
                 "language": "SQL"
@@ -4922,6 +5330,22 @@
     }
 },
 {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-2xyj8f",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "query",
     "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Asnowflake%2Cinstance1.test_db.test_schema.view_1%2CPROD%29",
     "changeType": "UPSERT",
@@ -4950,6 +5374,38 @@
     "systemMetadata": {
         "lastObserved": 1654621200000,
         "runId": "snowflake-2022_06_07-17_00_00",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_90e45fd04db3e8c275484efab14dab7b)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(snowflake,instance1.test_db.test_schema.stored_procedures,PROD),my_procedure_d72dbca43341d7a41a7e01b76e2a25d4)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "snowflake-2022_06_07-17_00_00-tcd1vn",
         "lastRunId": "no-run-id-provided"
     }
 }

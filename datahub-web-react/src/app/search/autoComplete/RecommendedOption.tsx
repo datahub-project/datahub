@@ -1,7 +1,8 @@
-import { SearchOutlined } from '@ant-design/icons';
+import { Icon } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
-import { SuggestionText } from './styledComponents';
+
+import { SuggestionText } from '@app/search/autoComplete/styledComponents';
 
 const TextWrapper = styled.span``;
 
@@ -22,7 +23,7 @@ interface Props {
 export default function RecommendedOption({ text }: Props) {
     return (
         <RecommendedOptionWrapper>
-            <SearchOutlined />
+            <Icon icon="MagnifyingGlass" source="phosphor" />
             <TextWrapper>{text}</TextWrapper>
         </RecommendedOptionWrapper>
     );

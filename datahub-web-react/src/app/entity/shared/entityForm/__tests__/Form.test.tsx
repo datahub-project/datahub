@@ -1,12 +1,14 @@
 import { MockedProvider } from '@apollo/client/testing';
-import React from 'react';
 import { render, waitFor } from '@testing-library/react';
-import { EntityContext } from '../../EntityContext';
-import { mockEntityDataWithFieldPrompts, mockEntityData } from '../mocks';
-import { EntityType } from '../../../../../types.generated';
-import Form from '../Form';
-import TestPageContainer from '../../../../../utils/test-utils/TestPageContainer';
-import { mocks } from '../../../../../Mocks';
+import React from 'react';
+
+import { EntityContext } from '@app/entity/shared/EntityContext';
+import Form from '@app/entity/shared/entityForm/Form';
+import { mockEntityData, mockEntityDataWithFieldPrompts } from '@app/entity/shared/entityForm/mocks';
+import { mocks } from '@src/Mocks';
+import TestPageContainer from '@utils/test-utils/TestPageContainer';
+
+import { EntityType } from '@types';
 
 beforeEach(() => {
     // IntersectionObserver isn't available in test environment

@@ -52,7 +52,7 @@ record MetadataChangeProposal {
    * Key aspect of the entity being written
    */
   entityKeyAspect: optional GenericAspect
-	
+
   /**
    * Type of change being proposed
    */
@@ -97,12 +97,12 @@ Each proposal is comprised of the following:
 
    Type of change you are proposing: one of
 
-    - UPSERT: Insert if not exists, update otherwise
-    - CREATE: Insert aspect if not exists, fail otherwise
-    - CREATE_ENTITY: Insert if entity does not exist, fail otherwise
-    - UPDATE: Update if exists, fail otherwise
-    - DELETE: Delete
-    - PATCH: Patch the aspect instead of doing a full replace
+   - UPSERT: Insert if not exists, update otherwise
+   - CREATE: Insert aspect if not exists, fail otherwise
+   - CREATE_ENTITY: Insert if entity does not exist, fail otherwise
+   - UPDATE: Update if exists, fail otherwise
+   - DELETE: Delete
+   - PATCH: Patch the aspect instead of doing a full replace
 
    Only UPSERT, CREATE, CREATE_ENTITY, DELETE, PATCH are supported as of now.
 
@@ -114,12 +114,12 @@ Each proposal is comprised of the following:
 
    To support strongly typed aspects, without having to keep track of a union of all existing aspects, we introduced a new object called GenericAspect.
 
-    ```xml
-    record GenericAspect {
-        value: bytes
-        contentType: string
-    }
-    ```
+   ```xml
+   record GenericAspect {
+       value: bytes
+       contentType: string
+   }
+   ```
 
    It contains the type of serialization and the serialized value. Note, currently we only support "application/json" as contentType but will be adding more forms of serialization in the future. Validation of the serialized object happens in GMS against the schema matching the aspectName.
 
@@ -153,11 +153,9 @@ Following the change in our event models, we introduced 4 new topics. The old to
 
    Analogous to the MCE topic, proposals that get produced into the MetadataChangeProposal_v1 topic, will get ingested to GMS asynchronously, and any failed ingestion will produce a failed MCP in the FailedMetadataChangeProposal_v1 topic.
 
-
 2. **MetadataChangeLog_Versioned_v1**
 
    Analogous to the MAE topic, MCLs for versioned aspects will get produced into this topic. Since versioned aspects have a source of truth that can be separately backed up, the retention of this topic is short (by default 7 days). Note both this and the next topic are consumed by the same MCL processor.
-
 
 3. **MetadataChangeLog_Timeseries_v1**
 
@@ -209,7 +207,6 @@ A writer can specify that the aspect must NOT have been modified after a specifi
 
 `If-Modified-Since`
 A writer can specify that the aspect must have been modified after a specific time, following [If-Modified-Since](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/If-Modified-Since) http headers.
-
 
 #### Change Types: [`CREATE`, `CREATE_ENTITY`]
 

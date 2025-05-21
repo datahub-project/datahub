@@ -1,4 +1,4 @@
-import { Dataset, Entity, EntityType } from '../../../../../types.generated';
+import { Dataset, Entity, EntityType } from '@types';
 
 function getAssertionsSummary(dataset: Dataset) {
     let numAssertionsFailing = 0;

@@ -18,6 +18,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source, Sour
 from datahub.ingestion.api.source_helpers import auto_workunit_reporter
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
     DomainsClass,
     GlossaryTermAssociationClass,
@@ -48,7 +49,7 @@ def apply_association_to_container(
     """
     urns: List[str] = [container_urn]
     if not graph:
-        graph = get_default_graph()
+        graph = get_default_graph(ClientMode.INGESTION)
     logger.info(f"Using {graph}")
     urns.extend(
         graph.get_urns_by_filter(

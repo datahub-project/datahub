@@ -1,5 +1,6 @@
-import { Entity, EntityType } from '../../../types.generated';
-import EntityRegistry from '../EntityRegistry';
+import EntityRegistry from '@app/entity/EntityRegistry';
+
+import { Entity, EntityType } from '@types';
 
 export function sortGlossaryNodes(entityRegistry: EntityRegistry, nodeA?: Entity | null, nodeB?: Entity | null) {
     const nodeAName = entityRegistry.getDisplayName(EntityType.GlossaryNode, nodeA);

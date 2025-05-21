@@ -48,6 +48,7 @@ from dagster._core.execution.stats import RunStepKeyStatsSnapshot
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import SubTypesClass
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -201,7 +202,9 @@ class DatahubSensors:
             )
             self.config = DatahubDagsterSourceConfig(
                 datahub_client_config=DatahubClientConfig(
-                    server=Constant.DEFAULT_DATAHUB_REST_URL
+                    server=Constant.DEFAULT_DATAHUB_REST_URL,
+                    client_mode=ClientMode.INGESTION,
+                    datahub_component="dagster-plugin",
                 )
             )
         self.graph = DataHubGraph(

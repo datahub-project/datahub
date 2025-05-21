@@ -1,9 +1,10 @@
+import React from 'react';
+import styled from 'styled-components';
+
 import { Pill } from '@src/alchemy-components';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { formatNumber } from '@src/app/shared/formatNumber';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import React from 'react';
-import styled from 'styled-components';
 
 const Styled = styled.div`
     display: flex;

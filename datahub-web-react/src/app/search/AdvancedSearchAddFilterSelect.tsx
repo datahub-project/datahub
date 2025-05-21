@@ -1,10 +1,11 @@
+import { PlusOutlined } from '@ant-design/icons';
 import { Select } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
-import { PlusOutlined } from '@ant-design/icons';
 
-import { FacetFilterInput } from '../../types.generated';
-import { DEGREE_FILTER_NAME, FIELD_TO_LABEL, ORDERED_FIELDS } from './utils/constants';
+import { DEGREE_FILTER_NAME, FIELD_TO_LABEL, ORDERED_FIELDS } from '@app/search/utils/constants';
+
+import { FacetFilterInput } from '@types';
 
 const StyledPlus = styled(PlusOutlined)`
     margin-right: 6px;

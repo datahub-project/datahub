@@ -1,13 +1,14 @@
+import LaunchIcon from '@mui/icons-material/Launch';
+import React from 'react';
+import styled from 'styled-components';
+
 import { EntityActionType, EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getSiblings } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
-import LaunchIcon from '@mui/icons-material/Launch';
+import { getExternalUrlDisplayName } from '@app/entityV2/shared/utils';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
-import React from 'react';
-import styled from 'styled-components';
-import { getSiblings } from '../tabs/Dataset/Validations/acrylUtils';
-import { getExternalUrlDisplayName } from '../utils';
 
 const Link = styled.a`
     display: flex;

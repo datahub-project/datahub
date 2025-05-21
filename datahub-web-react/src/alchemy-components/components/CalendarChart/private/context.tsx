@@ -1,7 +1,8 @@
 import { Margin } from '@visx/xychart';
-import React, { createContext, PropsWithChildren, useContext, useMemo } from 'react';
-import { DayData, MonthData } from '../types';
-import { DAYS_IN_WEEK, MIN_GAP_SIZE, MIN_SQUARE_SIZE } from './constants';
+import React, { PropsWithChildren, createContext, useContext, useMemo } from 'react';
+
+import { DAYS_IN_WEEK, MIN_GAP_SIZE, MIN_SQUARE_SIZE } from '@components/components/CalendarChart/private/constants';
+import { DayData, MonthData } from '@components/components/CalendarChart/types';
 
 export type CalendarContextState<ValueType = any> = {
     data: MonthData<ValueType>[];

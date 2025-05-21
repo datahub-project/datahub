@@ -92,9 +92,9 @@ While a centralized data lake or warehouse can simplify data governance by virtu
 
 DataHub Cloud offers a comprehensive set of features designed to support the implementation of a Data Mesh at your organization:
 
-- **[Data Domains](https://datahubproject.io/docs/domains)**: Clearly define and manage data products within each business unit.
-- **[Data Products](https://datahubproject.io/docs/dataproducts):** Ensure each domain owns and manages its data products, promoting autonomy and agility.
-- **[Data Contracts](https://datahubproject.io/docs/managed-datahub/observe/data-contract)**: Establish clear agreements between domains to ensure consistency and reliability.
+- **[Data Domains](https://docs.datahub.com/docs/domains)**: Clearly define and manage data products within each business unit.
+- **[Data Products](https://docs.datahub.com/docs/dataproducts):** Ensure each domain owns and manages its data products, promoting autonomy and agility.
+- **[Data Contracts](https://docs.datahub.com/docs/managed-datahub/observe/data-contract)**: Establish clear agreements between domains to ensure consistency and reliability.
     
 
 <p align="center">
@@ -105,7 +105,7 @@ DataHub Cloud offers a comprehensive set of features designed to support the imp
 
 
 
-- **[Assertions](https://datahubproject.io/docs/managed-datahub/observe/assertions)** Monitor data quality using freshness, volume, column validity, schema, and custom SQL checks to get notified first when things go wrong
+- **[Assertions](https://docs.datahub.com/docs/managed-datahub/observe/assertions)** Monitor data quality using freshness, volume, column validity, schema, and custom SQL checks to get notified first when things go wrong
 
 
 <p align="center">
@@ -116,7 +116,7 @@ DataHub Cloud offers a comprehensive set of features designed to support the imp
 
 
 
-- **[Metadata Tests](https://datahubproject.io/docs/tests/metadata-tests)**: Monitor and enforce a central set of standards or policies across all of your data assets, e.g. to ensure data documentation, data ownership, and data classification.
+- **[Metadata Tests](https://docs.datahub.com/docs/tests/metadata-tests)**: Monitor and enforce a central set of standards or policies across all of your data assets, e.g. to ensure data documentation, data ownership, and data classification.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-mesh/test-results.png"/>

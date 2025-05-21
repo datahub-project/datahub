@@ -1,4 +1,4 @@
-import { TagAssociation, TagAssociationUpdate } from '../../../../types.generated';
+import { TagAssociation, TagAssociationUpdate } from '@types';
 
 export function convertTagsForUpdate(tags: TagAssociation[]): TagAssociationUpdate[] {
     return tags.map((tag) => ({

@@ -5,6 +5,9 @@ import lombok.Data;
 /** POJO representing visualConfig block in the application.yaml. */
 @Data
 public class VisualConfiguration {
+  /** Theme related configurations */
+  public ThemeConfiguration theme;
+
   /** Asset related configurations */
   public AssetsConfiguration assets;
 

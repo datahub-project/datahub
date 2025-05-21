@@ -1,14 +1,12 @@
-import React from 'react';
-
 import { Popover } from '@components';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
+import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { getLastIngestedColor } from '../entity/shared/containers/profile/sidebar/LastIngested';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-
-import { toLocalDateString, toRelativeTimeString } from '../shared/time/timeUtils';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { getLastIngestedColor } from '@app/entity/shared/containers/profile/sidebar/LastIngested';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 
 const LastUpdatedContainer = styled.div<{ color: string }>`
     align-items: center;

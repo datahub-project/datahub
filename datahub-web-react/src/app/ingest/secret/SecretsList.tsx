@@ -1,31 +1,33 @@
-import React, { useEffect, useState } from 'react';
-import { Button, Empty, message, Modal, Pagination, Typography } from 'antd';
-import { debounce } from 'lodash';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { Button, Empty, Modal, Pagination, Typography, message } from 'antd';
+import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
+import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
+
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import { ONE_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
+import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
+import {
+    addSecretToListSecretsCache,
+    removeSecretFromListSecretsCache,
+    updateSecretInListSecretsCache,
+} from '@app/ingest/secret/cacheUtils';
+import { SecretBuilderState } from '@app/ingest/secret/types';
+import { SearchBar } from '@app/search/SearchBar';
+import { Message } from '@app/shared/Message';
+import { scrollToTop } from '@app/shared/searchUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+
 import {
     useCreateSecretMutation,
     useDeleteSecretMutation,
     useListSecretsQuery,
     useUpdateSecretMutation,
-} from '../../../graphql/ingestion.generated';
-import { Message } from '../../shared/Message';
-import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
-import { SecretBuilderModal } from './SecretBuilderModal';
-import { SecretBuilderState } from './types';
-import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
-import { SearchBar } from '../../search/SearchBar';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { scrollToTop } from '../../shared/searchUtils';
-import {
-    addSecretToListSecretsCache,
-    removeSecretFromListSecretsCache,
-    updateSecretInListSecretsCache,
-} from './cacheUtils';
-import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
+} from '@graphql/ingestion.generated';
 
 const DeleteButtonContainer = styled.div`
     display: flex;

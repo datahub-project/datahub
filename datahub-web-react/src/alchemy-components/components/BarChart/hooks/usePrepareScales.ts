@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
-import { BaseDatum, Scale, XAccessor, YAccessor } from '../types';
+
+import { BaseDatum, Scale, XAccessor, YAccessor } from '@components/components/BarChart/types';
 
 export const DEFAULT_MAX_DOMAIN_VALUE = 10;
 

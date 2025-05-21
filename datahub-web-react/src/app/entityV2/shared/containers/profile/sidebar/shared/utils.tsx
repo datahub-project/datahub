@@ -1,6 +1,8 @@
 import moment from 'moment';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { CorpUser } from '../../../../../../../types.generated';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+
+import { CorpUser } from '@types';
 
 /**
  * A tier of popularity for the dataset.
@@ -12,7 +14,7 @@ export enum PopularityTier {
     TIER_4, // Least Popular
 }
 
-export const ACRYL_PLATFORM = 'Acryl';
+export const ACRYL_PLATFORM = 'DataHub Core';
 
 export enum ActionType {
     SHARE,
@@ -80,19 +82,6 @@ export const getChartPopularityTier = (viewCountPercentileLast30Days, uniqueUser
         return PopularityTier.TIER_2;
     }
     if (viewCountPercentileLast30Days > 0 || uniqueUserPercentileLast30Days > 0) {
-        return PopularityTier.TIER_3;
-    }
-    return PopularityTier.TIER_4;
-};
-
-export const getQueryPopularityTier = (runsPercentileLast30days: number) => {
-    if (runsPercentileLast30days > 80) {
-        return PopularityTier.TIER_1;
-    }
-    if (runsPercentileLast30days > 30) {
-        return PopularityTier.TIER_2;
-    }
-    if (runsPercentileLast30days > 0) {
         return PopularityTier.TIER_3;
     }
     return PopularityTier.TIER_4;

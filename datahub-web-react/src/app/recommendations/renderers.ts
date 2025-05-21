@@ -1,12 +1,14 @@
 import React from 'react';
-import { RecommendationRenderType } from '../../types.generated';
-import { SearchQueryList } from './renderer/component/SearchQueryList';
-import { EntityNameListRenderer } from './renderer/EntityNameListRenderer';
-import { PlatformListRenderer } from './renderer/PlatformListRenderer';
-import { TagSearchListRenderer } from './renderer/TagSearchListRenderer';
-import { GlossaryTermSearchListRenderer } from './renderer/GlossaryTermSearchListRenderer';
-import { RecommendationRenderProps } from './types';
-import { DomainSearchListRenderer } from './renderer/DomainSearchListRenderer';
+
+import { DomainSearchListRenderer } from '@app/recommendations/renderer/DomainSearchListRenderer';
+import { EntityNameListRenderer } from '@app/recommendations/renderer/EntityNameListRenderer';
+import { GlossaryTermSearchListRenderer } from '@app/recommendations/renderer/GlossaryTermSearchListRenderer';
+import { PlatformListRenderer } from '@app/recommendations/renderer/PlatformListRenderer';
+import { TagSearchListRenderer } from '@app/recommendations/renderer/TagSearchListRenderer';
+import { SearchQueryList } from '@app/recommendations/renderer/component/SearchQueryList';
+import { RecommendationRenderProps } from '@app/recommendations/types';
+
+import { RecommendationRenderType } from '@types';
 
 /**
  * Renderers that are responsible for rendering recommendations of a particular RenderType!

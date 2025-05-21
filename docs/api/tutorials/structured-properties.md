@@ -5,15 +5,15 @@ import TabItem from '@theme/TabItem';
 
 ## Why Would You Use Structured Properties?
 
- Structured properties are a structured, named set of properties that can be attached to logical entities like Datasets, DataJobs, etc.
+Structured properties are a structured, named set of properties that can be attached to logical entities like Datasets, DataJobs, etc.
 Structured properties have values that are typed and support constraints.
 
 Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties/overview.md).
 
-
 ### Goal Of This Guide
 
 This guide will show you how to execute the following actions with structured properties.
+
 - Create structured properties
 - List structured properties
 - Read structured properties
@@ -33,37 +33,36 @@ Additionally, you need to have the following tools installed according to the me
 <Tabs>
 <TabItem value="CLI" label="CLI" default>
 
-Install the relevant CLI version. 
-Structured Properties were introduced in version `0.13.1`, but we continuously improve and add new functionality, so you should always [upgrade](https://datahubproject.io/docs/cli/#installation) to the latest cli for best results.
-Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
+Install the relevant CLI version.
+Structured Properties were introduced in version `0.13.1`, but we continuously improve and add new functionality, so you should always [upgrade](https://docs.datahub.com/docs/cli/#installation) to the latest cli for best results.
+Connect to your instance via [init](https://docs.datahub.com/docs/cli/#init):
 
 - Run `datahub init` to update the instance you want to load into.
 - Set the server to your sandbox instance, `https://{your-instance-address}/gms`.
 - Set the token to your access token.
 
-
 </TabItem>
 <TabItem value="OpenAPI" label="OpenAPI">
 
 Requirements for OpenAPI are:
-* curl
-* jq
+
+- curl
+- jq
 
 </TabItem>
 </Tabs>
 
-
 ## Create Structured Properties
 
-The following code will create a structured property `io.acryl.privacy.retentionTime`. 
+The following code will create a structured property `io.acryl.privacy.retentionTime`.
 
 <Tabs>
 
 <TabItem value="CLI" label="CLI" default>
 
-Create a yaml file representing the properties you’d like to load. 
+Create a yaml file representing the properties you’d like to load.
 For example, below file represents a property `io.acryl.privacy.retentionTime`. You can see the full example [here](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/structured_properties/struct_props.yaml).
-        
+
 ```yaml
 - id: io.acryl.privacy.retentionTime
   # - urn: urn:li:structuredProperty:io.acryl.privacy.retentionTime # optional if id is provided
@@ -85,6 +84,7 @@ For example, below file represents a property `io.acryl.privacy.retentionTime`. 
 ```
 
 Use the CLI to create your properties:
+
 ```shell
 datahub properties upsert -f {properties_yaml}
 ```
@@ -99,18 +99,30 @@ If successful, you should see `Created structured property urn:li:structuredProp
 mutation createStructuredProperty {
   createStructuredProperty(
     input: {
-      id: "retentionTime",
-      qualifiedName:"retentionTime",
-      displayName: "Retention Time",
-      description: "Retention Time is used to figure out how long to retain records in a dataset",
-      valueType: "urn:li:dataType:datahub.number",
+      id: "retentionTime"
+      qualifiedName: "retentionTime"
+      displayName: "Retention Time"
+      description: "Retention Time is used to figure out how long to retain records in a dataset"
+      valueType: "urn:li:dataType:datahub.number"
       allowedValues: [
-        {numberValue: 30, description: "30 days, usually reserved for datasets that are ephemeral and contain pii"},
-        {numberValue: 90, description:"description: Use this for datasets that drive monthly reporting but contain pii"},
-        {numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
-      ],
-      cardinality: SINGLE,
-      entityTypes: ["urn:li:entityType:datahub.dataset", "urn:li:entityType:datahub.dataFlow"],
+        {
+          numberValue: 30
+          description: "30 days, usually reserved for datasets that are ephemeral and contain pii"
+        }
+        {
+          numberValue: 90
+          description: "description: Use this for datasets that drive monthly reporting but contain pii"
+        }
+        {
+          numberValue: 365
+          description: "Use this for non-sensitive data that can be retained for longer"
+        }
+      ]
+      cardinality: SINGLE
+      entityTypes: [
+        "urn:li:entityType:datahub.dataset"
+        "urn:li:entityType:datahub.dataFlow"
+      ]
     }
   ) {
     urn
@@ -153,6 +165,7 @@ curl -X 'POST' -v \
 	  ]
 }' | jq
 ```
+
 </TabItem>
 
 <TabItem value="OpenAPI v3" label="OpenAPI v3">
@@ -252,9 +265,10 @@ You can list all structured properties in your DataHub instance using the follow
 datahub properties list
 ```
 
-This will show all properties with their full details. 
+This will show all properties with their full details.
 
 Example Response:
+
 ```json
 {
   "urn": "urn:li:structuredProperty:clusterName",
@@ -291,7 +305,6 @@ Example Response:
 }
 ```
 
-
 If you only want to see the URNs, you can use:
 
 ```shell
@@ -299,6 +312,7 @@ datahub properties list --no-details
 ```
 
 Example Response:
+
 ```
 [2025-01-08 22:23:00,625] INFO     {datahub.cli.specific.structuredproperties_cli:134} - Listing structured property urns only, use --details for more information
 urn:li:structuredProperty:clusterName
@@ -314,6 +328,7 @@ datahub properties list --to-file structured_properties.yaml
 ```
 
 Example Response:
+
 ```yaml
   - urn: urn:li:structuredProperty:clusterName
     qualified_name: clusterName
@@ -359,6 +374,7 @@ Example Response:
 <TabItem value="OpenAPI v3" label="OpenAPI v3">
 
 Example Request:
+
 ```bash
 curl -X 'GET' \
   'http://localhost:9002/openapi/v3/entity/structuredproperty?systemMetadata=false&includeSoftDelete=false&skipCache=false&aspects=structuredPropertySettings&aspects=propertyDefinition&aspects=institutionalMemory&aspects=structuredPropertyKey&aspects=status&count=10&sortCriteria=urn&sortOrder=ASCENDING&query=*' \
@@ -366,6 +382,7 @@ curl -X 'GET' \
 ```
 
 Example Response:
+
 ```json
 {
   "scrollId": "...",
@@ -379,9 +396,7 @@ Example Response:
           "displayName": "Cluster's name",
           "valueType": "urn:li:dataType:datahub.string",
           "description": "Test Cluster Name Property",
-          "entityTypes": [
-            "urn:li:entityType:datahub.dataset"
-          ],
+          "entityTypes": ["urn:li:entityType:datahub.dataset"],
           "cardinality": "SINGLE"
         }
       },
@@ -396,15 +411,17 @@ Example Response:
 ```
 
 Key Query Parameters:
+
 - `count`: Number of results to return per page (default: 10)
 - `sortCriteria`: Field to sort by (default: urn)
 - `sortOrder`: Sort order (ASCENDING or DESCENDING)
-- `query`: Search query to filter properties (* for all)
+- `query`: Search query to filter properties (\* for all)
 
 </TabItem>
 </Tabs>
 
 The list endpoint returns all structured properties in your DataHub instance. Each property includes:
+
 - URN: Unique identifier for the property
 - Qualified Name: The property's qualified name
 - Type: The data type of the property (string, number, date, etc.)
@@ -421,10 +438,10 @@ You can read an individual property you created by running the following command
 <Tabs>
 <TabItem value="CLI" label="CLI" default>
 
-
 ```commandline
 datahub properties get --urn {urn}
 ```
+
 For example, you can run `datahub properties get --urn urn:li:structuredProperty:io.acryl.privacy.retentionTime`.
 If successful, you should see metadata about your properties returned.
 
@@ -461,6 +478,7 @@ If successful, you should see metadata about your properties returned.
 <TabItem value="GraphQL" label="GraphQL">
 
 Example Request:
+
 ```graphql
 query {
   structuredProperty(urn: "urn:li:structuredProperty:projectNames") {
@@ -495,6 +513,7 @@ query {
 ```
 
 Example Response:
+
 ```json
 {
   "data": {
@@ -542,18 +561,20 @@ Example Response:
   "extensions": {}
 }
 ```
+
 </TabItem>
 
 <TabItem value="OpenAPI v2" label="OpenAPI v2">
 
 Example Request:
+
 ```
 curl -X 'GET' -v \
   'http://localhost:8080/openapi/v2/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/propertyDefinition' \
   -H 'accept: application/json' | jq
 ```
 
-Example Response: 
+Example Response:
 
 ```json
 {
@@ -596,6 +617,7 @@ Example Response:
 <TabItem value="OpenAPI v3" label="OpenAPI v3">
 
 Example Request:
+
 ```
 curl -X 'GET' -v \
   'http://localhost:8080/openapi/v3/entity/structuredProperty/urn%3Ali%3AstructuredProperty%3Aio.acryl.privacy.retentionTime/propertyDefinition' \
@@ -646,7 +668,6 @@ Example Response:
 </TabItem>
 </Tabs>
 
-
 ## Set Structured Property To a Dataset
 
 This action will set/replace all structured properties on the entity. See PATCH operations to add/remove a single property.
@@ -658,15 +679,11 @@ This action will set/replace all structured properties on the entity. See PATCH 
 mutation upsertStructuredProperties {
   upsertStructuredProperties(
     input: {
-      assetUrn: "urn:li:mydataset1",
+      assetUrn: "urn:li:mydataset1"
       structuredPropertyInputParams: [
         {
-          structuredPropertyUrn: "urn:li:structuredProperty:mystructuredproperty",
-          values: [
-            {
-              stringValue: "123"
-            }
-          ]
+          structuredPropertyUrn: "urn:li:structuredProperty:mystructuredproperty"
+          values: [{ stringValue: "123" }]
         }
       ]
     }
@@ -678,13 +695,12 @@ mutation upsertStructuredProperties {
     }
   }
 }
-
 ```
 
 </TabItem>
 <TabItem value="CLI" label="CLI">
 
-You can set structured properties to a dataset by creating a dataset yaml file with structured properties. For example, below is a dataset yaml file with structured properties in both the field and dataset level. 
+You can set structured properties to a dataset by creating a dataset yaml file with structured properties. For example, below is a dataset yaml file with structured properties in both the field and dataset level.
 
 Please refer to the [full example here.](https://github.com/datahub-project/datahub/blob/example-yaml-sp/metadata-ingestion/examples/structured_properties/datasets.yaml)
 
@@ -701,12 +717,12 @@ Please refer to the [full example here.](https://github.com/datahub-project/data
 ```
 
 Use the CLI to upsert your dataset yaml file:
+
 ```commandline
 datahub dataset upsert -f {dataset_yaml}
 ```
+
 If successful, you should see `Update succeeded for urn:li:dataset:...`
-
-
 
 </TabItem>
 
@@ -757,6 +773,7 @@ curl -X 'POST' -v \
 	}
 }' | jq
 ```
+
 Example Response:
 
 ```json
@@ -778,6 +795,7 @@ Example Response:
   }
 }
 ```
+
 </TabItem>
 </Tabs>
 
@@ -804,7 +822,9 @@ For reading all structured properties from a dataset:
 
 ```graphql
 query getDataset {
-  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.customer,PROD)") {
+  dataset(
+    urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.customer,PROD)"
+  ) {
     structuredProperties {
       properties {
         structuredProperty {
@@ -850,13 +870,15 @@ For removing a structured property or list of structured properties from a datas
 mutation removeStructuredProperties {
   removeStructuredProperties(
     input: {
-      assetUrn: "urn:li:mydataset1",
+      assetUrn: "urn:li:mydataset1"
       structuredPropertyUrns: ["urn:li:structuredProperty:mystructuredproperty"]
     }
   ) {
     properties {
-			structuredProperty {urn}
-		}
+      structuredProperty {
+        urn
+      }
+    }
   }
 }
 ```
@@ -870,7 +892,7 @@ This section will show you how to patch a structured property value - either by 
 
 ### Add Structured Property Value
 
-For this example, we'll extend create a second structured property and apply both properties to the same dataset used previously. 
+For this example, we'll extend create a second structured property and apply both properties to the same dataset used previously.
 After this your system should include both `io.acryl.privacy.retentionTime` and `io.acryl.privacy.retentionTime02`.
 
 <Tabs>
@@ -907,7 +929,6 @@ curl -X 'POST' -v \
 
 This command will attach one of each of the two properties to our test dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
 Specifically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acryl.privacy.retentionTime02` as `bar2`.
-
 
 ```shell
 curl -X 'POST' -v \
@@ -987,9 +1008,7 @@ Example Response:
           "description": "test bar2 value"
         }
       ],
-      "entityTypes": [
-        "urn:li:entityType:datahub.dataset"
-      ],
+      "entityTypes": ["urn:li:entityType:datahub.dataset"],
       "qualifiedName": "io.acryl.privacy.retentionTime02",
       "displayName": "Retention Time 02",
       "cardinality": "SINGLE",
@@ -1001,7 +1020,6 @@ Example Response:
 
 This command will attach one of each of the two properties to our test dataset `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`
 Specically, this will set `io.acryl.privacy.retentionTime` as `60.0` and `io.acryl.privacy.retentionTime02` as `bar2`.
-
 
 ```shell
 curl -X 'POST' -v \
@@ -1062,17 +1080,16 @@ Example Response:
 </Tabs>
 
 #### Expected Outcomes
+
 You can see that the dataset now has two structured properties attached to it.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/sp-add.png"/>
 </p>
 
-
-
 ### Remove Structured Property Value
 
-The expected state of our test dataset include 2 structured properties. 
+The expected state of our test dataset include 2 structured properties.
 We'd like to remove the first one (`io.acryl.privacy.retentionTime`) and preserve the second property. (`io.acryl.privacy.retentionTime02`).
 
 <Tabs>
@@ -1097,6 +1114,7 @@ curl -X 'PATCH' -v \
         }
       }' | jq
 ```
+
 The response will show that the expected property has been removed.
 
 ```json
@@ -1120,6 +1138,7 @@ The response will show that the expected property has been removed.
   }
 }
 ```
+
 </TabItem>
 
 <TabItem value="OpenAPI v3" label="OpenAPI v3">
@@ -1143,6 +1162,7 @@ curl -X 'PATCH' -v \
         }
       }' | jq
 ```
+
 The response will show that the expected property has been removed.
 
 ```json
@@ -1164,18 +1184,18 @@ The response will show that the expected property has been removed.
   }
 }
 ```
+
 </TabItem>
 
 </Tabs>
 
 #### Expected Outcomes
+
 You can see that the first property has been removed and the second property is still present.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/sp-remove.png"/>
 </p>
-
-
 
 ### Upsert Structured Property Value
 
@@ -1188,20 +1208,20 @@ In this example, we'll add the property back with a different value, preserving 
 mutation updateStructuredProperty {
   updateStructuredProperty(
     input: {
-      urn: "urn:li:structuredProperty:retentionTime",
-      displayName: "Retention Time",
-      description: "Retention Time is used to figure out how long to retain records in a dataset",
+      urn: "urn:li:structuredProperty:retentionTime"
+      displayName: "Retention Time"
+      description: "Retention Time is used to figure out how long to retain records in a dataset"
       newAllowedValues: [
         {
-          numberValue: 30,
+          numberValue: 30
           description: "30 days, usually reserved for datasets that are ephemeral and contain pii"
-        },
+        }
         {
-          numberValue: 90,
+          numberValue: 90
           description: "Use this for datasets that drive monthly reporting but contain pii"
-        },
+        }
         {
-          numberValue: 365,
+          numberValue: 365
           description: "Use this for non-sensitive data that can be retained for longer"
         }
       ]
@@ -1210,7 +1230,6 @@ mutation updateStructuredProperty {
     urn
   }
 }
-
 ```
 
 </TabItem>
@@ -1347,19 +1366,19 @@ The response shows that the property was re-added with the new value 365 instead
 </Tabs>
 
 #### Expected Outcomes
+
 You can see that the first property has been added back with a new value and the second property is still present.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/apis/tutorials/sp-upsert.png"/>
 </p>
 
-
 ## Delete Structured Properties
 
 There are two types of deletion present in DataHub: hard and soft delete.
 
 :::note SOFT DELETE
-A soft deleted Structured Property does not remove any underlying data on the Structured Property entity or the Structured Property's values written to other entities. 
+A soft deleted Structured Property does not remove any underlying data on the Structured Property entity or the Structured Property's values written to other entities.
 The soft delete is 100% reversible with zero data loss. When a Structured Property is soft deleted, a few operations are not available.
 
 Structured Property Soft Delete Effects:
@@ -1368,6 +1387,7 @@ Structured Property Soft Delete Effects:
 - Updates to a soft deleted Structured Property's definition are denied
 - Adding a soft deleted Structured Property's value to an entity is denied
 - Search filters using a soft deleted Structured Property will be denied
+
 :::
 
 :::note HARD DELETE
@@ -1380,6 +1400,7 @@ Structured Property Hard Delete Effects:
 - Structured Property values are removed via PATCH MCPs on their respective entities
 - Rollback is not possible
 - Elasticsearch index mappings will continue to contain references to the hard deleted property until reindex
+
 :::
 
 ### Soft Delete
@@ -1511,12 +1532,13 @@ Example Response:
 > Host: localhost:8080
 > User-Agent: curl/8.4.0
 > Accept: */*
-> 
+>
 < HTTP/1.1 200 OK
 < Date: Fri, 14 Jun 2024 17:30:27 GMT
 < Content-Length: 0
 < Server: Jetty(11.0.19)
 ```
+
 </TabItem>
 
 </Tabs>
@@ -1546,7 +1568,7 @@ Breaking schema changes are implemented by setting a version string within the S
 version must be in the following format: `yyyyMMddhhmmss`, i.e. `20240614080000`
 
 :::note IMPORTANT NOTES
-Old values will not be retrieve-able after the new Structured Property definition is applied. 
+Old values will not be retrieve-able after the new Structured Property definition is applied.
 
 The old values will be subject to deletion asynchronously (future work).
 :::
@@ -1567,7 +1589,7 @@ Edit the previously created definition yaml: Change the cardinality to `SINGLE` 
   qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
   type: number
   cardinality: SINGLE
-  version: '20240614080000'
+  version: "20240614080000"
   display_name: Retention Time
   entity_types:
     - dataset # or urn:li:entityType:datahub.dataset
@@ -1583,6 +1605,7 @@ Edit the previously created definition yaml: Change the cardinality to `SINGLE` 
 ```
 
 Use the CLI to create your properties:
+
 ```commandline
 datahub properties upsert -f {properties_yaml}
 ```
@@ -1699,31 +1722,29 @@ Document should be returned based on the previously assigned value of 60.
 
 ```graphql
 query {
-    scrollAcrossEntities(
-        input: {
-            types: DATASET,
-            count: 10,
-            query: "*",
-            orFilters: {
-                and: [
-                    {
-                        field: "structuredProperties.io.acryl.privacy.retentionTime",
-                        condition: GREATER_THAN,
-                        values: [
-                            "45.0"
-                        ]
-                    }
-                ]
-            }
-        }
-    ) {
-        searchResults {
-            entity {
-                urn,
-                type
-            }
-        }
+  scrollAcrossEntities(
+    input: {
+      types: DATASET
+      count: 10
+      query: "*"
+      orFilters: {
+        and: [
+          {
+            field: "structuredProperties.io.acryl.privacy.retentionTime"
+            condition: GREATER_THAN
+            values: ["45.0"]
+          }
+        ]
+      }
     }
+  ) {
+    searchResults {
+      entity {
+        urn
+        type
+      }
+    }
+  }
 }
 ```
 
@@ -1735,13 +1756,13 @@ Document should be returned based on the previously assigned value.
 query {
   scrollAcrossEntities(
     input: {
-      types: DATASET,
-      count: 10,
-      query: "*",
+      types: DATASET
+      count: 10
+      query: "*"
       orFilters: {
         and: [
           {
-            field: "structuredProperties.io.acryl.privacy.retentionTime",
+            field: "structuredProperties.io.acryl.privacy.retentionTime"
             condition: EXISTS
           }
         ]
@@ -1750,7 +1771,7 @@ query {
   ) {
     searchResults {
       entity {
-        urn,
+        urn
         type
       }
     }
@@ -1766,17 +1787,15 @@ Document should be returned based on the previously assigned value of 'bar2'.
 query {
   scrollAcrossEntities(
     input: {
-      types: DATASET,
-      count: 10,
-      query: "*",
+      types: DATASET
+      count: 10
+      query: "*"
       orFilters: {
         and: [
           {
-            field: "structuredProperties.io.acryl.privacy.retentionTime02",
+            field: "structuredProperties.io.acryl.privacy.retentionTime02"
             condition: EQUAL
-            values: [
-              "bar2"
-            ]
+            values: ["bar2"]
           }
         ]
       }
@@ -1784,7 +1803,7 @@ query {
   ) {
     searchResults {
       entity {
-        urn,
+        urn
         type
       }
     }
@@ -1976,7 +1995,7 @@ Example Response:
 
 ### Structured Property Aggregations
 
-Structured properties can also be used in GraphQL's aggregation queries using the same naming convention outlined above 
+Structured properties can also be used in GraphQL's aggregation queries using the same naming convention outlined above
 for search filter field names. There are currently no aggregation endpoints for OpenAPI.
 
 <Tabs>
@@ -1988,16 +2007,18 @@ Aggregation Query:
 query {
   aggregateAcrossEntities(
     input: {
-      types: [], 
+      types: []
       facets: [
-        "structuredProperties.io.acryl.privacy.retentionTime02",
-        "structuredProperties.io.acryl.privacy.retentionTime"], 
-      query: "*", 
-      orFilters: [], 
-      searchFlags: {maxAggValues: 100}
-    }) {
-  facets {
-    field
+        "structuredProperties.io.acryl.privacy.retentionTime02"
+        "structuredProperties.io.acryl.privacy.retentionTime"
+      ]
+      query: "*"
+      orFilters: []
+      searchFlags: { maxAggValues: 100 }
+    }
+  ) {
+    facets {
+      field
       aggregations {
         value
         count

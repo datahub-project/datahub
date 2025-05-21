@@ -1,11 +1,12 @@
 import React, { useContext } from 'react';
+
+import { EntityLinkListSkeleton } from '@app/homeV2/reference/sections/EntityLinkListSkeleton';
+import { PinnedLinkList } from '@app/homeV2/reference/sections/pinned/PinnedLinkList';
+import { useGetPinnedLinks } from '@app/homeV2/reference/sections/pinned/useGetPinnedLinks';
+import { ReferenceSectionProps } from '@app/homeV2/reference/types';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useAppConfig } from '@app/useAppConfig';
 import { Section } from '@src/app/homeV2/content/tabs/discovery/sections/Section';
-import OnboardingContext from '../../../../onboarding/OnboardingContext';
-import { ReferenceSectionProps } from '../../types';
-import { useGetPinnedLinks } from './useGetPinnedLinks';
-import { PinnedLinkList } from './PinnedLinkList';
-import { useAppConfig } from '../../../../useAppConfig';
-import { EntityLinkListSkeleton } from '../EntityLinkListSkeleton';
 
 export const PinnedLinks = ({ hideIfEmpty }: ReferenceSectionProps) => {
     const { isUserInitializing } = useContext(OnboardingContext);

@@ -1,4 +1,4 @@
-import { IngestionSourceBuilderStep } from './steps';
+import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
 
 /**
  * The size of the builder modal
@@ -33,6 +33,7 @@ export type StepProps = {
     submit: (shouldRun?: boolean) => void;
     cancel: () => void;
     ingestionSources: SourceConfig[];
+    isEditing: boolean;
 };
 
 export type StringMapEntryInput = {

@@ -1,9 +1,9 @@
 import * as React from 'react';
 import { useEffect, useState } from 'react';
-import { FacetFilterInput, FacetMetadata } from '../../types.generated';
-import { FilterScenarioType } from './filters/render/types';
-import { useFilterRendererRegistry } from './filters/render/useFilterRenderer';
-import { SimpleSearchFilter } from './SimpleSearchFilter';
+
+import { SimpleSearchFilter } from '@app/search/SimpleSearchFilter';
+import { FilterScenarioType } from '@app/search/filters/render/types';
+import { useFilterRendererRegistry } from '@app/search/filters/render/useFilterRenderer';
 import {
     DEGREE_FILTER_NAME,
     ENTITY_FILTER_NAME,
@@ -11,7 +11,10 @@ import {
     ENTITY_SUB_TYPE_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     SCHEMA_FIELD_ALIASES_FILTER_NAME,
-} from './utils/constants';
+} from '@app/search/utils/constants';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 const TOP_FILTERS = ['degree', ENTITY_FILTER_NAME, 'platform', 'tags', 'glossaryTerms', 'domains', 'owners'];
 
@@ -30,6 +33,7 @@ interface Props {
 }
 
 export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, loading }: Props) => {
+    const { config } = useAppConfig();
     const [cachedProps, setCachedProps] = useState<{
         facets: Array<FacetMetadata>;
         selectedFilters: Array<FacetFilterInput>;
@@ -87,6 +91,7 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
                         filter: facet,
                         activeFilters: selectedFilters,
                         onChangeFilters: onFilterSelect,
+                        config,
                     })
                 ) : (
                     <SimpleSearchFilter

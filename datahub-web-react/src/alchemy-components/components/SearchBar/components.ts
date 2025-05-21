@@ -1,9 +1,12 @@
-import { colors, typography } from '@src/alchemy-components/theme';
 import { Input } from 'antd';
 import styled from 'styled-components';
 
-export const StyledSearchBar = styled(Input)<{ $width?: string }>`
-    height: 40px;
+import { getColor } from '@components/theme/utils';
+
+import { colors, typography } from '@src/alchemy-components/theme';
+
+export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string }>`
+    height: ${(props) => props.$height};
     width: ${(props) => props.$width};
     display: flex;
     align-items: center;
@@ -27,7 +30,7 @@ export const StyledSearchBar = styled(Input)<{ $width?: string }>`
     &:hover,
     &:focus,
     &:focus-within {
-        border-color: ${colors.violet[300]} !important;
+        border-color: ${({ theme }) => getColor('primary', 300, theme)} !important;
         box-shadow: none !important;
     }
 `;

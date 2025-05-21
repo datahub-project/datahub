@@ -1,4 +1,4 @@
-import { DateInterval } from '../../../../../../types.generated';
+import { DateInterval } from '@types';
 
 /**
  * Change this to add or modify the lookback windows that are selectable via the UI.

@@ -1,27 +1,33 @@
-import { Button, Dropdown, Empty, Image, message, Modal, Tag, Tooltip, Typography, Checkbox } from 'antd';
-import React from 'react';
-import styled from 'styled-components';
 import {
+    AuditOutlined,
     DeleteOutlined,
     DownOutlined,
     MoreOutlined,
     RightOutlined,
     StopOutlined,
-    AuditOutlined,
 } from '@ant-design/icons';
+import { Button, Checkbox, Dropdown, Empty, Image, Modal, Tag, Tooltip, Typography, message } from 'antd';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { DatasetAssertionDescription } from './DatasetAssertionDescription';
-import { StyledTable } from '../../../components/styled/StyledTable';
-import { DatasetAssertionDetails } from './DatasetAssertionDetails';
-import { Assertion, AssertionRunStatus, DataContract, EntityType } from '../../../../../../types.generated';
-import { getResultColor, getResultIcon, getResultText } from './assertionUtils';
-import { useDeleteAssertionMutation } from '../../../../../../graphql/assertion.generated';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import { REDESIGN_COLORS } from '../../../constants';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import { isAssertionPartOfContract } from './contract/utils';
-import { useEntityData } from '../../../EntityContext';
-import CopyUrnMenuItem from '../../../../../shared/share/items/CopyUrnMenuItem';
+import styled from 'styled-components';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
+import { REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { DatasetAssertionDescription } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
+import { DatasetAssertionDetails } from '@app/entity/shared/tabs/Dataset/Validations/DatasetAssertionDetails';
+import {
+    getResultColor,
+    getResultIcon,
+    getResultText,
+} from '@app/entity/shared/tabs/Dataset/Validations/assertionUtils';
+import { isAssertionPartOfContract } from '@app/entity/shared/tabs/Dataset/Validations/contract/utils';
+import CopyUrnMenuItem from '@app/shared/share/items/CopyUrnMenuItem';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
+import { Assertion, AssertionRunStatus, DataContract, EntityType } from '@types';
 
 const ResultContainer = styled.div`
     display: flex;

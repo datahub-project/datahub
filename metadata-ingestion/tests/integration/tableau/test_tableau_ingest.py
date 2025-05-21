@@ -1,13 +1,13 @@
 import json
 import pathlib
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, List, Union
 from unittest import mock
 
 import pytest
 from freezegun import freeze_time
 from pydantic import ValidationError
 from requests.adapters import ConnectionError
-from tableauserverclient import PermissionsRule, Server
+from tableauserverclient import PermissionsRule
 from tableauserverclient.models import (
     DatasourceItem,
     GroupItem,
@@ -23,32 +23,13 @@ from tableauserverclient.server.endpoint.exceptions import (
     TableauError,
 )
 
-from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.api.source import TestConnectionReport
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
-from datahub.ingestion.source.tableau import tableau_constant as c
+from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.tableau.tableau import (
-    SiteIdContentUrl,
     TableauConfig,
-    TableauProject,
     TableauSiteSource,
-    TableauSource,
     TableauSourceReport,
 )
-from datahub.ingestion.source.tableau.tableau_common import (
-    TableauLineageOverrides,
-    TableauUpstreamReference,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    DatasetLineageType,
-    FineGrainedLineage,
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
-    UpstreamLineage,
-)
-from datahub.metadata.schema_classes import UpstreamClass
-from tests.test_helpers import mce_helpers, test_connection_helpers
+from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     validate_all_providers_have_committed_successfully,
@@ -405,25 +386,6 @@ def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_tableau_test_connection_success():
-    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
-        report = test_connection_helpers.run_test_connection(
-            TableauSource, config_source_default
-        )
-        test_connection_helpers.assert_basic_connectivity_success(report)
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.integration
-def test_tableau_test_connection_failure():
-    report = test_connection_helpers.run_test_connection(
-        TableauSource, config_source_default
-    )
-    test_connection_helpers.assert_basic_connectivity_failure(report, "Unable to login")
-
-
 def mock_data() -> List[dict]:
     return [
         read_response("workbooksConnection_all.json"),
@@ -564,33 +526,6 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-def test_value_error_projects_and_project_pattern(
-    pytestconfig, tmp_path, mock_datahub_graph
-):
-    new_config = config_source_default.copy()
-    new_config["projects"] = ["default"]
-    new_config["project_pattern"] = {"allow": ["^Samples$"]}
-
-    with pytest.raises(
-        ValidationError,
-        match=r".*projects is deprecated. Please use project_path_pattern only.*",
-    ):
-        TableauConfig.parse_obj(new_config)
-
-
-def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
-    new_config = config_source_default.copy()
-    del new_config["projects"]
-    new_config["project_pattern"] = {"allow": ["^Samples$"]}
-    new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
-
-    with pytest.raises(
-        ValidationError,
-        match=r".*project_pattern is deprecated. Please use project_path_pattern only*",
-    ):
-        TableauConfig.parse_obj(new_config)
-
-
 def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_path_pattern_allow_mces.json"
     golden_file_name: str = "tableau_project_path_pattern_allow_mces_golden.json"
@@ -676,92 +611,6 @@ def test_tableau_ingest_with_platform_instance(
         mock_datahub_graph,
         config_source,
         pipeline_name="test_tableau_ingest_with_platform_instance",
-    )
-
-
-def test_lineage_overrides():
-    # Simple - specify platform instance to presto table
-    assert (
-        TableauUpstreamReference(
-            "presto_catalog",
-            "test-database-id",
-            "test-schema",
-            "test-table",
-            "presto",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV, platform_instance_map={"presto": "my_presto_instance"}
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
-
-    # Transform presto urn to hive urn
-    # resulting platform instance for hive = mapped platform instance + presto_catalog
-    assert (
-        TableauUpstreamReference(
-            "presto_catalog",
-            "test-database-id",
-            "test-schema",
-            "test-table",
-            "presto",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV,
-            platform_instance_map={"presto": "my_instance"},
-            lineage_overrides=TableauLineageOverrides(
-                platform_override_map={"presto": "hive"},
-            ),
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
-
-    # transform hive urn to presto urn
-    assert (
-        TableauUpstreamReference(
-            None,
-            None,
-            "test-schema",
-            "test-table",
-            "hive",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV,
-            platform_instance_map={"hive": "my_presto_instance.presto_catalog"},
-            lineage_overrides=TableauLineageOverrides(
-                platform_override_map={"hive": "presto"},
-            ),
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
-    )
-
-
-def test_database_hostname_to_platform_instance_map():
-    # Simple - snowflake table
-    assert (
-        TableauUpstreamReference(
-            "test-database-name",
-            "test-database-id",
-            "test-schema",
-            "test-table",
-            "snowflake",
-        ).make_dataset_urn(env=DEFAULT_ENV, platform_instance_map={})
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-database-name.test-schema.test-table,PROD)"
-    )
-
-    # Finding platform instance based off hostname to platform instance mappings
-    assert (
-        TableauUpstreamReference(
-            "test-database-name",
-            "test-database-id",
-            "test-schema",
-            "test-table",
-            "snowflake",
-        ).make_dataset_urn(
-            env=DEFAULT_ENV,
-            platform_instance_map={},
-            database_hostname_to_platform_instance_map={
-                "test-hostname": "test-platform-instance"
-            },
-            database_server_hostname_map={"test-database-id": "test-hostname"},
-        )
-        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,test-platform-instance.test-database-name.test-schema.test-table,PROD)"
     )
 
 
@@ -902,28 +751,6 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
 
 
-def test_tableau_no_verify():
-    # This test ensures that we can connect to a self-signed certificate
-    # when ssl_verify is set to False.
-
-    source = TableauSource.create(
-        {
-            "connect_uri": "https://self-signed.badssl.com/",
-            "ssl_verify": False,
-            "site": "bogus",
-            # Credentials
-            "username": "bogus",
-            "password": "bogus",
-        },
-        PipelineContext(run_id="0"),
-    )
-    list(source.get_workunits())
-
-    report = source.get_report().as_string()
-    assert "SSL" not in report
-    assert "Unable to login" in report
-
-
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration_batch_2
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
@@ -938,103 +765,6 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
         mock_datahub_graph,
         sign_out_side_effect=ConnectionError,
         pipeline_name="test_tableau_signout_timeout",
-    )
-
-
-def test_tableau_unsupported_csql():
-    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
-    config_dict = config_source_default.copy()
-    del config_dict["stateful_ingestion"]
-    config = TableauConfig.parse_obj(config_dict)
-    config.extract_lineage_from_unsupported_custom_sql_queries = True
-    config.lineage_overrides = TableauLineageOverrides(
-        database_override_map={"production database": "prod"}
-    )
-
-    def check_lineage_metadata(
-        lineage, expected_entity_urn, expected_upstream_table, expected_cll
-    ):
-        mcp = cast(MetadataChangeProposalWrapper, list(lineage)[0].metadata)
-
-        expected = UpstreamLineage(
-            upstreams=[
-                UpstreamClass(
-                    dataset=expected_upstream_table,
-                    type=DatasetLineageType.TRANSFORMED,
-                )
-            ],
-            fineGrainedLineages=[
-                FineGrainedLineage(
-                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                    upstreams=[
-                        make_schema_field_urn(expected_upstream_table, upstream_column)
-                    ],
-                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                    downstreams=[
-                        make_schema_field_urn(expected_entity_urn, downstream_column)
-                    ],
-                )
-                for upstream_column, downstream_column in expected_cll.items()
-            ],
-        )
-        assert mcp.entityUrn == expected_entity_urn
-
-        actual_aspect = mcp.aspect
-        assert actual_aspect == expected
-
-    csql_urn = "urn:li:dataset:(urn:li:dataPlatform:tableau,09988088-05ad-173c-a2f1-f33ba3a13d1a,PROD)"
-    expected_upstream_table = "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bigquery_project.invent_dw.UserDetail,PROD)"
-    expected_cll = {
-        "user_id": "user_id",
-        "source": "source",
-        "user_source": "user_source",
-    }
-
-    site_source = TableauSiteSource(
-        config=config,
-        ctx=context,
-        platform="tableau",
-        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
-        report=TableauSourceReport(),
-        server=Server("https://test-tableau-server.com"),
-    )
-
-    lineage = site_source._create_lineage_from_unsupported_csql(
-        csql_urn=csql_urn,
-        csql={
-            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM invent_dw.UserDetail ) source_user WHERE rank_ = 1",
-            "isUnsupportedCustomSql": "true",
-            "connectionType": "bigquery",
-            "database": {
-                "name": "my_bigquery_project",
-                "connectionType": "bigquery",
-            },
-        },
-        out_columns=[],
-    )
-    check_lineage_metadata(
-        lineage=lineage,
-        expected_entity_urn=csql_urn,
-        expected_upstream_table=expected_upstream_table,
-        expected_cll=expected_cll,
-    )
-
-    # With database as None
-    lineage = site_source._create_lineage_from_unsupported_csql(
-        csql_urn=csql_urn,
-        csql={
-            "query": "SELECT user_id, source, user_source FROM (SELECT *, ROW_NUMBER() OVER (partition BY user_id ORDER BY __partition_day DESC) AS rank_ FROM my_bigquery_project.invent_dw.UserDetail ) source_user WHERE rank_ = 1",
-            "isUnsupportedCustomSql": "true",
-            "connectionType": "bigquery",
-            "database": None,
-        },
-        out_columns=[],
-    )
-    check_lineage_metadata(
-        lineage=lineage,
-        expected_entity_urn=csql_urn,
-        expected_upstream_table=expected_upstream_table,
-        expected_cll=expected_cll,
     )
 
 
@@ -1196,6 +926,28 @@ def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
     new_config = config_source_default.copy()
     del new_config["projects"]
     new_config["ingest_hidden_assets"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_no_hidden_assets_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_ingest_hidden_worksheets(pytestconfig, tmp_path, mock_datahub_graph):
+    output_file_name: str = "tableau_ingest_hidden_worksheets_mces.json"
+    golden_file_name: str = "tableau_ingest_hidden_worksheets_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["ingest_hidden_assets"] = ["worksheet"]
 
     tableau_ingest_common(
         pytestconfig,
@@ -1413,164 +1165,3 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
 
             assert reporter.warnings == []
             assert reporter.failures == []
-
-
-@freeze_time(FROZEN_TIME)
-@pytest.mark.parametrize(
-    "extract_project_hierarchy, allowed_projects",
-    [
-        (True, ["project1", "project4", "project3"]),
-        (False, ["project1", "project4"]),
-    ],
-)
-def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
-    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
-
-    config_dict = config_source_default.copy()
-
-    del config_dict["stateful_ingestion"]
-    del config_dict["projects"]
-
-    config_dict["project_pattern"] = {
-        "allow": ["project1", "project4"],
-        "deny": ["project2"],
-    }
-
-    config_dict["extract_project_hierarchy"] = extract_project_hierarchy
-
-    config = TableauConfig.parse_obj(config_dict)
-
-    site_source = TableauSiteSource(
-        config=config,
-        ctx=context,
-        platform="tableau",
-        site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
-        report=TableauSourceReport(),
-        server=Server("https://test-tableau-server.com"),
-    )
-
-    all_project_map: Dict[str, TableauProject] = {
-        "p1": TableauProject(
-            id="1",
-            name="project1",
-            path=[],
-            parent_id=None,
-            parent_name=None,
-            description=None,
-        ),
-        "p2": TableauProject(
-            id="2",
-            name="project2",
-            path=[],
-            parent_id="1",
-            parent_name="project1",
-            description=None,
-        ),
-        "p3": TableauProject(
-            id="3",
-            name="project3",
-            path=[],
-            parent_id="1",
-            parent_name="project1",
-            description=None,
-        ),
-        "p4": TableauProject(
-            id="4",
-            name="project4",
-            path=[],
-            parent_id=None,
-            parent_name=None,
-            description=None,
-        ),
-    }
-
-    site_source._init_tableau_project_registry(all_project_map)
-
-    assert allowed_projects == [
-        project.name for project in site_source.tableau_project_registry.values()
-    ]
-
-
-@pytest.mark.integration
-def test_connection_report_test(requests_mock):
-    server_info_response = """
-        <tsResponse xmlns:t="http://tableau.com/api">
-            <t:serverInfo>
-                <t:productVersion build="build-number">foo</t:productVersion>
-                <t:restApiVersion>2.4</t:restApiVersion>
-            </t:serverInfo>
-        </tsResponse>
-
-    """
-
-    requests_mock.register_uri(
-        "GET",
-        "https://do-not-connect/api/2.4/serverInfo",
-        text=server_info_response,
-        status_code=200,
-        headers={"Content-Type": "application/xml"},
-    )
-
-    signin_response = """
-        <tsResponse xmlns:t="http://tableau.com/api">
-            <t:credentials token="fake_token">
-                <t:site id="fake_site_luid" contentUrl="fake_site_content_url"/>
-                <t:user id="fake_user_id"/>
-            </t:credentials>
-        </tsResponse>
-    """
-
-    requests_mock.register_uri(
-        "POST",
-        "https://do-not-connect/api/2.4/auth/signin",
-        text=signin_response,
-        status_code=200,
-        headers={"Content-Type": "application/xml"},
-    )
-
-    user_by_id_response = """
-        <tsResponse xmlns:t="http://tableau.com/api">
-          <t:user id="user-id" name="foo@abc.com" siteRole="SiteAdministratorExplorer" />
-        </tsResponse>
-    """
-
-    requests_mock.register_uri(
-        "GET",
-        "https://do-not-connect/api/2.4/sites/fake_site_luid/users/fake_user_id",
-        text=user_by_id_response,
-        status_code=200,
-        headers={"Content-Type": "application/xml"},
-    )
-
-    report: TestConnectionReport = TableauSource.test_connection(config_source_default)
-
-    assert report
-    assert report.capability_report
-    assert report.capability_report.get(c.SITE_PERMISSION)
-    assert report.capability_report[c.SITE_PERMISSION].capable
-
-    # Role other than SiteAdministratorExplorer
-    user_by_id_response = """
-        <tsResponse xmlns:t="http://tableau.com/api">
-          <t:user id="user-id" name="foo@abc.com" siteRole="Explorer" />
-        </tsResponse>
-    """
-
-    requests_mock.register_uri(
-        "GET",
-        "https://do-not-connect/api/2.4/sites/fake_site_luid/users/fake_user_id",
-        text=user_by_id_response,
-        status_code=200,
-        headers={"Content-Type": "application/xml"},
-    )
-
-    report = TableauSource.test_connection(config_source_default)
-
-    assert report
-    assert report.capability_report
-    assert report.capability_report.get(c.SITE_PERMISSION)
-    assert report.capability_report[c.SITE_PERMISSION].capable is False
-    assert (
-        report.capability_report[c.SITE_PERMISSION].failure_reason
-        == "The user does not have the `Site Administrator Explorer` role. Their current role is Explorer."
-    )

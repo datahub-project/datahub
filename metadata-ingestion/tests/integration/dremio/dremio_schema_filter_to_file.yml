@@ -17,6 +17,9 @@ source:
       - platform: s3
         source_name: samples
         platform_instance: s3_test_samples
+      - platform: s3
+        source_name: s3
+        platform_instance: s3_test_samples
 
     schema_pattern:
       allow:

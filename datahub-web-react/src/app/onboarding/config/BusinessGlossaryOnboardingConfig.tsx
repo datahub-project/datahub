@@ -1,6 +1,7 @@
-import React from 'react';
 import { Typography } from 'antd';
-import { OnboardingStep } from '../OnboardingStep';
+import React from 'react';
+
+import { OnboardingStep } from '@app/onboarding/OnboardingStep';
 
 export const BUSINESS_GLOSSARY_INTRO_ID = 'business-glossary-intro';
 export const BUSINESS_GLOSSARY_CREATE_TERM_ID = 'business-glossary-create-term';
@@ -58,7 +59,7 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
                     <a
                         target="_blank"
                         rel="noreferrer noopener"
-                        href="https://datahubproject.io/docs/glossary/business-glossary"
+                        href="https://docs.datahub.com/docs/glossary/business-glossary"
                     >
                         {' '}
                         here.

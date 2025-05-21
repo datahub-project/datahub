@@ -1,9 +1,11 @@
 import { Tooltip } from '@components';
+import { ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import KeyboardTabOutlinedIcon from '@mui/icons-material/KeyboardTabOutlined';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../constants';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 const Container = styled.div`
     display: flex;
@@ -13,8 +15,10 @@ const Container = styled.div`
     padding: 8px;
 `;
 
-const StyledKeyboardTabOutlinedIcon = styled(KeyboardTabOutlinedIcon)<{ direction: 'left' | 'right' }>`
-    ${(props) => (props.direction === 'left' && 'transform: scaleX(-1);') || undefined}
+const IconWrapper = styled.div<{ direction: 'left' | 'right' }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
 `;
 
 const CloseButton = styled.div<{ $isClosed: boolean }>`
@@ -27,15 +31,15 @@ const CloseButton = styled.div<{ $isClosed: boolean }>`
     width: 40px;
     border-radius: 6px;
     justify-content: center;
-    color: ${SEARCH_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     ${(props) =>
         props.$isClosed &&
         `
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE_2};
+        background-color: ${getColor('primary', 600, props.theme)};
         color: ${REDESIGN_COLORS.WHITE};  
     `}
     :hover {
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE_2};
+        background-color: ${(p) => getColor('primary', 600, p.theme)};
         color: ${REDESIGN_COLORS.WHITE};
     }
 `;
@@ -51,7 +55,9 @@ export default function SidebarCollapseIcon() {
                     onClick={() => setSidebarClosed(!isClosed)}
                     data-testid="toggleSidebar"
                 >
-                    <StyledKeyboardTabOutlinedIcon direction={isClosed ? 'left' : 'right'} />
+                    <IconWrapper direction={isClosed ? 'left' : 'right'}>
+                        {isClosed ? <ArrowRight size={20} /> : <ArrowLeft size={20} />}
+                    </IconWrapper>
                 </CloseButton>
             </Tooltip>
         </Container>

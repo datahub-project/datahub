@@ -1,10 +1,13 @@
-import React from 'react';
 import { Card, Collapse } from 'antd';
-import ermodelrelationshipIcon from '../../../../images/ermodelrelationshipIcon.svg';
-import { EntityType, Owner, GlobalTags, GlossaryTerms } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
-import { IconStyleType } from '../../Entity';
+import React from 'react';
+
+import { IconStyleType } from '@app/entity/Entity';
+import DefaultPreviewCard from '@app/preview/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
+
+import ermodelrelationshipIcon from '@images/ermodelrelationshipIcon.svg';
 
 const { Panel } = Collapse;
 

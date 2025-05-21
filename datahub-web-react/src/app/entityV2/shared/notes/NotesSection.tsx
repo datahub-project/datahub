@@ -1,4 +1,3 @@
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -6,15 +5,18 @@ import { Modal } from 'antd';
 import moment from 'moment';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { useDeletePostMutation } from '../../../../graphql/post.generated';
-import { Post } from '../../../../types.generated';
-import CustomAvatar from '../../../shared/avatar/CustomAvatar';
-import { COLORS } from '../../../sharedV2/colors';
-import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
-import CompactMarkdownViewer from '../tabs/Documentation/components/CompactMarkdownViewer';
-import EmptySectionText from '../containers/profile/sidebar/EmptySectionText';
-import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
+
+import CreateEntityAnnouncementModal from '@app/entityV2/shared/announce/CreateEntityAnnouncementModal';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import CustomAvatar from '@app/shared/avatar/CustomAvatar';
+import { COLORS } from '@app/sharedV2/colors';
+
+import { useDeletePostMutation } from '@graphql/post.generated';
+import { Post } from '@types';
 
 const ContentWrapper = styled.div`
     display: flex;

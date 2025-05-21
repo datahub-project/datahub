@@ -1,21 +1,17 @@
-from datahub.emitter.mce_builder import make_dataset_urn
-
-# read-modify-write requires access to the DataHubGraph (RestEmitter is not enough)
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
-
-# Imports for metadata model classes
 from datahub.metadata.schema_classes import DeprecationClass
+from datahub.sdk import DataHubClient, DatasetUrn
 
-dataset_urn = make_dataset_urn(platform="hive", name="fct_users_created", env="PROD")
+client = DataHubClient.from_env()
 
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
-
-# Query multiple aspects from entity
-result = graph.get_aspects_for_entity(
-    entity_urn=dataset_urn,
-    aspects=["deprecation"],
-    aspect_types=[DeprecationClass],
+dataset = client.entities.get(
+    DatasetUrn(platform="hive", name="fct_users_created", env="PROD")
 )
 
-print(result)
+# Check if dataset is deprecated
+deprecation = dataset._get_aspect(DeprecationClass)
+if deprecation and deprecation.deprecated:
+    print(f"Dataset is deprecated: {deprecation.note}")
+    if deprecation.decommissionTime:
+        print(f"Decommission time: {deprecation.decommissionTime}")
+else:
+    print("Dataset is not deprecated")

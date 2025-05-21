@@ -13,13 +13,17 @@ from datahub.api.entities.platformresource.platform_resource import (
 )
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, DataPlatformUrn, Urn
 from datahub.utilities.search_utils import LogicalOperator
 from datahub.utilities.stats_collections import int_top_k_dict
 
 UrnStr = str
 
 logger = logging.getLogger(__name__)
+
+MODE_PLATFORM_URN = DataPlatformUrn.from_string("urn:li:dataPlatform:mode")
+LOOKER_PLATFORM_URN = DataPlatformUrn.from_string("urn:li:dataPlatform:looker")
+HEX_PLATFORM_URN = DataPlatformUrn.from_string("urn:li:dataPlatform:hex")
 
 
 class QueryLog(Protocol):
@@ -30,6 +34,7 @@ class QueryLog(Protocol):
     query_text: str
     user: Optional[Union[CorpUserUrn, CorpGroupUrn]]
     extra_info: Optional[dict]
+    origin: Optional[Urn]
 
 
 def _get_last_line(query: str) -> str:
@@ -66,6 +71,10 @@ class ToolMetaExtractor:
             (
                 "looker",
                 self._extract_looker_query,
+            ),
+            (
+                "hex",
+                self._extract_hex_query,
             ),
         ]
         # maps user id (as string) to email address
@@ -153,7 +162,7 @@ class ToolMetaExtractor:
         entry.extra_info = entry.extra_info or {}
         entry.extra_info["user_via"] = original_user
 
-        # TODO: Generate an "origin" urn.
+        entry.origin = MODE_PLATFORM_URN
 
         return True
 
@@ -189,6 +198,22 @@ class ToolMetaExtractor:
         entry.user = email_to_user_urn(email)
         entry.extra_info = entry.extra_info or {}
         entry.extra_info["user_via"] = original_user
+
+        entry.origin = LOOKER_PLATFORM_URN
+
+        return True
+
+    def _extract_hex_query(self, entry: QueryLog) -> bool:
+        """
+        Returns:
+            bool: whether QueryLog entry is that of hex.
+        """
+        last_line = _get_last_line(entry.query_text)
+
+        if not last_line.startswith("-- Hex query metadata:"):
+            return False
+
+        entry.origin = HEX_PLATFORM_URN
 
         return True
 

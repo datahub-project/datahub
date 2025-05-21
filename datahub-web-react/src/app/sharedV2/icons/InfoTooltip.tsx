@@ -1,11 +1,10 @@
 import { InfoCircleFilled, InfoCircleOutlined } from '@ant-design/icons';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
 const InfoWrapper = styled.div`
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 interface Props {

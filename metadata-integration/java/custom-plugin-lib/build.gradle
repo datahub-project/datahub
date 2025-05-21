@@ -68,7 +68,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-custom-plugin-lib'
         description = 'DataHub Java Custom Plugin dependencies'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [shadowJar, javadocJar, sourcesJar]
 
         scm {

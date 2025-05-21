@@ -9,7 +9,7 @@
                 "should" : [
                   {
                     "bool" : {
-                      "must" : [
+                      "filter" : [
                         {
                           "terms" : {
                             "destination.urn" : [
@@ -19,9 +19,17 @@
                           }
                         },
                         {
+                          "term" : {
+                            "relationshipType" : {
+                              "value" : "DownstreamOf",
+                              "boost" : 1.0
+                            }
+                          }
+                        },
+                        {
                           "terms" : {
-                            "relationshipType" : [
-                              "DownstreamOf"
+                            "source.entityType" : [
+                              "dataset"
                             ],
                             "boost" : 1.0
                           }
@@ -40,22 +48,6 @@
           ],
           "adjust_pure_negative" : true,
           "minimum_should_match" : "1",
-          "boost" : 1.0
-        }
-      },
-      {
-        "terms" : {
-          "source.entityType" : [
-            "dataset"
-          ],
-          "boost" : 1.0
-        }
-      },
-      {
-        "terms" : {
-          "destination.entityType" : [
-            "dataset"
-          ],
           "boost" : 1.0
         }
       },

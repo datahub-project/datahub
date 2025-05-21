@@ -1,9 +1,10 @@
-import React from 'react';
-import { CheckCircleFilled, WarningFilled, StopOutlined } from '@ant-design/icons';
+import { CheckCircleFilled, StopOutlined, WarningFilled } from '@ant-design/icons';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import { ANTD_GRAY } from '../../../constants';
-import { SUCCESS_COLOR_HEX, FAILURE_COLOR_HEX } from '../incidentUtils';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 
 const SummaryHeader = styled.div`
     width: 100%;

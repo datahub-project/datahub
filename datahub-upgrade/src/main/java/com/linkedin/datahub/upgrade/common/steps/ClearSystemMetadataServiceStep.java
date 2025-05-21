@@ -1,10 +1,11 @@
 package com.linkedin.datahub.upgrade.common.steps;
 
+import static com.linkedin.datahub.upgrade.common.Constants.CLEAN_ARG_NAME;
+
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
-import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import java.util.function.Function;
@@ -30,7 +31,7 @@ public class ClearSystemMetadataServiceStep implements UpgradeStep {
     if (_alwaysRun) {
       return false;
     }
-    if (context.parsedArgs().containsKey(NoCodeUpgrade.CLEAN_ARG_NAME)) {
+    if (context.parsedArgs().containsKey(CLEAN_ARG_NAME)) {
       return false;
     }
     context.report().addLine("Cleanup has not been requested.");

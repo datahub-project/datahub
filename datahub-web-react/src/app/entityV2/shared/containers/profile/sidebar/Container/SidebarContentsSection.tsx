@@ -1,14 +1,20 @@
 import React from 'react';
-import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { SidebarSection } from '../SidebarSection';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { getContentsSummary, getContentsSummaryText, navigateToContainerContents } from './utils';
-import { useGetContainerEntitySummaryQuery } from '../../../../../../../graphql/container.generated';
-import SidebarContentsLoadingSection from './SidebarContentsLoadingSection';
-import EmptySectionText from '../EmptySectionText';
-import { REDESIGN_COLORS } from '../../../../constants';
+import styled from 'styled-components/macro';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import SidebarContentsLoadingSection from '@app/entityV2/shared/containers/profile/sidebar/Container/SidebarContentsLoadingSection';
+import {
+    getContentsSummary,
+    getContentsSummaryText,
+    navigateToContainerContents,
+} from '@app/entityV2/shared/containers/profile/sidebar/Container/utils';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetContainerEntitySummaryQuery } from '@graphql/container.generated';
 
 const Section = styled.div`
     display: flex;

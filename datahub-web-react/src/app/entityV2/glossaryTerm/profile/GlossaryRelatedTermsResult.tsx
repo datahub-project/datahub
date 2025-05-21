@@ -1,14 +1,16 @@
 import { Typography } from 'antd';
 import React, { useState } from 'react';
-import { Button } from '@src/alchemy-components';
 import styled from 'styled-components/macro';
-import { TermRelationshipType } from '../../../../types.generated';
-import { Message } from '../../../shared/Message';
-import { EmptyTab } from '../../shared/components/styled/EmptyTab';
-import AddRelatedTermsModal from './AddRelatedTermsModal';
-import RelatedTerm from './RelatedTerm';
-import { CustomIcon } from '../../../sharedV2/icons/customIcons/CustomIcon';
-import addTerm from '../../../sharedV2/icons/customIcons/add-term.svg';
+
+import AddRelatedTermsModal from '@app/entityV2/glossaryTerm/profile/AddRelatedTermsModal';
+import RelatedTerm from '@app/entityV2/glossaryTerm/profile/RelatedTerm';
+import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
+import { Message } from '@app/shared/Message';
+import { CustomIcon } from '@app/sharedV2/icons/customIcons/CustomIcon';
+import addTerm from '@app/sharedV2/icons/customIcons/add-term.svg';
+import { Button } from '@src/alchemy-components';
+
+import { TermRelationshipType } from '@types';
 
 export enum RelatedTermTypes {
     hasRelatedTerms = 'Contains',

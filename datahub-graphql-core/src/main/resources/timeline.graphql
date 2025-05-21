@@ -1,90 +1,92 @@
 extend type Query {
-    """
-    Returns the most recent changes made to each column in a dataset at each dataset version.
-    """
-    getSchemaBlame(input: GetSchemaBlameInput!): GetSchemaBlameResult
+  """
+  Returns the most recent changes made to each column in a dataset at each dataset version.
+  """
+  getSchemaBlame(input: GetSchemaBlameInput!): GetSchemaBlameResult
 
-    """
-    Returns the list of schema versions for a dataset.
-    """
-    getSchemaVersionList(input: GetSchemaVersionListInput!): GetSchemaVersionListResult
+  """
+  Returns the list of schema versions for a dataset.
+  """
+  getSchemaVersionList(
+    input: GetSchemaVersionListInput!
+  ): GetSchemaVersionListResult
 
-    """
-    Returns a list of timeline actions for an entity based on the filter criteria
-    """
-    getTimeline(input: GetTimelineInput!): GetTimelineResult
+  """
+  Returns a list of timeline actions for an entity based on the filter criteria
+  """
+  getTimeline(input: GetTimelineInput!): GetTimelineResult
 }
 
 """
 Enum of types of changes
 """
 enum ChangeOperationType {
-    """
-    When an element is added
-    """
-    ADD
-    """
-    When an element is modified
-    """
-    MODIFY
-    """
-    When an element is removed
-    """
-    REMOVE
+  """
+  When an element is added
+  """
+  ADD
+  """
+  When an element is modified
+  """
+  MODIFY
+  """
+  When an element is removed
+  """
+  REMOVE
 }
 
 """
 Enum of CategoryTypes
 """
 enum ChangeCategoryType {
-    """
-    When documentation has been edited
-    """
-    DOCUMENTATION
-    """
-    When glossary terms have been added or removed
-    """
-    GLOSSARY_TERM
-    """
-    When ownership has been modified
-    """
-    OWNERSHIP
-    """
-    When technical schemas have been added or removed
-    """
-    TECHNICAL_SCHEMA
-    """
-    When tags have been added or removed
-    """
-    TAG
+  """
+  When documentation has been edited
+  """
+  DOCUMENTATION
+  """
+  When glossary terms have been added or removed
+  """
+  GLOSSARY_TERM
+  """
+  When ownership has been modified
+  """
+  OWNERSHIP
+  """
+  When technical schemas have been added or removed
+  """
+  TECHNICAL_SCHEMA
+  """
+  When tags have been added or removed
+  """
+  TAG
 }
 
 """
 Input for getting list of schema versions.
 """
 input GetSchemaVersionListInput {
-    """
-    The dataset urn
-    """
-    datasetUrn: String!
+  """
+  The dataset urn
+  """
+  datasetUrn: String!
 }
 
 """
 Schema changes computed at a specific version.
 """
 type GetSchemaVersionListResult {
-    """
-    Latest and current semantic version
-    """
-    latestVersion: SemanticVersionStruct
-    """
-    Selected semantic version
-    """
-    version: SemanticVersionStruct
-    """
-    All semantic versions. Absent when there are no versions.
-    """
-    semanticVersionList: [SemanticVersionStruct!]
+  """
+  Latest and current semantic version
+  """
+  latestVersion: SemanticVersionStruct
+  """
+  Selected semantic version
+  """
+  version: SemanticVersionStruct
+  """
+  All semantic versions. Absent when there are no versions.
+  """
+  semanticVersionList: [SemanticVersionStruct!]
 }
 
 """
@@ -92,189 +94,187 @@ Input for getting timeline from a specific version.
 Todo: this is where additional filtering would go such as start & end times/versions, change types, etc
 """
 input GetTimelineInput {
-    """
-    The urn to fetch timeline for
-    """
-    urn: String!
+  """
+  The urn to fetch timeline for
+  """
+  urn: String!
 
-    """
-    The change category types to filter by. If left empty, will fetch all.
-    """
-    changeCategories: [ChangeCategoryType!]
+  """
+  The change category types to filter by. If left empty, will fetch all.
+  """
+  changeCategories: [ChangeCategoryType!]
 }
-
 
 """
 Input for getting schema changes computed at a specific version.
 """
 input GetSchemaBlameInput {
-    """
-    The dataset urn
-    """
-    datasetUrn: String!
-    """
-    Changes after this version are not shown. If not provided, this is the latestVersion.
-    """
-    version: String
+  """
+  The dataset urn
+  """
+  datasetUrn: String!
+  """
+  Changes after this version are not shown. If not provided, this is the latestVersion.
+  """
+  version: String
 }
 
 """
 Schema changes computed at a specific version.
 """
 type GetSchemaBlameResult {
-    """
-    Selected semantic version
-    """
-    version: SemanticVersionStruct
-    """
-    List of schema blame. Absent when there are no fields to return history for.
-    """
-    schemaFieldBlameList: [SchemaFieldBlame!]
+  """
+  Selected semantic version
+  """
+  version: SemanticVersionStruct
+  """
+  List of schema blame. Absent when there are no fields to return history for.
+  """
+  schemaFieldBlameList: [SchemaFieldBlame!]
 }
 
 """
 Blame for a single field
 """
 type SchemaFieldBlame {
-    """
-    Flattened name of a schema field
-    """
-    fieldPath: String!
-    """
-    Attributes identifying a field change
-    """
-    schemaFieldChange: SchemaFieldChange!
+  """
+  Flattened name of a schema field
+  """
+  fieldPath: String!
+  """
+  Attributes identifying a field change
+  """
+  schemaFieldChange: SchemaFieldChange!
 }
 
 """
 Attributes identifying a field change
 """
 type SchemaFieldChange {
-    """
-    The time at which the schema was updated
-    """
-    timestampMillis: Long!
-    """
-    The last semantic version that this schema was changed in
-    """
-    lastSemanticVersion: String!
-    """
-    Version stamp of the change
-    """
-    versionStamp: String!
-    """
-    The type of the change
-    """
-    changeType: ChangeOperationType!
-    """
-    Last column update, such as Added/Modified/Removed in v1.2.3.
-    """
-    lastSchemaFieldChange: String
+  """
+  The time at which the schema was updated
+  """
+  timestampMillis: Long!
+  """
+  The last semantic version that this schema was changed in
+  """
+  lastSemanticVersion: String!
+  """
+  Version stamp of the change
+  """
+  versionStamp: String!
+  """
+  The type of the change
+  """
+  changeType: ChangeOperationType!
+  """
+  Last column update, such as Added/Modified/Removed in v1.2.3.
+  """
+  lastSchemaFieldChange: String
 }
 
 """
 Properties identify a semantic version
 """
 type SemanticVersionStruct {
-    """
-    Semantic version of the change
-    """
-    semanticVersion: String
-    """
-    Semantic version timestamp
-    """
-    semanticVersionTimestamp: Long
-    """
-    Version stamp of the change
-    """
-    versionStamp: String
+  """
+  Semantic version of the change
+  """
+  semanticVersion: String
+  """
+  Semantic version timestamp
+  """
+  semanticVersionTimestamp: Long
+  """
+  Version stamp of the change
+  """
+  versionStamp: String
 }
 
 """
 Result of getting timeline from a specific version.
 """
 type GetTimelineResult {
-    changeTransactions: [ChangeTransaction!]!
+  changeTransactions: [ChangeTransaction!]!
 }
 
 """
 A change transaction is a set of changes that were committed together.
 """
 type ChangeTransaction {
-    """
-    The time at which the transaction was committed
-    """
-    timestampMillis: Long!
-    """
-    The last semantic version that this schema was changed in
-    """
-    lastSemanticVersion: String!
-    """
-    Version stamp of the change
-    """
-    versionStamp: String!
-    """
-    The type of the change
-    """
-    changeType: ChangeOperationType!
-    """
-    The list of changes in this transaction
-    """
-    changes: [ChangeEvent!]
+  """
+  The time at which the transaction was committed
+  """
+  timestampMillis: Long!
+  """
+  The last semantic version that this schema was changed in
+  """
+  lastSemanticVersion: String!
+  """
+  Version stamp of the change
+  """
+  versionStamp: String!
+  """
+  The type of the change
+  """
+  changeType: ChangeOperationType!
+  """
+  The list of changes in this transaction
+  """
+  changes: [ChangeEvent!]
 }
-
 
 """
 An individual change in a transaction
 """
 type ChangeEvent {
-    """
-    The urn of the entity that was changed
-    """
-    urn: String!
+  """
+  The urn of the entity that was changed
+  """
+  urn: String!
 
-    """
-    The category of the change
-    """
-    category: ChangeCategoryType
+  """
+  The category of the change
+  """
+  category: ChangeCategoryType
 
-    """
-    The operation of the change
-    """
-    operation: ChangeOperationType
+  """
+  The operation of the change
+  """
+  operation: ChangeOperationType
 
-    """
-    The modifier of the change
-    """
-    modifier: String
+  """
+  The modifier of the change
+  """
+  modifier: String
 
-    """
-    The parameters of the change
-    """
-    parameters: [TimelineParameterEntry!]
+  """
+  The parameters of the change
+  """
+  parameters: [TimelineParameterEntry!]
 
-    """
-    The audit stamp of the change
-    """
-    auditStamp: AuditStamp
+  """
+  The audit stamp of the change
+  """
+  auditStamp: AuditStamp
 
-    """
-    description of the change
-    """
-    description: String
+  """
+  description of the change
+  """
+  description: String
 }
 
 """
 A timeline parameter entry
 """
 type TimelineParameterEntry {
-    """
-    The key of the parameter
-    """
-    key: String
+  """
+  The key of the parameter
+  """
+  key: String
 
-    """
-    The value of the parameter
-    """
-    value: String
+  """
+  The value of the parameter
+  """
+  value: String
 }

@@ -1,8 +1,9 @@
-import OptionalTooltip from '@app/sharedV2/ant/OptionalTooltip';
 import { TooltipProps } from 'antd';
 import React, { useEffect } from 'react';
-import styled from 'styled-components';
 import Highlight from 'react-highlighter';
+import styled from 'styled-components';
+
+import OptionalTooltip from '@app/sharedV2/ant/OptionalTooltip';
 
 const Wrapper = styled.div<{ scale: number; computedRatio: boolean }>`
     // Wrap up to two lines, shrinking text as needed

@@ -203,7 +203,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-client' + (project.hasProperty('archiveAppendix') ? "-${archiveAppendix}" : '')
         description = 'DataHub Java client for metadata integration'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [shadowJar, javadocJar, sourcesJar]
 
         scm {

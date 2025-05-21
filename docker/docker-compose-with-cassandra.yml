@@ -21,7 +21,10 @@ services:
       - ${HOME}/.datahub/plugins:/etc/datahub/plugins
   datahub-actions:
     hostname: actions
-    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${ACTIONS_VERSION:-head}
+    image: ${DATAHUB_ACTIONS_IMAGE:-acryldata/datahub-actions}:${DATAHUB_VERSION:-head}-slim
+    build:
+      context: ../
+      dockerfile: docker/datahub-actions/Dockerfile
     env_file: datahub-actions/env/docker.env
     environment:
     - ACTIONS_EXTRA_PACKAGES=${ACTIONS_EXTRA_PACKAGES:-}

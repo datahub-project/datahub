@@ -1,23 +1,25 @@
-import * as React from 'react';
 import { DotChartOutlined } from '@ant-design/icons';
-import { MlPrimaryKey, EntityType, SearchResult, OwnershipType } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../shared/types';
-import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct } from '../shared/utils';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import * as React from 'react';
+
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { Preview } from '@app/entity/mlPrimaryKey/preview/Preview';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '@app/entity/shared/tabs/Lineage/LineageTab';
+import { FeatureTableTab } from '@app/entity/shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getDataProduct } from '@app/entity/shared/utils';
+
+import { useGetMlPrimaryKeyQuery } from '@graphql/mlPrimaryKey.generated';
+import { EntityType, MlPrimaryKey, OwnershipType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.

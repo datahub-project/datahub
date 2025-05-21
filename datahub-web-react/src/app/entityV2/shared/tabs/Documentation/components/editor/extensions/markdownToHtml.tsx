@@ -1,5 +1,6 @@
 import { marked } from 'marked';
-import { DATAHUB_MENTION_ATTRS } from './mentions/DataHubMentionsExtension';
+
+import { DATAHUB_MENTION_ATTRS } from '@app/entityV2/shared/tabs/Documentation/components/editor/extensions/mentions/DataHubMentionsExtension';
 
 marked.use({
     renderer: {

@@ -41,11 +41,10 @@ in this [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/char
 Then, set `graph_service_impl` to `elasticsearch` in the
 [values.yaml](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml#L63) of datahub.
 
-
 See the [deployment helm guide](../deploy/kubernetes.md#components) for more details on how to
 set up your helm deployment.
 
 Finally, follow the [restore-indices helm guide](./restore-indices.md) to re-build
 your graph index.
 
-Once the job completes, your data will be migrated. 
+Once the job completes, your data will be migrated.

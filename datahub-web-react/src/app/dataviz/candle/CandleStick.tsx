@@ -1,12 +1,11 @@
-import React from 'react';
-
+import { GlyphCircle, GlyphDiamond } from '@visx/glyph';
+import { GlyphCircleProps } from '@visx/glyph/lib/glyphs/GlyphCircle';
+import { GlyphDiamondProps } from '@visx/glyph/lib/glyphs/GlyphDiamond';
 import { Group } from '@visx/group';
 import { Bar } from '@visx/shape';
 import { BarProps } from '@visx/shape/lib/shapes/Bar';
-import { GlyphCircle, GlyphDiamond } from '@visx/glyph';
-import { GlyphDiamondProps } from '@visx/glyph/lib/glyphs/GlyphDiamond';
-import { GlyphCircleProps } from '@visx/glyph/lib/glyphs/GlyphCircle';
 import { AddSVGProps } from '@visx/shape/lib/types';
+import React from 'react';
 
 type DiamondProps = GlyphDiamondProps<any> & Omit<React.SVGProps<SVGPathElement>, keyof GlyphDiamondProps<any>>;
 type CircleProps = GlyphCircleProps<any> & Omit<React.SVGProps<SVGPathElement>, keyof GlyphCircleProps<any>>;

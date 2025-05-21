@@ -1,12 +1,11 @@
-import React from 'react';
-
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
-import { Badge, badgeDefault } from './Badge';
-import pillMeta from '../Pills/Pill.stories';
-import { omitKeys } from './utils';
+import { Badge, badgeDefault } from '@components/components/Badge/Badge';
+import { omitKeys } from '@components/components/Badge/utils';
+import pillMeta from '@components/components/Pills/Pill.stories';
 
 const pillMetaArgTypes = omitKeys(pillMeta.argTypes, ['label']);
 const pillMetaArgs = omitKeys(pillMeta.args, ['label']);

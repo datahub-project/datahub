@@ -1,4 +1,4 @@
-### Starter Receipe for Dremio Cloud Instance 
+### Starter Receipe for Dremio Cloud Instance
 
 ```
 source:
@@ -11,17 +11,17 @@ source:
     dremio_cloud_project_id: <project_id>  # Provide the Project ID for Dremio Cloud
 
     # Enable query lineage tracking
-    include_query_lineage: True       
+    include_query_lineage: True
 
     #Optional
     source_mappings:
-      - platform: s3                 
-        source_name: samples       
-    
+      - platform: s3
+        source_name: samples
+
     # Optional
     schema_pattern:
       allow:
-        - "<source_name>.<table_name>" 
+        - "<source_name>.<table_name>"
 
 sink:
     # Define your sink configuration here

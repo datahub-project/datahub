@@ -1,9 +1,11 @@
+import { Table } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Table } from 'antd';
-import { SchemaContract } from '../../../../../../../types.generated';
-import { ANTD_GRAY } from '../../../../constants';
-import { DataContractSummaryFooter } from './DataContractSummaryFooter';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
+
+import { SchemaContract } from '@types';
 
 const TitleText = styled.div`
     color: ${ANTD_GRAY[7]};
@@ -43,11 +45,11 @@ export const SchemaContractSummary = ({ contracts, showAction = false }: Props) 
 
     const columns = [
         {
-            title: () => <ColumnHeader>NAME</ColumnHeader>,
+            title: () => <ColumnHeader>Name</ColumnHeader>,
             render: (field) => <>{field.fieldPath}</>,
         },
         {
-            title: () => <ColumnHeader>TYPE</ColumnHeader>,
+            title: () => <ColumnHeader>Type</ColumnHeader>,
             render: (field) => <>{field.type}</>,
         },
     ];

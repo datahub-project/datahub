@@ -1354,7 +1354,7 @@ def test_cll_extraction_flags(
 
     default_conf: dict = default_source_config()
     pattern: str = re.escape(
-        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage', 'extract_dataset_schema']"
     )
 
     with pytest.raises(Exception, match=pattern):

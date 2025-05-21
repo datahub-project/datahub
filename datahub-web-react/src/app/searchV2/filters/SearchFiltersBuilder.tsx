@@ -1,13 +1,14 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button } from '@src/alchemy-components';
+
+import { AdvancedSearchFilterOverallUnionTypeSelect } from '@app/searchV2/AdvancedSearchFilterOverallUnionTypeSelect';
+import AddFilterDropdown from '@app/searchV2/filters/AddFilterDropdown';
 // eslint-disable-next-line import/no-cycle
-import SelectedFilter from './SelectedFilter';
-import { FilterField, FilterPredicate } from './types';
-import AddFilterDropdown from './AddFilterDropdown';
-import { useHydrateFilters } from './useHydrateFilters';
-import { AdvancedSearchFilterOverallUnionTypeSelect } from '../AdvancedSearchFilterOverallUnionTypeSelect';
-import { UnionType } from '../utils/constants';
+import SelectedFilter from '@app/searchV2/filters/SelectedFilter';
+import { FilterField, FilterPredicate } from '@app/searchV2/filters/types';
+import { useHydrateFilters } from '@app/searchV2/filters/useHydrateFilters';
+import { UnionType } from '@app/searchV2/utils/constants';
+import { Button } from '@src/alchemy-components';
 
 const Container = styled.div``;
 

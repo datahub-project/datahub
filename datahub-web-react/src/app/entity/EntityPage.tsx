@@ -1,17 +1,19 @@
 import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { EntityType } from '../../types.generated';
-import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
-import LineageExplorer from '../lineage/LineageExplorer';
-import useIsLineageMode from '../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../useEntityRegistry';
-import analytics, { EventType } from '../analytics';
-import { decodeUrn } from './shared/utils';
-import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
-import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
-import { ErrorSection } from '../shared/error/ErrorSection';
-import { VIEW_ENTITY_PAGE } from './shared/constants';
-import { useUserContext } from '../context/useUserContext';
+
+import analytics, { EventType } from '@app/analytics';
+import { UnauthorizedPage } from '@app/authorization/UnauthorizedPage';
+import { BrowsableEntityPage } from '@app/browse/BrowsableEntityPage';
+import { useUserContext } from '@app/context/useUserContext';
+import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
+import { decodeUrn } from '@app/entity/shared/utils';
+import LineageExplorer from '@app/lineage/LineageExplorer';
+import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
+import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useGetGrantedPrivilegesQuery } from '@graphql/policy.generated';
+import { EntityType } from '@types';
 
 interface RouteParams {
     urn: string;

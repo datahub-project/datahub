@@ -1,10 +1,12 @@
+import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
+import { Dropdown, Modal, message } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
-import { Dropdown, message, Modal } from 'antd';
-import { useDeleteQueryMutation } from '../../../../../../graphql/query.generated';
-import handleGraphQLError from '../../../../../shared/handleGraphQLError';
-import { MenuItemStyle } from '../../../../view/menu/item/styledComponent';
+
+import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import handleGraphQLError from '@app/shared/handleGraphQLError';
+
+import { useDeleteQueryMutation } from '@graphql/query.generated';
 
 const StyledMoreOutlined = styled(MoreOutlined)`
     font-size: 14px;

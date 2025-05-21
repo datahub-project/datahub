@@ -1,16 +1,18 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
-import { message, Modal, Tag } from 'antd';
+import CloseIcon from '@mui/icons-material/Close';
+import { Modal, Tag, message } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import CloseIcon from '@mui/icons-material/Close';
-import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
-import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
-import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
-import LabelPropagationDetails from '../../propagation/LabelPropagationDetails';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
+import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { useRemoveTermMutation } from '@graphql/mutations.generated';
+import { EntityType, GlossaryTermAssociation, SubResourceType } from '@types';
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
@@ -27,7 +29,7 @@ const TermContainer = styled.div`
 
     :hover {
         .ant-tag.ant-tag {
-            border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+            border: 1px solid ${(props) => props.theme.styles['primary-color']};
         }
     }
 `;
@@ -73,7 +75,7 @@ const CloseButtonContainer = styled.div`
     position: absolute;
     top: -10px;
     right: -10px;
-    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    background-color: ${(props) => props.theme.styles['primary-color']};
     align-items: center;
     border-radius: 100%;
     padding: 5px;
@@ -135,12 +137,13 @@ export default function TermContent({
     const entityRegistry = useEntityRegistry();
     const [removeTermMutation] = useRemoveTermMutation();
     const { parentNodes, urn, type } = term.term;
+    const generateColor = useGenerateGlossaryColorFromPalette();
 
     const highlightTerm = useHasMatchedFieldByUrn(urn, 'glossaryTerms');
     const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
     const termColor = lastParentNode
-        ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
-        : generateColorFromPalette(urn);
+        ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
+        : generateColor(urn);
     const displayName = entityRegistry.getDisplayName(type, term.term);
     const removeTerm = (termToRemove: GlossaryTermAssociation) => {
         onOpenModal?.();

@@ -1,6 +1,7 @@
-import { render, fireEvent } from '@testing-library/react';
+import { fireEvent, render } from '@testing-library/react';
 import React from 'react';
-import { NameSourceStep } from '../NameSourceStep';
+
+import { NameSourceStep } from '@app/ingest/source/builder/NameSourceStep';
 
 describe('NameSourceStep', () => {
     it('should trim leading and trailing whitespaces from the text field on blur', () => {
@@ -18,6 +19,7 @@ describe('NameSourceStep', () => {
                 goTo={() => {}}
                 cancel={() => {}}
                 ingestionSources={[]}
+                isEditing
             />,
         );
         const nameInput = getByTestId('source-name-input') as HTMLInputElement;

@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import glueLogo from '../../../../../images/gluelogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import glueLogo from '@images/gluelogo.png';
 
 const placeholderRecipe = `\
 source:
@@ -28,7 +29,7 @@ const glueConfig: SourceConfig = {
     type: 'glue',
     placeholderRecipe,
     displayName: 'Glue',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/glue',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/glue',
     logoUrl: glueLogo,
 };
 

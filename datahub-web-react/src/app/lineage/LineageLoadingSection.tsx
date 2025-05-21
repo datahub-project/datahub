@@ -1,8 +1,9 @@
+import { LoadingOutlined } from '@ant-design/icons';
+import { Spin } from 'antd';
 import * as React from 'react';
 import styled from 'styled-components';
-import { Spin } from 'antd';
-import { LoadingOutlined } from '@ant-design/icons';
-import { ANTD_GRAY } from '../entity/shared/constants';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Container = styled.div`
     height: auto;

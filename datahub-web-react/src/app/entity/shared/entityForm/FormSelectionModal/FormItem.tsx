@@ -1,15 +1,20 @@
 import { Tooltip } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { FormAssociation } from '../../../../../types.generated';
-import useGetPromptInfo from '../../containers/profile/sidebar/FormInfo/useGetPromptInfo';
-import { useEntityData } from '../../EntityContext';
-import { isVerificationComplete, shouldShowVerificationInfo } from '../../containers/profile/sidebar/FormInfo/utils';
-import { pluralize } from '../../../../shared/textUtil';
-import { WhiteButton } from '../../../../shared/components';
-import { ANTD_GRAY_V2 } from '../../constants';
-import useIsUserAssigned from '../../containers/profile/sidebar/FormInfo/useIsUserAssigned';
-import FormRequestedBy from './FormRequestedBy';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
+import useGetPromptInfo from '@app/entity/shared/containers/profile/sidebar/FormInfo/useGetPromptInfo';
+import useIsUserAssigned from '@app/entity/shared/containers/profile/sidebar/FormInfo/useIsUserAssigned';
+import {
+    isVerificationComplete,
+    shouldShowVerificationInfo,
+} from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
+import FormRequestedBy from '@app/entity/shared/entityForm/FormSelectionModal/FormRequestedBy';
+import { WhiteButton } from '@app/shared/components';
+import { pluralize } from '@app/shared/textUtil';
+
+import { FormAssociation } from '@types';
 
 const FormItemWrapper = styled.div`
     display: flex;

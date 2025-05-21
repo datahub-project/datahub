@@ -1,5 +1,5 @@
-import { CalendarData } from '../types';
-import { getColorAccessor } from '../utils';
+import { CalendarData } from '@components/components/CalendarChart/types';
+import { getColorAccessor } from '@components/components/CalendarChart/utils';
 
 type Datum = {
     value1: number;

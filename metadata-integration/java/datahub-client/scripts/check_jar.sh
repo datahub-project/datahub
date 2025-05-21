@@ -42,7 +42,8 @@ jar -tvf $jarFile |\
       grep -v "mime.types" |\
       grep -v "com/ibm/.*" |\
       grep -v "org/apache/avro" |\
-      grep -v "org/apache"
+      grep -v "org/apache" |\
+      grep -v "org/publicsuffix"
 
 
 

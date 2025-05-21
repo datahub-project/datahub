@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
 import { Col } from 'antd';
-import { OwnershipContainer } from '../SidebarStyledComponents';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { EntityLink } from '../../../homeV2/reference/sections/EntityLink';
-import { SearchResult } from '../../../../types.generated';
-import { ShowMoreSection } from './ShowMoreSection';
+import React, { useState } from 'react';
+
+import { OwnershipContainer, ShowMoreText } from '@app/entityV2/shared/SidebarStyledComponents';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
+
+import { SearchResults } from '@types';
 
 const DEFAULT_MAX_ENTITIES_TO_SHOW = 4;
 
@@ -15,17 +17,24 @@ const entityLinkTextStyle = {
 };
 
 type Props = {
-    ownedEntities: SearchResult[] | undefined;
+    ownershipResults: SearchResults | undefined;
 };
 
-export const UserOwnershipSidebarSection = ({ ownedEntities }: Props) => {
+export const UserOwnershipSidebarSection = ({ ownershipResults }: Props) => {
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
-    const ownedEntitiesCount = ownedEntities?.length || 0;
+    const ownedEntitiesTotal = ownershipResults?.total || 0;
+    const ownedEntities = ownershipResults?.searchResults;
+    const entitiesAvailableCount = ownedEntities?.length || 0;
+
+    const hasHiddenEntities = ownedEntitiesTotal > entitiesAvailableCount;
+    const isShowingMaxEntities = entityCount >= entitiesAvailableCount;
+    const showAndMoreText = hasHiddenEntities && isShowingMaxEntities;
 
     return (
         <SidebarSection
             title="Owner Of"
-            count={ownedEntities?.length}
+            count={ownedEntitiesTotal}
+            showFullCount
             content={
                 <>
                     <OwnershipContainer>
@@ -44,13 +53,16 @@ export const UserOwnershipSidebarSection = ({ ownedEntities }: Props) => {
                             );
                         })}
                     </OwnershipContainer>
-                    {ownedEntitiesCount > entityCount && (
+                    {entitiesAvailableCount > entityCount && (
                         <ShowMoreSection
-                            totalCount={ownedEntitiesCount}
+                            totalCount={entitiesAvailableCount}
                             entityCount={entityCount}
                             setEntityCount={setEntityCount}
                             showMaxEntity={DEFAULT_MAX_ENTITIES_TO_SHOW}
                         />
+                    )}
+                    {showAndMoreText && (
+                        <ShowMoreText>+ {ownedEntitiesTotal - entitiesAvailableCount} more</ShowMoreText>
                     )}
                 </>
             }

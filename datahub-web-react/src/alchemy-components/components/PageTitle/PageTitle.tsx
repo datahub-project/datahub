@@ -1,17 +1,23 @@
 import React from 'react';
-import { PageTitleProps } from './types';
-import { Container, SubTitle, Title } from './components';
-import { Pill } from '../Pills';
+import styled from 'styled-components';
+
+import { Container, SubTitle, Title } from '@components/components/PageTitle/components';
+import { PageTitleProps } from '@components/components/PageTitle/types';
+import { Pill } from '@components/components/Pills';
+
+const StyledSubTitle = styled(SubTitle)`
+    margin-top: 4px;
+`;
 
 export const PageTitle = ({ title, subTitle, pillLabel, variant = 'pageHeader' }: PageTitleProps) => {
     return (
         <Container>
-            <Title variant={variant}>
+            <Title data-testid="page-title" variant={variant}>
                 {title}
                 {pillLabel ? <Pill label={pillLabel} size="sm" clickable={false} /> : null}
             </Title>
 
-            {subTitle ? <SubTitle variant={variant}>{subTitle}</SubTitle> : null}
+            {subTitle ? <StyledSubTitle variant={variant}>{subTitle}</StyledSubTitle> : null}
         </Container>
     );
 };

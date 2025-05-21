@@ -1,9 +1,14 @@
 import React from 'react';
-import { SchemaField } from '../../../../../../../../types.generated';
-import useBusinessAttributeRenderer from '../../utils/useBusinessAttributeRenderer';
-import { SectionHeader, StyledDivider } from './components';
-import SchemaEditableContext from '../../../../../../../shared/SchemaEditableContext';
-import { useBusinessAttributesFlag } from '../../../../../../../useAppConfig';
+
+import {
+    SectionHeader,
+    StyledDivider,
+} from '@app/entity/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import useBusinessAttributeRenderer from '@app/entity/shared/tabs/Dataset/Schema/utils/useBusinessAttributeRenderer';
+import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import { useBusinessAttributesFlag } from '@app/useAppConfig';
+
+import { SchemaField } from '@types';
 
 interface Props {
     expandedField: SchemaField;

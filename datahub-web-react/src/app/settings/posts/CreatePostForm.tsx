@@ -1,14 +1,16 @@
+import { Form, FormInstance, Input, Radio, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
-import { Form, Input, Typography, FormInstance, Radio } from 'antd';
 import styled from 'styled-components';
+
 import {
     DESCRIPTION_FIELD_NAME,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
     TITLE_FIELD_NAME,
     TYPE_FIELD_NAME,
-} from './constants';
-import { PostContentType } from '../../../types.generated';
+} from '@app/settings/posts/constants';
+
+import { PostContentType } from '@types';
 
 const TopFormItem = styled(Form.Item)`
     margin-bottom: 24px;

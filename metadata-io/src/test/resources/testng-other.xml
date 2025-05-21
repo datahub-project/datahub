@@ -1,15 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd">
-<suite name="metadata-io" parallel="classes" thread-count="3">
+<suite name="metadata-io" parallel="classes">
     <test name="nonsearch">
         <packages>
             <package name="com.linkedin.metadata.*">
-                <exclude name="com.linkedin.metadata.graph.search.elasticsearch" />
-                <exclude name="com.linkedin.metadata.search.elasticsearch"/>
-                <exclude name="com.linkedin.metadata.graph.search.opensearch" />
-                <exclude name="com.linkedin.metadata.search.opensearch"/>
+                <exclude name="com.linkedin.metadata.graph.search.elasticsearch.*" />
+                <exclude name="com.linkedin.metadata.search.elasticsearch.*"/>
+                <exclude name="com.linkedin.metadata.graph.search.opensearch.*" />
+                <exclude name="com.linkedin.metadata.search.opensearch.*"/>
                 <exclude name="com.linkedin.metadata.entity.cassandra.*" />
                 <exclude name="com.linkedin.metadata.timeline.cassandra.*"/>
+                <exclude name="com.linkedin.metadata.graph.neo4j.*"/>
+                <exclude name="com.linkedin.metadata.entity.EbeanEntityServiceOptimizationTest"/>
             </package>
         </packages>
     </test>

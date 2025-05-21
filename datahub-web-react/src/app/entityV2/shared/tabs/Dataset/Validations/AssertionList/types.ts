@@ -1,3 +1,4 @@
+import { AssertionGroup } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     Assertion,
     AssertionResultType,
@@ -10,7 +11,6 @@ import {
     EntityType,
     TagAssociation,
 } from '@src/types.generated';
-import { AssertionGroup } from '../acrylTypes';
 
 export type EntityStagedForAssertion = {
     urn: string;

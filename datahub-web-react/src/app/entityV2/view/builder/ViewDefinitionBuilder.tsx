@@ -1,17 +1,19 @@
 import React from 'react';
 import styled from 'styled-components';
-import { LogicalOperator } from '../../../../types.generated';
-import { ENTITY_FILTER_NAME } from '../../../search/utils/constants';
-import { ANTD_GRAY } from '../../shared/constants';
-import { ViewBuilderState } from '../types';
-import { ViewBuilderMode } from './types';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
+import { fromUnionType, toUnionType } from '@app/entityV2/view/builder/utils';
+import { ViewBuilderState } from '@app/entityV2/view/types';
+import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
 // eslint-disable-next-line import/no-cycle
-import SearchFiltersBuilder from '../../../searchV2/filters/SearchFiltersBuilder';
-import { FilterPredicate } from '../../../searchV2/filters/types';
-import { convertToSelectedFilterPredictes } from '../../../searchV2/filters/utils';
-import { convertFrontendToBackendOperatorType } from '../../../searchV2/filters/operator/operator';
-import { VIEW_BUILDER_FIELDS } from '../../../searchV2/filters/field/fields';
-import { fromUnionType, toUnionType } from './utils';
+import SearchFiltersBuilder from '@app/searchV2/filters/SearchFiltersBuilder';
+import { VIEW_BUILDER_FIELDS } from '@app/searchV2/filters/field/fields';
+import { convertFrontendToBackendOperatorType } from '@app/searchV2/filters/operator/operator';
+import { FilterPredicate } from '@app/searchV2/filters/types';
+import { convertToSelectedFilterPredictes } from '@app/searchV2/filters/utils';
+
+import { LogicalOperator } from '@types';
 
 const Container = styled.div`
     border-radius: 4px;

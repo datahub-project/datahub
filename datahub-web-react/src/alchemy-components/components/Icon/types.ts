@@ -1,7 +1,7 @@
 import { HTMLAttributes } from 'react';
 
-import type { FontSizeOptions, FontColorOptions, RotationOptions } from '@components/theme/config';
-import { AVAILABLE_ICONS } from './constants';
+import { AVAILABLE_ICONS } from '@components/components/Icon/constants';
+import type { FontColorOptions, FontSizeOptions, RotationOptions } from '@components/theme/config';
 
 // Utility function to create an enum from an array of strings
 function createEnum<T extends string>(values: T[]): { [K in T]: K } {

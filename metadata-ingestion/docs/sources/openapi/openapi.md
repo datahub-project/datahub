@@ -13,16 +13,21 @@ As example, if in your swagger file there is the `/api/users/` defined as follow
 paths:
   /api/users/:
     get:
-      tags: [ "Users" ]
+      tags: ["Users"]
       operationID: GetUsers
       description: Retrieve users data
       responses:
-        '200':
+        "200":
           description: Return the list of users
           content:
             application/json:
               example:
-                {"user": "username", "name": "Full Name", "job": "any", "is_active": True}
+                {
+                  "user": "username",
+                  "name": "Full Name",
+                  "job": "any",
+                  "is_active": True,
+                }
 ```
 
 then this plugin has all the information needed to create the dataset in DataHub.
@@ -34,11 +39,11 @@ So, if in your swagger file you have
 paths:
   /colors/:
     get:
-      tags: [ "Colors" ]
+      tags: ["Colors"]
       operationID: GetDefinedColors
       description: Retrieve colors
       responses:
-        '200':
+        "200":
           description: Return the list of colors
 ```
 
@@ -68,7 +73,7 @@ So, if by calling GET to the first URL you get as response:
      "color": "yellow",
      ...}
 
-the `"color": "yellow"`  part will be used to complete the second link, which
+the `"color": "yellow"` part will be used to complete the second link, which
 will become:
 
     https://test_endpoint.com/colors/yellow
@@ -95,8 +100,8 @@ and this URL will be called to get back the needed metadata.
 
 If this tool needs to get an access token to interrogate the endpoints, this can be requested. Two methods are available at the moment:
 
-* 'get' : this requires username/password combination to be present in the url. Note that {username} and {password} are mandatory placeholders. They will be replaced with the true credentials at runtime. Note that username and password will be sent in the request address, so it's unsecure. If your provider allows for the other method, please go for it.
-* 'post' : username and password will be inserted in the body of the POST request
+- 'get' : this requires username/password combination to be present in the url. Note that {username} and {password} are mandatory placeholders. They will be replaced with the true credentials at runtime. Note that username and password will be sent in the request address, so it's unsecure. If your provider allows for the other method, please go for it.
+- 'post' : username and password will be inserted in the body of the POST request
 
 In both cases, username and password are the ones defined in the configuration file.
 
@@ -112,11 +117,11 @@ As example, if in your swagger file you have
 paths:
   /accounts/groupname/{name}/:
     get:
-      tags: [ "Groups" ]
+      tags: ["Groups"]
       operationID: GetGroup
       description: Retrieve group data
       responses:
-        '200':
+        "200":
           description: Return details about the group
 ```
 
@@ -126,8 +131,8 @@ the tool has no idea about what to substitute for the `{name}` part.
 By specifying in the configuration file
 
 ```yaml
-    forced_examples:  # optionals
-      /accounts/groupname/{name}: ['test']
+forced_examples: # optionals
+  /accounts/groupname/{name}: ["test"]
 ```
 
 the plugin is able to build a correct URL, as follows:

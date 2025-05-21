@@ -1,4 +1,4 @@
-import { getAutoCompleteEntityText } from '../utils';
+import { getAutoCompleteEntityText } from '@app/searchV2/autoComplete/utils';
 
 describe('utils tests', () => {
     it('should return matched and unmatched text when the name begins with the query', () => {

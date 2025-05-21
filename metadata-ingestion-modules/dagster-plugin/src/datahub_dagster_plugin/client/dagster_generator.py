@@ -203,7 +203,7 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         ]
     ] = pydantic.Field(
         default=None,
-        description="Custom asset lineage extractor function. See details at [https://datahubproject.io/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
+        description="Custom asset lineage extractor function. See details at [https://docs.datahub.com/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
     )
 
     capture_dataset_from_asset_key: Optional[bool] = pydantic.Field(
@@ -218,7 +218,7 @@ class DatahubDagsterSourceConfig(DatasetSourceConfigMixin):
         ]
     ] = pydantic.Field(
         default=None,
-        description="Custom asset key to urn converter function. See details at [https://datahubproject.io/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
+        description="Custom asset key to urn converter function. See details at [https://docs.datahub.com/docs/lineage/dagster/#define-your-custom-logic-to-capture-asset-lineage-information]",
     )
 
     materialize_dependencies: Optional[bool] = pydantic.Field(

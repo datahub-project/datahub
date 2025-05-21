@@ -1,12 +1,13 @@
+import * as Muicon from '@mui/icons-material';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import * as Muicon from '@mui/icons-material';
 
-import { EntityType, GlossaryTerm } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import { generateColorFromPalette } from '../../../glossaryV2/colorUtils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, GlossaryTerm } from '@types';
 
 const GlossaryTermMiniPreviewContainer = styled.div<{ color: string }>`
     display: inline-flex;
@@ -53,9 +54,10 @@ export const GlossaryTermMiniPreview = ({ glossaryTerm }: { glossaryTerm: Glossa
     const { parentNodes, urn } = glossaryTerm;
     const url = entityRegistry.getEntityUrl(EntityType.GlossaryTerm, urn as string);
     const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
+    const generateColor = useGenerateGlossaryColorFromPalette();
     const termColor = lastParentNode
-        ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)
-        : generateColorFromPalette(urn);
+        ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
+        : generateColor(urn);
     const MaterialIcon = Muicon.Book;
 
     return (

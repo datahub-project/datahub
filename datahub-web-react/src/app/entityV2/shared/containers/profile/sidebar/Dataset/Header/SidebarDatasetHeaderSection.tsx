@@ -2,14 +2,18 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
-import CompactContext from '../../../../../../../shared/CompactContext';
-import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '../../../../../../../shared/formatNumber';
-import { REDESIGN_COLORS } from '../../../../../constants';
-import { getPopularityColumn, SidebarStatsColumn } from '../../../utils';
-import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';
-import { getDatasetPopularityTier, isValuePresent, userExists } from '../../shared/utils';
-import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SidebarHeaderSectionColumns } from '@app/entityV2/shared/containers/profile/sidebar/SidebarHeaderSectionColumns';
+import SidebarTopUsersHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarTopUsersHeaderSection';
+import {
+    getDatasetPopularityTier,
+    isValuePresent,
+    userExists,
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { SidebarStatsColumn, getPopularityColumn } from '@app/entityV2/shared/containers/profile/utils';
+import CompactContext from '@app/shared/CompactContext';
+import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
 
 const StatContent = styled.div`
     color: ${REDESIGN_COLORS.FOUNDATION_BLUE_4};

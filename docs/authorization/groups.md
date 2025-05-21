@@ -24,7 +24,7 @@ be created in DataHub, stale groups will be deleted, and group membership will b
 
 ## Custom Groups
 
-DataHub admins can create custom groups by going to the **Settings > Users & Groups > Groups > Create Group**. 
+DataHub admins can create custom groups by going to the **Settings > Users & Groups > Groups > Create Group**.
 Members can be added to Groups via the Group profile page.
 
 ## Feedback / Questions / Concerns

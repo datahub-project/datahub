@@ -42,7 +42,13 @@ select * from test_data;
 CREATE MATERIALIZED VIEW db1.struct_test_view_materialized as select * from db1.struct_test;
 CREATE VIEW db1.array_struct_test_view as select * from db1.array_struct_test;
 
-CREATE VIEW db1.array_struct_test_view_2 as select * from db1.array_struct_test_view;
+CREATE VIEW db1.array_struct_test_view_multiline AS
+SELECT
+    'constant1' AS constant1,
+    2 AS constant2,
+    property_id,
+    service
+FROM db1.array_struct_test_view;
 
 CREATE TABLE IF NOT EXISTS db1.nested_struct_test
 (

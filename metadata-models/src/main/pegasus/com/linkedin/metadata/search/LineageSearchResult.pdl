@@ -32,4 +32,9 @@ record LineageSearchResult includes AnyResult {
    * The total number of entities directly under searched path
    */
   numEntities: int
+
+  /**
+   * The path taken when doing search across lineage
+   */
+  lineageSearchPath: optional LineageSearchPath
 }

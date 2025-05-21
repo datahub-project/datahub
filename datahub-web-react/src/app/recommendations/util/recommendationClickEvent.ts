@@ -1,5 +1,6 @@
-import { RecommendationRenderType, ScenarioType } from '../../../types.generated';
-import analytics, { EventType } from '../../analytics';
+import analytics, { EventType } from '@app/analytics';
+
+import { RecommendationRenderType, ScenarioType } from '@types';
 
 export function recommendationClickEvent({
     renderId,

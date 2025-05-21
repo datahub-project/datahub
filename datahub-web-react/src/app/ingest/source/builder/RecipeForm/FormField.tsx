@@ -1,13 +1,20 @@
-import React from 'react';
-import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
-import styled from 'styled-components/macro';
-import Button from 'antd/lib/button';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
-import { RecipeField, FieldType } from './common';
-import { Secret } from '../../../../../types.generated';
-import SecretField, { StyledFormItem } from './SecretField/SecretField';
-import DictField, { Label, StyledQuestion, ListWrapper, ErrorWrapper } from './DictField';
-import { ANTD_GRAY } from '../../../../entity/shared/constants';
+import { Checkbox, DatePicker, Form, Input, Select, Tooltip } from 'antd';
+import Button from 'antd/lib/button';
+import React from 'react';
+import styled from 'styled-components/macro';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import DictField, {
+    ErrorWrapper,
+    Label,
+    ListWrapper,
+    StyledQuestion,
+} from '@app/ingest/source/builder/RecipeForm/DictField';
+import SecretField, { StyledFormItem } from '@app/ingest/source/builder/RecipeForm/SecretField/SecretField';
+import { FieldType, RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+
+import { Secret } from '@types';
 
 const StyledButton = styled(Button)`
     color: ${ANTD_GRAY[7]};

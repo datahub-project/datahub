@@ -51,6 +51,7 @@ query getMe {
             manageGlossaries
             manageUserCredentials
             manageTags
+            viewManageTags
             createDomains
             createTags
             manageGlobalViews

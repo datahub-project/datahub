@@ -1,10 +1,12 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider } from 'antd';
-import { FormPrompt, SchemaField } from '../../../../../types.generated';
-import { useGetEntityWithSchema } from '../../tabs/Dataset/Schema/useGetEntitySchema';
-import SchemaFieldDropdown from './SchemaFieldDropdown';
-import VirtualScrollChild from '../../../../shared/VirtualScrollChild';
+
+import SchemaFieldDropdown from '@app/entity/shared/entityForm/schemaFieldPrompts/SchemaFieldDropdown';
+import { useGetEntityWithSchema } from '@app/entity/shared/tabs/Dataset/Schema/useGetEntitySchema';
+import VirtualScrollChild from '@app/shared/VirtualScrollChild';
+
+import { FormPrompt, SchemaField } from '@types';
 
 const FieldPromptsTitle = styled.div`
     margin-bottom: 16px;

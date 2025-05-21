@@ -2,8 +2,8 @@ import { Tabs } from 'antd';
 import React, { useEffect } from 'react';
 import styled from 'styled-components/macro';
 
-import { useBaseEntity, useEntityData, useRouteToTab } from '../../../../../entity/shared/EntityContext';
-import { EntityTab } from '../../../types';
+import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { EntityTab } from '@app/entityV2/shared/types';
 
 type Props = {
     tabs: EntityTab[];
@@ -43,7 +43,7 @@ const UnborderedTabs = styled(Tabs)`
     }
 
     &&& .ant-tabs-tab-active {
-        background-color: #5c3fd1;
+        background-color: ${(p) => p.theme.styles['primary-color']};
     }
 
     &&& .ant-tabs-tab-active .ant-tabs-tab-btn {

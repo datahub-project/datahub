@@ -1,10 +1,12 @@
-import { useAppConfig } from '@src/app/useAppConfig';
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import { getDataForEntityType } from './utils';
-import { useIsSeparateSiblingsMode } from '../../useIsSeparateSiblingsMode';
-import { GenericEntityProperties } from '../../../../entity/shared/types';
-import { EntityType, Exact } from '../../../../../types.generated';
-import { combineEntityDataWithSiblings } from '../../../../entity/shared/siblingUtils';
+
+import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { useAppConfig } from '@src/app/useAppConfig';
+
+import { EntityType, Exact } from '@types';
 
 interface Props<T> {
     urn: string;

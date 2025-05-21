@@ -1,6 +1,8 @@
 import React from 'react';
-import { EntityType, SearchResult } from '../../types.generated';
-import { Entity, EntityMenuActions, IconStyleType, PreviewType } from './Entity';
+
+import { Entity, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
+
+import { EntityType, SearchResult } from '@types';
 
 class DefaultEntity implements Entity<null> {
     type: EntityType = EntityType.Other;

@@ -1,8 +1,9 @@
+import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Image } from 'antd';
-import dataHubIcon from '../../../images/datahublogo.png';
-import datahubPlatforms from '../../../images/datahub-platforms.svg';
+
+import datahubPlatforms from '@images/datahub-platforms.svg';
+import dataHubIcon from '@images/datahublogo.png';
 
 const Container = styled.div`
     display: flex;
@@ -44,7 +45,7 @@ export const IntroduceYourselfLeftSidebar = () => {
             <div>
                 <Title>Start your data journey</Title>
                 <Subtitle>
-                    Thousands of data professionals use Acryl to discover trusted data, ensure data quality and
+                    Thousands of data professionals use DataHub to discover trusted data, ensure data quality and
                     collaborate with their colleagues
                 </Subtitle>
             </div>

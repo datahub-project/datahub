@@ -135,6 +135,29 @@ query getUserGroups($urn: String!, $start: Int!, $count: Int!) {
     }
 }
 
+query getUserGroupsUrns($urn: String!, $start: Int!, $count: Int!) {
+    corpUser(urn: $urn) {
+        relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: OUTGOING
+                start: $start
+                count: $count
+            }
+        ) {
+            start
+            count
+            total
+            relationships {
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+    }
+}
+
 query listUsers($input: ListUsersInput!) {
     listUsers(input: $input) {
         start
@@ -245,8 +268,8 @@ mutation updateCorpUserViewsSettings($input: UpdateCorpUserViewsSettingsInput!) 
     updateCorpUserViewsSettings(input: $input)
 }
 
-query getUserOwnedAssets($urn: String!) {
-    searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: [$urn] }] }) {
+query getUserOwnedAssets($urns: [String!]!) {
+    searchAcrossEntities(input: { query: "", filters: [{ field: "owners", values: $urns }] }) {
         ...searchResults
     }
 }

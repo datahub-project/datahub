@@ -8,6 +8,7 @@ from datahub.cli.cli_utils import post_entity
 from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.schema_classes import (
     DataPlatformInfoClass as DataPlatformInfo,
     PlatformTypeClass,
@@ -53,7 +54,7 @@ def aspect(urn: str, aspect: str, aspect_data: str, run_id: Optional[str]) -> No
         aspect_data, allow_stdin=True, resolve_env_vars=False, process_directives=False
     )
 
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
 
     system_metadata: Union[None, SystemMetadataClass] = None
     if run_id:
@@ -118,7 +119,7 @@ def platform(
         displayName=display_name or platform_name,
         logoUrl=logo,
     )
-    datahub_graph = get_default_graph()
+    datahub_graph = get_default_graph(ClientMode.CLI)
     mcp = MetadataChangeProposalWrapper(
         entityUrn=str(platform_urn),
         aspect=data_platform_info,

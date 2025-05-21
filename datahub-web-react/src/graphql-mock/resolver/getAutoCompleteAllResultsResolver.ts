@@ -1,6 +1,8 @@
+import * as fixtures from '@graphql-mock/fixtures';
+import { tagDb } from '@graphql-mock/fixtures/tag';
 import {
-    AutoCompleteMultipleResults,
     AutoCompleteInput,
+    AutoCompleteMultipleResults,
     AutoCompleteResultForEntity,
     Chart,
     CorpUser,
@@ -10,9 +12,7 @@ import {
     Dataset,
     EntityType,
     Maybe,
-} from '../../types.generated';
-import * as fixtures from '../fixtures';
-import { tagDb } from '../fixtures/tag';
+} from '@types';
 
 type GetAutoCompleteAllResults = {
     data: {

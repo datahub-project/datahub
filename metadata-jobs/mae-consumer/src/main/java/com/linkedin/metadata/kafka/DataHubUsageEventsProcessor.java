@@ -63,7 +63,7 @@ public class DataHubUsageEventsProcessor {
           final String record = consumerRecord.value();
 
           log.info(
-              "Got DHUE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+              "Got DUE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
               consumerRecord.key(),
               consumerRecord.topic(),
               consumerRecord.partition(),

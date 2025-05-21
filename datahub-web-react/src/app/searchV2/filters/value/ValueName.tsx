@@ -1,12 +1,13 @@
+import { Typography } from 'antd';
 import moment from 'moment';
 import React from 'react';
-import { Typography } from 'antd';
-import { FilterField, FilterValue, FieldType } from '../types';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { getEntityTypeFilterValueDisplayName } from './utils';
-import { UNIT_SEPARATOR } from '../../utils/constants';
-import { getV1FieldPathFromSchemaFieldUrn } from '../../../lineageV2/lineageUtils';
-import { getStructuredPropFilterDisplayName } from '../utils';
+
+import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { FieldType, FilterField, FilterValue } from '@app/searchV2/filters/types';
+import { getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
+import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value/utils';
+import { UNIT_SEPARATOR } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 function getTextFieldName(field: FilterField, value: FilterValue) {
     let textFieldName = value.displayName || value.value;

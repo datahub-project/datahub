@@ -15,6 +15,7 @@ import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.script.Script;
+import org.opensearch.script.ScriptType;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -62,14 +63,23 @@ public class ESWriteDAO {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull String docId,
-      @Nonnull String script,
+      @Nonnull String scriptSource,
+      @Nonnull Map<String, Object> scriptParams,
       Map<String, Object> upsert) {
+    // Create a properly parameterized script
+    Script script =
+        new Script(
+            ScriptType.INLINE, // Use INLINE for scripts provided in the request
+            "painless", // Specify the script language as painless
+            scriptSource, // The script source code
+            scriptParams // The parameters map
+            );
     UpdateRequest updateRequest =
         new UpdateRequest(toIndexName(opContext, entityName), docId)
             .detectNoop(false)
             .scriptedUpsert(true)
             .retryOnConflict(numRetries)
-            .script(new Script(script))
+            .script(script)
             .upsert(upsert);
     bulkProcessor.add(updateRequest);
   }

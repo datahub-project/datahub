@@ -1,14 +1,21 @@
 import { Button, PageTitle, SearchBar, Tooltip } from '@components';
+import React, { useState } from 'react';
+
+import StructuredPropsDrawer from '@app/govern/structuredProperties/StructuredPropsDrawer';
+import StructuredPropsTable from '@app/govern/structuredProperties/StructuredPropsTable';
+import ViewStructuredPropsDrawer from '@app/govern/structuredProperties/ViewStructuredPropsDrawer';
+import {
+    ButtonContainer,
+    HeaderContainer,
+    HeaderContent,
+    PageContainer,
+    TableContainer,
+} from '@app/govern/structuredProperties/styledComponents';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import React, { useState } from 'react';
-import StructuredPropsDrawer from './StructuredPropsDrawer';
-import StructuredPropsTable from './StructuredPropsTable';
-import { ButtonContainer, HeaderContainer, HeaderContent, PageContainer, TableContainer } from './styledComponents';
-import ViewStructuredPropsDrawer from './ViewStructuredPropsDrawer';
 
 const StructuredProperties = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -66,7 +73,7 @@ const StructuredProperties = () => {
                     <ButtonContainer>
                         <Button
                             disabled={!canEditProps}
-                            icon="Add"
+                            icon={{ icon: 'Add', source: 'material' }}
                             data-testid="structured-props-create-button"
                             onClick={() => {
                                 setIsDrawerOpen(true);
@@ -78,7 +85,12 @@ const StructuredProperties = () => {
                     </ButtonContainer>
                 </Tooltip>
             </HeaderContainer>
-            <SearchBar placeholder="Search" value={searchQuery} onChange={(value) => handleSearch(value)} />
+            <SearchBar
+                placeholder="Search"
+                value={searchQuery}
+                onChange={(value) => handleSearch(value)}
+                width="272px"
+            />
             <TableContainer>
                 <StructuredPropsTable
                     searchQuery={searchQuery}

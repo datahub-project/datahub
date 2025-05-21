@@ -1,24 +1,26 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { useEntityData, useRefetch } from '../../../EntityContext';
-import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
-import PlatformContent from './PlatformContent';
-import { getPlatformName } from '../../../utils';
-import { EntityType, PlatformPrivileges } from '../../../../../../types.generated';
-import EntityCount from './EntityCount';
-import { EntityHealth } from './EntityHealth';
-import EntityName from './EntityName';
-import { DeprecationPill } from '../../../components/styled/DeprecationPill';
-import { EntitySubHeaderSection, GenericEntityProperties } from '../../../types';
-import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
-import ExternalUrlButton from '../../../ExternalUrlButton';
-import ShareButton from '../../../../../shared/share/ShareButton';
-import { capitalizeFirstLetterOnly } from '../../../../../shared/textUtil';
-import { useUserContext } from '../../../../../context/useUserContext';
-import { useEntityRegistry } from '../../../../../useEntityRegistry';
-import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
-import { useIsEditableDatasetNameEnabled } from '../../../../../useAppConfig';
-import StructuredPropertyBadge from './StructuredPropertyBadge';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import EntityDropdown, { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import ExternalUrlButton from '@app/entity/shared/ExternalUrlButton';
+import { DeprecationPill } from '@app/entity/shared/components/styled/DeprecationPill';
+import EntityCount from '@app/entity/shared/containers/profile/header/EntityCount';
+import EntityHeaderLoadingSection from '@app/entity/shared/containers/profile/header/EntityHeaderLoadingSection';
+import { EntityHealth } from '@app/entity/shared/containers/profile/header/EntityHealth';
+import EntityName from '@app/entity/shared/containers/profile/header/EntityName';
+import PlatformContent from '@app/entity/shared/containers/profile/header/PlatformContent';
+import StructuredPropertyBadge from '@app/entity/shared/containers/profile/header/StructuredPropertyBadge';
+import EntityActions, { EntityActionItem } from '@app/entity/shared/entity/EntityActions';
+import { EntitySubHeaderSection, GenericEntityProperties } from '@app/entity/shared/types';
+import { getPlatformName } from '@app/entity/shared/utils';
+import ShareButton from '@app/shared/share/ShareButton';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useIsEditableDatasetNameEnabled } from '@app/useAppConfig';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType, PlatformPrivileges } from '@types';
 
 const TitleWrapper = styled.div`
     display: flex;

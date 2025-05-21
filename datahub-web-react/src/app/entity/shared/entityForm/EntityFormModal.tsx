@@ -1,10 +1,11 @@
 import { CloseOutlined } from '@ant-design/icons';
-import React from 'react';
 import { Modal } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
-import EntityForm from './EntityForm';
-import FormPageHeader from './FormHeader/FormPageHeader';
-import EntityFormContextProvider from './EntityFormContextProvider';
+
+import EntityForm from '@app/entity/shared/entityForm/EntityForm';
+import EntityFormContextProvider from '@app/entity/shared/entityForm/EntityFormContextProvider';
+import FormPageHeader from '@app/entity/shared/entityForm/FormHeader/FormPageHeader';
 
 const StyledModal = styled(Modal)`
     &&& .ant-modal-content {

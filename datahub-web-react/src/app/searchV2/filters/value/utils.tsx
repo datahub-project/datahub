@@ -1,18 +1,26 @@
 import { useMemo } from 'react';
-import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';
+
+import {
+    EntityFilterField,
+    FieldType,
+    FilterField,
+    FilterOperatorType,
+    FilterValueOption,
+} from '@app/searchV2/filters/types';
+import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '@app/searchV2/filters/utils';
+import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
-import { EntityRegistry } from '../../../../entityRegistryContext';
+import { ENTITY_FILTER_NAME } from '@src/app/search/utils/constants';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
 import {
     useAggregateAcrossEntitiesQuery,
     useGetAutoCompleteMultipleResultsQuery,
     useGetSearchResultsForMultipleQuery,
-} from '../../../../graphql/search.generated';
-import { EntityType } from '../../../../types.generated';
-import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { FILTER_DELIMITER } from '../../utils/constants';
-import { EntityFilterField, FieldType, FilterField, FilterOperatorType, FilterValueOption } from '../types';
-import { filterOptionsWithSearch, getStructuredPropFilterDisplayName } from '../utils';
+} from '@graphql/search.generated';
+import { EntityType } from '@types';
 
 const MAX_AGGREGATION_COUNT = 40;
 
@@ -40,7 +48,17 @@ export const mapFilterCountsToZero = (options: FilterValueOption[]) => {
  *
  * TODO: Determine if we need to provide an option context that would help with filtering.
  */
-export const useLoadAggregationOptions = (field: FilterField, visible: boolean, includeCounts: boolean) => {
+export const useLoadAggregationOptions = ({
+    field,
+    visible,
+    includeCounts,
+    aggregationsEntityTypes,
+}: {
+    field: FilterField;
+    visible: boolean;
+    includeCounts: boolean;
+    aggregationsEntityTypes?: Array<EntityType>;
+}) => {
     const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(
         useMemo(() => [field.field], [field.field]),
     );
@@ -53,7 +71,7 @@ export const useLoadAggregationOptions = (field: FilterField, visible: boolean, 
                 searchFlags: {
                     maxAggValues: MAX_AGGREGATION_COUNT,
                 },
-                types: field.field === ENTITY_FILTER_NAME ? null : entityFilters,
+                types: aggregationsEntityTypes || (field.field === ENTITY_FILTER_NAME ? null : entityFilters),
                 orFilters,
                 viewUrn,
             },
@@ -121,7 +139,7 @@ export const useLoadSearchOptions = (field: EntityFilterField, query?: string, s
                 icon: field.icon,
             };
         });
-    const searchOptions = searchData?.searchAcrossEntities?.searchResults.map((result) => ({
+    const searchOptions = searchData?.searchAcrossEntities?.searchResults?.map((result) => ({
         value: result.entity.urn,
         entity: result.entity,
         icon: field.icon,

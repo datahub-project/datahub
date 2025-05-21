@@ -1,17 +1,18 @@
+import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { Checkbox, Form, Input, Switch, Typography } from 'antd';
+import cronstrue from 'cronstrue';
 import React, { useMemo, useState } from 'react';
-import { Button } from '@src/alchemy-components';
 import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
 import styled from 'styled-components';
-import cronstrue from 'cronstrue';
-import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
-import { SourceBuilderState, StepProps } from './types';
-import { TimezoneSelect } from './TimezoneSelect';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../entity/shared/constants';
-import { lowerFirstLetter } from '../../../shared/textUtil';
-import { IngestionSourceBuilderStep } from './steps';
-import { RequiredFieldForm } from '../../../shared/form/RequiredFieldForm';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { TimezoneSelect } from '@app/ingest/source/builder/TimezoneSelect';
+import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
+import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types';
+import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
+import { lowerFirstLetter } from '@app/shared/textUtil';
+import { Button } from '@src/alchemy-components';
 
 const Section = styled.div`
     display: flex;

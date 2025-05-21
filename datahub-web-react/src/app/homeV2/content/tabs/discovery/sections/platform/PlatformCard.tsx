@@ -1,17 +1,19 @@
+import { Tooltip } from '@components';
 import React from 'react';
-import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
+import styled from 'styled-components/macro';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { Tooltip } from '@components';
-import { DataPlatform, EntityType } from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { ANTD_GRAY } from '../../../../../../entity/shared/constants';
-import { navigateToSearchUrl } from '../../../../../../searchV2/utils/navigateToSearchUrl';
-import { PLATFORM_FILTER_NAME } from '../../../../../../searchV2/utils/constants';
-import { formatNumber, formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
-import { SEARCH_COLORS } from '../../../../../../entityV2/shared/constants';
-import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
+
+import { DataPlatform, EntityType } from '@types';
 
 const Card = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     border-radius: 10px;

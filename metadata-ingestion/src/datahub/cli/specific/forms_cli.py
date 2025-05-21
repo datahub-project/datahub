@@ -7,6 +7,7 @@ from click_default_group import DefaultGroup
 
 from datahub.api.entities.forms.forms import Forms
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
 
@@ -40,7 +41,7 @@ def upsert(file: Path) -> None:
 @telemetry.with_telemetry()
 def get(urn: str, to_file: str) -> None:
     """Get form from DataHub"""
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if graph.exists(urn):
             form: Forms = Forms.from_datahub(graph=graph, urn=urn)
             click.secho(

@@ -1,15 +1,18 @@
-import React, { ReactNode } from 'react';
-import { Checkbox, Empty, Typography } from 'antd';
-import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
-import { Entity, EntityType } from '@src/types.generated';
+import { Checkbox, Empty, Typography } from 'antd';
 import { CheckboxValueType } from 'antd/lib/checkbox/Group';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import React, { ReactNode } from 'react';
+import styled from 'styled-components';
+
+import { Button } from '@components/components/Button';
+// Import your custom hook
+import { SelectItemCheckboxGroup } from '@components/components/SelectItemsPopover/SelectItemCheckboxGroup';
+import { useEntityOperations } from '@components/components/SelectItemsPopover/hooks';
+
 import { InlineListSearch } from '@src/app/entityV2/shared/components/search/InlineListSearch';
+import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useEntityOperations } from './hooks'; // Import your custom hook
-import { SelectItemCheckboxGroup } from './SelectItemCheckboxGroup';
-import { Button } from '../Button';
+import { Entity, EntityType } from '@src/types.generated';
 
 export interface SelectItemsProps {
     entities: Entity[];

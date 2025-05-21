@@ -4,9 +4,11 @@ import { Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { Health, HealthStatus, HealthStatusType } from '../../types.generated';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
-import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
+
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+
+import { Health, HealthStatus, HealthStatusType } from '@types';
 
 const Content = styled.div`
     display: flex;

@@ -1,6 +1,7 @@
 ---
 title: Configuration
 ---
+
 # Configuring Your BigQuery Connector to DataHub
 
 Now that you have created a Service Account and Service Account Key in BigQuery in [the prior step](setup.md), it's now time to set up a connection via the DataHub UI.
@@ -23,15 +24,14 @@ If you do not see the Ingestion tab, please contact your DataHub admin to grant 
    <img width="75%" alt="Secrets Tab" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_secrets_tab.png"/>
 </p>
 
-
 3. Create a Private Key secret
 
 This will securely store your BigQuery Service Account Private Key within DataHub
 
-  * Enter a name like `BIGQUERY_PRIVATE_KEY` - we will use this later to refer to the secret
-  * Copy and paste the `private_key` value from your Service Account Key
-  * Optionally add a description
-  * Click **Create**
+- Enter a name like `BIGQUERY_PRIVATE_KEY` - we will use this later to refer to the secret
+- Copy and paste the `private_key` value from your Service Account Key
+- Optionally add a description
+- Click **Create**
 
 <p align="center">   
    <img width="75%" alt="Private Key Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_private_key_secret.png"/>
@@ -40,12 +40,12 @@ This will securely store your BigQuery Service Account Private Key within DataHu
 4. Create a Private Key ID secret
 
 This will securely store your BigQuery Service Account Private Key ID within DataHub
-   
-  * Click **Create new secret** again
-  * Enter a name like `BIGQUERY_PRIVATE_KEY_ID` - we will use this later to refer to the secret
-  * Copy and paste the `private_key_id` value from your Service Account Key
-  * Optionally add a description
-  * Click **Create**
+
+- Click **Create new secret** again
+- Enter a name like `BIGQUERY_PRIVATE_KEY_ID` - we will use this later to refer to the secret
+- Copy and paste the `private_key_id` value from your Service Account Key
+- Optionally add a description
+- Click **Create**
 
 <p align="center">     
    <img width="75%" alt="Private Key Id Secret" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_private_key_id_secret.png"/>
@@ -69,11 +69,11 @@ This will securely store your BigQuery Service Account Private Key ID within Dat
 
 You can find the following details in your Service Account Key file:
 
-* Project ID
-* Client Email
-* Client ID
+- Project ID
+- Client Email
+- Client ID
 
-Populate the Secret Fields by selecting the Private Key and Private Key ID secrets you created in steps 3 and 4. 
+Populate the Secret Fields by selecting the Private Key and Private Key ID secrets you created in steps 3 and 4.
 
 <p align="center">
   <img width="75%" alt="Fill out the BigQuery Recipe" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery-ingestion-recipe.png"/>
@@ -96,12 +96,12 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 9. Decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_scheduled_execution.png"/>
-</p>  
+</p>
 
 10. Ensure you've configured your correct timezone
 <p align="center">
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_timezone_selector.png"/>
-</p>  
+</p>
 
 11. Click **Next** when you are done
 
@@ -110,13 +110,13 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
 12. Name your ingestion source, then click **Save and Run**
 <p align="center">
   <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_name_ingestion.png"/>
-</p>  
+</p>
 
 You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_running" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_running.png"/>
-</p>  
+</p>
 
 ## Validate Ingestion Runs
 
@@ -124,7 +124,7 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_succeeded.png"/>
-</p>  
+</p>
 
 14. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
 
@@ -136,15 +136,12 @@ You will now find your new ingestion source running
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_details_view_all.png"/>
-</p>  
+</p>
 
-16. Pick an entity from the list to manually validate if it contains the detail you expected  
+16. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery_ingestion_ingested_assets.png"/>
-</p>  
-
+</p>
 
 **Congratulations!** You've successfully set up BigQuery as an ingestion source for DataHub!
-
-

@@ -1,7 +1,9 @@
-import React from 'react';
 import { Button, Modal } from 'antd';
-import { SchemaSummary } from './SchemaSummary';
-import { SchemaMetadata } from '../../../../../../types.generated';
+import React from 'react';
+
+import { SchemaSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/SchemaSummary';
+
+import { SchemaMetadata } from '@types';
 
 const modalStyle = {
     top: 40,

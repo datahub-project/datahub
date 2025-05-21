@@ -1,7 +1,15 @@
 import concurrent.futures
 import contextlib
 import queue
-from typing import Any, Callable, Generator, Iterable, Tuple, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Iterable,
+    Iterator,
+    Optional,
+    Tuple,
+    TypeVar,
+)
 
 T = TypeVar("T")
 
@@ -18,8 +26,13 @@ class ThreadedIteratorExecutor:
         worker_func: Callable[..., Iterable[T]],
         args_list: Iterable[Tuple[Any, ...]],
         max_workers: int,
-    ) -> Generator[T, None, None]:
-        out_q: queue.Queue[T] = queue.Queue()
+        max_backpressure: Optional[int] = None,
+    ) -> Iterator[T]:
+        if max_backpressure is None:
+            max_backpressure = 10 * max_workers
+        assert max_backpressure >= max_workers
+
+        out_q: queue.Queue[T] = queue.Queue(maxsize=max_backpressure)
 
         def _worker_wrapper(
             worker_func: Callable[..., Iterable[T]], *args: Any

@@ -8,6 +8,7 @@ import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Context;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.slf4j.MDC;
 import org.springframework.stereotype.Component;
@@ -36,7 +37,11 @@ public class TracingInterceptor implements HandlerInterceptor {
               .startSpan();
 
       request.setAttribute("span", span);
-      span.makeCurrent();
+      Context.current()
+          .with(TraceContext.EVENT_SOURCE_CONTEXT_KEY, new AtomicReference<>(""))
+          .with(TraceContext.SOURCE_IP_CONTEXT_KEY, new AtomicReference<>(""))
+          .with(span)
+          .makeCurrent();
 
       TraceContext.enableLogTracing(request);
 

@@ -1,9 +1,8 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { Tooltip } from '@components';
+import React from 'react';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../../../../../../../constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const Pill = styled.div<{ selected: boolean }>`
     display: flex;

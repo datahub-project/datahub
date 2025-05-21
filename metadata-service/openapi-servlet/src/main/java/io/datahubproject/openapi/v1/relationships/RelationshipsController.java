@@ -29,6 +29,8 @@ import java.net.URLDecoder;
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
@@ -72,7 +74,7 @@ public class RelationshipsController {
   private RelatedEntitiesResult getRelatedEntities(
       @Nonnull final OperationContext opContext,
       String rawUrn,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipDirection direction,
       @Nullable Integer start,
       @Nullable Integer count) {
@@ -183,7 +185,7 @@ public class RelationshipsController {
           getRelatedEntities(
               opContext,
               entityUrn.toString(),
-              Arrays.asList(relationshipTypes),
+              Arrays.stream(relationshipTypes).collect(Collectors.toSet()),
               direction,
               start,
               count));

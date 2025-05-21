@@ -1,30 +1,32 @@
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Typography } from 'antd';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { formatNumber } from '../../shared/formatNumber';
-import ExpandableNode from './ExpandableNode';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { getFilterIconAndLabel } from '../filters/utils';
-import { BROWSE_PATH_V2_FILTER_NAME, PLATFORM_FILTER_NAME } from '../utils/constants';
-import useBrowsePagination from './useBrowsePagination';
-import BrowseNode from './BrowseNode';
-import SidebarLoadingError from './SidebarLoadingError';
-import useToggle from '../../shared/useToggle';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
 import {
     BrowseProvider,
     useEntityAggregation,
+    useIsPlatformBrowseMode,
     useIsPlatformSelected,
     useMaybeEnvironmentAggregation,
     useOnSelectBrowsePath,
     usePlatformAggregation,
-    useIsPlatformBrowseMode,
-} from './BrowseContext';
-import useSidebarAnalytics from './useSidebarAnalytics';
-import { useHasFilterField } from './SidebarContext';
-import { ANTD_GRAY } from '../../entity/shared/constants';
-import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
-import { DataPlatform } from '../../../types.generated';
+} from '@app/searchV2/sidebar/BrowseContext';
+import BrowseNode from '@app/searchV2/sidebar/BrowseNode';
+import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
+import { useHasFilterField } from '@app/searchV2/sidebar/SidebarContext';
+import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
+import useBrowsePagination from '@app/searchV2/sidebar/useBrowsePagination';
+import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
+import { BROWSE_PATH_V2_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { formatNumber } from '@app/shared/formatNumber';
+import useToggle from '@app/shared/useToggle';
+import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { DataPlatform } from '@types';
 
 const Count = styled(Typography.Text)<{ $isPlatformBrowse: boolean; isOpen: boolean }>`
     font-size: 10px;

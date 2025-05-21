@@ -1,38 +1,35 @@
 import { DashboardFilled, DashboardOutlined } from '@ant-design/icons';
 import * as React from 'react';
 
-import {
-    GetDashboardQuery,
-    useGetDashboardQuery,
-    useUpdateDashboardMutation,
-} from '../../../graphql/dashboard.generated';
-import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { DashboardChartsTab } from '../shared/tabs/Entity/DashboardChartsTab';
-import { DashboardDatasetsTab } from '../shared/tabs/Entity/DashboardDatasetsTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { GenericEntityProperties } from '../shared/types';
-import { DashboardPreview } from './preview/DashboardPreview';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
-import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
-import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct } from '../shared/utils';
-import { LOOKER_URN } from '../../ingest/source/builder/constants';
-import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
-import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entity/Entity';
+import { DashboardPreview } from '@app/entity/dashboard/preview/DashboardPreview';
+import { DashboardStatsSummarySubHeader } from '@app/entity/dashboard/profile/DashboardStatsSummarySubHeader';
+import { EntityMenuItems } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { EntityProfile } from '@app/entity/shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '@app/entity/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '@app/entity/shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '@app/entity/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '@app/entity/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarTagsSection } from '@app/entity/shared/containers/profile/sidebar/SidebarTagsSection';
+import SidebarStructuredPropsSection from '@app/entity/shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { getDataForEntityType } from '@app/entity/shared/containers/profile/utils';
+import EmbeddedProfile from '@app/entity/shared/embed/EmbeddedProfile';
+import { DocumentationTab } from '@app/entity/shared/tabs/Documentation/DocumentationTab';
+import { EmbedTab } from '@app/entity/shared/tabs/Embed/EmbedTab';
+import { DashboardChartsTab } from '@app/entity/shared/tabs/Entity/DashboardChartsTab';
+import { DashboardDatasetsTab } from '@app/entity/shared/tabs/Entity/DashboardDatasetsTab';
+import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';
+import { LineageTab } from '@app/entity/shared/tabs/Lineage/LineageTab';
+import { PropertiesTab } from '@app/entity/shared/tabs/Properties/PropertiesTab';
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getDataProduct } from '@app/entity/shared/utils';
+import { LOOKER_URN } from '@app/ingest/source/builder/constants';
+import { MatchedFieldList } from '@app/search/matches/MatchedFieldList';
+import { matchedInputFieldRenderer } from '@app/search/matches/matchedInputFieldRenderer';
+import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+
+import { GetDashboardQuery, useGetDashboardQuery, useUpdateDashboardMutation } from '@graphql/dashboard.generated';
+import { Dashboard, EntityType, LineageDirection, OwnershipType, SearchResult } from '@types';
 
 /**
  * Definition of the DataHub Dashboard entity.

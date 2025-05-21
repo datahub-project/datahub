@@ -1,6 +1,15 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { useUserContext } from '@src/app/context/useUserContext';
+import React, { useState } from 'react';
+
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
+import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
+import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { StyledDivider } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
+import StructuredPropertyValue from '@app/entityV2/shared/tabs/Properties/StructuredPropertyValue';
+import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
@@ -23,15 +32,6 @@ import {
     StdDataType,
     StructuredPropertyEntity,
 } from '@src/types.generated';
-import React, { useState } from 'react';
-import { EMPTY_MESSAGES } from '../constants';
-import EmptySectionText from '../containers/profile/sidebar/EmptySectionText';
-import SectionActionButton from '../containers/profile/sidebar/SectionActionButton';
-import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
-import { StyledDivider } from '../tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
-import StructuredPropertyValue from '../tabs/Properties/StructuredPropertyValue';
-import { PropertyRow } from '../tabs/Properties/types';
-import { useHydratedEntityMap } from '../tabs/Properties/useHydratedEntityMap';
 
 interface FieldProperties {
     isSchemaSidebar?: boolean;
@@ -45,9 +45,8 @@ interface Props {
 
 const SidebarStructuredProperties = ({ properties }: Props) => {
     const { entityData, entityType } = useEntityData();
-    const me = useUserContext();
     const entityRegistry = useEntityRegistryV2();
-    const canEditProps = me.platformPrivileges?.manageStructuredProperties;
+    const canEditProps = entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
@@ -139,7 +138,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                             setIsPropModalVisible(true);
                                             event.stopPropagation();
                                         }}
-                                        actionPrivilege={canEditProps}
+                                        actionPrivilege={!!canEditProps}
                                         dataTestId={`${propertyName}-add-or-edit-button`}
                                     />
                                 </>

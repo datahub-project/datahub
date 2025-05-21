@@ -1,15 +1,17 @@
+import { Modal, message } from 'antd';
 import React, { useEffect, useRef, useState } from 'react';
-import { message, Modal } from 'antd';
 import styled from 'styled-components/macro';
-import { useUpdateDescriptionMutation } from '../../../../../../graphql/mutations.generated';
-import analytics, { EntityActionType, EventType } from '../../../../../analytics';
-import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '../../../../../entity/shared/EntityContext';
-import { GenericEntityUpdate } from '../../../../../entity/shared/types';
-import { EDITED_DESCRIPTIONS_CACHE_NAME } from '../../../utils';
-import { DescriptionEditorToolbar } from './DescriptionEditorToolbar';
-import { Editor } from './editor/Editor';
-import SourceDescription from './SourceDescription';
-import { getAssetDescriptionDetails } from '../utils';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import { useEntityData, useEntityUpdate, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { GenericEntityUpdate } from '@app/entity/shared/types';
+import { DescriptionEditorToolbar } from '@app/entityV2/shared/tabs/Documentation/components/DescriptionEditorToolbar';
+import SourceDescription from '@app/entityV2/shared/tabs/Documentation/components/SourceDescription';
+import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
+import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
+
+import { useUpdateDescriptionMutation } from '@graphql/mutations.generated';
 
 const EditorContainer = styled.div`
     flex: 1;

@@ -92,10 +92,15 @@ class DatahubRestHook(BaseHook):
 
     def make_emitter(self) -> "DataHubRestEmitter":
         import datahub.emitter.rest_emitter
+        from datahub.ingestion.graph.config import ClientMode
 
         host, token, extra_args = self._get_config_v2()
         return datahub.emitter.rest_emitter.DataHubRestEmitter(
-            host, token, **extra_args
+            host,
+            token,
+            client_mode=ClientMode.INGESTION,
+            datahub_component="airflow-plugin",
+            **extra_args,
         )
 
     def make_graph(self) -> "DataHubGraph":

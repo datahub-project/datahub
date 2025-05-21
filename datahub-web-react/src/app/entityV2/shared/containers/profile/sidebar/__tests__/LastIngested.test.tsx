@@ -1,6 +1,7 @@
 import { green, orange, red } from '@ant-design/colors';
 import moment from 'moment-timezone';
-import { getLastIngestedColor } from '../LastIngested';
+
+import { getLastIngestedColor } from '@app/entityV2/shared/containers/profile/sidebar/LastIngested';
 
 describe('getLastIngestedColor', () => {
     it('should return green if the last ingested date is the present moment', () => {

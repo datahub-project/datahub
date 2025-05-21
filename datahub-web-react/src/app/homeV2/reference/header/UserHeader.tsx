@@ -1,14 +1,16 @@
+import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Skeleton } from 'antd';
+
+import { useUserContext } from '@app/context/useUserContext';
+import { useUserPersonaTitle } from '@app/homeV2/persona/useUserPersona';
+import { GreetingText } from '@app/homeV2/reference/header/GreetingText';
+import { UserHeaderImage } from '@app/homeV2/reference/header/UserHeaderImage';
+import OnboardingContext from '@app/onboarding/OnboardingContext';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { useUserContext } from '../../../context/useUserContext';
-import { GreetingText } from './GreetingText';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { EntityType } from '../../../../types.generated';
-import { UserHeaderImage } from './UserHeaderImage';
-import { useUserPersonaTitle } from '../../persona/useUserPersona';
-import OnboardingContext from '../../../onboarding/OnboardingContext';
+
+import { EntityType } from '@types';
 
 const Container = styled.div`
     min-height: 240px;
@@ -24,6 +26,16 @@ const GreetingTextWrapper = styled.div`
     height: 100%;
     display: flex;
     opacity: 0.8;
+`;
+
+const SmallSkeletonButton = styled(Skeleton.Button)<{ $isShowNavBarRedesign?: boolean }>`
+    &&& {
+        padding: 20px 20px 0 20px;
+        width: 100%;
+        min-height: 68px;
+        border-radius: ${(props) =>
+            props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
+    }
 `;
 
 const SkeletonButton = styled(Skeleton.Button)<{ $isShowNavBarRedesign?: boolean }>`
@@ -45,6 +57,21 @@ export const UserHeader = () => {
     const displayName = user && entityRegistry.getDisplayName(EntityType.CorpUser, user);
     const maybeRole = useUserPersonaTitle();
     const { isUserInitializing } = useContext(OnboardingContext);
+    const showNavBarRedesign = useShowNavBarRedesign();
+
+    if (showNavBarRedesign) {
+        return isUserInitializing || !user ? (
+            <SmallSkeletonButton
+                shape="square"
+                size="large"
+                active
+                block
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+            />
+        ) : (
+            <GreetingText role={maybeRole} />
+        );
+    }
 
     return (
         <Container>

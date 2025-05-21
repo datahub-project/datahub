@@ -1,12 +1,14 @@
+import { Text } from '@components';
+import { Skeleton } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
+
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import ContextPath from '@app/previewV2/ContextPath';
 import useContentTruncation from '@app/shared/useContentTruncation';
-import { Skeleton } from 'antd';
-import React from 'react';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Text } from '@components';
+
 import { Entity } from '@types';
-import styled from 'styled-components';
 
 const Wrapper = styled.div`
     display: flex;

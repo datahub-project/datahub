@@ -1,5 +1,5 @@
-import { ENTITY_SUB_TYPE_FILTER_NAME, TAGS_FILTER_NAME } from '../../utils/constants';
-import { getEntitySubtypeFiltersForEntity } from '../browseContextUtils';
+import { getEntitySubtypeFiltersForEntity } from '@app/search/sidebar/browseContextUtils';
+import { ENTITY_SUB_TYPE_FILTER_NAME, TAGS_FILTER_NAME } from '@app/search/utils/constants';
 
 describe('browseContextUtils', () => {
     it('should remove any different entity types from the filter and keep anything related to our given entityType', () => {

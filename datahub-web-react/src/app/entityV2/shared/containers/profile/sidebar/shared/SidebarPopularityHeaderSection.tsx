@@ -1,18 +1,20 @@
-import React from 'react';
+import { ConsoleSqlOutlined, EyeOutlined, ToolOutlined, UserOutlined } from '@ant-design/icons';
 import { Popover } from '@components';
+import React from 'react';
 import styled from 'styled-components';
-import { ConsoleSqlOutlined, UserOutlined, ToolOutlined, EyeOutlined } from '@ant-design/icons';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
+
+import { useEntityData } from '@app/entity/shared/EntityContext';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import {
     getBarsStatusFromPopularityTier,
     getChartPopularityTier,
     getDashboardPopularityTier,
     getDatasetPopularityTier,
     isValuePresent,
-} from './utils';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { PopularityBars } from '../../../../tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
-import { EntityType } from '../../../../../../../types.generated';
+} from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { PopularityBars } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/PopularityBars';
+
+import { EntityType } from '@types';
 
 const Wrapper = styled.div`
     display: flex;

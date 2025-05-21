@@ -35,13 +35,14 @@ from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
 )
-from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     gen_database_container,
     gen_database_key,
 )
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import MapTypeClass, RecordTypeClass
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column

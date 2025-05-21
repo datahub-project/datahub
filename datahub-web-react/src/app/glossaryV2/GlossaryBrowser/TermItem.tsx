@@ -1,11 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { ChildGlossaryTermFragment } from '../../../graphql/glossaryNode.generated';
-import { useGlossaryEntityData } from '../../entityV2/shared/GlossaryEntityContext';
-import { ANTD_GRAY, EDITING_DOCUMENTATION_URL_PARAM, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { useGlossaryActiveTabPath } from '../../entityV2/shared/containers/profile/utils';
-import { useEntityRegistry } from '../../useEntityRegistry';
+
+import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
+import { ANTD_GRAY, EDITING_DOCUMENTATION_URL_PARAM, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
 
 const TermWrapper = styled.div<{ $isSelected: boolean; $depth: number }>`
     padding: 13px 0;

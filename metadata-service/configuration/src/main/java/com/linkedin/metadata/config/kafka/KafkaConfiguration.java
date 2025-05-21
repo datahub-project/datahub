@@ -36,6 +36,7 @@ public class KafkaConfiguration {
   private ConsumerConfiguration consumer;
 
   private SerDeConfig serde;
+  private TopicsConfiguration topics;
 
   @Data
   public static class SerDeConfig {

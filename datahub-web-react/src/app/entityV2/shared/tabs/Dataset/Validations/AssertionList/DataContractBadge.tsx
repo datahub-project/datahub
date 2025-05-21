@@ -1,13 +1,13 @@
-import React from 'react';
 import { AuditOutlined } from '@ant-design/icons';
-import { colors, Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
+import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 const DataContractLogo = styled(AuditOutlined)`
     margin-left: 8px;
     font-size: 16px;
-    color: ${colors.violet[500]};
+    color: ${(props) => props.theme.styles['primary-color']};
 `;
 
 export const DataContractBadge = ({ link }: { link: string }) => {

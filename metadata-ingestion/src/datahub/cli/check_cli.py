@@ -16,6 +16,7 @@ from datahub.configuration import config_loader
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.ingestion.source.source_registry import source_registry
@@ -259,7 +260,7 @@ def sql_lineage(
 
     graph = None
     if online:
-        graph = get_default_graph()
+        graph = get_default_graph(ClientMode.CLI)
 
     lineage = create_lineage_sql_parsed_result(
         sql,
@@ -472,7 +473,7 @@ WHERE
 @check.command()
 def server_config() -> None:
     """Print the server config."""
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.CLI)
 
     server_config = graph.get_server_config()
 

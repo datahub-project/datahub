@@ -1,7 +1,8 @@
 import { Input } from 'antd';
 import React, { Dispatch, SetStateAction } from 'react';
 import styled from 'styled-components';
-import { onClickPreventSelect } from '../common';
+
+import { onClickPreventSelect } from '@app/lineageV2/common';
 
 const SearchInput = styled(Input)`
     border-radius: 4px;

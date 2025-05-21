@@ -1,9 +1,8 @@
-import React from 'react';
-
-import styled from 'styled-components';
 import { BellTwoTone } from '@ant-design/icons';
+import React from 'react';
+import styled from 'styled-components';
 
-import { ANTD_GRAY } from '../../../../../constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 const Container = styled.div`
     display: flex;
@@ -39,7 +38,7 @@ export const AssertionProfileFooter = () => {
                 </Title>
                 Sign up to receive notifications when this assertion passes or fails by{' '}
                 <a
-                    href="https://datahubproject.io/docs/next/managed-datahub/subscription-and-notification/"
+                    href="https://docs.datahub.com/docs/next/managed-datahub/subscription-and-notification/"
                     target="_blank"
                     rel="noreferrer noopener"
                 >

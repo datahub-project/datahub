@@ -1,12 +1,14 @@
+import { CopyOutlined } from '@ant-design/icons';
+import { Dropdown, Menu } from 'antd';
 import React from 'react';
 import { VscGraphLeft } from 'react-icons/vsc';
-import { CopyOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
-import { Dropdown, Menu } from 'antd';
-import { MenuIcon } from '../../../../EntityDropdown/EntityMenuActions';
-import { useEntityData, useRouteToTab } from '../../../../../../entity/shared/EntityContext';
-import { SchemaField } from '../../../../../../../types.generated';
-import { generateSchemaFieldUrn } from '../../../Lineage/utils';
+
+import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { MenuIcon } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
+
+import { SchemaField } from '@types';
 
 export const ImpactAnalysisIcon = styled(VscGraphLeft)`
     transform: scaleX(-1);

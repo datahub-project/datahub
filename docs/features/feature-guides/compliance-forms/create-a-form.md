@@ -5,6 +5,7 @@ title: Create a Form
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Create a DataHub Compliance Form
+
 <FeatureAvailability/>
 
 This guide will walk you through creating and assigning Compliance Forms, including:
@@ -38,16 +39,17 @@ First up, provide the following details:
 
 1. **Name:** Select a unique and descriptive name for your Compliance Form that clearly communicates its purpose, such as **"PII Certification Q4 2024"**.
 
-    _**Pro Tip:** This name will be displayed to Assignees when they are assigned tasks, so make it clear and detailed to ensure it conveys the intent of the Form effectively._  
+   _**Pro Tip:** This name will be displayed to Assignees when they are assigned tasks, so make it clear and detailed to ensure it conveys the intent of the Form effectively._
 
 2. **Description:** Craft a concise yet informative description that explains the purpose of the Compliance Form. Include key details such as the importance of the initiative, its objectives, and the expected completion timeline. This helps Assignees understand the context and significance of their role in the process.
 
-    _**Example:** "This Compliance Form is designed to ensure all datasets containing PII are reviewed and verified by Q4 2024. Completing this Form is critical for compliance with organizational and regulatory requirements."_
+   _**Example:** "This Compliance Form is designed to ensure all datasets containing PII are reviewed and verified by Q4 2024. Completing this Form is critical for compliance with organizational and regulatory requirements."_
 
-3. **Type:** Specify the collection type for the Form, based on your compliance requirements:  
-    - **Completion:** The Form is considered complete once all required questions are answered for the selected Assets. We recommend this option for basic requirement completion use cases.
+3. **Type:** Specify the collection type for the Form, based on your compliance requirements:
 
-    - **Verification:** The Form is considered complete only when all required questions are answered for the selected Assets **and** an Assignee has explicitly "verified" the responses. We recommend this option when final sign-off by Assignees is necessary, ensuring they acknowledge the accuracy and validity of their responses.
+   - **Completion:** The Form is considered complete once all required questions are answered for the selected Assets. We recommend this option for basic requirement completion use cases.
+
+   - **Verification:** The Form is considered complete only when all required questions are answered for the selected Assets **and** an Assignee has explicitly "verified" the responses. We recommend this option when final sign-off by Assignees is necessary, ensuring they acknowledge the accuracy and validity of their responses.
 
 4. Next, click **Add Question** to begin building the requirements for your Form.
 
@@ -64,16 +66,16 @@ Next, define the Questions for your Compliance Forms. These are used to collect 
 
 There are 5 different question types to choose from:
 
-* **Ownership:** Request one or more owners to be assigned to selected assets. Optionally restrict responses to a specific set of valid users, groups, and ownership types.
-    * _E.g. Who is responsible for ensuring the accuracy of this Dataset?_
-* **Domain:** Assign a Domain to the Asset, with the option to predefine the set of allowed Domains.
-    * _E.g. Which Domain does this Dashboard belong to? Sales, Marketing, Finance._
-* **Documentation:** Provide Documentation about the Asset and/or Column.
-    * _E.g. What is the primary use case of this Dataset? What caveats should others be aware of?_
-* **Glossary Terms:** Assign one or more Glossary Term to the Asset and/or Column, with the option to predefine the set of allowed Glossary Terms. 
-    * _E.g. What types of personally identifiable information (PII) are included in this Asset? Email, Address, SSN, etc._
-* **Structured Properties:** Apply custom properties to an Asset and/or Column.
-    * _E.g. What date will this Dataset be deprecated and deleted?_
+- **Ownership:** Request one or more owners to be assigned to selected assets. Optionally restrict responses to a specific set of valid users, groups, and ownership types.
+  - _E.g. Who is responsible for ensuring the accuracy of this Dataset?_
+- **Domain:** Assign a Domain to the Asset, with the option to predefine the set of allowed Domains.
+  - _E.g. Which Domain does this Dashboard belong to? Sales, Marketing, Finance._
+- **Documentation:** Provide Documentation about the Asset and/or Column.
+  - _E.g. What is the primary use case of this Dataset? What caveats should others be aware of?_
+- **Glossary Terms:** Assign one or more Glossary Term to the Asset and/or Column, with the option to predefine the set of allowed Glossary Terms.
+  - _E.g. What types of personally identifiable information (PII) are included in this Asset? Email, Address, SSN, etc._
+- **Structured Properties:** Apply custom properties to an Asset and/or Column.
+  - _E.g. What date will this Dataset be deprecated and deleted?_
 
 When creating a Question, use a clear and concise Title that is easy for Assignees to understand. In the Description, include additional context or instructions to guide their responses. Both the Title and Description will be visible to Assignees when completing the Form, so make sure to provide any specific hints or details they may need to answer the Question accurately and confidently.
 
@@ -92,11 +94,11 @@ In the **Assign Assets** section, you can easily target the specific set of Asse
 
 1. Add a Condition or Group of Conditions
 2. Choose the appropriate filter type, such as:
-    * Asset Type (Dataset, Chart, etc.)
-    * Platform (Snowflake, dbt, etc.)
-    * Domain (Sales, Marketing, Finance, etc.)
-    * Assigned Owners
-    * Assigned Glossary Terms
+   - Asset Type (Dataset, Chart, etc.)
+   - Platform (Snowflake, dbt, etc.)
+   - Domain (Sales, Marketing, Finance, etc.)
+   - Assigned Owners
+   - Assigned Glossary Terms
 3. Decide between **All**, **Any**, or **None** of the filters should apply
 4. Preview the relevant Assets to confirm you have applied the appropriate filters
 
@@ -115,8 +117,8 @@ With the Questions and assigned Assets defined, the next step is to select the A
 
 In the **Add Recipients** section, decide who is responsible for completing the Form:
 
-* **Asset Owners:** Any User that is assigned to one of the in-scope Assets will be able to complete the Form. This is useful for larger initiatives when you may not know the full set of Users.
-* **Specific Users and/or Groups:** Select a specific set of Users and/or Groups within DataHub. This is useful when Ownership of the Assets may be poorly-defined.
+- **Asset Owners:** Any User that is assigned to one of the in-scope Assets will be able to complete the Form. This is useful for larger initiatives when you may not know the full set of Users.
+- **Specific Users and/or Groups:** Select a specific set of Users and/or Groups within DataHub. This is useful when Ownership of the Assets may be poorly-defined.
 
 <p align="center">
   <img 
@@ -128,7 +130,6 @@ In the **Add Recipients** section, decide who is responsible for completing the 
 ### Step 5: Publish your Form
 
 After defining the Questions, assigning Assets, and selecting the Assignees, your Form is ready to be published. Once published, Assignees will be notified to complete the Form for the Assets they are responsible for.
-
 
 To publish a Form, simply click **Publish**.
 

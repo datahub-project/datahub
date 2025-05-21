@@ -1,14 +1,16 @@
 import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { DatasetProfile, Operation, UsageQueryResult } from '../../../../../../../types.generated';
-import UsageFacepile from '../../../../../dataset/profile/UsageFacepile';
-import { ANTD_GRAY } from '../../../../constants';
-import { useBaseEntity, useRouteToTab } from '../../../../EntityContext';
-import { SidebarHeader } from '../SidebarHeader';
-import { InfoItem } from '../../../../components/styled/InfoItem';
-import { formatNumberWithoutAbbreviation } from '../../../../../../shared/formatNumber';
+
+import UsageFacepile from '@app/entity/dataset/profile/UsageFacepile';
+import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { InfoItem } from '@app/entity/shared/components/styled/InfoItem';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { SidebarHeader } from '@app/entity/shared/containers/profile/sidebar/SidebarHeader';
+import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { DatasetProfile, Operation, UsageQueryResult } from '@types';
 
 const HeaderInfoBody = styled(Typography.Text)`
     font-size: 16px;

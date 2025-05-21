@@ -1,20 +1,24 @@
-import React, { Fragment } from 'react';
-
-import { Collapse, Form, message, Typography } from 'antd';
-import { Button, Tooltip } from '@components';
-import { get } from 'lodash';
-import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import { Button, Tooltip } from '@components';
+import { Collapse, Form, Typography, message } from 'antd';
+import { get } from 'lodash';
+import React, { Fragment } from 'react';
 import styled from 'styled-components/macro';
+import YAML from 'yamljs';
 
-import { jsonToYaml } from '../../utils';
-import { CONNECTORS_WITH_TEST_CONNECTION, RecipeSections, RECIPE_FIELDS } from './constants';
-import FormField from './FormField';
-import TestConnectionButton from './TestConnection/TestConnectionButton';
-import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
-import { RecipeField, setFieldValueOnRecipe } from './common';
-import { SourceBuilderState, SourceConfig } from '../types';
-import { RequiredFieldForm } from '../../../../shared/form/RequiredFieldForm';
+import FormField from '@app/ingest/source/builder/RecipeForm/FormField';
+import TestConnectionButton from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionButton';
+import { RecipeField, setFieldValueOnRecipe } from '@app/ingest/source/builder/RecipeForm/common';
+import {
+    CONNECTORS_WITH_TEST_CONNECTION,
+    RECIPE_FIELDS,
+    RecipeSections,
+} from '@app/ingest/source/builder/RecipeForm/constants';
+import { SourceBuilderState, SourceConfig } from '@app/ingest/source/builder/types';
+import { jsonToYaml } from '@app/ingest/source/utils';
+import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
+
+import { useListSecretsQuery } from '@graphql/ingestion.generated';
 
 export const ControlsContainer = styled.div`
     display: flex;

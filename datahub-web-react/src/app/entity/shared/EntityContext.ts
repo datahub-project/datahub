@@ -1,7 +1,9 @@
 import React, { useContext } from 'react';
-import { EntityType } from '../../../types.generated';
-import { shouldEntityBeTreatedAsPrimary, useIsSeparateSiblingsMode } from './siblingUtils';
-import { EntityContextType, UpdateEntityType } from './types';
+
+import { shouldEntityBeTreatedAsPrimary, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { EntityContextType, UpdateEntityType } from '@app/entity/shared/types';
+
+import { EntityType } from '@types';
 
 export const EntityContext = React.createContext<EntityContextType>({
     urn: '',

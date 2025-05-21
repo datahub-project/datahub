@@ -128,18 +128,18 @@ def get_endpoints(sw_dict: dict) -> dict:
 
     for p_k, p_o in sw_dict["paths"].items():
         method = list(p_o)[0]
-        if "200" in p_o[method]["responses"].keys():
+        if "200" in p_o[method]["responses"]:
             base_res = p_o[method]["responses"]["200"]
-        elif 200 in p_o[method]["responses"].keys():
+        elif 200 in p_o[method]["responses"]:
             # if you read a plain yml file the 200 will be an integer
             base_res = p_o[method]["responses"][200]
         else:
             # the endpoint does not have a 200 response
             continue
 
-        if "description" in p_o[method].keys():
+        if "description" in p_o[method]:
             desc = p_o[method]["description"]
-        elif "summary" in p_o[method].keys():
+        elif "summary" in p_o[method]:
             desc = p_o[method]["summary"]
         else:  # still testing
             desc = ""
@@ -156,7 +156,7 @@ def get_endpoints(sw_dict: dict) -> dict:
             url_details[p_k]["data"] = example_data
 
         # checking whether there are defined parameters to execute the call...
-        if "parameters" in p_o[method].keys():
+        if "parameters" in p_o[method]:
             url_details[p_k]["parameters"] = p_o[method]["parameters"]
 
     return dict(sorted(url_details.items()))
@@ -169,7 +169,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
     data = {}
     if "content" in base_res:
         res_cont = base_res["content"]
-        if "application/json" in res_cont.keys():
+        if "application/json" in res_cont:
             ex_field = None
             if "example" in res_cont["application/json"]:
                 ex_field = "example"
@@ -186,7 +186,7 @@ def check_for_api_example_data(base_res: dict, key: str) -> dict:
                 logger.warning(
                     f"Field in swagger file does not give consistent data --- {key}"
                 )
-        elif "text/csv" in res_cont.keys():
+        elif "text/csv" in res_cont:
             data = res_cont["text/csv"]["schema"]
     elif "examples" in base_res:
         data = base_res["examples"]["application/json"]
@@ -239,7 +239,7 @@ def guessing_url_name(url: str, examples: dict) -> str:
 
     # substituting the parameter's name w the value
     for name, clean_name in zip(needed_n, cleaned_needed_n):
-        if clean_name in examples[ex2use].keys():
+        if clean_name in examples[ex2use]:
             guessed_url = re.sub(name, str(examples[ex2use][clean_name]), guessed_url)
 
     return guessed_url

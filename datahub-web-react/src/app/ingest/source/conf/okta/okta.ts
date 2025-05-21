@@ -1,5 +1,6 @@
-import { SourceConfig } from '../types';
-import oktaLogo from '../../../../../images/oktalogo.png';
+import { SourceConfig } from '@app/ingest/source/conf/types';
+
+import oktaLogo from '@images/oktalogo.png';
 
 const placeholderRecipe = `\
 source:
@@ -35,7 +36,7 @@ const oktaConfig: SourceConfig = {
     type: 'okta',
     placeholderRecipe,
     displayName: 'Okta',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/okta',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/okta',
     logoUrl: oktaLogo,
 };
 

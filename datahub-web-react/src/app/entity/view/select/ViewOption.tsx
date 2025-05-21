@@ -1,10 +1,12 @@
 import React from 'react';
 import styled from 'styled-components';
-import { DataHubView } from '../../../../types.generated';
-import { ViewOptionName } from './ViewOptionName';
-import { ViewDropdownMenu } from '../menu/ViewDropdownMenu';
-import { UserDefaultViewIcon } from '../shared/UserDefaultViewIcon';
-import { GlobalDefaultViewIcon } from '../shared/GlobalDefaultViewIcon';
+
+import { ViewDropdownMenu } from '@app/entity/view/menu/ViewDropdownMenu';
+import { ViewOptionName } from '@app/entity/view/select/ViewOptionName';
+import { GlobalDefaultViewIcon } from '@app/entity/view/shared/GlobalDefaultViewIcon';
+import { UserDefaultViewIcon } from '@app/entity/view/shared/UserDefaultViewIcon';
+
+import { DataHubView } from '@types';
 
 const ICON_WIDTH = 30;
 

@@ -36,6 +36,9 @@ class DatahubLineageConfig(ConfigModel):
     # Cluster to associate with the pipelines and tasks. Defaults to "prod".
     cluster: str = builder.DEFAULT_FLOW_CLUSTER
 
+    # Platform instance to associate with the pipelines and tasks.
+    platform_instance: Optional[str] = None
+
     # If true, the owners field of the DAG will be captured as a DataHub corpuser.
     capture_ownership_info: bool = True
 
@@ -63,6 +66,9 @@ class DatahubLineageConfig(ConfigModel):
     # If true, ti.render_templates() will be called in the listener.
     # Makes extraction of jinja-templated fields more accurate.
     render_templates: bool = True
+
+    # Only if true, lineage will be emitted for the DataJobs.
+    enable_datajob_lineage: bool = True
 
     dag_filter_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -101,6 +107,7 @@ def get_lineage_config() -> DatahubLineageConfig:
     enabled = conf.get("datahub", "enabled", fallback=True)
     datahub_conn_id = conf.get("datahub", "conn_id", fallback="datahub_rest_default")
     cluster = conf.get("datahub", "cluster", fallback=builder.DEFAULT_FLOW_CLUSTER)
+    platform_instance = conf.get("datahub", "platform_instance", fallback=None)
     capture_tags_info = conf.get("datahub", "capture_tags_info", fallback=True)
     capture_ownership_info = conf.get(
         "datahub", "capture_ownership_info", fallback=True
@@ -123,11 +130,13 @@ def get_lineage_config() -> DatahubLineageConfig:
     dag_filter_pattern = AllowDenyPattern.parse_raw(
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
+    enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
 
     return DatahubLineageConfig(
         enabled=enabled,
         datahub_conn_id=datahub_conn_id,
         cluster=cluster,
+        platform_instance=platform_instance,
         capture_ownership_info=capture_ownership_info,
         capture_ownership_as_group=capture_ownership_as_group,
         capture_tags_info=capture_tags_info,
@@ -140,4 +149,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         datajob_url_link=datajob_url_link,
         render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
+        enable_datajob_lineage=enable_lineage,
     )

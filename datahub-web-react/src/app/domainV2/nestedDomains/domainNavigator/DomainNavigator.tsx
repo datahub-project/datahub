@@ -1,10 +1,12 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import useListDomains from '../../useListDomains';
-import DomainNode from './DomainNode';
-import { Domain } from '../../../../types.generated';
-import { ANTD_GRAY } from '../../../entity/shared/constants';
+
+import DomainNode from '@app/domainV2/nestedDomains/domainNavigator/DomainNode';
+import useListDomains from '@app/domainV2/useListDomains';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+
+import { Domain } from '@types';
 
 const NavigatorWrapper = styled.div`
     font-size: 14px;

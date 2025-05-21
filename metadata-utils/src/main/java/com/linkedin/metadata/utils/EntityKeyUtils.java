@@ -5,6 +5,8 @@ import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.lang.reflect.Constructor;
@@ -71,6 +73,20 @@ public class EntityKeyUtils {
           keyAspectRecord, metadataChangeLog.getEntityType());
     }
     throw new IllegalArgumentException("One of urn and keyAspect must be set");
+  }
+
+  public static Urn getUrnFromEvent(
+      @Nonnull final MetadataChangeLog event, @Nonnull final EntityRegistry entityRegistry) {
+    EntitySpec entitySpec;
+    try {
+      entitySpec = entityRegistry.getEntitySpec(event.getEntityType());
+    } catch (IllegalArgumentException e) {
+      log.error("Error while processing entity type {}: {}", event.getEntityType(), e.toString());
+      throw new RuntimeException(
+          "Failed to get urn from MetadataChangeLog event. Skipping processing.", e);
+    }
+    // Extract an URN from the Log Event.
+    return EntityKeyUtils.getUrnFromLog(event, entitySpec.getKeyAspectSpec());
   }
 
   /**

@@ -1,6 +1,8 @@
 import React, { useContext } from 'react';
-import { Entity } from '../../../../types.generated';
-import { EntityAndType, GenericEntityProperties } from '../types';
+
+import { EntityAndType, GenericEntityProperties } from '@app/entity/shared/types';
+
+import { Entity } from '@types';
 
 export enum FormView {
     BY_ENTITY,

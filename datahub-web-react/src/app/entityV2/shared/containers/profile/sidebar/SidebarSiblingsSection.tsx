@@ -1,16 +1,18 @@
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { Dataset, Entity } from '../../../../../../types.generated';
-import { useDataNotCombinedWithSiblings, useEntityData } from '../../../../../entity/shared/EntityContext';
-import { stripSiblingsFromEntity } from '../../../../../entity/shared/siblingUtils';
-import { CompactEntityNameList } from '../../../../../recommendations/renderer/component/CompactEntityNameList';
-import { UnionType } from '../../../../../searchV2/utils/constants';
-import { EmbeddedListSearchModal } from '../../../components/styled/search/EmbeddedListSearchModal';
-import { REDESIGN_COLORS } from '../../../constants';
-import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '../../../useIsSeparateSiblingsMode';
-import { SidebarSection } from './SidebarSection';
+
+import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entity/shared/EntityContext';
+import { stripSiblingsFromEntity } from '@app/entity/shared/siblingUtils';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
+import { UnionType } from '@app/searchV2/utils/constants';
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
+
+import { GetDatasetQuery } from '@graphql/dataset.generated';
+import { Dataset, Entity } from '@types';
 
 const EntityListContainer = styled.div`
     display: flex;

@@ -1,0 +1,235 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CadvancedPatchEntityV3%2CPROD%29",
+      "description": "Remove advanced PATCH test",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "method": "patch",
+      "description": "Patch dataset with attributed tags",
+      "params": {
+        "async": false
+      },
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,advancedPatchEntityV3,PROD)",
+          "globalTags": {
+            "value": {
+              "patch": [
+                {
+                  "op": "add",
+                  "path": "/tags/urn:li:platformResource:source1/urn:li:tag:tag1",
+                  "value": {
+                    "tag": "urn:li:tag:tag1",
+                    "attribution": {
+                      "source": "urn:li:platformResource:source1",
+                      "actor": "urn:li:corpuser:user",
+                      "time": 0
+                    }
+                  }
+                },
+                {
+                  "op": "add",
+                  "path": "/tags/urn:li:platformResource:source1/urn:li:tag:tag2",
+                  "value": {
+                    "tag": "urn:li:tag:tag2",
+                    "attribution": {
+                      "source": "urn:li:platformResource:source1",
+                      "actor": "urn:li:corpuser:user",
+                      "time": 0
+                    }
+                  }
+                },
+                {
+                  "op": "add",
+                  "path": "/tags/urn:li:platformResource:source2/urn:li:tag:tag1",
+                  "value": {
+                    "tag": "urn:li:tag:tag1",
+                    "attribution": {
+                      "source": "urn:li:platformResource:source2",
+                      "actor": "urn:li:corpuser:user",
+                      "time": 0
+                    }
+                  }
+                }
+              ],
+              "arrayPrimaryKeys": {
+                "tags": [
+                  "attribution␟source",
+                  "tag"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "response": [
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,advancedPatchEntityV3,PROD)",
+        "globalTags": {
+          "value": {
+            "tags": [
+              {
+                "attribution": {
+                  "actor": "urn:li:corpuser:user",
+                  "time": 0,
+                  "source": "urn:li:platformResource:source1"
+                },
+                "tag": "urn:li:tag:tag1"
+              },
+              {
+                "attribution": {
+                  "actor": "urn:li:corpuser:user",
+                  "time": 0,
+                  "source": "urn:li:platformResource:source1"
+                },
+                "tag": "urn:li:tag:tag2"
+              },
+              {
+                "attribution": {
+                  "actor": "urn:li:corpuser:user",
+                  "time": 0,
+                  "source": "urn:li:platformResource:source2"
+                },
+                "tag": "urn:li:tag:tag1"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CadvancedPatchEntityV3%2CPROD%29/globalTags",
+      "method": "get",
+      "description": "Get the patched global tags with multiple attributed tags"
+    },
+    "response": {
+      "json": {
+        "value": {
+          "tags": [
+            {
+              "attribution": {
+                "actor": "urn:li:corpuser:user",
+                "time": 0,
+                "source": "urn:li:platformResource:source1"
+              },
+              "tag": "urn:li:tag:tag1"
+            },
+            {
+              "attribution": {
+                "actor": "urn:li:corpuser:user",
+                "time": 0,
+                "source": "urn:li:platformResource:source1"
+              },
+              "tag": "urn:li:tag:tag2"
+            },
+            {
+              "attribution": {
+                "actor": "urn:li:corpuser:user",
+                "time": 0,
+                "source": "urn:li:platformResource:source2"
+              },
+              "tag": "urn:li:tag:tag1"
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset",
+      "method": "patch",
+      "description": "Patch REMOVE the tag from source1 but not source2",
+      "params": {
+        "async": false
+      },
+      "json": [
+        {
+          "urn": "urn:li:dataset:(urn:li:dataPlatform:test,advancedPatchEntityV3,PROD)",
+          "globalTags": {
+            "value": {
+              "patch": [
+                {
+                  "op": "remove",
+                  "path": "/tags/urn:li:platformResource:source1/urn:li:tag:tag1"
+                }
+              ],
+              "arrayPrimaryKeys": {
+                "tags": [
+                  "attribution␟source",
+                  "tag"
+                ]
+              }
+            }
+          }
+        }
+      ]
+    },
+    "response": [
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,advancedPatchEntityV3,PROD)",
+        "globalTags": {
+          "value": {
+            "tags": [
+              {
+                "attribution": {
+                  "actor": "urn:li:corpuser:user",
+                  "time": 0,
+                  "source": "urn:li:platformResource:source1"
+                },
+                "tag": "urn:li:tag:tag2"
+              },
+              {
+                "attribution": {
+                  "actor": "urn:li:corpuser:user",
+                  "time": 0,
+                  "source": "urn:li:platformResource:source2"
+                },
+                "tag": "urn:li:tag:tag1"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CadvancedPatchEntityV3%2CPROD%29/globalTags",
+      "method": "get",
+      "description": "Get the patched dataset with REMOVED only source1 tag1"
+    },
+    "response": {
+      "json": {
+        "value": {
+          "tags": [
+            {
+              "attribution": {
+                "actor": "urn:li:corpuser:user",
+                "time": 0,
+                "source": "urn:li:platformResource:source1"
+              },
+              "tag": "urn:li:tag:tag2"
+            },
+            {
+              "attribution": {
+                "actor": "urn:li:corpuser:user",
+                "time": 0,
+                "source": "urn:li:platformResource:source2"
+              },
+              "tag": "urn:li:tag:tag1"
+            }
+          ]
+        }
+      }
+    }
+  }
+]

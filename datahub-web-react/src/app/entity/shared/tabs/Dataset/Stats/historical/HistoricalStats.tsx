@@ -1,16 +1,18 @@
+import { Divider, Typography } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { Divider, Typography } from 'antd';
-import ProfilingRunsChart from './charts/ProfilingRunsChart';
-import StatChart from './charts/StatChart';
-import { DatasetProfile, DateInterval } from '../../../../../../../types.generated';
-import { getFixedLookbackWindow, TimeWindowSize } from '../../../../../../shared/time/timeUtils';
-import { useGetDataProfilesLazyQuery } from '../../../../../../../graphql/dataset.generated';
-import { Message } from '../../../../../../shared/Message';
-import { LookbackWindow } from '../lookbackWindows';
-import { ANTD_GRAY } from '../../../../constants';
-import PrefixedSelect from './shared/PrefixedSelect';
-import { formatBytes } from '../../../../../../shared/formatNumber';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import ProfilingRunsChart from '@app/entity/shared/tabs/Dataset/Stats/historical/charts/ProfilingRunsChart';
+import StatChart from '@app/entity/shared/tabs/Dataset/Stats/historical/charts/StatChart';
+import PrefixedSelect from '@app/entity/shared/tabs/Dataset/Stats/historical/shared/PrefixedSelect';
+import { LookbackWindow } from '@app/entity/shared/tabs/Dataset/Stats/lookbackWindows';
+import { Message } from '@app/shared/Message';
+import { formatBytes } from '@app/shared/formatNumber';
+import { TimeWindowSize, getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+
+import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
+import { DatasetProfile, DateInterval } from '@types';
 
 // TODO: Reuse stat sections.
 const StatSection = styled.div`

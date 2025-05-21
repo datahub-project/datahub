@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
+
+import { RecentActions } from '@app/homeV2/content/recent/RecentActions';
+import { CenterTabs } from '@app/homeV2/content/tabs/CenterTabs';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
-import { RecentActions } from '../content/recent/RecentActions';
-import { CenterTabs } from '../content/tabs/CenterTabs';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;

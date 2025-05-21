@@ -1,10 +1,12 @@
 import React from 'react';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import useSearchFilterDropdown from './useSearchFilterDropdown';
-import { getFilterDropdownIcon, useFilterDisplayName } from './utils';
-import SearchFilterView from './SearchFilterView';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
-import EntityTypeFilter from './EntityTypeFilter/EntityTypeFilter';
+
+import EntityTypeFilter from '@app/search/filters/EntityTypeFilter/EntityTypeFilter';
+import SearchFilterView from '@app/search/filters/SearchFilterView';
+import useSearchFilterDropdown from '@app/search/filters/useSearchFilterDropdown';
+import { getFilterDropdownIcon, useFilterDisplayName } from '@app/search/filters/utils';
+import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
+
+import { FacetFilterInput, FacetMetadata } from '@types';
 
 interface Props {
     filter: FacetMetadata;

@@ -1,4 +1,4 @@
-import { EntityType, LineageDirection } from '../../../types.generated';
+import { EntityType, LineageDirection } from '@types';
 
 export function getValidEntityTypes(lineageDirection: LineageDirection, entityType?: EntityType) {
     if (lineageDirection === LineageDirection.Upstream) {

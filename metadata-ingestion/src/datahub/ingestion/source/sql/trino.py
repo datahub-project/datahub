@@ -128,9 +128,10 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         if catalog_name is None:
             raise exc.NoSuchTableError("catalog is required in connection")
         connector_name = get_catalog_connector_name(connection.engine, catalog_name)
-        if connector_name is None:
-            return {}
-        if connector_name in PROPERTIES_TABLE_SUPPORTED_CONNECTORS:
+        if (
+            connector_name is not None
+            and connector_name in PROPERTIES_TABLE_SUPPORTED_CONNECTORS
+        ):
             properties_table = self._get_full_table(f"{table_name}$properties", schema)
             query = f"SELECT * FROM {properties_table}"
             row = connection.execute(sql.text(query)).fetchone()

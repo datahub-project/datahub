@@ -1,8 +1,9 @@
 import React from 'react';
 
-import { Assertion } from '../../../../../../../../../types.generated';
-import { AssertionSummaryLoading } from './AssertionSummaryLoading';
-import { AssertionSummaryContent } from './AssertionSummaryContent';
+import { AssertionSummaryContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryContent';
+import { AssertionSummaryLoading } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/AssertionSummaryLoading';
+
+import { Assertion } from '@types';
 
 type Props = {
     loading: boolean;

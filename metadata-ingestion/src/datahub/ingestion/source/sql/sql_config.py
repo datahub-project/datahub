@@ -4,7 +4,6 @@ from typing import Any, Dict, Optional
 
 import pydantic
 from pydantic import Field
-from sqlalchemy.engine import URL
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -20,6 +19,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -184,36 +184,3 @@ class SQLAlchemyConnectionConfig(ConfigModel):
 
 class BasicSQLAlchemyConfig(SQLAlchemyConnectionConfig, SQLCommonConfig):
     pass
-
-
-def make_sqlalchemy_uri(
-    scheme: str,
-    username: Optional[str],
-    password: Optional[str],
-    at: Optional[str],
-    db: Optional[str],
-    uri_opts: Optional[Dict[str, Any]] = None,
-) -> str:
-    host: Optional[str] = None
-    port: Optional[int] = None
-    if at:
-        try:
-            host, port_str = at.rsplit(":", 1)
-            port = int(port_str)
-        except ValueError:
-            host = at
-            port = None
-    if uri_opts:
-        uri_opts = {k: v for k, v in uri_opts.items() if v is not None}
-
-    return str(
-        URL.create(
-            drivername=scheme,
-            username=username,
-            password=password,
-            host=host,
-            port=port,
-            database=db,
-            query=uri_opts or {},
-        )
-    )

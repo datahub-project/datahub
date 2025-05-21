@@ -1,9 +1,9 @@
+import { PlusOutlined } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Typography } from 'antd';
-import { PlusOutlined } from '@ant-design/icons';
 
-import { ANTD_GRAY } from '../../../../constants';
+import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 const Container = styled.div``;
 

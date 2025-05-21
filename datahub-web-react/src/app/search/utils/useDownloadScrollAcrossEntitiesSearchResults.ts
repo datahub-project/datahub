@@ -1,5 +1,10 @@
-import { useGetDownloadScrollResultsQuery } from '../../../graphql/scroll.generated';
-import { DownloadSearchResults, DownloadSearchResultsInput, DownloadSearchResultsParams } from './types';
+import {
+    DownloadSearchResults,
+    DownloadSearchResultsInput,
+    DownloadSearchResultsParams,
+} from '@app/search/utils/types';
+
+import { useGetDownloadScrollResultsQuery } from '@graphql/scroll.generated';
 
 /**
  * Hook for use in downloading a single page of search results via the Scroll API.

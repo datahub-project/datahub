@@ -1,16 +1,17 @@
-import React, { useEffect, useState } from 'react';
-import { PlusOutlined, MinusOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
-import { Button } from 'antd';
+import { MinusOutlined, PlusOutlined } from '@ant-design/icons';
 import { ProvidedZoom, TransformMatrix } from '@visx/zoom/lib/types';
+import { Button } from 'antd';
+import React, { useEffect, useState } from 'react';
+import styled from 'styled-components/macro';
 
-import { ColumnEdge, EntityAndType, EntitySelectParams, FetchedEntity } from './types';
-import { LineageExplorerContext } from './utils/LineageExplorerContext';
-import { SchemaField, SchemaFieldRef } from '../../types.generated';
-import { useIsShowColumnsMode } from './utils/useIsShowColumnsMode';
-import { LineageVizControls } from './controls/LineageVizControls';
-import LineageVizRootSvg from './LineageVizRootSvg';
-import { useAppConfig } from '../useAppConfig';
+import LineageVizRootSvg from '@app/lineage/LineageVizRootSvg';
+import { LineageVizControls } from '@app/lineage/controls/LineageVizControls';
+import { ColumnEdge, EntityAndType, EntitySelectParams, FetchedEntity } from '@app/lineage/types';
+import { LineageExplorerContext } from '@app/lineage/utils/LineageExplorerContext';
+import { useIsShowColumnsMode } from '@app/lineage/utils/useIsShowColumnsMode';
+import { useAppConfig } from '@app/useAppConfig';
+
+import { SchemaField, SchemaFieldRef } from '@types';
 
 const ControlsDiv = styled.div`
     display: flex;

@@ -1,9 +1,11 @@
 import React from 'react';
-import styled from 'styled-components';
 import { Link } from 'react-router-dom';
-import { getHealthTypeName, getHealthRedirectPath } from '../../../../../shared/health/healthUtils';
-import { HealthStatusType } from '../../../../../../types.generated';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
+import styled from 'styled-components';
+
+import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
+import { getHealthRedirectPath, getHealthTypeName } from '@app/shared/health/healthUtils';
+
+import { HealthStatusType } from '@types';
 
 const StatusContainer = styled.div`
     display: flex;

@@ -1,6 +1,6 @@
-import React from 'react';
 import { EditOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
+import React from 'react';
 import styled from 'styled-components';
 
 const StyledButton = styled(Button)`
