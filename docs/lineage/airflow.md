@@ -70,6 +70,7 @@ enabled = True  # default
 | enabled                    | true                 | If the plugin should be enabled.                                                         |
 | conn_id                    | datahub_rest_default | The name of the datahub rest connection.                                                 |
 | cluster                    | prod                 | name of the airflow cluster, this is equivalent to the `env` of the instance             |
+| platform_instance          |                      | The instance of the platform that all assets produced by this plugin belong to. It is optional. |
 | capture_ownership_info     | true                 | Extract DAG ownership.                                                                   |
 | capture_ownership_as_group | false                | When extracting DAG ownership, treat DAG owner as a group rather than a user             |
 | capture_tags_info          | true                 | Extract DAG tags.                                                                        |
@@ -79,6 +80,7 @@ enabled = True  # default
 | disable_openlineage_plugin | true                 | Disable the OpenLineage plugin to avoid duplicative processing.                          |
 | log_level                  | _no change_          | [debug] Set the log level for the plugin.                                                |
 | debug_emitter              | false                | [debug] If true, the plugin will log the emitted events.                                 |
+| dag_filter_str             | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.           |
 | enable_datajob_lineage     | true                 | If true, the plugin will emit input/output lineage for DataJobs.                         |
 
 ## DataHub Plugin v1
