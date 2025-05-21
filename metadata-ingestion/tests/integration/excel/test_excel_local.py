@@ -1,7 +1,7 @@
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 
 @pytest.mark.integration

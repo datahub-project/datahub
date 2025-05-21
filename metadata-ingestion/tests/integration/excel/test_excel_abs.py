@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2025-01-01 01:00:00"
 CONTAINER_NAME = "test-abs"
