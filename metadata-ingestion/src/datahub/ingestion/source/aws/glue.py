@@ -25,6 +25,10 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
+from datahub.api.entities.external.external_entities import (
+    PlatformResourceRepository,
+    LinkedResourceSet,
+)
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
@@ -42,6 +46,9 @@ from datahub.emitter.mcp_builder import (
     add_dataset_to_container,
     add_domain_to_entity_wu,
     gen_containers,
+)
+from datahub.metadata.urns import (
+    TagUrn
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -61,6 +68,12 @@ from datahub.ingestion.source.aws.s3_util import (
     is_s3_uri,
     make_s3_urn,
     make_s3_urn_for_lineage,
+)
+from datahub.ingestion.source.aws.tag_entities import (
+    LakeFormationTagSyncContext,
+    LakeFormationTagId,
+    LakeFormationSystem,
+    LakeFormationTag,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -338,6 +351,15 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_transforms = config.extract_transforms
         self.env = config.env
 
+        self.platform_resource_repository:Optional[PlatformResourceRepository] = None
+        if self.ctx.graph:
+            self.platform_resource_repository = PlatformResourceRepository(
+                self.ctx.graph
+            )
+
+            self.lakeformation_system = LakeFormationSystem(
+                aws_config=config
+            )
         self.get_lf_tags()
 
     def get_lf_tags(self) -> Dict[str, List[str]]:
@@ -1272,8 +1294,7 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_instance=self.source_config.platform_instance,
         )
 
-        mce = self._extract_record(dataset_urn, table, full_table_name)
-        yield MetadataWorkUnit(full_table_name, mce=mce)
+        yield from self._extract_record(dataset_urn, table, full_table_name)
 
         # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
         # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
@@ -1289,19 +1310,6 @@ class GlueSource(StatefulIngestionSourceBase):
         yield from self.add_table_to_database_container(
             dataset_urn=dataset_urn, db_name=database_name
         )
-
-        wu = self.get_lineage_if_enabled(mce)
-        if wu:
-            yield wu
-
-        try:
-            yield from self.get_profile_if_enabled(mce, database_name, table_name)
-        except KeyError as e:
-            self.report.report_failure(
-                message="Failed to extract profile for table",
-                context=f"Table: {dataset_urn}",
-                exc=e,
-            )
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
@@ -1691,6 +1699,51 @@ class GlueSource(StatefulIngestionSourceBase):
                 for tag_key, tag_values in tags.items():
                     for tag_value in tag_values:
                         tag_urn = make_tag_urn(f"""{tag_key.split(".",1)[-1]}:{tag_value}""")
+                        tag_sync_context = LakeFormationTagSyncContext(
+                            catalog_id=table.get("CatalogId"),
+                        )
+
+                        lake_formation_tag_id = LakeFormationTagId.from_datahub_tag(
+                            tag_urn=TagUrn.from_string(tag_urn), tag_sync_context=tag_sync_context
+                        )
+                        lake_formation_tag = self.lakeformation_system.get(
+                            lake_formation_tag_id, self.platform_resource_repository
+                        )
+                        if not lake_formation_tag:
+                            linked_resource_set = LinkedResourceSet(urns=[tag_urn])
+                            linked_resource_set.add(tag_urn)
+                            lake_formation_tag = LakeFormationTag(
+                                datahub_urns=linked_resource_set,
+                                managed_by_datahub=False,
+                                id=lake_formation_tag_id,
+                                allowed_values=None,
+                            )
+                            logger.info(
+                                f"Lakeformation tag {tag_urn} not found in platform_resource_repository. Creating new one..."
+                            )
+                        else:
+                            try:
+                                ret = lake_formation_tag.datahub_linked_resources().add(tag_urn)
+                            except ValueError as e:
+                                logger.error(f"Failed to add tag {tag_urn}. Error: {e}")
+                                return
+                            if ret:
+                                logger.info(
+                                    f"LakeFormation tag {tag_urn} added in platform_resource_repository"
+                                )
+                            else:
+                                logger.info(
+                                    f"LakeFormation tag {tag_urn} already exists in platform_resource_repository"
+                                )
+                                return
+                        if not lake_formation_tag:
+                            return
+
+                        platform_resource = lake_formation_tag.as_platform_resource()
+
+                        for mcp in platform_resource.to_mcps():
+                           yield mcp.as_workunit()
+
                         tag_urns.append(TagAssociationClass(tag_urn))
                 if tag_urns:
                     dataset_snapshot.aspects.append(
@@ -1700,7 +1753,21 @@ class GlueSource(StatefulIngestionSourceBase):
                     )
 
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        return metadata_record
+        yield MetadataWorkUnit(table_name, mce=metadata_record)
+
+        wu = self.get_lineage_if_enabled(metadata_record)
+        if wu:
+            yield wu
+
+        try:
+            yield from self.get_profile_if_enabled(metadata_record, table["DatabaseName"], table_name)
+        except KeyError as e:
+            self.report.report_failure(
+                message="Failed to extract profile for table",
+                context=f"Table: {dataset_urn}",
+                exc=e,
+            )
+
 
     def get_report(self):
         return self.report
