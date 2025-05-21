@@ -69,14 +69,13 @@ class DataFlow(
         self,
         *,
         # Identity.
-        id: str,
+        name: str,
         platform: str,
-        name: Optional[str] = None,
+        display_name: Optional[str] = None,
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
         # Dataflow properties.
         description: Optional[str] = None,
-        display_name: Optional[str] = None,
         external_url: Optional[str] = None,
         custom_properties: Optional[Dict[str, str]] = None,
         created: Optional[datetime] = None,
@@ -113,7 +112,7 @@ class DataFlow(
         """
         urn = DataFlowUrn.create_from_ids(
             orchestrator=platform,
-            flow_id=id,
+            flow_id=name,
             env=env,
             platform_instance=platform_instance,
         )
@@ -123,7 +122,7 @@ class DataFlow(
         self._set_platform_instance(urn.orchestrator, platform_instance)
 
         # Initialize DataFlowInfoClass directly with name
-        self._setdefault_aspect(DataFlowInfoClass(name=name or id))
+        self._setdefault_aspect(DataFlowInfoClass(name=display_name or name))
 
         if description is not None:
             self.set_description(description)
@@ -155,7 +154,7 @@ class DataFlow(
         assert isinstance(urn, DataFlowUrn)
         entity = cls(
             platform=urn.orchestrator,
-            id=urn.flow_id,
+            name=urn.flow_id,
         )
         return entity._init_from_graph(current_aspects)
 
@@ -222,14 +221,7 @@ class DataFlow(
         Returns:
             The name of the dataflow.
         """
-        return self._ensure_dataflow_props().name
-
-    def set_name(self, name: str) -> None:
-        """Set the name of the dataflow.
-        Args:
-            name: The name to set.
-        """
-        self._ensure_dataflow_props().name = name
+        return self.urn.flow_id
 
     @property
     def display_name(self) -> Optional[str]:

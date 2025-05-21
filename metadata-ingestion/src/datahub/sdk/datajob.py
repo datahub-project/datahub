@@ -63,9 +63,9 @@ class DataJob(
         self,
         *,
         # Identity
-        id: str,
         flow_urn: DataflowUrnOrStr,
-        name: Optional[str] = None,
+        name: str,
+        display_name: Optional[str] = None,
         platform: Optional[str] = None,
         platform_instance: Optional[str] = None,
         description: Optional[str] = None,
@@ -83,7 +83,7 @@ class DataJob(
         extra_aspects: ExtraAspectsType = None,
     ):
         urn = DataJobUrn.create_from_ids(
-            job_id=id,
+            job_id=name,
             data_flow_urn=str(flow_urn),
         )
         super().__init__(urn)
@@ -95,7 +95,7 @@ class DataJob(
 
         # Initialize DataJobInfoClass with default type
         job_info = DataJobInfoClass(
-            name=name or id,
+            name=display_name or name,
             type=AzkabanJobTypeClass.COMMAND,  # Default type
         )
         self._setdefault_aspect(job_info)
@@ -135,7 +135,7 @@ class DataJob(
 
         entity = cls(
             platform=data_flow_urn.orchestrator,
-            id=urn.job_id,
+            name=urn.job_id,
             flow_urn=str(data_flow_urn),
         )
         return entity._init_from_graph(current_aspects)
@@ -191,11 +191,16 @@ class DataJob(
     @property
     def name(self) -> str:
         """Get the name of the data job."""
+        return self.urn.job_id
+
+    @property
+    def display_name(self) -> Optional[str]:
+        """Get the display name of the data job."""
         return self._ensure_datajob_props().name
 
-    def set_name(self, name: str) -> None:
-        """Set the name of the data job."""
-        self._ensure_datajob_props().name = name
+    def set_display_name(self, display_name: str) -> None:
+        """Set the display name of the data job."""
+        self._ensure_datajob_props().name = display_name
 
     @property
     def external_url(self) -> Optional[str]:

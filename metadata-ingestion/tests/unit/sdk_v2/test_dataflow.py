@@ -1,9 +1,12 @@
 import pathlib
+import re
 from datetime import datetime, timezone
+from unittest import mock
 
 import pytest
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     CorpUserUrn,
     DataFlowUrn,
@@ -14,13 +17,13 @@ from datahub.metadata.urns import (
 from datahub.sdk.dataflow import DataFlow
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
 
-_GOLDEN_DIR = pathlib.Path(__file__).parent / "dataflow_golden"
+GOLDEN_DIR = pathlib.Path(__file__).parent / "dataflow_golden"
 
 
 def test_dataflow_basic(pytestconfig: pytest.Config) -> None:
     d = DataFlow(
         platform="airflow",
-        id="example_dag",
+        name="example_dag",
     )
 
     # Check urn setup.
@@ -50,17 +53,17 @@ def test_dataflow_basic(pytestconfig: pytest.Config) -> None:
         # This should fail. Eventually we should make it suggest calling set_owners instead.
         d.owners = []  # type: ignore
 
-    assert_entity_golden(d, _GOLDEN_DIR / "test_dataflow_basic_golden.json")
+    assert_entity_golden(d, GOLDEN_DIR / "test_dataflow_basic_golden.json")
 
 
-def _build_complex_dataflow() -> DataFlow:
+def build_complex_dataflow() -> DataFlow:
     created = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     updated = datetime(2025, 1, 9, 3, 4, 6, tzinfo=timezone.utc)
 
     d = DataFlow(
         platform="airflow",
         platform_instance="my_instance",
-        id="example_dag",
+        name="example_dag",
         display_name="Example DAG",
         created=created,
         last_modified=updated,
@@ -120,5 +123,72 @@ def _build_complex_dataflow() -> DataFlow:
 
 
 def test_dataflow_complex() -> None:
-    d = _build_complex_dataflow()
-    assert_entity_golden(d, _GOLDEN_DIR / "test_dataflow_complex_golden.json")
+    d = build_complex_dataflow()
+    assert_entity_golden(d, GOLDEN_DIR / "test_dataflow_complex_golden.json")
+
+
+def test_client_get_dataflow() -> None:
+    """Test retrieving DataFlows using client.entities.get()."""
+    # Set up mock
+    mock_client = mock.MagicMock()
+    mock_entities = mock.MagicMock()
+    mock_client.entities = mock_entities
+
+    # Basic retrieval
+    flow_urn = DataFlowUrn("airflow", "test_dag", DEFAULT_ENV)
+    expected_flow = DataFlow(
+        platform="airflow",
+        name="test_dag",
+        description="A test dataflow",
+    )
+    mock_entities.get.return_value = expected_flow
+
+    result = mock_client.entities.get(flow_urn)
+    assert result == expected_flow
+    mock_entities.get.assert_called_once_with(flow_urn)
+    mock_entities.get.reset_mock()
+
+    # String URN
+    urn_str = f"urn:li:dataFlow:(airflow,string_dag,{DEFAULT_ENV})"
+    mock_entities.get.return_value = DataFlow(platform="airflow", name="string_dag")
+    result = mock_client.entities.get(urn_str)
+    mock_entities.get.assert_called_once_with(urn_str)
+    mock_entities.get.reset_mock()
+
+    # Complex dataflow with properties
+    test_date = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
+    complex_flow = DataFlow(
+        platform="airflow",
+        name="complex_dag",
+        description="Complex test dataflow",
+        display_name="My Complex DAG",
+        external_url="https://example.com/dag",
+        created=test_date,
+        last_modified=test_date,
+        custom_properties={"env": "production", "owner_team": "data-eng"},
+    )
+
+    # Set relationships and tags
+    complex_flow.set_tags([TagUrn("important"), TagUrn("data-pipeline")])
+    complex_flow.set_domain(DomainUrn("Data Engineering"))
+    complex_flow.set_owners([CorpUserUrn("john@example.com")])
+
+    flow_urn = DataFlowUrn("airflow", "complex_dag", DEFAULT_ENV)
+    mock_entities.get.return_value = complex_flow
+
+    result = mock_client.entities.get(flow_urn)
+    assert result.name == "complex_dag"
+    assert result.display_name == "My Complex DAG"
+    assert result.created == test_date
+    assert result.description == "Complex test dataflow"
+    assert result.tags is not None
+    assert result.domain is not None
+    assert result.owners is not None
+    mock_entities.get.assert_called_once_with(flow_urn)
+    mock_entities.get.reset_mock()
+
+    # Not found case
+    error_message = f"Entity {flow_urn} not found"
+    mock_entities.get.side_effect = ItemNotFoundError(error_message)
+    with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
+        mock_client.entities.get(flow_urn)
