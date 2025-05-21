@@ -81,6 +81,8 @@ query getMe {
             manageDocumentationForms
             viewDocumentationFormsPage
             manageOrganizationDisplayPreferences
+            proposeCreateGlossaryTerm
+            proposeCreateGlossaryNode
         }
     }
 }

@@ -47,7 +47,9 @@
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
         "MANAGE_MONITORS",
-        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES"
+        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE"
       ],
       "displayName": "Root User - All Platform Privileges",
       "description": "Grants all platform privileges to root user.",
@@ -265,7 +267,9 @@
         "VIEW_DOCUMENTATION_FORMS_PAGE",
         "MANAGE_CONNECTIONS",
         "MANAGE_MONITORS",
-        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES"
+        "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES",
+        "PROPOSE_CREATE_GLOSSARY_TERM",
+        "PROPOSE_CREATE_GLOSSARY_NODE"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -341,6 +345,7 @@
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "MANAGE_USER_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+        "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE",
         "SHARE_ENTITY"
       ],
       "displayName": "Admins - Metadata Policy",
@@ -445,6 +450,7 @@
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+        "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE",
         "SHARE_ENTITY"
       ],
       "displayName": "Editors - Metadata Policy",
@@ -551,6 +557,7 @@
         "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
         "PROPOSE_DATASET_COL_TAGS",
         "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATA_CONTRACT_PRIVILEGE",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
         "GET_TIMESERIES_ASPECT_PRIVILEGE",
@@ -625,7 +632,8 @@
         "EDIT_ENTITY_PROPERTIES",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
-        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS"
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
+        "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE"
       ],
       "displayName": "Asset Owners - Metadata Policy",
       "description": "Asset Owners have all metadata privileges ONLY for assets they own.",

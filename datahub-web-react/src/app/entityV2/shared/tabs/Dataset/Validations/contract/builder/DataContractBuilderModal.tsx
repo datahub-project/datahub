@@ -1,6 +1,7 @@
 import { Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
 
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { DataContractBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/builder/DataContractBuilder';
 import {
     DEFAULT_BUILDER_STATE,
@@ -32,6 +33,7 @@ type Props = {
     onPropose?: () => void;
     onCancel?: () => void;
     entityType?: EntityType;
+    entityData?: GenericEntityProperties | null;
 };
 
 /**
@@ -44,6 +46,7 @@ export const DataContractBuilderModal = ({
     onPropose,
     onCancel,
     entityType,
+    entityData,
 }: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Contract' : 'New Data Contract';
@@ -134,6 +137,7 @@ export const DataContractBuilderModal = ({
                         builderState={builderState}
                         setBuilderState={setBuilderState}
                         handlePropose={handlePropose}
+                        entityData={entityData}
                     />
                 </Modal>
             )}

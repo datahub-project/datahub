@@ -79,6 +79,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setViewTests(canViewTests(context));
             platformPrivileges.setManageTests(canManageTests(context));
             platformPrivileges.setManageGlossaries(canManageGlossaries(context));
+            platformPrivileges.setProposeCreateGlossaryTerm(canProposeCreateGlossaryTerm(context));
+            platformPrivileges.setProposeCreateGlossaryNode(canProposeCreateGlossaryNode(context));
             platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
             platformPrivileges.setCreateDomains(AuthorizationUtils.canCreateDomains(context));
             platformPrivileges.setCreateTags(AuthorizationUtils.canCreateTags(context));
@@ -176,6 +178,16 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   /** Returns true if the authenticated user has privileges to manage glossaries */
   private boolean canManageGlossaries(final QueryContext context) {
     return isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
+  }
+
+  /** Returns true if the authenticated user has privileges to propose create glossary term */
+  private boolean canProposeCreateGlossaryTerm(final QueryContext context) {
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.PROPOSE_CREATE_GLOSSARY_TERM);
+  }
+
+  /** Returns true if the authenticated user has privileges to propose create glossary node */
+  private boolean canProposeCreateGlossaryNode(final QueryContext context) {
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.PROPOSE_CREATE_GLOSSARY_NODE);
   }
 
   /** Returns true if the authenticated user has privileges to manage global access tokens */

@@ -4177,6 +4177,8 @@ export const platformPrivileges: PlatformPrivileges = {
     manageDocumentationForms: true,
     viewDocumentationFormsPage: true,
     manageOrganizationDisplayPreferences: true,
+    proposeCreateGlossaryTerm: true,
+    proposeCreateGlossaryNode: true,
 };
 
 export const DomainMock1 = {

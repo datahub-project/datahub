@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSelect';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
@@ -69,6 +70,10 @@ function CreateGlossaryEntityModal(props: Props) {
     const [showProposeModal, setShowProposeModal] = useState(false);
     const { config } = useAppConfig();
     const { showTaskCenterRedesign } = config.featureFlags;
+
+    const user = useUserContext();
+    const canProposeCreateTerm = user?.platformPrivileges?.proposeCreateGlossaryTerm;
+    const canProposeCreateNode = user.platformPrivileges?.proposeCreateGlossaryNode;
 
     function createGlossaryEntity() {
         const mutation =
@@ -192,7 +197,12 @@ function CreateGlossaryEntityModal(props: Props) {
                                 variant="outline"
                                 type="button"
                                 onClick={handlePropose}
-                                disabled={createButtonDisabled}
+                                disabled={
+                                    createButtonDisabled ||
+                                    !(entityType === EntityType.GlossaryTerm
+                                        ? canProposeCreateTerm
+                                        : canProposeCreateNode)
+                                }
                             >
                                 Propose
                             </Button>

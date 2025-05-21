@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
+import com.linkedin.datahub.graphql.resolvers.datacontract.DataContractUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
 import com.linkedin.datahub.graphql.resolvers.monitor.MonitorUtils;
@@ -143,6 +144,9 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
     result.setCanEditMonitors(MonitorUtils.isAuthorizedToUpdateEntityMonitors(urn, context));
     result.setCanEditSqlAssertionMonitors(
         MonitorUtils.isAuthorizedToUpdateSqlAssertionMonitors(urn, context));
+    result.setCanEditDataContract(DataContractUtils.canEditDataContract(context, urn));
+    result.setCanProposeDataContract(DataContractUtils.canProposeDataContract(context, urn));
+
     // Acryl-only end //
 
     return result;

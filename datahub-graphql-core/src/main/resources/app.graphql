@@ -223,6 +223,16 @@ type PlatformPrivileges {
   Whether the user can manage Organization Display Preferences
   """
   manageOrganizationDisplayPreferences: Boolean!
+
+  """
+  Whether the user should be able to propose creation of glossary term
+  """
+  proposeCreateGlossaryTerm: Boolean!
+
+  """
+  Whether the user should be able to propose creation of glossary node
+  """
+  proposeCreateGlossaryNode: Boolean!
 }
 
 """

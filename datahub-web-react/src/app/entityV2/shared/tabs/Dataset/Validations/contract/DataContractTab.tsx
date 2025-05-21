@@ -33,7 +33,7 @@ const RightColumn = styled.div`
  * Component used for rendering the Data Contract Tab on the Assertions parent tab.
  */
 export const DataContractTab = () => {
-    const { urn, entityType } = useEntityData();
+    const { urn, entityType, entityData } = useEntityData();
 
     const { data, refetch } = useGetDatasetContractQuery({
         variables: {
@@ -145,6 +145,7 @@ export const DataContractTab = () => {
                     onPropose={onContractUpdate}
                     onSubmit={onContractUpdate}
                     entityType={entityType}
+                    entityData={entityData}
                 />
             )}
         </>

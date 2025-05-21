@@ -24,5 +24,17 @@ public class DataContractUtils {
         context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
   }
 
+  public static boolean canProposeDataContract(@Nonnull QueryContext context, Urn entityUrn) {
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                AuthorizationUtils.ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(PoliciesConfig.PROPOSE_DATA_CONTRACT_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, entityUrn.getEntityType(), entityUrn.toString(), orPrivilegeGroups);
+  }
+
   private DataContractUtils() {}
 }

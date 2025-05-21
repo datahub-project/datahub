@@ -234,6 +234,18 @@ public class PoliciesConfig {
           "Manage Organization Display Preferences",
           "Create, update, and delete organization display preferences.");
 
+  public static final Privilege PROPOSE_CREATE_GLOSSARY_TERM =
+      Privilege.of(
+          "PROPOSE_CREATE_GLOSSARY_TERM",
+          "Propose Create Glossary Term",
+          "Propose the creation of new Glossary Term.");
+
+  public static final Privilege PROPOSE_CREATE_GLOSSARY_NODE =
+      Privilege.of(
+          "PROPOSE_CREATE_GLOSSARY_NODE",
+          "Propose Create Glossary Node",
+          "Propose the creation of new Glossary Node.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -273,7 +285,9 @@ public class PoliciesConfig {
           GET_PLATFORM_EVENTS_PRIVILEGE,
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_MONITORS,
-          MANAGE_ORGANIZATION_DISPLAY_PREFERENCES);
+          MANAGE_ORGANIZATION_DISPLAY_PREFERENCES,
+          PROPOSE_CREATE_GLOSSARY_TERM,
+          PROPOSE_CREATE_GLOSSARY_NODE);
 
   // Resource Privileges //
 
@@ -620,6 +634,13 @@ public class PoliciesConfig {
           "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
           "Manage Data Contract Proposals",
           "The ability to manage a proposal for a Data Contract");
+
+  public static final Privilege PROPOSE_DATA_CONTRACT_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_DATA_CONTRACT",
+          "Propose Data Contract",
+          "The ability to propose Data Contract for an entity.");
+
   // End acryl-main
 
   public static final Privilege DATA_READ_ONLY_PRIVILEGE =
@@ -825,7 +846,8 @@ public class PoliciesConfig {
                       EDIT_ENTITY_MONITORS, // Acryl main only
                       EDIT_ENTITY_SQL_ASSERTION_MONITORS, // Acryl main only
                       EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE, // Acryl main only
-                      MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE) // Acryl main only
+                      MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS_PRIVILEGE, // Acryl main only
+                      PROPOSE_DATA_CONTRACT_PRIVILEGE) // Acryl main only
                   )
               .flatMap(Collection::stream)
               .collect(Collectors.toList()));

@@ -4,6 +4,7 @@ import lodash from 'lodash';
 import React from 'react';
 import styled from 'styled-components';
 
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     AssertionWithMonitorDetails,
@@ -59,6 +60,7 @@ type Props = {
     builderState: DataContractBuilderState;
     setBuilderState: React.Dispatch<React.SetStateAction<DataContractBuilderState>>;
     handlePropose?: () => void;
+    entityData?: GenericEntityProperties | null;
 };
 
 /**
@@ -74,6 +76,7 @@ export const DataContractBuilder = ({
     builderState,
     setBuilderState,
     handlePropose,
+    entityData,
 }: Props) => {
     const isEdit = !!initialState;
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
@@ -92,6 +95,9 @@ export const DataContractBuilder = ({
     const dataQualityAssertions = assertionGroups
         .filter((group) => DATA_QUALITY_ASSERTION_TYPES.has(group.type))
         .flatMap((group) => group.assertions || []);
+
+    const canEditDataContract = entityData?.privileges?.canEditDataContract;
+    const canProposeDataContract = entityData?.privileges?.canProposeDataContract;
 
     /**
      * Upserts the Data Contract for an entity
@@ -207,11 +213,15 @@ export const DataContractBuilder = ({
                 <CancelButton onClick={onCancel}>Cancel</CancelButton>
                 <div>
                     <Tooltip title="Propose changes to this asset's contract">
-                        <ProposeButton disabled={editDisabled} onClick={handlePropose}>
+                        <ProposeButton disabled={editDisabled || !canProposeDataContract} onClick={handlePropose}>
                             Propose
                         </ProposeButton>
                     </Tooltip>
-                    <SaveButton disabled={editDisabled} type="primary" onClick={upsertDataContract}>
+                    <SaveButton
+                        disabled={editDisabled || !canEditDataContract}
+                        type="primary"
+                        onClick={upsertDataContract}
+                    >
                         Save
                     </SaveButton>
                 </div>

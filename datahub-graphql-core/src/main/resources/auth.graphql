@@ -423,6 +423,16 @@ type EntityPrivileges {
   Whether the user can view dataset operations
   """
   canViewDatasetOperations: Boolean
+
+  """
+  Whether the user can edit data contacts
+  """
+  canEditDataContract: Boolean
+
+  """
+  Whether the user can propose data contacts
+  """
+  canProposeDataContract: Boolean
 }
 
 """
