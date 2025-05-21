@@ -38,7 +38,7 @@ class AllowedTypes(Enum):
 
 
 class AllowedValue(ConfigModel):
-    value: Union[int, float, str]
+    value: Union[float, int, str]
     description: Optional[str] = None
 
 

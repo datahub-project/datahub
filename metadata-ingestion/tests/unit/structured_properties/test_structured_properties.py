@@ -28,6 +28,27 @@ def sample_yaml_content():
   allowed_values:
     - value: test_value
       description: Test value description
+- id: test_property_int
+  type: number
+  description: Test description int
+  display_name: Test Property int
+  entity_types:
+    - dataset
+  cardinality: SINGLE
+  allowed_values:
+    - value: 1
+      description: Test value description
+- id: test_property_float
+  type: number
+  description: Test description float
+  display_name: Test Property float
+  entity_types:
+    - dataset
+  cardinality: SINGLE
+  allowed_values:
+    - value: 2.1
+      description: Test value description
+
 """
 
 
@@ -76,7 +97,7 @@ def test_structured_properties_validate_entity_types():
 
 def test_structured_properties_from_yaml(sample_yaml_file):
     props = StructuredProperties.from_yaml(sample_yaml_file)
-    assert len(props) == 1
+    assert len(props) == 3
     assert props[0].id == "test_property"
     assert props[0].type == "urn:li:dataType:datahub.string"
     assert props[0].description == "Test description"
@@ -85,6 +106,25 @@ def test_structured_properties_from_yaml(sample_yaml_file):
     assert props[0].allowed_values
     assert len(props[0].allowed_values) == 1
     assert props[0].allowed_values[0].value == "test_value"
+
+    assert props[1].id == "test_property_int"
+    assert props[1].type == "urn:li:dataType:datahub.number"
+    assert props[1].description == "Test description int"
+    assert props[1].display_name
+    assert props[1].display_name == "Test Property int"
+    assert props[1].allowed_values
+    assert len(props[1].allowed_values) == 1
+    assert props[1].allowed_values[0].value == 1
+    assert props[1].allowed_values[0].value == 1
+
+    assert props[2].id == "test_property_float"
+    assert props[2].type == "urn:li:dataType:datahub.number"
+    assert props[2].description == "Test description float"
+    assert props[2].display_name
+    assert props[2].display_name == "Test Property float"
+    assert props[2].allowed_values
+    assert len(props[2].allowed_values) == 1
+    assert props[2].allowed_values[0].value == 2.1
 
 
 def test_structured_properties_generate_mcps():

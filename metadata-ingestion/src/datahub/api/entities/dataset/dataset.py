@@ -90,7 +90,7 @@ class StrictModel(BaseModel):
 
 
 # Define type aliases for the complex types
-PropertyValue: TypeAlias = Union[float, str]
+PropertyValue: TypeAlias = Union[float, int, str]
 PropertyValueList: TypeAlias = List[PropertyValue]
 StructuredProperties: TypeAlias = Dict[str, Union[PropertyValue, PropertyValueList]]
 
