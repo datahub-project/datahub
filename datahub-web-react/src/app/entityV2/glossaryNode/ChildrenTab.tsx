@@ -67,6 +67,7 @@ function ChildrenTab() {
         .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
 
     const hasTermsOrNodes = !!childNodes?.length || !!childTerms?.length;
+    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
 
     return (
         <>
@@ -126,6 +127,7 @@ function ChildrenTab() {
                     entityType={EntityType.GlossaryTerm}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetch}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                 />
             )}
             {isCreateNodeModalVisible && (
@@ -133,6 +135,7 @@ function ChildrenTab() {
                     entityType={EntityType.GlossaryNode}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetch}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                 />
             )}
         </>
