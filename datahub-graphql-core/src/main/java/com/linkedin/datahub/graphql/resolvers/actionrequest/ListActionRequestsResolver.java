@@ -11,20 +11,15 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposalUtils;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -35,16 +30,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /** Resolver responsible for resolving the 'listActionRequests' Query. */
 public class ListActionRequestsResolver
     implements DataFetcher<CompletableFuture<ListActionRequestsResult>> {
 
   private static final String CREATED_FIELD_NAME = "created";
-  private static final String ASSIGNED_USERS_FIELD_NAME = "assignedUsers";
-  private static final String ASSIGNED_GROUPS_FIELD_NAME = "assignedGroups";
-  private static final String ASSIGNED_ROLES_FIELD_NAME = "assignedRoles";
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
@@ -113,7 +104,7 @@ public class ListActionRequestsResolver
             }
 
             final Filter baseFilter =
-                createFilter(
+                ProposalUtils.createFilter(
                     actorUrn,
                     groupUrns,
                     roleUrns,
@@ -181,224 +172,5 @@ public class ListActionRequestsResolver
         },
         this.getClass().getSimpleName(),
         "get");
-  }
-
-  Filter createFilter(
-      final @Nullable Urn actorUrn,
-      final @Nullable List<Urn> groupUrns,
-      final @Nullable List<Urn> roleUrns,
-      final @Nullable ActionRequestType type,
-      final @Nullable ActionRequestStatus status,
-      final @Nullable Urn resourceUrn,
-      final @Nullable Long startTimestampMillis,
-      final @Nullable Long endTimestampMillis) {
-    final Filter filter = new Filter();
-    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
-
-    if (hasAssigneeFilters(actorUrn, groupUrns, roleUrns)) {
-      addAssigneeFilters(
-          disjunction,
-          actorUrn,
-          groupUrns,
-          roleUrns,
-          type,
-          status,
-          resourceUrn,
-          startTimestampMillis,
-          endTimestampMillis);
-    } else {
-      addNonAssigneeFilters(
-          disjunction, type, status, resourceUrn, startTimestampMillis, endTimestampMillis);
-    }
-
-    filter.setOr(disjunction);
-    return filter;
-  }
-
-  private boolean hasAssigneeFilters(Urn actorUrn, List<Urn> groupUrns, List<Urn> roleUrns) {
-    return actorUrn != null
-        || (groupUrns != null && !groupUrns.isEmpty())
-        || (roleUrns != null && !roleUrns.isEmpty());
-  }
-
-  private void addAssigneeFilters(
-      ConjunctiveCriterionArray disjunction,
-      Urn actorUrn,
-      List<Urn> groupUrns,
-      List<Urn> roleUrns,
-      ActionRequestType type,
-      ActionRequestStatus status,
-      Urn resourceUrn,
-      Long startTimestampMillis,
-      Long endTimestampMillis) {
-    if (actorUrn != null) {
-      disjunction.add(
-          createUserFilterConjunction(
-              actorUrn, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
-    }
-    if (groupUrns != null) {
-      disjunction.addAll(
-          createGroupFilterDisjunction(
-              groupUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
-    }
-    if (roleUrns != null) {
-      disjunction.addAll(
-          createRoleFilterDisjunction(
-              roleUrns, type, status, startTimestampMillis, endTimestampMillis));
-    }
-  }
-
-  private void addNonAssigneeFilters(
-      ConjunctiveCriterionArray disjunction,
-      ActionRequestType type,
-      ActionRequestStatus status,
-      Urn resourceUrn,
-      Long startTimestampMillis,
-      Long endTimestampMillis) {
-    if (hasNonAssigneeFilters(
-        type, status, resourceUrn, startTimestampMillis, endTimestampMillis)) {
-      final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
-      final CriterionArray andCriterion = new CriterionArray();
-
-      if (status != null) {
-        andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
-      }
-      if (type != null) {
-        andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
-      }
-      if (resourceUrn != null) {
-        andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
-      }
-      if (startTimestampMillis != null) {
-        andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
-      }
-      if (endTimestampMillis != null) {
-        andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
-      }
-
-      conjunction.setAnd(andCriterion);
-      disjunction.add(conjunction);
-    }
-  }
-
-  private boolean hasNonAssigneeFilters(
-      ActionRequestType type,
-      ActionRequestStatus status,
-      Urn resourceUrn,
-      Long startTimestampMillis,
-      Long endTimestampMillis) {
-    return status != null
-        || type != null
-        || resourceUrn != null
-        || startTimestampMillis != null
-        || endTimestampMillis != null;
-  }
-
-  private <T> void addCriterionIfNotNull(
-      CriterionArray criteria,
-      T value,
-      java.util.function.Function<T, Criterion> criterionCreator) {
-    if (value != null) {
-      criteria.add(criterionCreator.apply(value));
-    }
-  }
-
-  private ConjunctiveCriterion createUserFilterConjunction(
-      final Urn userUrn,
-      final @Nullable ActionRequestType type,
-      final @Nullable ActionRequestStatus status,
-      final @Nullable Urn resourceUrn,
-      final @Nullable Long startTimestampMillis,
-      final @Nullable Long endTimestampMillis) {
-    final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
-    final CriterionArray andCriterion = new CriterionArray();
-    andCriterion.add(
-        CriterionUtils.buildCriterion(
-            ASSIGNED_USERS_FIELD_NAME + ".keyword", Condition.EQUAL, userUrn.toString()));
-    if (status != null) {
-      andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
-    }
-    if (type != null) {
-      andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
-    }
-    if (resourceUrn != null) {
-      andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
-    }
-    if (startTimestampMillis != null) {
-      andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
-    }
-    if (endTimestampMillis != null) {
-      andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
-    }
-    conjunction.setAnd(andCriterion);
-    return conjunction;
-  }
-
-  private List<ConjunctiveCriterion> createGroupFilterDisjunction(
-      final List<Urn> groupUrns,
-      final @Nullable ActionRequestType type,
-      final @Nullable ActionRequestStatus status,
-      final @Nullable Urn resourceUrn,
-      final @Nullable Long startTimestampMillis,
-      final @Nullable Long endTimestampMillis) {
-    final List<ConjunctiveCriterion> disjunction = new ArrayList<>();
-    // Create a new filter for each group urn, where the urn, type, and status must all match.
-    for (Urn groupUrn : groupUrns) {
-      final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
-      final CriterionArray andCriterion = new CriterionArray();
-      andCriterion.add(
-          CriterionUtils.buildCriterion(
-              ASSIGNED_GROUPS_FIELD_NAME + ".keyword", Condition.EQUAL, groupUrn.toString()));
-      if (status != null) {
-        andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
-      }
-      if (type != null) {
-        andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
-      }
-      if (resourceUrn != null) {
-        andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
-      }
-      if (startTimestampMillis != null) {
-        andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
-      }
-      if (endTimestampMillis != null) {
-        andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
-      }
-      conjunction.setAnd(andCriterion);
-      disjunction.add(conjunction);
-    }
-    return disjunction;
-  }
-
-  private List<ConjunctiveCriterion> createRoleFilterDisjunction(
-      final List<Urn> roleUrns,
-      final @Nullable ActionRequestType type,
-      final @Nullable ActionRequestStatus status,
-      final @Nullable Long startTimestampMillis,
-      final @Nullable Long endTimestampMillis) {
-    final List<ConjunctiveCriterion> disjunction = new ArrayList<>();
-    // Create a new filter for each role urn, where the urn, type, and status must all match.
-    for (Urn groupUrn : roleUrns) {
-      final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
-      final CriterionArray andCriterion = new CriterionArray();
-      andCriterion.add(
-          CriterionUtils.buildCriterion(
-              ASSIGNED_ROLES_FIELD_NAME + ".keyword", Condition.EQUAL, groupUrn.toString()));
-      if (status != null) {
-        andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
-      }
-      if (type != null) {
-        andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
-      }
-      if (startTimestampMillis != null) {
-        andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
-      }
-      if (endTimestampMillis != null) {
-        andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
-      }
-      conjunction.setAnd(andCriterion);
-      disjunction.add(conjunction);
-    }
-    return disjunction;
   }
 }

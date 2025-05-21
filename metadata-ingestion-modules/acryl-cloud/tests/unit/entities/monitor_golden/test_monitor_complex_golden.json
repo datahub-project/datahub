@@ -16,6 +16,111 @@
                 "state": "TRAINING",
                 "reviewedAt": 1234567890
             },
+            "assertionMonitor": {
+                "assertions": [
+                    {
+                        "assertion": "urn:li:assertion:assertion1",
+                        "schedule": {
+                            "cron": "0 0 * * *",
+                            "timezone": "UTC"
+                        },
+                        "parameters": {
+                            "type": "DATASET_FRESHNESS",
+                            "datasetFreshnessParameters": {
+                                "sourceType": "INFORMATION_SCHEMA",
+                                "field": {
+                                    "path": "last_updated_schema_field_path",
+                                    "type": "long",
+                                    "nativeType": "long",
+                                    "kind": "LAST_MODIFIED"
+                                },
+                                "auditLog": {
+                                    "operationTypes": [
+                                        "operation1"
+                                    ],
+                                    "userName": "username"
+                                },
+                                "dataHubOperation": {
+                                    "operationTypes": [
+                                        "operation2"
+                                    ],
+                                    "customOperationTypes": [
+                                        "operation3"
+                                    ]
+                                }
+                            }
+                        },
+                        "context": {
+                            "embeddedAssertions": [
+                                {
+                                    "evaluationTimeWindow": {
+                                        "startTimeMillis": 1234567890,
+                                        "length": {
+                                            "unit": "HOUR",
+                                            "multiple": 12
+                                        }
+                                    },
+                                    "context": {
+                                        "key": "value"
+                                    }
+                                }
+                            ],
+                            "inferenceDetails": {
+                                "modelId": "model_id",
+                                "modelVersion": "model_version",
+                                "confidence": 0.9,
+                                "parameters": {
+                                    "param1": "value1"
+                                },
+                                "generatedAt": 1234567890
+                            },
+                            "stdDev": 123.456
+                        }
+                    }
+                ],
+                "settings": {
+                    "adjustmentSettings": {
+                        "algorithm": "CUSTOM",
+                        "algorithmName": "custom_algorithm",
+                        "context": {
+                            "key": "value"
+                        },
+                        "exclusionWindows": [
+                            {
+                                "type": "FIXED_RANGE",
+                                "displayName": "fixed_range",
+                                "fixedRange": {
+                                    "startTimeMillis": 1234567890,
+                                    "endTimeMillis": 1234568790
+                                }
+                            }
+                        ],
+                        "anomalyExclusionWindows": [
+                            {
+                                "type": "FIXED_RANGE",
+                                "displayName": "fixed_range",
+                                "fixedRange": {
+                                    "startTimeMillis": 1234567890,
+                                    "endTimeMillis": 1234568790
+                                }
+                            }
+                        ],
+                        "trainingDataLookbackWindowDays": 30,
+                        "sensitivity": {
+                            "level": 5
+                        }
+                    },
+                    "capabilities": [
+                        "ASSERTION_EVALUATION"
+                    ]
+                },
+                "bootstrapStatus": {
+                    "metricsCubeBootstrapStatus": {
+                        "state": "PENDING",
+                        "message": "Bootstrap in progress"
+                    }
+                }
+            },
             "executorId": "executor_id"
         }
     }

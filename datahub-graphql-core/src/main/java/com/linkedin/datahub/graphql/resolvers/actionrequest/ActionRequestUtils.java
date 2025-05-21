@@ -700,7 +700,7 @@ public class ActionRequestUtils {
   }
 
   @Value
-  static class AssignedUrns {
+  public static class AssignedUrns {
     List<Urn> groupUrns;
     List<Urn> roleUrns;
   }

@@ -350,6 +350,11 @@ type EntityPrivileges {
   canEditSchemaFieldDescription: Boolean
 
   """
+  Whether or not a user can update a schema field structured property for an asset
+  """
+  canEditSchemaFieldStructuredProperties: Boolean
+
+  """
   Whether or not a user can propose a description for an asset
   """
   canProposeDescription: Boolean
@@ -393,6 +398,11 @@ type EntityPrivileges {
   Whether or not a user can propose a schema field glossary terms for an asset
   """
   canProposeSchemaFieldGlossaryTerms: Boolean
+
+  """
+  Whether or not a user can propose a schema field structured property for an asset
+  """
+  canProposeSchemaFieldStructuredProperties: Boolean
 
   """
   Whether or not a user can share this entity with another instance

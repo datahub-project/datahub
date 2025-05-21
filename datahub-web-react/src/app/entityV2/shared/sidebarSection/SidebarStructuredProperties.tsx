@@ -46,6 +46,12 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
     const canProposeProps =
         !!entityData?.parent?.privileges?.canProposeStructuredProperties ||
         !!entityData?.privileges?.canProposeStructuredProperties;
+    const canEditSchemaFieldProps =
+        !!entityData?.parent?.privileges?.canEditSchemaFieldStructuredProperties ||
+        !!entityData?.privileges?.canEditSchemaFieldStructuredProperties;
+    const canProposeSchemaFieldProps =
+        !!entityData?.parent?.privileges?.canProposeSchemaFieldStructuredProperties ||
+        !!entityData?.privileges?.canProposeSchemaFieldStructuredProperties;
     const [isPropModalVisible, setIsPropModalVisible] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const isSchemaSidebar = properties?.isSchemaSidebar || false;
@@ -206,8 +212,8 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                     refetch={isSchemaSidebar ? properties?.refetch : undefined}
                     associatedUrn={isSchemaSidebar ? properties?.fieldEntity?.urn : undefined}
                     fieldEntity={isSchemaSidebar ? properties?.fieldEntity : undefined}
-                    canEdit={canEditProps}
-                    canPropose={canProposeProps}
+                    canEdit={isSchemaSidebar ? canEditSchemaFieldProps : canEditProps}
+                    canPropose={isSchemaSidebar ? canProposeSchemaFieldProps : canProposeProps}
                 />
             )}
             {selectedActionRequest && (

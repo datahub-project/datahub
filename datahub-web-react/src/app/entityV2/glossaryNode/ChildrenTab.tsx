@@ -51,6 +51,7 @@ function ChildrenTab() {
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const entityUrn = entityData?.urn;
+    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
 
     const { scrollRef, data, loading, searchQuery, setSearchQuery, refetch } = useGlossaryChildren({ entityUrn });
 
@@ -67,7 +68,59 @@ function ChildrenTab() {
         .sort((termA, termB) => sortGlossaryTerms(entityRegistry, termA, termB));
 
     const hasTermsOrNodes = !!childNodes?.length || !!childTerms?.length;
-    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+
+    return (
+        <>
+            {searchQuery || hasTermsOrNodes ? (
+                <ChildrenTabWrapper>
+                    <HeaderWrapper>
+                        <SearchBar
+                            placeholder="Search..."
+                            onChange={setSearchQuery}
+                            value={searchQuery}
+                            allowClear
+                            width={hasTermsOrNodes ? 'auto' : '300px'}
+                        />
+                        {hasTermsOrNodes && (
+                            <CreateButtonWrapper>
+                                <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
+                                    <Button
+                                        data-testid="add-term-button"
+                                        onClick={() => setIsCreateTermModalVisible(true)}
+                                    >
+                                        <StyledPlusOutlined /> Add Term
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
+                                    <Button
+                                        data-testid="add-term-group-button-v2"
+                                        variant="outline"
+                                        onClick={() => setIsCreateNodeModalVisible(true)}
+                                    >
+                                        <StyledPlusOutlined /> Add Term Group
+                                    </Button>
+                                </Tooltip>
+                            </CreateButtonWrapper>
+                        )}
+                    </HeaderWrapper>
+                    <GlossaryEntitiesList
+                        nodes={(childNodes as GlossaryNode[]) || []}
+                        terms={(childTerms as GlossaryTerm[]) || []}
+                    />
+                    {loading && (
+                        <LoadingWrapper>
+                            <Loading marginTop={0} height={24} />
+                        </LoadingWrapper>
+                    )}
+                    <div ref={scrollRef} />
+                </ChildrenTabWrapper>
+            ) : (
+                <EmptyGlossarySection
+                    description="No Terms or Term Groups"
+                    onAddTerm={() => setIsCreateTermModalVisible(true)}
+                    onAddtermGroup={() => setIsCreateNodeModalVisible(true)}
+                />
+            )}
 
     return (
         <>
@@ -125,17 +178,17 @@ function ChildrenTab() {
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetch}
-                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                 />
             )}
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetch}
-                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                 />
             )}
         </>

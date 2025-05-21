@@ -189,7 +189,11 @@ public class AuthorizationUtils {
         context.getOperationContext(), PoliciesConfig.MANAGE_GLOBAL_OWNERSHIP_TYPES);
   }
 
-  public static boolean canEditProperties(@Nonnull Urn targetUrn, @Nonnull QueryContext context) {
+  public static boolean canEditProperties(
+      @Nonnull Urn targetUrn, @Nonnull QueryContext context, String subResource) {
+
+    Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
+
     // If you either have all entity privileges, or have the specific privileges required, you are
     // authorized.
     final DisjunctivePrivilegeGroup orPrivilegeGroups =
@@ -197,7 +201,10 @@ public class AuthorizationUtils {
             ImmutableList.of(
                 ALL_PRIVILEGES_GROUP,
                 new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.EDIT_DATASET_COL_PROPERTIES_PRIVILEGE.getType()
+                            : PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);

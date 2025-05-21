@@ -54,14 +54,12 @@ import com.linkedin.metadata.aspect.ActionRequestAspectArray;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.CriterionArray;
-import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.*;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -97,6 +95,10 @@ public class ProposalUtils {
   public static final String PROPOSALS_ASPECT_NAME = "proposals";
   public static final String SCHEMA_PROPOSALS_ASPECT_NAME = "schemaProposals";
   public static final String CONTAINER_ASPECT_NAME = "container";
+
+  private static final String ASSIGNED_USERS_FIELD_NAME = "assignedUsers";
+  private static final String ASSIGNED_GROUPS_FIELD_NAME = "assignedGroups";
+  private static final String ASSIGNED_ROLES_FIELD_NAME = "assignedRoles";
 
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =
       new ConjunctivePrivilegeGroup(
@@ -1308,6 +1310,225 @@ public class ProposalUtils {
 
     filter.setOr(disjunction);
     return filter;
+  }
+
+  public static Filter createFilter(
+      final @Nullable Urn actorUrn,
+      final @Nullable List<Urn> groupUrns,
+      final @Nullable List<Urn> roleUrns,
+      final @Nullable ActionRequestType type,
+      final @Nullable com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      final @Nullable Urn resourceUrn,
+      final @Nullable Long startTimestampMillis,
+      final @Nullable Long endTimestampMillis) {
+    final Filter filter = new Filter();
+    final ConjunctiveCriterionArray disjunction = new ConjunctiveCriterionArray();
+
+    if (hasAssigneeFilters(actorUrn, groupUrns, roleUrns)) {
+      addAssigneeFilters(
+          disjunction,
+          actorUrn,
+          groupUrns,
+          roleUrns,
+          type,
+          status,
+          resourceUrn,
+          startTimestampMillis,
+          endTimestampMillis);
+    } else {
+      addNonAssigneeFilters(
+          disjunction, type, status, resourceUrn, startTimestampMillis, endTimestampMillis);
+    }
+
+    filter.setOr(disjunction);
+    return filter;
+  }
+
+  public static boolean hasAssigneeFilters(Urn actorUrn, List<Urn> groupUrns, List<Urn> roleUrns) {
+    return actorUrn != null
+        || (groupUrns != null && !groupUrns.isEmpty())
+        || (roleUrns != null && !roleUrns.isEmpty());
+  }
+
+  public static void addAssigneeFilters(
+      ConjunctiveCriterionArray disjunction,
+      Urn actorUrn,
+      List<Urn> groupUrns,
+      List<Urn> roleUrns,
+      ActionRequestType type,
+      com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      Urn resourceUrn,
+      Long startTimestampMillis,
+      Long endTimestampMillis) {
+    if (actorUrn != null) {
+      disjunction.add(
+          createUserFilterConjunction(
+              actorUrn, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
+    }
+    if (groupUrns != null) {
+      disjunction.addAll(
+          createGroupFilterDisjunction(
+              groupUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
+    }
+    if (roleUrns != null) {
+      disjunction.addAll(
+          createRoleFilterDisjunction(
+              roleUrns, type, status, startTimestampMillis, endTimestampMillis));
+    }
+  }
+
+  public static void addNonAssigneeFilters(
+      ConjunctiveCriterionArray disjunction,
+      ActionRequestType type,
+      com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      Urn resourceUrn,
+      Long startTimestampMillis,
+      Long endTimestampMillis) {
+    if (hasNonAssigneeFilters(
+        type, status, resourceUrn, startTimestampMillis, endTimestampMillis)) {
+      final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+      final CriterionArray andCriterion = new CriterionArray();
+
+      if (status != null) {
+        andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
+      }
+      if (type != null) {
+        andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
+      }
+      if (resourceUrn != null) {
+        andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
+      }
+      if (startTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
+      }
+      if (endTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
+      }
+
+      conjunction.setAnd(andCriterion);
+      disjunction.add(conjunction);
+    }
+  }
+
+  public static boolean hasNonAssigneeFilters(
+      ActionRequestType type,
+      com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      Urn resourceUrn,
+      Long startTimestampMillis,
+      Long endTimestampMillis) {
+    return status != null
+        || type != null
+        || resourceUrn != null
+        || startTimestampMillis != null
+        || endTimestampMillis != null;
+  }
+
+  public static <T> void addCriterionIfNotNull(
+      CriterionArray criteria,
+      T value,
+      java.util.function.Function<T, Criterion> criterionCreator) {
+    if (value != null) {
+      criteria.add(criterionCreator.apply(value));
+    }
+  }
+
+  public static ConjunctiveCriterion createUserFilterConjunction(
+      final Urn userUrn,
+      final @Nullable ActionRequestType type,
+      final @Nullable com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      final @Nullable Urn resourceUrn,
+      final @Nullable Long startTimestampMillis,
+      final @Nullable Long endTimestampMillis) {
+    final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+    final CriterionArray andCriterion = new CriterionArray();
+    andCriterion.add(
+        CriterionUtils.buildCriterion(
+            ASSIGNED_USERS_FIELD_NAME + ".keyword", Condition.EQUAL, userUrn.toString()));
+    if (status != null) {
+      andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
+    }
+    if (type != null) {
+      andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
+    }
+    if (resourceUrn != null) {
+      andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
+    }
+    if (startTimestampMillis != null) {
+      andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
+    }
+    if (endTimestampMillis != null) {
+      andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
+    }
+    conjunction.setAnd(andCriterion);
+    return conjunction;
+  }
+
+  public static List<ConjunctiveCriterion> createGroupFilterDisjunction(
+      final List<Urn> groupUrns,
+      final @Nullable ActionRequestType type,
+      final @Nullable com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      final @Nullable Urn resourceUrn,
+      final @Nullable Long startTimestampMillis,
+      final @Nullable Long endTimestampMillis) {
+    final List<ConjunctiveCriterion> disjunction = new ArrayList<>();
+    // Create a new filter for each group urn, where the urn, type, and status must all match.
+    for (Urn groupUrn : groupUrns) {
+      final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+      final CriterionArray andCriterion = new CriterionArray();
+      andCriterion.add(
+          CriterionUtils.buildCriterion(
+              ASSIGNED_GROUPS_FIELD_NAME + ".keyword", Condition.EQUAL, groupUrn.toString()));
+      if (status != null) {
+        andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
+      }
+      if (type != null) {
+        andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
+      }
+      if (resourceUrn != null) {
+        andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
+      }
+      if (startTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
+      }
+      if (endTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
+      }
+      conjunction.setAnd(andCriterion);
+      disjunction.add(conjunction);
+    }
+    return disjunction;
+  }
+
+  public static List<ConjunctiveCriterion> createRoleFilterDisjunction(
+      final List<Urn> roleUrns,
+      final @Nullable ActionRequestType type,
+      final @Nullable com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      final @Nullable Long startTimestampMillis,
+      final @Nullable Long endTimestampMillis) {
+    final List<ConjunctiveCriterion> disjunction = new ArrayList<>();
+    // Create a new filter for each role urn, where the urn, type, and status must all match.
+    for (Urn groupUrn : roleUrns) {
+      final ConjunctiveCriterion conjunction = new ConjunctiveCriterion();
+      final CriterionArray andCriterion = new CriterionArray();
+      andCriterion.add(
+          CriterionUtils.buildCriterion(
+              ASSIGNED_ROLES_FIELD_NAME + ".keyword", Condition.EQUAL, groupUrn.toString()));
+      if (status != null) {
+        andCriterion.add(ActionRequestUtils.createStatusCriterion(status));
+      }
+      if (type != null) {
+        andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
+      }
+      if (startTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));
+      }
+      if (endTimestampMillis != null) {
+        andCriterion.add(ActionRequestUtils.createEndTimestampCriterion(endTimestampMillis));
+      }
+      conjunction.setAnd(andCriterion);
+      disjunction.add(conjunction);
+    }
+    return disjunction;
   }
 
   public static void validateProposalUrns(@Nonnull final Set<Urn> proposalUrns) {
