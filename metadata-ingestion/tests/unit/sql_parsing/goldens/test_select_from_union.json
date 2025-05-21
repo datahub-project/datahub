@@ -19,7 +19,11 @@
                 },
                 "native_column_type": "VARCHAR"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "'orders_10' AS \"LABEL\""
+            }
         },
         {
             "downstream": {
@@ -41,9 +45,14 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf100.orders,PROD)",
                     "column": "totalprice"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(\"ORDERS\".\"TOTALPRICE\") AS \"TOTAL_AGG\""
+            }
         }
     ],
+    "joins": [],
     "debug_info": {
         "confidence": 0.9,
         "generalized_statement": "SELECT ? AS label, SUM(totalprice) AS total_agg FROM snowflake_sample_data.tpch_sf10.orders UNION ALL SELECT ? AS label, SUM(totalprice) AS total_agg FROM snowflake_sample_data.tpch_sf100.orders"

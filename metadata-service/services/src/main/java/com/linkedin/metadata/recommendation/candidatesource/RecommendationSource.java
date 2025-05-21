@@ -84,10 +84,4 @@ public interface RecommendationSource {
             .setRenderType(getRenderType())
             .setContent(new RecommendationContentArray(recommendations)));
   }
-
-  // retaining this for backward compatibility
-  default Optional<RecommendationModule> getRecommendationModule(
-      @Nonnull OperationContext opContext, @Nonnull RecommendationRequestContext requestContext) {
-    return getRecommendationModule(opContext, requestContext);
-  }
 }

@@ -14,7 +14,6 @@ import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import com.linkedin.metadata.search.elasticsearch.indexbuilder.EntityIndexBuilders;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.SettingsService;
@@ -85,8 +84,6 @@ public class MCLSpringCommonTestConfiguration {
 
   @MockBean(name = "duheKafkaConsumerFactory")
   public DefaultKafkaConsumerFactory<String, GenericRecord> defaultKafkaConsumerFactory;
-
-  @MockBean public EntityIndexBuilders entityIndexBuilders;
 
   @Bean(name = "systemOperationContext")
   public OperationContext operationContext(

@@ -59,9 +59,9 @@ export const Card = ({
                             </Title>
                             <SubTitleContainer>
                                 <SubTitle>{subTitle}</SubTitle>
-                                {button}
                             </SubTitleContainer>
                         </TitleContainer>
+                        {button}
                     </Header>
                     {children}
                 </CardContainer>

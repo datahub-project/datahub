@@ -43,10 +43,12 @@ const InferDescriptionButton = styled(Button)`
     border-radius: 4px;
     align-items: center;
     justify-content: flex-start;
+
     span,
     path {
         color: ${(props) => props.theme.styles['primary-color']} !important;
     }
+
     &:hover {
         background-color: ${colors.gray[100]} !important;
     }
@@ -69,6 +71,7 @@ const DescriptionContainer = styled.div`
     line-height: 24px;
     color: ${REDESIGN_COLORS.DARK_GREY};
     vertical-align: middle;
+
     &:hover ${EditIcon} {
         display: inline-block;
     }
@@ -76,16 +79,20 @@ const DescriptionContainer = styled.div`
     &:hover ${InferDescriptionButton} {
         background-color: #f1f2f9;
     }
+
     & ins.diff {
         background-color: #b7eb8f99;
         text-decoration: none;
+
         &:hover {
             background-color: #b7eb8faa;
         }
     }
+
     & del.diff {
         background-color: #ffa39e99;
         text-decoration: line-through;
+
         &: hover {
             background-color: #ffa39eaa;
         }

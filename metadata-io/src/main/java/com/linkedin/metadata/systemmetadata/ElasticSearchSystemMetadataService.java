@@ -107,6 +107,11 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
+  public ESIndexBuilder getIndexBuilder() {
+    return _indexBuilder;
+  }
+
+  @Override
   public void deleteAspect(String urn, String aspect) {
     _esDAO.deleteByUrnAspect(urn, aspect);
   }

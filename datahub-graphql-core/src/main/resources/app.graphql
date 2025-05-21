@@ -1458,6 +1458,11 @@ type FeatureFlagsConfig {
   showIntroducePage: Boolean!
 
   """
+  If turned on, show the re-designed Ingestions page
+  """
+  showIngestionPageRedesign: Boolean!
+
+  """
   # If enabled, show the expand more button (>>) in the lineage graph
   """
   showLineageExpandMore: Boolean!

@@ -89,9 +89,6 @@ def generate_temp_yaml(template_path: Path, output_path: Path, test_id: str):
 
 
 class ActionTestEnv(BaseModel):
-    class Config:
-        allow_extra = True
-
     DATAHUB_ACTIONS_DOC_PROPAGATION_MAX_PROPAGATION_FANOUT: int
 
 

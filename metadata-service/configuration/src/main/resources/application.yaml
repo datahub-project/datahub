@@ -281,6 +281,7 @@ elasticsearch:
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
+    minSearchFilterLength: ${ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH:3}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
     docIds:
       schemaField:
@@ -651,71 +652,135 @@ healthCheck:
 
 featureFlags:
   showSimplifiedHomepageByDefault: ${SHOW_SIMPLIFIED_HOMEPAGE_BY_DEFAULT:false} # shows a simplified homepage with just datasets, charts and dashboards by default to users. this can be configured in user settings
-  lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:true} # Enables in-memory cache for searchAcrossLineage query
-  graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
-  pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with main line ElasticSearch releases after 7.10. OpenSearch is unsupported, plans to eventually target OpenSearch 2.4+ with a divergent client
-  alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false} # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
-  searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true} # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
-  readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false} # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
-  showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false} #Whether we should show AccessManagement tab in the datahub UI.
-  showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true} # Enables showing the search filters V2 experience.
-  showBrowseV2: ${SHOW_BROWSE_V2:true} # Enables showing the browse v2 sidebar experience.
-  platformBrowseV2: ${PLATFORM_BROWSE_V2:true} # Enables the platform browse experience, instead of the entity-oriented browse default.
-  lineageGraphV2: ${LINEAGE_GRAPH_V2:true} # Enables the new lineage visualization.
+  lineageSearchCacheEnabled: ${LINEAGE_SEARCH_CACHE_ENABLED:true}
+  # Enables in-memory cache for searchAcrossLineage query
+  graphServiceDiffModeEnabled: ${GRAPH_SERVICE_DIFF_MODE_ENABLED:true}
+  # Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading
+  pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false}
+  # Enables creation of point in time snapshots for the scroll API, only works with main line ElasticSearch releases after 7.10. OpenSearch is unsupported, plans to eventually target OpenSearch 2.4+ with a divergent client
+  alwaysEmitChangeLog: ${ALWAYS_EMIT_CHANGE_LOG:false}
+  # Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.
+  searchServiceDiffModeEnabled: ${SEARCH_SERVICE_DIFF_MODE_ENABLED:true}
+  # Enables diff mode for search document writes, reduces amount of writes to ElasticSearch documents for no-ops
+  readOnlyModeEnabled: ${READ_ONLY_MODE_ENABLED:false}
+  # Enables read only mode for an instance. Right now this only affects ability to edit user profile image URL but can be extended
+  showAccessManagement: ${SHOW_ACCESS_MANAGEMENT:false}
+  #Whether we should show AccessManagement tab in the datahub UI.
+  showSearchFiltersV2: ${SHOW_SEARCH_FILTERS_V2:true}
+  # Enables showing the search filters V2 experience.
+  showBrowseV2: ${SHOW_BROWSE_V2:true}
+  # Enables showing the browse v2 sidebar experience.
+  platformBrowseV2: ${PLATFORM_BROWSE_V2:true}
+  # Enables the platform browse experience, instead of the entity-oriented browse default.
+  lineageGraphV2: ${LINEAGE_GRAPH_V2:true}
+  # Enables the new lineage visualization.
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
-  showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to DataHub Cloud. Set to true for the demo site.
-  erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false} # Enable Join Tables Feature and show within Dataset view as Relations
-  nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
-  schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
-  businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
-  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
-  alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
-  themeV2Enabled: ${THEME_V2_ENABLED:true} # Acryl only! Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be true for this to have any effect.
-  themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
-  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
-  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:true} # Enables links to schema field-level lineage on lineage explorer and columns tab
-  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
-  showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
-  editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
-  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
-  entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
-  hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
-  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
-  showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
-  showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
-  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
-  showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
-  showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
-  showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
+  showAcrylInfo: ${SHOW_ACRYL_INFO:false}
+  # Show different CTAs within DataHub around moving to DataHub Cloud. Set to true for the demo site.
+  erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false}
+  # Enable Join Tables Feature and show within Dataset view as Relations
+  nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true}
+  # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
+  schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true}
+  # Enables fetching for schema field entities from the database when we hydrate them on schema fields
+  businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false}
+  # Enables business attribute entity which can be associated with field of dataset
+  dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true}
+  # Enables the Data Contracts feature (Tab) in the UI
+  alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false}
+  # Enables alternate MCP validation flow
+  themeV2Enabled: ${THEME_V2_ENABLED:true}
+  # Acryl only! Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be true for this to have any effect.
+  themeV2Default: ${THEME_V2_DEFAULT:true}
+  # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
+  themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true}
+  # Acryl only! Allows theme v2 to be toggled on / off by users.
+  schemaFieldCLLEnabled: ${SCHEMA_FIELD_CLL_ENABLED:true}
+  # Enables links to schema field-level lineage on lineage explorer and columns tab
+  schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true}
+  # If turned on, schema field lineage will always fetch ghost entities
+  showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false}
+  # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false}
+  # Enables the ability to edit the dataset name in the UI
+  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true}
+  # If turned on, show the manage structured properties button on the govern dropdown
+  entityVersioning: ${ENTITY_VERSIONING_ENABLED:false}
+  # Enables entity versioning APIs, validators, and side effects
+  hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false}
+  # If turned on, dbt sources will not be shown in lineage
+  showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true}
+  # If turned on, show the newly designed nav bar in the V2 experience
+  showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true}
+  # If turned on, show the auto complete results in the search bar
+  showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false}
+  # If turned on, the "has siblings" filter will be visible in search results page
+  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false}
+  # If turned on, show the redesigned search bar's autocomplete
+  showManageTags: ${SHOW_MANAGE_TAGS:true}
+  # If turned on, allow users to manage tags in the UI
+  showIntroducePage: ${SHOW_INTRODUCE_PAGE:true}
+  # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
+  showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true}
+  # If turned on, show the expand more button (>>) in the lineage graph
   # SaaS-only features
-  showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
-  showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
-  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:true} # Enables the ability to create native assertions inside the UI.
-  runAssertionsEnabled: ${RUN_ASSERTIONS_ENABLED:true} # Enables the ability to run native assertions inside the UI.
-  schemaAssertionMonitorsEnabled: ${SCHEMA_ASSERTION_MONITORS_ENABLED:true} # Enables the ability to create native schema assertions inside the UI.
-  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true} # Enables the ability to subscribe to notifications
-  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false} # Enables the Dataset Health dashboard in the application
-  documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false} # Enables the AI-powered documentation feature in the UI
-  metadataShareEnabled: ${METADATA_SHARE_ENABLED:false} # Enables the metadata sharing feature to share entities between instances
-  documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true} # Enables the documentation forms feature and shows/hides everything for it in the UI
-  emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
-  slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:true} # Enables the ability to configure slack bot tokens via the integrations settings UI
-  slackBotTokensObfuscationEnabled: ${SLACK_BOT_TOKENS_OBFUSCATION_ENABLED:true} # Obfuscates sensitive tokens in graphQL endpoints where connection details are surfaced
-  broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true} # Enables stateful updating of active incidents in 3rd party destinations.
-  separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false} # Whether siblings lineage should be separate from each other or not
-  formCreationEnabled: ${FORM_CREATION_ENABLED:true} # Enables the form creation workflow feature on the documentation page
-  showFormAnalytics: ${SHOW_FORM_ANALYTICS:true} # If turned on, show the tab in the Compliance Form center to get to forms analytics
-  showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
-  requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false} # If turned on, request minimal required slack permissions
-  showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false} # If turned on, show the re-designed Proposals page in Task Center
-  usePropagationsFramework: ${USE_PROPAGATIONS_FRAMEWORK:false} # If turned on, use the general Propagations Framework over specialized propagations actions
-  displayExecutorPools: ${DISPLAY_EXECUTOR_POOLS:false} # If turned on, display executor pools across the UI
-  onlineSmartAssertionsEnabled: ${ONLINE_SMART_ASSERTIONS_ENABLED:false} # If turned on, allow on-demand creation of smart assertions in the UI, and they will run online.
-  showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
-  datasetHealthDashboardV2Enabled: ${DATASET_HEALTH_DASHBOARD_V2_ENABLED:false} # Enables the Dataset Health dashboard V2 in the application
-  showCreatedAtFilter: ${SHOW_CREATED_AT_FILTER:false} # If turned on, the "Created At" filter will be visible in search results page
+  showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false}
+  # If turned on, the bulk form by question view will be shown by default from the task center
+  showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false}
+  # Enables showing sort by row count, query count, update count, size in bytes.
+  assertionMonitorsEnabled: ${ASSERTION_MONITORS_ENABLED:true}
+  # Enables the ability to create native assertions inside the UI.
+  runAssertionsEnabled: ${RUN_ASSERTIONS_ENABLED:true}
+  # Enables the ability to run native assertions inside the UI.
+  schemaAssertionMonitorsEnabled: ${SCHEMA_ASSERTION_MONITORS_ENABLED:true}
+  # Enables the ability to create native schema assertions inside the UI.
+  subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true}
+  # Enables the ability to subscribe to notifications
+  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false}
+  # Enables the Dataset Health dashboard in the application
+  documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false}
+  # Enables the AI-powered documentation feature in the UI
+  metadataShareEnabled: ${METADATA_SHARE_ENABLED:false}
+  # Enables the metadata sharing feature to share entities between instances
+  documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true}
+  # Enables the documentation forms feature and shows/hides everything for it in the UI
+  emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false}
+  # Enables the email notifications feature.
+  slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:true}
+  # Enables the ability to configure slack bot tokens via the integrations settings UI
+  slackBotTokensObfuscationEnabled: ${SLACK_BOT_TOKENS_OBFUSCATION_ENABLED:true}
+  # Obfuscates sensitive tokens in graphQL endpoints where connection details are surfaced
+  broadcastNewIncidentUpdatesEnabled: ${BROADCAST_NEW_INCIDENT_UPDATES_ENABLED:true}
+  # Enables stateful updating of active incidents in 3rd party destinations.
+  separateSiblingsLineageByDefault: ${SEPARATE_SIBLINGS_LINEAGE_BY_DEFAULT:false}
+  # Whether siblings lineage should be separate from each other or not
+  formCreationEnabled: ${FORM_CREATION_ENABLED:true}
+  # Enables the form creation workflow feature on the documentation page
+  showFormAnalytics: ${SHOW_FORM_ANALYTICS:true}
+  # If turned on, show the tab in the Compliance Form center to get to forms analytics
+  showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true}
+  # If turned on, show the re-designed Stats tab on the entity page
+  requestMinimalSlackPermissions: ${REQUEST_MINIMAL_SLACK_PERMISSIONS:false}
+  # If turned on, request minimal required slack permissions
+  showTaskCenterRedesign: ${SHOW_TASK_CENTER_REDESIGN:false}
+  # If turned on, show the re-designed Proposals page in Task Center
+  usePropagationsFramework: ${USE_PROPAGATIONS_FRAMEWORK:false}
+  # If turned on, use the general Propagations Framework over specialized propagations actions
+  displayExecutorPools: ${DISPLAY_EXECUTOR_POOLS:false}
+  # If turned on, display executor pools across the UI
+  onlineSmartAssertionsEnabled: ${ONLINE_SMART_ASSERTIONS_ENABLED:false}
+  # If turned on, allow on-demand creation of smart assertions in the UI, and they will run online.
+  showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true}
+  # If turned on, show the default external links on the entity page
+  datasetHealthDashboardV2Enabled: ${DATASET_HEALTH_DASHBOARD_V2_ENABLED:false}
+  # Enables the Dataset Health dashboard V2 in the application
+  showCreatedAtFilter: ${SHOW_CREATED_AT_FILTER:false}
+  # If turned on, the "Created At" filter will be visible in search results page
+  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false}
+  # If turned on, show the re-designed Ingestion page
+  # If turned on, show the expand more button (>>) in the lineage graph
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

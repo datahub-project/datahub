@@ -284,6 +284,8 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "INTEGER": NumberType,
     "BIGINT": NumberType,
     "SMALLINT": NumberType,
+    "TINYINT": NumberType,
+    "BYTEINT": NumberType,
     "FLOAT": NumberType,
     "FLOAT4": NumberType,
     "FLOAT8": NumberType,
@@ -291,6 +293,7 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "DOUBLE PRECISION": NumberType,
     "REAL": NumberType,
     "VARCHAR": StringType,
+    "CHARACTER VARYING": StringType,
     "CHAR": StringType,
     "CHARACTER": StringType,
     "STRING": StringType,
@@ -313,8 +316,8 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
 
 
 def resolve_snowflake_modified_type(type_string: str) -> Any:
-    # Match types with precision and scale, e.g., 'DECIMAL(38,0)'
-    match = re.match(r"([a-zA-Z_]+)\(\d+,\s\d+\)", type_string)
+    # Match types with precision and scale, e.g., 'DECIMAL(38,0)' or TIME(3)
+    match = re.match(r"([a-z A-Z_]+)\(\d+(,(\s+)?\d+)?\)", type_string)
     if match:
         modified_type_base = match.group(1)  # Extract the base type
         return SNOWFLAKE_TYPES_MAP.get(modified_type_base)

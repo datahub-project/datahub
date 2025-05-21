@@ -130,6 +130,7 @@ query appConfig {
             showSearchBarAutocompleteRedesign
             showManageTags
             showIntroducePage
+            showIngestionPageRedesign
             showLineageExpandMore
             showFormAnalytics
             showStatsTabRedesign

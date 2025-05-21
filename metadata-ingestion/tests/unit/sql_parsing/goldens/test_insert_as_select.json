@@ -24,7 +24,11 @@
                 "column_type": null,
                 "native_column_type": null
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`i_item_desc` AS `i_item_desc`"
+            }
         },
         {
             "downstream": {
@@ -33,7 +37,11 @@
                 "column_type": null,
                 "native_column_type": null
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`w_warehouse_name` AS `w_warehouse_name`"
+            }
         },
         {
             "downstream": {
@@ -47,7 +55,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)",
                     "column": "d_week_seq"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "`d1`.`d_week_seq` AS `d_week_seq`"
+            }
         },
         {
             "downstream": {
@@ -65,7 +77,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)",
                     "column": "p_promo_sk"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(CASE WHEN `promotion`.`p_promo_sk` IS NULL THEN 1 ELSE 0 END) AS `no_promo`"
+            }
         },
         {
             "downstream": {
@@ -83,7 +99,11 @@
                     "table": "urn:li:dataset:(urn:li:dataPlatform:hive,promotion,PROD)",
                     "column": "p_promo_sk"
                 }
-            ]
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "SUM(CASE WHEN NOT `promotion`.`p_promo_sk` IS NULL THEN 1 ELSE 0 END) AS `promo`"
+            }
         },
         {
             "downstream": {
@@ -96,7 +116,55 @@
                 },
                 "native_column_type": "BIGINT"
             },
-            "upstreams": []
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "COUNT(*) AS `total_cnt`"
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
+            ],
+            "on_clause": "(`cs_sold_date_sk` = `d1`.`d_date_sk`)",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)",
+                    "column": "d_date_sk"
+                }
+            ]
+        },
+        {
+            "join_type": "JOIN",
+            "left_tables": [],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
+            ],
+            "on_clause": "(`inv_date_sk` = `d2`.`d_date_sk`)",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)",
+                    "column": "d_date_sk"
+                }
+            ]
+        },
+        {
+            "join_type": "JOIN",
+            "left_tables": [],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)"
+            ],
+            "on_clause": "(`cs_ship_date_sk` = `d3`.`d_date_sk`)",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:hive,date_dim,PROD)",
+                    "column": "d_date_sk"
+                }
+            ]
         }
     ],
     "debug_info": {

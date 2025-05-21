@@ -401,3 +401,35 @@ def test_get_folder_info_returns_expected_folder() -> None:
         size=150,
         sample_file="s3://my-bucket/my-folder/dir1/0002.csv",
     )
+
+
+def test_s3_region_in_external_url():
+    """Test that AWS region is properly used in external URLs."""
+    source = S3Source.create(
+        config_dict={
+            "path_specs": [
+                {
+                    "include": "s3://my-bucket/my-folder/*.csv",
+                }
+            ],
+            "aws_config": {
+                "aws_region": "eu-west-1",  # Use a non-default region
+                "aws_access_key_id": "test-key",
+                "aws_secret_access_key": "test-secret",
+            },
+        },
+        ctx=PipelineContext(run_id="test-s3"),
+    )
+
+    # Create a mock table data
+    table_data = Mock()
+    table_data.table_path = "s3://production-bucket/folder/my_data.csv"
+    table_data.full_path = "s3://production-bucket/folder/my_data.csv"
+
+    # Get the external URL
+    external_url = source.get_external_url(table_data)
+
+    # Verify that the correct region is used (not default us-east-1)
+    assert "https://eu-west-1.console.aws.amazon.com" in external_url
+    assert "production-bucket" in external_url
+    assert "folder" in external_url
