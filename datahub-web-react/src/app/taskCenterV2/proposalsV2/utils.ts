@@ -27,6 +27,10 @@ export const PROPOSAL_TARGET_ENTITY_TYPES = [
     EntityType.MlprimaryKey,
     EntityType.Mlmodel,
     EntityType.MlmodelGroup,
+    EntityType.Domain,
+    EntityType.DataProduct,
+    EntityType.GlossaryTerm,
+    EntityType.GlossaryNode,
 ];
 
 export enum ProposalModalType {

@@ -8,6 +8,7 @@ import {
 } from '@app/searchV2/filters/utils';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
 import { ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
+import usePrevious from '@app/shared/usePrevious';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
 
 import { EntityType, FacetFilterInput, FacetMetadata } from '@types';
@@ -66,12 +67,16 @@ export default function useSearchFilterDropdown({
         shouldApplyView,
     ]);
 
-    const fetchedAggregations =
+    const newAggregations =
         data?.aggregateAcrossEntities?.facets?.find((f) => f.field === filter.field)?.aggregations || [];
     const searchAggregations = filter.aggregations;
     const activeAggregations = searchAggregations.filter((agg) =>
         activeFilters.find((f) => f.values?.includes(agg.value) || f.value === agg.value),
     );
+
+    const prevNewAggregations = usePrevious(newAggregations);
+    // Avoid flicker while we fetch aggregations
+    const fetchedAggregations = newAggregations.length > 0 ? newAggregations : prevNewAggregations || [];
 
     const aggregations = shouldFetchAggregations
         ? [...fetchedAggregations, ...deduplicateAggregations(fetchedAggregations, activeAggregations)]

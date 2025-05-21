@@ -137,13 +137,18 @@ export default function SidebarCollapsibleHeader({ currentTab, headerDropdownIte
                         // TODO: Add Proposals count Badge in the Modal title
                         <Modal width="90%" title="Proposals" onCancel={handleModalClose}>
                             <ProposalList
-                                resourceUrn={urn}
                                 height="700px"
                                 initialFilters={[
                                     {
                                         field: 'status',
                                         condition: FilterOperator.Equal,
                                         values: [ActionRequestStatus.Pending],
+                                        negated: false,
+                                    },
+                                    {
+                                        field: 'resource',
+                                        condition: FilterOperator.Equal,
+                                        values: [urn],
                                         negated: false,
                                     },
                                 ]}

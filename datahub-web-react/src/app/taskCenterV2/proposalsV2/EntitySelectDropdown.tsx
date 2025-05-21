@@ -105,7 +105,11 @@ const EntitySelectFilter = ({
                                 <LoadingOutlined />
                             </LoadingWrapper>
                         ) : (
-                            !finalOptions.length && <NoResultsFoundPlaceholder />
+                            !finalOptions.length && (
+                                <NoResultsFoundPlaceholder
+                                    message={searchQuery?.length < 3 ? 'Type atleast 3 characters..' : undefined}
+                                />
+                            )
                         )}
                         <OptionList
                             style={{
