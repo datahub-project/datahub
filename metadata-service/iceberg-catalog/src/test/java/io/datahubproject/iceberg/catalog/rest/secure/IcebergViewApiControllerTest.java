@@ -13,6 +13,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchViewException;
 import org.apache.iceberg.rest.CatalogHandlers;
@@ -148,6 +149,25 @@ public class IcebergViewApiControllerTest extends AbstractControllerTest<Iceberg
 
   @Test(expectedExceptions = NoSuchNamespaceException.class)
   public void testRenameTargetNamespaceNotExists() {
+    RenameTableRequest renameTableRequest =
+        RenameTableRequest.builder()
+            .withSource(tableId)
+            .withDestination(TableIdentifier.of("barNs", "barView"))
+            .build();
+
+    controller.renameView(request, TEST_PLATFORM, renameTableRequest);
+  }
+
+  @Test(
+      expectedExceptions = ForbiddenException.class,
+      expectedExceptionsMessageRegExp =
+          "Data operation MANAGE_VIEWS not authorized on fooNs & barNs")
+  public void testRenameUnauthorized() {
+    setupDefaultAuthorization(false);
+    when(entityService.exists(
+            any(OperationContext.class),
+            eq(Utils.containerUrn(TEST_PLATFORM, Namespace.of("barNs")))))
+        .thenReturn(true);
     RenameTableRequest renameTableRequest =
         RenameTableRequest.builder()
             .withSource(tableId)

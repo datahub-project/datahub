@@ -184,20 +184,25 @@ public class IcebergViewApiController extends AbstractIcebergController {
     } catch (ForbiddenException e) {
       sourceAuthEx = e;
     }
-    try {
-      authorize(
-          operationContext,
-          warehouse,
-          renameTableRequest.destination().namespace(),
-          DataOperation.MANAGE_VIEWS,
-          false);
-    } catch (ForbiddenException e) {
-      throw sourceAuthEx == null
-          ? e
-          : new ForbiddenException(
-              "Data operation MANAGE_VIEWS not authorized on %s & %s",
-              renameTableRequest.source().namespace(),
-              renameTableRequest.destination().namespace());
+    if (!renameTableRequest
+        .source()
+        .namespace()
+        .equals(renameTableRequest.destination().namespace())) {
+      try {
+        authorize(
+            operationContext,
+            warehouse,
+            renameTableRequest.destination().namespace(),
+            DataOperation.MANAGE_VIEWS,
+            false);
+      } catch (ForbiddenException e) {
+        throw sourceAuthEx == null
+            ? e
+            : new ForbiddenException(
+                "Data operation MANAGE_VIEWS not authorized on %s & %s",
+                renameTableRequest.source().namespace(),
+                renameTableRequest.destination().namespace());
+      }
     }
     if (sourceAuthEx != null) {
       throw sourceAuthEx;

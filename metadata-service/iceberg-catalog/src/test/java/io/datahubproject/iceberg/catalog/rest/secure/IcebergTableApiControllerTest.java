@@ -17,6 +17,7 @@ import org.apache.iceberg.Schema;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.ForbiddenException;
 import org.apache.iceberg.exceptions.NoSuchNamespaceException;
 import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.rest.CatalogHandlers;
@@ -283,6 +284,25 @@ public class IcebergTableApiControllerTest
 
   @Test(expectedExceptions = NoSuchNamespaceException.class)
   public void testRenameTargetNamespaceNotExists() {
+    RenameTableRequest renameTableRequest =
+        RenameTableRequest.builder()
+            .withSource(tableId)
+            .withDestination(TableIdentifier.of("barNs", "barTable"))
+            .build();
+
+    controller.renameTable(request, TEST_PLATFORM, renameTableRequest);
+  }
+
+  @Test(
+      expectedExceptions = ForbiddenException.class,
+      expectedExceptionsMessageRegExp =
+          "Data operation MANAGE_TABLES not authorized on fooNs & barNs")
+  public void testRenameUnauthorized() {
+    setupDefaultAuthorization(false);
+    when(entityService.exists(
+            any(OperationContext.class),
+            eq(Utils.containerUrn(TEST_PLATFORM, Namespace.of("barNs")))))
+        .thenReturn(true);
     RenameTableRequest renameTableRequest =
         RenameTableRequest.builder()
             .withSource(tableId)
