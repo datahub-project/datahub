@@ -12,10 +12,10 @@ from datahub.sdk.search_client import SearchClient
 
 try:
     from acryl_datahub_cloud._sdk_extras import (  # type: ignore[import-not-found]
-        AssertionClient,
+        AssertionsClient,
     )
 except ImportError:
-    AssertionClient = None
+    AssertionsClient = None
 
 
 class DataHubClient:
@@ -112,9 +112,9 @@ class DataHubClient:
         return LineageClient(self)
 
     @property
-    def assertion(self) -> AssertionClient:  # type: ignore[return-value]  # Type is not available if assertion_client is not installed
-        if AssertionClient is None:
+    def assertions(self) -> AssertionsClient:  # type: ignore[return-value]  # Type is not available if assertion_client is not installed
+        if AssertionsClient is None:
             raise SdkUsageError(
-                "AssertionClient is not installed, please install it with `pip install acryl-datahub-cloud`"
+                "AssertionsClient is not installed, please install it with `pip install acryl-datahub-cloud`"
             )
-        return AssertionClient(self)
+        return AssertionsClient(self)

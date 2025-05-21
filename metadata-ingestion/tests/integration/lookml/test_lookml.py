@@ -36,7 +36,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.state_helpers import get_current_checkpoint_from_pipeline
 
 logging.getLogger("lkml").setLevel(logging.INFO)
