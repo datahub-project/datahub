@@ -438,13 +438,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose. Use 'stable' to start the latest stable version.",
 )
 @click.option(
-    "--build-locally",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Attempt to build the containers locally before starting",
-)
-@click.option(
     "--pull-images/--no-pull-images",
     type=bool,
     is_flag=True,
@@ -467,25 +460,11 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="If true, the docker-compose logs will be printed to console if something fails",
 )
 @click.option(
-    "--graph-service-impl",
-    type=str,
-    is_flag=False,
-    default=None,
-    help="If set, forces docker-compose to use that graph service implementation",
-)
-@click.option(
     "--mysql-port",
     type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing mysql instance running on port 3306, set this to a free port to avoid port conflicts on startup",
-)
-@click.option(
-    "--zk-port",
-    type=_ClickPositiveInt,
-    is_flag=False,
-    default=None,
-    help="If there is an existing zookeeper instance running on port 2181, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
     "--kafka-broker-port",
@@ -566,13 +545,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="Launches MAE & MCE consumers as stand alone docker containers",
 )
 @click.option(
-    "--kafka-setup",
-    required=False,
-    is_flag=True,
-    default=False,
-    help="Launches Kafka setup job as part of the compose deployment",
-)
-@click.option(
     "--arch",
     required=False,
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
@@ -581,28 +553,22 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 @telemetry.with_telemetry(
     capture_kwargs=[
         "version",
-        "build_locally",
         "pull_images",
         "stop",
         "backup",
         "restore",
         "restore_indices",
         "standalone_consumers",
-        "kafka_setup",
         "arch",
     ]
 )
 def quickstart(
     version: Optional[str],
-    build_locally: bool,
     pull_images: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
-    graph_service_impl: Optional[str],
     mysql_port: Optional[int],
-    zk_port: Optional[int],
     kafka_broker_port: Optional[int],
-    schema_registry_port: Optional[int],
     elastic_port: Optional[int],
     stop: bool,
     backup: bool,
@@ -612,7 +578,6 @@ def quickstart(
     restore_indices: bool,
     no_restore_indices: bool,
     standalone_consumers: bool,
-    kafka_setup: bool,
     arch: Optional[str],
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
@@ -622,6 +587,11 @@ def quickstart(
     There are options to override the docker-compose config file, build the containers
     locally, and dump logs to the console or to a file if something goes wrong.
     """
+    build_locally = False
+    kafka_setup = False
+    zk_port = None
+    graph_service_impl = None
+    schema_registry_port = None
     if backup:
         _backup(backup_file)
         return

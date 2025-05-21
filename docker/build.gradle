@@ -91,6 +91,18 @@ ext {
                             'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
                     ]
             ],
+            quickstartHead: [
+                    profile: 'quickstart-consumers',
+                    modules: python_services_modules + backend_profile_modules + [
+                            ':datahub-frontend',
+                            ':metadata-jobs:mce-consumer-job',
+                            ':metadata-jobs:mae-consumer-job',
+                            ':datahub-actions',
+                    ],
+                    additionalEnv: [
+                            'DATAHUB_VERSION': 'head',
+                    ]
+            ],
             'quickstartStorage': [
                     profile: 'quickstart-storage',
                     preserveVolumes: true
@@ -331,5 +343,26 @@ quickstart_configs.each { taskName, config ->
                 commandLine 'bash', '-c', cmd.join(" ")
             }
         }
+    }
+}
+
+task saveQuickstartComposeConfig {
+    description = "Saves the docker-compose config output for quickstart configuration for use with oss quickstart cli"
+    group = "docker"
+
+    doLast {
+        def composeUpTask = tasks.named("quickstartHeadComposeUp")
+        def composeExecutor = composeUpTask.get().getComposeExecutor().get()
+
+        def configOutput = composeExecutor.execute('config')
+
+        // Define the output file
+        def outputFile = project.file("${project.projectDir}/quickstart/docker-compose.head.yml")
+        outputFile.getParentFile().mkdirs()
+
+        // Write the output to a file
+        outputFile.text = configOutput
+
+        logger.lifecycle("quickstart Docker Compose config saved to: ${outputFile.absolutePath}")
     }
 }
