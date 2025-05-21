@@ -1,3 +1,10 @@
+extend type Query {
+  """
+  Fetch a list of assertions across the platform that match requested criteria.
+  """
+  listAssertions(input: ListAssertionsInput!): ListAssertionsResult
+}
+
 extend type Mutation {
   """
   Create an existing Dataset Assertion
@@ -2608,4 +2615,130 @@ type RunAssertionResult {
   The latest result of the assertion
   """
   result: AssertionResult!
+}
+
+"""
+"""
+input ListAssertionsInput {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int
+
+  """
+  The maximum number of Policies to be returned in the result set
+  """
+  count: Int
+
+  """
+  Optional search query
+  """
+  query: String
+
+  """
+  Filter results
+  """
+  filterInput: AssertionsQueryFilterInput
+
+  """
+  Sort results
+  """
+  sortInput: SearchSortInput
+}
+
+input AssertionsQueryFilterInput {
+  """
+  Time range filter.
+  """
+  timeRanges: AssertionsTimeRangeFilter
+
+  """
+  Urn of assertion creators
+  """
+  creator: [String!]
+
+  """
+  Urn of assertion tags
+  """
+  tags: [String!]
+
+  """
+  Assertion types
+  """
+  type: [AssertionType!]
+
+  """
+  Urn of parent asset's domain
+  """
+  asserteeDomain: [String!]
+
+  """
+  Urn of parent asset's data product
+  """
+  asserteeDataProduct: [String!]
+
+  """
+  Urn of parent asset's terms
+  """
+  asserteeTerms: [String!]
+
+  """
+  Urn of parent asset's tags
+  """
+  asserteeTags: [String!]
+
+  """
+  Urn of parent asset's owner
+  """
+  asserteeOwner: [String!]
+
+  """
+  Urn of parent asset's platform
+  """
+  asserteePlatform: [String!]
+
+  """
+  Urn of parent asset's platform instance
+  """
+  asserteePlatformInstance: [String!]
+}
+
+"""
+A DataHub Time Range Filter.
+"""
+input AssertionsTimeRangeFilter {
+  """
+  The operator used to combine the filters.
+  """
+  operator: LogicalOperator!
+
+  """
+  A set of filters combined using the operator. If left empty, then no filters will be applied.
+  """
+  filter: [FacetFilterInput!]!
+}
+
+"""
+The result obtained when listing DataHub Assertions
+"""
+type ListAssertionsResult {
+  """
+  The starting offset of the result set returned
+  """
+  start: Int!
+
+  """
+  The number of Assertions in the returned result set
+  """
+  count: Int!
+
+  """
+  The total number of Assertions in the result set
+  """
+  total: Int!
+
+  """
+  The Assertions themselves
+  """
+  assertions: [Assertion!]!
 }

@@ -642,13 +642,40 @@ export const getFormattedActualVsExpectedTextForVolumeAssertion = (
     const range = volumeAssertion?.rowCountTotal
         ? tryGetExpectedRangeFromAssertionAgainstAbsoluteValues(volumeAssertion.rowCountTotal)
         : undefined;
-    const expectedLowText = range?.low != null ? formatNumberWithoutAbbreviation(Math.round(range.low)) : '';
-    const expectedHighText = range?.high != null ? formatNumberWithoutAbbreviation(Math.round(range.high)) : '';
 
-    const expectedLowWithDecimals =
-        range?.low != null ? formatNumberWithoutAbbreviation(_.round(range.low, NUMBER_DISPLAY_PRECISION)) : '';
-    const expectedHighWithDecimals =
-        range?.high != null ? formatNumberWithoutAbbreviation(_.round(range.high, NUMBER_DISPLAY_PRECISION)) : '';
+    const isRangeOneSided = range?.high == null || range?.low == null;
+
+    const getOneSidedExpectedText = (value: string, type: 'low' | 'high', inclusionType: 'inclusive' | 'exclusive') => {
+        const templates = {
+            low: {
+                inclusive: `${value} or more`,
+                exclusive: `Greater than ${value}`,
+            },
+            high: {
+                inclusive: `${value} or less`,
+                exclusive: `Less than ${value}`,
+            },
+        };
+        return templates[type][inclusionType];
+    };
+
+    const lowType = range?.context?.lowType ?? 'inclusive';
+    const highType = range?.context?.highType ?? 'inclusive';
+
+    const formatRangeValue = (value: number, type: 'low' | 'high', withDecimals = false) => {
+        const formattedValue = withDecimals
+            ? formatNumberWithoutAbbreviation(_.round(value, NUMBER_DISPLAY_PRECISION))
+            : formatNumberWithoutAbbreviation(Math.round(value));
+
+        return isRangeOneSided
+            ? getOneSidedExpectedText(formattedValue, type, type === 'low' ? lowType : highType)
+            : formattedValue;
+    };
+
+    const expectedLowText = range?.low != null ? formatRangeValue(range.low, 'low') : '';
+    const expectedHighText = range?.high != null ? formatRangeValue(range.high, 'high') : '';
+    const expectedLowTextWithDecimals = range?.low != null ? formatRangeValue(range.low, 'low', true) : '';
+    const expectedHighTextWithDecimals = range?.high != null ? formatRangeValue(range.high, 'high', true) : '';
 
     switch (volumeAssertion?.type) {
         case VolumeAssertionType.RowCountChange:
@@ -658,8 +685,8 @@ export const getFormattedActualVsExpectedTextForVolumeAssertion = (
                 actualText: formattedActual,
                 expectedLowText,
                 expectedHighText,
-                expectedLowTextWithDecimals: expectedLowWithDecimals,
-                expectedHighTextWithDecimals: expectedHighWithDecimals,
+                expectedLowTextWithDecimals,
+                expectedHighTextWithDecimals,
             };
         default:
             return undefined;

@@ -195,8 +195,8 @@
       "value": "fail"
     },
     "has_usage_tips": {
-      "reasoning": "The description does not provide any specific usage tips or insights, such as common join keys or filtering approaches.",
-      "value": "fail"
+      "reasoning": "The description correctly mentions grain of table as one row per call, as well as it also mentions the contents include detailed information about customer service calls handled by the call center platform, providing call-level metrics and attributes.",
+      "value": "pass"
     },
     "is_confident": {
       "reasoning": "The description avoids weak or speculative phrases and is written in a confident, matter-of-fact tone.",

@@ -1234,12 +1234,15 @@ public class SlackNotificationSink implements NotificationSink {
             .iconUrl(String.format("%s%s", this.baseUrl, ACRYL_LOGO_FILE_PATH))
             .build();
     final ChatPostMessageResponse response = sendMessage(msgRequest, retryMode);
+    MetricUtils.counter(this.getClass(), "send_message_attempt").inc();
     // if response is null, the message has been dropped due to rate limiting. It has already been
     // logged.
     if (response != null) {
       if (response.isOk()) {
-        log.debug(String.format("Successfully sent Slack notification to channel %s", channel));
+        MetricUtils.counter(this.getClass(), "send_message_success").inc();
+        log.debug("Successfully sent Slack notification to channel {}", channel);
       } else {
+        MetricUtils.counter(this.getClass(), "send_message_fail").inc();
         log.error(
             "Failed to sink Slack notification to channel {} with text {}. Received error from Slack API: {}",
             channel,

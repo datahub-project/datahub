@@ -37,6 +37,16 @@ extend type Mutation {
   Updates the state of a monitor, returns the updated monitor
   """
   updateMonitorStatus(input: UpdateMonitorStatusInput!): Monitor!
+
+  """
+  Reports a user feedback anomaly for a monitor.
+  """
+  reportAnomaly(input: ReportAnomalyInput!): MonitorAnomalyEvent!
+
+  """
+  Confirms or rejects an anomaly raised by a monitor.
+  """
+  updateAnomaly(input: UpdateAnomalyInput!): MonitorAnomalyEvent!
 }
 
 """
@@ -963,4 +973,124 @@ extend type Assertion {
   Fetches the monitor responsible for evaluating this assertion, if available. Null if there is not one.
   """
   monitor: Monitor
+}
+
+extend type AssertionRunEvent {
+  """
+  The anomaly event that was raised for this run event, if any.
+  """
+  anomalyEvent: MonitorAnomalyEvent
+}
+
+input ReportAnomalyInput {
+  """
+  The urn of the monitor that we're reporting an anomaly for.
+  """
+  monitorUrn: String!
+
+  """
+  The urn of the assertion that we're reporting an anomaly for.
+  """
+  assertionUrn: String!
+
+  """
+  The timestamp of the run event that we're reporting an anomaly for.
+  """
+  runEventTimestampMillis: Long!
+}
+
+input UpdateAnomalyInput {
+  """
+  The urn of the monitor that we're updating the anomaly for.
+  """
+  monitorUrn: String!
+
+  """
+  The timestamp of the anomaly that we're updating.
+  """
+  anomalyTimestampMillis: Long!
+
+  """
+  The new state of the anomaly.
+  """
+  state: AnomalyReviewState!
+}
+
+enum AnomalyReviewState {
+  """
+  The anomaly has been confirmed by a human reviewer. This means the anomaly was validated.
+  """
+  CONFIRMED
+
+  """
+  The anomaly has been dismissed, or ignored, by a human reviewer. This means the anomaly should have been ignored.
+  """
+  REJECTED
+}
+
+"""
+An anomlay raised against a monitor's run event.
+"""
+type MonitorAnomalyEvent {
+  """
+  The state of the anomaly.
+  """
+  state: AnomalyReviewState
+
+  """
+  The source of the anomaly.
+  """
+  source: AnomalySource!
+
+  """
+  The timestamp of the anomaly.
+  This should match the timestampMillis of the assertionRunEvent that corresponds to the anomaly.
+  """
+  timestampMillis: Long!
+
+  """
+  The time at which the anomaly was initially created
+  """
+  created: Long!
+
+  """
+  The time at which the anomaly was last updated
+  """
+  lastUpdated: Long!
+}
+
+type AnomalySource {
+  """
+  The type of the anomaly source.
+  """
+  type: AnomalySourceType!
+
+  """
+  The source of the anomaly.
+  """
+  sourceUrn: String
+
+  """
+  The properties of the anomaly source.
+  """
+  properties: AnomalySourceProperties
+}
+
+type AnomalySourceProperties {
+  """
+  The metric that triggered the anomaly.
+  """
+  assertionMetric: AssertionMetric
+}
+
+enum AnomalySourceType {
+  """
+  An assertion has failed, triggering the anomaly.
+  """
+  INFERRED_ASSERTION_FAILURE
+
+  """
+  The anomaly was raised by a user.
+  """
+  USER_FEEDBACK
 }

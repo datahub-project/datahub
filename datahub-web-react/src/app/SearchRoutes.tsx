@@ -56,7 +56,7 @@ export const SearchRoutes = (): JSX.Element => {
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
-    const { config } = useAppConfig();
+    const { config, loaded } = useAppConfig();
     const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
@@ -156,28 +156,28 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
-                {!me.loaded && (
-                    <>
-                        <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <LoadingPermissions />} />
-                    </>
+                {!me.loaded && <Route path={PageRoutes.GOVERN_DASHBOARD} render={() => <LoadingPermissions />} />}
+                {/* Can't nest fragments inside a switch... */}
+                {includeGovernDashboard && (
+                    <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
                 )}
                 {includeGovernDashboard && (
-                    <>
-                        <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
-                        <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
-                        <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
-                        {/* Remove below once we have analytics turned on full time. This is a debugging route */}
-                        <Route
-                            path={PageRoutes.FORM_ANALYTICS}
-                            render={() => (
-                                <FormAnalyticsProvider>
-                                    <AnalyticsTab />
-                                </FormAnalyticsProvider>
-                            )}
-                        />
-                    </>
+                    <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
                 )}
-                <Route component={NoPageFound} />
+                {includeGovernDashboard && (
+                    <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
+                )}
+                {includeGovernDashboard /* Remove below once we have analytics turned on full time. This is a debugging route */ && (
+                    <Route
+                        path={PageRoutes.FORM_ANALYTICS}
+                        render={() => (
+                            <FormAnalyticsProvider>
+                                <AnalyticsTab />
+                            </FormAnalyticsProvider>
+                        )}
+                    />
+                )}
+                {me.loaded && loaded && <Route component={NoPageFound} />}
             </Switch>
         </FinalSearchablePage>
     );

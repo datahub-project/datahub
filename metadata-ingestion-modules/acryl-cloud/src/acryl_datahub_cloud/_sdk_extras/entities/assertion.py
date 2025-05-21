@@ -15,6 +15,7 @@ from typing_extensions import (
     assert_never,
 )
 
+from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.errors import SdkUsageError
 from datahub.metadata import schema_classes as models
@@ -119,12 +120,37 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
         assert isinstance(urn, AssertionUrn)
-        entity = cls(
-            id=urn,
-            info="__dummy_value__",  # type: ignore[arg-type]
-        )
-        # Since AssertionInfo is required, we need to set a dummy value,
-        # which will be immediately overwritten with the content in current_aspects
+        assert "assertionInfo" in current_aspects, "AssertionInfo is required"
+        assertion_info = current_aspects["assertionInfo"]
+        assert assertion_info.type in get_enum_options(models.AssertionTypeClass)
+
+        info: AssertionInfoInputType
+        if assertion_info.type == models.AssertionTypeClass.DATASET:
+            assert assertion_info.datasetAssertion is not None
+            info = assertion_info.datasetAssertion
+        elif assertion_info.type == models.AssertionTypeClass.FRESHNESS:
+            assert assertion_info.freshnessAssertion is not None
+            info = assertion_info.freshnessAssertion
+        elif assertion_info.type == models.AssertionTypeClass.VOLUME:
+            assert assertion_info.volumeAssertion is not None
+            info = assertion_info.volumeAssertion
+        elif assertion_info.type == models.AssertionTypeClass.SQL:
+            assert assertion_info.sqlAssertion is not None
+            info = assertion_info.sqlAssertion
+        # elif assertion_info.type == models.AssertionTypeClass.FIELD:
+        #     assert assertion_info.fieldAssertion is not None
+        #     info = assertion_info.fieldAssertion
+        # elif assertion_info.type == models.AssertionTypeClass.SCHEMA:
+        #     assert assertion_info.schemaAssertion is not None
+        #     info = assertion_info.schemaAssertion
+        # elif assertion_info.type == models.AssertionTypeClass.CUSTOM:
+        #     assert assertion_info.customAssertion is not None
+        #     info = assertion_info.customAssertion
+        else:
+            # assert_never(assertion_info.type)
+            raise AssertionError("Unreachable code")
+
+        entity = cls(id=urn, info=info)
         return entity._init_from_graph(current_aspects)
 
     @property
@@ -244,7 +270,7 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         self._ensure_info().customProperties = custom_properties
 
     @property
-    def source(self) -> Optional[AssertionSourceInputType]:
+    def source(self) -> Optional[models.AssertionSourceClass]:
         """Get the source of the assertion.
 
         Returns:

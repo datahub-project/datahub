@@ -81,3 +81,29 @@ def get_human_eval_result_or_none(run_name: str) -> Optional[pd.DataFrame]:
     except Exception:
         print(f"Human Annotations Run for {run_name} not found")
     return None
+
+
+def get_latest_human_eval_result_or_none() -> Optional[pd.DataFrame]:
+    try:
+        human_evals = mlflow.search_runs(
+            experiment_names=[EXPERIMENT_NAME],
+            filter_string="attributes.run_name LIKE 'human_annotations%'",
+            output_format="list",
+            order_by=["start_time DESC"],
+        )
+        print("Human evals total found", len(human_evals))
+        if len(human_evals) == 0:
+            print("Human Annotations Runs not found")
+            return None
+        table = mlflow.load_table(
+            artifact_file="eval_results_table.json",
+            run_ids=[human_eval.info.run_id for human_eval in human_evals],
+            extra_columns=["run_id", "start_time", "end_time"],
+        )
+        filtered_table = keep_human_evals_only(table)
+        filtered_table.sort_values(by="start_time", ascending=False, inplace=True)
+        return filtered_table.drop_duplicates(subset=["urn", "deployment"])
+    except Exception as e:
+        print(f"Error getting latest human eval results: {e}")
+
+    return None

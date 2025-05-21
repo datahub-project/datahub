@@ -12,6 +12,7 @@ import typer
 from datahub.ingestion.api.report_helpers import format_datetime_relative
 from eval_common import (
     METRIC_NAMES,
+    get_ai_annotation_run_name,
     get_ai_judge_eval_run_name,
     get_human_annotation_run_name,
 )
@@ -276,6 +277,7 @@ def run_eval_ai_judge_experiment(run_name: str, existing_run: bool = True):
     if not existing_run:
         run_ai_annotations_experiment(run_name)
 
+    ai_run = get_run_or_fail(get_ai_annotation_run_name(run_name))
     ai_eval_results = get_ai_eval_result_or_none(run_name)
     assert ai_eval_results is not None
 
@@ -287,6 +289,7 @@ def run_eval_ai_judge_experiment(run_name: str, existing_run: bool = True):
         mlflow.log_params(
             {
                 "human_eval_run_id": human_annotation_run.info.run_id,
+                "ai_eval_run_id": ai_run.info.run_id,
             }
         )
         mlflow.log_artifact("./eval_ai_judge.py")

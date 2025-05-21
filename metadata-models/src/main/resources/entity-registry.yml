@@ -406,10 +406,10 @@ entities:
       - globalTags
       # SaaS Only
       - lineageFeatures
-      - assertionSummary
-      - assertionAnalyticsRunEvent
-      - assertionDryRunEvent
-      - assertionInferenceDetails
+      - assertionRunSummary # Acryl-Only (Observe)
+      - assertionAnalyticsRunEvent # Acryl-Only (Observe)
+      - assertionDryRunEvent # Acryl-Only (Observe)
+      - assertionInferenceDetails # Acryl-Only (Observe)
   - name: dataHubRetention
     category: internal
     keyAspect: dataHubRetentionKey

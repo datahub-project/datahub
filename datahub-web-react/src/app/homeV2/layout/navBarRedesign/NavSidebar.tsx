@@ -101,6 +101,9 @@ export const NavSidebar = () => {
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&
         (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
+    const showManageTags =
+        config?.featureFlags?.showManageTags &&
+        (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
 
     /* SaaS Only */
     const { helpLinkState, globalSettings } = useGlobalSettingsContext();
@@ -190,6 +193,7 @@ export const NavSidebar = () => {
                         icon: <Tag />,
                         selectedIcon: <Tag weight="fill" />,
                         link: PageRoutes.MANAGE_TAGS,
+                        isHidden: !showManageTags,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

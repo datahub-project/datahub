@@ -9,7 +9,7 @@ metrics:
       guidelines: []
 
   - name: has_downstream_usecases
-    definition: Whether description contains correct details about downstream usecases of this table, if available in provided information. The description should always supplement each individual usecase mention with actual downstream from provided information. Fail the metric if preceding criteria is not fulfilled or if downstream usecases in description are entirely absent in provided information, particularly downstream lineage.
+    definition: Whether description contains correct details about downstream usecases of this table, if available in provided information. The description should always supplement each individual usecase mention with actual downstream from provided information. Fail the metric if preceding criteria is not fulfilled or if downstream usecases in description are entirely absent in provided information, particularly downstream lineage. Only materialized downstream usecases should be mentioned.
     type: binary
     scoring_criteria:
       possible_values:
@@ -27,7 +27,8 @@ metrics:
       guidelines: []
 
   - name: has_usage_tips
-    definition: Whether description contains correct details about table content and/or way of its usage ? e.g. does it include grain of table, details about what data does table contain or which table is typically used with this table or which column is usually used for filtering, if available in provided information. Fail the metric if neither content nor usage tips are present in description or if they are not grounded in provided information.  Pass the metric is description includes correct information about table such as what does a table row represent , what columns are present.
+    definition: Whether description contains correct details about table content and/or way of its usage ? e.g. does it include grain of table, details about what data does table contain or which table is typically used with this table or which column is usually used for filtering, if available in provided information. Fail the metric if neither content nor usage tips are present in description or if they are not grounded in provided information.
+    alias: has_content_usage_insights
     type: binary
     scoring_criteria:
       possible_values:

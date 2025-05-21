@@ -5,9 +5,9 @@ namespace com.linkedin.assertion
  * Tracks the latest summary details of an assertion.
  */
 @Aspect = {
-  "name": "assertionSummary"
+  "name": "assertionRunSummary"
 }
-record AssertionSummary {
+record AssertionRunSummary {
 
   /**
    * The last failure event timestamp field as epoch at UTC in milliseconds.

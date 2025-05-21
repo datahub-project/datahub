@@ -334,6 +334,11 @@ class MetricResolver:
             DatasetVolumeAssertionParameters(source_type=volume_source_type),
             filter_params,  # type: ignore
         )
+        if row_count is None:
+            raise InsufficientDataException(
+                message=f"Unable to fetch a row count for {entity_urn} using volume_source_type={volume_source_type}"
+            )
+
         logger.info(
             "Fetched row_count=%d from source (volume_source_type=%s) for entity_urn=%s",
             row_count,

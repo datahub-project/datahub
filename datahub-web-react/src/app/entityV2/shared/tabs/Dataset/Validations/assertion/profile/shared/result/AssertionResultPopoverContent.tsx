@@ -230,29 +230,35 @@ export const AssertionResultPopoverContent = ({
                             ) : (
                                 <>
                                     Expected:{' '}
-                                    <Tooltip
-                                        title={
-                                            <RawValueTooltipTitle
-                                                value={actualVsExpectedText?.expectedLowTextWithDecimals}
-                                            />
-                                        }
-                                    >
-                                        <Text weight="bold" type="span">
-                                            {actualVsExpectedText?.expectedLowText}
-                                        </Text>
-                                    </Tooltip>
-                                    {' - '}
-                                    <Tooltip
-                                        title={
-                                            <RawValueTooltipTitle
-                                                value={actualVsExpectedText?.expectedHighTextWithDecimals}
-                                            />
-                                        }
-                                    >
-                                        <Text weight="bold" type="span">
-                                            {actualVsExpectedText?.expectedHighText}
-                                        </Text>
-                                    </Tooltip>
+                                    {actualVsExpectedText?.expectedLowText && (
+                                        <Tooltip
+                                            title={
+                                                <RawValueTooltipTitle
+                                                    value={actualVsExpectedText?.expectedLowTextWithDecimals}
+                                                />
+                                            }
+                                        >
+                                            <Text weight="bold" type="span">
+                                                {actualVsExpectedText?.expectedLowText}
+                                            </Text>
+                                        </Tooltip>
+                                    )}
+                                    {actualVsExpectedText?.expectedLowText &&
+                                        actualVsExpectedText?.expectedHighText &&
+                                        ' - '}
+                                    {actualVsExpectedText?.expectedHighText && (
+                                        <Tooltip
+                                            title={
+                                                <RawValueTooltipTitle
+                                                    value={actualVsExpectedText?.expectedHighTextWithDecimals}
+                                                />
+                                            }
+                                        >
+                                            <Text weight="bold" type="span">
+                                                {actualVsExpectedText?.expectedHighText}
+                                            </Text>
+                                        </Tooltip>
+                                    )}
                                 </>
                             )}
                         </ActualVsExpectedText>

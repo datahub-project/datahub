@@ -8,6 +8,7 @@ import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionRunSummary;
 import com.linkedin.assertion.AssertionSource;
 import com.linkedin.assertion.AssertionSourceType;
 import com.linkedin.assertion.AssertionStdAggregation;
@@ -41,6 +42,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.aspect.patch.builder.AssertionRunSummaryPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.AssertionsSummaryPatchBuilder;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.graph.GraphClient;
@@ -151,6 +153,28 @@ public class AssertionService extends BaseService {
         && response.getAspects().containsKey(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME)) {
       return new AssertionsSummary(
           response.getAspects().get(Constants.ASSERTIONS_SUMMARY_ASPECT_NAME).getValue().data());
+    }
+    // No aspect found
+    return null;
+  }
+
+  /**
+   * Returns an instance of {@link AssertionRunSummary} for the specified asseriton urn, or null if
+   * one cannot be found.
+   *
+   * @param assertionUrn the urn of the assertion to retrieve the summary for
+   * @return an instance of {@link AssertionRunSummary} for the assertion, null if it does not
+   *     exist.
+   */
+  @Nullable
+  public AssertionRunSummary getAssertionRunSummary(
+      @Nonnull OperationContext opContext, @Nonnull final Urn assertionUrn) {
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    final EntityResponse response = getAssertionEntityResponse(opContext, assertionUrn);
+    if (response != null
+        && response.getAspects().containsKey(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME)) {
+      return new AssertionRunSummary(
+          response.getAspects().get(Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME).getValue().data());
     }
     // No aspect found
     return null;
@@ -324,6 +348,15 @@ public class AssertionService extends BaseService {
     this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
   }
 
+  /** Patches an assertion run summary aspect */
+  public void patchAssertionRunSummary(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final AssertionRunSummaryPatchBuilder patchBuilder)
+      throws Exception {
+    Objects.requireNonNull(patchBuilder, "patchBuilder must not be null");
+    this.entityClient.ingestProposal(opContext, patchBuilder.build(), false);
+  }
+
   /**
    * Returns an instance of {@link EntityResponse} for the specified View urn, or null if one cannot
    * be found.
@@ -345,7 +378,8 @@ public class AssertionService extends BaseService {
               Constants.ASSERTION_INFO_ASPECT_NAME,
               Constants.ASSERTION_ACTIONS_ASPECT_NAME,
               Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-              Constants.GLOBAL_TAGS_ASPECT_NAME));
+              Constants.GLOBAL_TAGS_ASPECT_NAME,
+              Constants.ASSERTION_RUN_SUMMARY_ASPECT_NAME));
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Assertion with urn %s", assertionUrn), e);
@@ -426,6 +460,42 @@ public class AssertionService extends BaseService {
     Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
     final AssertionRunEvent event = getLatestAssertionRunEvent(opContext, assertionUrn);
     return event != null ? event.getResult() : null;
+  }
+
+  /**
+   * Returns an instance of {@link com.linkedin.assertion.AssertionRunEvent} for the specified
+   * assertion URN, at the given timestamp, if one exists.
+   */
+  @Nullable
+  public AssertionRunEvent getAssertionRunEvent(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final long timestampMillis) {
+    Objects.requireNonNull(opContext, "opContext must not be null");
+    Objects.requireNonNull(assertionUrn, "assertionUrn must not be null");
+    Objects.requireNonNull(timestampMillis, "timestampMillis must not be null");
+    try {
+      final List<EnvelopedAspect> aspects =
+          this.entityClient.getTimeseriesAspectValues(
+              opContext,
+              assertionUrn.toString(),
+              Constants.ASSERTION_ENTITY_NAME,
+              Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+              timestampMillis,
+              null,
+              1,
+              null);
+      if (aspects != null && !aspects.isEmpty()) {
+        final EnvelopedAspect envelopedAspect = aspects.get(0);
+        return GenericRecordUtils.deserializeAspect(
+            envelopedAspect.getAspect().getValue(),
+            envelopedAspect.getAspect().getContentType(),
+            AssertionRunEvent.class);
+      }
+      return null;
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException("Failed to retrieve Assertion Run Events from GMS", e);
+    }
   }
 
   /**

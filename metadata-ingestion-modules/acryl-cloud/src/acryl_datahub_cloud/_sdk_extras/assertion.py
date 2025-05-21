@@ -6,12 +6,13 @@ managing assertions.
 The actual Assertion Entity classes are defined in `metadata-ingestion/src/datahub/sdk`.
 """
 
+import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Union
 
-from typing_extensions import Self
+from typing_extensions import Self, assert_never
 
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
     AssertionIncidentBehavior,
@@ -20,8 +21,12 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     FixedRangeExclusionWindow,
     InferenceSensitivity,
 )
+from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
+from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, DatasetUrn
 from datahub.utilities.urns.urn import Urn
+
+logger = logging.getLogger(__name__)
 
 
 class AssertionMode(Enum):
@@ -43,15 +48,16 @@ class _Assertion(ABC):
 
     def __init__(
         self,
+        *,
         urn: AssertionUrn,
         dataset_urn: DatasetUrn,
         display_name: str,
         mode: AssertionMode,
-        created_by: Urn,
-        created_at: datetime,
-        updated_by: Urn,
-        updated_at: datetime,
         tags: list[Urn],
+        created_by: Union[Urn, None] = None,
+        created_at: Union[datetime, None] = None,
+        updated_by: Union[Urn, None] = None,
+        updated_at: Union[datetime, None] = None,
     ):
         """
         Initialize the base assertion class.
@@ -94,28 +100,121 @@ class _Assertion(ABC):
         return self._mode
 
     @property
-    def created_by(self) -> Urn:
+    def created_by(self) -> Union[Urn, None]:
         return self._created_by
 
     @property
-    def created_at(self) -> datetime:
+    def created_at(self) -> Union[datetime, None]:
         return self._created_at
 
     @property
-    def updated_by(self) -> Urn:
+    def updated_by(self) -> Union[Urn, None]:
         return self._updated_by
 
     @property
-    def updated_at(self) -> datetime:
+    def updated_at(self) -> Union[datetime, None]:
         return self._updated_at
 
     @property
     def tags(self) -> list[Urn]:
         return self._tags
 
+    @staticmethod
+    def _get_dataset_urn(assertion: Assertion) -> DatasetUrn:
+        info = assertion.info
+        if isinstance(info, models.DatasetAssertionInfoClass):
+            return DatasetUrn.from_string(info.dataset)
+        elif isinstance(
+            info,
+            (
+                models.FreshnessAssertionInfoClass,
+                models.VolumeAssertionInfoClass,
+                models.SqlAssertionInfoClass,
+                models.FieldAssertionInfoClass,
+                models.SchemaAssertionInfoClass,
+                models.CustomAssertionInfoClass,
+            ),
+        ):
+            return DatasetUrn.from_string(info.entity)
+        else:
+            assert_never(assertion.info)
+
+    @staticmethod
+    def _get_incident_behavior(assertion: Assertion) -> list[AssertionIncidentBehavior]:
+        incident_behaviors = []
+        for action in assertion.on_failure + assertion.on_success:
+            if action.type == models.AssertionActionTypeClass.RAISE_INCIDENT:
+                incident_behaviors.append(AssertionIncidentBehavior.RAISE_ON_FAIL)
+            elif action.type == models.AssertionActionTypeClass.RESOLVE_INCIDENT:
+                incident_behaviors.append(AssertionIncidentBehavior.RESOLVE_ON_PASS)
+
+        return incident_behaviors
+
+    @staticmethod
+    def _get_created_by(assertion: Assertion) -> Union[Urn, None]:
+        if assertion.source is None:
+            logger.warning(f"Assertion {assertion.urn} does not have a source")
+            return None
+        if isinstance(assertion.source, models.AssertionSourceClass):
+            if assertion.source.created is None:
+                logger.warning(
+                    f"Assertion {assertion.urn} does not have a created by in the source"
+                )
+                return None
+            return Urn.from_string(assertion.source.created.actor)
+        elif isinstance(assertion.source, models.AssertionSourceTypeClass):
+            logger.warning(
+                f"Assertion {assertion.urn} has a source type with no created by"
+            )
+            return None
+        return None
+
+    @staticmethod
+    def _get_created_at(assertion: Assertion) -> Union[datetime, None]:
+        if assertion.source is None:
+            logger.warning(f"Assertion {assertion.urn} does not have a source")
+            return None
+        if isinstance(assertion.source, models.AssertionSourceClass):
+            if assertion.source.created is None:
+                logger.warning(
+                    f"Assertion {assertion.urn} does not have a created by in the source"
+                )
+                return None
+            return datetime.fromtimestamp(
+                assertion.source.created.time / 1000, tz=timezone.utc
+            )
+        elif isinstance(assertion.source, models.AssertionSourceTypeClass):
+            logger.warning(
+                f"Assertion {assertion.urn} has a source type with no created by"
+            )
+            return None
+        return None
+
+    @staticmethod
+    def _get_updated_by(assertion: Assertion) -> Union[Urn, None]:
+        if assertion.last_updated is None:
+            logger.warning(f"Assertion {assertion.urn} does not have a last updated")
+            return None
+        return Urn.from_string(assertion.last_updated.actor)
+
+    @staticmethod
+    def _get_updated_at(assertion: Assertion) -> Union[datetime, None]:
+        if assertion.last_updated is None:
+            logger.warning(f"Assertion {assertion.urn} does not have a last updated")
+            return None
+        return datetime.fromtimestamp(
+            assertion.last_updated.time / 1000, tz=timezone.utc
+        )
+
+    @staticmethod
+    def _get_tags(assertion: Assertion) -> list[Urn]:
+        return [Urn.from_string(t.tag) for t in assertion.tags or []]
+
     @abstractmethod
     def from_entities(
         cls,
+        assertion: Assertion,
+        # monitor: Monitor,  # TODO: Add this once we have the monitor entity
     ) -> (
         Self
     ):  # TODO: add these properties: , assertion: Assertion, monitor: Monitor) -> Self:
@@ -132,6 +231,7 @@ class SmartFreshnessAssertion(_Assertion):
 
     def __init__(
         self,
+        *,
         urn: AssertionUrn,
         dataset_urn: DatasetUrn,
         display_name: str,
@@ -141,11 +241,11 @@ class SmartFreshnessAssertion(_Assertion):
         training_data_lookback_days: int,
         incident_behavior: list[AssertionIncidentBehavior],
         detection_mechanism: DetectionMechanism.DETECTION_MECHANISM_TYPES,
-        created_by: Urn,
-        created_at: datetime,
-        updated_by: Urn,
-        updated_at: datetime,
         tags: list[Urn],
+        created_by: Union[Urn, None] = None,
+        created_at: Union[datetime, None] = None,
+        updated_by: Union[Urn, None] = None,
+        updated_at: Union[datetime, None] = None,
     ):
         """
         Initialize a smart freshness assertion.
@@ -209,20 +309,11 @@ class SmartFreshnessAssertion(_Assertion):
     # TODO: Implement creation of this user facing assertion from the assertion and monitor entity in from_entities()
     @classmethod
     def from_entities(
-        cls,
-    ) -> (
-        "SmartFreshnessAssertion"
-    ):  # TODO: add params -> assertion: Assertion, monitor: Monitor) -> Self:
+        cls, assertion: Assertion
+    ) -> Self:  # TODO: add params -> assertion: Assertion, monitor: Monitor) -> Self:
         """
         Create a smart freshness assertion from the assertion and monitor entities.
         """
-        # TODO: Find these fields in the data model and then translate them to the user facing assertion fields:
-        # - dataset_urn
-        # - urn
-
-        # TODO: Translate the following fields from the monitor or assertion entity to the user facing assertion fields:
-        # From AssertionInfo:
-        # - display_name -> comes from the description field in AssertionInfo
 
         # From status: optional MonitorStatus mode: in MonitorInfo:
         # Note: Modeled here after MonitorStatus but called AssertionStatus in this user facing interface.
@@ -236,46 +327,30 @@ class SmartFreshnessAssertion(_Assertion):
         # - exclusion_windows
         # - training_data_lookback_days
 
-        # From AssertionEvaluationSpec -> AssertionEvaluationParameters -> DatasetFreshnessAssertionParameters.sourceType
+        # From MonitorInfo -> AssertionMonitor -> Assertion[0] -> AssertionEvaluationSpec -> AssertionEvaluationParameters -> DatasetFreshnessAssertionParameters.sourceType
         # And related fields if applicable.
         # - detection_mechanism
 
-        # From AssertionActions: onFailure, onSuccess
-        # - incident_behavior
-
-        # AssertionInfo -> source: optional AssertionSource -> created: from created: optional AuditStamp
-        # - created_by
-        # - created_at
-
-        # AssertionInfo -> lastUpdated: optional AuditStamp
-        # - updated_by
-        # - updated_at
-
-        # Assertion -> globalTags: optional GlobalTags
-        # - tags
-
-        # TODO: Retrieve the fields from the assertion and monitor entities, not hardcoded as below:
-        return SmartFreshnessAssertion(
-            urn=AssertionUrn("urn:li:assertion:smart_freshness_assertion"),
-            dataset_urn=DatasetUrn.from_string(
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)"
-            ),
-            display_name="Smart Freshness Assertion",
-            mode=AssertionMode.ACTIVE,
-            sensitivity=InferenceSensitivity.LOW,
-            exclusion_windows=[
+        # TODO: Retrieve the fields from the monitor entity, not hardcoded as below:
+        return cls(
+            urn=assertion.urn,
+            dataset_urn=cls._get_dataset_urn(assertion),
+            display_name=assertion.description or "",
+            mode=AssertionMode.ACTIVE,  # TODO: From status: optional MonitorStatus mode: in MonitorInfo
+            sensitivity=InferenceSensitivity.LOW,  # TODO: From Monitor
+            exclusion_windows=[  # TODO: From Monitor
                 FixedRangeExclusionWindow(
                     start=datetime(2021, 1, 1), end=datetime(2021, 1, 2)
                 )
             ],
-            training_data_lookback_days=30,
-            incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
-            detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
-            created_by=Urn.from_string("urn:li:corpuser:acryl-cloud-user"),
-            created_at=datetime(2021, 1, 1),
-            updated_by=Urn.from_string("urn:li:corpuser:acryl-cloud-user"),
-            updated_at=datetime(2021, 1, 1),
-            tags=[],
+            training_data_lookback_days=30,  # TODO: From Monitor
+            incident_behavior=cls._get_incident_behavior(assertion),
+            detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,  # TODO: From Monitor
+            created_by=cls._get_created_by(assertion),
+            created_at=cls._get_created_at(assertion),
+            updated_by=cls._get_updated_by(assertion),
+            updated_at=cls._get_updated_at(assertion),
+            tags=cls._get_tags(assertion),
         )
 
 

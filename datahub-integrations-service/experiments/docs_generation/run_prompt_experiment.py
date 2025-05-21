@@ -2,7 +2,7 @@ import json
 import os
 import pathlib
 import tempfile
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import asyncer
 import dotenv
@@ -10,30 +10,21 @@ import mlflow
 import mlflow.bedrock
 import mlflow.metrics
 import pandas as pd
+import typer
 from datahub.utilities.perf_timer import PerfTimer
-
-from datahub_integrations.gen_ai.bedrock import (
-    BedrockModel,
-    get_bedrock_model_env_variable,
-)
-from datahub_integrations.gen_ai.description_v2 import (
-    PROMPT_TEMPLATE,
+from description_v3 import (
+    CURRENT_MODEL,
     EntityDescriptionResult,
     ExtractedTableInfo,
-    generate_entity_descriptions_for_urn_eval,
+    generate_entity_descriptions_for_urn_eval_v3,
 )
 
-current_dir = pathlib.Path().resolve()
+from datahub_integrations.gen_ai.description_v2 import transform_table_info_for_llm
+
 dotenv.load_dotenv()
 
-print("eval directory", current_dir)
-print("parent directory", current_dir.parent)
-print("eval data directory", current_dir / "eval_data")
-
-CURRENT_PROMPT = PROMPT_TEMPLATE
-CURRENT_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
-    "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
-)
+# Global constants
+BATCH_SIZE = 5  # Number of files to process concurrently
 
 
 # This holds main logic for prompt engineering and generation of entity descriptions
@@ -45,15 +36,13 @@ def generate_entity_descriptions_for_urn_eval_wrapper(data):
     )
     # mlflow_prompt = mlflow.load_prompt("prompts:/docs-generation-prompt/1").template
 
-    return generate_entity_descriptions_for_urn_eval(
+    return generate_entity_descriptions_for_urn_eval_v3(
         urn=data["urn"],
         extracted_entity_info=extracted_entity_info,
-        prompt=CURRENT_PROMPT,
-        model=CURRENT_MODEL,
     )
 
 
-def process_single_file(file) -> Tuple[Dict, List[Dict]]:
+def process_single_file(file: pathlib.Path) -> Tuple[Dict, List[Dict]]:
     with open(file, "r") as f:
         data = json.load(f)
         with PerfTimer() as timer:
@@ -68,8 +57,28 @@ def process_single_file(file) -> Tuple[Dict, List[Dict]]:
                         data["extracted_entity_info"]
                     ),
                     raw_llm_output=None,
+                    failure_reason=str(e),
                 )
             generation_time = timer.elapsed_seconds()
+
+        _, column_infos = transform_table_info_for_llm(result.extracted_entity_info)
+
+        # NOTE: Keep only matching columns from the input column_infos
+        # Any additional columns from AI generated column descriptions are not included
+        column_descs = [
+            {
+                "urn": data["urn"],
+                "deployment": data["deployment"],
+                "column": column,
+                "description": (
+                    result.column_descriptions.get(column)
+                    if result.column_descriptions
+                    else None
+                ),
+                "failure_reason": result.failure_reason,
+            }
+            for column in column_infos
+        ]
 
         table_desc = {
             "urn": data["urn"],
@@ -89,21 +98,20 @@ def process_single_file(file) -> Tuple[Dict, List[Dict]]:
             > 0,
             "failure_reason": result.failure_reason,
             "notes": data["notes"],
+            "total_columns": len(result.extracted_entity_info.column_names),
+            "num_columns_described": len(
+                [
+                    col
+                    for col in column_descs
+                    if col["description"] is not None and col["description"] != ""
+                ]
+            ),
+            "percent_columns_described": (
+                100
+                * len([col for col in column_descs if col["description"] is not None])
+                / len(result.extracted_entity_info.column_names)
+            ),
         }
-
-        column_descs = (
-            [
-                {
-                    "urn": data["urn"],
-                    "deployment": data["deployment"],
-                    "column": column,
-                    "description": description,
-                }
-                for column, description in result.column_descriptions.items()
-            ]
-            if result.column_descriptions
-            else []
-        )
 
         return table_desc, column_descs
 
@@ -129,25 +137,39 @@ def log_artifacts(artifact_temp_path, table_descriptions, column_descriptions):
 
     # log current file as artifact or model
     mlflow.log_artifact("./run_prompt_experiment.py")
+    mlflow.log_artifact("./description_v3.py")
 
 
-async def process_files(files):
+async def process_files(files: List[pathlib.Path]):
+    """
+    Process files in batches of N tasks at a time.
+
+    Args:
+        files: List of file paths to process
+    """
     table_descriptions = []
     column_descriptions = []
-    results: List[asyncer.SoonValue[Tuple[Dict, List[Dict]]]] = []
-    async with asyncer.create_task_group() as task_group:
-        for file in files:
-            result = task_group.soonify(asyncer.asyncify(process_single_file))(file)
-            results.append(result)
 
-    for result in results:
-        table_desc, column_descs = result.value
-        table_descriptions.append(table_desc)
-        column_descriptions.extend(column_descs)
+    # Process files in batches
+    for i in range(0, len(files), BATCH_SIZE):
+        batch_files = files[i : i + BATCH_SIZE]
+        results: List[asyncer.SoonValue[Tuple[Dict, List[Dict]]]] = []
+
+        async with asyncer.create_task_group() as task_group:
+            for file in batch_files:
+                result = task_group.soonify(asyncer.asyncify(process_single_file))(file)
+                results.append(result)
+
+        # Process results from this batch
+        for result in results:
+            table_desc, column_descs = result.value
+            table_descriptions.append(table_desc)
+            column_descriptions.extend(column_descs)
+
     return table_descriptions, column_descriptions
 
 
-def has_description_metric_fn(predictions, targets):
+def has_table_description_metric_fn(predictions, targets):
     scores = [
         (desc is not None and desc != "")
         for desc, target in zip(predictions, targets, strict=False)
@@ -155,13 +177,19 @@ def has_description_metric_fn(predictions, targets):
     return mlflow.metrics.MetricValue(
         scores=scores,
         aggregate_results={
-            "pass_percentage": len(list(filter(lambda x: x, scores))) / len(scores)
+            "pass_percentage": 100
+            * len(list(filter(lambda x: x, scores)))
+            / len(scores),
+            "total_count": len(scores),
         },
     )
 
 
-def run_experiment(files):
-    with mlflow.start_run(), tempfile.TemporaryDirectory() as tempdir:
+def run_experiment(files: List[pathlib.Path], run_description: Optional[str]):
+    with (
+        mlflow.start_run(description=run_description),
+        tempfile.TemporaryDirectory() as tempdir,
+    ):
         artifact_temp_path = setup_artifact_directory(tempdir)
         table_descriptions, column_descriptions = asyncer.syncify(
             process_files, raise_sync_error=False
@@ -169,12 +197,13 @@ def run_experiment(files):
         log_artifacts(artifact_temp_path, table_descriptions, column_descriptions)
         mlflow.log_params({"model": CURRENT_MODEL})
 
-        has_description_metric = mlflow.metrics.make_metric(
-            eval_fn=has_description_metric_fn,
-            name="has_description",
+        has_table_description_metric = mlflow.metrics.make_metric(
+            eval_fn=has_table_description_metric_fn,
+            name="has_table_description",
             greater_is_better=True,
         )
 
+        # TODO: add generation_time (min, max, avg) metrics to track latency
         # This adds eval_results_table.json artifact to the run
         # Do not remove this, it is used for ai evaluation and human annotations
         mlflow.evaluate(
@@ -183,15 +212,72 @@ def run_experiment(files):
             evaluators="default",
             targets="entity_info",
             extra_metrics=[
-                has_description_metric,
+                has_table_description_metric,
                 # *ai_metrics
             ],
         )
 
+        # Calculate and log column metrics separately
+        if column_descriptions:
+            # Add has_column_description flag to each column entry
+            for col_desc in column_descriptions:
+                col_desc["has_column_description"] = bool(col_desc.get("description"))
 
-if __name__ == "__main__":
-    # Warning: This experiment may take a long time (~15 minutes - 10 for description generation and 5 for ai evaluation, if enabled) to run as it processes multiple files and logs results to MLflow
-    # The experiment will be logged under the 'docs_generation' experiment in MLflow
+            # Create DataFrame with the enhanced data
+            column_df = pd.DataFrame(column_descriptions)
+
+            # Log detailed column description results as a separate table
+            mlflow.log_table(column_df, "col_desc_eval_results_table.json")
+
+            # Calculate column metrics
+            column_metrics = calculate_column_metrics(column_df)
+
+            # Log the metrics
+            for metric_name, value in column_metrics.items():
+                mlflow.log_metric(metric_name, value)
+
+
+def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:
+    """
+    Calculate metrics about column descriptions.
+
+    Args:
+        column_df: DataFrame containing column description data
+
+    Returns:
+        Dictionary of metrics
+    """
+    # Calculate metrics from the DataFrame
+    total_columns = len(column_df)
+
+    # Group by URN to calculate tables with all columns described
+    table_columns = column_df.groupby("urn").agg(
+        {"has_column_description": ["count", "sum"]}
+    )
+    table_columns.columns = ["total", "with_description"]
+    tables_with_all_columns_described = sum(
+        table_columns["total"] == table_columns["with_description"]
+    )
+    total_tables = len(table_columns)
+
+    # Create metrics dictionary
+    return {
+        "has_column_description/total_tables": total_tables,
+        "has_column_description/total_columns": total_columns,
+        "has_column_description/pass_percentage": (
+            100 * tables_with_all_columns_described / total_tables
+            if total_tables > 0
+            else 0.0
+        ),
+    }
+
+
+def run_prompt_experiment(run_description: Optional[str] = None):
+    current_dir = pathlib.Path().resolve()
+    print("eval directory", current_dir)
+    print("parent directory", current_dir.parent)
+    print("eval data directory", current_dir / "eval_data")
+
     EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
     mlflow.set_experiment(EXPERIMENT_NAME)
     mlflow.bedrock.autolog()
@@ -201,4 +287,8 @@ if __name__ == "__main__":
     # NOTE: modify generate_entity_descriptions_for_urn_eval_wrapper to change prompt
     # or any other inputs for prompt engineering experiments
 
-    run_experiment(eval_files)
+    run_experiment(eval_files, run_description)
+
+
+if __name__ == "__main__":
+    typer.run(run_prompt_experiment)

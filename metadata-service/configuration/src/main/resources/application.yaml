@@ -516,6 +516,10 @@ assertions:
   hook:
     enabled: ${ENABLE_ASSERTIONS_HOOK:true}
     consumerGroupSuffix: ${ASSERTIONS_HOOK_CONSUMER_GROUP_SUFFIX:}
+assertionAnalytics:
+  hook:
+    enabled: ${ENABLE_ASSERTION_ANALYTICS_HOOK:true}
+    consumerGroupSuffix: ${ASSERTION_ANALYTICS_HOOK_CONSUMER_GROUP_SUFFIX:}
 incidents:
   hook:
     # Only managed incident summary hook. Should be better named.

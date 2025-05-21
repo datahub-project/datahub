@@ -241,7 +241,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
@@ -313,7 +314,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -402,7 +404,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -478,7 +481,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Verify that nothing was ingested in this case -- no anomalies to ingest since it was a
     // success.
@@ -536,7 +540,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Ensure that we did not apply any actions or look up anything for incidents.
     Mockito.verify(entityClient, Mockito.times(0))
@@ -617,7 +622,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -727,7 +733,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Ensure that we searched for the active incidents associated with the assertion..
     Mockito.verify(entityClient, Mockito.times(1))
@@ -794,7 +801,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
   }
 
   @Test
@@ -982,7 +990,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME))))
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -1103,7 +1112,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME))))
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -1147,7 +1157,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME)));
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME)));
 
     // Verify that the graph client was NOT called since this is not an inferred assertion
     verify(mockGraphClient, times(0))
@@ -1194,7 +1205,8 @@ public class AssertionActionsHookTest {
                     ASSERTION_INFO_ASPECT_NAME,
                     ASSERTION_ACTIONS_ASPECT_NAME,
                     DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                    GLOBAL_TAGS_ASPECT_NAME))))
+                    GLOBAL_TAGS_ASPECT_NAME,
+                    ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
         .thenReturn(
             new EntityResponse()
                 .setUrn(TEST_ASSERTION_URN)
@@ -1294,7 +1306,8 @@ public class AssertionActionsHookTest {
                       ASSERTION_INFO_ASPECT_NAME,
                       ASSERTION_ACTIONS_ASPECT_NAME,
                       DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                      GLOBAL_TAGS_ASPECT_NAME))))
+                      GLOBAL_TAGS_ASPECT_NAME,
+                      ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)
@@ -1349,7 +1362,8 @@ public class AssertionActionsHookTest {
                       ASSERTION_INFO_ASPECT_NAME,
                       ASSERTION_ACTIONS_ASPECT_NAME,
                       DATA_PLATFORM_INSTANCE_ASPECT_NAME,
-                      GLOBAL_TAGS_ASPECT_NAME))))
+                      GLOBAL_TAGS_ASPECT_NAME,
+                      ASSERTION_RUN_SUMMARY_ASPECT_NAME))))
           .thenReturn(
               new EntityResponse()
                   .setUrn(assertionUrn)

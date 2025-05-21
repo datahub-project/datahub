@@ -3,6 +3,7 @@ package com.linkedin.metadata.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.anomaly.MonitorAnomalyEvent;
 import com.linkedin.assertion.AssertionResult;
 import com.linkedin.assertion.FieldAssertionInfo;
 import com.linkedin.assertion.FreshnessAssertionInfo;
@@ -16,10 +17,12 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.MonitorKey;
 import com.linkedin.metadata.service.util.MonitorServiceUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.monitor.AssertionEvaluationParameters;
 import com.linkedin.monitor.AssertionEvaluationSpec;
@@ -155,6 +158,38 @@ public class MonitorService extends BaseService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to retrieve Monitor with urn %s", monitorUrn), e);
+    }
+  }
+
+  @Nullable
+  public MonitorAnomalyEvent getAnomalyEvent(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn monitorUrn,
+      @Nonnull long eventTimestampMillis) {
+    Objects.requireNonNull(monitorUrn, "monitorUrn must not be null");
+    Objects.requireNonNull(eventTimestampMillis, "eventTimestampMillis must not be null");
+
+    try {
+      final List<EnvelopedAspect> aspects =
+          this.entityClient.getTimeseriesAspectValues(
+              opContext,
+              monitorUrn.toString(),
+              Constants.MONITOR_ENTITY_NAME,
+              Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME,
+              eventTimestampMillis,
+              null,
+              1,
+              null);
+      if (aspects != null && !aspects.isEmpty()) {
+        final com.linkedin.metadata.aspect.EnvelopedAspect envelopedAspect = aspects.get(0);
+        return GenericRecordUtils.deserializeAspect(
+            envelopedAspect.getAspect().getValue(),
+            envelopedAspect.getAspect().getContentType(),
+            MonitorAnomalyEvent.class);
+      }
+      return null;
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to retrieve Monitor Anomaly Events from GMS", e);
     }
   }
 

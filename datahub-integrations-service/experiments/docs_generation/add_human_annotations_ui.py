@@ -17,6 +17,7 @@ from eval_common import (
     HumanGuidelines,
     HumanJudgeVerdict,
     MetricValue,
+    get_deployment_details,
     get_human_annotation_run_name,
     get_human_guidelines,
     get_overall_score,
@@ -25,6 +26,7 @@ from eval_common import (
 from mlflow_common import (
     get_ai_eval_result_or_none,
     get_human_eval_result_or_none,
+    get_latest_human_eval_result_or_none,
     get_run_or_fail,
     load_eval_table,
 )
@@ -85,9 +87,11 @@ def row_to_human_judge_verdict(
                 {
                     "value": row[f"{metric_name}/score"],
                     "reasoning": row[f"{metric_name}/justification"],
-                    "guidelines": "\n".join(guidelines.guidelines[metric_name])
-                    if guidelines.guidelines.get(metric_name) is not None
-                    else row[f"{metric_name}/justification"],
+                    "guidelines": (
+                        "\n".join(guidelines.guidelines[metric_name])
+                        if guidelines.guidelines.get(metric_name) is not None
+                        else row[f"{metric_name}/justification"]
+                    ),
                 }
             )
             for metric_name in METRIC_NAMES
@@ -101,7 +105,7 @@ def show_table(current_table):
 
     # reset all the values
     for metric_name in METRIC_NAMES:
-        st.session_state[f"{metric_name}_value"] = "pass"
+        st.session_state[f"{metric_name}_value"] = "fail"
         st.session_state[f"{metric_name}_guidelines"] = (
             "\n".join(current_table_data["guidelines"].guidelines[metric_name])
             if current_table_data["guidelines"] is not None
@@ -162,6 +166,16 @@ def show_table(current_table):
             print("Error setting AI eval results", e, verdict)
 
 
+def prefill_annotations(human_eval_result, guidelines):
+    for _, row in human_eval_result.iterrows():
+        st.session_state.annotations[row["urn"]] = {
+            "verdict": row_to_human_judge_verdict(
+                row, guidelines.get(row["urn"])
+            ).dict(),
+            "table_name": row["urn"],
+        }
+
+
 # Initialize session state
 def init_session_state_with_previous_annotations(run_name, eval_result):
     print("initializing session state with previous annotations")
@@ -182,6 +196,7 @@ def init_session_state_with_previous_annotations(run_name, eval_result):
             "description": row["description"],
             "deployment": row["deployment"],
             "data": row["entity_info"],
+            "notes": row.get("notes", ""),
             "ai_eval_results": row_to_ai_judge_verdict(
                 ai_eval_result_indexed.loc[row["urn"]]
             ),
@@ -190,13 +205,23 @@ def init_session_state_with_previous_annotations(run_name, eval_result):
 
     # populate human_eval_results in annotations
     if human_eval_result is not None:
-        for _, row in human_eval_result.iterrows():
-            st.session_state.annotations[row["urn"]] = {
-                "verdict": row_to_human_judge_verdict(
-                    row, guidelines.get(row["urn"])
-                ).dict(),
-                "table_name": row["urn"],
-            }
+        prefill_annotations(human_eval_result, guidelines)
+    else:
+        print(
+            "No matching human eval results found, trying to load latest human eval results"
+        )
+        human_eval_result = get_latest_human_eval_result_or_none()
+        if human_eval_result is not None:
+            prefill_annotations(human_eval_result, guidelines)
+
+    try:
+        st.session_state.deployment_details = {
+            deployment["deployment"]: deployment["detail"]
+            for deployment in get_deployment_details()
+        }
+    except Exception as e:
+        print(f"Error getting deployment details: {e}")
+        st.session_state.deployment_details = {}
 
 
 def extract_table_annotation(current_table_name):
@@ -377,7 +402,10 @@ def run_ai_judge(metric_name):
 
     table_metric_guidelines = _get_edited_guidelines(current_table)
 
-    with mlflow.start_run(parent_run_id=st.session_state.input_run_id):
+    with mlflow.start_run(
+        parent_run_id=st.session_state.input_run_id,
+        run_name=f"rerun_{metric_name}",
+    ):
         llm_judge_verdict = llm_judge_common_eval_fn(
             st.session_state.table_data[current_table]["description"],
             json.dumps(st.session_state.table_data[current_table]["data"]),
@@ -410,6 +438,22 @@ def _get_edited_guidelines(current_table: str) -> HumanGuidelines:
             },
         }
     )
+
+
+def get_additional_info_for_table(current_table: str) -> str:
+    details = []
+    notes = st.session_state.table_data[current_table]["notes"]
+    if (
+        st.session_state.table_data[current_table]["deployment"]
+        in st.session_state.deployment_details
+    ):
+        details.append(
+            f"{st.session_state.deployment_details[st.session_state.table_data[current_table]['deployment']]}"
+        )
+    if notes:
+        details.append(f"{notes}")
+
+    return "\n\r".join(details)
 
 
 # --- Layout ---
@@ -475,6 +519,10 @@ with link_columns[2]:
 if st.session_state.annotations.get(current_table):
     st.markdown(":green[This table has already been annotated.]")
 
+
+st.info(
+    get_additional_info_for_table(current_table),
+)
 # Button with callback
 b1, b2, b3 = st.columns([1, 1, 2])
 with b1:
@@ -509,6 +557,7 @@ with st.expander("**Generated Description**", expanded=True):
 # NOTE: This expanded = False expander is a hack to scroll to almost top after next button is clicked
 # This does not work so well.
 expanded = st.session_state.human_annotations_expander
+
 with st.expander(
     "**Add Human Annotations**",
     expanded=expanded,

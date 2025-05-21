@@ -1,0 +1,23 @@
+[
+{
+    "entityType": "monitor",
+    "entityUrn": "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD),my_monitor_id)",
+    "changeType": "UPSERT",
+    "aspectName": "monitorInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "key": "value"
+            },
+            "externalUrl": "https://example.com/monitor/1234",
+            "type": "FRESHNESS",
+            "status": {
+                "mode": "PASSIVE",
+                "state": "TRAINING",
+                "reviewedAt": 1234567890
+            },
+            "executorId": "executor_id"
+        }
+    }
+}
+]

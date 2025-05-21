@@ -594,6 +594,20 @@ class TestDatabricksSource:
         )
         assert result == 10
 
+    @patch.object(DatabricksSource, "_execute_fetchone_query")
+    def test_get_num_rows_via_count_no_rows(self, execute_query_mock: Mock) -> None:
+        execute_query_mock.return_value = []
+        db_params = DatabaseParams(
+            dataset_part_0="hive_metastore",
+            dataset_part_1="default",
+            dataset_part_2="base_table",
+        )
+        result = self.databricks_source._get_num_rows_via_count(db_params, "")
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_COUNT_QUERY,
+        )
+        assert result is None
+
     @patch.object(DatabricksSource, "_get_num_rows_via_count")
     def test_volume_assertion_retries(self, _get_num_rows_via_count_mock: Mock) -> None:
         _get_num_rows_via_count_mock.side_effect = [Exception, 10]

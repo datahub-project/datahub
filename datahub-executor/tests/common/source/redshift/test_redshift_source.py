@@ -410,6 +410,22 @@ class TestRedshiftSource:
         assert result == 10
 
     @patch.object(RedshiftSource, "_execute_fetchone_query")
+    def test_get_num_rows_via_stats_table_no_rows(
+        self, execute_query_mock: Mock
+    ) -> None:
+        execute_query_mock.return_value = []
+        db_params = DatabaseParams(
+            dataset_part_0="test_db",
+            dataset_part_1="public",
+            dataset_part_2="test_table",
+        )
+        result = self.redshift_source._get_num_rows_via_stats_table(db_params)
+        execute_query_mock.assert_called_once_with(
+            TEST_NUM_ROWS_VIA_STATE_TABLE_QUERY,
+        )
+        assert result is None
+
+    @patch.object(RedshiftSource, "_execute_fetchone_query")
     def test_get_num_rows_via_count(self, execute_query_mock: Mock) -> None:
         execute_query_mock.return_value = [10]
         db_params = DatabaseParams(

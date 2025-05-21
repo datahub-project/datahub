@@ -1,19 +1,23 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Union
 
 from acryl_datahub_cloud._sdk_extras.assertion import (
+    AssertionMode,
     AssertionTypes,
     SmartFreshnessAssertion,
 )
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
     AssertionIncidentBehavior,
+    DetectionMechanism,
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
     InferenceSensitivity,
     _AssertionInput,
 )
 from datahub.metadata.urns import AssertionUrn, DatasetUrn
+from datahub.utilities.urns.urn import Urn
 
 if TYPE_CHECKING:
     from datahub.sdk.main_client import DataHubClient
@@ -109,9 +113,51 @@ class AssertionsClient:
         # assertion_entity = assertion_input.to_assertion_entity()
         # monitor_entity = assertion_input.to_monitor_entity()
         # TODO: Call the DataHub API to upsert the assertion and monitor entities
+        # TODO: Do this in a "transaction" i.e. if one fails we are not left in a half-baked state
+        #   - can this be done in a single call?:
         # upserted_assertion = self.client.entity.upsert(assertion_to_upsert)
         # upserted_monitor = self.client.entity.upsert(monitor_to_upsert)
-        return SmartFreshnessAssertion.from_entities()  # TODO: Pass entities here
+        # return SmartFreshnessAssertion.from_entities(assertion_entity, monitor_entity)  # TODO: Pass entities here
+
+        # TODO: Remove the below placeholders once everything is connected and implemented:
+        assert urn is not None, "URN is required"  # TODO: Placeholder, remove this
+        assert dataset_urn is not None, (
+            "Dataset URN is required"
+        )  # TODO: Placeholder, remove this
+        assert display_name is not None, (
+            "Display name is required"
+        )  # TODO: Placeholder, remove this
+        assert detection_mechanism is not None, (
+            "Detection mechanism is required"
+        )  # TODO: Placeholder, remove this
+        assert sensitivity is not None, (
+            "Sensitivity is required"
+        )  # TODO: Placeholder, remove this
+        assert exclusion_windows is not None, (
+            "Exclusion windows are required"
+        )  # TODO: Placeholder, remove this
+        assert training_data_lookback_days is not None, (
+            "Training data lookback days are required"
+        )  # TODO: Placeholder, remove this
+        assert incident_behavior is not None, (
+            "Incident behavior is required"
+        )  # TODO: Placeholder, remove this
+        return SmartFreshnessAssertion(  # TODO: Placeholder, remove this
+            urn=AssertionUrn.from_string(urn),
+            dataset_urn=DatasetUrn.from_string(dataset_urn),
+            display_name=display_name,
+            mode=AssertionMode.ACTIVE,
+            detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
+            sensitivity=InferenceSensitivity.LOW,
+            exclusion_windows=[],
+            training_data_lookback_days=ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+            incident_behavior=[],
+            created_by=Urn.from_string("urn:li:corpuser:acryl-cloud-user"),
+            created_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+            updated_by=Urn.from_string("urn:li:corpuser:acryl-cloud-user"),
+            updated_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+            tags=[],
+        )
 
 
 def _print_experimental_warning() -> None:

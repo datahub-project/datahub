@@ -11,6 +11,8 @@ import com.datahub.event.hook.change.EntityChangeEventSinkHook;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.assertion.AssertionActionsHook;
+import com.linkedin.metadata.kafka.hook.assertion.AssertionAnalyticsRunEventHook;
+import com.linkedin.metadata.kafka.hook.assertion.AssertionRunSummaryHook;
 import com.linkedin.metadata.kafka.hook.assertion.AssertionsSummaryHook;
 import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.form.FormAssignmentHook;
@@ -75,7 +77,9 @@ public class MaeConsumerApplicationTest extends AbstractTestNGSpringContextTests
             OwnerSubscriptionHook.class,
             DefaultNotificationSettingsHook.class,
             IncidentActivityEventHook.class,
-            FormCompletionHook.class);
+            FormCompletionHook.class,
+            AssertionRunSummaryHook.class,
+            AssertionAnalyticsRunEventHook.class);
 
     for (Class<?> hookClazz : expectedHooks) {
       assertTrue(

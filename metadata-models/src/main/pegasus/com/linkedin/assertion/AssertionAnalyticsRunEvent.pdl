@@ -51,16 +51,6 @@ record AssertionAnalyticsRunEvent includes AssertionAnalyticsContext {
   result: optional AssertionResult
 
   /**
-   * Runtime parameters of evaluation
-   */
-  runtimeContext: optional map[string, string]
-
-  /**
-  * Specification of the batch which this run is evaluating
-  */
-  batchSpec: optional BatchSpec
-
-  /**
    * Granularity of the event if applicable
    */
   eventGranularity: optional TimeWindowSize

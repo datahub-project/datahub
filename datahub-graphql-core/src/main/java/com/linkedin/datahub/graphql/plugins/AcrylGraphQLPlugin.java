@@ -63,6 +63,7 @@ import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertion
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateSqlAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
+import com.linkedin.datahub.graphql.resolvers.assertion.ReportAnomalyResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.ReportAssertionResultResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionsForAssetResolver;
@@ -103,6 +104,7 @@ import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
+import com.linkedin.datahub.graphql.resolvers.monitor.UpdateAnomalyResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
@@ -413,6 +415,11 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
                 .dataFetcher(
                     "reportAssertionResult", new ReportAssertionResultResolver(assertionService))
+                .dataFetcher(
+                    "reportAnomaly",
+                    new ReportAnomalyResolver(assertionService, monitorService, entityClient))
+                .dataFetcher(
+                    "updateAnomaly", new UpdateAnomalyResolver(entityClient, monitorService))
                 .dataFetcher(
                     "upsertDatasetFreshnessAssertionMonitor",
                     new UpsertDatasetFreshnessAssertionMonitorResolver(
