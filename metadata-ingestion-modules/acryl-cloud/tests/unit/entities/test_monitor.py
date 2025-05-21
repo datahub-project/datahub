@@ -30,6 +30,95 @@ _any_complex_monitor_info = models.MonitorInfoClass(
         state=models.MonitorStateClass.TRAINING,
         reviewedAt=1234567890,
     ),
+    assertionMonitor=models.AssertionMonitorClass(
+        assertions=[
+            models.AssertionEvaluationSpecClass(
+                assertion="urn:li:assertion:assertion1",
+                schedule=models.CronScheduleClass(
+                    cron="0 0 * * *",
+                    timezone="UTC",
+                ),
+                parameters=models.AssertionEvaluationParametersClass(
+                    type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
+                    datasetFreshnessParameters=models.DatasetFreshnessAssertionParametersClass(
+                        sourceType=models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA,
+                        field=models.FreshnessFieldSpecClass(
+                            path="last_updated_schema_field_path",
+                            type="long",
+                            nativeType="long",
+                            kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
+                        ),
+                        auditLog=models.AuditLogSpecClass(
+                            operationTypes=["operation1"],
+                            userName="username",
+                        ),
+                        dataHubOperation=models.DataHubOperationSpecClass(
+                            operationTypes=["operation2"],
+                            customOperationTypes=["operation3"],
+                        ),
+                    ),
+                ),
+                context=models.AssertionEvaluationContextClass(
+                    embeddedAssertions=[
+                        models.EmbeddedAssertionClass(
+                            evaluationTimeWindow=models.TimeWindowClass(
+                                startTimeMillis=1234567890,
+                                length=models.TimeWindowSizeClass(
+                                    unit=models.CalendarIntervalClass.HOUR,
+                                    multiple=12,
+                                ),
+                            ),
+                            context={"key": "value"},
+                        ),
+                    ],
+                    inferenceDetails=models.AssertionInferenceDetailsClass(
+                        modelId="model_id",
+                        modelVersion="model_version",
+                        confidence=0.9,
+                        parameters={"param1": "value1"},
+                        generatedAt=1234567890,
+                    ),
+                    stdDev=123.456,
+                ),
+            ),
+        ],
+        settings=models.AssertionMonitorSettingsClass(
+            adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                algorithm=models.AdjustmentAlgorithmClass.CUSTOM,
+                algorithmName="custom_algorithm",
+                context={"key": "value"},
+                exclusionWindows=[
+                    models.AssertionExclusionWindowClass(
+                        type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,
+                        displayName="fixed_range",
+                        fixedRange=models.AbsoluteTimeWindowClass(
+                            startTimeMillis=1234567890,
+                            endTimeMillis=1234568790,
+                        ),
+                    )
+                ],
+                anomalyExclusionWindows=[
+                    models.AssertionExclusionWindowClass(
+                        type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,
+                        displayName="fixed_range",
+                        fixedRange=models.AbsoluteTimeWindowClass(
+                            startTimeMillis=1234567890,
+                            endTimeMillis=1234568790,
+                        ),
+                    )
+                ],
+                trainingDataLookbackWindowDays=30,
+                sensitivity=models.AssertionMonitorSensitivityClass(level=5),
+            ),
+            capabilities=[models.AssertionMonitorCapabilityClass.ASSERTION_EVALUATION],
+        ),
+        bootstrapStatus=models.AssertionMonitorBootstrapStatusClass(
+            metricsCubeBootstrapStatus=models.AssertionMonitorMetricsCubeBootstrapStatusClass(
+                state=models.AssertionMonitorMetricsCubeBootstrapStateClass.PENDING,
+                message="Bootstrap in progress",
+            ),
+        ),
+    ),
     executorId="executor_id",
 )
 _any_additional_args_for_complex_monitor: Dict[str, Any] = dict(
