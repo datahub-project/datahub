@@ -115,7 +115,6 @@ def test_structured_properties_from_yaml(sample_yaml_file):
     assert props[1].allowed_values
     assert len(props[1].allowed_values) == 1
     assert props[1].allowed_values[0].value == 1
-    assert props[1].allowed_values[0].value == 1
 
     assert props[2].id == "test_property_float"
     assert props[2].type == "urn:li:dataType:datahub.number"
