@@ -10,6 +10,8 @@ The artifacts used by this source are:
       - DatasetProperties Aspect: name, identifier, alias, description, tags, meta
       - Ownership Aspect: owner information from meta/config
       - UpstreamLineage Aspect: dependencies between nodes
+        - Direct dependencies from manifest's `depends_on.nodes`
+        - Column-level lineage from parsed SQL (when available)
       - SubTypes Aspect: materialization type (table/view)
       - GlobalTags Aspect: dbt tags
       - BrowsePaths Aspect: database/schema structure
