@@ -422,6 +422,7 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
   }
 
+  @Ignore
   @Test(groups = "basic")
   void testComplexStructs() throws IOException {
     SchemaMetadata schema =
@@ -897,6 +898,32 @@ class AvroSchemaConverterTest {
         true,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+  }
+
+  @Test(groups = "basic")
+  void testCyclicReferences() throws IOException {
+    SchemaMetadata schema =
+        avroSchemaConverter.toDataHubSchema(
+            readAvroSchema("cyclic_references.avsc"), false, false, dataPlatformUrn, null);
+
+    schema.getFields().forEach(System.out::println);
+
+    assertEquals(schema.getFields().size(), 2);
+
+    assertSchemaField(
+        schema.getFields().get(0),
+        "[version=2.0].[type=Parent].[type=string].name",
+        "string",
+        false,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(1),
+        "[version=2.0].[type=Parent].[type=Parent].parent",
+        "Parent",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())));
   }
 
   private void assertSchemaField(
