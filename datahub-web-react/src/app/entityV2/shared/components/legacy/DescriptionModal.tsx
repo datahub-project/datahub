@@ -1,9 +1,12 @@
-import { Button, Form, Modal, Typography } from 'antd';
+import { Form, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { ModalButton } from '@components/components/Modal/Modal';
+
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { Editor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
+import { Modal } from '@src/alchemy-components';
 
 const FormLabel = styled(Typography.Text)`
     font-size: 10px;
@@ -45,6 +48,21 @@ export default function UpdateDescriptionModal({
 }: Props) {
     const [updatedDesc, setDesc] = useState(description || original || '');
 
+    const buttons: ModalButton[] = [
+        {
+            text: 'Cancel',
+            variant: 'text',
+            onClick: onClose,
+        },
+        {
+            text: 'Publish',
+            onClick: () => onSubmit(updatedDesc),
+            variant: 'filled',
+            disabled: updatedDesc === description,
+            buttonDataTestId: 'description-modal-update-button',
+        },
+    ];
+
     return (
         <Modal
             title={title}
@@ -52,19 +70,7 @@ export default function UpdateDescriptionModal({
             width={900}
             onCancel={onClose}
             okText={isAddDesc ? 'Submit' : 'Update'}
-            footer={
-                <>
-                    <Button onClick={onClose}>Cancel</Button>
-                    <Button
-                        type="primary"
-                        onClick={() => onSubmit(updatedDesc)}
-                        disabled={updatedDesc === description}
-                        data-testid="description-modal-update-button"
-                    >
-                        Publish
-                    </Button>
-                </>
-            }
+            buttons={buttons}
         >
             <Form layout="vertical">
                 {!isAddDesc && description && original && (

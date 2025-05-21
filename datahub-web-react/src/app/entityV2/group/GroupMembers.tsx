@@ -1,5 +1,5 @@
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Button, Col, Dropdown, Empty, MenuProps, Modal, Pagination, Row, Typography, message } from 'antd';
+import { Button, Col, Dropdown, Empty, MenuProps, Pagination, Row, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
 import { CustomAvatar } from '@app/shared/avatar';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetAllGroupMembersQuery, useRemoveGroupMembersMutation } from '@graphql/group.generated';
@@ -104,6 +105,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
         fetchPolicy: 'cache-first',
     });
     const [removeGroupMembersMutation] = useRemoveGroupMembersMutation();
+    const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
 
     const onChangeMembersPage = (newPage: number) => {
         scrollToTop();
@@ -145,20 +147,6 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
         onChangeMembers?.();
     };
 
-    const onRemoveMember = (memberUrn: string) => {
-        Modal.confirm({
-            title: `Confirm Group Member Removal`,
-            content: `Are you sure you want to remove this user from the group?`,
-            onOk() {
-                removeGroupMember(memberUrn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     const relationships = membersData && membersData.corpGroup?.relationships;
     const total = relationships?.total || 0;
     const groupMembers = relationships?.relationships?.map((rel) => rel.entity as CorpUser) || [];
@@ -177,7 +165,7 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
             {
                 key: 'remove',
                 disabled: isExternalGroup,
-                onClick: () => onRemoveMember(urnID),
+                onClick: () => setMemberToRemove(urnID),
                 label: (
                     <span>
                         <UserDeleteOutlined /> Remove from Group
@@ -251,6 +239,13 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
                     onCloseModal={() => setIsEditingMembers(false)}
                 />
             )}
+            <ConfirmationModal
+                isOpen={!!memberToRemove}
+                handleClose={() => setMemberToRemove(null)}
+                handleConfirm={() => removeGroupMember(memberToRemove as string)}
+                modalTitle="Confirm Group Member Removal"
+                modalText="Are you sure you want to remove this user from the group?"
+            />
         </>
     );
 }
