@@ -4,15 +4,37 @@ The artifacts used by this source are:
 
 - [dbt manifest file](https://docs.getdbt.com/reference/artifacts/manifest-json)
   - This file contains model, source, tests and lineage data.
+  - Core metadata: project name, dbt version, schema version, adapter type
+  - DataHub Entities and Aspects:
+    - Dataset Entity for each model, source, seed, and snapshot with:
+      - DatasetProperties Aspect: name, identifier, alias, description, tags, meta
+      - Ownership Aspect: owner information from meta/config
+      - UpstreamLineage Aspect: dependencies between nodes
+      - SubTypes Aspect: materialization type (table/view)
+      - GlobalTags Aspect: dbt tags
+      - BrowsePaths Aspect: database/schema structure
+      - Raw and compiled SQL code
+      - File paths and package names
 - [dbt catalog file](https://docs.getdbt.com/reference/artifacts/catalog-json)
   - This file contains schema data.
+  - DataHub Entities and Aspects:
+    - SchemaMetadata Aspect: column names, types, comments, descriptions
+    - DatasetProperties Aspect: table/view types and table comments
   - dbt does not record schema data for Ephemeral models, as such datahub will show Ephemeral models in the lineage, however there will be no associated schema for Ephemeral models
+  - Note: The catalog file is optional. If not provided, we will fall back to using basic column information from the manifest file or DataHub itself (in case there is any sibling from a warehouse _eg_ Snowflake, BigQuery, etc)
 - [dbt sources file](https://docs.getdbt.com/reference/artifacts/sources-json)
   - This file contains metadata for sources with freshness checks.
+  - DataHub Entities and Aspects:
+    - DatasetProperties Aspect: last modified timestamp (`max_loaded_at`)
   - We transfer dbt's freshness checks to DataHub's last-modified fields.
   - Note that this file is optional – if not specified, we'll use time of ingestion instead as a proxy for time last-modified.
 - [dbt run_results file](https://docs.getdbt.com/reference/artifacts/run-results-json)
   - This file contains metadata from the result of a dbt run, e.g. dbt test
+  - DataHub Entities and Aspects:
+    - Assertion Entity for each test with:
+      - AssertionInfo Aspect: test definition and parameters
+      - AssertionRunEvent Aspect: test status, execution timestamps, failure messages, number of failures
+    - DatasetProperties Aspect: model performance metrics (execution status, start/end times, run ID)
   - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
 
 To generate these files, we recommend this workflow for dbt build and datahub ingestion.
