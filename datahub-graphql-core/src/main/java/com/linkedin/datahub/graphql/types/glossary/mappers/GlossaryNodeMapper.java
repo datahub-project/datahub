@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
@@ -20,6 +21,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.glossary.GlossaryNodeInfo;
@@ -72,6 +74,11 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         ((glossaryNode, dataMap) ->
             glossaryNode.setDisplayProperties(
                 DisplayPropertiesMapper.map(context, new DisplayProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        GLOBAL_TAGS_ASPECT_NAME,
+        ((glossaryNode, dataMap) ->
+            glossaryNode.setGlobalTags(
+                GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn))));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), GlossaryNode.class);
