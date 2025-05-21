@@ -20,7 +20,6 @@ from datahub.metadata.urns import DataFlowUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
 from datahub.sdk._shared import (
     DomainInputType,
-    HasContainer,
     HasDomain,
     HasInstitutionalMemory,
     HasOwnership,
@@ -41,7 +40,6 @@ from datahub.sdk.entity import Entity, ExtraAspectsType
 class DataFlow(
     HasPlatformInstance,
     HasSubtype,
-    HasContainer,
     HasOwnership,
     HasInstitutionalMemory,
     HasTags,

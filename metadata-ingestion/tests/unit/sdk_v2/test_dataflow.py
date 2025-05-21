@@ -36,7 +36,6 @@ def test_dataflow_basic(pytestconfig: pytest.Config) -> None:
     assert d.platform is not None
     assert d.platform.platform_name == "airflow"
     assert d.platform_instance is None
-    assert d.browse_path is None
     assert d.tags is None
     assert d.terms is None
     assert d.created is None
