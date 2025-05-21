@@ -15,6 +15,7 @@ from datahub.metadata.urns import (
     TagUrn,
 )
 from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
 
 GOLDEN_DIR = pathlib.Path(__file__).parent / "dataflow_golden"
@@ -191,3 +192,79 @@ def test_client_get_dataflow() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(flow_urn)
+
+
+def test_dataflow_create_job() -> None:
+    """Test creating a job from a dataflow."""
+    # Create a basic dataflow
+    flow = DataFlow(
+        platform="airflow",
+        name="test_dag",
+    )
+
+    # Create a job with minimal parameters
+    job = flow.create_job("task1")
+
+    # Verify job was created correctly
+    assert isinstance(job, DataJob)
+    assert job.name == "task1"
+    assert job.flow_urn == str(flow.urn)
+
+    # Check that platform is inherited
+    assert job.platform is not None
+    assert job.platform.platform_name == "airflow"
+
+    # Create a job with additional parameters
+    job2 = flow.create_job(
+        "task2",
+        description="A complex task",
+        tags=[TagUrn("important")],
+        custom_properties={"priority": "high"},
+    )
+
+    # Verify job was created with the specified properties
+    assert job2.name == "task2"
+    assert job2.description == "A complex task"
+    assert job2.tags is not None
+    assert len(job2.tags) == 1
+    assert job2.custom_properties == {"priority": "high"}
+
+
+def test_dataflow_create_jobs() -> None:
+    """Test creating multiple jobs from a dataflow."""
+    # Create a basic dataflow
+    flow = DataFlow(
+        platform="airflow",
+        name="test_dag",
+    )
+
+    # Create multiple jobs with minimal parameters
+    job_names = ["extract", "transform", "load"]
+    jobs = flow.create_jobs(job_names)
+
+    # Verify correct number of jobs created
+    assert len(jobs) == 3
+
+    # Verify each job was created with the correct name
+    assert jobs[0].name == "extract"
+    assert jobs[1].name == "transform"
+    assert jobs[2].name == "load"
+
+    # Verify all jobs have the correct flow_urn and platform
+    for job in jobs:
+        assert job.flow_urn == str(flow.urn)
+        assert job.platform is not None
+        assert job.platform.platform_name == "airflow"
+
+    # Create multiple jobs with shared parameters
+    tagged_jobs = flow.create_jobs(
+        ["validate", "analyze"],
+        tags=[TagUrn("processing")],
+        description="Processing task",
+    )
+
+    # Verify shared parameters were applied to all jobs
+    for job in tagged_jobs:
+        assert job.description == "Processing task"
+        assert job.tags is not None
+        assert len(job.tags) == 1

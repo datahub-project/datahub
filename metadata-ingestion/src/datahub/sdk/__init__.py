@@ -19,8 +19,12 @@ from datahub.metadata.urns import (
     TagUrn,
 )
 from datahub.sdk.container import Container
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.mlmodel import MLModel
+from datahub.sdk.mlmodelgroup import MLModelGroup
 from datahub.sdk.search_filters import Filter, FilterDsl
 
 # We want to print out the warning if people do `from datahub.sdk import X`.

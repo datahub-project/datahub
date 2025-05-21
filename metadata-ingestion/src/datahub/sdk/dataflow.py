@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 from typing_extensions import Self
 
@@ -34,6 +34,7 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk.datajob import DataJob
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
 
@@ -291,3 +292,31 @@ class DataFlow(
 
     def set_last_modified(self, last_modified: datetime) -> None:
         self._ensure_dataflow_props().lastModified = make_time_stamp(last_modified)
+
+    def create_job(self, job_name: str, **kwargs: Any) -> DataJob:
+        """Create a job in the dataflow.
+        Args:
+            job_name: The name of the job to create.
+        Returns:
+            A DataJob instance.
+        """
+
+        job = DataJob(
+            name=job_name,
+            platform=self.platform,
+            flow_urn=self.urn,
+            platform_instance=self.platform_instance,
+            **kwargs,
+        )
+
+        return job
+
+    def create_jobs(self, job_names: List[str], **kwargs: Any) -> List[DataJob]:
+        """Create multiple jobs in the dataflow.
+        Args:
+            job_names: The names of the jobs to create.
+        """
+        for job_name in job_names:
+            self.create_job(job_name, **kwargs)
+
+        return [self.create_job(job_name, **kwargs) for job_name in job_names]

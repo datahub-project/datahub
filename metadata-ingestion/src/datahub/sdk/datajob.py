@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, Union
 
 from typing_extensions import Self
 
@@ -14,7 +14,12 @@ from datahub.metadata.schema_classes import (
     DataJobInfoClass,
     EditableDataJobPropertiesClass,
 )
-from datahub.metadata.urns import DataJobUrn, Urn
+from datahub.metadata.urns import (
+    DataJobUrn,
+    DataPlatformInstanceUrn,
+    DataPlatformUrn,
+    Urn,
+)
 from datahub.sdk._attribution import is_ingestion_attribution
 from datahub.sdk._shared import (
     DataflowUrnOrStr,
@@ -66,8 +71,8 @@ class DataJob(
         flow_urn: DataflowUrnOrStr,
         name: str,
         display_name: Optional[str] = None,
-        platform: Optional[str] = None,
-        platform_instance: Optional[str] = None,
+        platform: Optional[Union[DataPlatformUrn | str]] = None,
+        platform_instance: Optional[Union[DataPlatformInstanceUrn | str]] = None,
         description: Optional[str] = None,
         external_url: Optional[str] = None,
         custom_properties: Optional[Dict[str, str]] = None,
