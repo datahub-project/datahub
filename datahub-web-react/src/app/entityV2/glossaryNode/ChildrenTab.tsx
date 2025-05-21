@@ -68,66 +68,75 @@ function ChildrenTab() {
 
     const hasTermsOrNodes = !!childNodes?.length || !!childTerms?.length;
 
-    if (searchQuery || hasTermsOrNodes) {
-        return (
-            <ChildrenTabWrapper>
-                <HeaderWrapper>
-                    <SearchBar
-                        placeholder="Search..."
-                        onChange={setSearchQuery}
-                        value={searchQuery}
-                        allowClear
-                        width={hasTermsOrNodes ? 'auto' : '300px'}
+    return (
+        <>
+            {searchQuery || hasTermsOrNodes ? (
+                <ChildrenTabWrapper>
+                    <HeaderWrapper>
+                        <SearchBar
+                            placeholder="Search..."
+                            onChange={setSearchQuery}
+                            value={searchQuery}
+                            allowClear
+                            width={hasTermsOrNodes ? 'auto' : '300px'}
+                        />
+                        {hasTermsOrNodes && (
+                            <CreateButtonWrapper>
+                                <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
+                                    <Button
+                                        data-testid="add-term-button"
+                                        onClick={() => setIsCreateTermModalVisible(true)}
+                                    >
+                                        <StyledPlusOutlined /> Add Term
+                                    </Button>
+                                </Tooltip>
+                                <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
+                                    <Button
+                                        data-testid="add-term-group-button-v2"
+                                        variant="outline"
+                                        onClick={() => setIsCreateNodeModalVisible(true)}
+                                    >
+                                        <StyledPlusOutlined /> Add Term Group
+                                    </Button>
+                                </Tooltip>
+                            </CreateButtonWrapper>
+                        )}
+                    </HeaderWrapper>
+                    <GlossaryEntitiesList
+                        nodes={(childNodes as GlossaryNode[]) || []}
+                        terms={(childTerms as GlossaryTerm[]) || []}
                     />
-                    {hasTermsOrNodes && (
-                        <CreateButtonWrapper>
-                            <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
-                                <Button data-testid="add-term-button" onClick={() => setIsCreateTermModalVisible(true)}>
-                                    <StyledPlusOutlined /> Add Term
-                                </Button>
-                            </Tooltip>
-                            <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
-                                <Button
-                                    data-testid="add-term-group-button-v2"
-                                    variant="outline"
-                                    onClick={() => setIsCreateNodeModalVisible(true)}
-                                >
-                                    <StyledPlusOutlined /> Add Term Group
-                                </Button>
-                            </Tooltip>
-                        </CreateButtonWrapper>
+                    {loading && (
+                        <LoadingWrapper>
+                            <Loading marginTop={0} height={24} />
+                        </LoadingWrapper>
                     )}
-                </HeaderWrapper>
-                <GlossaryEntitiesList
-                    nodes={(childNodes as GlossaryNode[]) || []}
-                    terms={(childTerms as GlossaryTerm[]) || []}
+                    <div ref={scrollRef} />
+                </ChildrenTabWrapper>
+            ) : (
+                <EmptyGlossarySection
+                    description="No Terms or Term Groups"
+                    onAddTerm={() => setIsCreateTermModalVisible(true)}
+                    onAddtermGroup={() => setIsCreateNodeModalVisible(true)}
                 />
-                {loading && (
-                    <LoadingWrapper>
-                        <Loading marginTop={0} height={24} />
-                    </LoadingWrapper>
-                )}
-                <div ref={scrollRef} />
+            )}
 
-                {isCreateTermModalVisible && (
-                    <CreateGlossaryEntityModal
-                        entityType={EntityType.GlossaryTerm}
-                        onClose={() => setIsCreateTermModalVisible(false)}
-                        refetchData={refetch}
-                    />
-                )}
-                {isCreateNodeModalVisible && (
-                    <CreateGlossaryEntityModal
-                        entityType={EntityType.GlossaryNode}
-                        onClose={() => setIsCreateNodeModalVisible(false)}
-                        refetchData={refetch}
-                    />
-                )}
-            </ChildrenTabWrapper>
-        );
-    }
-
-    return <EmptyGlossarySection description="No Terms or Term Groups" />;
+            {isCreateTermModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={EntityType.GlossaryTerm}
+                    onClose={() => setIsCreateTermModalVisible(false)}
+                    refetchData={refetch}
+                />
+            )}
+            {isCreateNodeModalVisible && (
+                <CreateGlossaryEntityModal
+                    entityType={EntityType.GlossaryNode}
+                    onClose={() => setIsCreateNodeModalVisible(false)}
+                    refetchData={refetch}
+                />
+            )}
+        </>
+    );
 }
 
 export default ChildrenTab;
