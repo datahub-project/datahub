@@ -13,7 +13,6 @@ import {
     TABS_WIDTH,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawerTabs';
 import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldQueriesSidebarTab';
-import StatsSidebarView from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -22,6 +21,7 @@ import { TabRenderType } from '@src/app/entityV2/shared/types';
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 import { useGetEntitiesNotesQuery } from '@graphql/relationships.generated';
 import { EditableSchemaMetadata, Post, SchemaField, TimeWindow, UsageQueryResult } from '@types';
+import StatsTabWrapper from './StatsTabWrapper';
 
 const StyledDrawer = styled(Drawer)`
     &&& .ant-drawer-body {
@@ -198,7 +198,7 @@ export default function SchemaFieldDrawer({
         {
             name: 'Statistics',
             icon: ChartBar,
-            component: StatsSidebarView,
+            component: StatsTabWrapper,
             properties: {
                 expandedField,
                 fieldProfile,

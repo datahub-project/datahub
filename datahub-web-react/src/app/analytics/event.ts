@@ -120,6 +120,8 @@ export enum EventType {
     ShowAllVersionsEvent,
     HomePageClick,
     SearchBarFilter,
+    FilterStatsPage,
+    FilterStatsChartLookBack,
     ClickProductUpdate,
     HomePageTemplateModuleCreate,
     HomePageTemplateModuleAdd,
@@ -915,6 +917,17 @@ export interface SearchBarFilterEvent extends BaseEvent {
     values: string[]; // the values being filtered for
 }
 
+export interface FilterStatsPageEvent extends BaseEvent {
+    type: EventType.FilterStatsPage;
+    platform: string | null;
+}
+
+export interface FilterStatsChartLookBackEvent extends BaseEvent {
+    type: EventType.FilterStatsChartLookBack;
+    lookBackValue: string;
+    chartName: string;
+}
+
 export interface WelcomeToDataHubModalViewEvent extends BaseEvent {
     type: EventType.WelcomeToDataHubModalViewEvent;
 }
@@ -1139,6 +1152,8 @@ export type Event =
     | ShowAllVersionsEvent
     | HomePageClickEvent
     | SearchBarFilterEvent
+    | FilterStatsPageEvent
+    | FilterStatsChartLookBackEvent
     | ClickProductUpdateEvent
     | HomePageTemplateModuleCreateEvent
     | HomePageTemplateModuleAddEvent
