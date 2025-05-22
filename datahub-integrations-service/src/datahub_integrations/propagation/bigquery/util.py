@@ -63,15 +63,42 @@ MAX_ERRORS_PER_HOUR = int(
 )  # To Prevent Locking Out of Bigquery Account.
 
 
-def is_bigquery_urn(urn: str) -> bool:
+def is_urn_allowed(
+    urn: str, config: Optional[BigqueryConnectionConfigPermissive] = None
+) -> bool:
+    # Parse and validate URN type
     parsed_urn = Urn.create_from_string(urn)
     if isinstance(parsed_urn, SchemaFieldUrn):
         parsed_urn = Urn.create_from_string(parsed_urn.parent)
 
-    return (
+    if not (
         isinstance(parsed_urn, DatasetUrn)
         and parsed_urn.get_data_platform_urn().platform_name == "bigquery"
-    )
+    ):
+        return False
+
+    # If no config provided, URN is valid at this point
+    if not config:
+        return True
+
+    # Check against config patterns
+    project_id, dataset, table = parsed_urn.get_dataset_name().split(".", 2)
+
+    # Check project ID restrictions
+    if config.project_ids:
+        if project_id not in config.project_ids:
+            return False
+    elif config.project_id_pattern and not config.project_id_pattern.allowed(
+        project_id
+    ):
+        return False
+
+    if config.dataset_pattern and not config.dataset_pattern.allowed(
+        f"{project_id}.{dataset}"
+    ):
+        return False
+
+    return True
 
 
 @dataclass
@@ -319,7 +346,7 @@ class BigqueryTagHelper(Closeable):
         return updated_schema
 
     def apply_description(self, entity_urn: str, docs: str) -> None:
-        if not is_bigquery_urn(entity_urn):
+        if not is_urn_allowed(entity_urn, self.config):
             return
         parsed_entity_urn = Urn.create_from_string(entity_urn)
         if isinstance(parsed_entity_urn, DatasetUrn):
@@ -362,7 +389,7 @@ class BigqueryTagHelper(Closeable):
             logger.info(f"Applied doc {docs} to field {schema_field_urn}")
 
     def apply_tag_or_term(self, entity_urn: str, tag_or_term_urn: str) -> None:
-        if not is_bigquery_urn(entity_urn):
+        if not is_urn_allowed(entity_urn, self.config):
             return
 
         parsed_entity_urn = Urn.create_from_string(entity_urn)
@@ -442,7 +469,7 @@ class BigqueryTagHelper(Closeable):
             )
 
     def remove_tag_or_term(self, entity_urn: str, tag_urn: str) -> None:
-        if not is_bigquery_urn(entity_urn):
+        if not is_urn_allowed(entity_urn, self.config):
             return
 
         parsed_entity_urn = Urn.create_from_string(entity_urn)

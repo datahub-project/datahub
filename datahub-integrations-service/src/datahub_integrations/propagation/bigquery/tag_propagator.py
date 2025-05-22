@@ -37,7 +37,7 @@ from datahub_integrations.propagation.bigquery.description_sync_action import (
 )
 from datahub_integrations.propagation.bigquery.util import (
     BigqueryTagHelper,
-    is_bigquery_urn,
+    is_urn_allowed,
 )
 from datahub_integrations.propagation.propagation_utils import SelectedAsset
 from datahub_integrations.propagation.tag.tag_propagation_action import (
@@ -183,7 +183,9 @@ class BigqueryTagPropagatorAction(ExtendedAction[SelectedAsset]):
                 assert self.ctx.graph is not None
                 logger.debug(f"Processing event {event.event}")
                 semantic_event = event.event
-                if not is_bigquery_urn(semantic_event.entityUrn):
+
+                assert isinstance(self.config, BigqueryTagPropagatorConfig)
+                if not is_urn_allowed(semantic_event.entityUrn, self.config.bigquery):
                     return
                 propagation_directive: Union[
                     TermPropagationDirective,
