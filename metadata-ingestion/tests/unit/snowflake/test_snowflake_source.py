@@ -815,7 +815,7 @@ class TestDDLProcessing:
 def test_snowsight_url_for_dynamic_table():
     url_builder = SnowsightUrlBuilder(
         account_locator="abc123",
-        region="us-west-2",
+        region="aws_us_west_2",
     )
 
     # Test regular table URL
