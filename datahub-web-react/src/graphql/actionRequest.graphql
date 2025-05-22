@@ -313,6 +313,14 @@ query listActionRequests($input: ListActionRequestsInput!) {
         actionRequests {
             ...actionRequestFields
         }
+    }
+}
+
+query aggregateActionRequests($input: ListActionRequestsInput!) {
+    listActionRequests(input: $input) {
+        start
+        count
+        total
         facets {
             ...facetFields
         }

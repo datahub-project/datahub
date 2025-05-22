@@ -22,7 +22,7 @@ import FilterSection from '@src/app/sharedV2/filters/FilterSection';
 import usePagination from '@src/app/sharedV2/pagination/usePagination';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
-import { useListActionRequestsQuery } from '@graphql/actionRequest.generated';
+import { useAggregateActionRequestsQuery, useListActionRequestsQuery } from '@graphql/actionRequest.generated';
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { ActionRequest, ActionRequestAssignee, Entity, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
@@ -135,10 +135,9 @@ export const ProposalList = ({
     });
     const isLoading = loading && networkStatus !== NetworkStatus.refetch;
 
-    const { loading: facetsLoading, data: facetsData } = useListActionRequestsQuery({
+    const { loading: facetsLoading, data: facetsData } = useAggregateActionRequestsQuery({
         variables: {
             input: {
-                start,
                 count: 0,
                 orFilters,
                 assignee,
