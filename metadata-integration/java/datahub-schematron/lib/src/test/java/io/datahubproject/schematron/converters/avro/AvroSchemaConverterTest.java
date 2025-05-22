@@ -422,7 +422,6 @@ class AvroSchemaConverterTest {
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
   }
 
-  @Ignore
   @Test(groups = "basic")
   void testComplexStructs() throws IOException {
     SchemaMetadata schema =
