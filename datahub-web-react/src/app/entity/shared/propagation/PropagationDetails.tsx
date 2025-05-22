@@ -71,7 +71,7 @@ export default function PropagationDetails({ sourceDetail }: Props) {
                     <PopoverDocumentation
                         target="_blank"
                         rel="noreferrer"
-                        href="https://datahubproject.io/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=propagation_details"
+                        href="https://docs.datahub.com/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=propagation_details"
                     >
                         Learn more
                     </PopoverDocumentation>

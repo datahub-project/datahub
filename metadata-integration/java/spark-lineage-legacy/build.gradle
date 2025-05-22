@@ -150,7 +150,7 @@ assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSlim'] ) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart'] ) {
     environment "RUN_QUICKSTART", "false"
     commandLine "spark-smoke-test/smoke.sh"
 }
@@ -174,7 +174,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-spark-lineage'
         description = 'Library to push data lineage from spark to datahub'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
         scm {

@@ -1,6 +1,6 @@
 import pathlib
 from typing import Iterable, List, cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from freezegun import freeze_time
@@ -12,7 +12,8 @@ from datahub.ingestion.api.common import RecordEnvelope
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.transform import Transformer
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.client import get_default_graph
+from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import SystemMetadata
@@ -22,6 +23,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     StatusClass,
 )
+from datahub.utilities.server_config_util import RestServiceConfig
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.sink_helpers import RecordingSinkReport
 
@@ -32,7 +34,19 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 pytestmark = pytest.mark.random_order(disabled=True)
 
 
+@pytest.fixture
+def mock_server_config():
+    # Create a mock RestServiceConfig with your desired raw_config
+    config = RestServiceConfig(raw_config={"noCode": True})
+    return config
+
+
 class TestPipeline:
+    @pytest.fixture(autouse=True)
+    def clear_cache(self):
+        yield
+        get_default_graph.cache_clear()
+
     @patch("confluent_kafka.Consumer", autospec=True)
     @patch(
         "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
@@ -56,21 +70,16 @@ class TestPipeline:
         mock_sink.assert_called_once()
 
     @freeze_time(FROZEN_TIME)
-    @patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
-        return_value={"noCode": True},
-    )
-    @patch(
-        "datahub.ingestion.graph.client.DataHubGraph.get_config",
-        return_value={"noCode": True},
-    )
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",
         return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
     )
     def test_configure_without_sink(
-        self, mock_emitter, mock_graph, mock_load_client_config
+        self, mock_load_client_config, mock_fetch_config, mock_server_config
     ):
+        mock_fetch_config.return_value = mock_server_config
+
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -85,14 +94,7 @@ class TestPipeline:
         assert pipeline.sink.config.token is None
 
     @freeze_time(FROZEN_TIME)
-    @patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
-        return_value={"noCode": True},
-    )
-    @patch(
-        "datahub.ingestion.graph.client.DataHubGraph.get_config",
-        return_value={"noCode": True},
-    )
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",
         return_value=DatahubClientConfig(server="http://fake-internal-server:8080"),
@@ -102,8 +104,14 @@ class TestPipeline:
         return_value="Basic user:pass",
     )
     def test_configure_without_sink_use_system_auth(
-        self, mock_emitter, mock_graph, mock_load_client_config, mock_get_system_auth
+        self,
+        mock_get_system_auth,
+        mock_load_client_config,
+        mock_fetch_config,
+        mock_server_config,
     ):
+        mock_fetch_config.return_value = mock_server_config
+
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -121,17 +129,12 @@ class TestPipeline:
         )
 
     @freeze_time(FROZEN_TIME)
-    @patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
-        return_value={"noCode": True},
-    )
-    @patch(
-        "datahub.ingestion.graph.client.DataHubGraph.get_config",
-        return_value={"noCode": True},
-    )
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     def test_configure_with_rest_sink_initializes_graph(
-        self, mock_source, mock_test_connection
+        self, mock_fetch_config, mock_server_config
     ):
+        mock_fetch_config.return_value = mock_server_config
+
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -161,17 +164,12 @@ class TestPipeline:
         assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
 
     @freeze_time(FROZEN_TIME)
-    @patch(
-        "datahub.emitter.rest_emitter.DatahubRestEmitter.test_connection",
-        return_value={"noCode": True},
-    )
-    @patch(
-        "datahub.ingestion.graph.client.DataHubGraph.get_config",
-        return_value={"noCode": True},
-    )
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     def test_configure_with_rest_sink_with_additional_props_initializes_graph(
-        self, mock_source, mock_test_connection
+        self, mock_fetch_config, mock_server_config
     ):
+        mock_fetch_config.return_value = mock_server_config
+
         pipeline = Pipeline.create(
             {
                 "source": {
@@ -411,6 +409,90 @@ sink:
                 mock_commit.assert_called_once()
             else:
                 mock_commit.assert_not_called()
+
+    @freeze_time(FROZEN_TIME)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    def test_pipeline_graph_has_expected_client_mode_and_component(
+        self, mock_fetch_config, mock_server_config
+    ):
+        mock_fetch_config.return_value = mock_server_config
+
+        pipeline = Pipeline.create(
+            {
+                "source": {
+                    "type": "file",
+                    "config": {"path": "test_events.json"},
+                },
+                "sink": {
+                    "type": "datahub-rest",
+                    "config": {
+                        "server": "http://somehost.someplace.some:8080",
+                        "token": "foo",
+                    },
+                },
+            }
+        )
+
+        # Assert that the DataHubGraph is initialized with expected properties
+        assert pipeline.ctx.graph is not None, "DataHubGraph should be initialized"
+
+        # Check that graph has the expected client mode and datahub_component
+        assert pipeline.ctx.graph.config.client_mode == ClientMode.INGESTION
+        assert pipeline.ctx.graph.config.datahub_component is None
+
+        # Check that the graph was configured with the expected server and token
+        assert pipeline.ctx.graph.config.server == "http://somehost.someplace.some:8080"
+        assert pipeline.ctx.graph.config.token == "foo"
+
+    @freeze_time(FROZEN_TIME)
+    @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
+    @patch(
+        "datahub.cli.config_utils.load_client_config",
+        return_value=DatahubClientConfig(server="http://fake-gms-server:8080"),
+    )
+    def test_pipeline_graph_client_mode(
+        self, mock_load_client_config, mock_fetch_config, mock_server_config
+    ):
+        """Test that the graph created in Pipeline has the correct client_mode."""
+        mock_fetch_config.return_value = mock_server_config
+
+        # Mock the DataHubGraph context manager and test_connection method
+        mock_graph = MagicMock()
+        mock_graph.__enter__.return_value = mock_graph
+
+        # Create a patch that replaces the DataHubGraph constructor
+        with patch(
+            "datahub.ingestion.run.pipeline.DataHubGraph", return_value=mock_graph
+        ) as mock_graph_class:
+            # Create a pipeline with datahub_api config
+            pipeline = Pipeline.create(
+                {
+                    "source": {
+                        "type": "file",
+                        "config": {"path": "test_events.json"},
+                    },
+                    "datahub_api": {
+                        "server": "http://datahub-gms:8080",
+                        "token": "test_token",
+                    },
+                }
+            )
+
+            # Verify DataHubGraph was called with the correct parameters
+            assert mock_graph_class.call_count == 1
+
+            # Get the arguments passed to DataHubGraph
+            config_arg = mock_graph_class.call_args[0][0]
+
+            # Assert the config is a DatahubClientConfig with the expected values
+            assert isinstance(config_arg, DatahubClientConfig)
+            assert config_arg.server == "http://datahub-gms:8080"
+            assert config_arg.token == "test_token"
+            assert config_arg.client_mode == ClientMode.INGESTION
+            assert config_arg.datahub_component is None
+
+            # Verify the graph has been stored in the pipeline context
+            assert pipeline.ctx.graph is mock_graph
 
 
 class AddStatusRemovedTransformer(Transformer):

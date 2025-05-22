@@ -32,6 +32,9 @@ public class DataHubAppConfiguration {
   /** Search bar related configs */
   private SearchBarConfiguration searchBar;
 
+  /** Home page related configs */
+  private HomePageConfiguration homePage;
+
   /** Feature flags indicating what is turned on vs turned off */
   private FeatureFlags featureFlags;
 

@@ -28,6 +28,7 @@ import useSelectedKey from '@app/homeV2/layout/navBarRedesign/useSelectedKey';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useAppConfig } from '@app/useAppConfig';
 import { colors } from '@src/alchemy-components';
+import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
@@ -283,8 +284,8 @@ export const NavSidebar = () => {
                 focusable="false"
             >
                 <linearGradient id="menu-item-selected-gradient" x2="1" y2="1">
-                    <stop offset="20%" stopColor="#7565d6" />
-                    <stop offset="80%" stopColor="#5340cc" />
+                    <stop offset="1%" stopColor={getColor('primary', 300, themeConfig)} />
+                    <stop offset="99%" stopColor={getColor('primary', 500, themeConfig)} />
                 </linearGradient>
             </svg>
         );

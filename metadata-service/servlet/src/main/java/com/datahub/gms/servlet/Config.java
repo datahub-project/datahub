@@ -124,6 +124,7 @@ public class Config extends HttpServlet {
         new HashMap<String, Object>() {
           {
             put("serverType", configProvider.getDatahub().serverType);
+            put("serverEnv", configProvider.getDatahub().serverEnv);
           }
         };
     config.put("datahub", datahubConfig);

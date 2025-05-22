@@ -5,7 +5,7 @@ import pytest
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
@@ -19,7 +19,7 @@ pytestmark = pytest.mark.integration_batch_1
 def hive_runner(docker_compose_runner, pytestconfig):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hive"
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "hive"
+        test_resources_dir / "docker-compose.yml", "hive", parallel=1
     ) as docker_services:
         wait_for_port(docker_services, "testhiveserver2", 10000, timeout=120)
         yield docker_services

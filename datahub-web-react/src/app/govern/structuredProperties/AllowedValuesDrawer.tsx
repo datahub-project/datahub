@@ -127,7 +127,6 @@ const AllowedValuesDrawer = ({
                                         add();
                                         setTimeout(() => scrollToBottom(), 0);
                                     }}
-                                    color="violet"
                                     type="button"
                                 >
                                     Add

@@ -237,6 +237,7 @@ public class GraphQLEngineFactory {
     args.setDatahubConfiguration(configProvider.getDatahub());
     args.setViewsConfiguration(configProvider.getViews());
     args.setSearchBarConfiguration(configProvider.getSearchBar());
+    args.setHomePageConfiguration(configProvider.getHomePage());
     args.setSiblingGraphService(siblingGraphService);
     args.setGroupService(groupService);
     args.setRoleService(roleService);

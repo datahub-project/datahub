@@ -34,5 +34,5 @@ source:
     #     platform_instance: bq_warehouse # optional
     #     platform_env: DEV  # optional
 # Default sink is datahub-rest and doesn't need to be configured
-# See https://datahubproject.io/docs/metadata-ingestion/sink_docs/datahub for customization options
+# See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub for customization options
 

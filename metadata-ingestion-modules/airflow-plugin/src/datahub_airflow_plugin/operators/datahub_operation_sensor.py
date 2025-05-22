@@ -19,9 +19,9 @@ class DataHubOperationCircuitBreakerSensor(BaseSensorOperator):
         which is set as Airflow connection.
     :param partition: The partition to check the operation.
     :param source_type: The source type to filter on. If not set it will accept any source type.
-        See valid values at: https://datahubproject.io/docs/graphql/enums#operationsourcetype
+        See valid values at: https://docs.datahub.com/docs/graphql/enums#operationsourcetype
     :param operation_type: The operation type to filter on. If not set it will accept any source type.
-        See valid values at: https://datahubproject.io/docs/graphql/enums/#operationtype
+        See valid values at: https://docs.datahub.com/docs/graphql/enums/#operationtype
     """
 
     template_fields: Sequence[str] = (

@@ -179,6 +179,7 @@ export const EntitySearchResults = ({
                                             !selectedEntityUrns.includes(entity.urn)
                                         }
                                         onChange={(e) => onSelectEntity(entity, e.target.checked)}
+                                        data-testid={`checkbox-${entity.urn}`}
                                     />
                                 )}
                                 {entityRegistry.renderSearchResult(entity.type, searchResult)}

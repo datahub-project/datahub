@@ -1394,7 +1394,9 @@ class TableauSiteSource:
         `fetch_size:` The number of records to retrieve from Tableau
             Server in a single API call, starting from the current cursor position on Tableau Server.
         """
-        retries_remaining = retries_remaining or self.config.max_retries
+        retries_remaining = (
+            self.config.max_retries if retries_remaining is None else retries_remaining
+        )
 
         logger.debug(
             f"Query {connection_type} to get {fetch_size} objects with cursor {current_cursor}"
@@ -1565,7 +1567,7 @@ class TableauSiteSource:
                         fetch_size=fetch_size,
                         current_cursor=current_cursor,
                         retry_on_auth_error=True,
-                        retries_remaining=retries_remaining,
+                        retries_remaining=retries_remaining - 1,
                     )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 

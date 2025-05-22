@@ -14,7 +14,7 @@ Most entities should have a browse path that allows users to navigate the left s
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/browseV2/browseV2Sidebar.png"/>
 </p>
 
-This new browse sidebar always starts with Entity Type, then optionally shows Environment (PROD, DEV, etc.) if there are 2 or more Environments, then Platform. Below the Platform level, we render out folders that come directly from entity's [browsePathsV2](https://datahubproject.io/docs/generated/metamodel/entities/dataset#browsepathsv2) aspects.
+This new browse sidebar always starts with Entity Type, then optionally shows Environment (PROD, DEV, etc.) if there are 2 or more Environments, then Platform. Below the Platform level, we render out folders that come directly from entity's [browsePathsV2](https://docs.datahub.com/docs/generated/metamodel/entities/dataset#browsepathsv2) aspects.
 
 ## Generating Custom Browse Paths
 

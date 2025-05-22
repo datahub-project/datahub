@@ -6,7 +6,8 @@ import requests
 from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import fs_helpers, mce_helpers
+from datahub.testing import mce_helpers
+from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
 pytestmark = pytest.mark.integration_batch_2

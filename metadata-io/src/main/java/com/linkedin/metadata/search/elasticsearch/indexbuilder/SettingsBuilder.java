@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.metadata.config.search.IndexConfiguration;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -160,9 +161,11 @@ public class SettingsBuilder {
       ImmutableList.of(ASCII_FOLDING, LOWERCASE, TRIM, REMOVE_QUOTES);
 
   public final Map<String, Object> settings;
+  private final IndexConfiguration indexConfiguration;
 
-  public SettingsBuilder(String mainTokenizer) {
+  public SettingsBuilder(String mainTokenizer, IndexConfiguration indexConfiguration) {
     try {
+      this.indexConfiguration = indexConfiguration;
       settings = buildSettings(mainTokenizer);
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -173,7 +176,7 @@ public class SettingsBuilder {
     return settings;
   }
 
-  private static Map<String, Object> buildSettings(String mainTokenizer) throws IOException {
+  private Map<String, Object> buildSettings(String mainTokenizer) throws IOException {
     ImmutableMap.Builder<String, Object> settings = ImmutableMap.builder();
     settings.put(MAX_NGRAM_DIFF, 17);
     settings.put(
@@ -187,7 +190,7 @@ public class SettingsBuilder {
     return settings.build();
   }
 
-  private static Map<String, Object> buildFilters() throws IOException {
+  private Map<String, Object> buildFilters() throws IOException {
     PathMatchingResourcePatternResolver resourceResolver =
         new PathMatchingResourcePatternResolver();
 
@@ -225,7 +228,10 @@ public class SettingsBuilder {
 
     filters.put(
         MIN_LENGTH,
-        ImmutableMap.<String, Object>builder().put(TYPE, "length").put("min", "3").build());
+        ImmutableMap.<String, Object>builder()
+            .put(TYPE, "length")
+            .put("min", this.indexConfiguration.getMinSearchFilterLength())
+            .build());
 
     Resource stemOverride =
         resourceResolver.getResource("classpath:elasticsearch/stem_override.txt");

@@ -1,4 +1,5 @@
 /* eslint-disable import/no-cycle */
+import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 
 import { FieldType, FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
@@ -10,7 +11,8 @@ import EntityValueMenu from '@app/searchV2/filters/value/EntityValueMenu';
 import EnumValueMenu from '@app/searchV2/filters/value/EnumValueMenu';
 import TextValueMenu from '@app/searchV2/filters/value/TextValueMenu';
 import TimeBucketMenu from '@app/searchV2/filters/value/TimeBucketMenu';
-import { FacetFilterInput } from '@src/types.generated';
+import usePrevious from '@app/shared/usePrevious';
+import { EntityType, FacetFilterInput } from '@src/types.generated';
 
 interface Props {
     field: FilterField;
@@ -22,6 +24,7 @@ interface Props {
     includeCount?: boolean;
     className?: string;
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
+    aggregationsEntityTypes?: Array<EntityType>;
 }
 
 export default function ValueMenu({
@@ -34,6 +37,7 @@ export default function ValueMenu({
     includeCount,
     className,
     manuallyUpdateFilters,
+    aggregationsEntityTypes,
 }: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
     const visibilityRef = useRef<boolean>(visible);
@@ -43,9 +47,12 @@ export default function ValueMenu({
      * Synchronize stagedSelectedValues with the values prop
      * NOTE: Callback with useState not feasible due to its initialization behavior.
      */
+    const previousValues = usePrevious(values);
     useEffect(() => {
-        setStagedSelectedValues(values);
-    }, [values]);
+        if (!isEqual(values, previousValues)) {
+            setStagedSelectedValues(values);
+        }
+    }, [values, previousValues]);
 
     /**
      * If the visibility of the menu changes in the parent component, we can dump off the staged values before closing
@@ -122,6 +129,7 @@ export default function ValueMenu({
                     className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
+                    aggregationsEntityTypes={aggregationsEntityTypes}
                 />
             );
         case FieldType.ENUM:
@@ -135,6 +143,7 @@ export default function ValueMenu({
                     className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
+                    aggregationsEntityTypes={aggregationsEntityTypes}
                 />
             );
         case FieldType.BUCKETED_TIMESTAMP:

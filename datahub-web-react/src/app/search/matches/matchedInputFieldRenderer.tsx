@@ -12,7 +12,7 @@ const TermName = ({ term }: { term: GlossaryTerm }) => {
     return <>{entityRegistry.getDisplayName(EntityType.GlossaryTerm, term)}</>;
 };
 
-export const matchedInputFieldRenderer = (matchedField: MatchedField, entity: Chart | Dashboard) => {
+export const matchedInputFieldParams = (matchedField: MatchedField, entity: Chart | Dashboard) => {
     if (matchedField?.name === LABEL_INDEX_NAME) {
         const matchedSchemaField = entity.inputFields?.fields?.find(
             (field) => field?.schemaField?.label === matchedField.value,
@@ -30,12 +30,21 @@ export const matchedInputFieldRenderer = (matchedField: MatchedField, entity: Ch
                 termType = typeProperty.value || termType;
             }
 
-            return (
-                <>
-                    {termType} <TermName term={matchedGlossaryTerm.term} />
-                </>
-            );
+            return { termType, term: matchedGlossaryTerm.term };
         }
+    }
+    return {};
+};
+
+export const matchedInputFieldRenderer = (matchedField: MatchedField, entity: Chart | Dashboard) => {
+    const { termType, term } = matchedInputFieldParams(matchedField, entity);
+
+    if (termType && term) {
+        return (
+            <>
+                {termType} <TermName term={term} />
+            </>
+        );
     }
     return null;
 };

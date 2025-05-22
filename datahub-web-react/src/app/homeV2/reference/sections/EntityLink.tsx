@@ -6,6 +6,7 @@ import { GenericEntityProperties } from '@app/entity/shared/types';
 import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { IconStyleType } from '@src/app/entityV2/Entity';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 import PlatformHeaderIcons from '@src/app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import { getEntityPlatforms } from '@src/app/entityV2/shared/containers/profile/header/utils';
@@ -124,7 +125,9 @@ export const EntityLink = ({
                     ...styles,
                 }}
             />
-        ) : null;
+        ) : (
+            <IconWrapper>{entityRegistry.getIcon(entity.type as EntityType, 16, IconStyleType.ACCENT)}</IconWrapper>
+        );
     };
 
     return (

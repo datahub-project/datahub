@@ -29,11 +29,11 @@ def auth_session():
     auth_session.destroy()
 
 
-def build_graph_client(auth_session):
-    print(auth_session.cookies)
+def build_graph_client(auth_session, openapi_ingestion=False):
     graph: DataHubGraph = DataHubGraph(
         config=DatahubClientConfig(
-            server=auth_session.gms_url(), token=auth_session.gms_token()
+            server=auth_session.gms_url(), token=auth_session.gms_token(),
+            openapi_ingestion=openapi_ingestion
         )
     )
     return graph
@@ -42,6 +42,11 @@ def build_graph_client(auth_session):
 @pytest.fixture(scope="session")
 def graph_client(auth_session) -> DataHubGraph:
     return build_graph_client(auth_session)
+
+
+@pytest.fixture(scope="session")
+def openapi_graph_client(auth_session) -> DataHubGraph:
+    return build_graph_client(auth_session, openapi_ingestion=True)
 
 
 def pytest_sessionfinish(session, exitstatus):

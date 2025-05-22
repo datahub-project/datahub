@@ -6,7 +6,7 @@ import pytest
 from mlflow import MlflowClient
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 T = TypeVar("T")
 

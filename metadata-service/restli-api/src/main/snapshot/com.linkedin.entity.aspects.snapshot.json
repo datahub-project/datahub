@@ -668,11 +668,11 @@
         "entityType" : "corpGroup",
         "fields" : [ {
           "doc" : "The name of the AD/LDAP group.",
-          "maxLength" : 64,
+          "maxLength" : 128,
           "name" : "groupName",
           "type" : "string"
         } ],
-        "maxLength" : 81,
+        "maxLength" : 145,
         "name" : "CorpGroup",
         "namespace" : "li",
         "owners" : [ "urn:li:corpuser:fbar", "urn:li:corpuser:bfoo" ],

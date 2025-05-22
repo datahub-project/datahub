@@ -6,13 +6,14 @@ import styled from 'styled-components';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
 import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getNumberWithOrdinal } from '@app/entityV2/shared/utils';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import HealthIcon from '@app/previewV2/HealthIcon';
 import SearchTextHighlighter from '@app/searchV2/matches/SearchTextHighlighter';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { Deprecation, Health, Maybe } from '@types';
 
@@ -35,7 +36,7 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
         vertical-align: middle;
 
         :hover {
-            color: ${REDESIGN_COLORS.HOVER_PURPLE};
+            color: ${(p) => getColor('primary', 700, p.theme)};
         }
     }
 
@@ -43,7 +44,7 @@ const EntityTitle = styled.div<{ $titleSizePx?: number }>`
     overflow: hidden;
     text-overflow: ellipsis;
     font-size: 13px;
-    color: ${SEARCH_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     height: 100%;
 `;
 

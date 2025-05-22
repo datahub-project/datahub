@@ -3,6 +3,7 @@ import { CSSObject } from 'styled-components';
 import { PillStyleProps } from '@components/components/Pills/types';
 import { ColorOptions, PillVariantOptions, SizeOptions } from '@components/theme/config';
 
+import { Theme } from '@conf/theme/types';
 import { typography } from '@src/alchemy-components/theme';
 import { getColor, getFontSize } from '@src/alchemy-components/theme/utils';
 
@@ -14,20 +15,20 @@ interface ColorStyles {
 }
 
 // Utility function to get color styles for pill - does not generate CSS
-function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions): ColorStyles {
+function getPillColorStyles(variant: PillVariantOptions, color: ColorOptions, theme?: Theme): ColorStyles {
     if (variant === 'version') {
         return {
-            bgColor: getColor('gray', color === 'white' ? 1500 : 100),
-            borderColor: getColor('gray', 100),
-            primaryColor: getColor('gray', 1700),
+            bgColor: getColor('gray', color === 'white' ? 1500 : 100, theme),
+            borderColor: getColor('gray', 100, theme),
+            primaryColor: getColor('gray', 1700, theme),
         };
     }
 
     return {
-        primaryColor: getColor(color, 500),
-        bgColor: color === 'gray' ? getColor(color, 100) : getColor(color, 0),
-        hoverColor: color === 'gray' ? getColor(color, 100) : getColor(color, 1100),
-        borderColor: getColor('gray', 1800),
+        primaryColor: getColor(color, 500, theme),
+        bgColor: color === 'gray' ? getColor(color, 100, theme) : getColor(color, 0, theme),
+        hoverColor: color === 'gray' ? getColor(color, 100, theme) : getColor(color, 1100, theme),
+        borderColor: getColor('gray', 1800, theme),
     };
 }
 
@@ -44,7 +45,7 @@ const getPillVariantStyles = (variant: PillVariantOptions, colorStyles: ColorSty
         },
         outline: {
             backgroundColor: 'transparent',
-            border: `1px solid ${colorStyles.primaryColor}`,
+            border: `1px solid ${colorStyles.bgColor}`,
             color: colorStyles.primaryColor,
             '&:hover': {
                 backgroundColor: colorStyles.hoverColor,
@@ -103,10 +104,10 @@ const getPillActiveStyles = (variant: PillVariantOptions, colorStyles: ColorStyl
 });
 
 export function getPillStyle(props: PillStyleProps): CSSObject {
-    const { variant, color, size, clickable = true } = props;
+    const { variant, color, size, clickable = true, theme } = props;
 
     // Get map of colors
-    const colorStyles = getPillColorStyles(variant, color);
+    const colorStyles = getPillColorStyles(variant, color, theme);
 
     // Define styles for pill
     let styles = {

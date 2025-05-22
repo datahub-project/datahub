@@ -257,6 +257,7 @@ basicAuditStamp = models.AuditStampClass(
             ),
             "/aspects?action=ingestProposal",
             {
+                "async": "false",
                 "proposal": {
                     "entityType": "dataset",
                     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:foo,bar,PROD)",
@@ -275,7 +276,7 @@ basicAuditStamp = models.AuditStampClass(
                         },
                         "runId": "no-run-id-provided",
                     },
-                }
+                },
             },
         ),
     ],

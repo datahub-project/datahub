@@ -1,3 +1,7 @@
+import { generateColor } from '@src/app/entityV2/shared/components/styled/StyledTag';
+import { getStringHash } from '@src/app/glossaryV2/colorUtils';
+import { useCustomTheme } from '@src/customThemeContext';
+
 export function hexToRgba(rawHex: string, opacity: number): string {
     const [r, g, b] = hexToRgb(rawHex);
 
@@ -31,4 +35,19 @@ export function applyOpacity(hex: string, backgroundHex: string, opacity: number
     const g = Math.round((1 - opacity / 100) * backgroundG + (opacity / 100) * inputG);
     const b = Math.round((1 - opacity / 100) * backgroundB + (opacity / 100) * inputB);
     return `rgb(${r}, ${g}, ${b})`;
+}
+
+export function useGenerateDomainColorFromPalette() {
+    const { theme } = useCustomTheme();
+
+    const generateDomainColor = (urn: string) => {
+        const palette = theme?.colors?.domainPalette;
+        if (palette) {
+            const colorIndex = Math.abs(getStringHash(urn)) % palette.length;
+            return palette[colorIndex];
+        }
+        return generateColor.hex(urn);
+    };
+
+    return generateDomainColor;
 }

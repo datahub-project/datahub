@@ -140,7 +140,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-protobuf'
         description = 'DataHub integration with Protobuf schemas for metadata'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
         scm {

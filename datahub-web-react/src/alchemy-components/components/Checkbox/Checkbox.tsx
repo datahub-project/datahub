@@ -5,7 +5,6 @@ import {
     CheckboxContainer,
     CheckboxGroupContainer,
     Checkmark,
-    HoverState,
     Label,
     Required,
     StyledCheckbox,
@@ -35,7 +34,6 @@ export const Checkbox = ({
     ...props
 }: CheckboxProps) => {
     const [checked, setChecked] = useState(isChecked || false);
-    const [isHovering, setIsHovering] = useState(false);
 
     useEffect(() => {
         setChecked(isChecked || false);
@@ -76,14 +74,6 @@ export const Checkbox = ({
                     disabled={isDisabled || false}
                     checked={checked || false}
                     size={size || 'md'}
-                    onMouseOver={() => setIsHovering(true)}
-                    onMouseLeave={() => setIsHovering(false)}
-                />
-                <HoverState
-                    isHovering={!isDisabled ? isHovering : false}
-                    error={error || ''}
-                    checked={checked || false}
-                    disabled={isDisabled || false}
                 />
             </CheckboxBase>
         </CheckboxContainer>

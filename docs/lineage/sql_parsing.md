@@ -10,11 +10,11 @@ DataHub's SQL parser is built on top of [sqlglot](https://github.com/tobymao/sql
 
 In our benchmarks, the DataHub SQL parser generates lineage with 97-99% accuracy and outperforms other SQL parsers by a wide margin.
 
-We've published a blog post on some of the technical details of the parser: [Extracting Column Lineage from SQL Queries](https://blog.datahubproject.io/extracting-column-level-lineage-from-sql-779b8ce17567).
+We've published a blog post on some of the technical details of the parser: [Extracting Column Lineage from SQL Queries](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce17567).
 
 ## Built-in SQL Parsing Support
 
-If you're using a tool that DataHub already [integrates with](https://datahubproject.io/integrations), check the documentation for that specific integration.
+If you're using a tool that DataHub already [integrates with](https://docs.datahub.com/integrations), check the documentation for that specific integration.
 Most of our integrations, including Snowflake, BigQuery, Redshift, dbt, Looker, PowerBI, Airflow, etc, use the SQL parser to generate column-level lineage and usage statistics.
 
 If you’re using a different database system for which we don’t support column-level lineage out of the box, but you do have a database query log available, the [SQL queries](../generated/ingestion/sources/sql-queries.md) connector can generate column-level lineage and table/column usage statistics from the query log.

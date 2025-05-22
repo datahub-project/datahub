@@ -131,7 +131,7 @@ Your users will be able to find the entity by traversing through these folders i
 
 ## Support
 
-The Acryl team will be on standby to assist you in your migration. Please
+The DataHub team will be on standby to assist you in your migration. Please
 join [#release-0_8_0](https://datahubspace.slack.com/archives/C0244FHMHJQ) channel and reach out to us if you find
 trouble with the upgrade or have feedback on the process. We will work closely to make sure you can continue to operate
 DataHub smoothly.

@@ -5,6 +5,7 @@ import React, { useEffect } from 'react';
 import { useLocation } from 'react-router';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { getSchemaFieldParentLink } from '@app/entityV2/schemaField/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
@@ -120,6 +121,10 @@ export function getEntityPath(
     tabName?: string,
     tabParams?: Record<string, any>,
 ) {
+    if (entityType === EntityType.SchemaField) {
+        return getSchemaFieldParentLink(urn);
+    }
+
     const tabParamsString = tabParams ? `&${queryString.stringify(tabParams)}` : '';
 
     if (!tabName) {

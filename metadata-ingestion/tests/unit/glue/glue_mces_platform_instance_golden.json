@@ -80,6 +80,27 @@
 },
 {
     "entityType": "container",
+    "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
     "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
@@ -145,6 +166,27 @@
         "json": {
             "typeNames": [
                 "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
             ]
         }
     },
@@ -231,6 +273,27 @@
     }
 },
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.flights-database.avro,PROD)",
@@ -300,8 +363,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].flightdate",
@@ -313,8 +375,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].uniquecarrier",
@@ -326,8 +387,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].airlineid",
@@ -339,8 +399,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].carrier",
@@ -352,8 +411,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].flightnum",
@@ -365,8 +423,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].origin",
@@ -378,8 +435,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
@@ -392,8 +448,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -475,6 +530,31 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                },
+                {
+                    "id": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
+                    "urn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
             "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.test-database.test_jsons_markers,PROD)",
@@ -546,8 +626,7 @@
                                 },
                                 "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name",
@@ -559,8 +638,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
@@ -576,8 +654,7 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
@@ -593,8 +670,7 @@
                                 },
                                 "nativeDataType": "array<double>",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -667,6 +743,31 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                },
+                {
+                    "id": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+                    "urn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -743,8 +844,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].quarter",
@@ -756,8 +856,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].month",
@@ -769,8 +868,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=int].dayofmonth",
@@ -782,8 +880,7 @@
                                 },
                                 "nativeDataType": "int",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             },
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
@@ -795,8 +892,7 @@
                                 },
                                 "nativeDataType": "string",
                                 "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                                "isPartOfKey": false
                             }
                         ]
                     }
@@ -869,6 +965,31 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "glue-source-tes",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,some_instance_name.test-database.test_parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+                },
+                {
+                    "id": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+                    "urn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca"
+                }
+            ]
         }
     },
     "systemMetadata": {

@@ -9,6 +9,7 @@ import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.util.Pair;
+import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.retry.RetryRegistry;
@@ -42,10 +43,9 @@ import org.opensearch.action.admin.indices.settings.get.GetSettingsRequest;
 import org.opensearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
-import org.opensearch.client.GetAliasesResponse;
-import org.opensearch.client.RequestOptions;
-import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.*;
 import org.opensearch.client.core.CountRequest;
+import org.opensearch.client.core.CountResponse;
 import org.opensearch.client.indices.CreateIndexRequest;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetIndexResponse;
@@ -161,6 +161,42 @@ public class ESIndexBuilder {
     this.retryRegistry = RetryRegistry.of(config);
   }
 
+  /**
+   * Utility function to check if the connected server is OpenSearch 2.9 or higher. Returns false if
+   * the server is Elasticsearch or OpenSearch below version 2.9.
+   *
+   * @return true if the server is running OpenSearch 2.9 or higher, false otherwise
+   * @throws IOException if there's an error communicating with the server
+   */
+  public boolean isOpenSearch29OrHigher() throws IOException {
+    try {
+      // We need to use the low-level client to get version information
+      Response response = _searchClient.getLowLevelClient().performRequest(new Request("GET", "/"));
+      Map<String, Object> responseMap =
+          ObjectMapperContext.defaultMapper.readValue(response.getEntity().getContent(), Map.class);
+      // Check if this is Elasticsearch: "You Know, for Search"
+      String tagline = (String) responseMap.get("tagline");
+      if (tagline.toLowerCase().contains("you know")) {
+        return false;
+      }
+      // Get the version information
+      Map<String, Object> versionInfo = (Map<String, Object>) responseMap.get("version");
+      String versionString = (String) versionInfo.get("number");
+      // Parse the version string
+      String[] versionParts = versionString.split("\\.");
+      if (versionParts.length < 2) {
+        throw new IOException("Invalid version format: " + versionString);
+      }
+      int majorVersion = Integer.parseInt(versionParts[0]);
+      int minorVersion = Integer.parseInt(versionParts[1]);
+      // Return true if version is OpenSearch 2.9 or higher
+      return majorVersion > 2 || (majorVersion == 2 && minorVersion >= 9);
+    } catch (Exception e) {
+      // return defensive false
+      return false;
+    }
+  }
+
   public ReindexConfig buildReindexState(
       String indexName, Map<String, Object> mappings, Map<String, Object> settings)
       throws IOException {
@@ -186,6 +222,10 @@ public class ESIndexBuilder {
     baseSettings.put("number_of_shards", numShards);
     baseSettings.put("number_of_replicas", numReplicas);
     baseSettings.put("refresh_interval", String.format("%ss", refreshIntervalSeconds));
+    // use zstd in OS only, in ES we can use it in the future with best_compression
+    if (isOpenSearch29OrHigher()) {
+      baseSettings.put("codec", "zstd_no_dict");
+    }
     baseSettings.putAll(indexSettingOverrides.getOrDefault(indexName, Map.of()));
     Map<String, Object> targetSetting = ImmutableMap.of("index", baseSettings);
     builder.targetSettings(targetSetting);
@@ -319,6 +359,149 @@ public class ESIndexBuilder {
         throw new RuntimeException(e);
       }
     }
+  }
+
+  /**
+   * Check if a specific index has 0 replicas and >0 documents, then increase its replica count to
+   * 1.
+   *
+   * @param indexName The name of the index to check
+   * @param dryRun If true, report what would happen without making changes
+   * @return Map containing operation details
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  private Map<String, Object> increaseReplicasForActiveIndices(String indexName, boolean dryRun)
+      throws IOException {
+    Map<String, Object> result = new HashMap<>();
+    result.put("indexName", indexName);
+    result.put("changed", false);
+    result.put("dryRun", dryRun);
+    GetIndexRequest getIndexRequest = new GetIndexRequest(indexName);
+    GetIndexResponse response =
+        _searchClient.indices().get(getIndexRequest, RequestOptions.DEFAULT);
+    Map<String, Settings> indexToSettings = response.getSettings();
+    Settings indexSettings = indexToSettings.get(indexName);
+    int replicaCount = Integer.parseInt(indexSettings.get("index.number_of_replicas", "1"));
+    CountRequest countRequest = new CountRequest(indexName);
+    CountResponse countResponse = _searchClient.count(countRequest, RequestOptions.DEFAULT);
+    long docCount = countResponse.getCount();
+    result.put("currentReplicas", replicaCount);
+    result.put("documentCount", docCount);
+    // Check if index has 0 replicas and >0 documents
+    if (replicaCount == 0 && docCount > 0) {
+      if (!dryRun) {
+        // Update replica count to X
+        UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(indexName);
+        Settings.Builder settingsBuilder =
+            Settings.builder().put("index.number_of_replicas", getNumReplicas());
+        updateSettingsRequest.settings(settingsBuilder);
+        _searchClient.indices().putSettings(updateSettingsRequest, RequestOptions.DEFAULT);
+      }
+      result.put("changed", true);
+      result.put("action", "Increase replicas from 0 to " + getNumReplicas());
+    } else {
+      result.put("action", "No change needed");
+    }
+    return result;
+  }
+
+  /**
+   * Check if a specific index has 0 documents and replicas > 0, then set its replica count to 0.
+   *
+   * @param indexName The name of the index to check
+   * @param dryRun If true, report what would happen without making changes
+   * @return Map containing operation details
+   * @throws IOException if there's an error communicating with Elasticsearch
+   */
+  private Map<String, Object> reduceReplicasForEmptyIndices(String indexName, boolean dryRun)
+      throws IOException {
+    Map<String, Object> result = new HashMap<>();
+    result.put("indexName", indexName);
+    result.put("changed", false);
+    result.put("dryRun", dryRun);
+    GetIndexRequest getIndexRequest = new GetIndexRequest(indexName);
+    if (!_searchClient.indices().exists(getIndexRequest, RequestOptions.DEFAULT)) {
+      result.put("skipped", true);
+      result.put("reason", "Index does not exist");
+      return result;
+    }
+    GetIndexResponse response =
+        _searchClient.indices().get(getIndexRequest, RequestOptions.DEFAULT);
+    Map<String, Settings> indexToSettings = response.getSettings();
+    Settings indexSettings = indexToSettings.get(indexName);
+    int replicaCount = Integer.parseInt(indexSettings.get("index.number_of_replicas", "1"));
+    CountRequest countRequest = new CountRequest(indexName);
+    CountResponse countResponse = _searchClient.count(countRequest, RequestOptions.DEFAULT);
+    long docCount = countResponse.getCount();
+    result.put("currentReplicas", replicaCount);
+    result.put("documentCount", docCount);
+    // Check if index has 0 documents and replicas > 0
+    if (docCount == 0 && replicaCount > 0) {
+      if (!dryRun) {
+        // Set replica count to 0
+        UpdateSettingsRequest updateSettingsRequest = new UpdateSettingsRequest(indexName);
+        Settings.Builder settingsBuilder = Settings.builder().put("index.number_of_replicas", 0);
+        updateSettingsRequest.settings(settingsBuilder);
+        _searchClient.indices().putSettings(updateSettingsRequest, RequestOptions.DEFAULT);
+      }
+      result.put("changed", true);
+      result.put("action", "Decrease replicas from " + replicaCount + " to 0");
+    } else {
+      result.put("action", "No change needed");
+    }
+    return result;
+  }
+
+  public String createOperationSummary(
+      Map<String, Object> increaseResult, Map<String, Object> reduceResult) {
+    StringBuilder summary = new StringBuilder();
+    String indexName = (String) increaseResult.get("indexName");
+    boolean dryRun = (Boolean) increaseResult.get("dryRun");
+    summary
+        .append("Index: ")
+        .append(indexName)
+        .append(" (")
+        .append(dryRun ? "DRY RUN" : "LIVE")
+        .append(")\n");
+    // Document count info
+    long docCount = (long) increaseResult.get("documentCount");
+    summary
+        .append("Status: ")
+        .append(docCount > 0 ? "Active" : "Empty")
+        .append(" (")
+        .append(docCount)
+        .append(" docs)\n");
+    // Replica changes summary
+    int currentReplicas = (int) increaseResult.get("currentReplicas");
+    summary.append("Replicas: ").append(currentReplicas).append(" → ");
+    boolean increased =
+        increaseResult.containsKey("changed") && (Boolean) increaseResult.get("changed");
+    boolean reduced = reduceResult.containsKey("changed") && (Boolean) reduceResult.get("changed");
+    if (increased) {
+      summary.append("" + getNumReplicas() + " (increased)");
+    } else if (reduced) {
+      summary.append("0 (reduced)");
+    } else {
+      summary.append(currentReplicas).append(" (unchanged)");
+    }
+    // Add reason if no change
+    if (!increased && !reduced) {
+      if (docCount > 0 && currentReplicas > 0) {
+        summary.append(" - already optimized");
+      } else if (docCount == 0 && currentReplicas == 0) {
+        summary.append(" - already optimized");
+      }
+    }
+    return summary.toString();
+  }
+
+  public void tweakReplicas(ReindexConfig indexState, boolean dryRun) throws IOException {
+    Map<String, Object> result = increaseReplicasForActiveIndices(indexState.name(), dryRun);
+    Map<String, Object> resultb = reduceReplicasForEmptyIndices(indexState.name(), dryRun);
+    log.info(
+        "Tweaked replicas index {}: {}",
+        indexState.name(),
+        createOperationSummary(result, resultb));
   }
 
   /**

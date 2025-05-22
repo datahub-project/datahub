@@ -21,6 +21,7 @@ const subTitleStyles = {
 const baseStyles = {
     fontFamily: typography.fonts.body,
     margin: 0,
+    maxWidth: '100%',
 
     '& a': {
         color: colors.violet[400],

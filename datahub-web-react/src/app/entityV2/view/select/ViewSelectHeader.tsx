@@ -30,11 +30,11 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean }>`
         box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
 
         &&:hover {
-            border-color: ${colors.violet[500]};
+            border-color: ${props.theme.styles['primary-color']};
         }
 
         &.ant-input-affix-wrapper-focused {
-            border-color: ${colors.violet[500]};
+            border-color: ${props.theme.styles['primary-color']};
         }
         
         & .ant-input::placeholder {
@@ -79,7 +79,7 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
                 border-radius: 100px;
                 cursor: pointer;
                 &.active {
-                    background: #533fd1;
+                    background: ${(props) => props.theme.styles['primary-color']};
                     color: ${ANTD_GRAY[1]};
                 }
             }

@@ -32,7 +32,7 @@ export default function useOptions(
     );
     const entitiesFromSearchResponse = useMemo(
         () =>
-            searchResponse?.autoCompleteForMultiple?.suggestions.map((suggestion) => suggestion.entities).flat() ?? [],
+            searchResponse?.autoCompleteForMultiple?.suggestions?.map((suggestion) => suggestion.entities).flat() ?? [],
         [searchResponse],
     );
 

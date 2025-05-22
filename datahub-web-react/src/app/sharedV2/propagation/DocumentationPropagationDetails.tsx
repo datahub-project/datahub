@@ -69,7 +69,7 @@ export default function DocumentationPropagationDetails({ sourceDetail }: Props)
                 <PopoverDescription>
                     This description was automatically propagated from an upstream column.{' '}
                     <PopoverDocumentation
-                        href="https://datahubproject.io/docs/automation/docs-propagation"
+                        href="https://docs.datahub.com/docs/automation/docs-propagation"
                         target="_blank"
                         rel="noopener noreferrer"
                     >

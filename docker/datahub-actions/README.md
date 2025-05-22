@@ -1,6 +1,6 @@
-# Acryl Actions Container
+# DataHub Cloud Actions Container
 
-This module is used to publish docker images to acryldata's docker repository.
+This module is used to publish docker images to DataHub Cloud's docker repository.
 
 # Overview
 

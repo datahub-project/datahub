@@ -28,7 +28,7 @@ const mysqlConfig: SourceConfig = {
     type: 'mysql',
     placeholderRecipe,
     displayName: 'MySQL',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/mysql/',
+    docsUrl: 'https://docs.datahub.com/docs/generated/ingestion/sources/mysql/',
     logoUrl: mysqlLogo,
 };
 

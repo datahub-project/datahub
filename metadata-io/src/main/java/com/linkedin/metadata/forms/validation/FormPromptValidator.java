@@ -3,6 +3,7 @@ package com.linkedin.metadata.forms.validation;
 import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -84,11 +85,16 @@ public class FormPromptValidator extends AspectPayloadValidator {
                 SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS);
 
         if (CollectionUtils.isNotEmpty(scrollResult.getEntities())) {
-          if (scrollResult.getEntities().size() > 0) {
+          Urn urnFromMcp = mcpItem.getUrn();
+          List<SearchEntity> otherEntities =
+              scrollResult.getEntities().stream()
+                  .filter(e -> !e.getEntity().equals(urnFromMcp))
+                  .collect(Collectors.toList());
+          if (otherEntities.size() > 0) {
             exceptions.addException(
                 mcpItem,
                 "Cannot have duplicate prompt IDs across any form, all prompt IDs must be globally unique. Form urns with prompt IDs matching given prompt IDs:"
-                    + scrollResult.getEntities().stream()
+                    + otherEntities.stream()
                         .map(SearchEntity::getEntity)
                         .collect(Collectors.toList()));
           }

@@ -8,6 +8,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.connection.DataHubConnectionDetailsType;
 import com.linkedin.connection.DataHubJsonConnection;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubConnection;
 import com.linkedin.datahub.graphql.generated.UpsertDataHubConnectionInput;
@@ -44,7 +45,7 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
         bindArgument(environment.getArgument("input"), UpsertDataHubConnectionInput.class);
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!ConnectionUtils.canManageConnections(context)) {
             throw new AuthorizationException(
@@ -73,6 +74,8 @@ public class UpsertConnectionResolver implements DataFetcher<CompletableFuture<D
             throw new RuntimeException(
                 String.format("Failed to upsert a Connection from input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

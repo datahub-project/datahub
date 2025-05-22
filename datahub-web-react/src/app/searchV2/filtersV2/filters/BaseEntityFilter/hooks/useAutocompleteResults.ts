@@ -34,6 +34,7 @@ export default function useAutocompleteResults(query: string, entityTypes: Entit
         }
 
         if (!loading) setResponse(data);
+        // if (!loading) setResponse(data?.autoCompleteForMultiple?.suggestions?.filter(suggestion => entityTypes.includes(suggestion.type)));
     }, [query, data, loading]);
 
     return { data: response, loading };

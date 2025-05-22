@@ -7,14 +7,12 @@ from random import randint
 
 import pytest
 import yaml
-from click.testing import CliRunner
 
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.entrypoints import datahub
 from datahub.ingestion.graph.client import DataHubGraph
 from tests.consistency_utils import wait_for_writes_to_sync
-from tests.utils import delete_urns, get_sleep_info
+from tests.utils import delete_urns, get_sleep_info, run_datahub_cmd
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +22,6 @@ dataset_id = f"test_dataset_sync_{start_index}"
 dataset_urn = make_dataset_urn("snowflake", dataset_id)
 
 sleep_sec, sleep_times = get_sleep_info()
-runner = CliRunner(mix_stderr=False)
 
 
 @pytest.fixture(scope="module")
@@ -76,8 +73,7 @@ def create_dataset_yaml(file_path: Path, additional_properties=None):
 def run_cli_command(cmd, auth_session):
     """Run a DataHub CLI command using CliRunner and auth_session"""
     args = cmd.split()
-    result = runner.invoke(
-        datahub,
+    result = run_datahub_cmd(
         args,
         env={
             "DATAHUB_GMS_URL": auth_session.gms_url(),

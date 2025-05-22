@@ -10,6 +10,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateStructuredPropertyInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
@@ -51,7 +52,7 @@ public class CreateStructuredPropertyResolver
     final CreateStructuredPropertyInput input =
         bindArgument(environment.getArgument("input"), CreateStructuredPropertyInput.class);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (!AuthorizationUtils.canManageStructuredProperties(context)) {
@@ -93,7 +94,9 @@ public class CreateStructuredPropertyResolver
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private MetadataChangeProposal createPropertySettings(

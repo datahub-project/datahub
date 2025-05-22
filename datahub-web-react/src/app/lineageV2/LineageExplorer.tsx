@@ -13,9 +13,10 @@ import {
     NodeContext,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV2/common';
+import useShouldHideTransformations from '@app/lineageV2/settings/useShouldHideTransformations';
+import useShouldShowDataProcessInstances from '@app/lineageV2/settings/useShouldShowDataProcessInstances';
+import useShouldShowGhostEntities from '@app/lineageV2/settings/useShouldShowGhostEntities';
 import useSearchAcrossLineage from '@app/lineageV2/useSearchAcrossLineage';
-import useShouldHideTransformations from '@app/lineageV2/useShouldHideTransformations';
-import useShouldShowDataProcessInstances from '@app/lineageV2/useShouldShowDataProcessInstances';
 import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 import { EntityType, LineageDirection } from '@types';
@@ -41,7 +42,7 @@ export default function LineageExplorer(props: Props) {
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
     const [showDataProcessInstances, setShowDataProcessInstances] = useShouldShowDataProcessInstances();
 
-    const [showGhostEntities, setShowGhostEntities] = useState(false);
+    const [showGhostEntities, setShowGhostEntities] = useShouldShowGhostEntities();
 
     const context: NodeContext = {
         rootUrn: urn,

@@ -81,6 +81,8 @@ dependencies {
   implementation externalDependency.playFilters
   implementation externalDependency.kafkaClients
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
 
   testImplementation 'org.seleniumhq.selenium:htmlunit-driver:2.67.0'
   testImplementation externalDependency.mockito

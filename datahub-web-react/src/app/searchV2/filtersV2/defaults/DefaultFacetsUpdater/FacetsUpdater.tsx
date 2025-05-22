@@ -9,15 +9,16 @@ import { generateOrFilters } from '@src/app/searchV2/utils/generateOrFilters';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
 import { FacetMetadata } from '@src/types.generated';
 
-const DEBOUNCE_MS = 100;
+const DEBOUNCE_MS = 300;
 
 interface Props {
     fieldNames: FieldName[] | FieldName;
     query: string;
+    viewUrn?: string | null;
     onFacetsUpdated: (facets: FieldToFacetStateMap) => void;
 }
 
-export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
+export function FacetsUpdater({ fieldNames, query, viewUrn, onFacetsUpdated }: Props) {
     const [facets, setFacets] = useState<FacetMetadata[]>([]);
     const [isInitialized, setIsInitialized] = useState<boolean>(false);
     const { fieldToAppliedFiltersMap } = useSearchFiltersContext();
@@ -43,13 +44,14 @@ export function FacetsUpdater({ fieldNames, query, onFacetsUpdated }: Props) {
                             query,
                             orFilters: generateOrFilters(UnionType.AND, filters),
                             facets: wrappedFieldNames,
+                            viewUrn,
                         },
                     },
                 });
             }
         },
         DEBOUNCE_MS,
-        [aggregateAcrossEntities, query, filters, wrappedFieldNames],
+        [aggregateAcrossEntities, query, viewUrn, filters, wrappedFieldNames],
     );
 
     useEffect(() => {

@@ -82,7 +82,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
       throw new RuntimeException(e);
     }
 
-    _client = new Neo4jGraphService(operationContext, lineageRegistry, _driver);
+    _client = new Neo4jGraphService(lineageRegistry, _driver);
     _client.clear();
   }
 

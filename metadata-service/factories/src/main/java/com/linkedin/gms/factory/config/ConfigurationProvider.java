@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.config;
 import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.PlatformAnalyticsConfiguration;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
@@ -28,4 +29,7 @@ public class ConfigurationProvider extends DataHubAppConfiguration {
 
   /** Structured properties related configurations */
   private StructuredPropertiesConfiguration structuredProperties;
+
+  /** Enable/disable DataHub analytics */
+  private PlatformAnalyticsConfiguration platformAnalytics;
 }

@@ -17,28 +17,35 @@ import { MIN_CHARACTER_COUNT_FOR_SEARCH } from '@app/searchV2/utils/constants';
 
 interface Props {
     query: string;
+    viewUrn?: string | null;
     appliedFilters?: FieldToAppliedFieldFiltersMap;
     onFiltersApplied?: FiltersAppliedHandler;
     updateFieldAppliedFilters?: AppliedFieldFilterUpdater;
     fields: FieldName[];
     filtersRenderer?: FiltersRenderer;
     fieldToFacetStateMap?: FieldToFacetStateMap;
+    shouldUpdateFacetsForFieldsWithAppliedFilters?: boolean;
+    shouldUpdateFacetsForFieldsWithoutAppliedFilters?: boolean;
 }
 
 export default function SearchFilters({
     query,
+    viewUrn,
     onFiltersApplied,
     fields,
     appliedFilters,
     updateFieldAppliedFilters,
     filtersRenderer = DefaultFiltersRenderer,
     fieldToFacetStateMap,
+    shouldUpdateFacetsForFieldsWithAppliedFilters,
+    shouldUpdateFacetsForFieldsWithoutAppliedFilters,
 }: Props) {
     const [internalFieldToFacetStateMap, setInternalFieldToFacetStateMap] = useState<FieldToFacetStateMap>(new Map());
+    const [dynamicFieldToFacetStateMap, setDynamicFieldToFacetStateMap] = useState<FieldToFacetStateMap>(new Map());
 
     useEffect(() => {
-        if (fieldToFacetStateMap !== undefined) setInternalFieldToFacetStateMap(fieldToFacetStateMap);
-    }, [fieldToFacetStateMap]);
+        setInternalFieldToFacetStateMap(new Map([...(fieldToFacetStateMap ?? []), ...dynamicFieldToFacetStateMap]));
+    }, [fieldToFacetStateMap, dynamicFieldToFacetStateMap]);
 
     const wrappedQuery = useMemo(() => {
         const cleanedQuery = query.trim();
@@ -50,12 +57,13 @@ export default function SearchFilters({
     }, [query]);
 
     const onFieldFacetsUpdated = useCallback((facets: FieldToFacetStateMap) => {
-        setInternalFieldToFacetStateMap((currentFieldFacets) => new Map([...currentFieldFacets, ...facets]));
+        setDynamicFieldToFacetStateMap((currentFieldFacets) => new Map([...currentFieldFacets, ...facets]));
     }, []);
 
     return (
         <SearchFiltersProvider
             fields={fields}
+            viewUrn={viewUrn}
             fieldToAppliedFiltersMap={appliedFilters}
             fieldToFacetStateMap={internalFieldToFacetStateMap}
             filtersRegistry={defaultFiltersRegistry}
@@ -63,14 +71,15 @@ export default function SearchFilters({
             updateFieldAppliedFilters={updateFieldAppliedFilters}
             filtersRenderer={filtersRenderer}
         >
-            {/* Updates facets depending on query and applied filters if they are not controlled by `fieldToFacetStateMap` */}
-            {fieldToFacetStateMap === undefined && (
-                <DynamicFacetsUpdater
-                    fieldNames={fields}
-                    query={wrappedQuery}
-                    onFieldFacetsUpdated={onFieldFacetsUpdated}
-                />
-            )}
+            {/* Updates facets depending on query and applied filters */}
+            <DynamicFacetsUpdater
+                fieldNames={fields}
+                query={wrappedQuery}
+                viewUrn={viewUrn}
+                onFieldFacetsUpdated={onFieldFacetsUpdated}
+                shouldUpdateFacetsForFieldsWithAppliedFilters={shouldUpdateFacetsForFieldsWithAppliedFilters}
+                shouldUpdateFacetsForFieldsWithoutAppliedFilters={shouldUpdateFacetsForFieldsWithoutAppliedFilters}
+            />
             {/* Renders filters */}
             <FiltersRenderingRunner fieldNames={fields} hideEmptyFilters />
         </SearchFiltersProvider>

@@ -22,15 +22,20 @@ import groovy.json.JsonBuilder
 def detailedVersionString = "0.0.0-unknown-SNAPSHOT"
 def cliMajorVersion = "0.15.0" // base default cli major version
 def snapshotVersion = false
+
+// This is the version field that had a slightly different implementation for embedding in jars.
+// metadata-integration/java/versioning.gradle reads javaVersion as version.
 def javaVersion = ""
-// tag for docker images. the prefix v is used in tag only if the tag is computed from a version. If a releaseVersion is supplied, use it as is.
-// This enables pr tags to be used without the v prefix. This variance was previouslyhandled in the CI steps build images without using gradle.
+
+// Used to tag docker images. If the project property tag is set, use it as is (posssibly add suffixes like slim, pythonVersion if applicable). 
+// Otherwise, compute the tag from the version.
 def versionTag = "" 
+
 
 if (project.hasProperty("releaseVersion")) {
   version = releaseVersion
   detailedVersionString = releaseVersion
-  versionTag = releaseVersion
+  javaVersion = version
 } else {
   try {
       // apply this plugin in a try-catch block so that we can handle cases without .git directory
@@ -39,7 +44,6 @@ if (project.hasProperty("releaseVersion")) {
       detailedVersionString = gitVersion()
       version = details.lastTag
       version = version.startsWith("v")? version.substring(1): version
-      versionTag = "v" + version
       def suffix = details.isCleanTag? "": "-SNAPSHOT"
       snapshotVersion = ! details.isCleanTag
     }
@@ -82,8 +86,13 @@ if (project.hasProperty("releaseVersion")) {
         // we are unable to part the last token as an integer, so we just append SNAPSHOT to this version
         javaVersion = versionParts[0..versionParts.size()-1].join('.') + '-SNAPSHOT'
       }
-      versionTag = "v" + version
   }
+}
+
+if (project.hasProperty("tag")) {
+  versionTag = tag
+} else {
+  versionTag = "v" + version
 }
 
 // Note: No task, we want this executed during config phase, once for rootProject.
@@ -105,4 +114,9 @@ rootProject.buildDir.mkdirs()
 // Write to file
 outputFile.text = jsonBuilder.toPrettyString()
 
-println "git.properties JSON data written to ${outputFile}"
+task printVersionDetails() {
+  println("fullVersion=" + detailedVersionString)
+  println("cliMajorVersion=" + cliMajorVersion)
+  println("version=" +  version)
+  println("versionTag=" + versionTag)
+}

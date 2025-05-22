@@ -1,6 +1,8 @@
+import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { UserHeader } from '@app/homeV2/reference/header/UserHeader';
 import { AssetsYouOwn } from '@app/homeV2/reference/sections/assets/AssetsYouOwn';
@@ -11,7 +13,10 @@ import { TagsYouOwn } from '@app/homeV2/reference/sections/tags/TagsYouOwn';
 import { ReferenceSectionProps } from '@app/homeV2/reference/types';
 import { PersonaType } from '@app/homeV2/shared/types';
 import { V2_HOME_PAGE_PERSONAL_SIDEBAR_ID } from '@app/onboarding/configV2/HomePageOnboardingConfig';
+import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+
+import { PersonalSidebarSection } from '@types';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
@@ -48,6 +53,7 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 type ReferenceSection = {
     id: string;
     component: React.ComponentType<ReferenceSectionProps>;
+    sectionName: PersonalSidebarSection;
     hideIfEmpty?: boolean;
     personas?: PersonaType[];
 };
@@ -56,6 +62,7 @@ const ALL_SECTIONS: ReferenceSection[] = [
     {
         id: 'AssetsYouOwn',
         component: AssetsYouOwn,
+        sectionName: PersonalSidebarSection.YourAssets,
         personas: [
             PersonaType.BUSINESS_USER,
             PersonaType.TECHNICAL_USER,
@@ -67,6 +74,7 @@ const ALL_SECTIONS: ReferenceSection[] = [
     {
         id: 'DomainsYouOwn',
         component: DomainsYouOwn,
+        sectionName: PersonalSidebarSection.YourDomains,
         hideIfEmpty: true,
         personas: [
             PersonaType.DATA_STEWARD,
@@ -78,12 +86,14 @@ const ALL_SECTIONS: ReferenceSection[] = [
     {
         id: 'GlossaryNodesYouOwn',
         component: GlossaryNodesYouOwn,
+        sectionName: PersonalSidebarSection.YourGlossaryNodes,
         hideIfEmpty: true,
         personas: [PersonaType.DATA_STEWARD, PersonaType.DATA_LEADER],
     },
     {
         id: 'TagsYouOwn',
         component: TagsYouOwn,
+        sectionName: PersonalSidebarSection.YourTags,
         hideIfEmpty: true,
         personas: [
             PersonaType.BUSINESS_USER,
@@ -96,6 +106,7 @@ const ALL_SECTIONS: ReferenceSection[] = [
     {
         id: 'GroupsYouAreIn',
         component: GroupsYouAreIn,
+        sectionName: PersonalSidebarSection.YourGroups,
         hideIfEmpty: true,
         personas: [
             PersonaType.BUSINESS_USER,
@@ -106,20 +117,55 @@ const ALL_SECTIONS: ReferenceSection[] = [
     },
 ];
 
+/**
+ * Sorts sections so that the section matching firstInPersonalSidebar appears first,
+ * while maintaining the original order for all other sections.
+ */
+export const sortSectionsByFirstInPersonalSidebar = (
+    sections: ReferenceSection[],
+    firstInPersonalSidebar: PersonalSidebarSection,
+): ReferenceSection[] => {
+    return [...sections].sort((a, b) => {
+        if (a.sectionName === firstInPersonalSidebar) return -1;
+        if (b.sectionName === firstInPersonalSidebar) return 1;
+        return 0;
+    });
+};
+
+const trackClickInSection = (title: string) => {
+    return (urn?: string) => {
+        analytics.event({
+            type: EventType.HomePageClick,
+            module: HomePageModule.PersonalSidebar,
+            section: title,
+            value: urn,
+        });
+    };
+};
+
 // TODO: Make section ordering dynamic based on populated data.
 export const LeftSidebar = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const currentUserPersona = useUserPersona();
+    const { config } = useAppConfig();
+    const { firstInPersonalSidebar } = config.homePageConfig;
+    const finalSections = sortSectionsByFirstInPersonalSidebar(
+        ALL_SECTIONS.filter((section) => !section.personas || section.personas.includes(currentUserPersona)),
+        firstInPersonalSidebar,
+    );
 
     return (
         <Container id={V2_HOME_PAGE_PERSONAL_SIDEBAR_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <UserHeader />
                 <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
-                    {ALL_SECTIONS.filter(
-                        (section) => !section.personas || section.personas.includes(currentUserPersona),
-                    ).map((section) => (
-                        <section.component key={section.id} hideIfEmpty={section.hideIfEmpty} />
+                    {finalSections.length > 0 && <Divider style={{ margin: '0 0 16px 0' }} />}
+                    {finalSections.map((section) => (
+                        <section.component
+                            key={section.id}
+                            hideIfEmpty={section.hideIfEmpty}
+                            trackClickInSection={trackClickInSection(section.id)}
+                        />
                     ))}
                 </Body>
             </Content>

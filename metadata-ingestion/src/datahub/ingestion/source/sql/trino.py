@@ -134,19 +134,41 @@ def get_table_comment(self, connection, table_name: str, schema: str = None, **k
         ):
             properties_table = self._get_full_table(f"{table_name}$properties", schema)
             query = f"SELECT * FROM {properties_table}"
-            row = connection.execute(sql.text(query)).fetchone()
+            rows = connection.execute(sql.text(query)).fetchall()
 
             # Generate properties dictionary.
             properties = {}
-            if row:
+
+            if len(rows) == 0:
+                # No properties found, return empty dictionary
+                return {}
+
+            # Check if using the old format (key, value columns)
+            if (
+                connector_name == "iceberg"
+                and len(rows[0]) == 2
+                and "key" in rows[0]
+                and "value" in rows[0]
+            ):
+                #  https://trino.io/docs/current/connector/iceberg.html#properties-table
+                for row in rows:
+                    if row["value"] is not None:
+                        properties[row["key"]] = row["value"]
+                return {"text": properties.get("comment"), "properties": properties}
+            elif connector_name == "hive" and len(rows[0]) > 1 and len(rows) == 1:
+                # https://trino.io/docs/current/connector/hive.html#properties-table
+                row = rows[0]
                 for col_name, col_value in row.items():
                     if col_value is not None:
                         properties[col_name] = col_value
+                return {"text": properties.get("comment"), "properties": properties}
 
-            return {"text": properties.get("comment"), "properties": properties}
-        else:
-            return self.get_table_comment_default(connection, table_name, schema)
-    except Exception:
+            # If we can't get the properties we still fallback to the default
+        return self.get_table_comment_default(connection, table_name, schema)
+    except Exception as e:
+        logging.warning(
+            f"Failed to get table comment for {table_name} in {schema}: {e}"
+        )
         return {}
 
 

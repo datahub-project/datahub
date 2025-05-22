@@ -22,6 +22,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.query_history,PROD),query_id)"
                     ],
+                    "transformOperation": "COPY: \"QUERY_HISTORY\".\"QUERY_ID\" AS \"QUERY_ID\"",
                     "confidenceScore": 0.2
                 },
                 {
@@ -33,6 +34,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.query_history,PROD),start_time)"
                     ],
+                    "transformOperation": "COPY: \"QUERY_HISTORY\".\"START_TIME\" AS \"START_TIME\"",
                     "confidenceScore": 0.2
                 },
                 {
@@ -44,6 +46,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,default_db.default_schema.query_history,PROD),user)"
                     ],
+                    "transformOperation": "COPY: \"QUERY_HISTORY\".\"USER\" AS \"USER\"",
                     "confidenceScore": 0.2
                 }
             ]

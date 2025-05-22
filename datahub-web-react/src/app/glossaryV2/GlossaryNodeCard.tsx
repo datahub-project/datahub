@@ -5,7 +5,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-import { generateColorFromPalette } from '@app/glossaryV2/colorUtils';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { colors } from '@src/alchemy-components';
 
 import { DisplayProperties } from '@types';
@@ -59,7 +59,7 @@ const GlossaryItemCard = styled.div`
 
     &:hover {
         transition: 0.15s;
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        border-color: ${(props) => props.theme.styles['primary-color']};
     }
 
     &:hover > ${GlossaryItemCardHeader} {
@@ -156,7 +156,8 @@ const MAX_DEPTH_QUERIED = 4;
 
 const GlossaryNodeCard = (props: Props) => {
     const { name, description, termCount, nodeCount, displayProperties, urn, maxDepth } = props;
-    const glossaryColor = displayProperties?.colorHex || generateColorFromPalette(urn);
+    const generateColor = useGenerateGlossaryColorFromPalette();
+    const glossaryColor = displayProperties?.colorHex || generateColor(urn);
 
     const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
 

@@ -71,6 +71,7 @@ dependencies {
   implementation externalDependency.springBootAutoconfigure
   implementation externalDependency.springCore
   implementation externalDependency.springKafka
+  implementation externalDependency.kafkaClients
   runtimeOnly externalDependency.opentelemetryExporter
   runtimeOnly externalDependency.openTelemetryExporterLogging
   runtimeOnly externalDependency.openTelemetryExporterCommon
@@ -81,6 +82,8 @@ dependencies {
   runtimeOnly externalDependency.postgresql
 
   implementation externalDependency.awsMskIamAuth
+  implementation externalDependency.azureIdentityExtensions
+  implementation externalDependency.azureIdentity
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
@@ -128,6 +131,32 @@ task run(type: Exec) {
           "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
           "-jar",
           "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
+}
+
+task runCron(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate CRON process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron"
+}
+
+task runCronDryRun(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate CRON process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdateCron", "-a", "dryRun=true"
 }
 
 /**

@@ -6,14 +6,14 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in open beta in Acryl Cloud. Reach out to your Acryl representative to get access.
+This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
 
 :::
 
 ## Introduction
 
 Snowflake Tag Propagation is an automation that allows you to sync DataHub Glossary Terms and Tags on
-both columns and tables back to Snowflake. This automation is available in DataHub Cloud (Acryl) only.
+both columns and tables back to Snowflake. This automation is available in DataHub Cloud only.
 
 ## Capabilities
 

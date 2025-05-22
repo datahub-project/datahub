@@ -38,6 +38,8 @@ test {
   systemProperty 'datahub.project.root.dir', "$rootDir" // used in security.policy
 }
 
+processTestResources.dependsOn(":metadata-service:plugin:src:test:sample-test-plugins:copyJar")
+
 clean {
   dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:clean'
 }

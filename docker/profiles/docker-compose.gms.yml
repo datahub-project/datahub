@@ -252,6 +252,7 @@ services:
     <<: *datahub-system-update-service-dev
     profiles:
       - debug
+      - debug-min
       - debug-backend
     depends_on:
       mysql-setup-dev:
@@ -358,6 +359,14 @@ services:
     <<: *datahub-gms-service-dev
     profiles:
       - debug
+      - debug-backend
+    depends_on:
+      system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-min:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-min
       - debug-backend
     depends_on:
       system-update-debug:

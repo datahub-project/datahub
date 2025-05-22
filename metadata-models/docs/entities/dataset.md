@@ -56,7 +56,7 @@ The following code snippet shows you how to add a Schema containing 3 fields to 
 
 ### Tags and Glossary Terms
 
-Datasets can have Tags or Terms attached to them. Read [this blog](https://blog.datahubproject.io/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e) to understand the difference between tags and terms so you understand when you should use which.
+Datasets can have Tags or Terms attached to them. Read [this blog](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e) to understand the difference between tags and terms so you understand when you should use which.
 
 #### Adding Tags or Glossary Terms at the top-level to a dataset
 
@@ -152,7 +152,7 @@ Fine-grained lineage at field level can be associated to a dataset in two ways -
 
 #### Querying lineage information
 
-The standard [GET APIs to retrieve entities](https://datahubproject.io/docs/metadata-service/#retrieving-entities) can be used to fetch the dataset/datajob created by the above example.
+The standard [GET APIs to retrieve entities](https://docs.datahub.com/docs/metadata-service/#retrieving-entities) can be used to fetch the dataset/datajob created by the above example.
 The response will include the fine-grained lineage information as well.
 
 <details>

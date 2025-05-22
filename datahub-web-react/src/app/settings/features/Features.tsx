@@ -90,7 +90,7 @@ export const Features = () => {
             ],
             isNew: true,
             learnMoreLink:
-                'https://datahubproject.io/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=features',
+                'https://docs.datahub.com/docs/automations/docs-propagation?utm_source=datahub_core&utm_medium=docs&utm_campaign=features',
         },
     ];
 

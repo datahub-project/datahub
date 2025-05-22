@@ -46,7 +46,7 @@ We recommend using a Python virtual environment manager such as pipenv, conda, o
 
 ### 1. Set up DataHub
 
-Before using `prefect-datahub`, you need to deploy an instance of DataHub. Follow the instructions on the [DataHub Quickstart page](https://datahubproject.io/docs/quickstart) to set up DataHub.
+Before using `prefect-datahub`, you need to deploy an instance of DataHub. Follow the instructions on the [DataHub Quickstart page](https://docs.datahub.com/docs/quickstart) to set up DataHub.
 
 After successful deployment, the DataHub GMS service should be running on `http://localhost:8080` if deployed locally.
 
@@ -68,11 +68,11 @@ datahub_emitter.save("datahub-emitter-test")
 
 Configuration options:
 
-| Config            | Type  | Default                 | Description                                                                                                 |
-| ----------------- | ----- | ----------------------- | ----------------------------------------------------------------------------------------------------------- |
-| datahub_rest_url  | `str` | `http://localhost:8080` | DataHub GMS REST URL                                                                                        |
-| env               | `str` | `PROD`                  | Environment for assets (see [FabricType](https://datahubproject.io/docs/graphql/enums/#fabrictype))         |
-| platform_instance | `str` | `None`                  | Platform instance for assets (see [Platform Instances](https://datahubproject.io/docs/platform-instances/)) |
+| Config            | Type  | Default                 | Description                                                                                                |
+| ----------------- | ----- | ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| datahub_rest_url  | `str` | `http://localhost:8080` | DataHub GMS REST URL                                                                                       |
+| env               | `str` | `PROD`                  | Environment for assets (see [FabricType](https://docs.datahub.com/docs/graphql/enums/#fabrictype))         |
+| platform_instance | `str` | `None`                  | Platform instance for assets (see [Platform Instances](https://docs.datahub.com/docs/platform-instances/)) |
 
 ### 3. Use DataHub Emitter in Your Workflows
 
@@ -113,11 +113,11 @@ if __name__ == "__main__":
 
 ## Advanced Usage
 
-For more advanced usage and configuration options, please refer to the [prefect-datahub documentation](https://datahubproject.io/docs/lineage/prefect/).
+For more advanced usage and configuration options, please refer to the [prefect-datahub documentation](https://docs.datahub.com/docs/lineage/prefect/).
 
 ## Contributing
 
-We welcome contributions to `prefect-datahub`! Please refer to our [Contributing Guidelines](https://datahubproject.io/docs/contributing) for more information on how to get started.
+We welcome contributions to `prefect-datahub`! Please refer to our [Contributing Guidelines](https://docs.datahub.com/docs/contributing) for more information on how to get started.
 
 ## Support
 

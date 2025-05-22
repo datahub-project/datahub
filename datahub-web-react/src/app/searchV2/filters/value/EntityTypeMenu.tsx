@@ -12,6 +12,7 @@ import {
 } from '@app/searchV2/filters/value/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { EntityType } from '@src/types.generated';
 
 interface Props {
     field: FilterField;
@@ -23,6 +24,7 @@ interface Props {
     includeSubTypes?: boolean;
     includeCount?: boolean;
     className?: string;
+    aggregationsEntityTypes?: Array<EntityType>;
 }
 
 export default function EntityTypeMenu({
@@ -35,6 +37,7 @@ export default function EntityTypeMenu({
     includeSubTypes = true,
     includeCount = false,
     className,
+    aggregationsEntityTypes,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const { displayName } = field;
@@ -43,7 +46,12 @@ export default function EntityTypeMenu({
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
     // Here we optionally load the aggregation options, which are the options that are displayed by default.
-    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions(field, true, includeCount);
+    const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions({
+        field,
+        visible: true,
+        includeCounts: includeCount,
+        aggregationsEntityTypes,
+    });
 
     const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptions)];
 

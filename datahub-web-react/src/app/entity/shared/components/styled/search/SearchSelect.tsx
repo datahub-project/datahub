@@ -1,5 +1,6 @@
 import { FilterOutlined } from '@ant-design/icons';
 import { Button, Typography, message } from 'antd';
+import { debounce } from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -11,6 +12,7 @@ import { EntityAndType } from '@app/entity/shared/types';
 import { isListSubset } from '@app/entity/shared/utils';
 import { SearchBar } from '@app/search/SearchBar';
 import { ENTITY_FILTER_NAME, UnionType } from '@app/search/utils/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';
 
@@ -112,9 +114,9 @@ export const SearchSelect = ({
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
     const facets = searchAcrossEntities?.facets || [];
 
-    const onSearch = (q: string) => {
+    const onSearch = debounce((q: string) => {
         setQuery(q);
-    };
+    }, DEBOUNCE_SEARCH_MS);
 
     const onChangeFilters = (newFilters: Array<FacetFilterInput>) => {
         setPage(1);

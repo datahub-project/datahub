@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.utils.PegasusUtils.constructMCL;
+
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
@@ -462,25 +464,7 @@ public interface EntityService<U extends ChangeMCP> {
       AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog);
 
-  /**
-   * Generally should not be necessary, created for delete flow which does not have System Metadata,
-   * so it lacks a way to force through index updates synchronously.
-   *
-   * @param opContext the current operation context
-   * @param urn urn to produce event for
-   * @param aspectSpec aspect of the entity
-   * @param metadataChangeLog the MCL to produce
-   * @return list of the mcl produce future along with a boolean indicating if the event was
-   *     pre-processed
-   */
-  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn urn,
-      AspectSpec aspectSpec,
-      @Nonnull final MetadataChangeLog metadataChangeLog,
-      boolean forcePreProcessHooks);
-
-  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
+  default Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull String entityName,
@@ -491,21 +475,21 @@ public interface EntityService<U extends ChangeMCP> {
       @Nullable final SystemMetadata oldSystemMetadata,
       @Nullable final SystemMetadata newSystemMetadata,
       @Nonnull AuditStamp auditStamp,
-      @Nonnull final ChangeType changeType,
-      boolean forcePreProcessHooks);
-
-  Pair<Future<?>, Boolean> alwaysProduceMCLAsync(
-      @Nonnull OperationContext opContext,
-      @Nonnull final Urn urn,
-      @Nonnull String entityName,
-      @Nonnull String aspectName,
-      @Nonnull final AspectSpec aspectSpec,
-      @Nullable final RecordTemplate oldAspectValue,
-      @Nullable final RecordTemplate newAspectValue,
-      @Nullable final SystemMetadata oldSystemMetadata,
-      @Nullable final SystemMetadata newSystemMetadata,
-      @Nonnull AuditStamp auditStamp,
-      @Nonnull final ChangeType changeType);
+      @Nonnull final ChangeType changeType) {
+    final MetadataChangeLog metadataChangeLog =
+        constructMCL(
+            null,
+            entityName,
+            urn,
+            changeType,
+            aspectName,
+            auditStamp,
+            newAspectValue,
+            newSystemMetadata,
+            oldAspectValue,
+            oldSystemMetadata);
+    return alwaysProduceMCLAsync(opContext, urn, aspectSpec, metadataChangeLog);
+  }
 
   // RecordTemplate getLatestAspect(@Nonnull final Urn urn, @Nonnull final String aspectName);
 

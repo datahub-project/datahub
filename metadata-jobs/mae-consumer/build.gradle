@@ -45,6 +45,8 @@ dependencies {
 
     testImplementation externalDependency.mockito
     implementation externalDependency.awsMskIamAuth
+    implementation externalDependency.azureIdentityExtensions
+    implementation externalDependency.azureIdentity
 
     testImplementation externalDependency.testng
     testImplementation externalDependency.springBootTest

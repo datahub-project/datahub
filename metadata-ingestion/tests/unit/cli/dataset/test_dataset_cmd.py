@@ -6,7 +6,7 @@ import pytest
 from click.testing import CliRunner
 
 from datahub.cli.specific.dataset_cli import dataset
-from tests.test_helpers.mce_helpers import check_goldens_stream
+from datahub.testing.mce_helpers import check_goldens_stream
 
 TEST_RESOURCES_DIR = Path(__file__).parent / "test_resources"
 
@@ -213,9 +213,10 @@ class TestDatasetCli:
         files_before = len(list(TEST_RESOURCES_DIR.glob("*.tmp")))
 
         runner = CliRunner()
-        with patch("datahub.cli.specific.dataset_cli.Dataset"):
-            with patch("filecmp.cmp", return_value=True):
-                runner.invoke(dataset, ["file", "--lintCheck", str(test_yaml_file)])
+        with patch("datahub.cli.specific.dataset_cli.Dataset"), patch(
+            "filecmp.cmp", return_value=True
+        ):
+            runner.invoke(dataset, ["file", "--lintCheck", str(test_yaml_file)])
 
         # Count files after
         files_after = len(list(TEST_RESOURCES_DIR.glob("*.tmp")))

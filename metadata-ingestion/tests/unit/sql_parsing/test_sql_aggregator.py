@@ -26,7 +26,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "aggregator_goldens"
@@ -326,7 +326,7 @@ def test_aggregate_operations() -> None:
     aggregator = SqlParsingAggregator(
         platform="redshift",
         generate_lineage=False,
-        generate_queries=False,
+        generate_queries=True,
         generate_usage_statistics=False,
         generate_operations=True,
     )

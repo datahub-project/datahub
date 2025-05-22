@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useAppConfig } from '@app/useAppConfig';
-import { useCustomTheme } from '@src/customThemeContext';
 
 /**
  * Returns true if theme v2 should be enabled.
@@ -50,16 +49,10 @@ export function useIsThemeV2EnabledForUser(): [boolean, boolean] {
 
 export function useSetThemeIsV2() {
     const isThemeV2 = useIsThemeV2();
-    const { updateTheme } = useCustomTheme();
 
     useEffect(() => {
-        if (isThemeV2) {
-            import('../conf/theme/theme_v2.config.json').then((theme) => updateTheme(theme));
-        } else {
-            import('../conf/theme/theme_light.config.json').then((theme) => updateTheme(theme));
-        }
         setThemeV2LocalStorage(isThemeV2);
-    }, [isThemeV2, updateTheme]);
+    }, [isThemeV2]);
 }
 
 function setThemeV2LocalStorage(isThemeV2: boolean) {

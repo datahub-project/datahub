@@ -1,4 +1,6 @@
 # This import verifies that the dependencies are available.
+from typing import Any, Dict, Optional
+
 import pydruid  # noqa: F401
 from pydantic.fields import Field
 from pydruid.db.sqlalchemy import DruidDialect
@@ -38,8 +40,11 @@ class DruidConfig(BasicSQLAlchemyConfig):
         description="regex patterns for schemas to filter in ingestion.",
     )
 
-    def get_sql_alchemy_url(self):
-        return f"{super().get_sql_alchemy_url()}/druid/v2/sql/"
+    def get_sql_alchemy_url(
+        self, uri_opts: Optional[Dict[str, Any]] = None, database: Optional[str] = None
+    ) -> str:
+        base_url = super().get_sql_alchemy_url(uri_opts=uri_opts, database=database)
+        return f"{base_url}/druid/v2/sql/"
 
     """
     The pydruid library already formats the table name correctly, so we do not

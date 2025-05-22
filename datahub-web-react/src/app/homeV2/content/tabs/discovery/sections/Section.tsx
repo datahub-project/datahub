@@ -19,7 +19,7 @@ const Title = styled.div`
 `;
 
 const Content = styled.div`
-    margin-bottom: 12px;
+    margin-bottom: 20px;
     position: relative;
     &:hover {
         .hover-btn {

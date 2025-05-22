@@ -8,6 +8,7 @@ export interface Column<T> {
     dataIndex?: string;
     render?: (record: T, index: number) => React.ReactNode;
     width?: string;
+    minWidth?: string;
     maxWidth?: string;
     sorter?: (a: T, b: T) => number;
     alignment?: AlignmentOptions;
@@ -38,6 +39,9 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
 export interface RowSelectionProps<T> {
     selectedRowKeys: string[];
     onChange?: (selectedKeys: string[], selectedRows: T[]) => void;
+    getCheckboxProps?: (T) => {
+        disabled: boolean;
+    };
 }
 
 export interface ExpandableProps<T> {

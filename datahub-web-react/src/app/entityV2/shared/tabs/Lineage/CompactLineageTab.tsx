@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { ANTD_GRAY, SEARCH_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { UnionType } from '@app/search/utils/constants';
@@ -25,12 +25,12 @@ const Container = styled.div`
 
 const LineageButton = styled(Button)<{ $isSelected: boolean }>`
     &&& {
-        background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : 'none')};
+        background-color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : 'none')};
         color: ${(props) => (props.$isSelected ? '#ffffff' : ANTD_GRAY[7])};
         border-radius: 8px;
         margin-right: 12px;
         min-height: 32px;
-        ${(props) => props.$isSelected && `border-color: ${SEARCH_COLORS.TITLE_PURPLE}`};
+        ${(props) => props.$isSelected && `border-color: ${props.theme.styles['primary-color']}`};
     }
 `;
 
@@ -65,8 +65,8 @@ const LevelFilter = styled.div<{ $isSelected: boolean }>`
     padding: 2px 8px;
     margin-right: 12px;
     border-radius: 8px;
-    color: ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
-    border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.TITLE_PURPLE : ANTD_GRAY[7])};
+    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : ANTD_GRAY[7])};
+    border: 1px solid ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : ANTD_GRAY[7])};
     &:hover {
         opacity: 0.8;
         cursor: pointer;
