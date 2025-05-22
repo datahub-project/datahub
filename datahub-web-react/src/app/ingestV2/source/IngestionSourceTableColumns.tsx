@@ -14,7 +14,7 @@ import {
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
 
 const PreviewImage = styled(Image)`
-    max-height: 28px;
+    max-height: 20px;
     width: auto;
     object-fit: contain;
     margin: 0px;
@@ -149,7 +149,7 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
                 },
             }}
         >
-            {scheduleText}
+            {scheduleText || 'Not scheduled'}
         </TextContainer>
     );
 }
@@ -193,7 +193,7 @@ export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusPro
                     onClick={() => setFocusExecutionUrn(lastExecUrn)}
                 >
                     <Pill
-                        customIconRenderer={() => <Icon icon={icon} source="phosphor" size="lg" />}
+                        customIconRenderer={() => <Icon icon={icon} source="phosphor" size="md" />}
                         label={text}
                         color={color}
                         size="md"
@@ -213,6 +213,11 @@ interface ActionsColumnProps {
     onDelete: (urn: string) => void;
 }
 
+type MenuOption = {
+    key: string;
+    label: React.ReactNode;
+};
+
 export function ActionsColumn({
     record,
     onEdit,
@@ -221,10 +226,11 @@ export function ActionsColumn({
     onExecute,
     onDelete,
 }: ActionsColumnProps) {
-    const items = [
-        {
+    const items: MenuOption[] = [];
+
+    if (!record.cliIngestion)
+        items.push({
             key: '0',
-            disabled: record.cliIngestion,
             label: (
                 <MenuItem
                     onClick={() => {
@@ -234,27 +240,10 @@ export function ActionsColumn({
                     Edit
                 </MenuItem>
             ),
-        },
-        {
+        });
+    else
+        items.push({
             key: '1',
-            label: <MenuItem onClick={() => {}}>Edit Ownership</MenuItem>,
-        },
-        {
-            key: '2',
-            disabled: !navigator.clipboard,
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        navigator.clipboard.writeText(record.urn);
-                    }}
-                >
-                    Copy Urn
-                </MenuItem>
-            ),
-        },
-        {
-            key: '3',
-            disabled: !record.cliIngestion,
             label: (
                 <MenuItem
                     onClick={() => {
@@ -264,10 +253,27 @@ export function ActionsColumn({
                     View
                 </MenuItem>
             ),
-        },
-        {
+        });
+    items.push({
+        key: '2',
+        label: <MenuItem onClick={() => {}}>Edit Ownership</MenuItem>,
+    });
+    if (navigator.clipboard)
+        items.push({
+            key: '3',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        navigator.clipboard.writeText(record.urn);
+                    }}
+                >
+                    Copy Urn
+                </MenuItem>
+            ),
+        });
+    if (record.lastExecStatus === RUNNING)
+        items.push({
             key: '4',
-            disabled: record.lastExecStatus !== RUNNING,
             label: (
                 <MenuItem
                     onClick={() => {
@@ -277,20 +283,20 @@ export function ActionsColumn({
                     Details
                 </MenuItem>
             ),
-        },
-        {
-            key: '5',
-            label: (
-                <MenuItem
-                    onClick={() => {
-                        onDelete(record.urn);
-                    }}
-                >
-                    <Text color="red">Delete </Text>
-                </MenuItem>
-            ),
-        },
-    ];
+        });
+    items.push({
+        key: '5',
+        label: (
+            <MenuItem
+                onClick={() => {
+                    onDelete(record.urn);
+                }}
+            >
+                <Text color="red">Delete </Text>
+            </MenuItem>
+        ),
+    });
+
     return (
         <>
             <ActionIcons>
