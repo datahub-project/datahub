@@ -12,7 +12,8 @@ export const updateActionRequestsList = (
     client.cache.modify({
         fields: {
             listActionRequests(existingData, { readField, storeFieldName }) {
-                const requests = existingData.actionRequests;
+                const requests = existingData.actionRequests || [];
+                const total = existingData.total ?? 0;
 
                 // Extract the argument string from the query "listActionRequests" using regex.
                 // Apollo stores cache keys like: listActionRequests({"input":{...}})
@@ -41,9 +42,17 @@ export const updateActionRequestsList = (
                     return includesPending && !includesCompleted;
                 });
 
+                let noOfItemsRemoved = 0;
+
                 // Update or remove requests based on shouldRemove condition
                 const updatedRequests = shouldRemove
-                    ? requests.filter((req) => !requestUrns.includes(readField('urn', req) || ''))
+                    ? requests.filter((req) => {
+                          const isCompleted = !requestUrns.includes(readField('urn', req) || '');
+                          if (isCompleted) {
+                              noOfItemsRemoved++;
+                          }
+                          return isCompleted;
+                      })
                     : requests.map((req) =>
                           requestUrns.includes(readField('urn', req) || '')
                               ? {
@@ -66,6 +75,7 @@ export const updateActionRequestsList = (
                 return {
                     ...existingData,
                     actionRequests: updatedRequests,
+                    total: total - noOfItemsRemoved,
                 };
             },
         },

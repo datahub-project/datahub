@@ -1,7 +1,7 @@
 import { NetworkStatus } from '@apollo/client';
 import { Typography, message } from 'antd';
 import { isEqual, sortBy } from 'lodash';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -201,6 +201,17 @@ export const ProposalList = ({
             refetchUnfinishedTaskCount();
         }, 3000);
     };
+
+    // go to the last page with data if there's no data on the current page after a timeout because of elastic consitency issues
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            const lastValidPage = Math.max(1, Math.ceil(totalActionRequests / pageSize));
+            if (!loading && page > lastValidPage) {
+                setPage(lastValidPage);
+            }
+        }, 3000);
+        return () => clearTimeout(timeout);
+    }, [data, totalActionRequests, pageSize, page, setPage, loading]);
 
     const FinalContainer = isShowNavBarRedesign ? Container : React.Fragment;
 
