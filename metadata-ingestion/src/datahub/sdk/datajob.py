@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, Optional, Type, Union
+from typing import Dict, Optional, Type
 
 from typing_extensions import Self
 
@@ -15,14 +15,12 @@ from datahub.metadata.schema_classes import (
     EditableDataJobPropertiesClass,
 )
 from datahub.metadata.urns import (
+    DataFlowUrn,
     DataJobUrn,
-    DataPlatformInstanceUrn,
-    DataPlatformUrn,
     Urn,
 )
 from datahub.sdk._attribution import is_ingestion_attribution
 from datahub.sdk._shared import (
-    DataflowUrnOrStr,
     DomainInputType,
     HasContainer,
     HasDomain,
@@ -39,6 +37,7 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
+from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
 
@@ -68,11 +67,9 @@ class DataJob(
         self,
         *,
         # Identity
-        flow_urn: DataflowUrnOrStr,
+        flow: DataFlow,
         name: str,
         display_name: Optional[str] = None,
-        platform: Optional[Union[DataPlatformUrn | str]] = None,
-        platform_instance: Optional[Union[DataPlatformInstanceUrn | str]] = None,
         description: Optional[str] = None,
         external_url: Optional[str] = None,
         custom_properties: Optional[Dict[str, str]] = None,
@@ -89,14 +86,11 @@ class DataJob(
     ):
         urn = DataJobUrn.create_from_ids(
             job_id=name,
-            data_flow_urn=str(flow_urn),
+            data_flow_urn=str(flow.urn),
         )
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
-
-        if platform is None:
-            platform = self.urn.get_data_flow_urn().orchestrator
-        self._set_platform_instance(platform, platform_instance)
+        self._set_platform_instance(flow.urn.orchestrator, flow.platform_instance)
 
         # Initialize DataJobInfoClass with default type
         job_info = DataJobInfoClass(
@@ -104,7 +98,7 @@ class DataJob(
             type=AzkabanJobTypeClass.COMMAND,  # Default type
         )
         self._setdefault_aspect(job_info)
-        self._ensure_datajob_props().flowUrn = str(flow_urn)
+        self._ensure_datajob_props().flowUrn = str(flow.urn)
 
         # Set properties if provided
         if description is not None:
@@ -139,9 +133,11 @@ class DataJob(
         data_flow_urn = urn.get_data_flow_urn()
 
         entity = cls(
-            platform=data_flow_urn.orchestrator,
+            flow=DataFlow(
+                platform=data_flow_urn.orchestrator,
+                name=data_flow_urn.flow_id,
+            ),
             name=urn.job_id,
-            flow_urn=str(data_flow_urn),
         )
         return entity._init_from_graph(current_aspects)
 
@@ -244,10 +240,6 @@ class DataJob(
         self._ensure_datajob_props().lastModified = make_time_stamp(last_modified)
 
     @property
-    def flow_urn(self) -> Optional[str]:
-        """Get the URN of the data flow associated with the data job."""
-        return str(self._ensure_datajob_props().flowUrn)
-
-    def set_flow_urn(self, flow_urn: str) -> None:
-        """Set the URN of the data flow associated with the data job."""
-        self._ensure_datajob_props().flowUrn = flow_urn
+    def flow_urn(self) -> DataFlowUrn:
+        """Get the data flow associated with the data job."""
+        return self.urn.get_data_flow_urn()

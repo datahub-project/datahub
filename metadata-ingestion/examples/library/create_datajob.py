@@ -1,12 +1,18 @@
-from datahub.metadata.urns import DataFlowUrn
-from datahub.sdk import DataHubClient, DataJob
+from datahub.sdk import DataFlow, DataHubClient, DataJob
 
 client = DataHubClient.from_env()
 
-# datajob will inherit the platform from the flow_urn
+# datajob will inherit the platform and platform instance from the flow
+
+dataflow = DataFlow(
+    platform="airflow",
+    name="example_dag",
+    platform_instance="PROD",
+)
+
 datajob = DataJob(
     name="example_datajob",
-    flow_urn=DataFlowUrn(orchestrator="airflow", flow_id="example_dag", cluster="PROD"),
+    flow=dataflow,
 )
 
 client.entities.upsert(datajob)

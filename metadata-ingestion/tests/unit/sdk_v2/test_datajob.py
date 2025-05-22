@@ -9,8 +9,9 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     CorpUserUrn,
-    DataFlowUrn,
     DataJobUrn,
+    DataPlatformInstanceUrn,
+    DataPlatformUrn,
     DomainUrn,
     TagUrn,
 )
@@ -31,7 +32,7 @@ def test_datajob_basic(pytestconfig: pytest.Config) -> None:
 
     # Create a basic datajob
     job = DataJob(
-        flow_urn=flow.urn,
+        flow=flow,
         name="example_task",
     )
 
@@ -45,8 +46,7 @@ def test_datajob_basic(pytestconfig: pytest.Config) -> None:
     assert str(job.urn) in repr(job)
 
     # Check basic attributes
-    assert job.platform is not None
-    assert job.platform.platform_name == "airflow"
+    assert job.platform == flow.platform
     assert job.platform_instance is None
     assert job.browse_path is None
     assert job.tags is None
@@ -81,7 +81,7 @@ def test_datajob_complex() -> None:
 
     # Create a complex datajob with all attributes
     job = DataJob(
-        flow_urn=flow.urn,
+        flow=flow,
         name="complex_task",
         display_name="Complex Task",
         description="A complex data processing task",
@@ -96,7 +96,6 @@ def test_datajob_complex() -> None:
         owners=[
             CorpUserUrn("admin@datahubproject.io"),
         ],
-        platform_instance="my_instance",
     )
 
     # Check attributes
@@ -110,15 +109,11 @@ def test_datajob_complex() -> None:
         "schedule": "daily",
         "owner_team": "data-engineering",
     }
-    assert job.platform_instance is not None
-    assert (
-        str(job.platform_instance)
-        == "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airflow,my_instance)"
-    )
-
-    # Extract the flow_urn and verify it
-    assert job.flow_urn is not None
-    assert str(flow.urn) == job.flow_urn
+    assert job.platform == flow.platform
+    assert job.platform == DataPlatformUrn("airflow")
+    assert job.platform_instance == flow.platform_instance
+    assert job.platform_instance == DataPlatformInstanceUrn("airflow", "my_instance")
+    assert job.browse_path == flow.browse_path
 
     # Validate golden file
     assert_entity_golden(job, GOLDEN_DIR / "test_datajob_complex_golden.json")
@@ -132,15 +127,18 @@ def test_client_get_datajob() -> None:
     mock_client.entities = mock_entities
 
     # Create a test flow URN
-    flow_urn = DataFlowUrn("airflow", "test_dag", DEFAULT_ENV)
+    flow = DataFlow(
+        platform="airflow",
+        name="test_dag",
+    )
 
     # Basic retrieval
     job_urn = DataJobUrn.create_from_ids(
         job_id="test_task",
-        data_flow_urn=str(flow_urn),
+        data_flow_urn=str(flow.urn),
     )
     expected_job = DataJob(
-        flow_urn=flow_urn,
+        flow=flow,
         name="test_task",
         description="A test data job",
     )
@@ -154,7 +152,7 @@ def test_client_get_datajob() -> None:
     # String URN
     urn_str = f"urn:li:dataJob:(urn:li:dataFlow:(airflow,string_dag,{DEFAULT_ENV}),string_task)"
     mock_entities.get.return_value = DataJob(
-        flow_urn=f"urn:li:dataFlow:(airflow,string_dag,{DEFAULT_ENV})",
+        flow=flow,
         name="string_task",
     )
     result = mock_client.entities.get(urn_str)
@@ -164,7 +162,7 @@ def test_client_get_datajob() -> None:
     # Complex job with properties
     test_date = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     complex_job = DataJob(
-        flow_urn=flow_urn,
+        flow=flow,
         name="complex_task",
         description="Complex test job",
         display_name="My Complex Task",
@@ -181,7 +179,7 @@ def test_client_get_datajob() -> None:
 
     complex_job_urn = DataJobUrn.create_from_ids(
         job_id="complex_task",
-        data_flow_urn=str(flow_urn),
+        data_flow_urn=str(flow.urn),
     )
     mock_entities.get.return_value = complex_job
 
@@ -201,43 +199,3 @@ def test_client_get_datajob() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(complex_job_urn)
-
-
-def test_datajob_flow_relationship() -> None:
-    """Test the relationship between DataJob and DataFlow."""
-    # Create a dataflow
-    flow = DataFlow(
-        platform="airflow",
-        name="test_dag",
-    )
-
-    # Create a job associated with this flow
-    job = DataJob(
-        flow_urn=flow.urn,
-        name="test_task",
-    )
-
-    # Verify the flow relationship
-    assert job.flow_urn is not None
-    assert job.flow_urn == str(flow.urn)
-
-    # Test updating the flow_urn
-    new_flow = DataFlow(
-        platform="airflow",
-        name="new_dag",
-    )
-    job.set_flow_urn(str(new_flow.urn))
-    assert job.flow_urn == str(new_flow.urn)
-
-    # Test job URN is updated correctly based on flow
-    expected_urn = (
-        f"urn:li:dataJob:(urn:li:dataFlow:(airflow,new_dag,{DEFAULT_ENV}),test_task)"
-    )
-    assert str(job.urn) != expected_urn  # URN does not automatically update
-
-    # Create new job with the new flow to verify URN construction
-    new_job = DataJob(
-        flow_urn=new_flow.urn,
-        name="test_task",
-    )
-    assert str(new_job.urn) == expected_urn
