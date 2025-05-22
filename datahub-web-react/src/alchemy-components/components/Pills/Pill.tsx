@@ -7,6 +7,7 @@ import { ColorOptions, ColorValues, PillVariantOptions, PillVariantValues, SizeV
 
 export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]> = {
     [PillVariantValues.filled]: [
+        ColorValues.primary,
         ColorValues.violet,
         ColorValues.blue,
         ColorValues.green,
@@ -15,6 +16,7 @@ export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]
         ColorValues.gray,
     ],
     [PillVariantValues.outline]: [
+        ColorValues.primary,
         ColorValues.violet,
         ColorValues.blue,
         ColorValues.green,

@@ -41,4 +41,5 @@ public class FeatureFlags {
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;
   private boolean showIngestionPageRedesign = false;
+  private boolean showLineageExpandMore = true;
 }
