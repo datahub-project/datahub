@@ -322,6 +322,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setDatasetHealthDashboardV2Enabled(_featureFlags.isDatasetHealthDashboardV2Enabled())
             .setShowCreatedAtFilter(_featureFlags.isShowCreatedAtFilter())
+            .setShowNotificationSettingsForComplianceForms(
+                _featureFlags.isShowNotificationSettingsForComplianceForms())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

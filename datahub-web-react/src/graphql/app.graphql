@@ -142,6 +142,7 @@ query appConfig {
             showDefaultExternalLinks
             datasetHealthDashboardV2Enabled
             showCreatedAtFilter
+            showNotificationSettingsForComplianceForms
         }
         chromeExtensionConfig {
             enabled

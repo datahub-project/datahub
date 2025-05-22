@@ -70,4 +70,5 @@ public class FeatureFlags {
   private boolean showDefaultExternalLinks = true;
   private boolean datasetHealthDashboardV2Enabled = false;
   private boolean showCreatedAtFilter = false;
+  private boolean showNotificationSettingsForComplianceForms = false;
 }
