@@ -149,7 +149,7 @@ public class BatchMetadataChangeProposalsProcessor {
       // If adding this MCP would exceed the batch size limit, process the current batch first
       if (!currentBatch.isEmpty()
           && currentBatchSize + mcpSize
-              > provider.getMetadataChangeProposal().getBatch().getSize()) {
+              > provider.getMetadataChangeProposal().getConsumer().getBatch().getSize()) {
         processBatch(currentBatch, currentBatchSize);
         totalProcessed += currentBatch.size();
         log.info(
