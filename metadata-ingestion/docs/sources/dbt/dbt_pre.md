@@ -38,6 +38,7 @@ The artifacts used by this source are:
       - AssertionRunEvent Aspect: test status, execution timestamps, failure messages, number of failures
     - DatasetProperties Aspect: model performance metrics (execution status, start/end times, run ID)
   - When provided, we transfer dbt test run results into assertion run events to see a timeline of test runs on the dataset
+  - Note: Tests that are disabled in the manifest file (via `enabled: false` or `--exclude` flag) will not be included in DataHub, even if they appear in run_results.json. This is because the manifest file is the source of truth for which tests are active in your dbt project.
 
 To generate these files, we recommend this workflow for dbt build and datahub ingestion.
 
