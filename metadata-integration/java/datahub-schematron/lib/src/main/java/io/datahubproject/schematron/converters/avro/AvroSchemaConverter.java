@@ -294,7 +294,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
             .setIsPartOfKey(fieldPath.isKeySchema());
     populateCommonProperties(field, recordField);
     fields.add(recordField);
-    if (visitedRecords.contains(field.schema().getFullName())) {
+
+    if (isCyclicReference(field, visitedRecords)) {
       return;
     }
     visitedRecords.add(field.schema().getFullName());
@@ -305,6 +306,10 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     }
 
     visitedRecords.remove(field.schema().getFullName());
+  }
+
+  private boolean isCyclicReference(Schema.Field field, Set<String> visitedRecords) {
+    return visitedRecords.contains(field.schema().getFullName());
   }
 
   @SneakyThrows
