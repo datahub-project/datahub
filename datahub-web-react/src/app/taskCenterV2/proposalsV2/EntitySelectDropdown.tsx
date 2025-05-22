@@ -36,6 +36,7 @@ type Props = {
     onSearchChange?: (searchText: string) => void;
     onUpdate?: (selectedValues: string[]) => void;
     onClose?: () => void;
+    onClearSearch?: () => void;
 };
 
 const EntitySelectFilter = ({
@@ -46,6 +47,7 @@ const EntitySelectFilter = ({
     onSearchChange,
     onUpdate,
     onClose,
+    onClearSearch,
 }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedValues, setSelectedValues] = useState<string[]>(values || []);
@@ -84,6 +86,11 @@ const EntitySelectFilter = ({
         toggleDropdown();
     }, [toggleDropdown, isOpen, onClose]);
 
+    const handleClearSearch = () => {
+        onClearSearch?.();
+        setSearchQuery('');
+    };
+
     const finalOptions = options;
 
     return (
@@ -99,6 +106,7 @@ const EntitySelectFilter = ({
                             value={searchQuery}
                             onChange={(value) => handleSearchChange(value)}
                             size="sm"
+                            onClear={handleClearSearch}
                         />
                         {isLoading ? (
                             <LoadingWrapper>

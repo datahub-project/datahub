@@ -1,14 +1,11 @@
 import { debounce, differenceBy, uniqBy } from 'lodash';
-import { CaretDown } from 'phosphor-react';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import SearchFiltersLoadingSection from '@app/searchV2/filters/SearchFiltersLoadingSection';
-import { formatNumber } from '@app/shared/formatNumber';
-import { FilterLabel } from '@app/sharedV2/filters/Filter';
+import FilterLabel from '@app/sharedV2/filters/FilterLabel';
 import EntitySelectDropdown from '@app/taskCenterV2/proposalsV2/EntitySelectDropdown';
 import { PROPOSAL_TARGET_ENTITY_TYPES } from '@app/taskCenterV2/proposalsV2/utils';
-import { Icon, Pill } from '@src/alchemy-components';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleLazyQuery } from '@src/graphql/search.generated';
 import { Entity } from '@src/types.generated';
@@ -123,29 +120,17 @@ export const ProposalsEntitySelect = ({
                 onSearchChange={debounce(handleSearch, 200)}
                 onUpdate={handleUpdate}
                 onClose={handleClose}
+                onClearSearch={() => handleSearch('')}
                 isLoading={defaultSuggestionsLoading || searchResultsLoading}
             >
                 {loading && !availableEntityOptions?.length ? (
                     <SearchFiltersLoadingSection noOfLoadingSkeletons={1} />
                 ) : (
-                    <FilterLabel $isActive={!!selectedEntityUrns.length} data-testid="filter-dropdown-entity-select">
-                        Entity
-                        {!!selectedEntityUrns.length && (
-                            <Pill size="xs" label={formatNumber(selectedEntityUrns.length)} />
-                        )}
-                        {!!selectedEntityUrns.length && (
-                            <Icon
-                                source="phosphor"
-                                icon="X"
-                                size="sm"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleUpdate([]);
-                                }}
-                            />
-                        )}
-                        <CaretDown style={{ fontSize: '14px', height: '14px' }} />
-                    </FilterLabel>
+                    <FilterLabel
+                        numActiveFilters={selectedEntityUrns?.length}
+                        displayName="Entity"
+                        onClear={() => handleUpdate([])}
+                    />
                 )}
             </EntitySelectDropdown>
         </Container>
