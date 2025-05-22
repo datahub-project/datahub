@@ -86,8 +86,7 @@ class DataJob(
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
         self._set_platform_instance(flow.urn.orchestrator, flow.platform_instance)
-        if flow.parent_container is not None:
-            self._set_browse_path_from_flow(flow)
+        self._set_browse_path_from_flow(flow)
 
         # Initialize DataJobInfoClass with default type
         job_info = models.DataJobInfoClass(
