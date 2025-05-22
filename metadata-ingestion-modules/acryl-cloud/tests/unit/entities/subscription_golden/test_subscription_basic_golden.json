@@ -1,0 +1,25 @@
+[
+{
+    "entityType": "subscription",
+    "entityUrn": "urn:li:subscription:my_subscription_id_1",
+    "changeType": "UPSERT",
+    "aspectName": "subscriptionInfo",
+    "aspect": {
+        "json": {
+            "actorUrn": "urn:li:actor:actor1",
+            "actorType": "actorType1",
+            "types": [
+                "ENTITY_CHANGE"
+            ],
+            "createdOn": {
+                "time": 1234567890,
+                "actor": "urn:li:actor:actor1"
+            },
+            "updatedOn": {
+                "time": 1234567890,
+                "actor": "urn:li:actor:actor1"
+            }
+        }
+    }
+}
+]

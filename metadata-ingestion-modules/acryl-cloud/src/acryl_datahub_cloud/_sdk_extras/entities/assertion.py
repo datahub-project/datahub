@@ -85,7 +85,7 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         custom_properties: Optional[Dict[str, str]] = None,
         source: Optional[AssertionSourceInputType] = None,
         last_updated: Optional[LastUpdatedInputType] = None,
-        # For assertions, platform+instace is not coupled to identity
+        # For assertions, platform+instance is not coupled to identity
         platform: Optional[str] = None,
         platform_instance: Optional[str] = None,
         # Standard aspects
