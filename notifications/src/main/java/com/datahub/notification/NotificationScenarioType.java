@@ -30,4 +30,6 @@ public enum NotificationScenarioType {
   INGESTION_RUN_CHANGE,
   INGESTION_FAILURE,
   ASSERTION_STATUS_CHANGE,
+  /** SaaS Only: A new compliance form is published, notifying assignees */
+  COMPLIANCE_FORM_PUBLISH,
 }

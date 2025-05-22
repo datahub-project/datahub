@@ -783,6 +783,7 @@ entities:
       - formInfo
       - dynamicFormAssignment
       - ownership
+      - formSettings
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey

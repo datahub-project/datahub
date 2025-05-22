@@ -1,0 +1,16 @@
+namespace com.linkedin.form
+
+@Aspect = {
+  "name": "formSettings"
+}
+record FormSettings {
+  /**
+   * Notification settings for a form
+   */
+  notificationSettings: record FormNotificationSettings {
+    /**
+     * Whether to notify the assignees of the form when it is published.
+     */
+    notifyAssigneesOnPublish: boolean = false
+  }
+}
