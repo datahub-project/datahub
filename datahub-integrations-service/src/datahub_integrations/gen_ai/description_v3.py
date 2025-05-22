@@ -1,14 +1,20 @@
+from datahub_integrations.gen_ai.mlflow_init import (  # noqa: F401
+    MLFLOW_ENABLED,
+    MLFLOW_INITIALIZED,
+)
+
 import json
 from typing import Dict, List, Optional, Tuple
 
 import asyncer
 import mlflow
 import more_itertools
+from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
-    call_bedrock_llm,
+    call_bedrock_llm_with_retry,
     get_bedrock_model_env_variable,
 )
 from datahub_integrations.gen_ai.description_v2 import (
@@ -17,20 +23,19 @@ from datahub_integrations.gen_ai.description_v2 import (
     ExtractedTableInfo,
     TableInfo,
     TooManyColumnsError,
+    extract_metadata_for_urn,
     parse_llm_output,
     transform_table_info_for_llm,
 )
 
 _MAX_COLUMNS = 1000
-_MAX_COLUMNS_PER_BATCH = 100
+_MAX_COLUMNS_PER_BATCH = 50
 
-# TODO: retry on column description generation failure
 # TODO: adaptive batching for schema field v2 paths OR preprocessing them to covert to v1 paths
+# TODO: Add retry on parsing failure of the output - less likely to happen with v3 - need to track
 
 
-def split_columns_into_batch(
-    columns: List[str], batch_size: int
-) -> List[Dict[str, ColumnMetadataInfo]]:
+def split_columns_into_batch(columns: List[str], batch_size: int) -> List[List[str]]:
     """
     Split columns into batches of specified size.
 
@@ -129,12 +134,6 @@ Provide your output in the following dictionary format:
 Ensure that the dictionary is properly formatted and parsable. Use the column display names as keys for the column descriptions.\
 """
 
-# TODO: Need to experiment best way to pass column names here
-# Possible options:
-# 1. Current implementation: Pass all column names in the prompt.
-# 2. Pass only start column name and end column name of batch in the prompt.
-# 3. Pass only start column name and number of columns in the batch in the prompt.
-
 COLUMN_BATCH_INSTRUCTIONS = """\
 Generate descriptions for only the following {num_columns} columns:
 {columns}
@@ -143,6 +142,22 @@ Generate descriptions for only the following {num_columns} columns:
 CURRENT_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
     "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
 )
+
+
+def generate_entity_descriptions_for_urn(
+    graph_client: DataHubGraph, urn: str
+) -> EntityDescriptionResult:
+    """
+    This function also returns column_info for debugging purpose (To check the if metadata information is generated correctly) and can be removed
+    """
+
+    entity = graph_client.get_entity_semityped(urn)
+    extracted_entity_info = extract_metadata_for_urn(entity, urn, graph_client)
+
+    return generate_entity_descriptions_for_urn_eval_v3(
+        urn,
+        extracted_entity_info,
+    )
 
 
 def generate_entity_descriptions_for_urn_eval_v3(
@@ -213,7 +228,7 @@ def generate_table_description(
         },
     )
 
-    entity_descriptions = call_bedrock_llm(
+    entity_descriptions = call_bedrock_llm_with_retry(
         formatted_prompt,
         max_tokens=5000,
         model=CURRENT_MODEL,
@@ -232,7 +247,7 @@ async def generate_column_descriptions(
     batch_failure_reason = None
     all_column_names = list(column_infos.keys())
     column_splits = split_columns_into_batch(all_column_names, _MAX_COLUMNS_PER_BATCH)
-    # TODO: Need further experimentation here.
+    # NOTE: We can do further experimentation here.
     # We can pass previous batch's descriptions to the next batch to improve the quality of the descriptions.
 
     generated_batch_column_descriptions: List[
@@ -280,7 +295,7 @@ def generate_column_batch_descriptions(
     column_infos: Dict[str, ColumnMetadataInfo],
     generated_table_description: str,
     column_batch_instructions: str,
-) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
     formatted_prompt = COLUMN_DESC_PROMPT.format(
         table_info=table_info.dict(exclude_none=True),
         column_info={
@@ -291,7 +306,7 @@ def generate_column_batch_descriptions(
         column_batch_instructions=column_batch_instructions,
     )
     try:
-        column_descriptions_raw = call_bedrock_llm(
+        column_descriptions_raw = call_bedrock_llm_with_retry(
             formatted_prompt,
             max_tokens=5000,
             model=CURRENT_MODEL,

@@ -4,11 +4,12 @@ import json
 import os
 import pprint
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import boto3
 import botocore.config
 import pydantic
+import tenacity
 from datahub.cli.env_utils import get_boolean_env_variable
 from loguru import logger
 
@@ -39,6 +40,16 @@ def get_bedrock_model_env_variable(
         BedrockModel | str,  # type: ignore
         os.getenv(env_var, default_model.value),
     )
+
+
+# Generic return type for Bedrock inference responses.
+class BedrockResponseBody(pydantic.BaseModel):
+    model: BedrockModel | str
+    text: str
+    stop_reason: str
+
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
 
 
 @serialized
@@ -75,6 +86,20 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
 def call_bedrock_llm(
     prompt: str, max_tokens: int, model: BedrockModel | str, temperature: float = 0.3
 ) -> str:
+    boto3_bedrock = get_bedrock_client()
+    response = call_bedrock_llm_inner(
+        boto3_bedrock, prompt, max_tokens, model, temperature
+    )
+    return response.text
+
+
+def call_bedrock_llm_inner(
+    boto3_bedrock: "BedrockRuntimeClient",
+    prompt: str,
+    max_tokens: int,
+    model: BedrockModel | str,
+    temperature: float,
+) -> BedrockResponseBody:
     start_time = time.time()
     body = {
         "anthropic_version": "bedrock-2023-05-31",
@@ -90,8 +115,6 @@ def call_bedrock_llm(
     accept = "application/json"
     contentType = "application/json"
 
-    boto3_bedrock = get_bedrock_client()
-
     modelId = model.value if isinstance(model, BedrockModel) else model
     if _LLM_TRACE:
         logger.info(f"Calling Bedrock LLM with model {modelId} and prompt:\n{prompt}")
@@ -106,16 +129,55 @@ def call_bedrock_llm(
         logger.info(
             f"LLM response body: {pprint.pformat(response_body, sort_dicts=False, width=120)}"
         )
-
     # If the generation ran out of tokens, log a warning.
     stop_reason = response_body["stop_reason"]
     if stop_reason not in {"end_turn", "tool_use"}:
         logger.warning(f"LLM call stopped early: {stop_reason}")
 
-    outputText = response_body["content"][0]["text"]
-
     logger.info(f"LLM call took {time.time() - start_time} seconds")
-    return outputText
+    return BedrockResponseBody(
+        model=model,
+        text=response_body["content"][0]["text"],
+        stop_reason=stop_reason,
+        input_tokens=response_body["usage"]["input_tokens"],
+        output_tokens=response_body["usage"]["output_tokens"],
+    )
+
+
+def call_bedrock_llm_with_retry(
+    prompt: str, max_tokens: int, model: BedrockModel | str, temperature: float = 0.3
+) -> str:
+    """
+    Wrapper around call_bedrock_llm_inner that handles retries for throttling exceptions.
+
+    Raises:
+        Exception: If all retries are exhausted or a non-throttling error occurs
+    """
+    boto3_bedrock = get_bedrock_client()
+
+    _MAX_RETRIES = 3
+
+    @tenacity.retry(
+        stop=tenacity.stop_after_attempt(_MAX_RETRIES),
+        wait=tenacity.wait_exponential(multiplier=1, min=1, max=60),
+        retry=tenacity.retry_if_exception_type(
+            boto3_bedrock.exceptions.ThrottlingException
+        ),
+        before_sleep=lambda retry_state: logger.info(
+            f"Bedrock throttling occurred, retrying attempt {retry_state.attempt_number} of {_MAX_RETRIES}"
+        ),
+    )
+    def _call_with_retry() -> BedrockResponseBody:
+        return call_bedrock_llm_inner(
+            boto3_bedrock, prompt, max_tokens, model, temperature
+        )
+
+    try:
+        response = _call_with_retry()
+        return response.text
+    except tenacity.RetryError as e:
+        logger.error(f"All retries exhausted for Bedrock call: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":

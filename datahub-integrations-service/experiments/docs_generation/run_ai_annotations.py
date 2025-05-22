@@ -17,7 +17,7 @@ from eval_common import (
     METRICS_CONFIG,
     AIJudgeVerdict,
     HumanGuidelines,
-    MetricValue,
+    JudgedMetricValue,
     get_ai_annotation_run_name,
     get_human_guidelines,
     get_overall_score,
@@ -25,7 +25,10 @@ from eval_common import (
 from mlflow_common import get_run_or_fail
 from pydantic import BaseModel
 
-from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
+from datahub_integrations.gen_ai.bedrock import (
+    BedrockModel,
+    call_bedrock_llm_with_retry,
+)
 from datahub_integrations.gen_ai.description_v2 import (
     ColumnMetadataInfo,
     ExtractedTableInfo,
@@ -37,7 +40,7 @@ dotenv.load_dotenv()
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 mlflow.bedrock.autolog()
-AI_JUDGE_MODEL = BedrockModel.CLAUDE_3_HAIKU
+AI_JUDGE_MODEL = BedrockModel.CLAUDE_37_SONNET
 
 
 class FewShotExample(BaseModel):
@@ -96,7 +99,7 @@ def build_few_shot_examples(limit: int = 3) -> List[FewShotExample]:
 
 
 LLM_JUDGE_PROMPT = """
-You are a judge who is tasked with evaluating the quality of auto-generated table description. The description should be based on facts in provided information. You will be given generated table description and facts available about the table. You need to evaluate the quality of the description with respect the pre-defined metrics. Note that you need to provide a single like reasoning for your evaluation and  "Pass" or "Fail" result for each metric
+You are a judge who is tasked with evaluating the quality of auto-generated table description. The description should be based on facts in provided information. You will be given generated table description and facts available about the table. You need to evaluate the quality of the description with respect the pre-defined metrics. Note that you need to provide one or two line reasoning for your evaluation and  "Pass" or "Fail" result for each metric. The reasoning should be concise and to the point and directly point to improvements in description.
 
 Metrics:
 {metric_definitions}
@@ -110,7 +113,7 @@ NOTE:
 - For Pass value, justification should include critical aspects that can be improved in description. Include concrete improvements that can be made to the description with reference to provided metric definition and provided information.
 - For Fail value, justification should include critical aspects that led to failure of the metric.
 - Make sure to not include any special characters (like quotes) in the reasoning string.
-
+- Note that description may contain mention to table in form [table_name](datahub urn). This urn may be used to determine data platform, database and schema of table when evaluating metrics.
 {examples}
 
 
@@ -172,7 +175,7 @@ def try_fix_text_for_error(text, e):
             {e}
             Output:
             """.format(text=text, e=e)
-    fixed_text = call_bedrock_llm(
+    fixed_text = call_bedrock_llm_with_retry(
         prompt=fix_prompt, model=AI_JUDGE_MODEL, max_tokens=5000
     )
     if not fixed_text.startswith("{"):
@@ -252,7 +255,7 @@ Table Level Guidelines:
             table_level_guidelines=table_level_guidelines,
         )
 
-        judge_verdict = call_bedrock_llm(
+        judge_verdict = call_bedrock_llm_with_retry(
             prompt=judge_prompt, model=AI_JUDGE_MODEL, max_tokens=5000
         )
         metrics = parse_llm_judge_output(judge_verdict)
@@ -290,27 +293,37 @@ def gen_dynamic_metric_contents():
 
 
 def custom_eval_fn_metric(metric, predictions, targets):
-    scores = [None] * len(predictions)
-    justifications = [None] * len(predictions)
+    all_scores = [None] * len(predictions)
+    all_justifications = [None] * len(predictions)
+    judged_scores = []
     metric_values = asyncer.syncify(eval_metrics, raise_sync_error=False)(
         metric, predictions, targets
     )
     for i, judged_metric in enumerate(metric_values):
         if judged_metric is not None:
-            scores[i] = judged_metric.bool_value()
-            justifications[i] = judged_metric.reasoning
-
+            judged_value = judged_metric.bool_value()
+            all_scores[i] = judged_value
+            all_justifications[i] = judged_metric.reasoning
+            if judged_value is not None:
+                judged_scores.append(judged_value)
     return mlflow.metrics.MetricValue(
-        scores=scores,
-        justifications=justifications,
+        scores=all_scores,
+        justifications=all_justifications,
         aggregate_results={
-            "pass_percentage": len(list(filter(lambda x: x, scores))) / len(scores)
+            "pass_percentage": 100
+            * len(list(filter(lambda x: x, judged_scores)))
+            / len(judged_scores)
+            if len(judged_scores) > 0
+            else 0,
+            "count": len(judged_scores),
         },
     )
 
 
-async def eval_metrics(metric, predictions, targets) -> List[Optional[MetricValue]]:
-    results: List[asyncer.SoonValue[MetricValue]] = []
+async def eval_metrics(
+    metric, predictions, targets
+) -> List[Optional[JudgedMetricValue]]:
+    results: List[asyncer.SoonValue[JudgedMetricValue]] = []
     async with asyncer.create_task_group() as task_group:
         for prediction, target in zip(predictions, targets, strict=False):
             result = task_group.soonify(asyncer.asyncify(eval_metric_value_ai_judge))(
@@ -321,7 +334,9 @@ async def eval_metrics(metric, predictions, targets) -> List[Optional[MetricValu
     return [result.value for result in results]
 
 
-def eval_metric_value_ai_judge(metric, prediction, target) -> Optional[MetricValue]:
+def eval_metric_value_ai_judge(
+    metric, prediction, target
+) -> Optional[JudgedMetricValue]:
     human_guidelines = get_human_guidelines()
     human_guidelines_str: Optional[str] = None
     if target["urn"] in human_guidelines:
@@ -335,8 +350,9 @@ def eval_metric_value_ai_judge(metric, prediction, target) -> Optional[MetricVal
 
 
 def overall_score_eval_fn(predictions, targets):
-    scores = []
-    justifications = []
+    all_scores = []
+    all_justifications = []
+    judged_scores = []
     human_guidelines = get_human_guidelines()
     for prediction, target in zip(predictions, targets, strict=False):
         table_human_guidelines_str: Optional[str] = None
@@ -348,19 +364,22 @@ def overall_score_eval_fn(predictions, targets):
             )
         )
         if judged_metric is not None:
-            scores.append(judged_metric.value)
-            justifications.append(judged_metric.reasoning)
+            all_scores.append(judged_metric.value)
+            all_justifications.append(judged_metric.reasoning)
+            # this is hack to keep only judged entries. reasoning in always present.
+            if judged_metric.reasoning is not None:
+                judged_scores.append(judged_metric.value)
         else:
-            scores.append(0)
-            justifications.append(None)
-    print(scores)
+            all_scores.append(0)
+            all_justifications.append(None)
 
     return mlflow.metrics.MetricValue(
-        scores=scores,
-        justifications=justifications,
+        scores=all_scores,
+        justifications=all_justifications,
         aggregate_results={
-            "mean": np.mean(scores),
-            "median": np.median(scores),
+            "mean": np.mean(judged_scores),
+            "median": np.median(judged_scores),
+            "count": len(judged_scores),
         },
     )
 

@@ -35,7 +35,7 @@ class HumanGuidelines(BaseModel):
     )  # metric name to list of guidelines
 
 
-class MetricValue(BaseModel):
+class JudgedMetricValue(BaseModel):
     reasoning: Optional[str] = None
     value: Optional[str] = None
     guidelines: Optional[str] = None  # stringified list of guidelines
@@ -131,7 +131,7 @@ AIJudgeVerdict = create_model(
     __config__=Config,
     **{
         metric.name: (
-            Optional[MetricValue],
+            Optional[JudgedMetricValue],
             # This is in order to support different metric name only for AI judge.
             # Ideally we can also simply rename the metric but we don't want to lose
             # earlier annotations with different metric name, so this is workaround.
@@ -143,7 +143,9 @@ AIJudgeVerdict = create_model(
 
 HumanJudgeVerdict = create_model(
     "HumanJudgeVerdict",
-    **{metric_name: (Optional[MetricValue], None) for metric_name in METRIC_NAMES},
+    **{
+        metric_name: (Optional[JudgedMetricValue], None) for metric_name in METRIC_NAMES
+    },
 )
 
 
@@ -163,6 +165,8 @@ def get_overall_score(
         getattr(verdict, metric) is None or getattr(verdict, metric).value is None
         for metric in METRIC_NAMES
     ):
+        # Setting reasoning to None to indicate that no metrics were judged.
+        # This hack is used during overall score evaluation to keep only judged entries.
         return IntegerMetricValue(value=score, reasoning=None)
     else:
         return IntegerMetricValue(

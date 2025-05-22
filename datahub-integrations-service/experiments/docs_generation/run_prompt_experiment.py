@@ -12,14 +12,14 @@ import mlflow.metrics
 import pandas as pd
 import typer
 from datahub.utilities.perf_timer import PerfTimer
-from description_v3 import (
+
+from datahub_integrations.gen_ai.description_v2 import transform_table_info_for_llm
+from datahub_integrations.gen_ai.description_v3 import (
     CURRENT_MODEL,
     EntityDescriptionResult,
     ExtractedTableInfo,
     generate_entity_descriptions_for_urn_eval_v3,
 )
-
-from datahub_integrations.gen_ai.description_v2 import transform_table_info_for_llm
 
 dotenv.load_dotenv()
 
@@ -185,6 +185,17 @@ def has_table_description_metric_fn(predictions, targets):
     )
 
 
+def log_generation_time_metrics(table_descriptions_df: pd.DataFrame):
+    """Log generation time metrics to MLflow."""
+    table_descriptions_df = table_descriptions_df[
+        (table_descriptions_df["description"].notna())
+        & (table_descriptions_df["description"] != "")
+    ]
+    generation_times = table_descriptions_df["generation_time"]
+    mlflow.log_metric("generation_time_max", generation_times.max())
+    mlflow.log_metric("generation_time_avg", generation_times.mean())
+
+
 def run_experiment(files: List[pathlib.Path], run_description: Optional[str]):
     with (
         mlflow.start_run(description=run_description),
@@ -203,11 +214,11 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]):
             greater_is_better=True,
         )
 
-        # TODO: add generation_time (min, max, avg) metrics to track latency
         # This adds eval_results_table.json artifact to the run
         # Do not remove this, it is used for ai evaluation and human annotations
+        table_descriptions_df = pd.DataFrame(table_descriptions)
         mlflow.evaluate(
-            data=pd.DataFrame(table_descriptions),
+            data=table_descriptions_df,
             predictions="description",
             evaluators="default",
             targets="entity_info",
@@ -235,6 +246,9 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]):
             # Log the metrics
             for metric_name, value in column_metrics.items():
                 mlflow.log_metric(metric_name, value)
+
+        # Log generation time metrics
+        log_generation_time_metrics(table_descriptions_df)
 
 
 def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:
@@ -287,7 +301,7 @@ def run_prompt_experiment(run_description: Optional[str] = None):
     # NOTE: modify generate_entity_descriptions_for_urn_eval_wrapper to change prompt
     # or any other inputs for prompt engineering experiments
 
-    run_experiment(eval_files, run_description)
+    run_experiment(eval_files[0:2], run_description)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,6 @@ from typing import Annotated, List
 
 import fastapi
 import pydantic
-import tenacity
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, QueryUrn, Urn
 from loguru import logger
@@ -12,6 +11,8 @@ from loguru import logger
 from datahub_integrations.gen_ai.cached_graph import make_cached_graph
 from datahub_integrations.gen_ai.description_v2 import (
     ShellEntityError,
+)
+from datahub_integrations.gen_ai.description_v3 import (
     generate_entity_descriptions_for_urn,
 )
 from datahub_integrations.gen_ai.suggest_query_description import (
@@ -66,16 +67,8 @@ class DescriptionV2ParsingError(Exception):
     pass
 
 
-@tenacity.retry(
-    stop=tenacity.stop_after_attempt(2),
-    retry=tenacity.retry_if_exception_type(DescriptionV2ParsingError),
-)
-def _description_v2(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescription:
+def _description_v3(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescription:
     result = generate_entity_descriptions_for_urn(graph_client=graph, urn=str(urn))
-    if result.column_descriptions is None:
-        raise DescriptionV2ParsingError(
-            f"Failed to parse structured output from raw output: {result.raw_llm_output}"
-        )
 
     return SuggestedDescription(
         entity_description=result.table_description or "",
@@ -102,7 +95,7 @@ def suggest_description(
         )
 
     elif isinstance(urn, DatasetUrn):
-        return _description_v2(graph, urn)
+        return _description_v3(graph, urn)
 
     else:
         raise ValueError(f"Unsupported entity type: {urn}")

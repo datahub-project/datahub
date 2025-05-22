@@ -16,7 +16,7 @@ from eval_common import (
     AIJudgeVerdict,
     HumanGuidelines,
     HumanJudgeVerdict,
-    MetricValue,
+    JudgedMetricValue,
     get_deployment_details,
     get_human_annotation_run_name,
     get_human_guidelines,
@@ -67,7 +67,7 @@ def get_eval_table(input_run_id):
 def row_to_ai_judge_verdict(row: pd.Series) -> AIJudgeVerdict:
     return AIJudgeVerdict.parse_obj(
         {
-            metric_name: MetricValue.parse_obj(
+            metric_name: JudgedMetricValue.parse_obj(
                 {
                     "value": row[f"{metric_name}/score"],
                     "reasoning": row[f"{metric_name}/justification"],
@@ -83,7 +83,7 @@ def row_to_human_judge_verdict(
 ) -> HumanJudgeVerdict:
     return HumanJudgeVerdict.parse_obj(
         {
-            metric_name: MetricValue.parse_obj(
+            metric_name: JudgedMetricValue.parse_obj(
                 {
                     "value": row[f"{metric_name}/score"],
                     "reasoning": row[f"{metric_name}/justification"],
@@ -227,7 +227,7 @@ def init_session_state_with_previous_annotations(run_name, eval_result):
 def extract_table_annotation(current_table_name):
     verdict = HumanJudgeVerdict.parse_obj(
         {
-            metric_name: MetricValue.parse_obj(
+            metric_name: JudgedMetricValue.parse_obj(
                 {
                     "value": st.session_state[f"{metric_name}_value"],
                     "guidelines": st.session_state[f"{metric_name}_guidelines"],
@@ -275,7 +275,11 @@ def log_mlflow_run_with_human_annotations(annotations):
             scores=scores,
             justifications=justifications,
             aggregate_results={
-                "pass_percentage": len(list(filter(lambda x: x, scores))) / len(scores)
+                "pass_percentage": 100
+                * len(list(filter(lambda x: x, scores)))
+                / len(scores)
+                if len(scores) > 0
+                else 0
             },
         )
 

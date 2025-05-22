@@ -9,7 +9,7 @@ metrics:
       guidelines: []
 
   - name: has_downstream_usecases
-    definition: Whether description contains correct details about downstream usecases of this table, if available in provided information. The description should always supplement each individual usecase mention with actual downstream from provided information. Fail the metric if preceding criteria is not fulfilled or if downstream usecases in description are entirely absent in provided information, particularly downstream lineage. Only materialized downstream usecases should be mentioned.
+    definition: Whether description contains correct details about downstream usecases of this table, if available in provided information. Ideally, description should supplement each individual usecase mention with actual downstream from provided information. Fail the metric if preceding criteria is not fulfilled or if downstream usecases in description are entirely absent in provided information, particularly downstream lineage. Description may mention of downstream usecases that are not exemplified by downstream lineage in provided information . However, the wordings should not claim that this is exactly how the table is used or how table is likely used. Description may include the word "potential usecase" or "the table can be used for " but not the words like "table is used for.."
     type: binary
     scoring_criteria:
       possible_values:
@@ -18,7 +18,7 @@ metrics:
       guidelines: []
 
   - name: has_compliance_insights
-    definition: Whether description contains correct details about presence or absence of PII(personally identifiable information) in table contents. Presence of person names, emails, addresses, phone numbers, etc must be hilighted as PII and not just mentioned as sensitive columns. Fail the metric if one of above columns is present yet description suggests table contains no PII columns or only hilights them as sensitive columns.
+    definition: Whether description contains correct details about presence or absence of PII(personally identifiable information) in table contents. Presence of person names, emails, addresses, phone numbers, etc must be hilighted as PII and not just mentioned as sensitive columns. Fail the metric if one of above columns is present yet description suggests table contains no PII columns or only hilights them as sensitive columns. Description should not include columns indirectly related to PII such as "phone_number_hash" or "email_hash".
     type: binary
     scoring_criteria:
       possible_values:
