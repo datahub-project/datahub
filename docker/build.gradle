@@ -1,3 +1,4 @@
+// See notes in docker/README-BUILD.md
 plugins {
     id 'java' // required by versioning
     id 'docker-compose'

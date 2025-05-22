@@ -1,3 +1,4 @@
+// See notes gradle/docker/README.md
 import groovy.json.JsonSlurper
 import org.apache.commons.io.output.TeeOutputStream
 
