@@ -191,6 +191,5 @@
         "prosemirror-state": "1.3.2",
         "prosemirror-transform": "1.2.2",
         "prosemirror-view": "1.13.4"
-    },
-    "packageManager": "yarn@1.22.22+sha1.ac34549e6aa8e7ead463a7407e1c7390f61a6610"
+    }
 }
