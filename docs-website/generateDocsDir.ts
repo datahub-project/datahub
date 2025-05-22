@@ -416,8 +416,8 @@ function markdown_process_inline_directives(
   filepath: string
 ): void {
   const new_content = contents.content.replace(
-    /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
-    (_, inline_file_path: string, show_path_as_comment: string) => {
+    /^(\s*){{(\s*)inline(\s+)(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
+    (_, indent: string, __, ___, inline_file_path: string, ____, show_path_as_comment: string, _____) => {
       if (!inline_file_path.startsWith("/")) {
         throw new Error(`inline path must be absolute: ${inline_file_path}`);
       }
@@ -432,9 +432,13 @@ function markdown_process_inline_directives(
       // that can be used to limit the inlined content to a specific range of lines.
       let new_contents = "";
       if (show_path_as_comment) {
-        new_contents += `# Inlined from ${inline_file_path}\n`;
+        new_contents += `${indent}# Inlined from ${inline_file_path}\n`;
       }
-      new_contents += referenced_file;
+      // Split the referenced file into lines and add the indentation to each line
+      new_contents += referenced_file
+        .split('\n')
+        .map(line => `${indent}${line}`)
+        .join('\n');
 
       return new_contents;
     }
