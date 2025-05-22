@@ -183,6 +183,11 @@ ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-executor/src/datahub_exec
 
 FROM ${APP_ENV}-install AS final
 
+# Workaround for the issue created by renaming _schema_classes.py to _internal_schema_classes:
+RUN ln -s \
+  /metadata-ingestion/src/datahub/metadata/_internal_schema_classes.py \
+  /metadata-ingestion/src/datahub/metadata/_schema_classes.py
+
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 ENTRYPOINT []
 CMD exec dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_executor.sh

@@ -3,6 +3,7 @@ import time
 import typing
 from pathlib import Path
 from threading import Thread
+from typing import Any
 
 from acryl.executor.request.execution_request import ExecutionRequest
 from acryl.executor.result.execution_result import Type
@@ -41,6 +42,7 @@ from datahub_executor.common.tp import ThreadPoolExecutorWithQueueSizeLimit
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
     DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE,
+    DATAHUB_EXECUTOR_LOG_CELERY_MESSAGES,
     DATAHUB_EXECUTOR_POOL_ID,
     DATAHUB_EXECUTOR_READINESS_HEARTBEAT_FILE,
     DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT,
@@ -109,6 +111,14 @@ def safe_execute_ingestion(er: ExecutionRequest, submitted_at: float) -> None:
             METRIC("WORKER_INGESTION_ERRORS", pool_name=DATAHUB_EXECUTOR_POOL_ID).inc()
     except Exception:
         METRIC("WORKER_INGESTION_ERRORS", pool_name=DATAHUB_EXECUTOR_POOL_ID).inc()
+
+
+def dump_event(event: Any) -> None:
+    if DATAHUB_EXECUTOR_LOG_CELERY_MESSAGES:
+        try:
+            logger.info(f"Raw event dump: {event}")
+        except Exception as e:
+            logger.error(f"Failed to dump event: {e}")
 
 
 def monitor_thread() -> None:
@@ -210,6 +220,8 @@ def assertion_request(execution_request: ExecutionRequest) -> None:
     if execution_request.name == RUN_ASSERTION_TASK_NAME:
         METRIC("WORKER_ASSERTION_REQUESTS", pool_name=DATAHUB_EXECUTOR_POOL_ID).inc()
 
+        dump_event(execution_request.json())
+
         global assertion_executor
         assertion_executor.execute(execution_request)
     else:
@@ -262,6 +274,7 @@ def ingestion_request(event: MetadataChangeLogClass) -> None:
                 f"Starting ingestion task {execution_request.exec_id} with weight = {weight}"
             )
 
+            dump_event(event.as_json())
             tp.submit_weighted(
                 weight, safe_execute_ingestion, execution_request, submitted_at
             )
