@@ -123,6 +123,7 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         include_operational_stats=True,
                         email_as_user_identifier=True,
                         incremental_lineage=False,
+                        use_queries_v2=False,
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
@@ -218,6 +219,7 @@ def test_snowflake_tags_as_structured_properties(
                         password="TST_PWD",
                         match_fully_qualified_names=True,
                         schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
+                        use_queries_v2=False,
                         include_technical_schema=True,
                         include_table_lineage=False,
                         include_column_lineage=False,
@@ -284,6 +286,7 @@ def test_snowflake_private_link_and_incremental_mcps(
                         include_views=True,
                         include_usage_stats=False,
                         format_sql_queries=True,
+                        use_queries_v2=False,
                         incremental_lineage=False,
                         incremental_properties=True,
                         include_operational_stats=False,
