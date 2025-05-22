@@ -93,7 +93,7 @@ public class IntegrationsService {
         HttpClients.createDefault(),
         new ExponentialBackoff(DEFAULT_RETRY_INTERVAL),
         3,
-        30);
+        60);
   }
 
   public IntegrationsService(
