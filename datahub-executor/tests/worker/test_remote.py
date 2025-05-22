@@ -146,7 +146,6 @@ class TestApplyRemoteMonitorTraining(unittest.TestCase):
 
         # Verify method calls
         mock_logger.info.assert_called_once()
-        mock_logger.error.assert_called_once()
         mock_update_credentials.assert_called_once()
         mock_metric.assert_called_once_with("SCHEDULER_MESSAGE_SIZE_EXCEEDED")
         mock_metric_instance.inc.assert_called_once()

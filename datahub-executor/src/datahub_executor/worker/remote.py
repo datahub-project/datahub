@@ -42,7 +42,7 @@ def apply_remote_assertion_request(
         message_size = len(execution_request.json())
         if message_size > DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
             METRIC("SCHEDULER_MESSAGE_SIZE_EXCEEDED").inc()
-            logger.error(
+            logger.warning(
                 f"Assertion ExecutionRequest {execution_request.args['urn']} is too big ({message_size}) to send via SQS and will be dropped."
             )
             return execution_request.args["urn"]
@@ -79,7 +79,7 @@ def apply_remote_monitor_training_request(
         message_size = len(execution_request.json())
         if message_size > DATAHUB_EXECUTOR_SQS_MESSAGE_MAX_LENGTH:
             METRIC("SCHEDULER_MESSAGE_SIZE_EXCEEDED").inc()
-            logger.error(
+            logger.warning(
                 f"Monitor Training ExecutionRequest {execution_request.args['urn']} is too big ({message_size}) to send via SQS and will be dropped."
             )
             return execution_request.args["urn"]
