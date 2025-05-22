@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 class HelloWorldConfig(BaseModel):
     # Whether to print the message in upper case.
-    to_upper: Optional[bool]
+    to_upper: Optional[bool] = None
 
 
 # A basic example of a DataHub action that prints all

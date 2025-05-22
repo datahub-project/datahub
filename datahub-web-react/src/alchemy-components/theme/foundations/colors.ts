@@ -15,7 +15,7 @@ const colors = {
         700: '#2F3657', // should be deprecated
         800: '#272D48', // should be deprecated
         900: '#231A58', // should be deprecated
-        1000: '#F1F3FD', // grays violet 0
+        1000: '#F1F3FD', // violet 0
         1100: '#F1FBFE', // blue 0
         1200: '#FBF3EF', // red 0
         1300: '#F7FBF4', // green 0
@@ -37,6 +37,22 @@ const colors = {
         400: '#7565DA',
         500: '#533FD1',
         600: '#4C39BE', // primary value
+        700: '#3B2D94',
+        800: '#2E2373',
+        900: '#231A58',
+        1000: '#E5E2F8',
+        1100: '#E5E2F8',
+    },
+
+    // by default, our primary pallette is the same as our violet pallette
+    primary: {
+        0: '#F1F3FD',
+        100: '#CAC3F1',
+        200: '#B0A7EA',
+        300: '#8C7EE0',
+        400: '#7565DA',
+        500: '#533FD1', // primary value
+        600: '#4C39BE',
         700: '#3B2D94',
         800: '#2E2373',
         900: '#231A58',
@@ -66,7 +82,7 @@ const colors = {
         200: '#F2C1C1',
         300: '#ECA5A5',
         400: '#E99393',
-        500: '#E37878', // primary value
+        500: '#CD0D24', // primary value
         600: '#CF6D6D',
         700: '#A15555',
         800: '#7D4242',

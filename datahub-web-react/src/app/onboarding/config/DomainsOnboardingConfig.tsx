@@ -21,7 +21,7 @@ export const DomainsOnboardingConfig: OnboardingStep[] = [
                 </p>
                 <p>
                     Learn more about <strong>Domains</strong>{' '}
-                    <a target="_blank" rel="noreferrer noopener" href="https://datahubproject.io/docs/domains">
+                    <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains">
                         {' '}
                         here.
                     </a>

@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 import { EntityCard } from '@app/homeV2/content/recent/EntityCard';
 
@@ -41,12 +42,24 @@ type Props = {
     tip?: React.ReactNode;
     entities: Entity[];
     max?: number;
+    isHomePage?: boolean;
 };
 
-export const EntityCardList = ({ title, logo, tip, entities, max }: Props) => {
+export const EntityCardList = ({ title, logo, tip, entities, max, isHomePage }: Props) => {
     if (entities.length === 0) {
         return null;
     }
+
+    function handleCardClick(entity: Entity) {
+        if (isHomePage) {
+            analytics.event({
+                type: EventType.HomePageClick,
+                module: HomePageModule.YouRecentlyViewed,
+                value: entity.urn,
+            });
+        }
+    }
+
     const visibleEntities = max ? entities.slice(0, MAX_ASSETS_TO_SHOW) : entities;
 
     return (
@@ -61,7 +74,10 @@ export const EntityCardList = ({ title, logo, tip, entities, max }: Props) => {
             </Header>
             <HorizontalList>
                 {visibleEntities.map((entity) => (
-                    <EntityCard key={`${title}-${entity.urn}`} entity={entity} />
+                    // eslint-disable-next-line
+                    <span onClick={() => handleCardClick(entity)} key={`${title}-${entity.urn}`}>
+                        <EntityCard entity={entity} />
+                    </span>
                 ))}
             </HorizontalList>
         </Container>

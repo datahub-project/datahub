@@ -62,4 +62,4 @@ Primary-key based reads (e.g. getting schema metadata for a dataset based on the
 [Relationship]: ../what/relationship.md
 [Search Document]: ../what/search-document.md
 [metadata aspect]: ../what/aspect.md
-[Python emitters]: https://datahubproject.io/docs/metadata-ingestion/#using-as-a-library
+[Python emitters]: https://docs.datahub.com/docs/metadata-ingestion/#using-as-a-library

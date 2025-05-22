@@ -291,7 +291,7 @@ public class RequestContextTest {
             .buildRestli("urn:li:corpuser:testuser", emptyUAResourceContext, "test-request");
 
     // Verify that the agentClass is set to "Unknown"
-    assertEquals("Unknown", context.getAgentClass());
+    assertEquals(context.getAgentClass(), "Unknown");
 
     // Verify that a metric was captured with "unknown" agent class
     verify(mockCounter, times(1)).inc();
@@ -313,7 +313,7 @@ public class RequestContextTest {
               .buildRestli("urn:li:corpuser:testuser", nullUAResourceContext, "test-request");
 
       // Verify agent class is set to "Unknown" for null user agent
-      assertEquals("Unknown", context.getAgentClass());
+      assertEquals(context.getAgentClass(), "Unknown");
 
       // Verify a metric was captured
       verify(mockCounter, atLeastOnce()).inc();
@@ -364,6 +364,72 @@ public class RequestContextTest {
 
     // Verify a metric was captured
     verify(mockCounter, times(1)).inc();
+  }
+
+  @Test
+  public void testRequestContextWithDataHubSDK() {
+    // Set up DataHub SDK user agent
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+        .thenReturn("DataHub-Client/1.0.0 (sdk; actions; 1.0.1)");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null);
+
+    assertEquals(context.getAgentClass(), "sdk");
+    assertEquals(context.getAgentName(), "Actions");
+
+    // Verify metrics were captured correctly
+    verify(mockCounter, atLeastOnce()).inc();
+  }
+
+  @Test
+  public void testRequestContextWithDataHubCLI() {
+    // Set up DataHub CLI user agent
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+        .thenReturn("DataHub-Client/1.0.0 (cli; datahub; 1.0.1)");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null);
+
+    assertEquals(context.getAgentClass(), "cli");
+    assertEquals(context.getAgentName(), "Datahub");
+
+    // Verify metrics were captured correctly
+    verify(mockCounter, atLeastOnce()).inc();
+  }
+
+  @Test
+  public void testRequestContextWithDataHubIngestion() {
+    // Set up DataHub INGESTION user agent
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+        .thenReturn("DataHub-Client/1.0.0 (ingestion; actions; 1.0.1)");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null);
+
+    assertEquals(context.getAgentClass(), "ingestion");
+    assertEquals(context.getAgentName(), "Actions");
+
+    // Verify metrics were captured correctly
+    verify(mockCounter, atLeastOnce()).inc();
+  }
+
+  @Test
+  public void testMetricsCapturingWithDataHubAgents() {
+    // Test that metrics are captured correctly for DataHub agents
+    when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
+        .thenReturn("DataHub-Client/1.0.0 (sdk; datahub; 1.0.1)");
+
+    RequestContext context =
+        RequestContext.builder()
+            .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "GetUserQuery", null);
+
+    // Verify the counter was incremented with the appropriate metric name
+    // The metric name should contain the lowercase agent class
+    mockedMetrics.verify(() -> MetricUtils.counter(matches(".*sdk.*")), times(1));
   }
 
   @AfterMethod

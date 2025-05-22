@@ -85,7 +85,7 @@ The token can be retrieved by logging in as admin. You can go to Settings page a
 
 :::info Secure Your API Key
 Please keep Your API key secure & avoid sharing it.
-If you are on DataHub Cloud and your key is compromised for any reason, please reach out to the Acryl team at support@acryl.io.
+If you are on DataHub Cloud and your key is compromised for any reason, please reach out to the DataHub team at support@acryl.io.
 :::
 
 ## Ingesting Metadata

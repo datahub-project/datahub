@@ -7,7 +7,7 @@ import { TYPE_ICON_CLASS_NAME } from '@src/app/shared/constants';
 import { DataContract, EntityType } from '@src/types.generated';
 
 /**
- * Definition of the DataHub DataFlow entity.
+ * Definition of the DataHub DataContract entity.
  */
 export class DataContractEntity implements Entity<DataContract> {
     type: EntityType = EntityType.DataContract;
@@ -34,7 +34,7 @@ export class DataContractEntity implements Entity<DataContract> {
 
     isSearchEnabled = () => true;
 
-    isBrowseEnabled = () => true;
+    isBrowseEnabled = () => false;
 
     isLineageEnabled = () => false;
 
