@@ -11,7 +11,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.InitializingBean;
@@ -31,8 +30,11 @@ public abstract class AbstractKafkaListenerRegistrar<E, H extends EventHook<E>, 
   protected final List<H> hooks;
   protected final ObjectMapper objectMapper;
 
-  protected AbstractKafkaListenerRegistrar(KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry,
-      KafkaListenerContainerFactory<?> kafkaListenerContainerFactory, String consumerGroupBase, List<H> hooks,
+  protected AbstractKafkaListenerRegistrar(
+      KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry,
+      KafkaListenerContainerFactory<?> kafkaListenerContainerFactory,
+      String consumerGroupBase,
+      List<H> hooks,
       ObjectMapper objectMapper) {
     this.kafkaListenerEndpointRegistry = kafkaListenerEndpointRegistry;
     this.kafkaListenerContainerFactory = kafkaListenerContainerFactory;
