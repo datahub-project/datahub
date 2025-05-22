@@ -2,19 +2,15 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, Optional, Type
+from typing import Dict, Optional, Type, Union
 
 from typing_extensions import Self
 
+import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.errors import (
     IngestionAttributionWarning,
-)
-from datahub.metadata.schema_classes import (
-    AspectBag,
-    DataFlowInfoClass,
-    EditableDataFlowPropertiesClass,
 )
 from datahub.metadata.urns import DataFlowUrn, Urn
 from datahub.sdk._attribution import is_ingestion_attribution
@@ -30,12 +26,14 @@ from datahub.sdk._shared import (
     HasTerms,
     LinksInputType,
     OwnersInputType,
+    ParentContainerInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
 from datahub.sdk.entity import Entity, ExtraAspectsType
+from datahub.utilities.sentinels import Unset, unset
 
 
 class DataFlow(
@@ -87,6 +85,7 @@ class DataFlow(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
+        parent_container: ParentContainerInputType | Unset = unset,
         extra_aspects: ExtraAspectsType = None,
     ):
         """Initialize a new Dataflow instance.
@@ -122,7 +121,8 @@ class DataFlow(
         self._set_platform_instance(urn.orchestrator, platform_instance)
 
         # Initialize DataFlowInfoClass directly with name
-        self._setdefault_aspect(DataFlowInfoClass(name=display_name or name))
+        self._setdefault_aspect(models.DataFlowInfoClass(name=display_name or name))
+        self.set_env(env)
 
         if description is not None:
             self.set_description(description)
@@ -148,9 +148,11 @@ class DataFlow(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
+        if parent_container is not unset:
+            self._set_container(parent_container)
 
     @classmethod
-    def _new_from_graph(cls, urn: Urn, current_aspects: AspectBag) -> Self:
+    def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
         assert isinstance(urn, DataFlowUrn)
         entity = cls(
             platform=urn.orchestrator,
@@ -162,21 +164,21 @@ class DataFlow(
     def urn(self) -> DataFlowUrn:
         return self._urn  # type: ignore
 
-    def _ensure_dataflow_props(self) -> DataFlowInfoClass:
-        props = self._get_aspect(DataFlowInfoClass)
+    def _ensure_dataflow_props(self) -> models.DataFlowInfoClass:
+        props = self._get_aspect(models.DataFlowInfoClass)
         if props is None:
             # Use name from URN as fallback
-            props = DataFlowInfoClass(name=self.urn.flow_id)
+            props = models.DataFlowInfoClass(name=self.urn.flow_id)
             self._set_aspect(props)
         return props
 
-    def _get_editable_props(self) -> Optional[EditableDataFlowPropertiesClass]:
-        return self._get_aspect(EditableDataFlowPropertiesClass)
+    def _get_editable_props(self) -> Optional[models.EditableDataFlowPropertiesClass]:
+        return self._get_aspect(models.EditableDataFlowPropertiesClass)
 
-    def _ensure_editable_props(self) -> EditableDataFlowPropertiesClass:
+    def _ensure_editable_props(self) -> models.EditableDataFlowPropertiesClass:
         # Note that most of the fields in this aspect are not used.
         # The only one that's relevant for us is the description.
-        return self._setdefault_aspect(EditableDataFlowPropertiesClass())
+        return self._setdefault_aspect(models.EditableDataFlowPropertiesClass())
 
     @property
     def description(self) -> Optional[str]:
@@ -293,3 +295,12 @@ class DataFlow(
 
     def set_last_modified(self, last_modified: datetime) -> None:
         self._ensure_dataflow_props().lastModified = make_time_stamp(last_modified)
+
+    @property
+    def env(self) -> Optional[Union[str, models.FabricTypeClass]]:
+        """Get the environment of the dataflow."""
+        return self._ensure_dataflow_props().env
+
+    def set_env(self, env: str) -> None:
+        """Set the environment of the dataflow."""
+        self._ensure_dataflow_props().env = env

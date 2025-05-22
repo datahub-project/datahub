@@ -29,7 +29,8 @@
             },
             "lastModified": {
                 "time": 1736391846000
-            }
+            },
+            "env": "PROD"
         }
     }
 },

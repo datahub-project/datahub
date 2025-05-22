@@ -18,7 +18,8 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "example_dag"
+            "name": "example_dag",
+            "env": "PROD"
         }
     }
 }

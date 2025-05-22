@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     CorpUserUrn,
@@ -15,6 +16,7 @@ from datahub.metadata.urns import (
     DomainUrn,
     TagUrn,
 )
+from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
@@ -199,3 +201,36 @@ def test_client_get_datajob() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(complex_job_urn)
+
+
+def test_datajob_browse_path() -> None:
+    # Create a container
+    container = Container(
+        container_key=ContainerKey(
+            platform="airflow", name="my_container", instance="my_instance"
+        ),
+        display_name="My Container",
+    )
+    # Create a dataflow with the container
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+        parent_container=container,
+    )
+
+    # Create a datajob with the flow
+    job = DataJob(
+        flow=flow,
+        name="example_task",
+    )
+
+    # Check that parent and browse paths are set correctly
+    assert flow.parent_container == container.urn
+    assert flow.browse_path == [container.urn]
+
+    # The job's browse path should extend the flow's browse path with the job name
+    expected_job_path = [container.urn, flow.urn]
+    assert job.browse_path == expected_job_path
+
+    # Use golden file for verification
+    assert_entity_golden(job, GOLDEN_DIR / "test_datajob_browse_path_golden.json")

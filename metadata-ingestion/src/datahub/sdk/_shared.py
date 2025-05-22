@@ -48,7 +48,6 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.sdk.container import Container
-
 UrnOrStr: TypeAlias = Union[Urn, str]
 DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]

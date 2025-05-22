@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
     CorpUserUrn,
@@ -14,6 +15,7 @@ from datahub.metadata.urns import (
     GlossaryTermUrn,
     TagUrn,
 )
+from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
 
@@ -191,3 +193,19 @@ def test_client_get_dataflow() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(flow_urn)
+
+
+def test_dataflow_with_container() -> None:
+    container = Container(
+        container_key=ContainerKey(
+            platform="airflow", name="my_container", instance="my_instance"
+        ),
+        display_name="My Container",
+    )
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+        parent_container=container,
+    )
+    assert flow.parent_container == container.urn
+    assert flow.browse_path == [container.urn]

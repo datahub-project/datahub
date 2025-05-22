@@ -6,14 +6,9 @@ from typing import Dict, Optional, Type
 
 from typing_extensions import Self
 
+import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.errors import IngestionAttributionWarning
-from datahub.metadata.schema_classes import (
-    AspectBag,
-    AzkabanJobTypeClass,
-    DataJobInfoClass,
-    EditableDataJobPropertiesClass,
-)
 from datahub.metadata.urns import (
     DataFlowUrn,
     DataJobUrn,
@@ -91,11 +86,13 @@ class DataJob(
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
         self._set_platform_instance(flow.urn.orchestrator, flow.platform_instance)
+        if flow.parent_container is not None:
+            self._set_browse_path_from_flow(flow)
 
         # Initialize DataJobInfoClass with default type
-        job_info = DataJobInfoClass(
+        job_info = models.DataJobInfoClass(
             name=display_name or name,
-            type=AzkabanJobTypeClass.COMMAND,  # Default type
+            type=models.AzkabanJobTypeClass.COMMAND,  # Default type
         )
         self._setdefault_aspect(job_info)
         self._ensure_datajob_props().flowUrn = str(flow.urn)
@@ -127,7 +124,7 @@ class DataJob(
             self.set_domain(domain)
 
     @classmethod
-    def _new_from_graph(cls, urn: Urn, current_aspects: AspectBag) -> Self:
+    def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
         assert isinstance(urn, DataJobUrn)
         # Extracting platform from the DataFlowUrn inside the DataJobUrn
         data_flow_urn = urn.get_data_flow_urn()
@@ -145,21 +142,21 @@ class DataJob(
     def urn(self) -> DataJobUrn:
         return self._urn  # type: ignore
 
-    def _ensure_datajob_props(self) -> DataJobInfoClass:
-        props = self._get_aspect(DataJobInfoClass)
+    def _ensure_datajob_props(self) -> models.DataJobInfoClass:
+        props = self._get_aspect(models.DataJobInfoClass)
         if props is None:
             # Use name from URN as fallback with default type
-            props = DataJobInfoClass(
-                name=self.urn.job_id, type=AzkabanJobTypeClass.COMMAND
+            props = models.DataJobInfoClass(
+                name=self.urn.job_id, type=models.AzkabanJobTypeClass.COMMAND
             )
             self._set_aspect(props)
         return props
 
-    def _get_editable_props(self) -> Optional[EditableDataJobPropertiesClass]:
-        return self._get_aspect(EditableDataJobPropertiesClass)
+    def _get_editable_props(self) -> Optional[models.EditableDataJobPropertiesClass]:
+        return self._get_aspect(models.EditableDataJobPropertiesClass)
 
-    def _ensure_editable_props(self) -> EditableDataJobPropertiesClass:
-        return self._setdefault_aspect(EditableDataJobPropertiesClass())
+    def _ensure_editable_props(self) -> models.EditableDataJobPropertiesClass:
+        return self._setdefault_aspect(models.EditableDataJobPropertiesClass())
 
     @property
     def description(self) -> Optional[str]:
@@ -243,3 +240,19 @@ class DataJob(
     def flow_urn(self) -> DataFlowUrn:
         """Get the data flow associated with the data job."""
         return self.urn.get_data_flow_urn()
+
+    def _set_browse_path_from_flow(self, flow: DataFlow) -> None:
+        flow_browse_path = flow._get_aspect(models.BrowsePathsV2Class)
+
+        # extend the flow's browse path with this job
+        browse_path = []
+        if flow_browse_path is not None:
+            for entry in flow_browse_path.path:
+                browse_path.append(
+                    models.BrowsePathEntryClass(id=entry.id, urn=entry.urn)
+                )
+
+        # Add the job itself to the path
+        browse_path.append(models.BrowsePathEntryClass(id=flow.name, urn=str(flow.urn)))
+        # Set the browse path aspect
+        self._set_aspect(models.BrowsePathsV2Class(path=browse_path))
