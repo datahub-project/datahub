@@ -36,13 +36,6 @@ grant select on future external tables in database "<your-database>" to role dat
 grant select on all dynamic tables in database "<your-database>" to role datahub_role;
 grant select on future dynamic tables in database "<your-database>" to role datahub_role;
 
-// For dynamic tables: Grant information schema access and account-level monitoring
-// Required to track dynamic tables that move between schemas or databases
-grant monitor usage on account to role datahub_role;
-grant usage on database snowflake to role datahub_role;
-grant usage on schema snowflake.account_usage to role datahub_role;
-grant select on all tables in schema snowflake.account_usage to role datahub_role;
-
 // Create a new DataHub user and assign the DataHub role to it
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';
 
