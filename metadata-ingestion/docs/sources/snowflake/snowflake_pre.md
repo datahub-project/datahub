@@ -60,8 +60,6 @@ The details of each granted privilege can be viewed in [snowflake docs](https://
   this permission is not required.
 - `usage` is required for us to run queries using the warehouse
 - `usage` on `database` and `schema` are required because without it tables, views, and streams inside them are not accessible. If an admin does the required grants on `table` but misses the grants on `schema` or the `database` in which the table/view/stream exists then we will not be able to get metadata for the table/view/stream.
-- `monitor` on `dynamic tables` is required to view dynamic table definitions, refresh history, and other metadata.
-- `monitor usage on account` is required for tracking dynamic tables that have moved between schemas or databases, as it allows searching for tables across the entire account.
 - If metadata is required only on some schemas then you can grant the usage privileges only on a particular schema like
 
 ```sql
@@ -74,25 +72,12 @@ grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 grant usage on schema "<your-database>"."<your-schema>" to role datahub_role;
 ```
 
-This represents the bare minimum privileges required to extract databases, schemas, views, tables, and dynamic tables from Snowflake.
+This represents the bare minimum privileges required to extract databases, schemas, views, tables from Snowflake.
 
 If you plan to enable extraction of table lineage, via the `include_table_lineage` config flag, extraction of usage statistics, via the `include_usage_stats` config, or extraction of tags (without lineage), via the `extract_tags` config, you'll also need to grant access to the [Account Usage](https://docs.snowflake.com/en/sql-reference/account-usage.html) system tables, using which the DataHub source extracts information. This can be done by granting access to the `snowflake` database.
 
 ```sql
 grant imported privileges on database snowflake to role datahub_role;
-```
-
-### Multi-Database Environments
-
-If you have dynamic tables that might move between different databases, you need to grant the same permissions for each database where the tables might exist:
-
-```sql
-// Repeat for each database where dynamic tables might exist or move to
-grant usage on database "<another-database>" to role datahub_role;
-grant usage on all schemas in database "<another-database>" to role datahub_role;
-grant usage on future schemas in database "<another-database>" to role datahub_role;
-grant monitor on all dynamic tables in database "<another-database>" to role datahub_role;
-grant monitor on future dynamic tables in database "<another-database>" to role datahub_role;
 ```
 
 ### Authentication

@@ -83,10 +83,6 @@ class SnowsightUrlBuilder:
             # e.g. aws_us_west_2, gcp_us_central1, azure_northeurope
             cloud, cloud_region_id = region.split("_", 1)
             cloud_region_id = cloud_region_id.replace("_", "-")
-        elif region in SnowsightUrlBuilder.CLOUD_REGION_IDS_WITHOUT_CLOUD_SUFFIX:
-            # Handle plain region IDs for AWS regions that don't need cloud suffix
-            cloud = SnowflakeCloudProvider.AWS
-            cloud_region_id = region
         else:
             raise Exception(f"Unknown snowflake region {region}")
         return cloud, cloud_region_id
