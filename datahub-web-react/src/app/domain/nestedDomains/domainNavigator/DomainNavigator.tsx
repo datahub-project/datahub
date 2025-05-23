@@ -30,10 +30,11 @@ const LoadingWrapper = styled.div`
 
 interface Props {
     domainUrnToHide?: string;
+    displayDomainColoredIcon?: boolean;
     selectDomainOverride?: (domain: Domain) => void;
 }
 
-export default function DomainNavigator({ domainUrnToHide, selectDomainOverride }: Props) {
+export default function DomainNavigator({ domainUrnToHide, selectDomainOverride, displayDomainColoredIcon }: Props) {
     const { sortedDomains, loading, error } = useListDomains({});
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
 
@@ -52,6 +53,7 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride 
                   numDomainChildren={domain.children?.total || 0}
                   domainUrnToHide={domainUrnToHide}
                   selectDomainOverride={selectDomainOverride}
+                  displayDomainColoredIcon={displayDomainColoredIcon}
               />
           ));
 

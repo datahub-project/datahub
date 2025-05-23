@@ -1,6 +1,21 @@
 const domainName = "CypressNestedDomain";
+const TEST_GROUP_NAME = "test-notifications-group";
 const chartUrn = "urn:li:chart:(looker,cypress_baz1)";
 
+const handledResizeLoopErrors = () => {
+  const resizeObserverLoopLimitErrRe = "ResizeObserver loop limit exceeded";
+  const resizeObserverLoopErrRe =
+    "ResizeObserver loop completed with undelivered notifications.";
+
+  cy.on("uncaught:exception", (err) => {
+    if (
+      err.message.includes(resizeObserverLoopLimitErrRe) ||
+      err.message.includes(resizeObserverLoopErrRe)
+    ) {
+      return false; // Prevent Cypress from failing the test on these specific errors
+    }
+  });
+};
 const createDomain = () => {
   cy.get(".anticon-plus").first().click();
   cy.waitTextVisible("Create New Domain");
@@ -21,10 +36,9 @@ const moveDomaintoRootLevel = () => {
 };
 
 const moveDomaintoParent = () => {
-  cy.get('[data-testid="domain-list-item"]')
-    .contains("Marketing")
-    .prev()
-    .click();
+  cy.get(
+    '[data-testid="open-domain-action-item-urn:li:domain:marketing"]',
+  ).click();
   cy.clickOptionWithText(domainName);
   cy.waitTextVisible(domainName);
   cy.openThreeDotDropdown();
@@ -36,7 +50,11 @@ const moveDomaintoParent = () => {
 const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
     .parent('[data-testid="domain-list-item"]')
-    .find('[aria-label="right"]')
+    .find(
+      '[data-testid="open-domain-action-item-urn:li:domain:' +
+        domainName.toLowerCase() +
+        '"]',
+    )
     .click();
 };
 
@@ -92,6 +110,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.setIsThemeV2Enabled(false);
     cy.loginWithCredentials();
     cy.goToDomainList();
+    handledResizeLoopErrors();
   });
 
   it("Verify Create a new domain", () => {
@@ -135,21 +154,21 @@ describe("Verify nested domains test functionalities", () => {
     cy.enterTextInTestId("link-form-modal-label", "Test Label");
     cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
+
+    // add owners
     cy.clickOptionWithTestId("add-owners-button");
     cy.waitTextVisible("Find a user or group");
-    cy.get('[data-testid="users-group-search"]').type(
-      Cypress.env("ADMIN_DISPLAYNAME"),
-    );
+    cy.get('[data-testid="users-group-search"]').type(TEST_GROUP_NAME);
     cy.clickTextOptionWithClass(
       ".rc-virtual-list-holder-inner",
-      Cypress.env("ADMIN_DISPLAYNAME"),
+      TEST_GROUP_NAME,
     );
     cy.clickOptionWithText("Find a user or group");
     cy.clickOptionWithId("#addOwnerButton");
-    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
+    cy.waitTextVisible(TEST_GROUP_NAME);
     cy.goToDomainList();
     cy.waitTextVisible("Test documentation");
-    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
+    cy.waitTextVisible(TEST_GROUP_NAME);
     cy.clickOptionWithText(domainName);
     cy.clickOptionWithText("Documentation");
     clearAndDelete();
