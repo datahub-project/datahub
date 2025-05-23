@@ -257,7 +257,7 @@ Hdfs-based platforms supported explicitly:
   - Azure Blob Storage (abs) - supports wasb/wasbs protocols
   - Azure Data Lake Storage Gen2 (abs) - supports abfs/abfss protocols
 - Local file system (file)
-All other platforms will have "hdfs" as a platform.
+  All other platforms will have "hdfs" as a platform.
 
 **Name**:
 By default, the name is the complete path. For Hdfs base datasets, tables can be at different levels in the path than
