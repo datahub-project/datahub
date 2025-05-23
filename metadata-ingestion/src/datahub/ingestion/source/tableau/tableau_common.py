@@ -466,14 +466,6 @@ virtual_connection_graphql_query = """
   owner {
     username
   }
-  project {
-    id
-    name
-  }
-  connectionAttributes {
-    name
-    value
-  }
   tables {
     id
     name
@@ -486,28 +478,6 @@ virtual_connection_graphql_query = """
         id
         name
         description
-        upstreamColumns {
-          name
-          table {
-            __typename
-            id
-            name
-            database {
-              name
-              id
-            }
-            schema
-            fullName
-            connectionType
-          }
-        }
-        upstreamFields {
-          name
-          datasource {
-            id
-            name
-          }
-        }
         upstreamDatasources {
           id
           name
@@ -530,21 +500,6 @@ virtual_connection_graphql_query = """
           }
         }
       }
-    }
-  }
-  upstreamTables {
-    id
-    name
-    database {
-      name
-      id
-    }
-    schema
-    fullName
-    connectionType
-    description
-    columnsConnection {
-      totalCount
     }
   }
   tags {
