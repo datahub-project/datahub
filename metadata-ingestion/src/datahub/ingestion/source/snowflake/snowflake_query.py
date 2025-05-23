@@ -951,3 +951,36 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
             f"""FROM '{stream_pagination_marker}'""" if stream_pagination_marker else ""
         )
         return f"""SHOW STREAMS IN DATABASE "{db_name}" LIMIT {limit} {from_clause};"""
+
+    @staticmethod
+    def show_dynamic_tables_for_database(
+        db_name: str,
+        limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
+        dynamic_table_pagination_marker: Optional[str] = None,
+    ) -> str:
+        """Get dynamic table definitions for a database."""
+        assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
+
+        from_clause = (
+            f"""FROM '{dynamic_table_pagination_marker}'"""
+            if dynamic_table_pagination_marker
+            else ""
+        )
+        return f"""\
+    SHOW DYNAMIC TABLES IN DATABASE "{db_name}"
+    LIMIT {limit} {from_clause};
+    """
+
+    @staticmethod
+    def get_dynamic_table_definitions() -> str:
+        """Get dynamic table definitions from account usage."""
+        return """
+            SELECT
+                TABLE_CATALOG as "TABLE_CATALOG",
+                TABLE_SCHEMA as "TABLE_SCHEMA", 
+                TABLE_NAME as "TABLE_NAME",
+                TEXT as "DEFINITION",
+                TARGET_LAG as "TARGET_LAG"
+            FROM SNOWFLAKE.ACCOUNT_USAGE.DYNAMIC_TABLES
+            WHERE DELETED IS NULL
+        """

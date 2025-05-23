@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, MutableMapping, Optional
+from typing import Callable, Dict, Iterable, List, MutableMapping, Optional, Tuple
 
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -105,6 +105,9 @@ class SnowflakeTable(BaseTable):
 
 @dataclass
 class SnowflakeDynamicTable(SnowflakeTable):
+    definition: Optional[str] = None
+    target_lag: Optional[str] = None
+
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.DYNAMIC_TABLE
 
@@ -379,6 +382,10 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
+
+        # Populate dynamic table definitions
+        self.populate_dynamic_table_definitions(tables, db_name)
+
         return tables
 
     def get_tables_for_schema(
@@ -409,6 +416,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     is_hybrid=table.get("IS_HYBRID", "NO").upper() == "YES",
                 )
             )
+
+        # Populate dynamic table definitions for just this schema
+        schema_tables = {schema_name: tables}
+        self.populate_dynamic_table_definitions(schema_tables, db_name)
+
         return tables
 
     @serialized_lru_cache(maxsize=1)
@@ -755,3 +767,57 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 )
             )
         return procedures
+
+    @serialized_lru_cache(maxsize=1)
+    def get_dynamic_table_definitions(
+        self,
+    ) -> Dict[str, Dict[str, Dict[str, Tuple[str, str]]]]:
+        """Get dynamic table definitions from account usage."""
+        dynamic_table_definitions: Dict[str, Dict[str, Dict[str, Tuple[str, str]]]] = (
+            defaultdict(lambda: defaultdict(lambda: defaultdict()))
+        )
+        try:
+            cur = self.connection.query(SnowflakeQuery.get_dynamic_table_definitions())
+            for dt in cur:
+                db_name = dt["TABLE_CATALOG"]
+                schema_name = dt["TABLE_SCHEMA"]
+                table_name = dt["TABLE_NAME"]
+                definition = dt["DEFINITION"]
+                target_lag = dt["TARGET_LAG"]
+                dynamic_table_definitions[db_name][schema_name][table_name] = (
+                    definition,
+                    target_lag,
+                )
+        except Exception as e:
+            logger.debug(f"Failed to get dynamic table definitions: {e}")
+
+        return dynamic_table_definitions
+
+    def populate_dynamic_table_definitions(
+        self, tables: Dict[str, List[SnowflakeTable]], db_name: str
+    ) -> None:
+        """Populate dynamic table definitions for tables that are marked as dynamic."""
+        try:
+            dt_definitions = self.get_dynamic_table_definitions()
+
+            for schema_name, table_list in tables.items():
+                for table in table_list:
+                    if (
+                        isinstance(table, SnowflakeDynamicTable)
+                        and table.definition is None
+                    ):
+                        # Try to get definition from account usage
+                        if (
+                            db_name in dt_definitions
+                            and schema_name in dt_definitions[db_name]
+                            and table.name in dt_definitions[db_name][schema_name]
+                        ):
+                            definition, target_lag = dt_definitions[db_name][
+                                schema_name
+                            ][table.name]
+                            table.definition = definition
+                            table.target_lag = target_lag
+        except Exception as e:
+            logger.debug(
+                f"Failed to populate dynamic table definitions for {db_name}: {e}"
+            )
