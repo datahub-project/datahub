@@ -1,5 +1,4 @@
 const domainName = "CypressNestedDomain";
-const TEST_GROUP_NAME = "test-notifications-group";
 const chartUrn = "urn:li:chart:(looker,cypress_baz1)";
 
 const handledResizeLoopErrors = () => {
@@ -159,17 +158,19 @@ describe("Verify nested domains test functionalities", () => {
     // add owners
     cy.clickOptionWithTestId("add-owners-button");
     cy.waitTextVisible("Find a user or group");
-    cy.get('[data-testid="users-group-search"]').type(TEST_GROUP_NAME);
+    cy.get('[data-testid="users-group-search"]').type(
+      Cypress.env("ADMIN_DISPLAYNAME"),
+    );
     cy.clickTextOptionWithClass(
       ".rc-virtual-list-holder-inner",
-      TEST_GROUP_NAME,
+      Cypress.env("ADMIN_DISPLAYNAME"),
     );
     cy.clickOptionWithText("Find a user or group");
     cy.clickOptionWithId("#addOwnerButton");
-    cy.waitTextVisible(TEST_GROUP_NAME);
+    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
     cy.goToDomainList();
     cy.waitTextVisible("Test documentation");
-    cy.waitTextVisible(TEST_GROUP_NAME);
+    cy.waitTextVisible(Cypress.env("ADMIN_DISPLAYNAME"));
     cy.clickOptionWithText(domainName);
     cy.clickOptionWithText("Documentation");
     clearAndDelete();
