@@ -100,7 +100,7 @@ module.exports = {
     announcementBar: {
       id: "announcement-3",
       content:
-        '<div class="shimmer-banner"><p>DataHub now supports the Model Context Protocol (MCP)</p><a href="https://pages.acryl.io/datahub-mcp-server?utm_source=docs-website&utm_medium=announcement_banner&utm_campaign=mcp_announcement" target="_blank" class="button"><div>Read the announcement<span> →</span></div></a></div>',
+        '<div class="shimmer-banner"><p>DataHub Secures $35 Million Series B</p><a href="https://datahub.com/news/series-b-announcement/" target="_blank" class="button"><div>Read the announcement<span> →</span></div></a></div>',
       backgroundColor: "transparent",
       textColor: "#ffffff",
       isCloseable: false,
