@@ -516,9 +516,11 @@ class AthenaSource(SQLAlchemySource):
         if not partitions:
             return []
 
-        if not self.config.profiling.enabled or not self.config.profiling.partition_profiling_enabled:
+        if (
+            not self.config.profiling.enabled
+            or not self.config.profiling.partition_profiling_enabled
+        ):
             return partitions
-
 
         with self.report.report_exc(
             message="Failed to extract partition details",

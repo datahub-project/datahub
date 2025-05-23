@@ -231,15 +231,7 @@ class AthenaPropertiesExtractor:
         try:
             for expr in create_expr.this.expressions:
                 if isinstance(expr, ColumnDef) and expr.this:
-                    # Extract type from string representation
-                    col_str = str(expr)
-                    parts = col_str.split()
-                    if len(parts) >= 2:
-                        # The type is everything after the column name
-                        type_str = " ".join(parts[1:]).rstrip(",")
-                        column_name = str(expr.this)
-                        if column_name and type_str:
-                            column_types[column_name] = type_str
+                    column_types[expr.name] = str(expr.kind)
         except Exception:
             # If we can't extract column types, return empty dict
             pass

@@ -356,6 +356,12 @@ class TestAthenaPropertiesExtractorIntegration:
 
         # Should have created_date as simple partition
         date_cols = [
+            col for col in partition_info.simple_columns if col.name == "user_id"
+        ]
+        assert len(date_cols) == 1
+        assert date_cols[0].type == "BIGINT"
+
+        date_cols = [
             col for col in partition_info.simple_columns if col.name == "created_date"
         ]
         assert len(date_cols) == 1
