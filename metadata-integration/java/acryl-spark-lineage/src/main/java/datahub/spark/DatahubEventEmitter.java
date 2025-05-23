@@ -160,6 +160,12 @@ public class DatahubEventEmitter extends EventEmitter {
       return;
     }
 
+    // Skip empty jobs if configured to do so
+    if (datahubConf.isExcludeEmptyJobs() && isEmptyJob(job.get())) {
+      log.info("Skipping empty job: {}", job.get().getJobUrn());
+      return;
+    }
+
     if (!datahubConf.getTags().isEmpty()) {
       GlobalTags tags = OpenLineageToDataHub.generateTags(datahubConf.getTags());
       job.get().setFlowGlobalTags(tags);
@@ -467,5 +473,16 @@ public class DatahubEventEmitter extends EventEmitter {
 
   public void setStreaming(boolean enabled) {
     streaming.set(enabled);
+  }
+
+  /**
+   * Determines if a job is considered "empty" (no inputs or outputs)
+   *
+   * @param job The job to check
+   * @return true if the job has no inputs AND no outputs
+   */
+  public boolean isEmptyJob(DatahubJob job) {
+    return (job.getInSet() == null || job.getInSet().isEmpty())
+        && (job.getOutSet() == null || job.getOutSet().isEmpty());
   }
 }
