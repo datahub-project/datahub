@@ -123,7 +123,7 @@ def extract_physical_location_or_throw(entity_urn: str) -> AnalyticsEngineLocato
 class Field(BaseModel):
     name: str
     type: str
-    description: Optional[str]
+    description: Optional[str] = None
 
 
 @router.get("/schema")

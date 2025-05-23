@@ -23,8 +23,8 @@ class BigQueryPolicyTagInfo(BaseModel):
     datahub_urn: str
     managed_by_datahub: bool
     name: str
-    display_name: Optional[str]
-    description: Optional[str]
+    display_name: Optional[str] = None
+    description: Optional[str] = None
 
 
 @dataclass()

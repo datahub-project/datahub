@@ -34,17 +34,17 @@ logger = logging.getLogger(__name__)
 
 
 class ForwardingActionConfig(BaseModel):
-    kafka_server: Optional[str]
-    schema_registry_url: Optional[str]
-    ssl_ca_location: Optional[str]
-    ssl_cert_location: Optional[str]
-    ssl_key_location: Optional[str]
-    ssl_key_password: Optional[str]
-    group_id: Optional[str]
-    schema_registry_ca_location: Optional[str]
-    schema_registry_cert_location: Optional[str]
-    schema_registry_key_location: Optional[str]
-    mcp_topic: Optional[str]
+    kafka_server: Optional[str] = None
+    schema_registry_url: Optional[str] = None
+    ssl_ca_location: Optional[str] = None
+    ssl_cert_location: Optional[str] = None
+    ssl_key_location: Optional[str] = None
+    ssl_key_password: Optional[str] = None
+    group_id: Optional[str] = None
+    schema_registry_ca_location: Optional[str] = None
+    schema_registry_cert_location: Optional[str] = None
+    schema_registry_key_location: Optional[str] = None
+    mcp_topic: Optional[str] = None
     forms_enabled: bool = False
 
 

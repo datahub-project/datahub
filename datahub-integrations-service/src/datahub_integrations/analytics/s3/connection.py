@@ -1,8 +1,7 @@
-from typing import Optional, Union
+from typing import Optional
 
+from datahub.configuration.common import ConnectionModel
 from pydantic import BaseModel
-
-from datahub_integrations.analytics.models import ConnectionModel
 
 
 class S3StaticCreds(BaseModel):
@@ -13,4 +12,4 @@ class S3StaticCreds(BaseModel):
 
 class S3Connection(ConnectionModel):
     s3_reqion: str
-    s3_creds: Optional[Union[S3StaticCreds]] = None
+    s3_creds: Optional[S3StaticCreds] = None

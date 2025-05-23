@@ -2,9 +2,9 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+from datahub.configuration.common import ConnectionModel
 from datahub.ingestion.graph.client import DataHubGraph
 
-from datahub_integrations.analytics.models import ConnectionModel
 from datahub_integrations.app import graph
 from datahub_integrations.graphql.connection import (
     get_connection_json,

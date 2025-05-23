@@ -1,3 +1,5 @@
+from datahub_integrations.gen_ai.mlflow_init import MLFLOW_INITIALIZED
+
 import enum
 import functools
 import json
@@ -18,6 +20,7 @@ from datahub_integrations.util.serialized import serialized
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
 
+assert MLFLOW_INITIALIZED
 _LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
 
 
@@ -36,8 +39,7 @@ class BedrockModel(enum.Enum):
 def get_bedrock_model_env_variable(
     env_var: str, default_model: BedrockModel
 ) -> BedrockModel | str:
-    return pydantic.parse_obj_as(
-        BedrockModel | str,  # type: ignore
+    return pydantic.TypeAdapter(BedrockModel | str).validate_python(
         os.getenv(env_var, default_model.value),
     )
 

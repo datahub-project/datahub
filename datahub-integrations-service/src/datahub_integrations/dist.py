@@ -3,7 +3,8 @@ import tempfile
 from subprocess import CalledProcessError
 
 import aiohttp
-import datahub as datahub_version
+import datahub._version as datahub_version
+import datahub_actions._version as actions_version
 import fastapi
 import fastapi.responses
 from fastapi import BackgroundTasks, status
@@ -49,6 +50,12 @@ def _get_expected_integrations_filename() -> str:
 def _get_expected_metadata_ingestion_filename() -> str:
     package_name = datahub_version.__package_name__.replace("-", "_")
     version = datahub_version.__version__
+    return f"{package_name}-{version}-py3-none-any.whl"
+
+
+def _get_expected_actions_filename() -> str:
+    package_name = actions_version.__package_name__.replace("-", "_")
+    version = actions_version.__version__
     return f"{package_name}-{version}-py3-none-any.whl"
 
 
@@ -101,13 +108,17 @@ async def _build_dynamic_wheel(
 
 
 LIVE_WHEEL_SETUP = {
+    "integrations": (
+        ROOT_DIR,
+        _get_expected_integrations_filename(),
+    ),
     "datahub": (
         ROOT_DIR / "../metadata-ingestion",
         _get_expected_metadata_ingestion_filename(),
     ),
-    "integrations": (
-        ROOT_DIR,
-        _get_expected_integrations_filename(),
+    "actions": (
+        ROOT_DIR / "../datahub-actions",
+        _get_expected_actions_filename(),
     ),
 }
 

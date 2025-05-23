@@ -1,2 +1,3 @@
 -e ../metadata-ingestion
+-e ../datahub-actions
 -e .

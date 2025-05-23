@@ -25,4 +25,4 @@ if __name__ == "__main__":
     preview = get_slack_link_preview(
         "https://datahub-test.slack.com/archives/C055AD0F98E/p1682727160293169"
     )
-    logger.info(preview.json(indent=2))
+    logger.info(preview.model_dump_json(indent=2))

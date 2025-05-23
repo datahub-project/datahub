@@ -2,6 +2,7 @@ import re
 import threading
 from typing import Any, Callable, Dict, Optional, Tuple, Type
 
+from datahub.configuration.common import ConnectionModel
 from datahub.ingestion.graph.client import DataHubGraph
 from fastapi import status
 from fastapi.exceptions import HTTPException
@@ -10,7 +11,6 @@ from pydantic.main import BaseModel
 from datahub_integrations.analytics.bigquery.engine import BigQueryAnalyticsEngine
 from datahub_integrations.analytics.engine import AnalyticsEngine
 from datahub_integrations.analytics.localfs.engine import LocalFSAnalyticsEngine
-from datahub_integrations.analytics.models import ConnectionModel
 from datahub_integrations.analytics.s3.connection import S3Connection
 from datahub_integrations.analytics.s3.engine import S3AnalyticsEngine, S3EngineConfig
 from datahub_integrations.analytics.snowflake.connection import SnowflakeConnection

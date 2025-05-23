@@ -27,7 +27,7 @@ from datahub_integrations.share.api import (
     ShareConfig,
 )
 from datahub_integrations.share.share_settings import (
-    _ACTOR_URN,
+    ACTOR_URN,
     MAX_ENTITIES_PER_SHARE,
     REPORTING_HEARTBEAT_INTERVAL,
     RESTRICTED_SHARED_ASPECTS,
@@ -363,7 +363,7 @@ class ShareAgent:
                     lastModified=models.AuditStampClass(
                         time=int(time.time() * 1000),
                         actor=sharer_urn,
-                        impersonator=_ACTOR_URN,
+                        impersonator=ACTOR_URN,
                     ),
                     mechanism=models.SyncMechanismClass.SHARE,
                 )

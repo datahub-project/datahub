@@ -15,9 +15,17 @@ from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
 
+# TODO: This code is copied in datahub-actions, and should be deduplicated.
+# from datahub_actions.plugin.source.acryl.datahub_cloud_events_consumer_offsets_store import (
+#     EventConsumerState,
+#     DataHubEventsConsumerPlatformResourceOffsetsStore as ResourceBasedOffsetsStore
+# )
+
 
 class EventConsumerState(BaseModel):
-    VERSION = 1  # Increment this version when the schema of EventConsumerState changes
+    VERSION: int = (
+        1  # Increment this version when the schema of EventConsumerState changes
+    )
     offset_id: Optional[str] = None
     timestamp: Optional[int] = None
 

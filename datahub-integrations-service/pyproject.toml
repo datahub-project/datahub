@@ -12,16 +12,17 @@ authors = [
 requires-python = ">=3.11"
 
 dependencies = [
-	"acryl-datahub[base,snowflake,bigquery]",
+	"acryl-datahub[base,sql-parser,snowflake-slim,bigquery-slim]",
 	"fastapi>=0.103.1",
 	"uvicorn[standard]>=0.23.2",
+	"pydantic>=2.10.0",
 	"loguru",
 	"build",
 	# Slack.
 	"slack-bolt",
 	"inflect",
 	# Actions.
-	"acryl-datahub-actions==0.2.0",
+	"acryl-datahub-actions[kafka,tag_propagation,term_propagation,doc_propagation,snowflake_tag_propagation]",
 	"httpx",
 	"anyio>=4",
 	"asyncer",
@@ -53,6 +54,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
 	"acryl-datahub[testing-utils]",
+	"setuptools",  # for pkg_resources
 	"ruff==0.11.4",
 	"pytest",
 	"mypy",
@@ -61,11 +63,11 @@ dev = [
 	"types-setuptools",
 	"types-cachetools",
 	"types-PyYAML",
+	"types-requests>=2.28.11.6,<=2.31.0.3",
 	"mypy-boto3-bedrock-runtime",
 	"faker",
-	"anyio",
 	"freezegun",
-	"types-requests>=2.28.11.6,<=2.31.0.3",
+	"typer",
 	# Iteration
 	"papermill",
 	"json5",

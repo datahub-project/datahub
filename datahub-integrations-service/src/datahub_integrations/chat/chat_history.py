@@ -76,7 +76,7 @@ class ToolCallRequest(_BaseMessage):
 class ToolResult(_BaseMessage):
     type: Literal["tool_result"] = "tool_result"
     tool_request: ToolCallRequest
-    result: Any
+    result: Any = None
 
     def to_obj(self) -> dict:
         content: dict[str, Any]
@@ -140,5 +140,9 @@ class ChatHistory(BaseModel):
     def add_message(self, message: Message) -> None:
         self.messages.append(message)
 
+    def json(self, **kwargs: Any) -> str:
+        kwargs.setdefault("indent", 2)
+        return self.model_dump_json(**kwargs)
+
     def save_file(self, path: pathlib.Path) -> None:
-        path.write_text(self.json(indent=2))
+        path.write_text(self.json())

@@ -20,9 +20,6 @@ from datahub_integrations.share.share_agent import ShareAgent
 router = fastapi.APIRouter()
 
 
-_ACTOR_URN = "urn:li:corpuser:__integrations"
-
-
 def get_or_create_share_agent(share_connection_urn: str) -> ShareAgent:
     # TODO: Maintain a share agent cache globally, and only reload the connection info when it changes.
     return ShareAgent(source_graph=graph, share_connection_urn=share_connection_urn)

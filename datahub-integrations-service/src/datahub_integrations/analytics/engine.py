@@ -30,7 +30,7 @@ class Filter(BaseModel):
     """Filter to apply to the data"""
 
     column: str
-    value: Any
+    value: Any = None
     condition: Optional[str] = None
     negated: bool = Field(default=False)
 

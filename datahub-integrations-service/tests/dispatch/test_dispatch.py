@@ -21,6 +21,13 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
+def test_venv_config_json_parsing() -> None:
+    venv_config = VenvConfig(
+        extra_pip_requirements='["snowflake"]',  # type: ignore
+    )
+    assert venv_config.extra_pip_requirements == ["snowflake"]
+
+
 def test_log_holder_simple() -> None:
     logs = LogHolder(echo_to_stdout_prefix="runner: ")
     logs.append("hello ")

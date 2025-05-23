@@ -26,4 +26,4 @@ def get_cll(
         platform_instance=platform_instance,
         env=env,
     )
-    return JSONResponse(content=res.json(indent=2))
+    return JSONResponse(content=res.model_dump_json(indent=2))

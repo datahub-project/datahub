@@ -1,9 +1,9 @@
-version: 1
+version: "1"
 source: DataHub
 owners:
   users:
     - datahub
-url: 'https://github.com/datahub-project/datahub/'
+url: "https://github.com/datahub-project/datahub/"
 nodes:
   - name: TestGlossaryNode1
     description: A test glossary node

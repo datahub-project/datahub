@@ -684,8 +684,9 @@ public class IntegrationsService {
 
   public CompletableFuture<String> actionStatus(String actionPipelineUrn) {
     try {
-      CompletableFuture<ApiResponse<Object>> responseFuture = new CompletableFuture<>();
-      ApiCallback<Object> callback = new ApiCallback<>(responseFuture);
+      CompletableFuture<ApiResponse<Map<String, Object>>> responseFuture =
+          new CompletableFuture<>();
+      ApiCallback<Map<String, Object>> callback = new ApiCallback<>(responseFuture);
       actionsApi.actionStatsAsync(actionPipelineUrn, callback);
       return responseFuture
           .thenApply(

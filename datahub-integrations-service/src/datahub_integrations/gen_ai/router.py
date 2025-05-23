@@ -109,8 +109,8 @@ class SuggestedTerm(pydantic.BaseModel):
 
 
 class SuggestedTerms(pydantic.BaseModel):
-    table_terms: list[SuggestedTerm] | None
-    column_terms: dict[str, list[SuggestedTerm]] | None
+    table_terms: list[SuggestedTerm] | None = None
+    column_terms: dict[str, list[SuggestedTerm]] | None = None
 
 
 def _extract_recommendations(recs: list[TermSuggestionBundle]) -> list[SuggestedTerm]:

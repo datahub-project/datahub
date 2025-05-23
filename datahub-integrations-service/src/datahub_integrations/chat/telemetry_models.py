@@ -78,4 +78,4 @@ class ChatbotInteractionFeedbackEvent(BaseEvent):
     # TODO: Add email + resolved actor URN
 
     feedback: str  # "positive" or "negative"
-    message_contents: Optional[str]
+    message_contents: Optional[str] = None

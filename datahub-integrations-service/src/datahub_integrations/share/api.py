@@ -1,11 +1,11 @@
-from enum import Enum
+from enum import StrEnum
 
 import pydantic
 from datahub.configuration.common import ConnectionModel
 from datahub.ingestion.graph.client import DatahubClientConfig
 
 
-class LineageDirection(str, Enum):
+class LineageDirection(StrEnum):
     UPSTREAM = "UPSTREAM"
     DOWNSTREAM = "DOWNSTREAM"
     BOTH = "BOTH"

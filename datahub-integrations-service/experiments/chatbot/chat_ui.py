@@ -50,7 +50,7 @@ with col2:  # Add a clear chat button
 with col3:  # Add a download history button
     st.download_button(
         "Save Chat",
-        _chat_session().history.json(indent=2),
+        _chat_session().history.json(),
         file_name="history.json",
         mime="application/json",
         disabled=not _has_history,

@@ -11,7 +11,7 @@ import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
-from typing import Any, Deque, Generator, Iterator, Optional, Type
+from typing import Annotated, Any, Deque, Generator, Iterator, Optional
 
 import anyio
 import anyio.abc
@@ -128,30 +128,26 @@ class LogHolder:
         return text
 
 
-def pydantic_parse_json(field: str) -> classmethod:
-    def _parse_from_json(cls: Type, v: Any) -> dict:
-        if isinstance(v, str):
-            return json.loads(v)
-        return v
-
-    return pydantic.validator(field, pre=True, allow_reuse=True)(_parse_from_json)
+def pydantic_parse_json(v: Any) -> dict:
+    if isinstance(v, str):
+        return json.loads(v)
+    return v
 
 
 class VenvConfig(pydantic.BaseModel):
     version: str = VENV_VERSION_LATEST
 
     main_plugin: str | None = None
-    extra_pip_requirements: list[str] = []
-    extra_pip_plugins: list[str] = []
-    extra_env_vars: dict = {}
+    extra_pip_requirements: Annotated[
+        list[str], pydantic.BeforeValidator(pydantic_parse_json)
+    ] = []
+    extra_pip_plugins: Annotated[
+        list[str], pydantic.BeforeValidator(pydantic_parse_json)
+    ] = []
+    extra_env_vars: Annotated[dict, pydantic.BeforeValidator(pydantic_parse_json)] = {}
 
     # If a requirements file is specified, then the version and all other extra_* fields are ignored.
     requirements_file: pathlib.Path | None = None
-
-    # TODO: Not sure if we still need to copy these over.
-    _json_extra_pip_requirements = pydantic_parse_json("extra_pip_requirements")
-    _json_extra_pip_plugins = pydantic_parse_json("extra_pip_plugins")
-    _json_extra_env_vars = pydantic_parse_json("extra_env_vars")
 
     def set_main_plugin(self, plugin: str) -> None:
         self.main_plugin = plugin

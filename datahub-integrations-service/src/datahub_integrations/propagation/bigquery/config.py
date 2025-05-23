@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from datahub.configuration.common import AllowDenyPattern, PermissiveConfigModel
-from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from pydantic import Field

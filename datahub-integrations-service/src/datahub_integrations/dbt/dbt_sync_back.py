@@ -59,7 +59,9 @@ class DbtSyncBackConfig(GitHubRepoConfig, DbtOperationExtractConfig):
 
     # When enabled, we'll create a venv and use `dbt ls` to locate nodes.
     # This generally shouldn't be required.
-    require_runtime_dbt_resolver: bool = pydantic.Field(False, hidden_from_docs=True)
+    require_runtime_dbt_resolver: bool = pydantic.Field(
+        False, json_schema_extra={"hidden_from_docs": True}
+    )
 
     open_draft_prs: bool = False
 

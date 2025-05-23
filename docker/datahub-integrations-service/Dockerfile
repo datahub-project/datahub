@@ -142,6 +142,7 @@ RUN mkdir -p /etc/pki/tls/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc
 COPY --chmod=755 ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
 COPY --chown=datahub:datahub ./datahub-integrations-service /datahub-integrations-service
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
+COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 
 WORKDIR /datahub-integrations-service
 
@@ -158,7 +159,8 @@ FROM build AS prod-install
 # For the production build, we build a wheel file statically.
 # In development mode, we build it on-the-fly.
 RUN python -m build --wheel . --outdir static/prebuilt-dist/ && \
-    python -m build --wheel ../metadata-ingestion --outdir static/prebuilt-dist/
+    python -m build --wheel ../metadata-ingestion --outdir static/prebuilt-dist/ && \
+    python -m build --wheel ../datahub-actions --outdir static/prebuilt-dist/
 
 FROM build AS dev-install
 
@@ -171,7 +173,7 @@ FROM build AS dev-install
 # COPY ./datahub-actions/datahub-actions/setup.py /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/README.md /datahub-actions/datahub-actions/
 # COPY ./datahub-actions/datahub-actions/src/datahub_actions/__init__.py /datahub-actions/datahub-actions/src/datahub_actions/__init__.py
-ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src"
+ENV EXTRA_UVICORN_ARGS="--reload --reload-dir /datahub-integrations-service/src --reload-dir /metadata-ingestion/src --reload-dir /datahub-actions/src"
 
 FROM ${APP_ENV}-install AS final
 

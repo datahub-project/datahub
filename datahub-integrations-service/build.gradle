@@ -45,7 +45,7 @@ task environmentSetup(type: Exec, dependsOn: installUv) {
     inputs.file file('pyproject.toml')
     outputs.file(sentinel_file)
     commandLine 'bash', '-c',
-        "uv venv --python 3.11 venv && " +
+        "uv venv --python 3.11 --allow-existing venv && " +
         "touch ${sentinel_file}"
 }
 
@@ -163,6 +163,7 @@ docker {
         include "datahub-integrations-service/pyproject.toml"
         include "datahub-integrations-service/requirements*"
         include "metadata-ingestion/**"
+        include "datahub-actions/**"
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }

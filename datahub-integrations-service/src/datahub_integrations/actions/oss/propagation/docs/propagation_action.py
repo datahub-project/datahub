@@ -114,18 +114,18 @@ class DocPropagationConfig(ConfigModel):
     enabled: bool = Field(
         True,
         description="Indicates whether documentation propagation is enabled or not.",
-        example=True,
+        examples=[True],
     )
     columns_enabled: bool = Field(
         True,
         description="Indicates whether column documentation propagation is enabled or not.",
-        example=True,
+        examples=[True],
     )
     # TODO: Currently this flag does nothing. Datasets are NOT supported for docs propagation.
     datasets_enabled: bool = Field(
         False,
         description="Indicates whether dataset level documentation propagation is enabled or not.",
-        example=False,
+        examples=[False],
     )
 
 

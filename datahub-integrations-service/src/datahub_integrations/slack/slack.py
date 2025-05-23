@@ -842,7 +842,7 @@ class SlackLinkPreview(BaseModel):
     text: str
 
     authorName: str
-    authorImageUrl: Optional[str]
+    authorImageUrl: Optional[str] = None
 
     workspaceName: str
     channelName: str

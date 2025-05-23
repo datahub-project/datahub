@@ -93,27 +93,27 @@ class TermPropagationConfig(AutomationActionConfig):
     enabled: bool = Field(
         True,
         description="Indicates whether term propagation is enabled or not.",
-        example=True,
+        examples=[True],
     )
     target_terms: Optional[List[str]] = Field(
         None,
         description="Optional target terms to restrict term propagation to this and all terms related to these terms.",
-        example="[urn:li:glossaryTerm:Sensitive]",
+        examples=["[urn:li:glossaryTerm:Sensitive]"],
     )
     term_groups: Optional[List[str]] = Field(
         None,
         description="Optional list of term groups to restrict term propagation.",
-        example=["Group1", "Group2"],
+        examples=[["Group1", "Group2"]],
     )
     target_entities: List[str] = Field(
         ["schemaField"],
         description="List of target entities to propagate terms from and to.",
-        example=["schemaField"],
+        examples=[["schemaField"]],
     )
     term_resolution_caching_ttl_sec: int = Field(
         default=60,  # 1 minute
         description="Term groups -> terms are resolved and cached for this duration in milliseconds.",
-        example=60,
+        examples=[60],
     )
 
 

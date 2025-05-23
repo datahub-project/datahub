@@ -1,4 +1,3 @@
-import json
 import pathlib
 
 from loguru import logger
@@ -9,7 +8,7 @@ slack_details = pathlib.Path("slack_details.json")
 
 if __name__ == "__main__":
     logger.info(f"Reading config from {slack_details}")
-    config = SlackConnection.parse_obj(json.loads(slack_details.read_text()))
+    config = SlackConnection.model_validate_json(slack_details.read_text())
 
-    logger.debug(config.json(indent=2))
+    logger.debug(config.model_dump_json(indent=2))
     slack_config.save_config(config)

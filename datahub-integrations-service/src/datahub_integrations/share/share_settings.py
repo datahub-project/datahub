@@ -137,8 +137,6 @@ REPORTING_HEARTBEAT_INTERVAL = int(
 MAX_ENTITIES_PER_SHARE = int(os.getenv(MAX_ENTITIES_PER_SHARE_ENV_VAR, "1000"))
 
 
-_ACTOR_URN = "urn:li:corpuser:__integrations"
-
-_PLATFORM_NAME = "acryl"
+ACTOR_URN = "urn:li:corpuser:__integrations"
 
 PLATFORM_INSTANCE_NAME = os.getenv(PLATFORM_INSTANCE_NAME_ENV_VAR)

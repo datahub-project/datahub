@@ -68,22 +68,22 @@ class TagPropagationConfig(PropagationConfig):
     enabled: bool = Field(
         True,
         description="Indicates whether tag propagation is enabled or not.",
-        example=True,
+        examples=[True],
     )
     tag_prefixes: Optional[List[str]] = Field(
         None,
         description="Optional list of tag prefixes to restrict tag propagation.",
-        example=["urn:li:tag:classification"],
+        examples=[["urn:li:tag:classification"]],
     )
     include_downstreams: bool = Field(
         True,
         description="Indicates whether tags will be propagated to downstream assets.",
-        example=True,
+        examples=[True],
     )
     include_siblings: bool = Field(
         True,
         description="Indicates whether tags will be propagated to sibling assets.",
-        example=True,
+        examples=[True],
     )
 
     @validator("tag_prefixes", each_item=True)
@@ -98,8 +98,8 @@ class TagPropagationDirective(BaseModel):
     tag: str
     operation: str
     entity: str
-    origin: Optional[str]
-    propagation_depth: Optional[int]
+    origin: Optional[str] = None
+    propagation_depth: Optional[int] = None
 
 
 class TagPropagationAction(Action):

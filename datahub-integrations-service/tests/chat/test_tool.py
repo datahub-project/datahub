@@ -40,6 +40,7 @@ def test_tool_call() -> None:
         search_tool.run({"query": "test", "filter": None})
 
     with pytest.raises(
-        ToolRunError, match=re.compile(r"filter[\S\s]*field required", re.MULTILINE)
+        ToolRunError,
+        match=re.compile(r"filter[\S\s]*Field required", re.MULTILINE),
     ):
         search_tool.run({"query": "test"})

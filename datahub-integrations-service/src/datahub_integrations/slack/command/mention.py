@@ -77,7 +77,7 @@ def clean_message_text(text: str) -> str:
 class SlackMentionEvent(BaseModel):
     channel_id: str
     message_ts: str
-    original_thread_ts: Optional[str]
+    original_thread_ts: Optional[str] = None
     user_id: str
 
     message_text: str
