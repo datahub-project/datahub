@@ -19,6 +19,14 @@
         "json": {
             "path": [
                 {
+                    "id": "urn:li:container:753b430567bda9e9948b93636f7bdd50",
+                    "urn": "urn:li:container:753b430567bda9e9948b93636f7bdd50"
+                },
+                {
+                    "id": "urn:li:container:753b430567bda9e9948b93636f7bdd50",
+                    "urn": "urn:li:container:753b430567bda9e9948b93636f7bdd50"
+                },
+                {
                     "id": "example_dag",
                     "urn": "urn:li:dataFlow:(airflow,example_dag,PROD)"
                 }

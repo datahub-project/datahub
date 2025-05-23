@@ -16,6 +16,7 @@ from datahub.metadata.urns import (
 )
 from datahub.sdk._attribution import is_ingestion_attribution
 from datahub.sdk._shared import (
+    DataflowUrnOrStr,
     DomainInputType,
     HasContainer,
     HasDomain,
@@ -61,9 +62,10 @@ class DataJob(
     def __init__(
         self,
         *,
-        # Identity
-        flow: DataFlow,
         name: str,
+        flow: Optional[DataFlow] = None,
+        flow_urn: Optional[DataflowUrnOrStr] = None,
+        platform_instance: Optional[str] = None,
         display_name: Optional[str] = None,
         description: Optional[str] = None,
         external_url: Optional[str] = None,
@@ -79,6 +81,34 @@ class DataJob(
         domain: Optional[DomainInputType] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
+        """
+        Initialize a DataJob with either a DataFlow or a DataFlowUrn with platform instance.
+
+        Args:
+            name: Name of the data job (required)
+            flow: A DataFlow object (optional)
+            flow_urn: A DataFlowUrn object (optional)
+            platform_instance: Platform instance name (optional, required if flow_urn is provided)
+            ... (other optional parameters)
+
+        Raises:
+            ValueError: If neither flow nor (flow_urn and platform_instance) are provided
+        """
+        if flow is None:
+            if flow_urn is None or platform_instance is None:
+                raise ValueError(
+                    "You must provide either: "
+                    "1. a DataFlow object, or "
+                    "2. both a DataFlowUrn and a platform_instance"
+                )
+            flow_urn = DataFlowUrn.from_string(flow_urn)
+            flow = DataFlow(
+                platform=flow_urn.orchestrator,
+                name=flow_urn.flow_id.split(".")[
+                    -1
+                ],  # TODO: this is a hack to get the flow name (excluding the platform instance) from the flow URN
+                platform_instance=platform_instance,
+            )
         urn = DataJobUrn.create_from_ids(
             job_id=name,
             data_flow_urn=str(flow.urn),

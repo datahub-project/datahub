@@ -50,7 +50,7 @@ def test_datajob_basic(pytestconfig: pytest.Config) -> None:
     # Check basic attributes
     assert job.platform == flow.platform
     assert job.platform_instance is None
-    assert job.browse_path is None
+    assert job.browse_path == [flow.urn]
     assert job.tags is None
     assert job.terms is None
     assert job.created is None
@@ -115,7 +115,7 @@ def test_datajob_complex() -> None:
     assert job.platform == DataPlatformUrn("airflow")
     assert job.platform_instance == flow.platform_instance
     assert job.platform_instance == DataPlatformInstanceUrn("airflow", "my_instance")
-    assert job.browse_path == flow.browse_path
+    assert job.browse_path == [flow.urn]
 
     # Validate golden file
     assert_entity_golden(job, GOLDEN_DIR / "test_datajob_complex_golden.json")
@@ -203,7 +203,77 @@ def test_client_get_datajob() -> None:
         mock_client.entities.get(complex_job_urn)
 
 
-def test_datajob_browse_path() -> None:
+def test_datajob_init_with_flow_urn() -> None:
+    # Create a dataflow first
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+        platform_instance="my_instance",
+    )
+
+    # Create a datajob with the flow URN
+    job = DataJob(
+        flow_urn=flow.urn,
+        platform_instance="my_instance",
+        name="example_task",
+    )
+
+    assert job.flow_urn == flow.urn
+    assert job.platform_instance == flow.platform_instance
+    assert job.name == "example_task"
+
+    assert_entity_golden(
+        job, GOLDEN_DIR / "test_datajob_init_with_flow_urn_golden.json"
+    )
+
+
+def test_invalid_init() -> None:
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="You must provide either: 1. a DataFlow object, or 2. both a DataFlowUrn and a platform_instance",
+    ):
+        DataJob(
+            name="example_task",
+            flow_urn=flow.urn,
+        )
+    with pytest.raises(
+        ValueError,
+        match="You must provide either: 1. a DataFlow object, or 2. both a DataFlowUrn and a platform_instance",
+    ):
+        DataJob(
+            name="example_task",
+            platform_instance="my_instance",
+        )
+
+
+def test_datajob_browse_path_without_container() -> None:
+    # Create a dataflow without a container
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+    )
+
+    # Create a datajob with the flow
+    job = DataJob(
+        flow=flow,
+        name="example_task",
+    )
+
+    # Check that parent and browse paths are set correctly
+    assert job.parent_container is None
+    assert job.browse_path == [flow.urn]
+
+    assert_entity_golden(
+        job, GOLDEN_DIR / "test_datajob_browse_path_without_container_golden.json"
+    )
+
+
+def test_datajob_browse_path_with_container() -> None:
     # Create a container
     container = Container(
         container_key=ContainerKey(
@@ -234,3 +304,43 @@ def test_datajob_browse_path() -> None:
 
     # Use golden file for verification
     assert_entity_golden(job, GOLDEN_DIR / "test_datajob_browse_path_golden.json")
+
+
+def test_datajob_browse_path_with_containers() -> None:
+    # Create a container
+    container1 = Container(
+        container_key=ContainerKey(
+            platform="airflow", name="my_container", instance="my_instance"
+        ),
+        display_name="My Container",
+    )
+
+    container2 = Container(
+        container_key=ContainerKey(
+            platform="airflow", name="my_container", instance="my_instance"
+        ),
+        display_name="My Container",
+        parent_container=container1,
+    )
+
+    # Create a dataflow with the container
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+        parent_container=container2,
+    )
+
+    # Create a datajob with the flow
+    job = DataJob(
+        flow=flow,
+        name="example_task",
+    )
+
+    # Check that parent and browse paths are set correctly
+    assert flow.parent_container == container2.urn
+    assert flow.browse_path == [container2.urn, container1.urn]
+    assert job.browse_path == [container2.urn, container1.urn, flow.urn]
+
+    assert_entity_golden(
+        job, GOLDEN_DIR / "test_datajob_browse_path_with_containers_golden.json"
+    )

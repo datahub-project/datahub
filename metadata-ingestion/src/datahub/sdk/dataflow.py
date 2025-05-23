@@ -122,7 +122,7 @@ class DataFlow(
 
         # Initialize DataFlowInfoClass directly with name
         self._setdefault_aspect(models.DataFlowInfoClass(name=display_name or name))
-        self.set_env(env)
+        self._ensure_dataflow_props().env = env
 
         if description is not None:
             self.set_description(description)
@@ -300,7 +300,3 @@ class DataFlow(
     def env(self) -> Optional[Union[str, models.FabricTypeClass]]:
         """Get the environment of the dataflow."""
         return self._ensure_dataflow_props().env
-
-    def set_env(self, env: str) -> None:
-        """Set the environment of the dataflow."""
-        self._ensure_dataflow_props().env = env

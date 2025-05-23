@@ -15,6 +15,22 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,my_instance.example_dag,PROD),complex_task)",
     "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "my_instance.example_dag",
+                    "urn": "urn:li:dataFlow:(airflow,my_instance.example_dag,PROD)"
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,my_instance.example_dag,PROD),complex_task)",
+    "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
         "json": {

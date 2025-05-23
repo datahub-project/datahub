@@ -1,3 +1,4 @@
+from datahub.metadata.urns import TagUrn
 from datahub.sdk import DataFlow, DataHubClient, DataJob
 
 client = DataHubClient.from_env()
@@ -8,6 +9,8 @@ dataflow = DataFlow(
     platform="airflow",
     name="example_dag",
     platform_instance="PROD",
+    description="example dataflow",
+    tags=[TagUrn(name="tag1"), TagUrn(name="tag2")],
 )
 
 datajob = DataJob(
