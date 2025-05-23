@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Callable, Dict, Iterable, List, MutableMapping, Optional, Tuple
+from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from datahub.ingestion.api.report import SupportsAsObj
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -769,36 +769,120 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return procedures
 
     @serialized_lru_cache(maxsize=1)
-    def get_dynamic_table_definitions(
-        self,
-    ) -> Dict[str, Dict[str, Dict[str, Tuple[str, str]]]]:
-        """Get dynamic table definitions from account usage."""
-        dynamic_table_definitions: Dict[str, Dict[str, Dict[str, Tuple[str, str]]]] = (
-            defaultdict(lambda: defaultdict(lambda: defaultdict()))
-        )
+    def get_dynamic_table_graph_info(self) -> Dict[str, Dict[str, Any]]:
+        """Get dynamic table dependency information from information schema."""
+        dt_graph_info: Dict[str, Dict[str, Any]] = {}
         try:
-            cur = self.connection.query(SnowflakeQuery.get_dynamic_table_definitions())
-            for dt in cur:
-                db_name = dt["TABLE_CATALOG"]
-                schema_name = dt["TABLE_SCHEMA"]
-                table_name = dt["TABLE_NAME"]
-                definition = dt["DEFINITION"]
-                target_lag = dt["TARGET_LAG"]
-                dynamic_table_definitions[db_name][schema_name][table_name] = (
-                    definition,
-                    target_lag,
-                )
+            cur = self.connection.query(
+                SnowflakeQuery.get_dynamic_table_graph_history()
+            )
+            for row in cur:
+                dt_name = row["NAME"]
+                dt_graph_info[dt_name] = {
+                    "inputs": row.get("INPUTS"),
+                    "target_lag_type": row.get("TARGET_LAG_TYPE"),
+                    "target_lag_sec": row.get("TARGET_LAG_SEC"),
+                    "scheduling_state": row.get("SCHEDULING_STATE"),
+                    "alter_trigger": row.get("ALTER_TRIGGER"),
+                }
         except Exception as e:
-            logger.debug(f"Failed to get dynamic table definitions: {e}")
+            logger.debug(f"Failed to get dynamic table graph history: {e}")
 
-        return dynamic_table_definitions
+        return dt_graph_info
+
+    @serialized_lru_cache(maxsize=1)
+    def get_dynamic_tables_with_definitions(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeDynamicTable]]:
+        """Get dynamic tables with their definitions using SHOW DYNAMIC TABLES."""
+        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+        dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
+
+        # Get graph/dependency information
+        dt_graph_info = self.get_dynamic_table_graph_info()
+
+        first_iteration = True
+        dt_pagination_marker: Optional[str] = None
+
+        while first_iteration or dt_pagination_marker is not None:
+            try:
+                cur = self.connection.query(
+                    SnowflakeQuery.show_dynamic_tables_for_database(
+                        db_name,
+                        limit=page_limit,
+                        dynamic_table_pagination_marker=dt_pagination_marker,
+                    )
+                )
+
+                first_iteration = False
+                dt_pagination_marker = None
+                result_set_size = 0
+
+                for dt in cur:
+                    result_set_size += 1
+
+                    dt_name = dt["name"]
+                    schema_name = dt["schema_name"]
+
+                    if schema_name not in dynamic_tables:
+                        dynamic_tables[schema_name] = []
+
+                    # Get definition from SHOW result (should have 'text' column like views)
+                    definition = dt.get("text")
+
+                    # Get additional info from graph history
+                    qualified_name = f"{db_name}.{schema_name}.{dt_name}"
+                    graph_info = dt_graph_info.get(qualified_name, {})
+
+                    # Format target lag
+                    target_lag = None
+                    if graph_info.get("target_lag_type") and graph_info.get(
+                        "target_lag_sec"
+                    ):
+                        target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
+                    elif dt.get("target_lag"):
+                        target_lag = dt.get("target_lag")
+
+                    dynamic_tables[schema_name].append(
+                        SnowflakeDynamicTable(
+                            name=dt_name,
+                            created=dt["created_on"],
+                            last_altered=dt.get("created_on"),
+                            size_in_bytes=dt.get(
+                                "bytes", 0
+                            ),  # Default to 0 if not available
+                            rows_count=dt.get(
+                                "rows", 0
+                            ),  # Default to 0 if not available
+                            comment=dt.get("comment"),
+                            definition=definition,
+                            target_lag=target_lag,
+                            is_dynamic=True,
+                            type="DYNAMIC TABLE",
+                        )
+                    )
+
+                if result_set_size >= page_limit:
+                    logger.info(
+                        f"Fetching next page of dynamic tables for {db_name} - after {dt_name}"
+                    )
+                    dt_pagination_marker = dt_name
+
+            except Exception as e:
+                logger.debug(
+                    f"Failed to get dynamic tables for database {db_name}: {e}"
+                )
+                break
+
+        return dynamic_tables
 
     def populate_dynamic_table_definitions(
         self, tables: Dict[str, List[SnowflakeTable]], db_name: str
     ) -> None:
         """Populate dynamic table definitions for tables that are marked as dynamic."""
         try:
-            dt_definitions = self.get_dynamic_table_definitions()
+            # Get dynamic tables with definitions from SHOW command
+            dt_with_definitions = self.get_dynamic_tables_with_definitions(db_name)
 
             for schema_name, table_list in tables.items():
                 for table in table_list:
@@ -806,17 +890,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         isinstance(table, SnowflakeDynamicTable)
                         and table.definition is None
                     ):
-                        # Try to get definition from account usage
-                        if (
-                            db_name in dt_definitions
-                            and schema_name in dt_definitions[db_name]
-                            and table.name in dt_definitions[db_name][schema_name]
-                        ):
-                            definition, target_lag = dt_definitions[db_name][
-                                schema_name
-                            ][table.name]
-                            table.definition = definition
-                            table.target_lag = target_lag
+                        # Find matching dynamic table from SHOW results
+                        show_dt_list = dt_with_definitions.get(schema_name, [])
+                        for show_dt in show_dt_list:
+                            if show_dt.name == table.name:
+                                table.definition = show_dt.definition
+                                table.target_lag = show_dt.target_lag
+                                break
         except Exception as e:
             logger.debug(
                 f"Failed to populate dynamic table definitions for {db_name}: {e}"

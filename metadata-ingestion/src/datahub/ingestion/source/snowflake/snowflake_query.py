@@ -958,7 +958,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         limit: int = SHOW_VIEWS_MAX_PAGE_SIZE,
         dynamic_table_pagination_marker: Optional[str] = None,
     ) -> str:
-        """Get dynamic table definitions for a database."""
+        """Get dynamic table definitions using SHOW DYNAMIC TABLES."""
         assert limit <= SHOW_VIEWS_MAX_PAGE_SIZE
 
         from_clause = (
@@ -972,15 +972,16 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     """
 
     @staticmethod
-    def get_dynamic_table_definitions() -> str:
-        """Get dynamic table definitions from account usage."""
+    def get_dynamic_table_graph_history() -> str:
+        """Get dynamic table dependency information from information schema."""
         return """
-            SELECT
-                TABLE_CATALOG as "TABLE_CATALOG",
-                TABLE_SCHEMA as "TABLE_SCHEMA", 
-                TABLE_NAME as "TABLE_NAME",
-                TEXT as "DEFINITION",
-                TARGET_LAG as "TARGET_LAG"
-            FROM SNOWFLAKE.ACCOUNT_USAGE.DYNAMIC_TABLES
-            WHERE DELETED IS NULL
+            SELECT   
+                name,
+                inputs,
+                target_lag_type,
+                target_lag_sec,
+                scheduling_state,
+                alter_trigger
+            FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            ORDER BY name
         """
