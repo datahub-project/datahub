@@ -50,7 +50,12 @@ const StyledTableWithNavBarRedesign = styled(StyledTable)`
 
 const DEFAULT_PAGE_SIZE = 25;
 
-export const SecretsList = () => {
+interface Props {
+    showCreateModal: boolean;
+    setShowCreateModal: (show: boolean) => void;
+}
+
+export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateModal: setIsCreatingSecret }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
@@ -64,8 +69,6 @@ export const SecretsList = () => {
     const pageSize = DEFAULT_PAGE_SIZE;
     const start = (page - 1) * pageSize;
 
-    // Whether or not there is an urn to show in the modal
-    const [isCreatingSecret, setIsCreatingSecret] = useState<boolean>(false);
     const [editSecret, setEditSecret] = useState<SecretBuilderState | undefined>(undefined);
 
     const [deleteSecretMutation] = useDeleteSecretMutation();

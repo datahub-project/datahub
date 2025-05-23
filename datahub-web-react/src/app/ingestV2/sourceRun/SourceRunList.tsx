@@ -28,10 +28,12 @@ import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
     useDeleteIngestionSourceMutation,
+    useListIngestionExecutionRequestsQuery,
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { IngestionSource, UpdateIngestionSourceInput } from '@types';
+import { ExecutionRequest, IngestionSource, UpdateIngestionSourceInput } from '@types';
+import SourceRunTable from './SourceRunTable';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -114,7 +116,7 @@ interface Props {
     setShowCreateModal?: (show: boolean) => void;
 }
 
-export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Props) => {
+export const SourceRunList = ({ showCreateModal, setShowCreateModal }: Props) => {
     // const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -176,7 +178,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     }
 
     // Ingestion Source Queries
-    const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
+    const { loading, error, data, client, refetch } = useListIngestionExecutionRequestsQuery({
         variables: {
             input: {
                 start,
@@ -194,11 +196,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
 
-    const totalSources = data?.listIngestionSources?.total || 0;
-    const sources = data?.listIngestionSources?.ingestionSources || [];
-    const filteredSources = sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
+    const totalSources = data?.listExecutionRequests?.total || 0;
+    const executionRequests = data?.listExecutionRequests?.executionRequests || [];
+    const filteredExecutionRequests = executionRequests.filter((source) => !removedUrns.includes(source.urn)) as ExecutionRequest[];
     const focusSource =
-        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
+        (focusSourceUrn && filteredExecutionRequests.find((source) => source.urn === focusSourceUrn)) || undefined;
 
     const onRefresh = useCallback(() => {
         refetch();
@@ -206,12 +208,12 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         setLastRefresh(new Date().getTime());
     }, [refetch]);
 
-    function hasActiveExecution() {
-        return !!filteredSources.find((source) =>
-            source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
-        );
-    }
-    useRefreshIngestionData(onRefresh, hasActiveExecution);
+    // function hasActiveExecution() {
+    //     return !!filteredExecutionRequests.find((source) =>
+    //         source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
+    //     );
+    // }
+    // useRefreshIngestionData(onRefresh, hasActiveExecution);
 
     const executeIngestionSource = (urn: string) => {
         createExecutionRequestMutation({
@@ -443,7 +445,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}
             <SourceContainer>
-                <OnboardingTour stepIds={[INGESTION_REFRESH_SOURCES_ID]} />
                 <HeaderContainer>
                     <StyledTabToolbar>
                         <SearchContainer>
@@ -478,8 +479,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 </HeaderContainer>
 
                 <TableContainer>
-                    <IngestionSourceTable
-                        sources={filteredSources || []}
+                    <SourceRunTable
+                        sources={filteredExecutionRequests || []}
                         setFocusExecutionUrn={setFocusExecutionUrn}
                         onExecute={onExecute}
                         onEdit={onEdit}

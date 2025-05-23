@@ -1829,3 +1829,24 @@ fragment customPropertiesFields on CustomPropertiesEntry {
     value
     associatedUrn
 }
+
+fragment ingestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    input {
+        requestedAt
+        actorUrn
+        source {
+            type
+        }
+    }
+    result {
+        status
+        startTimeMs
+        durationMs
+        structuredReport {
+            type
+            serializedValue
+        }
+    }
+}

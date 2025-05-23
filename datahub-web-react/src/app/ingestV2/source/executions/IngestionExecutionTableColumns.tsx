@@ -1,5 +1,5 @@
 import { CopyOutlined } from '@ant-design/icons';
-import { Text, Tooltip } from '@components';
+import { Icon, Pill, Text, Tooltip } from '@components';
 import { Button, Typography } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -55,16 +55,18 @@ interface StatusColumnProps {
 }
 
 export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusColumnProps) {
-    const Icon = getExecutionRequestStatusIcon(status);
+    const icon = getExecutionRequestStatusIcon(status);
     const text = getExecutionRequestStatusDisplayText(status);
     const color = getExecutionRequestStatusDisplayColor(status);
     return (
         <StatusContainer>
-            {Icon && <Icon style={{ color, fontSize: 14 }} />}
             <StatusButton type="link" onClick={() => setFocusExecutionUrn(record.urn)}>
-                <Typography.Text strong style={{ color, marginLeft: 8 }}>
-                    {text || 'Pending...'}
-                </Typography.Text>
+                <Pill
+                    customIconRenderer={() => <Icon icon={icon} source="phosphor" size="lg" />}
+                    label={text}
+                    color={color}
+                    size="md"
+                />
             </StatusButton>
         </StatusContainer>
     );

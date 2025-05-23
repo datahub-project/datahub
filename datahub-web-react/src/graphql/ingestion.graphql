@@ -127,6 +127,17 @@ query getIngestionExecutionRequest($urn: String!) {
     }
 }
 
+query listIngestionExecutionRequests($input: ListExecutionRequestsInput!) {
+    listExecutionRequests(input: $input) {
+        start
+        total
+        count
+        executionRequests {
+            ...ingestionExecutionRequestFields
+        }
+    }
+}
+
 mutation createIngestionSource($input: UpdateIngestionSourceInput!) {
     createIngestionSource(input: $input)
 }

@@ -11,14 +11,16 @@ import {
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 
-import { IngestionSource } from '@types';
+import { ExecutionRequest, IngestionSource } from '@types';
+import DateTimeValue from '../shared/components/DateTimeValue';
+import DurationValue from '../shared/components/DurationValue';
 
 const StyledTable = styled(Table)`
     table-layout: fixed;
 `;
 
 interface Props {
-    sources: IngestionSource[];
+    sources: ExecutionRequest[];
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
     onEdit: (urn: string) => void;
@@ -26,21 +28,26 @@ interface Props {
     onDelete: (urn: string) => void;
 }
 
-function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit, onView, onDelete }: Props) {
-    const tableData = sources.map((source) => ({
-        urn: source.urn,
-        type: source.type,
-        name: source.name,
-        platformUrn: source.platform?.urn,
-        schedule: source.schedule?.interval,
-        timezone: source.schedule?.timezone,
-        execCount: source.executions?.total || 0,
-        lastExecUrn: source.executions?.executionRequests?.[0]?.urn,
-        lastExecTime: source.executions?.executionRequests?.[0]?.result?.startTimeMs,
-        lastExecStatus:
-            source.executions?.executionRequests?.[0]?.result &&
-            getIngestionSourceStatus(source.executions.executionRequests[0].result),
-        cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
+export default function SourceRunTable({ sources, setFocusExecutionUrn, onExecute, onEdit, onView, onDelete }: Props) {
+    const tableData = sources.map((execution) => ({
+        // TODO:: get this field from backend
+        platform: undefined,
+        // TODO:: get this field from backend
+        name: 'Source name',
+        type: execution.input.source.type,
+        
+        urn: execution.urn,
+        actorUrn: execution.input.actorUrn,
+        // TODO:: get this field from backend
+        // actor: ...,
+        id: execution.id,
+        source: execution.input.source.type,
+        requestedAt: execution.input.requestedAt,
+        startedAt: execution.result?.startTimeMs,
+        duration: execution.result?.durationMs,
+        status: getIngestionSourceStatus(execution.result),
+        // TODO:: get this field from backend?
+        showRollback: false,
     }));
 
     const tableColumns = [
@@ -53,15 +60,21 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
             width: '30%',
         },
         {
-            title: 'Schedule',
-            key: 'schedule',
-            render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
+            title: 'Requested At',
+            key: 'requestedAt',
+            render: (record) => <DateTimeValue time={record.requestedAt ?? 0} />,
             width: '15%',
         },
         {
-            title: 'Last Run',
-            key: 'lastRun',
-            render: (record) => <LastExecutionColumn time={record.lastExecTime ?? 0} />,
+            title: 'Started At',
+            key: 'startedAt',
+            render: (record) => <DateTimeValue time={record.startedAt ?? 0} />,
+            width: '15%',
+        },
+        {
+            title: 'Duration',
+            key: 'duration',
+            render: (record) => <DurationValue durationMs={record.duration ?? 0}/>,
             width: '15%',
         },
         {
@@ -82,7 +95,12 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
             render: () => <></>,
             width: '15%',
         },
-
+        {
+            title: 'Executed By',
+            key: 'executedBy',
+            render: () => <></>,
+            width: '15%',
+        },
         {
             title: '',
             key: 'actions',
@@ -102,5 +120,3 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
 
     return <StyledTable columns={tableColumns} data={tableData} isScrollable />;
 }
-
-export default IngestionSourceTable;
