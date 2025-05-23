@@ -455,11 +455,13 @@ class AthenaPropertiesExtractor:
                         column_info = AthenaPropertiesExtractor._create_column_info(
                             str(expr.this), column_types.get(str(expr.this), "unknown")
                         )
+
+                        expression = expr.args.get("expression")
                         transform_info = TransformInfo(
                             type="truncate",
                             column=column_info,
-                            length=int(expr.args.get("expression").name)
-                            if expr.args.get("expression") and expr.args.get("expression").name
+                            length=int(expression.name)
+                            if expression and expression.name
                             else None,
                         )
                         transforms.append(transform_info)
@@ -468,11 +470,12 @@ class AthenaPropertiesExtractor:
                         column_info = AthenaPropertiesExtractor._create_column_info(
                             str(expr.this), column_types.get(str(expr.this), "unknown")
                         )
+                        expression = expr.args.get("expression")
                         transform_info = TransformInfo(
                             type="bucket",
                             column=column_info,
-                            bucket_count=int(expr.args.get("expression").name)
-                            if expr.args.get("expression") and expr.args.get("expression").name
+                            bucket_count=int(expression.name)
+                            if expression and expression.name
                             else None,
                         )
                         simple_columns.append(column_info)

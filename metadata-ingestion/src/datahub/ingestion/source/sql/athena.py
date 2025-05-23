@@ -10,7 +10,7 @@ import pydantic
 from pyathena.common import BaseCursor
 from pyathena.error import OperationalError
 from pyathena.model import AthenaTableMetadata
-from pyathena.sqlalchemy.rest import AthenaRestDialect
+from pyathena.sqlalchemy_athena import AthenaRestDialect
 from sqlalchemy import create_engine, exc, inspect, text, types
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
@@ -516,6 +516,10 @@ class AthenaSource(SQLAlchemySource):
         if not partitions:
             return []
 
+        if not self.config.profiling.enabled or not self.config.profiling.partition_profiling_enabled:
+            return partitions
+
+
         with self.report.report_exc(
             message="Failed to extract partition details",
             context=f"{schema}.{table}",
@@ -542,6 +546,7 @@ class AthenaSource(SQLAlchemySource):
         return partitions
 
     def _get_partitions_create_table(self, schema: str, table: str) -> List[str]:
+        assert self.cursor
         try:
             res = self.cursor.execute(f"SHOW CREATE TABLE `{schema}`.`{table}`")
         except Exception as e:
@@ -552,16 +557,25 @@ class AthenaSource(SQLAlchemySource):
                 f"Failed to get table properties for {schema}.{table}: {e}",
                 exc_info=True,
             )
-            return None, {}, None
+            return []
         rows = res.fetchall()
 
         # Concatenate all rows into a single string with newlines
         create_table_statement = ""
         for row in rows:
             create_table_statement += row[0] + "\n"  # Add a newline after each row
-        athena_table_info = AthenaPropertiesExtractor.get_table_properties(
-            create_table_statement
-        )
+
+        try:
+            athena_table_info = AthenaPropertiesExtractor.get_table_properties(
+                create_table_statement
+            )
+        except Exception as e:
+            logger.debug(
+                f"Failed to parse table properties for {schema}.{table}: {e} and statement: {create_table_statement}",
+                exc_info=True,
+            )
+            return []
+
         partitions = []
         if (
             athena_table_info.partition_info
@@ -573,6 +587,7 @@ class AthenaSource(SQLAlchemySource):
         return partitions
 
     def _get_partitions_sqlalchemy(self, schema: str, table: str) -> List[str]:
+        assert self.cursor
         metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
             table_name=table, schema_name=schema
         )
