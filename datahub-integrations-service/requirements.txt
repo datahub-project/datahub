@@ -281,6 +281,8 @@ loguru==0.7.2
     # via acryl-datahub-integrations
 lxml==5.2.1
     # via reactpy
+markdown-to-mrkdwn==0.2.0
+    # via acryl-datahub-integrations
 markupsafe==2.1.5
     # via jinja2
 mixpanel==4.10.1

@@ -9,14 +9,14 @@ from pydantic import BaseModel
 from slack_bolt import App
 from slack_sdk import WebClient
 
-from datahub_integrations.app import DATAHUB_FRONTEND_URL, graph
+from datahub_integrations.app import graph
 from datahub_integrations.chat.chat_history import (
     AssistantMessage,
     ChatHistory,
     HumanMessage,
 )
-from datahub_integrations.chat.chat_session import ChatSession, Message
-from datahub_integrations.chat.linkify import linkify_slack
+from datahub_integrations.chat.chat_session import ChatSession, Message, NextMessage
+from datahub_integrations.chat.linkify import slackify_markdown
 from datahub_integrations.chat.mcp_server import mcp
 from datahub_integrations.chat.telemetry import track_saas_event
 from datahub_integrations.chat.telemetry_models import (
@@ -302,9 +302,10 @@ def handle_mention(
         progress_callback=progress_callback,
     )
     response = chat_session.generate_next_message()
+    assert isinstance(response, NextMessage)
 
-    return linkify_slack(
-        DATAHUB_FRONTEND_URL, response.text
+    return slackify_markdown(
+        response.text
     ), response.suggestions if not has_permission_error else []
 
 

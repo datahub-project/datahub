@@ -21,6 +21,7 @@ dependencies = [
 	# Slack.
 	"slack-bolt",
 	"inflect",
+	"markdown_to_mrkdwn",
 	# Actions.
 	"acryl-datahub-actions[kafka,tag_propagation,term_propagation,doc_propagation,snowflake_tag_propagation]",
 	"httpx",

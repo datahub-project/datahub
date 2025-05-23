@@ -62,7 +62,6 @@ st.divider()
 st_chat_history(
     _chat_session().history,
     show_thinking=show_thinking,
-    frontend_url=frontend_url(),
 )
 if prompt := st.chat_input("Type your message here..."):
     # Add user message to chat session

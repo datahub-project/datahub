@@ -74,9 +74,10 @@ _respond_to_user_tool = Tool(
     fn=respond_to_user,
     name="respond_to_user",
     description=f"""\
-Respond to the user with a message formatted using Slack mrkdwn. \
-Create headers, lists, and other formatting elements using the appropriate Slack mrkdwn syntax. \
-Always use full URNs without any additional formatting when referring to entities, since urns will be automatically converted into links.
+Respond to the user with a message formatted using Markdown. \
+However, do not use any headers (e.g. #, ##, ###, etc.) or tables, as these are not supported.
+
+The first reference to each entity must be formatted as a link to the entity in DataHub.
 
 IMPORTANT: Keep your response concise and under {MESSAGE_LENGTH_SOFT_LIMIT} characters. \
 If you need to provide more information, focus on the most relevant points and summarize the rest. \

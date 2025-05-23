@@ -5,6 +5,7 @@ from datahub.ingestion.graph.links import make_url_for_urn
 from datahub.metadata._urns.urn_defs import DatasetUrn
 from datahub.utilities.urns._urn_base import Urn
 from datahub.utilities.urns.error import InvalidUrnError
+from markdown_to_mrkdwn import SlackMarkdownConverter
 
 
 def get_url_for_urn(frontend_url: str, entity_urn: str) -> str:
@@ -31,6 +32,14 @@ _urn_regex = f"(?:{_urn_regex_1}|{_urn_regex_2}|{_urn_regex_3})"
 
 def _linkify(text: str, replace_urn_fn: Callable[[re.Match], str]) -> str:
     return re.sub(_urn_regex, replace_urn_fn, text)
+
+
+def slackify_markdown(text: str) -> str:
+    """
+    Convert markdown to Slack mrkdwn.
+    """
+    converter = SlackMarkdownConverter()
+    return converter.convert(text)
 
 
 def linkify_slack(frontend_url: str, text: str) -> str:
