@@ -13,7 +13,9 @@ from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
 from datahub.emitter.mce_builder import (
     datahub_guid,
+    make_global_tag_aspect_with_tag_list,
     make_group_urn,
+    make_tag_urn,
     make_user_urn,
     validate_ownership_type,
 )
@@ -69,6 +71,7 @@ class GlossaryTermConfig(ConfigModel):
     custom_properties: Optional[Dict[str, str]] = None
     knowledge_links: Optional[List[KnowledgeCard]] = None
     domain: Optional[str] = None
+    tags: Optional[List[str]] = None
 
     # Private fields.
     _urn: str
@@ -83,6 +86,7 @@ class GlossaryNodeConfig(ConfigModel):
     nodes: Optional[List["GlossaryNodeConfig"]] = None
     knowledge_links: Optional[List[KnowledgeCard]] = None
     custom_properties: Optional[Dict[str, str]] = None
+    tags: Optional[List[str]] = None
 
     # Private fields.
     _urn: str
@@ -337,6 +341,16 @@ def get_mces_from_node(
     )
     yield get_mce_from_snapshot(node_snapshot)
 
+    # Handle tags for glossary nodes as separate MCP
+    if glossaryNode.tags:
+        global_tags_aspect = make_global_tag_aspect_with_tag_list(
+            [make_tag_urn(tag) for tag in glossaryNode.tags]
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=node_urn,
+            aspect=global_tags_aspect,
+        )
+
     if glossaryNode.knowledge_links is not None:
         mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(
             node_urn, glossaryNode.knowledge_links
@@ -398,12 +412,14 @@ def get_mces_from_term(
 
     aspects: List[
         Union[
+            models.GlossaryTermKeyClass,
             models.GlossaryTermInfoClass,
             models.GlossaryRelatedTermsClass,
             models.OwnershipClass,
             models.GlossaryTermKeyClass,
             models.StatusClass,
             models.BrowsePathsClass,
+            models.GlobalTagsClass,
         ]
     ] = []
     term_info = models.GlossaryTermInfoClass(
@@ -498,6 +514,16 @@ def get_mces_from_term(
         aspects=aspects,
     )
     yield get_mce_from_snapshot(term_snapshot)
+
+    # Add tags to glossary terms as separate MCP
+    if glossaryTerm.tags:
+        global_tags_aspect = make_global_tag_aspect_with_tag_list(
+            [make_tag_urn(tag) for tag in glossaryTerm.tags]
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=term_urn,
+            aspect=global_tags_aspect,
+        )
 
     if glossaryTerm.knowledge_links:
         mcp: Optional[MetadataChangeProposalWrapper] = make_institutional_memory_mcp(

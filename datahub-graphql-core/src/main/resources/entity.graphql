@@ -2388,6 +2388,11 @@ type GlossaryTerm implements Entity {
   The forms associated with the Dataset
   """
   forms: Forms
+
+  """
+  Tags associated with the glossary term
+  """
+  globalTags: GlobalTags
 }
 
 """
@@ -2556,6 +2561,11 @@ type GlossaryNode implements Entity {
   Executes a search on the children of this glossary node
   """
   glossaryChildrenSearch(input: ScrollAcrossEntitiesInput!): ScrollResults
+
+  """
+  Tags associated with the glossary node
+  """
+  globalTags: GlobalTags
 }
 
 """
