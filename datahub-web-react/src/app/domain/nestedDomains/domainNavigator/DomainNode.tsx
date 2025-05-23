@@ -116,7 +116,11 @@ export default function DomainNode({
             <RowWrapper data-testid="domain-list-item">
                 {hasDomainChildren && (
                     <ButtonWrapper>
-                        <RotatingTriangle isOpen={isOpen && !isClosing} onClick={toggle} />
+                        <RotatingTriangle
+                            isOpen={isOpen && !isClosing}
+                            onClick={toggle}
+                            testId={`open-domain-action-item-${domain.urn}`}
+                        />
                     </ButtonWrapper>
                 )}
                 <NameWrapper
