@@ -741,9 +741,14 @@ public class OpenLineageToDataHub {
       
       log.info("Modified job name for MERGE INTO: {} -> {}", job.getName(), enhancedJobName);
       
-      // Use the enhanced name for both display and URN
-      jobNameForDisplay = enhancedJobName;
+      // Use the enhanced name for URN
       jobNameForUrn = enhancedJobName;
+      
+      // For display name, first add the table part, then remove everything before first dot
+      jobNameForDisplay = enhancedJobName;
+      if (jobNameForDisplay.contains(".")) {
+        jobNameForDisplay = jobNameForDisplay.substring(jobNameForDisplay.indexOf(".") + 1);
+      }
     } else if (job.getName().contains(".")) {
       // Normal case - use part after the dot for display only
       jobNameForDisplay = job.getName().substring(job.getName().indexOf(".") + 1);
