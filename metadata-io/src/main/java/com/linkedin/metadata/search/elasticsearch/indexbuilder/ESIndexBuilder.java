@@ -84,6 +84,7 @@ public class ESIndexBuilder {
   public static final String INDEX_NUMBER_OF_REPLICAS = "index." + NUMBER_OF_REPLICAS;
   public static final String NUMBER_OF_SHARDS = "number_of_shards";
   public static final String ORIGINALPREFIX = "original";
+  private static final Integer REINDEX_BATCHSIZE = 5000;
 
   private final RestHighLevelClient _searchClient;
   @Getter private final int numShards;
@@ -685,7 +686,12 @@ public class ESIndexBuilder {
         } else {
           reinfo =
               submitReindex(
-                  new String[] {indexState.name()}, tempIndexName, 2500, null, null, targetshards);
+                  new String[] {indexState.name()},
+                  tempIndexName,
+                  REINDEX_BATCHSIZE,
+                  null,
+                  null,
+                  targetshards);
           parentTaskId = (String) reinfo.get("taskId");
           result = ReindexResult.REINDEXING;
         }
@@ -755,7 +761,7 @@ public class ESIndexBuilder {
                   submitReindex(
                       new String[] {indexState.name()},
                       tempIndexName,
-                      2500,
+                      REINDEX_BATCHSIZE,
                       null,
                       null,
                       targetshards);
@@ -1036,7 +1042,7 @@ public class ESIndexBuilder {
   private Map<String, Object> submitReindex(
       String[] sourceIndices,
       String destinationIndex,
-      int batchSize,
+      int lBatchSize,
       @Nullable TimeValue timeout,
       @Nullable QueryBuilder sourceFilterQuery,
       int targetShards)
@@ -1056,7 +1062,7 @@ public class ESIndexBuilder {
             .setAbortOnVersionConflict(false)
             // we cannot set to 'auto', so explicitely set to the number of target number_of_shards
             .setSlices((Integer) reindexInfo.get("optimalSlices"))
-            .setSourceBatchSize(batchSize);
+            .setSourceBatchSize(lBatchSize);
     if (timeout != null) {
       reindexRequest.setTimeout(timeout);
     }
