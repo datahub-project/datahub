@@ -76,6 +76,7 @@ from datahub_integrations.slack.utils.entity_extract import (
     get_type_url,
 )
 from datahub_integrations.slack.utils.time import slack_ts_to_datetime
+from datahub_integrations.slack.utils.urls import extract_urn_from_url
 
 # 7 days because admins may take some time to approve
 _state_store = InMemoryStateStore(expiration_seconds=60 * 60 * 24 * 7)
@@ -294,17 +295,20 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         # Get the link URL from the event body
         link_url: str = event["links"][0]["url"]
 
-        # https://<frontend_url>/<entity_type>/<urn>[/asdf]?<suffix_with_slashes>
-        urn = link_url.split("/")[4]
+        urn = extract_urn_from_url(link_url)
+        if not urn:
+            logger.debug(f"No urn found in link, skipping: {link_url}")
+            return
         logger.debug(f"URN: {urn}")
 
         variables = {"urn": urn}
         data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
         raw_entity = data["entity"]
 
-        if not raw_entity or not raw_entity["properties"]:
+        if not raw_entity or not raw_entity.get("properties"):
             # If the entity doesn't exist, GMS may "mint" the entity at read time.
             # If that happens, we can expect properties to be None.
+            logger.debug(f"Entity details not found, skipping: {link_url}")
             return
 
         # Call the Slack API method to unfurl the link.
