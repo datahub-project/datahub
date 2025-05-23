@@ -466,6 +466,14 @@ virtual_connection_graphql_query = """
   owner {
     username
   }
+  project {
+    id
+    name
+  }
+  connectionAttributes {
+    name
+    value
+  }
   tables {
     id
     name
@@ -480,13 +488,39 @@ virtual_connection_graphql_query = """
         description
         upstreamDatasources {
           id
+          name
         }
         datasource {
           id
           name
+          __typename
+          ... on PublishedDatasource {
+            projectName
+            luid
+          }
+          ... on EmbeddedDatasource {
+            workbook {
+              id
+              name
+              projectName
+              luid
+            }
+          }
         }
       }
     }
+  }
+  upstreamTables {
+    id
+    name
+    database {
+      name
+      id
+    }
+    schema
+    fullName
+    connectionType
+    description
   }
   tags {
     name
