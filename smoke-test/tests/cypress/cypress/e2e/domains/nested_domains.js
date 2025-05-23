@@ -159,9 +159,7 @@ describe("Verify nested domains test functionalities", () => {
     // add owners
     cy.clickOptionWithTestId("add-owners-button");
     cy.waitTextVisible("Find a user or group");
-    cy.get('[data-testid="users-group-search"]').type(
-      TEST_GROUP_NAME,
-    );
+    cy.get('[data-testid="users-group-search"]').type(TEST_GROUP_NAME);
     cy.clickTextOptionWithClass(
       ".rc-virtual-list-holder-inner",
       TEST_GROUP_NAME,
