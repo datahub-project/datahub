@@ -14,9 +14,13 @@ from pydantic import BaseModel, Field
 
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
-    call_bedrock_llm,
     get_bedrock_model_env_variable,
 )
+
+
+class DescriptionParsingError(Exception):
+    pass
+
 
 PROMPT_TEMPLATE = '''\
 You are tasked with generating concise descriptions for a DataHub table and its columns based on provided metadata. Here is the information you will be working with:
@@ -160,7 +164,6 @@ class EntityDescriptionResult:
     table_description: Optional[str]
     column_descriptions: Optional[Dict[str, str]]
     extracted_entity_info: "ExtractedTableInfo"
-    raw_llm_output: Optional[str]
     failure_reason: Optional[str] = None
 
 
@@ -716,67 +719,9 @@ def transform_table_info_for_llm(
     return table_info, column_info
 
 
-def generate_entity_descriptions_for_urn_eval(
-    urn: str,
-    extracted_entity_info: ExtractedTableInfo,
-    prompt: str,
-    model: BedrockModel | str,
-) -> EntityDescriptionResult:
-    table_info, column_infos = transform_table_info_for_llm(extracted_entity_info)
-    if len(column_infos) > _MAX_COLUMNS:
-        raise TooManyColumnsError(
-            f"Too many columns ({len(column_infos)}) for urn: {urn}. "
-            f"Select a table with less than {_MAX_COLUMNS} columns."
-        )
-
-    # TODO: This may use model_dump() instead of dict()
-    formatted_prompt = prompt.format(
-        table_info=table_info.dict(exclude_none=True),
-        column_info={
-            col: column_info.dict(exclude_none=True)
-            for col, column_info in column_infos.items()
-        },
-    )
-
-    entity_descriptions = call_bedrock_llm(
-        formatted_prompt,
-        max_tokens=5000,
-        model=model,
-    )
-
-    table_description, column_descriptions, failure_reason = parse_llm_output(
-        entity_descriptions
-    )
-    return EntityDescriptionResult(
-        table_description=table_description,
-        column_descriptions=column_descriptions,
-        extracted_entity_info=extracted_entity_info,
-        raw_llm_output=entity_descriptions,
-        failure_reason=failure_reason,
-    )
-
-
-def generate_entity_descriptions_for_urn(
-    graph_client: DataHubGraph, urn: str
-) -> EntityDescriptionResult:
-    """
-    This function also returns column_info for debugging purpose (To check the if metadata information is generated correctly) and can be removed
-    """
-
-    entity = graph_client.get_entity_semityped(urn)
-    extracted_entity_info = extract_metadata_for_urn(entity, urn, graph_client)
-
-    return generate_entity_descriptions_for_urn_eval(
-        urn,
-        extracted_entity_info,
-        prompt=PROMPT_TEMPLATE,
-        model=DESCRIPTION_GENERATION_MODEL,
-    )
-
-
 def parse_llm_output(
     text: str,
-) -> tuple[Optional[str], Optional[Dict[str, str]], Optional[str]]:
+) -> str:
     match = re.search(r"\{[^}]*\}", text, re.DOTALL)
     if match:
         dict_str = match.group(0)
@@ -787,11 +732,13 @@ def parse_llm_output(
             extracted_dict: dict = ast.literal_eval(dict_str_cleaned)
             table_description: str = extracted_dict.pop("table_description")
             table_description = table_description.strip("'\"").strip()
-            return table_description, extracted_dict, None
+            return table_description
 
         except (SyntaxError, ValueError) as e:
             logger.info(f"Error evaluating dictionary: {e}. Text: {text}")
-            return None, None, f"Error evaluating dictionary: {e}."
+            raise DescriptionParsingError(
+                f"Error evaluating dictionary: {e}. Text: {text}"
+            ) from e
     else:
         logger.info("No dictionary found in the text.")
-        return None, None, "No dictionary found in the text."
+        raise DescriptionParsingError("No dictionary found in the text.")

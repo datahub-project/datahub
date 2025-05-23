@@ -63,10 +63,6 @@ class SuggestedDescription(pydantic.BaseModel):
     )
 
 
-class DescriptionV2ParsingError(Exception):
-    pass
-
-
 def _description_v3(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescription:
     result = generate_entity_descriptions_for_urn(graph_client=graph, urn=str(urn))
 

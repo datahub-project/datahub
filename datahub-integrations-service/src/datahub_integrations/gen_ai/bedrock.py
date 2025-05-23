@@ -161,12 +161,12 @@ def call_bedrock_llm_with_retry(
 
     @tenacity.retry(
         stop=tenacity.stop_after_attempt(_MAX_RETRIES),
-        wait=tenacity.wait_exponential(multiplier=1, min=1, max=60),
+        wait=tenacity.wait_exponential(multiplier=1, min=1, max=10),
         retry=tenacity.retry_if_exception_type(
             boto3_bedrock.exceptions.ThrottlingException
         ),
         before_sleep=lambda retry_state: logger.info(
-            f"Bedrock throttling occurred, retrying attempt {retry_state.attempt_number} of {_MAX_RETRIES}"
+            f"Bedrock throttling occurred. Retry attempt {retry_state.attempt_number} of {_MAX_RETRIES}"
         ),
     )
     def _call_with_retry() -> BedrockResponseBody:

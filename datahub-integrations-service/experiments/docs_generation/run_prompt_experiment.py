@@ -1,3 +1,4 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 import json
 import os
 import pathlib
@@ -22,7 +23,7 @@ from datahub_integrations.gen_ai.description_v3 import (
 )
 
 dotenv.load_dotenv()
-
+assert AI_EXPERIMENTATION_INITIALIZED
 # Global constants
 BATCH_SIZE = 5  # Number of files to process concurrently
 
@@ -56,7 +57,6 @@ def process_single_file(file: pathlib.Path) -> Tuple[Dict, List[Dict]]:
                     extracted_entity_info=ExtractedTableInfo.parse_obj(
                         data["extracted_entity_info"]
                     ),
-                    raw_llm_output=None,
                     failure_reason=str(e),
                 )
             generation_time = timer.elapsed_seconds()
@@ -137,7 +137,6 @@ def log_artifacts(artifact_temp_path, table_descriptions, column_descriptions):
 
     # log current file as artifact or model
     mlflow.log_artifact("./run_prompt_experiment.py")
-    mlflow.log_artifact("./description_v3.py")
 
 
 async def process_files(files: List[pathlib.Path]):
@@ -192,8 +191,9 @@ def log_generation_time_metrics(table_descriptions_df: pd.DataFrame):
         & (table_descriptions_df["description"] != "")
     ]
     generation_times = table_descriptions_df["generation_time"]
-    mlflow.log_metric("generation_time_max", generation_times.max())
-    mlflow.log_metric("generation_time_avg", generation_times.mean())
+    if len(generation_times) > 0:
+        mlflow.log_metric("generation_time_max", generation_times.max())
+        mlflow.log_metric("generation_time_avg", generation_times.mean())
 
 
 def run_experiment(files: List[pathlib.Path], run_description: Optional[str]):
@@ -301,7 +301,7 @@ def run_prompt_experiment(run_description: Optional[str] = None):
     # NOTE: modify generate_entity_descriptions_for_urn_eval_wrapper to change prompt
     # or any other inputs for prompt engineering experiments
 
-    run_experiment(eval_files[0:2], run_description)
+    run_experiment(eval_files, run_description)
 
 
 if __name__ == "__main__":

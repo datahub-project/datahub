@@ -1,3 +1,4 @@
+from typing import List
 from unittest.mock import MagicMock, patch
 
 import datahub.metadata.schema_classes as models
@@ -7,6 +8,8 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub_integrations.gen_ai.description_v2 import (
     EntityDescriptionResult,
     ExtractedTableInfo,
+)
+from datahub_integrations.gen_ai.description_v3 import (
     generate_entity_descriptions_for_urn,
 )
 
@@ -202,27 +205,34 @@ def mock_graph_client() -> DataHubGraph:
 
 
 @pytest.fixture
-def mock_bedrock_response() -> str:
-    return """
+def mock_bedrock_responses() -> List[str]:
+    # Sequence is important here.
+    return [
+        """
     {
         "table_description": "This is a test table description",
+    }
+    """,
+        """
+    {
         "id": "Primary key for the table",
         "name": "Name of the entity",
         "created_at": "Creation timestamp"
     }
-    """
+    """,
+    ]
 
 
 def test_generate_entity_descriptions_for_urn(
-    mock_graph_client: DataHubGraph, mock_bedrock_response: str
+    mock_graph_client: DataHubGraph, mock_bedrock_responses: List[str]
 ) -> None:
     mock_client = mock_graph_client
 
     with patch(
-        "datahub_integrations.gen_ai.description_v2.call_bedrock_llm"
+        "datahub_integrations.gen_ai.description_v3.call_bedrock_llm_with_retry"
     ) as mock_call_bedrock_llm:
         # Set up the mock for call_bedrock_llm
-        mock_call_bedrock_llm.return_value = mock_bedrock_response
+        mock_call_bedrock_llm.side_effect = mock_bedrock_responses
 
         # Call the function
         result = generate_entity_descriptions_for_urn(mock_client, TEST_URN)
@@ -235,21 +245,19 @@ def test_generate_entity_descriptions_for_urn(
             "name": "Name of the entity",
             "created_at": "Creation timestamp",
         }
-        assert result.raw_llm_output == mock_bedrock_response
 
         # Verify that call_bedrock_llm was called with the correct parameters
-        mock_call_bedrock_llm.assert_called_once()
-        call_args = mock_call_bedrock_llm.call_args
+        mock_call_bedrock_llm.assert_called()
+        assert mock_call_bedrock_llm.call_count == 2
+        call1 = mock_call_bedrock_llm.call_args_list[0]
+        call2 = mock_call_bedrock_llm.call_args_list[1]
 
-        # Verify that the prompt contains the expected information
-        prompt = call_args[0][0]
-
-        assert call_args[1]["max_tokens"] == 5000  # max_tokens
+        assert call1[1]["max_tokens"] == 5000  # max_tokens
 
         # Verify that the extracted_entity_info is correct
         check_graph_to_info_class_mapping(result)
 
-        expected_prompt = """You are tasked with generating concise descriptions for a DataHub table and its columns based on provided metadata. Here is the information you will be working with:
+        table_prompt = """You are tasked with generating concise description for a DataHub table based on provided metadata. Here is the information you will be working with:
 
 <table_info>
 {'tags': [{'tag_name': 'test_tag', 'tag_description': 'A test tag'}], 'glossary_terms': [{'term_name': 'test_term', 'term_definition': 'A test term'}], 'name': 'table_name', 'description': 'An edited description for the test table', 'domains_info': [{'domain_name': 'test_domain', 'domain_description': 'A test domain'}], 'owners_info': [{'owner_name': 'test_user', 'owner_type': 'DATAOWNER'}], 'upstream_lineage_info': [{'upstream_table_urn': 'urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD)', 'upstream_table_name': 'source_table', 'upstream_table_description': 'A source table', 'lineage_type': 'TRANSFORMED'}], 'downstream_lineage_info': [{'downstream_table_urn': 'urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.downstream_table,PROD)', 'downstream_table_name': 'downstream_table', 'downstream_table_description': 'A downstream table'}]}
@@ -259,9 +267,8 @@ def test_generate_entity_descriptions_for_urn(
 {'id': {'column_name': 'id', 'metadata': {'description': 'Primary key for the table', 'nativeDataType': 'VARCHAR', 'isPartOfKey': True}, 'descriptions': 'Primary key for the table', 'upstream_lineages': [{'lineage': [{'upstream_column_name': 'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD),source_id)', 'upstream_column_description': 'Source ID', 'upstream_column_native_type': 'VARCHAR'}], 'transform_operation': 'COPY'}], 'sample_values': ['1', '2', '3']}, 'name': {'column_name': 'name', 'metadata': {'description': 'Name of the entity', 'nativeDataType': 'VARCHAR'}, 'descriptions': 'Name of the entity', 'upstream_lineages': [], 'sample_values': ['John', 'Jane', 'Bob']}, 'created_at': {'column_name': 'created_at', 'metadata': {'description': 'Creation timestamp', 'nativeDataType': 'DATE'}, 'descriptions': 'Creation timestamp', 'upstream_lineages': []}}
 </column_info>
 
-Generate the descriptions as follows:
+Generate the description as follows:
 
-1. Table Description:
    Create a few paragraphs of Markdown-formatted text that includes:
    a) A summary of the primary purpose and business importance of the table.
    b) If metadata is available, a summary of the upstream tables and transformations applied.
@@ -271,9 +278,6 @@ Generate the descriptions as follows:
 
    Format any references to other entities as markdown links, using the entity URN as the link. For example: [table_name](urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table_name,PROD))
    Use Markdown sections like H2 and H3 with appropriate section titles. The first line should be \"# <table name>\", followed by a blank line.
-
-2. Column Descriptions:
-   For each column, create a concise description of one or two sentences. Prefer elliptical sentences that are direct and to the point. If available, include details about how the column was generated or calculated.
 
 When writing the descriptions:
 - Aim for a technical yet informative tone, suitable for a data catalog.
@@ -285,15 +289,49 @@ Provide your output in the following dictionary format:
 {
     \"table_description\": \"\"\"
 [Your multi-line table description here]
-\"\"\",
-    \"column_name1\": \"Column description\",
-    \"column_name2\": \"Column description\",
+\"\"\"
+}
+
+Ensure that the dictionary is properly formatted and parsable. Include the table description with the key \"table_description\"."""
+
+        column_prompt = """You are tasked with generating concise description for a columns of a DataHub table based on provided metadata. Here is the information you will be working with:
+
+<table_info>
+{\'tags\': [{\'tag_name\': \'test_tag\', \'tag_description\': \'A test tag\'}], \'glossary_terms\': [{\'term_name\': \'test_term\', \'term_definition\': \'A test term\'}], \'name\': \'table_name\', \'description\': \'An edited description for the test table\', \'domains_info\': [{\'domain_name\': \'test_domain\', \'domain_description\': \'A test domain\'}], \'owners_info\': [{\'owner_name\': \'test_user\', \'owner_type\': \'DATAOWNER\'}], \'upstream_lineage_info\': [{\'upstream_table_urn\': \'urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD)\', \'upstream_table_name\': \'source_table\', \'upstream_table_description\': \'A source table\', \'lineage_type\': \'TRANSFORMED\'}], \'downstream_lineage_info\': [{\'downstream_table_urn\': \'urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.downstream_table,PROD)\', \'downstream_table_name\': \'downstream_table\', \'downstream_table_description\': \'A downstream table\'}]}
+</table_info>
+
+<column_info>
+{\'id\': {\'column_name\': \'id\', \'metadata\': {\'description\': \'Primary key for the table\', \'nativeDataType\': \'VARCHAR\', \'isPartOfKey\': True}, \'descriptions\': \'Primary key for the table\', \'upstream_lineages\': [{\'lineage\': [{\'upstream_column_name\': \'urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD),source_id)\', \'upstream_column_description\': \'Source ID\', \'upstream_column_native_type\': \'VARCHAR\'}], \'transform_operation\': \'COPY\'}], \'sample_values\': [\'1\', \'2\', \'3\']}, \'name\': {\'column_name\': \'name\', \'metadata\': {\'description\': \'Name of the entity\', \'nativeDataType\': \'VARCHAR\'}, \'descriptions\': \'Name of the entity\', \'upstream_lineages\': [], \'sample_values\': [\'John\', \'Jane\', \'Bob\']}, \'created_at\': {\'column_name\': \'created_at\', \'metadata\': {\'description\': \'Creation timestamp\', \'nativeDataType\': \'DATE\'}, \'descriptions\': \'Creation timestamp\', \'upstream_lineages\': []}}
+</column_info>
+
+<table_description>
+This is a test table description
+</table_description>
+
+Generate the description as follows:
+
+  For each column, create a concise description of one or two sentences. Prefer elliptical sentences that are direct and to the point. If available, include details about how the column was generated or calculated.
+
+
+
+When writing the descriptions:
+- Aim for a technical yet informative tone, suitable for a data catalog.
+- Avoid weak phrases like "suggests", "could be", "likely", or "is considered". Only include information you are confident about based on the provided metadata.
+- Be concise and to the point.
+
+Provide your output in the following dictionary format:
+
+{
+    "column_name1": "Column description",
+    "column_name2": "Column description",
     ...
 }
 
-Ensure that the dictionary is properly formatted and parsable. Use the column display names as keys for the column descriptions. Include the table description with the key \"table_description\"."""
-
-        assert prompt == expected_prompt
+Ensure that the dictionary is properly formatted and parsable. Use the column display names as keys for the column descriptions.\
+"""
+        # Verify that the prompt contains the expected information
+        assert call1[0][0] == table_prompt
+        assert call2[0][0] == column_prompt
 
 
 def check_graph_to_info_class_mapping(result: EntityDescriptionResult) -> None:

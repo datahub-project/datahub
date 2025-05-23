@@ -9,6 +9,7 @@ from typing import Dict, List, Optional, Tuple
 import asyncer
 import mlflow
 import more_itertools
+import tenacity
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
@@ -19,6 +20,7 @@ from datahub_integrations.gen_ai.bedrock import (
 )
 from datahub_integrations.gen_ai.description_v2 import (
     ColumnMetadataInfo,
+    DescriptionParsingError,
     EntityDescriptionResult,
     ExtractedTableInfo,
     TableInfo,
@@ -78,7 +80,6 @@ Generate the description as follows:
 
    Format any references to other entities as markdown links, using the entity URN as the link. For example: [table_name](urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table_name,PROD))
    Use Markdown sections like H2 and H3 with appropriate section titles. The first line should be "# <table name>", followed by a blank line.
-
 
 When writing the descriptions:
 - Aim for a technical yet informative tone, suitable for a data catalog.
@@ -170,15 +171,12 @@ def generate_entity_descriptions_for_urn_eval_v3(
             f"Too many columns ({len(column_infos)}) for urn: {urn}. "
             f"Select a table with less than {_MAX_COLUMNS} columns."
         )
-    raw_llm_output = None
     table_description = None
     failure_reason = None
     column_descriptions = None
 
     try:
-        raw_llm_output, table_description, failure_reason = generate_table_description(
-            table_info, column_infos
-        )
+        table_description = generate_table_description(table_info, column_infos)
         if table_description is not None:
             column_descriptions, failure_reason_columns = (
                 generate_all_columns_description(
@@ -193,13 +191,10 @@ def generate_entity_descriptions_for_urn_eval_v3(
         logger.error(f"Error generating entity descriptions for urn: {urn}. Error: {e}")
         failure_reason = str(e)
 
-    # TODO: do we really need to return raw llm output ?
-    # Can we use mlflow for logging traces in production mode ?
     return EntityDescriptionResult(
         table_description=table_description,
         column_descriptions=column_descriptions,
         extracted_entity_info=extracted_entity_info,
-        raw_llm_output=raw_llm_output,
         failure_reason=failure_reason,
     )
 
@@ -217,9 +212,19 @@ def generate_all_columns_description(
     return column_descriptions, failure_reason_columns
 
 
+_MAX_RETRIES = 3
+
+
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(_MAX_RETRIES),
+    retry=tenacity.retry_if_exception_type(DescriptionParsingError),
+    before_sleep=lambda retry_state: logger.info(
+        f"Retry table description generation attempt {retry_state.attempt_number} of {_MAX_RETRIES}"
+    ),
+)
 def generate_table_description(
     table_info: TableInfo, column_infos: Dict[str, ColumnMetadataInfo]
-) -> Tuple[str, Optional[str], Optional[str]]:
+) -> Optional[str]:
     formatted_prompt = TABLE_DESC_PROMPT.format(
         table_info=table_info.dict(exclude_none=True),
         column_info={
@@ -234,9 +239,9 @@ def generate_table_description(
         model=CURRENT_MODEL,
     )
 
-    table_description, _, failure_reason = parse_llm_output(entity_descriptions)
+    table_description = parse_llm_output(entity_descriptions)
 
-    return entity_descriptions, table_description, failure_reason
+    return table_description
 
 
 async def generate_column_descriptions(
@@ -289,6 +294,13 @@ async def generate_column_descriptions(
     )
 
 
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(_MAX_RETRIES),
+    retry=tenacity.retry_if_result(lambda x: x[1] is None),
+    before_sleep=lambda retry_state: logger.info(
+        f"Retry column batch description generation attempt {retry_state.attempt_number} of {_MAX_RETRIES}"
+    ),
+)
 @mlflow.trace(name="generate_column_batch_descriptions", span_type="function")
 def generate_column_batch_descriptions(
     table_info: TableInfo,
@@ -316,6 +328,8 @@ def generate_column_batch_descriptions(
             column_descriptions_raw
         )
     except Exception as e:
+        # As we do not wish to fail entire description generation for single column batch
+        # we do not raise error here, instead retry for batch_column_descriptions is None
         logger.error(f"Error generating column descriptions for batch: {e}")
         batch_failure_reason = str(e)
         batch_column_descriptions = None
@@ -329,4 +343,4 @@ def parse_column_descriptions(
     try:
         return json.loads(column_descriptions_raw), None
     except json.JSONDecodeError as e:
-        return None, f"Error parsing column descriptions: {e}"
+        raise DescriptionParsingError(f"Error parsing column descriptions: {e}") from e

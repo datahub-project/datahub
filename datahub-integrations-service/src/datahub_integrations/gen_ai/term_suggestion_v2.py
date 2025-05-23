@@ -13,12 +13,12 @@ from pydantic import BaseModel, Field, ValidationError
 
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
+    call_bedrock_llm,
     get_bedrock_model_env_variable,
 )
 from datahub_integrations.gen_ai.description_v2 import (
     ColumnMetadataInfo,
     TableInfo,
-    call_bedrock_llm,
     extract_metadata_for_urn,
     transform_table_info_for_llm,
 )
