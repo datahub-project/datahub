@@ -39,7 +39,7 @@ buildscript {
   ext.mavenVersion = '3.6.3'
   ext.versionGradle = '8.11.1'
   ext.springVersion = '6.2.5'
-  ext.springBootVersion = '3.4.4'
+  ext.springBootVersion = '3.4.5'
   ext.springKafkaVersion = '3.3.4'
   ext.openTelemetryVersion = '1.49.0'
   ext.neo4jVersion = '5.20.0'
@@ -65,7 +65,7 @@ buildscript {
   ext.logbackClassicJava8 = '1.2.12'
   ext.awsSdk2Version = '2.30.33'
 
-  ext.docker_registry = 'acryldata'
+  ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
@@ -130,6 +130,8 @@ project.ext.externalDependency = [
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.4',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
+    'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.2',
+    'azureIdentity': 'com.azure:azure-identity:1.15.4',
     'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
@@ -234,7 +236,7 @@ project.ext.externalDependency = [
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.15.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    'parquet': 'org.apache.parquet:parquet-avro:1.15.1',
+    'parquet': 'org.apache.parquet:parquet-avro:1.15.2',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",

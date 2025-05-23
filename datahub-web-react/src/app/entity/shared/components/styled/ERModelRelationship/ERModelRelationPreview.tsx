@@ -1,9 +1,10 @@
+import '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview.less';
+
 import { RightOutlined } from '@ant-design/icons';
 import { Button, Row, Table } from 'antd';
 import React, { useState } from 'react';
 
 import { CreateERModelRelationModal } from '@app/entity/shared/components/styled/ERModelRelationship/CreateERModelRelationModal';
-import '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationPreview.less';
 import { getDatasetName } from '@app/entity/shared/components/styled/ERModelRelationship/ERModelRelationUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

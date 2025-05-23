@@ -35,7 +35,7 @@ e.g. to connect to ingestion endpoint for doing ingestion programmatically you c
 
 ### Exploring the API
 
-The entire GraphQL API can be explored & [introspected](https://graphql.org/learn/introspection/) using GraphiQL, an interactive query tool which allows you to navigate the entire Acryl GraphQL schema as well as craft & issue using an intuitive UI.
+The entire GraphQL API can be explored & [introspected](https://graphql.org/learn/introspection/) using GraphiQL, an interactive query tool which allows you to navigate the entire DataHub Cloud GraphQL schema as well as craft & issue using an intuitive UI.
 
 [GraphiQL](https://www.gatsbyjs.com/docs/how-to/querying-data/running-queries-with-graphiql/) is available for each DataHub Cloud deployment, locating at `https://your-account.acryl.io/api/graphiql`.
 

@@ -10,8 +10,8 @@ of the table with which they are associated.
 - You must have a Snowflake Enterprise account, where the DMFs feature is enabled.
 - You must have the necessary permissions to provision DMFs in your Snowflake environment (see below)
 - You must have the necessary permissions to query the DMF results in your Snowflake environment (see below)
-- You must have DataHub instance with Snowflake metadata ingested. If you do not have existing snowflake ingestion, refer [Snowflake Quickstart Guide](https://datahubproject.io/docs/quick-ingestion-guides/snowflake/overview) to get started.
-- You must have DataHub CLI installed and run [`datahub init`](https://datahubproject.io/docs/cli/#init).
+- You must have DataHub instance with Snowflake metadata ingested. If you do not have existing snowflake ingestion, refer [Snowflake Quickstart Guide](https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/overview) to get started.
+- You must have DataHub CLI installed and run [`datahub init`](https://docs.datahub.com/docs/cli/#init).
 
 ### Permissions
 

@@ -52,12 +52,13 @@ class TagPropagationConfig(ConfigModel):
     enabled: bool = Field(
         True,
         description="Indicates whether tag propagation is enabled or not.",
-        example=True,
     )
     tag_prefixes: Optional[List[str]] = Field(
         None,
         description="Optional list of tag prefixes to restrict tag propagation.",
-        example=["urn:li:tag:classification"],
+        examples=[
+            "urn:li:tag:classification",
+        ],
     )
 
     @validator("tag_prefixes", each_item=True)

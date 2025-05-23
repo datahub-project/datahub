@@ -515,5 +515,5 @@ def parse_ldap_dn(input_clean: bytes) -> str:
 
 def get_attr_or_none(
     attrs: Dict[str, Any], key: str, default: Optional[str] = None
-) -> str:
+) -> Optional[str]:
     return attrs[key][0].decode() if attrs.get(key) else default

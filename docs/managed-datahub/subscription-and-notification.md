@@ -71,7 +71,7 @@ Next, customize the group’s subscriptions by selecting the types of changes yo
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/subscription-and-notification/s_n-group-subscription-settings.png"/>
 </p>
 
-Connect to Slack. Currently, Acryl's Subscriptions and Notifications feature integrates only with Slack. Add your group’s Slack Channel ID to receive notifications on Slack.
+Connect to Slack. Currently, DataHub Cloud's Subscriptions and Notifications feature integrates only with Slack. Add your group’s Slack Channel ID to receive notifications on Slack.
 (You can find your Channel ID in the About section of your channel on Slack.)
 
 <p align="center">

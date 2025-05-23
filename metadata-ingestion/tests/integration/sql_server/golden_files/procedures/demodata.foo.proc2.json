@@ -26,6 +26,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD),age)"
                     ],
+                    "transformOperation": "COPY: [persons].[age] AS [age]",
                     "confidenceScore": 0.2
                 },
                 {
@@ -37,6 +38,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),tempid)"
                     ],
+                    "transformOperation": "COPY: [salesreason].[tempid] AS [tempid]",
                     "confidenceScore": 0.2
                 },
                 {
@@ -48,6 +50,7 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),name)"
                     ],
+                    "transformOperation": "COPY: [salesreason].[name] AS [name]",
                     "confidenceScore": 0.2
                 }
             ]

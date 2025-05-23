@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
 
 **🤝 Version compatibility**
 
-> Open Source DataHub: **0.11.1** | Acryl: **0.2.12**
+> DataHub Core (Open Source): **0.11.1** | DataHub Cloud: **0.2.12**
 
 This page documents how to perform memory profiles of ingestion runs.
 It is useful when trying to size the amount of resources necessary to ingest some source or when developing new features or sources.

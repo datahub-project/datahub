@@ -11,7 +11,7 @@ along with informing Data Practitioners when these changes happened.
 - An existing field is removed
 - An existing field changes type
 
-Schema History uses DataHub's [Timeline API](https://datahubproject.io/docs/dev-guides/timeline/) to compute schema changes.
+Schema History uses DataHub's [Timeline API](https://docs.datahub.com/docs/dev-guides/timeline/) to compute schema changes.
 
 ## Schema History Setup, Prerequisites, and Permissions
 
@@ -23,7 +23,7 @@ must have the **View Entity Page** privilege, or be assigned to **any** DataHub 
 You can view the Schema History for a Dataset by navigating to that Dataset's Schema Tab. As long as that Dataset has more than
 one version, you can view what a Dataset looked like at any given version by using the version selector.
 Here's an example from DataHub's official Demo environment with the
-<a href="https://demo.datahubproject.io/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pets,PROD)/Schema?is_lineage_mode=false">Snowflake pets dataset</a>.
+<a href="https://demo.datahub.com/dataset/urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pets,PROD)/Schema?is_lineage_mode=false">Snowflake pets dataset</a>.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schema-history-latest-version.png"/>

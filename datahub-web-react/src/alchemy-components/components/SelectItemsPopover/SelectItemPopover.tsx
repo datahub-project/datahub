@@ -1,9 +1,10 @@
+import '@components/components/SelectItemsPopover/select-items-popover.less';
+
 import { Popover } from 'antd';
 import { CheckboxValueType } from 'antd/lib/checkbox/Group';
 import React, { ReactNode } from 'react';
 
 import { SelectItems } from '@components/components/SelectItemsPopover/SelectItems';
-import '@components/components/SelectItemsPopover/select-items-popover.less';
 
 import { Entity, EntityType } from '@src/types.generated';
 

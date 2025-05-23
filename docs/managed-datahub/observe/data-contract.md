@@ -43,13 +43,11 @@ For creation via CLI, it’s a simple CLI upsert command that you can integrate 
 
 1. Define your data contract.
 
+<!-- prettier-ignore-start -->
 ```yaml
-{
-  {
-    inline /metadata-ingestion/examples/library/create_data_contract.yml show_path_as_comment,
-  },
-}
+{{ inline /metadata-ingestion/examples/library/create_data_contract.yml show_path_as_comment }}
 ```
+<!-- prettier-ignore-end -->
 
 2. Use the CLI to create the contract by running the below command.
 
@@ -94,7 +92,7 @@ _API guide on creating data contract is coming soon!_
 
 ## How to Run Data Contracts
 
-Running Data Contracts is dependent on running the contract’s assertions and getting the results on Datahub. Using Acryl Observe (available on SAAS), you can schedule assertions on Datahub itself. Otherwise, you can run your assertions outside of Datahub and have the results published back to Datahub.
+Running Data Contracts is dependent on running the contract’s assertions and getting the results on Datahub. Using DataHub Cloud Observe (available on SAAS), you can schedule assertions on Datahub itself. Otherwise, you can run your assertions outside of Datahub and have the results published back to Datahub.
 
 Datahub integrates nicely with DBT Test and Great Expectations, as described below. For other 3rd party assertion runners, you’ll need to use our APIs to publish the assertion results back to our platform.
 
