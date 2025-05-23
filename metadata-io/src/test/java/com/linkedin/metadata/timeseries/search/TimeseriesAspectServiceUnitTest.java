@@ -8,15 +8,16 @@ import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
-import com.linkedin.metadata.timeseries.elastic.indexbuilder.TimeseriesAspectIndexBuilders;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.OperationContext;
@@ -43,18 +44,20 @@ public class TimeseriesAspectServiceUnitTest {
 
   private final RestHighLevelClient searchClient = mock(RestHighLevelClient.class);
   private final IndexConvention indexConvention = mock(IndexConvention.class);
-  private final TimeseriesAspectIndexBuilders timeseriesAspectIndexBuilders =
-      mock(TimeseriesAspectIndexBuilders.class);
   private final ESBulkProcessor bulkProcessor = mock(ESBulkProcessor.class);
   private final RestClient restClient = mock(RestClient.class);
+  private final EntityRegistry entityRegistry = mock(EntityRegistry.class);
+  private final ESIndexBuilder indexBuilder = mock(ESIndexBuilder.class);
   private final TimeseriesAspectService _timeseriesAspectService =
       new ElasticSearchTimeseriesAspectService(
           searchClient,
-          timeseriesAspectIndexBuilders,
           bulkProcessor,
           0,
           QueryFilterRewriteChain.EMPTY,
-          TimeseriesAspectServiceConfig.builder().build());
+          TimeseriesAspectServiceConfig.builder().build(),
+          entityRegistry,
+          indexConvention,
+          indexBuilder);
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization(indexConvention);
 
@@ -62,7 +65,7 @@ public class TimeseriesAspectServiceUnitTest {
 
   @BeforeMethod
   public void resetMocks() {
-    reset(searchClient, indexConvention, timeseriesAspectIndexBuilders, bulkProcessor, restClient);
+    reset(searchClient, indexConvention, bulkProcessor, restClient, entityRegistry, indexBuilder);
   }
 
   @Test

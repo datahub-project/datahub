@@ -7,10 +7,8 @@ from sqlalchemy_bigquery import STRUCT
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.aws.s3_util import make_s3_urn
 from datahub.ingestion.source.sql.athena import AthenaSource
+from datahub.testing import mce_helpers
 from datahub.utilities.sqlalchemy_type_converter import MapType
-from tests.test_helpers import (  # Ensure mce_helpers is available for validation.
-    mce_helpers,
-)
 
 FROZEN_TIME = "2022-12-15 10:00:00"
 

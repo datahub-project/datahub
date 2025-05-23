@@ -105,8 +105,10 @@
     "joins": [
         {
             "join_type": "JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table1,PROD)"
             ],
             "on_clause": "`table3`.`col5` = `cte1`.`col2`",
@@ -123,8 +125,10 @@
         },
         {
             "join_type": "JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table3,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-proj-1.dataset.table2,PROD)"
             ],
             "on_clause": "`table3`.`join_key` = `cte2`.`join_key`",

@@ -42,3 +42,15 @@ def test_ordered_set():
 
     # Test string representation
     assert repr(ordered_set) == "OrderedSet([1, 3, 4, 5, 6])"
+
+
+def test_ordered_set_diff() -> None:
+    # Because sets are ordered arbitrarily, we need to test a few times to make sure
+    # that only OrderedSets are used throughout and no regular sets snuck in.
+    for _ in range(20):
+        ordered_set: OrderedSet[int] = OrderedSet([1000, 2000, 3000])
+        other: OrderedSet[int] = OrderedSet([2000, 4000])
+        diff = ordered_set - other
+        assert isinstance(diff, OrderedSet)
+
+        assert list(diff) == [1000, 3000]

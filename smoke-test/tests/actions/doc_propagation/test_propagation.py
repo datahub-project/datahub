@@ -86,9 +86,6 @@ def generate_temp_yaml(template_path: Path, output_path: Path, test_id: str):
 
 
 class ActionTestEnv(BaseModel):
-    class Config:
-        allow_extra = True
-
     DATAHUB_ACTIONS_DOC_PROPAGATION_MAX_PROPAGATION_FANOUT: int
 
 
@@ -109,7 +106,7 @@ def action_env_vars(pytestconfig) -> ActionTestEnv:
                 key, value = line.split("=", 1)
                 env_vars[key] = value
 
-    return ActionTestEnv.parse_obj(env_vars)
+    return ActionTestEnv.model_validate(env_vars)
 
 
 @pytest.fixture(scope="function")

@@ -15,7 +15,7 @@ from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2021-12-07 07:00:00"
 SERVICE_PRINCIPAL_ID_1 = str(uuid.uuid4())

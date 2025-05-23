@@ -1,5 +1,4 @@
-import { Text } from '@components';
-import { Skeleton } from 'antd';
+import { Icon, Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -19,6 +18,7 @@ const Wrapper = styled.div`
 const TextWrapper = styled.div`
     display: flex;
     flex-direction: column;
+    max-width: 600px;
 `;
 
 const IconContainer = styled.img`
@@ -40,7 +40,7 @@ export default function EntitySearchInputResultV2({ entity }: Props) {
 
     return (
         <Wrapper>
-            {!platformIcon && <Skeleton.Avatar size={24} active />}
+            {!platformIcon && <Icon size="4xl" source="phosphor" icon="Placeholder" />}
             {platformIcon && <IconContainer src={platformIcon} />}
             <TextWrapper>
                 <Text size="lg">{entityRegistry.getDisplayName(entity.type, entity)}</Text>

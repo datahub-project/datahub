@@ -85,7 +85,10 @@
     "joins": [
         {
             "join_type": "JOIN",
-            "tables": [
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
             ],
             "on_clause": "\"MY_TABLE\".\"ID\" = \"TABLE_1_DAY_AGO\".\"ID\"",

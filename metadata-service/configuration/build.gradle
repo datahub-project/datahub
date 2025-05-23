@@ -16,6 +16,9 @@ dependencies {
     compileOnly externalDependency.lombok
 
     annotationProcessor externalDependency.lombok
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.springBootTest
 }
 
 processResources.configure {

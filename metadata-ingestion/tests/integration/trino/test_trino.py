@@ -14,7 +14,8 @@ from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.trino import ConnectorDetail, TrinoConfig
-from tests.test_helpers import fs_helpers, mce_helpers
+from datahub.testing import mce_helpers
+from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_1

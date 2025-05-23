@@ -18,7 +18,7 @@ export const AssetsYouOwn = ({ hideIfEmpty, trackClickInSection }: ReferenceSect
     const { user } = userContext;
     const [entityCount, setEntityCount] = useState(DEFAULT_MAX_ENTITIES_TO_SHOW);
     const [showModal, setShowModal] = useState(false);
-    const { groupUrns } = useGetUserGroupUrns(user?.urn || '');
+    const { groupUrns } = useGetUserGroupUrns(user?.urn);
     const { entities, loading } = useGetAssetsYouOwn(user);
 
     if (hideIfEmpty && entities.length === 0) {

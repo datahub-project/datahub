@@ -1138,6 +1138,7 @@ const glossaryTerm2 = {
             {
                 key: 'keyProperty',
                 value: 'valueProperty',
+                associatedUrn: 'urn:li:glossaryTerm:example.glossaryterm1',
                 __typename: 'CustomPropertiesEntry',
             },
         ],

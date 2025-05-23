@@ -66,8 +66,10 @@
     "joins": [
         {
             "join_type": "LEFT JOIN",
-            "tables": [
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
+            ],
+            "right_tables": [
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)"
             ],
             "on_clause": "\"A\".\"ID\" = \"B\".\"ID\"",

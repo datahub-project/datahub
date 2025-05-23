@@ -7,7 +7,7 @@ from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.salesforce import SalesforceConfig, SalesforceSource
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-05-12 11:00:00"
 
