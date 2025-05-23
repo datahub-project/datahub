@@ -93,7 +93,6 @@ public class SparkConfigParser {
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
-
   private SparkConfigParser() {}
 
   public static Properties moveKeysToRoot(Properties properties, String prefix) {

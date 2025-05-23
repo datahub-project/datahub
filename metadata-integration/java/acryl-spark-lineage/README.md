@@ -253,8 +253,11 @@ Hdfs-based platforms supported explicitly:
 
 - AWS S3 (s3)
 - Google Cloud Storage (gcs)
-- local ( local file system) (local)
-  All other platforms will have "hdfs" as a platform.
+- Azure Storage:
+  - Azure Blob Storage (abs) - supports wasb/wasbs protocols
+  - Azure Data Lake Storage Gen2 (abs) - supports abfs/abfss protocols
+- Local file system (file)
+All other platforms will have "hdfs" as a platform.
 
 **Name**:
 By default, the name is the complete path. For Hdfs base datasets, tables can be at different levels in the path than
