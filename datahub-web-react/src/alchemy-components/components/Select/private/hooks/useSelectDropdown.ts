@@ -7,13 +7,17 @@ export default function useSelectDropdown(
     defaultOpen: boolean,
     selectRef: React.RefObject<Element>,
     dropdownRef: React.RefObject<Element>,
+    onClose?: () => void,
 ) {
     const [isOpen, setIsOpen] = useState<boolean>(defaultOpen);
     const isVisible = useIsVisible(selectRef);
 
     const open = useCallback(() => setIsOpen(true), []);
 
-    const close = useCallback(() => setIsOpen(false), []);
+    const close = useCallback(() => {
+        setIsOpen(false);
+        onClose?.();
+    }, [onClose]);
 
     const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
 
