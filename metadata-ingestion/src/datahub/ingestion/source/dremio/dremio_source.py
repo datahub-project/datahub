@@ -154,6 +154,7 @@ class DremioSource(StatefulIngestionSourceBase):
             generate_operations=True,
             usage_config=self.config.usage,
         )
+        self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
         # For profiling
         self.profiler = DremioProfiler(config, self.report, dremio_api)
