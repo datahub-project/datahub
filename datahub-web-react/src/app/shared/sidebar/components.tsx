@@ -20,7 +20,7 @@ export function RotatingTriangle({
     testId,
 }: {
     isOpen: boolean;
-    onClick?: () => void
+    onClick?: () => void;
     testId?: string;
 }) {
     return (
