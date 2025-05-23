@@ -769,12 +769,12 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return procedures
 
     @serialized_lru_cache(maxsize=1)
-    def get_dynamic_table_graph_info(self) -> Dict[str, Dict[str, Any]]:
+    def get_dynamic_table_graph_info(self, db_name: str) -> Dict[str, Dict[str, Any]]:
         """Get dynamic table dependency information from information schema."""
         dt_graph_info: Dict[str, Dict[str, Any]] = {}
         try:
             cur = self.connection.query(
-                SnowflakeQuery.get_dynamic_table_graph_history()
+                SnowflakeQuery.get_dynamic_table_graph_history(db_name)
             )
             for row in cur:
                 dt_name = row["NAME"]
@@ -785,8 +785,13 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     "scheduling_state": row.get("SCHEDULING_STATE"),
                     "alter_trigger": row.get("ALTER_TRIGGER"),
                 }
+            logger.debug(
+                f"Successfully retrieved graph info for {len(dt_graph_info)} dynamic tables in {db_name}"
+            )
         except Exception as e:
-            logger.debug(f"Failed to get dynamic table graph history: {e}")
+            logger.debug(
+                f"Failed to get dynamic table graph history for {db_name}: {e}"
+            )
 
         return dt_graph_info
 
@@ -798,8 +803,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
         page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
         dynamic_tables: Dict[str, List[SnowflakeDynamicTable]] = {}
 
-        # Get graph/dependency information
-        dt_graph_info = self.get_dynamic_table_graph_info()
+        # Get graph/dependency information (pass db_name)
+        dt_graph_info = self.get_dynamic_table_graph_info(db_name)
 
         first_iteration = True
         dt_pagination_marker: Optional[str] = None
@@ -827,33 +832,26 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     if schema_name not in dynamic_tables:
                         dynamic_tables[schema_name] = []
 
-                    # Get definition from SHOW result (should have 'text' column like views)
+                    # Get definition from SHOW result
                     definition = dt.get("text")
 
-                    # Get additional info from graph history
-                    qualified_name = f"{db_name}.{schema_name}.{dt_name}"
-                    graph_info = dt_graph_info.get(qualified_name, {})
-
-                    # Format target lag
-                    target_lag = None
-                    if graph_info.get("target_lag_type") and graph_info.get(
-                        "target_lag_sec"
-                    ):
-                        target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
-                    elif dt.get("target_lag"):
-                        target_lag = dt.get("target_lag")
+                    # Get target lag from SHOW result or graph info
+                    target_lag = dt.get("target_lag")
+                    if not target_lag and dt_graph_info:
+                        qualified_name = f"{db_name}.{schema_name}.{dt_name}"
+                        graph_info = dt_graph_info.get(qualified_name, {})
+                        if graph_info.get("target_lag_type") and graph_info.get(
+                            "target_lag_sec"
+                        ):
+                            target_lag = f"{graph_info['target_lag_sec']} {graph_info['target_lag_type']}"
 
                     dynamic_tables[schema_name].append(
                         SnowflakeDynamicTable(
                             name=dt_name,
                             created=dt["created_on"],
                             last_altered=dt.get("created_on"),
-                            size_in_bytes=dt.get(
-                                "bytes", 0
-                            ),  # Default to 0 if not available
-                            rows_count=dt.get(
-                                "rows", 0
-                            ),  # Default to 0 if not available
+                            size_in_bytes=dt.get("bytes", 0),
+                            rows_count=dt.get("rows", 0),
                             comment=dt.get("comment"),
                             definition=definition,
                             target_lag=target_lag,

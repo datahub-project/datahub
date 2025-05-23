@@ -972,9 +972,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     """
 
     @staticmethod
-    def get_dynamic_table_graph_history() -> str:
+    def get_dynamic_table_graph_history(db_name: str) -> str:
         """Get dynamic table dependency information from information schema."""
-        return """
+        return f"""
             SELECT   
                 name,
                 inputs,
@@ -982,6 +982,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 target_lag_sec,
                 scheduling_state,
                 alter_trigger
-            FROM TABLE(INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
+            FROM TABLE("{db_name}".INFORMATION_SCHEMA.DYNAMIC_TABLE_GRAPH_HISTORY())
             ORDER BY name
         """
