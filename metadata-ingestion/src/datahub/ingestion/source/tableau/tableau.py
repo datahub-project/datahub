@@ -3584,14 +3584,7 @@ class TableauSiteSource:
                     self.config.effective_virtual_connection_page_size,
                 ):
                     try:
-                        # Enhance virtual connection with detailed upstream field information
-                        enhanced_vc = (
-                            self._enhance_virtual_connection_with_field_upstreams(
-                                virtual_connection
-                            )
-                        )
-
-                        for wu in self.emit_virtual_connection(enhanced_vc):
+                        for wu in self.emit_virtual_connection(virtual_connection):
                             yield wu
                     except Exception as e:
                         name = virtual_connection.get(c.NAME, "unknown")
@@ -3606,61 +3599,12 @@ class TableauSiteSource:
 
         self.report.emit_virtual_connections_timer[str(timer.elapsed_seconds())] = 1
 
-    def _enhance_virtual_connection_with_field_upstreams(
-        self, virtual_connection: dict
-    ) -> dict:
-        """
-        Enhance virtual connection with detailed upstream field information by querying
-        individual fields for their upstream details.
-        """
-        try:
-            # Collect all field IDs from virtual connection tables
-            field_ids = []
-            for table in virtual_connection.get(c.TABLES, []):
-                for column in table.get(c.COLUMNS, []):
-                    for upstream_field in column.get(c.UPSTREAM_FIELDS, []):
-                        if upstream_field.get(c.ID):
-                            field_ids.append(upstream_field[c.ID])
-
-            if not field_ids:
-                return virtual_connection
-
-            # Query detailed upstream information for these fields
-            field_upstream_map = {}
-            for field_upstream in self.get_connection_objects(
-                query=datasource_upstream_fields_graphql_query,
-                connection_type=c.FIELDS_CONNECTION,
-                query_filter={c.ID_WITH_IN: field_ids},
-                page_size=self.config.page_size,
-            ):
-                if field_upstream.get(c.ID):
-                    field_id = field_upstream[c.ID]
-                    # Remove the ID field as it's not needed for further processing
-                    del field_upstream[c.ID]
-                    field_upstream_map[field_id] = field_upstream
-
-            # Update virtual connection with enhanced upstream information
-            for table in virtual_connection.get(c.TABLES, []):
-                for column in table.get(c.COLUMNS, []):
-                    for upstream_field in column.get(c.UPSTREAM_FIELDS, []):
-                        field_id = upstream_field.get(c.ID)
-                        if field_id and field_id in field_upstream_map:
-                            # Merge the additional upstream information
-                            upstream_field.update(field_upstream_map[field_id])
-
-            return virtual_connection
-
-        except Exception as e:
-            logger.warning(
-                f"Failed to enhance virtual connection with field upstreams: {e}"
-            )
-            return virtual_connection
-
     def emit_virtual_connection(
         self, virtual_connection: dict
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Process a single virtual connection and emit it as a DataHub dataset.
+        Process a single virtual connection and emit it as a DataHub dataset
+        that bridges database tables to embedded datasources.
         """
         vc_id = virtual_connection[c.ID]
         vc_urn = builder.make_dataset_urn_with_platform_instance(
@@ -3676,25 +3620,21 @@ class TableauSiteSource:
         )
 
         # Dataset properties
-        custom_props = self.get_custom_props_from_dict(
-            virtual_connection,
-            [c.LUID, c.CREATED_AT, c.UPDATED_AT],
-        )
-
         dataset_props = DatasetPropertiesClass(
             name=virtual_connection.get(c.NAME),
             description=virtual_connection.get(c.DESCRIPTION),
-            customProperties=custom_props,
+            customProperties=self.get_custom_props_from_dict(
+                virtual_connection, [c.LUID, c.CREATED_AT, c.UPDATED_AT]
+            ),
         )
         dataset_snapshot.aspects.append(dataset_props)
 
-        # Owner
+        # Owner, tags, etc.
         owner_username = virtual_connection.get(c.OWNER, {}).get(c.USERNAME)
         owner = self._get_ownership(owner_username)
         if owner is not None:
             dataset_snapshot.aspects.append(owner)
 
-        # Tags
         if self.config.ingest_tags:
             tags = self.get_tags(virtual_connection)
             if tags:
@@ -3702,7 +3642,7 @@ class TableauSiteSource:
                     builder.make_global_tag_aspect_with_tag_list(tags)
                 )
 
-        # Schema metadata - combine all tables and columns
+        # Schema metadata with proper field paths
         schema_fields = self._get_virtual_connection_schema_fields(virtual_connection)
         if schema_fields:
             schema_metadata = SchemaMetadata(
@@ -3715,7 +3655,7 @@ class TableauSiteSource:
             )
             dataset_snapshot.aspects.append(schema_metadata)
 
-        # Browse path - simplified since we don't have project info directly
+        # Browse path
         browse_path = self._get_virtual_connection_browse_path(virtual_connection)
         if browse_path:
             browse_paths = BrowsePathsClass(paths=[browse_path])
@@ -3731,21 +3671,16 @@ class TableauSiteSource:
             aspect=SubTypesClass(typeNames=[c.VIEW, c.VIRTUAL_CONNECTION]),
         )
 
-        # Create and emit lineage
+        # Create upstream lineage (database → virtual connection)
         upstream_tables, fine_grained_lineages = (
             self._create_virtual_connection_lineage(virtual_connection, vc_urn)
         )
 
         if upstream_tables or fine_grained_lineages:
-            logger.debug(
-                f"Virtual connection {virtual_connection.get(c.NAME)} has {len(upstream_tables)} upstream tables "
-                f"and {len(fine_grained_lineages)} fine-grained lineage entries"
-            )
-
             upstream_lineage = UpstreamLineage(
                 upstreams=upstream_tables,
                 fineGrainedLineages=fine_grained_lineages
-                if (fine_grained_lineages and self.config.extract_column_level_lineage)
+                if self.config.extract_column_level_lineage
                 else None,
             )
             yield self.get_metadata_change_proposal(
@@ -3753,29 +3688,40 @@ class TableauSiteSource:
                 aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
+
             self.report.num_tables_with_upstream_lineage += 1
             self.report.num_upstream_table_lineage += len(upstream_tables)
             if fine_grained_lineages:
                 self.report.num_upstream_fine_grained_lineage += len(
                     fine_grained_lineages
                 )
-        else:
-            logger.debug(
-                f"Virtual connection {virtual_connection.get(c.NAME)} has no upstream lineage"
-            )
 
     def _get_virtual_connection_schema_fields(
         self, virtual_connection: dict
     ) -> List[SchemaField]:
         """
-        Generate schema fields for a virtual connection by combining all table columns.
+        Generate schema fields for a virtual connection using database.schema.table.field format.
         """
         schema_fields = []
 
         for table in virtual_connection.get(c.TABLES, []):
             table_name = table.get(c.NAME)
+            database_info = table.get(c.DATABASE, {})
+            database_name = database_info.get(c.NAME, "")
+            schema_name = table.get(c.SCHEMA, "")
+
             if not table_name:
                 continue
+
+            # Build the prefix: database.schema.table or schema.table depending on what's available
+            table_prefix_parts = []
+            if database_name:
+                table_prefix_parts.append(database_name)
+            if schema_name:
+                table_prefix_parts.append(schema_name)
+            table_prefix_parts.append(table_name)
+
+            table_prefix = ".".join(table_prefix_parts)
 
             for column in table.get(c.COLUMNS, []):
                 column_name = column.get(c.NAME)
@@ -3783,8 +3729,8 @@ class TableauSiteSource:
                     self.report.num_vc_field_skipped_no_name += 1
                     continue
 
-                # Use qualified field name: table.column
-                field_path = f"{table_name}.{column_name}"
+                # Full path: database.schema.table.field (or schema.table.field)
+                field_path = f"{table_prefix}.{column_name}"
 
                 nativeDataType = column.get(c.REMOTE_TYPE, c.UNKNOWN)
                 TypeClass = FIELD_TYPE_MAPPING.get(nativeDataType, NullTypeClass)
@@ -3813,83 +3759,159 @@ class TableauSiteSource:
         self, virtual_connection: dict, vc_urn: str
     ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
         """
-        Create table and column level lineage for a virtual connection.
-        Returns a tuple of (upstream_tables, fine_grained_lineages).
+        Create lineage from database tables/columns TO virtual connection.
+        Virtual connection acts as intermediary: Database → Virtual Connection → Embedded Datasources
         """
-        upstream_tables = []
-        fine_grained_lineages = []
-        upstream_urns = set()
+        upstream_tables: List[Upstream] = []
+        fine_grained_lineages: List[FineGrainedLineage] = []
+        upstream_table_urns: Set[str] = set()
+        table_id_to_urn: Dict[str, str] = {}
 
-        # Process datasource lineage and column lineage
+        # Process each table in the virtual connection
         for table in virtual_connection.get(c.TABLES, []):
             table_name = table.get(c.NAME)
+            database_info = table.get(c.DATABASE, {})
+            database_name = database_info.get(c.NAME, "")
+            schema_name = table.get(c.SCHEMA, "")
+
             if not table_name:
                 continue
 
+            # Build VC field prefix
+            table_prefix_parts = []
+            if database_name:
+                table_prefix_parts.append(database_name)
+            if schema_name:
+                table_prefix_parts.append(schema_name)
+            table_prefix_parts.append(table_name)
+            table_prefix = ".".join(table_prefix_parts)
+
+            # Create upstream table lineage
+            upstream_table_urn = self._create_upstream_table_reference(
+                table, upstream_table_urns, table_id_to_urn
+            )
+
+            if upstream_table_urn:
+                upstream_tables.append(
+                    Upstream(
+                        dataset=upstream_table_urn, type=DatasetLineageType.TRANSFORMED
+                    )
+                )
+
+            # Create column-level lineage for each column
             for column in table.get(c.COLUMNS, []):
                 column_name = column.get(c.NAME)
                 if not column_name:
                     continue
 
-                vc_field_path = f"{table_name}.{column_name}"
+                vc_field_path = f"{table_prefix}.{column_name}"
 
-                # Process each upstream field for this column
-                for upstream_field in column.get(c.UPSTREAM_FIELDS, []):
-                    upstream_field_name = upstream_field.get(c.NAME)
-                    datasource = upstream_field.get(c.DATA_SOURCE, {})
-                    datasource_id = datasource.get(c.ID)
+                # Track downstream datasources that will use this VC
+                self._track_downstream_datasources_from_column(column)
 
-                    if not upstream_field_name or not datasource_id:
-                        continue
-
-                    # Create datasource URN and track it
-                    datasource_urn = builder.make_dataset_urn_with_platform_instance(
-                        self.platform,
-                        datasource_id,
-                        self.config.platform_instance,
-                        self.config.env,
+                # Create column-level lineage from database table to VC
+                if upstream_table_urn and self.config.extract_column_level_lineage:
+                    fine_grained_lineages.extend(
+                        self._create_database_to_vc_column_lineage(
+                            column, upstream_table_urn, vc_urn, vc_field_path
+                        )
                     )
 
-                    if datasource_urn not in upstream_urns:
-                        upstream_urns.add(datasource_urn)
-                        upstream_tables.append(
-                            Upstream(
-                                dataset=datasource_urn,
-                                type=DatasetLineageType.TRANSFORMED,
-                            )
-                        )
-
-                        if datasource_id not in self.datasource_ids_being_used:
-                            self.datasource_ids_being_used.append(datasource_id)
-
-                    # Create column-level lineage if enabled
-                    if self.config.extract_column_level_lineage:
-                        downstream_field_urn = builder.make_schema_field_urn(
-                            vc_urn, vc_field_path
-                        )
-                        upstream_field_urn = builder.make_schema_field_urn(
-                            datasource_urn, upstream_field_name
-                        )
-
-                        fine_grained_lineages.append(
-                            FineGrainedLineage(
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                upstreams=[upstream_field_urn],
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                downstreams=[downstream_field_urn],
-                            )
-                        )
-
-                        # Process original database column lineage if available from enhanced data
-                        original_lineages = self._create_original_column_lineage(
-                            upstream_field,
-                            downstream_field_urn,
-                            upstream_urns,
-                            upstream_tables,
-                        )
-                        fine_grained_lineages.extend(original_lineages)
-
         return upstream_tables, fine_grained_lineages
+
+    def _create_upstream_table_reference(
+        self,
+        table: dict,
+        upstream_table_urns: Set[str],
+        table_id_to_urn: Dict[str, str],
+    ) -> Optional[str]:
+        """Create URN for the upstream database table."""
+        table_id = table.get(c.ID)
+        if not table_id:
+            return None
+
+        if table_id in table_id_to_urn:
+            return table_id_to_urn[table_id]
+
+        try:
+            # Create reference to the actual database table
+            ref = TableauUpstreamReference.create(
+                table, default_schema_map=self.config.default_schema_map
+            )
+            table_urn = ref.make_dataset_urn(
+                self.config.env,
+                self.config.platform_instance_map,
+                self.config.lineage_overrides,
+                self.config.database_hostname_to_platform_instance_map,
+                self.database_server_hostname_map,
+            )
+
+            table_id_to_urn[table_id] = table_urn
+            upstream_table_urns.add(table_urn)
+
+            # Track database table for later emission
+            if table_urn not in self.database_tables:
+                self.database_tables[table_urn] = DatabaseTable(
+                    urn=table_urn,
+                    id=table_id,
+                    num_cols=table.get(c.COLUMNS_CONNECTION, {}).get("totalCount"),
+                )
+
+            return table_urn
+
+        except Exception as e:
+            logger.debug(f"Failed to create upstream table reference: {e}")
+            return None
+
+    def _track_downstream_datasources_from_column(self, column: dict) -> None:
+        """Track embedded datasources that use fields from this virtual connection."""
+        for upstream_field in column.get(c.UPSTREAM_FIELDS, []):
+            datasource = upstream_field.get(c.DATA_SOURCE, {})
+            datasource_id = datasource.get(c.ID)
+            datasource_type = datasource.get(c.TYPE_NAME)
+
+            if datasource_id and datasource_type == c.EMBEDDED_DATA_SOURCE:
+                if datasource_id not in self.embedded_datasource_ids_being_used:
+                    self.embedded_datasource_ids_being_used.append(datasource_id)
+                    logger.debug(
+                        f"Tracked downstream embedded datasource: {datasource_id}"
+                    )
+
+    def _create_database_to_vc_column_lineage(
+        self, column: dict, upstream_table_urn: str, vc_urn: str, vc_field_path: str
+    ) -> List[FineGrainedLineage]:
+        """Create column-level lineage from database table columns to VC fields."""
+        lineages: List[FineGrainedLineage] = []
+
+        # The column name in the VC should map to the same column name in the database table
+        column_name = column.get(c.NAME)
+        if not column_name:
+            return lineages
+
+        # Adjust column name for platform-specific casing (e.g., Snowflake)
+        db_column_name = column_name
+        if (
+            self.is_snowflake_urn(upstream_table_urn)
+            and not self.config.ingest_tables_external
+        ):
+            db_column_name = db_column_name.lower()
+
+        # Create lineage from database column to VC field
+        upstream_column_urn = builder.make_schema_field_urn(
+            upstream_table_urn, db_column_name
+        )
+        vc_field_urn = builder.make_schema_field_urn(vc_urn, vc_field_path)
+
+        lineages.append(
+            FineGrainedLineage(
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=[upstream_column_urn],
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=[vc_field_urn],
+            )
+        )
+
+        return lineages
 
     def _create_original_column_lineage(
         self,
@@ -3971,53 +3993,6 @@ class TableauSiteSource:
 
         return lineages
 
-    def _process_vc_upstream_tables(
-        self,
-        virtual_connection: dict,
-        upstream_tables: List[Upstream],
-        table_id_to_urn: Dict[str, str],
-        upstream_urns: Set[str],
-    ) -> Tuple[List[Upstream], Dict[str, str], Set[str]]:
-        """Process direct upstream tables for virtual connection."""
-        for upstream_table in virtual_connection.get(c.UPSTREAM_TABLES, []):
-            if upstream_table.get(c.NAME) is None:
-                continue
-
-            try:
-                ref = TableauUpstreamReference.create(
-                    upstream_table, default_schema_map=self.config.default_schema_map
-                )
-                table_urn = ref.make_dataset_urn(
-                    self.config.env,
-                    self.config.platform_instance_map,
-                    self.config.lineage_overrides,
-                    self.config.database_hostname_to_platform_instance_map,
-                    self.database_server_hostname_map,
-                )
-
-                if table_urn not in upstream_urns:
-                    upstream_urns.add(table_urn)
-                    upstream_tables.append(
-                        Upstream(
-                            dataset=table_urn,
-                            type=DatasetLineageType.TRANSFORMED,
-                        )
-                    )
-                    table_id_to_urn[upstream_table[c.ID]] = table_urn
-
-                    # Track database table for later metadata emission
-                    self._track_database_table(upstream_table, table_urn)
-
-            except Exception as e:
-                self.report.warning(
-                    title="Virtual Connection Upstream Table Processing Error",
-                    message="Failed to process upstream table for virtual connection",
-                    exc=e,
-                    context=f"virtual_connection={virtual_connection.get(c.NAME)}, table={upstream_table}",
-                )
-
-        return upstream_tables, table_id_to_urn, upstream_urns
-
     def _track_database_table(self, upstream_table: dict, table_urn: str) -> None:
         """Track database table for later metadata emission."""
         if table_urn not in self.database_tables:
@@ -4027,82 +4002,6 @@ class TableauSiteSource:
                 id=upstream_table[c.ID],
                 num_cols=num_cols,
             )
-
-    def _process_vc_datasource_lineage(
-        self, virtual_connection: dict, upstream_urns: Set[str]
-    ) -> List[Upstream]:
-        """Process datasource-level lineage for virtual connection (table-level only)."""
-        additional_upstreams = []
-
-        for table in virtual_connection.get(c.TABLES, []):
-            for column in table.get(c.COLUMNS, []):
-                for upstream_field in column.get(c.UPSTREAM_FIELDS, []):
-                    datasource = upstream_field.get(c.DATA_SOURCE, {})
-                    datasource_id = datasource.get(c.ID)
-
-                    if not datasource_id:
-                        continue
-
-                    datasource_urn = builder.make_dataset_urn_with_platform_instance(
-                        self.platform,
-                        datasource_id,
-                        self.config.platform_instance,
-                        self.config.env,
-                    )
-
-                    if datasource_urn not in upstream_urns:
-                        upstream_urns.add(datasource_urn)
-                        additional_upstreams.append(
-                            Upstream(
-                                dataset=datasource_urn,
-                                type=DatasetLineageType.TRANSFORMED,
-                            )
-                        )
-
-                        # Track datasource usage
-                        if datasource_id not in self.datasource_ids_being_used:
-                            self.datasource_ids_being_used.append(datasource_id)
-
-        return additional_upstreams
-
-    def _process_vc_column_lineage(
-        self,
-        virtual_connection: dict,
-        vc_urn: str,
-        upstream_urns: Set[str],
-        table_id_to_urn: Dict[str, str],
-    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
-        """Process column-level lineage for virtual connection."""
-        additional_upstreams = []
-        fine_grained_lineages = []
-
-        for table in virtual_connection.get(c.TABLES, []):
-            table_name = table.get(c.NAME)
-            if not table_name:
-                continue
-
-            for column in table.get(c.COLUMNS, []):
-                column_name = column.get(c.NAME)
-                if not column_name:
-                    continue
-
-                vc_field_path = f"{table_name}.{column_name}"
-
-                # Process each upstream field for this column
-                for upstream_field in column.get(c.UPSTREAM_FIELDS, []):
-                    datasource_upstreams, field_lineages = (
-                        self._process_upstream_field_lineage(
-                            upstream_field,
-                            vc_field_path,
-                            vc_urn,
-                            upstream_urns,
-                            table_id_to_urn,
-                        )
-                    )
-                    additional_upstreams.extend(datasource_upstreams)
-                    fine_grained_lineages.extend(field_lineages)
-
-        return additional_upstreams, fine_grained_lineages
 
     def _process_upstream_field_lineage(
         self,

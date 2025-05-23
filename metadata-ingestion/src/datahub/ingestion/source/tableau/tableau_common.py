@@ -469,6 +469,15 @@ virtual_connection_graphql_query = """
   tables {
     id
     name
+    schema
+    database {
+      id
+      name
+      connectionType
+    }
+    columnsConnection {
+      totalCount
+    }
     columns {
       id
       name
@@ -477,19 +486,10 @@ virtual_connection_graphql_query = """
       upstreamFields {
         id
         name
-        description
-        upstreamDatasources {
-          id
-          name
-        }
         datasource {
           id
           name
           __typename
-          ... on PublishedDatasource {
-            projectName
-            luid
-          }
           ... on EmbeddedDatasource {
             workbook {
               id
