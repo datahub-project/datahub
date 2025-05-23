@@ -121,7 +121,15 @@ def install_slack_app(request: Request) -> RedirectResponse:
     manifest = get_slack_app_manifest(
         is_minimal_permissions=is_minimal_slack_permissions
     )
-    config = create_app_with_manifest(config, manifest)
+    try:
+        config = create_app_with_manifest(config, manifest)
+    except slack_sdk.errors.SlackApiError as e:
+        error_message = e.response["error"]
+        logger.exception(f"Error during Slack app creation: {error_message}")
+        raise fastapi.HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to create Slack app: {error_message}",
+        ) from e
     slack_config.save_config(config)
     assert config.app_details, "App details should be present after provisioning."
 
@@ -200,12 +208,20 @@ def oauth_callback(
     slack_client = slack_sdk.web.WebClient(proxy=SLACK_PROXY)  # no token required
 
     authorize_url_generator = get_oauth_url_generator(config)
-    oauth_response = slack_client.oauth_v2_access(
-        client_id=config.app_details.client_id,
-        client_secret=config.app_details.client_secret,
-        redirect_uri=authorize_url_generator.redirect_uri,
-        code=code,
-    ).validate()
+    try:
+        oauth_response = slack_client.oauth_v2_access(
+            client_id=config.app_details.client_id,
+            client_secret=config.app_details.client_secret,
+            redirect_uri=authorize_url_generator.redirect_uri,
+            code=code,
+        ).validate()
+    except slack_sdk.errors.SlackApiError as e:
+        error_message = e.response["error"]
+        logger.exception(f"Error during Slack OAuth access: {error_message}")
+        raise fastapi.HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to complete Slack OAuth: {error_message}",
+        ) from e
 
     authed_user = oauth_response["authed_user"]
     logger.info(
