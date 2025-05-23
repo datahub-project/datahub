@@ -14,7 +14,15 @@ export const SidebarWrapper = styled.div<{ width: number }>`
     flex-direction: column;
 `;
 
-export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick?: () => void }) {
+export function RotatingTriangle({
+    isOpen,
+    onClick,
+    testId,
+}: {
+    isOpen: boolean;
+    onClick?: () => void
+    testId?: string;
+}) {
     return (
         <RotatingButton
             ghost
@@ -23,6 +31,7 @@ export function RotatingTriangle({ isOpen, onClick }: { isOpen: boolean; onClick
             deg={isOpen ? 90 : 0}
             icon={<CaretRight style={{ color: 'black' }} />}
             onClick={onClick}
+            data-testid={testId}
         />
     );
 }
