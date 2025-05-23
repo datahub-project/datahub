@@ -10,6 +10,7 @@ on:
       - "metadata-models/**"
       - "docs/**"
       - "docs-website/**"
+      - "**/*.md"
   push:
     branches:
       - acryl-main
@@ -19,6 +20,7 @@ on:
       - "metadata-models/**"
       - "docs/**"
       - "docs-website/**"
+      - "**/*.md"
   # release:
   #   types: [published, edited]
 

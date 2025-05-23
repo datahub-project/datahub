@@ -124,7 +124,8 @@ function list_markdown_files(): string[] {
     /^metadata-ingestion-modules\/acryl-cloud\/README.md/,
     /^datahub-integrations-service\/README.md/,
     /^datahub-executor\/README.md/,
-    /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
+    /^docker\/(?!README\.md|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
+    /^gradle\/docker\/README\.md/,
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
     /^\s*$/, //Empty string
