@@ -67,6 +67,12 @@ public class SparkStreamingEventToDatahub {
         sanitizedPath = sanitizedPath.replaceAll("[^a-zA-Z0-9_.]", "_");
         // Remove any leading/trailing dots that might have come from leading/trailing slashes
         sanitizedPath = sanitizedPath.replaceAll("^\\.|\\.$", "");
+        // Ensure we have a valid path that won't cause URN creation issues
+        if (StringUtils.isBlank(sanitizedPath)) {
+            // Create a meaningful identifier using sink type and batch ID
+            sanitizedPath = String.format("unnamed_%s_batch_%d", readableSinkType, event.batchId());
+            log.warn("Could not extract path from sink description, using generated identifier: {}", sanitizedPath);
+        }
         streamingQueryName = readableSinkType + "_sink_" + sanitizedPath;
         log.info("No query name set, using sink description to create stable identifier: {}", streamingQueryName);
       }
@@ -74,11 +80,17 @@ public class SparkStreamingEventToDatahub {
       String appId = conf.getSparkAppContext() != null ? conf.getSparkAppContext().getAppId() : null;
       
       // Ensure we have valid values for URN creation
-      if (appId == null || appId.trim().isEmpty()) {
+      if (StringUtils.isBlank(appId)) {
         log.warn("No app ID available, using streaming query name as pipeline name");
         pipelineName = streamingQueryName;
       } else {
         pipelineName = String.format("%s.%s", appId, streamingQueryName);
+      }
+
+      // Final validation to ensure we have a valid pipeline name for URN creation
+      if (StringUtils.isBlank(pipelineName)) {
+        log.error("Unable to generate valid pipeline name from available information");
+        return new ArrayList<>(); // Return empty list rather than cause NPE
       }
       log.debug("No pipeline name configured, using streaming query details: {}", pipelineName);
     }
