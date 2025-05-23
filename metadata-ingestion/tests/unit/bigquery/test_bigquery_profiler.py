@@ -569,14 +569,23 @@ def test_verify_partition_has_data():
         created=datetime.now(timezone.utc),
     )
 
-    # Mock the execute_query method with patch
+    # Mock the BigQuery client
+    mock_client = MagicMock(spec=Client)
+    config_mock = MagicMock()
+    config_mock.get_bigquery_client = MagicMock(return_value=mock_client)
+    profiler.config = config_mock
+
+    # Mock the execute_query method with patch to handle both success and auth error cases
+    def mock_execute_query(query, *args, **kwargs):
+        if "existence" in query.lower() or "sample" in query.lower():
+            return [MockResult(1)]
+        return []
+
     with patch.object(
-        profiler,
-        "execute_query",
-        side_effect=lambda query, *args, **kwargs: [MockResult(1)]
-        if "existence" in query.lower()
-        else [],
-    ):
+        profiler, "execute_query", side_effect=mock_execute_query
+    ), patch.object(
+        profiler.filter_builder, "_get_accurate_column_types", return_value={}
+    ), patch.object(profiler.filter_builder, "_try_count_query", return_value=True):
         # Test verification with filters
         filters = ["`col1` = 123", "`col2` = 'value'"]
         result = profiler.filter_builder.verify_partition_has_data(
