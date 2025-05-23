@@ -37,6 +37,7 @@ dependencies {
   }
 
   implementation externalDependency.awsS3
+  implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
@@ -117,6 +118,7 @@ shadowJar {
   dependencies {
     exclude(dependency("org.slf4j::"))
     exclude(dependency("antlr::"))
+    exclude(dependency("org.scala-lang::"))
     exclude("org/apache/commons/logging/**")
   }
   mergeServiceFiles()
