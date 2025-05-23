@@ -93,7 +93,7 @@ const clearAndType = (text) => {
 };
 
 const clearAndDelete = () => {
-  cy.clickOptionWithText("Edit");
+  cy.clickFirstOptionWithTestId("edit-documentation-button");
   cy.get('[role="textbox"]').click().clear();
   cy.clickOptionWithTestId("description-editor-save-button");
   cy.waitTextVisible("No documentation");
