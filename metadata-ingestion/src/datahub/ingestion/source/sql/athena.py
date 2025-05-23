@@ -8,8 +8,9 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pydantic
 from pyathena.common import BaseCursor
+from pyathena.error import OperationalError
 from pyathena.model import AthenaTableMetadata
-from pyathena.sqlalchemy_athena import AthenaRestDialect
+from pyathena.sqlalchemy.rest import AthenaRestDialect
 from sqlalchemy import create_engine, exc, inspect, text, types
 from sqlalchemy.engine import reflection
 from sqlalchemy.engine.reflection import Inspector
@@ -34,6 +35,9 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.athena_properties_extractor import (
+    AthenaPropertiesExtractor,
+)
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     register_custom_type,
@@ -502,14 +506,13 @@ class AthenaSource(SQLAlchemySource):
         if not self.cursor:
             return None
 
-        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
-            table_name=table, schema_name=schema
-        )
+        # partitions = self._get_partitions_sqlalchemy(schema, table)
+        try:
+            partitions = self._get_partitions_create_table(schema, table)
+        except OperationalError:
+            # If we can't get create table statement, we fall back to SQLAlchemy
+            partitions = self._get_partitions_sqlalchemy(schema, table)
 
-        partitions = []
-        for key in metadata.partition_keys:
-            if key.name:
-                partitions.append(key.name)
         if not partitions:
             return []
 
@@ -536,6 +539,47 @@ class AthenaSource(SQLAlchemySource):
                 max_partition=max_partition,
             )
 
+        return partitions
+
+    def _get_partitions_create_table(self, schema: str, table: str) -> List[str]:
+        try:
+            res = self.cursor.execute(f"SHOW CREATE TABLE `{schema}`.`{table}`")
+        except Exception as e:
+            # Athena does not support SHOW CREATE TABLE for views
+            # and will throw an error. We need to handle this case
+            # and return None for the description and custom properties.
+            logger.debug(
+                f"Failed to get table properties for {schema}.{table}: {e}",
+                exc_info=True,
+            )
+            return None, {}, None
+        rows = res.fetchall()
+
+        # Concatenate all rows into a single string with newlines
+        create_table_statement = ""
+        for row in rows:
+            create_table_statement += row[0] + "\n"  # Add a newline after each row
+        athena_table_info = AthenaPropertiesExtractor.get_table_properties(
+            create_table_statement
+        )
+        partitions = []
+        if (
+            athena_table_info.partition_info
+            and athena_table_info.partition_info.simple_columns
+        ):
+            partitions = [
+                ci.name for ci in athena_table_info.partition_info.simple_columns
+            ]
+        return partitions
+
+    def _get_partitions_sqlalchemy(self, schema: str, table: str) -> List[str]:
+        metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
+            table_name=table, schema_name=schema
+        )
+        partitions = []
+        for key in metadata.partition_keys:
+            if key.name:
+                partitions.append(key.name)
         return partitions
 
     # Overwrite to modify the creation of schema fields
