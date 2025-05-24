@@ -469,12 +469,7 @@ virtual_connection_graphql_query = """
   tables {
     id
     name
-    schema
-    database {
-      id
-      name
-      connectionType
-    }
+    description
     columnsConnection {
       totalCount
     }
