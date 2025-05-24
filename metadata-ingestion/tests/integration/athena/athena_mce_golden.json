@@ -147,7 +147,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=string].employee_id",
+                                "fieldPath": "employee_id",
                                 "nullable": false,
                                 "description": "Unique identifier for the employee",
                                 "type": {
@@ -161,7 +161,7 @@
                                 "isPartitioningKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=long].annual_salary",
+                                "fieldPath": "annual_salary",
                                 "nullable": true,
                                 "description": "Annual salary of the employee in USD",
                                 "type": {
@@ -175,7 +175,7 @@
                                 "isPartitioningKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=string].employee_name",
+                                "fieldPath": "employee_name",
                                 "nullable": false,
                                 "description": "Full name of the employee",
                                 "type": {
@@ -389,7 +389,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=string].employee_id",
+                                "fieldPath": "employee_id",
                                 "nullable": false,
                                 "description": "Unique identifier for the employee",
                                 "type": {
@@ -403,7 +403,7 @@
                                 "isPartitioningKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=long].annual_salary",
+                                "fieldPath": "annual_salary",
                                 "nullable": true,
                                 "description": "Annual salary of the employee in USD",
                                 "type": {
@@ -417,7 +417,7 @@
                                 "isPartitioningKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=string].employee_name",
+                                "fieldPath": "employee_name",
                                 "nullable": false,
                                 "description": "Full name of the employee",
                                 "type": {
@@ -649,7 +649,7 @@
                         },
                         "fields": [
                             {
-                                "fieldPath": "[version=2.0].[type=string].employee_id",
+                                "fieldPath": "employee_id",
                                 "nullable": false,
                                 "description": "Unique identifier for the employee",
                                 "type": {
@@ -663,7 +663,7 @@
                                 "isPartitioningKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=long].annual_salary",
+                                "fieldPath": "annual_salary",
                                 "nullable": true,
                                 "description": "Annual salary of the employee in USD",
                                 "type": {
@@ -677,7 +677,7 @@
                                 "isPartitioningKey": false
                             },
                             {
-                                "fieldPath": "[version=2.0].[type=string].employee_name",
+                                "fieldPath": "employee_name",
                                 "nullable": false,
                                 "description": "Full name of the employee",
                                 "type": {
