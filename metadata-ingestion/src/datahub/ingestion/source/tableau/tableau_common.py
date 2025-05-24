@@ -508,6 +508,89 @@ virtual_connection_graphql_query = """
 }
 """
 
+virtual_connection_upstream_fields_graphql_query = """
+{
+    id
+    upstreamFields {
+        id
+        name
+        description
+        __typename
+        datasource {
+            id
+            name
+            __typename
+            ... on PublishedDatasource {
+                projectName
+                luid
+                upstreamTables {
+                    id
+                    name
+                    fullName
+                    schema
+                    database {
+                        id
+                        name
+                        connectionType
+                    }
+                    connectionType
+                }
+            }
+            ... on EmbeddedDatasource {
+                workbook {
+                    id
+                    name
+                    projectName
+                    luid
+                }
+                upstreamTables {
+                    id
+                    name
+                    fullName
+                    schema
+                    database {
+                        id
+                        name
+                        connectionType
+                    }
+                    connectionType
+                }
+            }
+        }
+    }
+    upstreamColumns {
+        id
+        name
+        remoteType
+        table {
+            id
+            name
+            fullName
+            schema
+            database {
+                id
+                name
+                connectionType
+            }
+            connectionType
+            __typename
+        }
+    }
+    upstreamTables {
+        id
+        name
+        fullName
+        schema
+        database {
+            id
+            name
+            connectionType
+        }
+        connectionType
+    }
+}
+"""
+
 # https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
 FIELD_TYPE_MAPPING = {
     "INTEGER": NumberTypeClass,
