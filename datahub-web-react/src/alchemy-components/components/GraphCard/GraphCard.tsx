@@ -38,6 +38,9 @@ export function GraphCard({
     isEmpty,
     emptyContent,
     moreInfoModalContent,
+    showHeader = true,
+    showEmptyMessageHeader = true,
+    emptyMessage = 'No stats collected for this asset at the moment.',
 }: GraphCardProps) {
     const [showInfoModal, setShowInfoModal] = useState<boolean>(false);
 
@@ -47,10 +50,12 @@ export function GraphCard({
 
     return (
         <CardContainer maxWidth={width}>
-            <GraphCardHeader>
-                <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
-                <ControlsContainer>{renderControls?.()}</ControlsContainer>
-            </GraphCardHeader>
+            {showHeader && (
+                <GraphCardHeader>
+                    <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
+                    <ControlsContainer>{renderControls?.()}</ControlsContainer>
+                </GraphCardHeader>
+            )}
 
             {loading && (
                 <LoaderContainer $height={graphHeight}>
@@ -67,10 +72,12 @@ export function GraphCard({
                         (emptyContent || (
                             <EmptyMessageContainer>
                                 <EmptyMessageWrapper>
-                                    <Text size="2xl" weight="bold" color="gray">
-                                        No Data
-                                    </Text>
-                                    <Text color="gray">No stats collected for this asset at the moment.</Text>
+                                    {showEmptyMessageHeader && (
+                                        <Text size="2xl" weight="bold" color="gray">
+                                            No Data
+                                        </Text>
+                                    )}
+                                    <Text color="gray">{emptyMessage}</Text>
                                     {moreInfoModalContent && (
                                         <LinkText color="violet" onClick={() => setShowInfoModal(true)}>
                                             More info
