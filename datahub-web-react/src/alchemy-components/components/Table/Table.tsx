@@ -223,6 +223,7 @@ export const Table = <T,>({
                                                 }
                                                 isGroupHeader={canExpand}
                                                 isExpanded={isExpanded}
+                                                data-testid={column.key}
                                             >
                                                 {/* Add expandable icon if applicable or render row */}
                                                 {columns.length - 1 === i && canExpand ? (

@@ -339,3 +339,72 @@ export function isEntityType(entityType?: string | null): entityType is EntityTy
     const possibleValues: Array<string> = Array.from(Object.values(EntityType));
     return possibleValues.includes(entityType);
 }
+
+const PLATFORM_URN_TYPES = ['dataset', 'mlModel', 'mlModelGroup', 'mlFeatureTable'];
+const TRUNCATED_PLATFORM_TYPES = ['dataFlow', 'dataJob', 'chart', 'dashboard'];
+const NESTED_URN_TYPES = ['schemaField'];
+
+export function getPlatformUrnFromEntityUrn(urn: string): string | undefined {
+    const [, , entityType, ...entityIdsStr] = urn.split(':');
+    const entityIds = splitEntityId(entityIdsStr.join(':'));
+    if (PLATFORM_URN_TYPES.includes(entityType)) {
+        return entityIds[0];
+    }
+    if (TRUNCATED_PLATFORM_TYPES.includes(entityType)) {
+        return `urn:li:dataPlatform:${entityIds[0]}`;
+    }
+    if (NESTED_URN_TYPES.includes(entityType)) {
+        return getPlatformUrnFromEntityUrn(entityIds[0]);
+    }
+    return undefined;
+}
+
+/** Mimics metadata-ingestion function in _urn_base.py */
+function splitEntityId(entity_id: string): string[] {
+    if (!(entity_id.startsWith('(') && entity_id.endsWith(')'))) {
+        return [entity_id];
+    }
+    const parts: string[] = [];
+    let startParentCount = 1;
+    let partStart = 1;
+    for (let i = 1; i < entity_id.length; i++) {
+        const c = entity_id[i];
+        if (c === '(') {
+            startParentCount += 1;
+        } else if (c === ')') {
+            startParentCount -= 1;
+            if (startParentCount < 0) {
+                throw new Error(`${entity_id}, mismatched paren nesting`);
+            }
+        } else if (c === ',' && startParentCount === 1) {
+            if (i - partStart <= 0) {
+                throw new Error(`${entity_id}, empty part disallowed`);
+            }
+            parts.push(entity_id.slice(partStart, i));
+            partStart = i + 1;
+        }
+    }
+
+    if (startParentCount !== 0) {
+        throw new Error(`${entity_id}, mismatched paren nesting`);
+    }
+
+    parts.push(entity_id.slice(partStart, -1));
+
+    return parts;
+}
+
+export function extractPlatformNameFromPlatformUrn(platformUrn: string): string | null {
+    const match = platformUrn.match(/^urn:li:dataPlatform:([^,\s)]+)$/);
+    return match ? match[1] : null;
+}
+
+export function extractPlatformNameFromAssetUrn(urn: string) {
+    // First extract the platform URN
+    const platformUrn = getPlatformUrnFromEntityUrn(urn);
+    if (!platformUrn) return null;
+
+    // Then extract the platform name from the platform URN
+    const platformName = extractPlatformNameFromPlatformUrn(platformUrn);
+    return platformName;
+}
