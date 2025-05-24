@@ -10,6 +10,8 @@ from datahub.errors import IngestionAttributionWarning, ItemNotFoundError, SdkUs
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import (
     ContainerUrn,
+    DataFlowUrn,
+    DataJobUrn,
     DatasetUrn,
     MlModelGroupUrn,
     MlModelUrn,
@@ -18,6 +20,8 @@ from datahub.metadata.urns import (
 from datahub.sdk._all_entities import ENTITY_CLASSES
 from datahub.sdk._shared import UrnOrStr
 from datahub.sdk.container import Container
+from datahub.sdk.dataflow import DataFlow
+from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity
 from datahub.sdk.mlmodel import MLModel
@@ -56,6 +60,10 @@ class EntityClient:
     def get(self, urn: MlModelUrn) -> MLModel: ...
     @overload
     def get(self, urn: MlModelGroupUrn) -> MLModelGroup: ...
+    @overload
+    def get(self, urn: DataFlowUrn) -> DataFlow: ...
+    @overload
+    def get(self, urn: DataJobUrn) -> DataJob: ...
     @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:
