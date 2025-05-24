@@ -6,11 +6,13 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import sqlglot
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.fivetran.config import (
     Constant,
     FivetranLogConfig,
+    FivetranSourceConfig,
     FivetranSourceReport,
 )
 from datahub.ingestion.source.fivetran.data_classes import (
@@ -19,19 +21,54 @@ from datahub.ingestion.source.fivetran.data_classes import (
     Job,
     TableLineage,
 )
+from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInterface
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-class FivetranLogAPI:
-    def __init__(self, fivetran_log_config: FivetranLogConfig) -> None:
+class FivetranLogAPI(FivetranAccessInterface):
+    def __init__(
+        self,
+        fivetran_log_config: FivetranLogConfig,
+        config: Optional[FivetranSourceConfig] = None,
+    ) -> None:
         self.fivetran_log_config = fivetran_log_config
+        self.config = config
         (
             self.engine,
             self.fivetran_log_query,
-            self.fivetran_log_database,
+            self._fivetran_log_database,
         ) = self._initialize_fivetran_variables()
+
+    @property
+    def fivetran_log_database(self) -> Optional[str]:
+        return self._fivetran_log_database
+
+    def test_connection(self) -> bool:
+        """
+        Test database connectivity by executing a simple query.
+        Raises an exception if the connection fails.
+        """
+        try:
+            # Execute a simple query that should work on any database
+            test_query = "SELECT 1 as test"
+            if self.fivetran_log_config.destination_platform != "snowflake":
+                test_query = sqlglot.parse_one(test_query, dialect="snowflake").sql(
+                    dialect=self.fivetran_log_config.destination_platform, pretty=True
+                )
+
+            self.engine.execute(test_query)
+            logger.info("Successfully tested database connection")
+            return True
+        except SQLAlchemyError as e:
+            logger.error(f"Database connection test failed: {e}")
+            raise ConfigurationError(f"Failed to connect to the database: {e}") from e
+        except Exception as e:
+            logger.error(f"Unexpected error during connection test: {e}")
+            raise ConfigurationError(
+                f"Unexpected error during connection test: {e}"
+            ) from e
 
     def _initialize_fivetran_variables(
         self,
@@ -265,18 +302,36 @@ class FivetranLogAPI:
             for connector in connector_list:
                 connector_id = connector[Constant.CONNECTOR_ID]
                 connector_name = connector[Constant.CONNECTOR_NAME]
-                if not connector_patterns.allowed(connector_name):
+                destination_id = connector[Constant.DESTINATION_ID]
+
+                # Check if this connector ID is explicitly specified in sources_to_platform_instance
+                # If it is, we should include it regardless of connector_patterns
+                explicitly_included = False
+                if (
+                    self.config
+                    and hasattr(self.config, "sources_to_platform_instance")
+                    and connector_id in self.config.sources_to_platform_instance
+                ):
+                    explicitly_included = True
+                    logger.info(
+                        f"Connector {connector_name} (ID: {connector_id}) explicitly included via sources_to_platform_instance"
+                    )
+
+                # Apply connector pattern filter only if not explicitly included
+                if not explicitly_included and not connector_patterns.allowed(
+                    connector_name
+                ):
                     report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
                     )
                     continue
-                if not destination_patterns.allowed(
-                    destination_id := connector[Constant.DESTINATION_ID]
-                ):
+
+                if not destination_patterns.allowed(destination_id):
                     report.report_connectors_dropped(
                         f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
                     )
                     continue
+
                 connectors.append(
                     Connector(
                         connector_id=connector_id,
