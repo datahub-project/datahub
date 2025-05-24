@@ -82,7 +82,13 @@ ext {
             'quickstartSlim': [
                     profile: 'quickstart-backend',
                     modules: backend_profile_modules + [
-                        ':docker:datahub-ingestion',
+                        ':datahub-actions',
+                    ]
+            ],
+            'quickstartSpark': [
+                    profile: 'quickstart-backend',
+                    modules: backend_profile_modules + [
+                            ':datahub-actions',
                     ],
                     additionalEnv: [
                             'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
