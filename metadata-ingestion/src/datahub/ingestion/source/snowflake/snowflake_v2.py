@@ -551,11 +551,15 @@ class SnowflakeV2Source(
             and len(discovered_views) == 0
             and len(discovered_streams) == 0
         ):
-            self.structured_reporter.failure(
-                GENERIC_PERMISSION_ERROR_KEY,
-                "No tables/views/streams found. Please check permissions.",
-            )
-            return
+            if self.config.warn_no_datasets:
+                self.structured_reporter.warning(
+                    "No tables/views/streams found. Verify dataset permissions if Snowflake source is not empty.",
+                )
+            else:
+                self.structured_reporter.failure(
+                    GENERIC_PERMISSION_ERROR_KEY,
+                    "No tables/views/streams found. Verify dataset permissions in Snowflake.",
+                )
 
         self.discovered_datasets = (
             discovered_tables + discovered_views + discovered_streams
@@ -732,6 +736,8 @@ class SnowflakeV2Source(
             return None
 
     def is_standard_edition(self) -> bool:
+        if self.config.known_snowflake_edition is not None:
+            return self.config.known_snowflake_edition == SnowflakeEdition.STANDARD
         try:
             self.connection.query(SnowflakeQuery.show_tags())
             return False
