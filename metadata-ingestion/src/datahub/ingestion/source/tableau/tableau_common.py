@@ -463,6 +463,7 @@ virtual_connection_graphql_query = """
   description
   createdAt
   updatedAt
+  projectName
   owner {
     username
   }
@@ -471,34 +472,34 @@ virtual_connection_graphql_query = """
     name
     description
     columnsConnection {
-      totalCount
+      totalCount  
     }
     columns {
       id
       name
       remoteType
       description
-      upstreamFields {
-        id
-        name
-        datasource {
-          id
-          name
-          __typename
-          ... on EmbeddedDatasource {
-            workbook {
-              id
-              name
-              projectName
-              luid
-            }
-          }
-        }
-      }
     }
   }
   tags {
     name
+  }
+  upstreamTables {
+    id
+    name
+    fullName
+    schema
+    connectionType
+    database {
+      id
+      name
+      connectionType
+    }
+  }
+  upstreamDatabases {
+    id
+    name
+    connectionType
   }
 }
 """
@@ -518,18 +519,6 @@ virtual_connection_upstream_fields_graphql_query = """
             ... on PublishedDatasource {
                 projectName
                 luid
-                upstreamTables {
-                    id
-                    name
-                    fullName
-                    schema
-                    database {
-                        id
-                        name
-                        connectionType
-                    }
-                    connectionType
-                }
             }
             ... on EmbeddedDatasource {
                 workbook {
@@ -537,18 +526,6 @@ virtual_connection_upstream_fields_graphql_query = """
                     name
                     projectName
                     luid
-                }
-                upstreamTables {
-                    id
-                    name
-                    fullName
-                    schema
-                    database {
-                        id
-                        name
-                        connectionType
-                    }
-                    connectionType
                 }
             }
         }
