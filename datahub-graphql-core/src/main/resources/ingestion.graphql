@@ -221,6 +221,11 @@ type ExecutionRequest {
   Result of the execution request
   """
   result: ExecutionRequestResult
+
+  """
+  The ingestion source of this execution request
+  """
+  source: IngestionSource
 }
 
 """

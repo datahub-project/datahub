@@ -275,6 +275,7 @@ import com.linkedin.datahub.graphql.types.form.FormType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryNodeType;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermType;
 import com.linkedin.datahub.graphql.types.incident.IncidentType;
+import com.linkedin.datahub.graphql.types.ingestion.IngestionSourceType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureTableType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLFeatureType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLModelGroupType;
@@ -457,6 +458,7 @@ public class GmsGraphQLEngine {
   private final PostType postType;
   private final DataProcessInstanceType dataProcessInstanceType;
   private final VersionSetType versionSetType;
+  private final IngestionSourceType ingestionSourceType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -583,7 +585,7 @@ public class GmsGraphQLEngine {
     this.postType = new PostType(entityClient);
     this.dataProcessInstanceType = new DataProcessInstanceType(entityClient, featureFlags);
     this.versionSetType = new VersionSetType(entityClient);
-
+    this.ingestionSourceType = new IngestionSourceType(entityClient);
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
     this.graphQLQueryIntrospectionEnabled = args.graphQLQueryIntrospectionEnabled;
@@ -638,6 +640,7 @@ public class GmsGraphQLEngine {
                 businessAttributeType,
                 dataProcessInstanceType));
     this.loadableTypes = new ArrayList<>(entityTypes);
+    this.loadableTypes.add(ingestionSourceType);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for
     // those types
@@ -702,6 +705,7 @@ public class GmsGraphQLEngine {
     configureMLFeatureTableResolvers(builder);
     configureGlossaryRelationshipResolvers(builder);
     configureIngestionSourceResolvers(builder);
+    configureExecutionRequestResolvers(builder);
     configureAnalyticsResolvers(builder);
     configureContainerResolvers(builder);
     configureDataPlatformInstanceResolvers(builder);
@@ -810,6 +814,9 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
+            // TODO: remove that
+            // needed in case ingestionSource is not in loadableTypes (now it is in it after type casting fix)
+//        .addDataLoader("IngestionSource", context -> createDataLoader(ingestionSourceType, context))
         .setGraphQLQueryComplexityLimit(graphQLQueryComplexityLimit)
         .setGraphQLQueryDepthLimit(graphQLQueryDepthLimit)
         .setGraphQLQueryIntrospectionEnabled(graphQLQueryIntrospectionEnabled)
@@ -1009,7 +1016,7 @@ public class GmsGraphQLEngine {
                     new GetSecretValuesResolver(this.entityClient, this.secretService))
                 .dataFetcher(
                     "listIngestionSources", new ListIngestionSourcesResolver(this.entityClient))
-                .dataFetcher("ingestionSource", new GetIngestionSourceResolver(this.entityClient))
+                .dataFetcher("ingestionSource", getResolver(ingestionSourceType))
                 .dataFetcher(
                     "listExecutionRequests", new ListExecutionRequestsResolver(this.entityClient))
                 .dataFetcher(
@@ -2276,6 +2283,9 @@ public class GmsGraphQLEngine {
                 typeWiring.typeResolver(
                     new EntityInterfaceTypeResolver(
                         loadableTypes.stream()
+                            // TODO: remove comment
+                            // type casting fix to make possible to add any loadable type to loadableTypes (not only EntityType)
+                            .filter(graphType -> graphType instanceof EntityType)
                             .map(graphType -> (EntityType<?, ?>) graphType)
                             .collect(Collectors.toList()))));
   }
@@ -3184,6 +3194,22 @@ public class GmsGraphQLEngine {
                               ? ingestionSource.getPlatform().getUrn()
                               : null;
                         })));
+  }
+
+  private void configureExecutionRequestResolvers(final RuntimeWiring.Builder builder) {
+    builder
+        .type(
+            "ExecutionRequest",
+            typeWiring -> typeWiring.dataFetcher(
+                    "source", new LoadableTypeResolver<>(
+                            ingestionSourceType,
+                            (env) -> {
+                              final ExecutionRequest executionRequest = env.getSource();
+                              return executionRequest.getInput().getSource().getIngestionSource();
+                            }
+                    )
+            )
+    );
   }
 
   private void configureIncidentResolvers(final RuntimeWiring.Builder builder) {
