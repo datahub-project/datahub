@@ -490,10 +490,14 @@ virtual_connection_graphql_query = """
     fullName
     schema
     connectionType
+    description
     database {
       id
       name
       connectionType
+    }
+    columnsConnection {
+      totalCount
     }
   }
   upstreamDatabases {
@@ -528,17 +532,23 @@ virtual_connection_upstream_fields_graphql_query = """
                     luid
                 }
             }
+            ... on VirtualConnection {
+                projectName
+                luid
+            }
         }
     }
     upstreamColumns {
         id
         name
         remoteType
+        description
         table {
             id
             name
             fullName
             schema
+            description
             database {
                 id
                 name
@@ -546,6 +556,9 @@ virtual_connection_upstream_fields_graphql_query = """
             }
             connectionType
             __typename
+            columnsConnection {
+                totalCount
+            }
         }
     }
     upstreamTables {
@@ -553,12 +566,16 @@ virtual_connection_upstream_fields_graphql_query = """
         name
         fullName
         schema
+        description
+        connectionType
         database {
             id
             name
             connectionType
         }
-        connectionType
+        columnsConnection {
+            totalCount
+        }
     }
 }
 """

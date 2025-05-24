@@ -2829,115 +2829,35 @@ class TableauSiteSource:
         vc_fine_grained_lineages: List[FineGrainedLineage] = []
         vc_urns_seen: Set[str] = set()
 
+        logger.debug(
+            f"Checking for VC upstreams in datasource {datasource.get(c.NAME)}"
+        )
+
         for field in datasource.get(c.FIELDS, []):
             field_name = field.get(c.NAME)
             if not field_name:
                 continue
 
-            # Check upstream fields for virtual connection references
-            for upstream_field in field.get(c.UPSTREAM_FIELDS, []):
-                upstream_field_name = upstream_field.get(c.NAME)
-                upstream_datasource = upstream_field.get(c.DATA_SOURCE, {})
-
-                upstream_ds_id = upstream_datasource.get(c.ID)
-                upstream_ds_type = upstream_datasource.get(c.TYPE_NAME)
-
-                if not upstream_ds_id or not upstream_field_name:
-                    continue
-
-                # Check if this is a virtual connection
-                if upstream_ds_type == c.VIRTUAL_CONNECTION:
-                    if upstream_ds_id not in self.virtual_connection_ids_being_used:
-                        self.virtual_connection_ids_being_used.append(upstream_ds_id)
-
-                    # Create virtual connection URN
-                    vc_urn = builder.make_dataset_urn_with_platform_instance(
-                        platform=self.platform,
-                        name=upstream_ds_id,
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
-
-                    # Add to upstreams if not already seen
-                    if vc_urn not in vc_urns_seen:
-                        vc_upstreams.append(
-                            Upstream(
-                                dataset=vc_urn, type=DatasetLineageType.TRANSFORMED
-                            )
-                        )
-                        vc_urns_seen.add(vc_urn)
-
-                    # Create fine-grained lineage if enabled
-                    if self.config.extract_column_level_lineage:
-                        ds_field_urn = builder.make_schema_field_urn(
-                            datasource_urn, field_name
-                        )
-                        vc_field_urn = builder.make_schema_field_urn(
-                            vc_urn, upstream_field_name
-                        )
-
-                        vc_fine_grained_lineages.append(
-                            FineGrainedLineage(
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                upstreams=[vc_field_urn],
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                downstreams=[ds_field_urn],
-                            )
-                        )
-
-            # Also check upstream columns that might reference virtual connection tables
-            for upstream_col in field.get(c.UPSTREAM_COLUMNS, []):
-                col_table = upstream_col.get(c.TABLE, {})
-                col_table_type = col_table.get(c.TYPE_NAME)
-
-                # Check if this table is from a virtual connection
-                if col_table_type == "VirtualConnectionTable":
-                    virtual_connection = col_table.get("virtualConnection", {})
-                    vc_id = virtual_connection.get(c.ID)
-
-                    if vc_id:
-                        if vc_id not in self.virtual_connection_ids_being_used:
-                            self.virtual_connection_ids_being_used.append(vc_id)
-
-                        vc_urn = builder.make_dataset_urn_with_platform_instance(
-                            platform=self.platform,
-                            name=vc_id,
-                            platform_instance=self.config.platform_instance,
-                            env=self.config.env,
-                        )
-
-                        if vc_urn not in vc_urns_seen:
-                            vc_upstreams.append(
-                                Upstream(
-                                    dataset=vc_urn, type=DatasetLineageType.TRANSFORMED
-                                )
-                            )
-                            vc_urns_seen.add(vc_urn)
-
-                        # Create column-level lineage
-                        if self.config.extract_column_level_lineage:
-                            col_name = upstream_col.get(c.NAME)
-                            table_name = col_table.get(c.NAME, "")
-
-                            if col_name and table_name:
-                                # Virtual connection field path: table.column
-                                vc_field_path = f"{table_name}.{col_name}"
-
-                                ds_field_urn = builder.make_schema_field_urn(
-                                    datasource_urn, field_name
-                                )
-                                vc_field_urn = builder.make_schema_field_urn(
-                                    vc_urn, vc_field_path
-                                )
-
-                                vc_fine_grained_lineages.append(
-                                    FineGrainedLineage(
-                                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                        upstreams=[vc_field_urn],
-                                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                        downstreams=[ds_field_urn],
-                                    )
-                                )
+            # Process different types of VC references
+            self._process_field_upstream_fields(
+                field,
+                field_name,
+                datasource_urn,
+                vc_upstreams,
+                vc_fine_grained_lineages,
+                vc_urns_seen,
+            )
+            self._process_field_upstream_columns(
+                field,
+                field_name,
+                datasource_urn,
+                vc_upstreams,
+                vc_fine_grained_lineages,
+                vc_urns_seen,
+            )
+            self._process_field_direct_vc_reference(
+                field, datasource_urn, vc_upstreams, vc_urns_seen
+            )
 
         if vc_upstreams:
             logger.debug(
@@ -2945,6 +2865,211 @@ class TableauSiteSource:
             )
 
         return vc_upstreams, vc_fine_grained_lineages
+
+    def _process_field_upstream_fields(
+        self,
+        field: dict,
+        field_name: str,
+        datasource_urn: str,
+        vc_upstreams: List[Upstream],
+        vc_fine_grained_lineages: List[FineGrainedLineage],
+        vc_urns_seen: Set[str],
+    ) -> None:
+        """Process upstream fields for virtual connection references."""
+        for upstream_field in field.get(c.UPSTREAM_FIELDS, []):
+            upstream_field_name = upstream_field.get(c.NAME)
+            upstream_datasource = upstream_field.get(c.DATA_SOURCE, {})
+
+            upstream_ds_id = upstream_datasource.get(c.ID)
+            upstream_ds_type = upstream_datasource.get(c.TYPE_NAME)
+
+            if not upstream_ds_id or not upstream_field_name:
+                continue
+
+            # Check if this is a virtual connection
+            if upstream_ds_type == c.VIRTUAL_CONNECTION:
+                self._add_vc_upstream_reference(
+                    upstream_ds_id, vc_upstreams, vc_urns_seen
+                )
+
+                if self.config.extract_column_level_lineage:
+                    self._add_vc_field_lineage(
+                        upstream_ds_id,
+                        upstream_field_name,
+                        datasource_urn,
+                        field_name,
+                        vc_fine_grained_lineages,
+                    )
+
+    def _process_field_upstream_columns(
+        self,
+        field: dict,
+        field_name: str,
+        datasource_urn: str,
+        vc_upstreams: List[Upstream],
+        vc_fine_grained_lineages: List[FineGrainedLineage],
+        vc_urns_seen: Set[str],
+    ) -> None:
+        """Process upstream columns that might reference virtual connection tables."""
+        for upstream_col in field.get(c.UPSTREAM_COLUMNS, []):
+            col_table = upstream_col.get(c.TABLE, {})
+            col_table_type = col_table.get(c.TYPE_NAME)
+
+            # Check if this table is from a virtual connection
+            if col_table_type == "VirtualConnectionTable":
+                virtual_connection = col_table.get("virtualConnection", {})
+                vc_id = virtual_connection.get(c.ID)
+
+                if vc_id:
+                    self._add_vc_upstream_reference(vc_id, vc_upstreams, vc_urns_seen)
+
+                    if self.config.extract_column_level_lineage:
+                        self._add_vc_table_column_lineage(
+                            vc_id,
+                            upstream_col,
+                            col_table,
+                            datasource_urn,
+                            field_name,
+                            vc_fine_grained_lineages,
+                        )
+
+    def _process_field_direct_vc_reference(
+        self,
+        field: dict,
+        datasource_urn: str,
+        vc_upstreams: List[Upstream],
+        vc_urns_seen: Set[str],
+    ) -> None:
+        """Process direct virtual connection references in field datasource."""
+        field_datasource = field.get(c.DATA_SOURCE, {})
+        if (
+            field_datasource
+            and field_datasource.get(c.TYPE_NAME) == c.VIRTUAL_CONNECTION
+        ):
+            vc_id = field_datasource.get(c.ID)
+            if vc_id:
+                logger.debug(f"Found direct VC reference in field datasource: {vc_id}")
+                self._add_vc_upstream_reference(vc_id, vc_upstreams, vc_urns_seen)
+
+    def _add_vc_upstream_reference(
+        self,
+        vc_id: str,
+        vc_upstreams: List[Upstream],
+        vc_urns_seen: Set[str],
+    ) -> None:
+        """Add a virtual connection as an upstream reference."""
+        logger.debug(f"Found VC reference: {vc_id}")
+
+        if vc_id not in self.virtual_connection_ids_being_used:
+            self.virtual_connection_ids_being_used.append(vc_id)
+
+        vc_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=vc_id,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        if vc_urn not in vc_urns_seen:
+            vc_upstreams.append(
+                Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
+            )
+            vc_urns_seen.add(vc_urn)
+
+    def _add_vc_field_lineage(
+        self,
+        vc_id: str,
+        upstream_field_name: str,
+        datasource_urn: str,
+        field_name: str,
+        vc_fine_grained_lineages: List[FineGrainedLineage],
+    ) -> None:
+        """Add fine-grained lineage for VC field reference."""
+        vc_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=vc_id,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        ds_field_urn = builder.make_schema_field_urn(datasource_urn, field_name)
+        vc_field_urn = builder.make_schema_field_urn(vc_urn, upstream_field_name)
+
+        vc_fine_grained_lineages.append(
+            FineGrainedLineage(
+                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                upstreams=[vc_field_urn],
+                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                downstreams=[ds_field_urn],
+            )
+        )
+
+    def _add_vc_table_column_lineage(
+        self,
+        vc_id: str,
+        upstream_col: dict,
+        col_table: dict,
+        datasource_urn: str,
+        field_name: str,
+        vc_fine_grained_lineages: List[FineGrainedLineage],
+    ) -> None:
+        """Add fine-grained lineage for VC table column reference."""
+        col_name = upstream_col.get(c.NAME)
+        table_name = col_table.get(c.NAME, "")
+
+        if col_name and table_name:
+            vc_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=vc_id,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            # Virtual connection field path: table.column
+            vc_field_path = f"{table_name}.{col_name}"
+
+            ds_field_urn = builder.make_schema_field_urn(datasource_urn, field_name)
+            vc_field_urn = builder.make_schema_field_urn(vc_urn, vc_field_path)
+
+            vc_fine_grained_lineages.append(
+                FineGrainedLineage(
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[vc_field_urn],
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[ds_field_urn],
+                )
+            )
+
+    def _track_virtual_connection_usage_in_sheet(self, sheet: dict) -> None:
+        """
+        Track virtual connection usage in sheet fields.
+        Called when processing sheets to ensure we capture all VC usage.
+        """
+        for field in sheet.get(c.DATA_SOURCE_FIELDS, []):
+            if not field:
+                continue
+
+            # Check if the field's datasource is a virtual connection
+            field_datasource = field.get(c.DATA_SOURCE, {})
+            if (
+                field_datasource
+                and field_datasource.get(c.TYPE_NAME) == c.VIRTUAL_CONNECTION
+            ):
+                vc_id = field_datasource.get(c.ID)
+                if vc_id and vc_id not in self.virtual_connection_ids_being_used:
+                    logger.debug(
+                        f"Found VC usage in sheet {sheet.get(c.NAME)}: {vc_id}"
+                    )
+                    self.virtual_connection_ids_being_used.append(vc_id)
+
+            # Check upstream fields in the sheet field
+            for upstream_field in field.get(c.UPSTREAM_FIELDS, []):
+                upstream_ds = upstream_field.get(c.DATA_SOURCE, {})
+                if upstream_ds and upstream_ds.get(c.TYPE_NAME) == c.VIRTUAL_CONNECTION:
+                    vc_id = upstream_ds.get(c.ID)
+                    if vc_id and vc_id not in self.virtual_connection_ids_being_used:
+                        logger.debug(f"Found VC usage in sheet field upstream: {vc_id}")
+                        self.virtual_connection_ids_being_used.append(vc_id)
 
     def get_custom_props_from_dict(self, obj: dict, keys: List[str]) -> Optional[dict]:
         return {key: str(obj[key]) for key in keys if obj.get(key)} or None
@@ -3297,6 +3422,7 @@ class TableauSiteSource:
         # datasource urn
         datasource_urn = []
         data_sources = self.get_sheetwise_upstream_datasources(sheet)
+        self._track_virtual_connection_usage_in_sheet(sheet)
 
         for ds_id in data_sources:
             ds_urn = builder.make_dataset_urn_with_platform_instance(
