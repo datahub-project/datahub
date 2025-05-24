@@ -8,7 +8,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pydantic
 from pyathena.common import BaseCursor
-from pyathena.error import OperationalError
 from pyathena.model import AthenaTableMetadata
 from pyathena.sqlalchemy_athena import AthenaRestDialect
 from sqlalchemy import create_engine, exc, inspect, text, types
@@ -51,12 +50,17 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source.sql.sqlalchemy_uri import make_sqlalchemy_uri
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
-from datahub.metadata.schema_classes import MapTypeClass, RecordTypeClass
+from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    MapTypeClass,
+    RecordTypeClass,
+)
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 from datahub.utilities.sqlalchemy_type_converter import (
     MapType,
     get_schema_fields_for_sqlalchemy_column,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 try:
     from typing_extensions import override
@@ -506,10 +510,14 @@ class AthenaSource(SQLAlchemySource):
         if not self.cursor:
             return None
 
-        # partitions = self._get_partitions_sqlalchemy(schema, table)
         try:
             partitions = self._get_partitions_create_table(schema, table)
-        except OperationalError:
+        except Exception as e:
+            logger.debug(
+                f"Failed to get partitions from create table statement for {schema}.{table}. {schema}.{table}: {e}. Falling back to SQLAlchemy.",
+                exc_info=True,
+            )
+
             # If we can't get create table statement, we fall back to SQLAlchemy
             partitions = self._get_partitions_sqlalchemy(schema, table)
 
@@ -559,7 +567,7 @@ class AthenaSource(SQLAlchemySource):
                 f"Failed to get table properties for {schema}.{table}: {e}",
                 exc_info=True,
             )
-            return []
+            raise e
         rows = res.fetchall()
 
         # Concatenate all rows into a single string with newlines
@@ -576,7 +584,7 @@ class AthenaSource(SQLAlchemySource):
                 f"Failed to parse table properties for {schema}.{table}: {e} and statement: {create_table_statement}",
                 exc_info=True,
             )
-            return []
+            raise e
 
         partitions = []
         if (
@@ -624,7 +632,14 @@ class AthenaSource(SQLAlchemySource):
                 partition_keys is not None and column["name"] in partition_keys
             ),
         )
-
+        if isinstance(
+            fields[0].type.type, (RecordTypeClass, MapTypeClass, ArrayTypeClass)
+        ):
+            return fields
+        else:
+            fields[0].fieldPath = get_simple_field_path_from_v2_field_path(
+                fields[0].fieldPath
+            )
         return fields
 
     def generate_partition_profiler_query(
