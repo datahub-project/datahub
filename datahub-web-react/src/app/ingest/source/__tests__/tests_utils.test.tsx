@@ -91,7 +91,7 @@ describe('getEntitiesIngestedByType', () => {
         };
 
         const result = getEntitiesIngestedByType(mockExecutionRequestResult(structuredReport));
-        expect(result).toEqual([]);
+        expect(result).toBeNull();
     });
 
     test('handles aspects with non-numeric values', () => {
