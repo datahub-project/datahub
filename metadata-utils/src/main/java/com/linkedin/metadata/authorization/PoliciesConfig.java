@@ -664,7 +664,18 @@ public class PoliciesConfig {
   // Container Privileges
   public static final ResourcePrivileges CONTAINER_PRIVILEGES =
       ResourcePrivileges.of(
-          "container", "Containers", "Containers indexed by DataHub", COMMON_ENTITY_PRIVILEGES);
+          "container",
+          "Containers",
+          "Containers indexed by DataHub",
+          Stream.of(
+                  COMMON_ENTITY_PRIVILEGES,
+                  ImmutableList.of(
+                      DATA_MANAGE_NAMESPACES_PRIVILEGE,
+                      DATA_MANAGE_TABLES_PRIVILEGE,
+                      DATA_MANAGE_VIEWS_PRIVILEGE,
+                      DATA_LIST_ENTITIES_PRIVILEGE))
+              .flatMap(Collection::stream)
+              .collect(Collectors.toList()));
 
   // Domain Privileges
   public static final Privilege MANAGE_DATA_PRODUCTS_PRIVILEGE =
@@ -825,6 +836,8 @@ public class PoliciesConfig {
           "Data Platform Instance",
           "Data Platform Instances on Datahub",
           ImmutableList.of(
+              DATA_READ_ONLY_PRIVILEGE,
+              DATA_READ_WRITE_PRIVILEGE,
               DATA_MANAGE_VIEWS_PRIVILEGE,
               DATA_MANAGE_TABLES_PRIVILEGE,
               DATA_MANAGE_NAMESPACES_PRIVILEGE,
