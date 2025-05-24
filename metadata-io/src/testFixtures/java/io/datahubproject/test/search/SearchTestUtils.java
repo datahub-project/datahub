@@ -1,8 +1,5 @@
 package io.datahubproject.test.search;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COMPLETE_ENTITY_TYPES;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
-
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
@@ -11,10 +8,13 @@ import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -42,6 +42,29 @@ import org.opensearch.client.RestClientBuilder;
 public class SearchTestUtils {
   private SearchTestUtils() {}
 
+  public static ElasticSearchConfiguration TEST_SEARCH_CONFIG =
+      ElasticSearchConfiguration.builder()
+          .search(
+              new SearchConfiguration() {
+                {
+                  setGraph(
+                      new GraphQueryConfiguration() {
+                        {
+                          setBatchSize(1000);
+                          setTimeoutSeconds(10);
+                          setEnableMultiPathSearch(true);
+                          setBoostViaNodes(true);
+                          setImpactMaxHops(1000);
+                          setLineageMaxHops(20);
+                        }
+                      });
+                  setLimit(
+                      new SearchLimitConfig()
+                          .setResults(new SearchResultsLimit().setMax(1000).setStrict(false)));
+                }
+              })
+          .build();
+
   public static void syncAfterWrite(ESBulkProcessor bulkProcessor)
       throws InterruptedException, IOException {
     BulkProcessorTestUtils.syncAfterWrite(bulkProcessor);
@@ -51,7 +74,9 @@ public class SearchTestUtils {
 
   static {
     SEARCHABLE_ENTITIES =
-        Stream.concat(SEARCHABLE_ENTITY_TYPES.stream(), AUTO_COMPLETE_ENTITY_TYPES.stream())
+        Stream.concat(
+                SearchUtils.SEARCHABLE_ENTITY_TYPES.stream(),
+                SearchUtils.AUTO_COMPLETE_ENTITY_TYPES.stream())
             .map(EntityTypeMapper::getName)
             .distinct()
             .collect(Collectors.toList());
@@ -204,7 +229,7 @@ public class SearchTestUtils {
             .withLineageFlags(flags -> flags),
         root,
         LineageDirection.DOWNSTREAM,
-        SEARCHABLE_ENTITY_TYPES.stream()
+        SearchUtils.SEARCHABLE_ENTITY_TYPES.stream()
             .map(EntityTypeMapper::getName)
             .collect(Collectors.toList()),
         "*",
@@ -281,17 +306,5 @@ public class SearchTestUtils {
                 return httpClientBuilder;
               }
             });
-  }
-
-  public static GraphQueryConfiguration getGraphQueryConfiguration() {
-    return new GraphQueryConfiguration() {
-      {
-        setBatchSize(1000);
-        setTimeoutSeconds(10);
-        setMaxResult(10000);
-        setEnableMultiPathSearch(true);
-        setBoostViaNodes(true);
-      }
-    };
   }
 }

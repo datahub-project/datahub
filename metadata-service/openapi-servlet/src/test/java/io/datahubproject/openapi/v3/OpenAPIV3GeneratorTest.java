@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.v3;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -47,6 +48,7 @@ public class OpenAPIV3GeneratorTest {
                 .getResourceAsStream("entity-registry.yml"));
     ConfigurationProvider configurationProvider = new ConfigurationProvider();
     configurationProvider.setFeatureFlags(new FeatureFlags());
+    configurationProvider.setElasticSearch(TEST_SEARCH_CONFIG);
 
     openAPI = OpenAPIV3Generator.generateOpenApiSpec(er, configurationProvider);
   }

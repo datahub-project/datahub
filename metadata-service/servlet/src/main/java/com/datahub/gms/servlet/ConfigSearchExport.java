@@ -6,7 +6,7 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBu
 import com.datahub.gms.util.CSVWriter;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -50,7 +50,7 @@ public class ConfigSearchExport extends HttpServlet {
 
   private void writeSearchCsv(WebApplicationContext ctx, PrintWriter pw) {
     OperationContext systemOpContext = getOperationContext(ctx);
-    SearchConfiguration searchConfiguration = getConfigProvider(ctx).getElasticSearch().getSearch();
+    ElasticSearchConfiguration searchConfiguration = getConfigProvider(ctx).getElasticSearch();
     EntityRegistry entityRegistry = systemOpContext.getEntityRegistry();
     QueryFilterRewriteChain queryFilterRewriteChain = getQueryFilterRewriteChain(ctx);
 

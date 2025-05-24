@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
+import static com.linkedin.metadata.search.utils.ESUtils.applyResultLimit;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
 import com.datahub.util.exception.ESQueryException;
@@ -16,7 +17,7 @@ import com.linkedin.metadata.browse.BrowseResultGroupV2;
 import com.linkedin.metadata.browse.BrowseResultGroupV2Array;
 import com.linkedin.metadata.browse.BrowseResultMetadata;
 import com.linkedin.metadata.browse.BrowseResultV2;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -69,7 +70,7 @@ import org.opensearch.search.sort.SortOrder;
 public class ESBrowseDAO {
 
   private final RestHighLevelClient client;
-  @Nonnull private final SearchConfiguration searchConfiguration;
+  @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
 
@@ -295,7 +296,7 @@ public class ESBrowseDAO {
     final SearchRequest searchRequest = new SearchRequest(indexName);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(applyResultLimit(searchConfiguration, size));
     searchSourceBuilder.fetchSource(new String[] {BROWSE_PATH, URN}, null);
     searchSourceBuilder.sort(URN, SortOrder.ASC);
     searchSourceBuilder.query(buildQueryString(opContext, path, requestMap, false));
@@ -329,7 +330,7 @@ public class ESBrowseDAO {
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
 
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(applyResultLimit(searchConfiguration, size));
     searchSourceBuilder.fetchSource(new String[] {BROWSE_PATH, URN}, null);
     searchSourceBuilder.sort(URN, SortOrder.ASC);
     searchSourceBuilder.query(buildQueryString(opContext, path, requestMap, false));

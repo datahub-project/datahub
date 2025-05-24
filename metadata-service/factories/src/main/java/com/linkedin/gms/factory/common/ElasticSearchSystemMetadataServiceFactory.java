@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
@@ -21,7 +22,8 @@ public class ElasticSearchSystemMetadataServiceFactory {
   @Bean(name = "elasticSearchSystemMetadataService")
   @Nonnull
   protected ElasticSearchSystemMetadataService getInstance(
-      @Value("${elasticsearch.idHashAlgo}") final String elasticIdHashAlgo) {
+      @Value("${elasticsearch.idHashAlgo}") final String elasticIdHashAlgo,
+      final ConfigurationProvider configurationProvider) {
     return new ElasticSearchSystemMetadataService(
         components.getBulkProcessor(),
         components.getIndexConvention(),
@@ -31,6 +33,7 @@ public class ElasticSearchSystemMetadataServiceFactory {
             components.getBulkProcessor(),
             components.getNumRetries()),
         components.getIndexBuilder(),
-        elasticIdHashAlgo);
+        elasticIdHashAlgo,
+        configurationProvider.getElasticSearch());
   }
 }

@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.entity;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.RollbackService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
@@ -16,7 +17,12 @@ public class RollbackServiceFactory {
   protected RollbackService rollbackService(
       final EntityService<?> entityService,
       final SystemMetadataService systemMetadataService,
-      final TimeseriesAspectService timeseriesAspectService) {
-    return new RollbackService(entityService, systemMetadataService, timeseriesAspectService);
+      final TimeseriesAspectService timeseriesAspectService,
+      final ConfigurationProvider configurationProvider) {
+    return new RollbackService(
+        entityService,
+        systemMetadataService,
+        timeseriesAspectService,
+        configurationProvider.getElasticSearch().getSearch().getLimit().getResults());
   }
 }

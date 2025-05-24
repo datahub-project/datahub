@@ -2,6 +2,8 @@ package com.linkedin.metadata.restli;
 
 import com.datahub.auth.authentication.filter.AuthenticationFilter;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import java.util.Collections;
@@ -57,5 +59,11 @@ public class RestliServletConfig {
   @Bean
   public AuthenticationFilter authenticationFilter() {
     return new AuthenticationFilter();
+  }
+
+  @Bean
+  public ElasticSearchConfiguration elasticSearchConfiguration(
+      final ConfigurationProvider configurationProvider) {
+    return configurationProvider.getElasticSearch();
   }
 }

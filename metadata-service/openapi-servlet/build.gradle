@@ -45,6 +45,7 @@ dependencies {
 
   testImplementation externalDependency.springBootTest
   testImplementation project(':mock-entity-registry')
+  testImplementation testFixtures(project(':metadata-io'))
   testImplementation externalDependency.springBoot
   testImplementation externalDependency.testContainers
   testImplementation externalDependency.springKafka
