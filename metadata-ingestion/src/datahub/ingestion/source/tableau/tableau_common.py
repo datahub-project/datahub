@@ -346,6 +346,8 @@ datasource_upstream_fields_graphql_query = """
         name
         datasource {
             id
+            name
+            __typename
         }
     }
     upstreamColumns {
@@ -353,6 +355,14 @@ datasource_upstream_fields_graphql_query = """
         table {
             __typename
             id
+            name
+            ... on VirtualConnectionTable {
+                virtualConnection {
+                    id
+                    name
+                    luid
+                }
+            }
         }
     }
 }
@@ -464,6 +474,8 @@ virtual_connection_graphql_query = """
   createdAt
   updatedAt
   projectName
+  containerType
+  containerName
   owner {
     username
   }
@@ -471,6 +483,7 @@ virtual_connection_graphql_query = """
     id
     name
     description
+    __typename
     columnsConnection {
       totalCount  
     }
@@ -505,6 +518,7 @@ virtual_connection_graphql_query = """
     name
     connectionType
   }
+  uri
 }
 """
 
@@ -520,22 +534,6 @@ virtual_connection_upstream_fields_graphql_query = """
             id
             name
             __typename
-            ... on PublishedDatasource {
-                projectName
-                luid
-            }
-            ... on EmbeddedDatasource {
-                workbook {
-                    id
-                    name
-                    projectName
-                    luid
-                }
-            }
-            ... on VirtualConnection {
-                projectName
-                luid
-            }
         }
     }
     upstreamColumns {
@@ -546,19 +544,7 @@ virtual_connection_upstream_fields_graphql_query = """
         table {
             id
             name
-            fullName
-            schema
-            description
-            database {
-                id
-                name
-                connectionType
-            }
-            connectionType
             __typename
-            columnsConnection {
-                totalCount
-            }
         }
     }
     upstreamTables {
