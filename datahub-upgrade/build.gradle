@@ -85,6 +85,9 @@ dependencies {
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
 
+  implementation platform(externalDependency.jacksonBom)
+  implementation externalDependency.jacksonJsr310
+
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
 

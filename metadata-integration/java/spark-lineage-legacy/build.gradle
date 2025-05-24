@@ -92,11 +92,13 @@ shadowJar {
     exclude(dependency {
             exclude_modules.contains(it.name)
         })
+    exclude(dependency("org.scala-lang::"))
   }
 
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
-  exclude('module-info.class', 'META-INF/versions/**', 'LICENSE', 'NOTICE')
+  exclude('module-info.class', 'META-INF/versions/**',
+          '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
 
   // prevent jni conflict with spark
   exclude '**/libzstd-jni.*'
@@ -150,7 +152,7 @@ assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart'] ) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSpark'] ) {
     environment "RUN_QUICKSTART", "false"
     commandLine "spark-smoke-test/smoke.sh"
 }
