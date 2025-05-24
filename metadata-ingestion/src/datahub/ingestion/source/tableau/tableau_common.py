@@ -455,6 +455,131 @@ database_servers_graphql_query = """
 }
 """
 
+virtual_connection_graphql_query = """
+{
+  id
+  name
+  luid
+  description
+  createdAt
+  updatedAt
+  projectName
+  owner {
+    username
+  }
+  tables {
+    id
+    name
+    description
+    columnsConnection {
+      totalCount  
+    }
+    columns {
+      id
+      name
+      remoteType
+      description
+    }
+  }
+  tags {
+    name
+  }
+  upstreamTables {
+    id
+    name
+    fullName
+    schema
+    connectionType
+    description
+    database {
+      id
+      name
+      connectionType
+    }
+    columnsConnection {
+      totalCount
+    }
+  }
+  upstreamDatabases {
+    id
+    name
+    connectionType
+  }
+}
+"""
+
+virtual_connection_upstream_fields_graphql_query = """
+{
+    id
+    upstreamFields {
+        id
+        name
+        description
+        __typename
+        datasource {
+            id
+            name
+            __typename
+            ... on PublishedDatasource {
+                projectName
+                luid
+            }
+            ... on EmbeddedDatasource {
+                workbook {
+                    id
+                    name
+                    projectName
+                    luid
+                }
+            }
+            ... on VirtualConnection {
+                projectName
+                luid
+            }
+        }
+    }
+    upstreamColumns {
+        id
+        name
+        remoteType
+        description
+        table {
+            id
+            name
+            fullName
+            schema
+            description
+            database {
+                id
+                name
+                connectionType
+            }
+            connectionType
+            __typename
+            columnsConnection {
+                totalCount
+            }
+        }
+    }
+    upstreamTables {
+        id
+        name
+        fullName
+        schema
+        description
+        connectionType
+        database {
+            id
+            name
+            connectionType
+        }
+        columnsConnection {
+            totalCount
+        }
+    }
+}
+"""
+
 # https://referencesource.microsoft.com/#system.data/System/Data/OleDb/OLEDB_Enum.cs,364
 FIELD_TYPE_MAPPING = {
     "INTEGER": NumberTypeClass,
