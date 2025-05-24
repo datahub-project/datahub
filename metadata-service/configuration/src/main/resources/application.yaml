@@ -80,6 +80,7 @@ secretService:
 
 datahub:
   serverType: ${DATAHUB_SERVER_TYPE:prod}
+  serverEnv: ${DATAHUB_SERVER_ENV:core}
   gms:
     host: ${DATAHUB_GMS_HOST:localhost}
     port: ${DATAHUB_GMS_PORT:8080}
@@ -144,12 +145,19 @@ configEntityRegistry:
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+  usageExport:
+    enabled: ${DATAHUB_ANALYTICS_TRACING_ENABLED:true} # Enables/Disables backend usage tracing
+    usageEventTypes: ${ANALYTICS_DATAHUB_USAGE_EVENT_TYPES:CreateAccessTokenEvent,CreatePolicyEvent,UpdatePolicyEvent,CreateIngestionSourceEvent,UpdateIngestionSourceEvent,RevokeAccessTokenEvent,CreateUserEvent,UpdateUserEvent} # Comma separated list that determines which usage event types to listen to, See DataHubUsageEventType for list
+    aspectTypes: ${ANALYTICS_GENERIC_ASPECT_TYPES:} # A filter list for the generic aspect events, i.e. events that don't fall into a typed bucket in the above specific event types
+    userFilters: "${ANALYTICS_USER_FILTERS:}" # Filter out specific users' events from being published at all
 
 visualConfig:
   queriesTab:
     # Experimental! This env var is subject to change and may be deprecated in the future. The Queries tab has a larger
     # overhaul coming.
     queriesTabResultSize: ${REACT_APP_QUERIES_TAB_RESULT_SIZE:5}
+  theme:
+    themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
     logoUrl: ${REACT_APP_LOGO_URL:/assets/platforms/datahublogo.png}
     faviconUrl: ${REACT_APP_FAVICON_URL:/assets/icons/favicon.ico}
@@ -235,6 +243,7 @@ elasticsearch:
     enableSettingsReindex: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX:false}
     maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:0} # <= 0 - no timeout
     settingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES:#{null}}
+    minSearchFilterLength: ${ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH:3}
     entitySettingsOverrides: ${ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES:#{null}}
     docIds:
       schemaField:
@@ -275,6 +284,8 @@ elasticsearch:
 
 # TODO: Kafka topic convention
 kafka:
+  topics:
+    dataHubUsage: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
   listener:
     concurrency: ${KAFKA_LISTENER_CONCURRENCY:1}
   bootstrapServers: ${KAFKA_BOOTSTRAP_SERVER:http://localhost:9092}
@@ -312,6 +323,11 @@ kafka:
       autoOffsetReset: ${KAFKA_CONSUMER_MCL_AUTO_OFFSET_RESET:earliest}
     pe:
       autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
+
+  # Consumer Pool - Used for Our Events API
+  consumerPool:
+    initialSize: ${KAFKA_CONSUMER_POOL_INITIAL_SIZE:1}
+    maxSize: ${KAFKA_CONSUMER_POOL_MAX_SIZE:5}
 
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
@@ -356,11 +372,19 @@ spring:
     security:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
+# Useful to debug low-level Spring errors such as class version mismatches
+#server:
+#  error:
+#    include-message: always
+#    include-binding-errors: always
+#    include-stacktrace: always
+
 springdoc:
   cache:
     disabled: false
   swagger-ui:
-    path: /openapi/swagger-ui/index.html
+    path: /openapi/swagger-ui
+    urls-primary-name: DataHub v3 (OpenAPI)
   api-docs:
     path: /openapi/v3/api-docs
   groups:
@@ -506,7 +530,12 @@ featureFlags:
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
+  showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
   showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
+  showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
+  showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
+  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
+  showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -515,6 +544,12 @@ entityChangeEvents:
 
 views:
   enabled: ${VIEWS_ENABLED:true}
+
+searchBar:
+  apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
+
+homePage:
+  firstInPersonalSidebar: ${SEARCH_BAR_API_VARIANT:YOUR_ASSETS}
 
 entityClient:
   retryInterval: ${ENTITY_CLIENT_RETRY_INTERVAL:2}
@@ -590,6 +625,8 @@ cache:
           storageFeatures: 21600 # 6hrs
         dashboard:
           dashboardUsageStatistics: 21600 # 6hrs
+        telemetry:
+          telemetryClientId: 86400 # 1 day
 
 graphQL:
   concurrency:
@@ -619,6 +656,10 @@ businessAttribute:
   keepAliveTime: ${BUSINESS_ATTRIBUTE_PROPAGATION_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
 
 metadataChangeProposal:
+  consumer:
+    batch:
+      enabled: ${MCP_CONSUMER_BATCH_ENABLED:false}
+      size: ${MCP_CONSUMER_BATCH_SIZE:15744000}
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
     extensions:
@@ -658,6 +699,9 @@ metadataChangeProposal:
       initialIntervalMs: ${MCP_TIMESERIES_INITIAL_INTERVAL_MS:100}
       multiplier: ${MCP_TIMESERIES_MULTIPLIER:10}
       maxIntervalMs:  ${MCP_TIMESERIES_MAX_INTERVAL_MS:30000}
+
+eventsApi:
+  enabled: ${EVENTS_API_ENABLED:true}
 
 icebergCatalog:
       enablePublicRead: ${ENABLE_PUBLIC_READ:false}

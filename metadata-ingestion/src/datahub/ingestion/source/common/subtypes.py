@@ -45,6 +45,7 @@ class DatasetContainerSubTypes(StrEnum):
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
+    NAMESPACE = "Namespace"  # Iceberg
 
 
 class BIContainerSubTypes(StrEnum):
@@ -69,7 +70,7 @@ class FlowContainerSubTypes(StrEnum):
 class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
-    MSSQL_STORED_PROCEDURE = "Stored Procedure"
+    STORED_PROCEDURE = "Stored Procedure"
 
 
 class BIAssetSubTypes(StrEnum):
@@ -112,3 +113,6 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_ENDPOINT = "Endpoint"
     VERTEX_DATASET = "Dataset"
     VERTEX_PROJECT = "Project"
+    VERTEX_PIPELINE = "Pipeline Job"
+    VERTEX_PIPELINE_TASK = "Pipeline Task"
+    VERTEX_PIPELINE_TASK_RUN = "Pipeline Task Run"

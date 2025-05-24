@@ -150,7 +150,7 @@ assemble {
     dependsOn shadowJar
 }
 
-task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstartSlim'] ) {
+task integrationTest(type: Exec, dependsOn: [shadowJar, ':docker:quickstart'] ) {
     environment "RUN_QUICKSTART", "false"
     commandLine "spark-smoke-test/smoke.sh"
 }
@@ -174,7 +174,7 @@ publishing {
         group = 'io.acryl'
         artifactId = 'datahub-spark-lineage'
         description = 'Library to push data lineage from spark to datahub'
-        url = 'https://datahubproject.io'
+        url = 'https://docs.datahub.com'
         artifacts = [ shadowJar, javadocJar, sourcesJar ]
 
         scm {
@@ -230,11 +230,11 @@ nexusStaging {
     password = System.getenv("NEXUS_PASSWORD")
 }
 
-task cleanExtraDirs {
+clean{
   delete "$projectDir/derby.log"
   delete "$projectDir/src/test/resources/data/hive"
   delete "$projectDir/src/test/resources/data/out.csv"
   delete "$projectDir/src/test/resources/data/out_persist.csv"
   delete "$projectDir/spark-smoke-test/venv"
 }
-clean.finalizedBy(cleanExtraDirs)
+

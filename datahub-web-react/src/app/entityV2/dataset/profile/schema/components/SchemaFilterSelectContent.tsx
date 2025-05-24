@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
 import { Checkbox } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
+
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
 import { Button } from '@src/alchemy-components';
-import { SchemaFilterType } from '../../../../shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import { ANTD_GRAY } from '../../../../shared/constants';
 
 type Props = {
     schemaFilterTypes: SchemaFilterType[];

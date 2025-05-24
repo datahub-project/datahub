@@ -23,12 +23,12 @@ The Fivetran connector supports two operational modes:
 
 ## Concept mapping 
 
-| Fivetran		   | Datahub												    |
-|--------------------------|--------------------------------------------------------------------------------------------------------|
-| `Connector`              | [DataJob](https://datahubproject.io/docs/generated/metamodel/entities/datajob/)       	            |
-| `Source`                 | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                        |
-| `Destination`            | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                        |
-| `Connector Run`          | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
+| Fivetran        | Datahub                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| `Connector`     | [DataJob](https://docs.datahub.com/docs/generated/metamodel/entities/datajob/)                        |
+| `Source`        | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)                        |
+| `Destination`   | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)                        |
+| `Connector Run` | [DataProcessInstance](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance) |
 
 Source and destination are mapped to Dataset as an Input and Output of Connector.
 
@@ -67,10 +67,14 @@ grant role fivetran_datahub to user snowflake_user;
 ```
 
 ## Bigquery destination Configuration Guide (Enterprise Mode)
+
 1. If your fivetran platform connector destination is bigquery, you need to setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and select BigQuery Data Viewer and BigQuery Job User IAM roles. 
+
+1. If your fivetran platform connector destination is bigquery, you need to setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and select BigQuery Data Viewer and BigQuery Job User IAM roles.
 2. Create and Download a service account JSON keyfile and provide bigquery connection credential in bigquery destination config.
 
 ## API Configuration Guide (Standard Mode)
+
 1. Log in to the Fivetran dashboard.
 2. Navigate to the Account Settings > API Config page.
 3. Create a new API key and secret.
@@ -79,40 +83,58 @@ grant role fivetran_datahub to user snowflake_user;
 ## Advanced Configurations
 
 ### Working with Platform Instances
-If you've multiple instances of source/destination systems that are referred in your `fivetran` setup, you'd need to configure platform instance for these systems in `fivetran` recipe to generate correct lineage edges. Refer the document [Working with Platform Instances](https://datahubproject.io/docs/platform-instances) to understand more about this.
 
-While configuration of platform instance for source system you need to provide connector id as key and for destination system provide destination id as key.
+If you have multiple instances of source/destination systems that are referred in your `fivetran` setup, you'd need to configure platform instance for these systems in `fivetran` recipe to generate correct lineage edges. Refer the document [Working with Platform Instances](https://docs.datahub.com/docs/platform-instances) to understand more about this.
+
+While configuring the platform instance for source system you need to provide connector id as key and for destination system provide destination id as key.
+When creating the conection details in the fivetran UI make a note of the destination Group ID of the service account, as that will need to be used in the `destination_to_platform_instance` configuration.
+I.e:
+
+<p align="center">
+  <img width="70%"  src="https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/bq-connection-id.png"/>
+</p>
+
+In this case the configuration would be something like:
+
+```yaml
+destination_to_platform_instance:
+  greyish_positive: <--- this comes from bigquery destination - see screenshot
+    database: <big query project ID>
+    env: PROD
+```
 
 #### Example - Multiple Postgres Source Connectors each reading from different postgres instance
-```yml
-    # Map of connector source to platform instance
-    sources_to_platform_instance:
-      postgres_connector_id1: 
-        platform: postgres  # Optional override for platform detection
-        platform_instance: cloud_postgres_instance
-        env: PROD
-        database: postgres_db  # Database name for the source
 
-      postgres_connector_id2:
-        platform: postgres  # Optional override for platform detection
-        platform_instance: local_postgres_instance
-        env: DEV
-        database: postgres_db  # Database name for the source
+```yml
+# Map of connector source to platform instance
+sources_to_platform_instance:
+  postgres_connector_id1: 
+    platform: postgres  # Optional override for platform detection
+    platform_instance: cloud_postgres_instance
+    env: PROD
+    database: postgres_db  # Database name for the source
+
+  postgres_connector_id2:
+    platform: postgres  # Optional override for platform detection
+    platform_instance: local_postgres_instance
+    env: DEV
+    database: postgres_db  # Database name for the source
 ```
 
 #### Example - Multiple Snowflake Destinations each writing to different snowflake instance
-```yml
-    # Map of destination to platform instance
-    destination_to_platform_instance:
-      snowflake_destination_id1: 
-        platform: snowflake  # Optional override for platform detection
-        platform_instance: prod_snowflake_instance
-        env: PROD
-        database: PROD_SNOWFLAKE_DB  # Database name for the destination
 
-      snowflake_destination_id2:
-        platform: snowflake  # Optional override for platform detection
-        platform_instance: dev_snowflake_instance
-        env: PROD
-        database: DEV_SNOWFLAKE_DB  # Database name for the destination
+```yml
+# Map of destination to platform instance
+destination_to_platform_instance:
+  snowflake_destination_id1: 
+    platform: snowflake  # Optional override for platform detection
+    platform_instance: prod_snowflake_instance
+    env: PROD
+    database: PROD_SNOWFLAKE_DB  # Database name for the destination
+
+  snowflake_destination_id2:
+    platform: snowflake  # Optional override for platform detection
+    platform_instance: dev_snowflake_instance
+    env: PROD
+    database: DEV_SNOWFLAKE_DB  # Database name for the destination
 ```

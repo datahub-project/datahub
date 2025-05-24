@@ -22,12 +22,16 @@ import javax.annotation.Nonnull;
 import org.opensearch.OpenSearchException;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.index.IndexResponse;
 import org.opensearch.client.IndicesClient;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.RestHighLevelClient;
+import org.opensearch.client.core.CountRequest;
 import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.indices.GetIndexResponse;
 import org.opensearch.cluster.metadata.AliasMetadata;
+import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.rest.RestStatus;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeClass;
@@ -40,8 +44,10 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   protected abstract RestHighLevelClient getSearchClient();
 
   private IndicesClient _indexClient;
-  private static final String TEST_INDEX_NAME = "esindex_builder_test";
+  protected static final String TEST_INDEX_NAME = "esindex_builder_test";
   private ESIndexBuilder testDefaultBuilder;
+  private ESIndexBuilder testReplicasBuilder;
+  protected static final int REPLICASTEST = 2;
 
   @BeforeClass
   public void setup() {
@@ -52,6 +58,19 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             getSearchClient(),
             1,
             0,
+            0,
+            0,
+            Map.of(),
+            false,
+            false,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
+    testReplicasBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            1,
+            REPLICASTEST,
             0,
             0,
             Map.of(),
@@ -92,6 +111,57 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   }
 
   @Test
+  public void testTweakReplicasStepOps() throws Exception {
+    testReplicasBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    ReindexConfig indexState =
+        testReplicasBuilder.buildReindexState(
+            TEST_INDEX_NAME, SystemMetadataMappingsBuilder.getMappings(), Map.of());
+    // assert initial state, index has 0 docs, REPLICASTEST replica
+    assertEquals(
+        "" + REPLICASTEST, getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+    long numDocs =
+        getSearchClient()
+            .count(new CountRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
+            .getCount();
+    // 0,1 --> 0,1 with dryRun
+    testReplicasBuilder.tweakReplicas(indexState, true);
+    assertEquals(
+        "" + REPLICASTEST, getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+    // 0,1 --> 0,0
+    testReplicasBuilder.tweakReplicas(indexState, false);
+    assertEquals("0", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+    // 0,0 --> verify not undesired changes
+    testReplicasBuilder.tweakReplicas(indexState, false);
+    assertEquals("0", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+    // index one doc
+    IndexRequest indexRequest =
+        new IndexRequest(TEST_INDEX_NAME).id("1").source(new HashMap<>(), XContentType.JSON);
+    IndexResponse indexResponse = getSearchClient().index(indexRequest, RequestOptions.DEFAULT);
+    // make sure it will be counted
+    getSearchClient()
+        .indices()
+        .refresh(
+            new org.opensearch.action.admin.indices.refresh.RefreshRequest(TEST_INDEX_NAME),
+            RequestOptions.DEFAULT);
+    numDocs =
+        getSearchClient()
+            .count(new CountRequest(TEST_INDEX_NAME), RequestOptions.DEFAULT)
+            .getCount();
+    assertEquals(1, numDocs, "Expected 0 documents in the test index");
+    // 1,0 --> 1,0 with dryRun
+    testReplicasBuilder.tweakReplicas(indexState, true);
+    assertEquals("0", getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+    // 1,0 --> 1,1
+    testReplicasBuilder.tweakReplicas(indexState, false);
+    assertEquals(
+        "" + REPLICASTEST, getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+    // 1,1 --> verify not undesired changes
+    testReplicasBuilder.tweakReplicas(indexState, false);
+    assertEquals(
+        "" + REPLICASTEST, getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+  }
+
+  @Test
   public void testESIndexBuilderCreation() throws Exception {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     ESIndexBuilder customIndexBuilder =
@@ -114,6 +184,9 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
     assertEquals("0", resp.getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
     assertEquals("0s", resp.getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
   }
+
+  @Test
+  protected abstract void testCodec() throws Exception;
 
   @Test
   public void testMappingReindex() throws Exception {
@@ -179,6 +252,39 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
         beforeCreationDate,
         afterChangedMappingCreationDate,
         "Expected reindex on *changing* mappings");
+  }
+
+  @Test
+  public void testSettingsNumberOfReplicasReindex() throws Exception {
+    // Set test defaults
+    String expectedReplicas = "0";
+    testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    assertEquals(
+        expectedReplicas, getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+    String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    ESIndexBuilder changedShardBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            testDefaultBuilder.getNumShards(),
+            REPLICASTEST,
+            testDefaultBuilder.getNumRetries(),
+            testDefaultBuilder.getRefreshIntervalSeconds(),
+            Map.of(),
+            true,
+            false,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
+
+    // add new replicas
+    changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    // but we keep original replica count
+    assertEquals(
+        getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"),
+        expectedReplicas,
+        "Expected number of replicas: " + expectedReplicas);
   }
 
   @Test
@@ -298,9 +404,11 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
 
       assertEquals(
           beforeCreationDate, afterCreationDate, "Expected no difference in index timestamp");
-      assertEquals(
-          String.valueOf(builder.getNumReplicas()),
-          getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
+      // we remove this assert, after https://github.com/datahub-project/datahub/pull/13296 replicas
+      // will be set by our cron job
+      //      assertEquals(
+      //          String.valueOf(builder.getNumReplicas()),
+      //          getTestIndex().getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
       assertEquals(
           builder.getRefreshIntervalSeconds() + "s",
           getTestIndex().getSetting(TEST_INDEX_NAME, "index.refresh_interval"));

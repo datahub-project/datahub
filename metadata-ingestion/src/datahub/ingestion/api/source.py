@@ -39,6 +39,7 @@ from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
+    AutoSystemMetadata,
     auto_browse_path_v2,
     auto_fix_duplicate_schema_field_paths,
     auto_fix_empty_field_paths,
@@ -51,6 +52,7 @@ from datahub.ingestion.api.source_helpers import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import UpstreamLineageClass
+from datahub.sdk.entity import Entity
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
 
@@ -418,12 +420,9 @@ class Source(Closeable, metaclass=ABCMeta):
         Run in order, first in list is applied first. Be careful with order when overriding.
         """
         browse_path_processor: Optional[MetadataWorkUnitProcessor] = None
-        if (
-            self.ctx.pipeline_config
-            and self.ctx.pipeline_config.flags.generate_browse_path_v2
-        ):
+        if self.ctx.flags.generate_browse_path_v2:
             browse_path_processor = self._get_browse_path_processor(
-                self.ctx.pipeline_config.flags.generate_browse_path_v2_dry_run
+                self.ctx.flags.generate_browse_path_v2_dry_run
             )
 
         auto_lowercase_dataset_urns: Optional[MetadataWorkUnitProcessor] = None
@@ -474,13 +473,15 @@ class Source(Closeable, metaclass=ABCMeta):
         return stream
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        workunit_processors = self.get_workunit_processors()
+        workunit_processors.append(AutoSystemMetadata(self.ctx).stamp)
         return self._apply_workunit_processors(
-            self.get_workunit_processors(), auto_workunit(self.get_workunits_internal())
+            workunit_processors, auto_workunit(self.get_workunits_internal())
         )
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
+    ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper, Entity]]:
         raise NotImplementedError(
             "get_workunits_internal must be implemented if get_workunits is not overriden."
         )

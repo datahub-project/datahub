@@ -1,4 +1,4 @@
-const MATERIAL_UI_ICONS = [
+export const MATERIAL_UI_ICONS = [
     'AccountCircle',
     'AccountTree',
     'AddCircle',
@@ -546,7 +546,7 @@ const MATERIAL_UI_ICONS = [
     'ZoomOutMap',
 ];
 
-const PHOSPHOR_ICONS = [
+export const PHOSPHOR_ICONS = [
     'Activity',
     'AddressBook',
     'Airplane',

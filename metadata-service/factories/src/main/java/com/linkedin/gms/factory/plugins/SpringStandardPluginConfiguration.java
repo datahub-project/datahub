@@ -17,6 +17,7 @@ import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSide
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
+import com.linkedin.metadata.forms.validation.FormPromptValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
@@ -194,7 +195,24 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
+  public AspectPayloadValidator formPromptValidator() {
+    return new FormPromptValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(FormPromptValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(FORM_ENTITY_NAME)
+                            .aspectName(FORM_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
   public AspectPayloadValidator versionPropertiesValidator() {
     return new VersionPropertiesValidator()
         .setConfig(
@@ -212,7 +230,6 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public AspectPayloadValidator versionSetPropertiesValidator() {
     return new VersionSetPropertiesValidator()
         .setConfig(
@@ -230,7 +247,6 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public MCPSideEffect versionPropertiesSideEffect() {
     return new VersionPropertiesSideEffect()
         .setConfig(
@@ -248,7 +264,6 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public MCPSideEffect versionSetSideEffect() {
     return new VersionSetSideEffect()
         .setConfig(

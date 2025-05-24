@@ -101,7 +101,7 @@
     },
     {
       "Path": "docs/generated/ingestion/sources/datahub",
-      "imgPath": "img/acryl-logo-light-mark.png",
+      "imgPath": "img/datahub-logo-color-mark.svg",
       "Title": "DataHub",
       "Description": "Integrate your open source DataHub instance with DataHub Cloud or other on-prem DataHub instances",
       "tags": {

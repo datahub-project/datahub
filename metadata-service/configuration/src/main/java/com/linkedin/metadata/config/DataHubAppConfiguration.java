@@ -7,8 +7,12 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 
 @Data
+@Component
+@ConfigurationProperties
 public class DataHubAppConfiguration {
 
   /** Ingestion related configs */
@@ -28,6 +32,12 @@ public class DataHubAppConfiguration {
 
   /** Views feature related configs */
   private ViewsConfiguration views;
+
+  /** Search bar related configs */
+  private SearchBarConfiguration searchBar;
+
+  /** Home page related configs */
+  private HomePageConfiguration homePage;
 
   /** Feature flags indicating what is turned on vs turned off */
   private FeatureFlags featureFlags;

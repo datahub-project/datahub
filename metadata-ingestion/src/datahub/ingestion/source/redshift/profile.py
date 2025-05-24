@@ -42,9 +42,9 @@ class RedshiftProfiler(GenericProfiler):
                 "max_overflow", self.config.profiling.max_workers
             )
 
-        for db in tables.keys():
+        for db in tables:
             profile_requests = []
-            for schema in tables.get(db, {}).keys():
+            for schema in tables.get(db, {}):
                 if not self.config.schema_pattern.allowed(schema):
                     continue
                 for table in tables[db].get(schema, {}):

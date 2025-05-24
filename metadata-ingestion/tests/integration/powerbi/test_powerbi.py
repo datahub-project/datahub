@@ -23,7 +23,8 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     ReportType,
     Workspace,
 )
-from tests.test_helpers import mce_helpers, test_connection_helpers
+from datahub.testing import mce_helpers
+from tests.test_helpers import test_connection_helpers
 
 pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2022-02-03 07:00:00"
@@ -1354,7 +1355,7 @@ def test_cll_extraction_flags(
 
     default_conf: dict = default_source_config()
     pattern: str = re.escape(
-        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage']"
+        "Enable all these flags in recipe: ['native_query_parsing', 'enable_advance_lineage_sql_construct', 'extract_lineage', 'extract_dataset_schema']"
     )
 
     with pytest.raises(Exception, match=pattern):

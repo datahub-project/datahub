@@ -91,7 +91,7 @@ class FivetranLogAPI(FivetranAccessInterface):
                         snowflake_destination_config.database,
                     )
                 )
-                fivetran_log_query.set_db(
+                fivetran_log_query.set_schema(
                     snowflake_destination_config.log_schema,
                 )
                 fivetran_log_database = snowflake_destination_config.database
@@ -103,8 +103,12 @@ class FivetranLogAPI(FivetranAccessInterface):
                 engine = create_engine(
                     bigquery_destination_config.get_sql_alchemy_url(),
                 )
-                fivetran_log_query.set_db(bigquery_destination_config.dataset)
-                fivetran_log_database = bigquery_destination_config.dataset
+                fivetran_log_query.set_schema(bigquery_destination_config.dataset)
+
+                # The "database" should be the BigQuery project name.
+                fivetran_log_database = engine.execute(
+                    "SELECT @@project_id"
+                ).fetchone()[0]
         else:
             raise ConfigurationError(
                 f"Destination platform '{destination_platform}' is not yet supported."
@@ -227,7 +231,7 @@ class FivetranLogAPI(FivetranAccessInterface):
         jobs: List[Job] = []
         if connector_sync_log is None:
             return jobs
-        for sync_id in connector_sync_log.keys():
+        for sync_id in connector_sync_log:
             if len(connector_sync_log[sync_id]) != 2:
                 # If both sync-start and sync-end event log not present for this sync that means sync is still in progress
                 continue

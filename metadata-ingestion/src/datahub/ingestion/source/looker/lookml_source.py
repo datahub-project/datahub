@@ -497,7 +497,13 @@ class LookMLSource(StatefulIngestionSourceBase):
                 f"Failed to find a project name for model {model_name}"
             )
             return model.project_name
-        except SDKError:
+        except SDKError as e:
+            self.reporter.failure(
+                title="Failed to find a project name for model",
+                message="Consider configuring a static project name in your config file",
+                context=str(dict(model_name=model_name)),
+                exc=e,
+            )
             raise ValueError(
                 f"Could not locate a project name for model {model_name}. Consider configuring a static project name "
                 f"in your config file"

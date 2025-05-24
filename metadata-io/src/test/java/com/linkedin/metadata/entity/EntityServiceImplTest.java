@@ -7,6 +7,8 @@ import static com.linkedin.metadata.entity.EntityServiceTest.TEST_AUDIT_STAMP;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -21,6 +23,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
+import com.codahale.metrics.Counter;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Status;
@@ -49,19 +52,26 @@ import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.persistence.EntityNotFoundException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Stream;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -893,5 +903,137 @@ public class EntityServiceImplTest {
     // Verify total calls to produceMetadataChangeLog (one for each successful aspect)
     verify(mockEventProducer, times(2))
         .produceMetadataChangeLog(any(OperationContext.class), any(), any(), any());
+  }
+
+  @Test
+  public void testDeleteAspectWithoutMCL_EntityNotFoundException() {
+    // Mock AspectDao
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    EventProducer mockEventProducer = mock(EventProducer.class);
+
+    // Create entity service with mocked components
+    EntityServiceImpl entityService =
+        new EntityServiceImpl(
+            mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true);
+
+    // Create test inputs
+    Urn testUrn = UrnUtils.getUrn("urn:li:corpuser:test");
+    String aspectName = "status";
+    Map<String, String> conditions = Collections.singletonMap("runId", "test-run-id");
+
+    // This is the key part - we need to make runInTransactionWithRetry actually execute
+    // the function that's passed to it, so the getLatestAspect call inside it will throw
+    doAnswer(
+            invocation -> {
+              Function<TransactionContext, TransactionResult<RollbackResult>> function =
+                  invocation.getArgument(0);
+              TransactionContext txContext = TransactionContext.empty(3);
+
+              // Before calling the function, set up the mock that will throw inside it
+              when(mockAspectDao.getLatestAspect(
+                      any(OperationContext.class),
+                      eq(testUrn.toString()),
+                      eq(aspectName),
+                      eq(false)))
+                  .thenThrow(
+                      new EntityNotFoundException("Lazy loading failed - Bean has been deleted"));
+
+              try {
+                // This will execute the transaction function, which should call getLatestAspect
+                // and catch the exception
+                return function.apply(txContext).getResults();
+              } catch (Exception e) {
+                // If any exception escapes, it means our test is wrong
+                fail("Exception should be caught inside transaction function: " + e.getMessage());
+                return Optional.empty();
+              }
+            })
+        .when(mockAspectDao)
+        .runInTransactionWithRetry(any(), anyInt());
+
+    // Create a counter mock
+    Counter mockCounter = mock(Counter.class);
+
+    // Mock the static method
+    try (MockedStatic<MetricUtils> metricUtilsMock = Mockito.mockStatic(MetricUtils.class)) {
+      metricUtilsMock
+          .when(() -> MetricUtils.counter(eq(EntityServiceImpl.class), eq("delete_nonexisting")))
+          .thenReturn(mockCounter);
+
+      // Execute the method
+      RollbackResult result =
+          entityService.deleteAspectWithoutMCL(
+              opContext, testUrn.toString(), aspectName, conditions, true);
+
+      // Verify result is null
+      assertNull(result, "Result should be null when EntityNotFoundException is caught");
+
+      // Verify metric was incremented
+      metricUtilsMock.verify(
+          () -> MetricUtils.counter(EntityServiceImpl.class, "delete_nonexisting"));
+      verify(mockCounter).inc();
+    }
+  }
+
+  @Test
+  public void testRestoreIndicesWithNullSystemMetadata() {
+    // Setup mock AspectDao
+    AspectDao mockAspectDao = mock(AspectDao.class);
+    PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
+
+    // Create test aspects
+    List<EbeanAspectV2> batch = new ArrayList<>();
+
+    // Create an aspect with null system metadata
+    Urn testUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,nullMetadataTest,PROD)");
+    Status testStatus = new Status().setRemoved(false);
+
+    EbeanAspectV2 aspectWithNullMetadata =
+        new EbeanAspectV2(
+            testUrn.toString(),
+            STATUS_ASPECT_NAME,
+            0L,
+            RecordUtils.toJsonString(testStatus),
+            new Timestamp(System.currentTimeMillis()),
+            TEST_AUDIT_STAMP.getActor().toString(),
+            null,
+            null // Explicitly set systemMetadata to null
+            );
+    batch.add(aspectWithNullMetadata);
+
+    // Setup mock stream
+    when(mockStream.partition(anyInt())).thenReturn(Stream.of(batch.stream()));
+    when(mockAspectDao.streamAspectBatches(any())).thenReturn(mockStream);
+
+    // Setup mock EventProducer
+    EventProducer mockEventProducer = mock(EventProducer.class);
+    when(mockEventProducer.produceMetadataChangeLog(
+            any(OperationContext.class), any(), any(), any()))
+        .thenReturn(CompletableFuture.completedFuture(null));
+
+    // Create EntityServiceImpl with mocks
+    EntityServiceImpl entityServiceSpy =
+        spy(
+            new EntityServiceImpl(
+                mockAspectDao, mockEventProducer, false, mock(PreProcessHooks.class), 0, true));
+
+    // Create RestoreIndicesArgs
+    RestoreIndicesArgs args =
+        new RestoreIndicesArgs()
+            .start(0)
+            .limit(100)
+            .batchSize(50)
+            .batchDelayMs(0L)
+            .createDefaultAspects(false);
+
+    // Execute the method under test
+    List<RestoreIndicesResult> results =
+        entityServiceSpy.restoreIndices(opContext, args, message -> {});
+
+    // Verify results
+    assertNotNull(results);
+    assertEquals(1, results.size());
+    assertEquals(1, results.get(0).rowsMigrated);
   }
 }

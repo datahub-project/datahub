@@ -2,27 +2,38 @@ package com.linkedin.metadata.graph.neo4j;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.FabricType;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.EntityLineageResult;
+import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
 import com.linkedin.metadata.graph.GraphServiceTestBaseNoVia;
 import com.linkedin.metadata.graph.LineageDirection;
+import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
+import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
+import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
+import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -55,9 +66,23 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
     _serverBuilder = new Neo4jTestServerBuilder();
     _serverBuilder.newServer();
     _driver = GraphDatabase.driver(_serverBuilder.boltURI());
-    _client =
-        new Neo4jGraphService(
-            operationContext, new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
+
+    ConfigEntityRegistry configEntityRegistry =
+        new ConfigEntityRegistry(
+            SearchCommonTestConfiguration.class
+                .getClassLoader()
+                .getResourceAsStream("entity-registry.yml"));
+    SnapshotEntityRegistry snapshotEntityRegistry = SnapshotEntityRegistry.getInstance();
+    LineageRegistry lineageRegistry;
+    try {
+      MergedEntityRegistry mergedEntityRegistry =
+          new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
+      lineageRegistry = new LineageRegistry(mergedEntityRegistry);
+    } catch (EntityRegistryException e) {
+      throw new RuntimeException(e);
+    }
+
+    _client = new Neo4jGraphService(lineageRegistry, _driver);
     _client.clear();
   }
 
@@ -101,7 +126,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
   @Test(dataProvider = "NoViaFindRelatedEntitiesSourceTypeTests")
   public void testFindRelatedEntitiesSourceType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -122,7 +147,7 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
   @Test(dataProvider = "NoViaFindRelatedEntitiesDestinationTypeTests")
   public void testFindRelatedEntitiesDestinationType(
       String datasetType,
-      List<String> relationshipTypes,
+      Set<String> relationshipTypes,
       RelationshipFilter relationships,
       List<RelatedEntity> expectedRelatedEntities)
       throws Exception {
@@ -187,11 +212,11 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
         getGraphService()
             .findRelatedEntities(
                 operationContext,
-                Collections.singletonList(datasetType),
+                Set.of(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
-                Collections.singletonList("tag"),
+                Set.of("tag"),
                 EMPTY_FILTER,
-                Collections.singletonList(TAG_RELATIONSHIP),
+                Set.of(TAG_RELATIONSHIP),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 0,
                 100);
@@ -202,11 +227,11 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
         getGraphService()
             .findRelatedEntities(
                 operationContext,
-                Collections.singletonList(datasetType),
+                Set.of(datasetType),
                 newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
-                Collections.singletonList("tag"),
+                Set.of("tag"),
                 EMPTY_FILTER,
-                Collections.singletonList(TAG_RELATIONSHIP),
+                Set.of(TAG_RELATIONSHIP),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 0,
                 100);
@@ -408,5 +433,291 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
   @Override
   public void testHighlyConnectedGraphWalk() throws Exception {
     // TODO: explore limit not supported for Neo4J
+  }
+
+  @Test
+  public void testLineageGraphFiltersImplementation() {
+    GraphService service = getGraphService();
+
+    // Create a simple lineage: dataset1 <- dataJob -> dataset2 <- dataset3
+    List<Edge> edges =
+        Arrays.asList(
+            new Edge(dataJobOneUrn, dataset1Urn, consumes, 1L, null, 3L, null, null),
+            new Edge(dataJobOneUrn, dataset2Urn, produces, 5L, null, 7L, null, null),
+            new Edge(dataset3Urn, dataset2Urn, downstreamOf, 9L, null, null, null, null));
+
+    // Add all edges to the graph
+    edges.forEach(service::addEdge);
+
+    // Create LineageGraphFilters for upstream lineage
+    Set<String> allowedTypes = new HashSet<>(Arrays.asList("dataset", "dataJob"));
+    LineageGraphFilters upstreamFilters =
+        LineageGraphFilters.withEntityTypes(LineageDirection.UPSTREAM, allowedTypes);
+
+    // Test upstream lineage with the new method signature
+    EntityLineageResult upstreamResult =
+        service.getLineage(operationContext, dataset3Urn, upstreamFilters, 0, 100, 2);
+
+    // Verify results
+    assertEquals(upstreamResult.getTotal().intValue(), 2);
+    assertEquals(
+        getPathUrnArraysFromLineageResult(upstreamResult),
+        Set.of(
+            new UrnArray(dataset3Urn, dataset2Urn),
+            new UrnArray(dataset3Urn, dataset2Urn, dataJobOneUrn)));
+
+    // Test downstream lineage with the new method signature
+    LineageGraphFilters downstreamFilters =
+        LineageGraphFilters.withEntityTypes(LineageDirection.DOWNSTREAM, allowedTypes);
+
+    EntityLineageResult downstreamResult =
+        service.getLineage(operationContext, dataset1Urn, downstreamFilters, 0, 100, 2);
+
+    // Verify results
+    assertEquals(downstreamResult.getTotal().intValue(), 2);
+    assertEquals(
+        getPathUrnArraysFromLineageResult(downstreamResult),
+        Set.of(
+            new UrnArray(dataset1Urn, dataJobOneUrn),
+            new UrnArray(dataset1Urn, dataJobOneUrn, dataset2Urn)));
+  }
+
+  /**
+   * Tests that the getPathFindingLabelFilter method correctly handles Set<String> parameter instead
+   * of List<String>
+   */
+  @Test
+  public void testGetPathFindingLabelFilterWithSet() throws Exception {
+    Neo4jGraphService service = (Neo4jGraphService) getGraphService();
+
+    // Create a reflection method to access the private method
+    java.lang.reflect.Method method =
+        Neo4jGraphService.class.getDeclaredMethod("getPathFindingLabelFilter", Set.class);
+    method.setAccessible(true);
+
+    // Test with single entity type
+    Set<String> singleType = Collections.singleton("dataset");
+    String singleResult = (String) method.invoke(service, singleType);
+    assertEquals(singleResult, "+dataset");
+
+    // Test with multiple entity types
+    Set<String> multipleTypes = new HashSet<>(Arrays.asList("dataset", "dataJob", "container"));
+    String multipleResult = (String) method.invoke(service, multipleTypes);
+
+    // Since the order is not guaranteed in a set, verify that all expected parts are present
+    assertTrue(multipleResult.contains("+dataset"));
+    assertTrue(multipleResult.contains("+dataJob"));
+    assertTrue(multipleResult.contains("+container"));
+    assertEquals(multipleResult.split("\\|").length, 3);
+  }
+
+  /**
+   * Tests that the getPathFindingRelationshipFilter method correctly handles Set<String> parameter
+   * instead of List<String>
+   */
+  @Test
+  public void testGetPathFindingRelationshipFilterWithSet() throws Exception {
+    Neo4jGraphService service = (Neo4jGraphService) getGraphService();
+
+    // Create a reflection method to access the private method
+    java.lang.reflect.Method method =
+        Neo4jGraphService.class.getDeclaredMethod(
+            "getPathFindingRelationshipFilter", Set.class, LineageDirection.class);
+    method.setAccessible(true);
+
+    // Test with dataset type and upstream direction
+    Set<String> datasetType = Collections.singleton("dataset");
+    String upstreamResult = (String) method.invoke(service, datasetType, LineageDirection.UPSTREAM);
+
+    // Verify the result is not empty
+    assertFalse(upstreamResult.isEmpty());
+
+    // Test with null direction which should return relationships without direction specifiers
+    String allDirectionsResult = (String) method.invoke(service, datasetType, null);
+
+    // Verify the result is not empty and contains expected format
+    assertFalse(allDirectionsResult.isEmpty());
+
+    // With null direction, the result should not contain '<' or '>' characters
+    // which would indicate direction-specific relationships
+    assertFalse(allDirectionsResult.contains("<"));
+    assertFalse(allDirectionsResult.contains(">"));
+  }
+
+  /**
+   * Tests the generateLineageStatementAndParameters method with LineageGraphFilters parameter
+   * instead of separate LineageDirection and GraphFilters parameters
+   */
+  @Test
+  public void testGenerateLineageStatementAndParameters() throws Exception {
+    Neo4jGraphService service = (Neo4jGraphService) getGraphService();
+
+    // Create a reflection method to access the private method
+    java.lang.reflect.Method method =
+        Neo4jGraphService.class.getDeclaredMethod(
+            "generateLineageStatementAndParameters",
+            Urn.class,
+            LineageGraphFilters.class,
+            int.class,
+            LineageFlags.class);
+    method.setAccessible(true);
+
+    // Create LineageGraphFilters
+    Set<String> allowedTypes = new HashSet<>(Arrays.asList("dataset", "dataJob"));
+    LineageGraphFilters upstreamFilters =
+        LineageGraphFilters.withEntityTypes(LineageDirection.UPSTREAM, allowedTypes);
+
+    // Test with no time filters
+    Object result = method.invoke(service, dataset1Urn, upstreamFilters, 2, null);
+
+    // Result should be a Pair<String, Map<String, Object>>
+    assertNotNull(result);
+
+    // Test we can access the first element of the pair (the query string)
+    java.lang.reflect.Method firstMethod = result.getClass().getDeclaredMethod("getFirst");
+    firstMethod.setAccessible(true);
+    String query = (String) firstMethod.invoke(result);
+
+    // Verify the query contains expected structure
+    assertNotNull(query);
+    assertTrue(query.contains("MATCH"));
+    assertTrue(query.contains("CALL apoc.path"));
+
+    // Test with time filters
+    LineageFlags timeFlags = new LineageFlags().setStartTimeMillis(100L).setEndTimeMillis(200L);
+
+    Object resultWithTime = method.invoke(service, dataset1Urn, upstreamFilters, 2, timeFlags);
+    assertNotNull(resultWithTime);
+
+    // Get the query string
+    String timeFilteredQuery = (String) firstMethod.invoke(resultWithTime);
+
+    // Verify the query contains the time filtering logic
+    assertNotNull(timeFilteredQuery);
+    assertTrue(timeFilteredQuery.contains("$startTimeMillis"));
+    assertTrue(timeFilteredQuery.contains("$endTimeMillis"));
+  }
+
+  /**
+   * Tests that the computeEntityTypeWhereClause method correctly handles Set<String> parameters
+   * instead of List<String> parameters
+   */
+  @Test
+  public void testComputeEntityTypeWhereClause() throws Exception {
+    Neo4jGraphService service = (Neo4jGraphService) getGraphService();
+
+    // Create a reflection method to access the private method
+    java.lang.reflect.Method method =
+        Neo4jGraphService.class.getDeclaredMethod(
+            "computeEntityTypeWhereClause", Set.class, Set.class);
+    method.setAccessible(true);
+
+    // Test with empty source and destination types
+    Set<String> emptySet = Collections.emptySet();
+    String emptyResult = (String) method.invoke(service, emptySet, emptySet);
+    assertEquals(emptyResult, " WHERE left(type(r), 2)<>'r_' ");
+
+    // Test with only source types
+    Set<String> sourceTypes = new HashSet<>(Arrays.asList("dataset", "dataJob"));
+    String sourceOnlyResult = (String) method.invoke(service, sourceTypes, emptySet);
+
+    // Verify the result contains the source type conditions
+    assertTrue(sourceOnlyResult.contains("src:dataset"));
+    assertTrue(sourceOnlyResult.contains("src:dataJob"));
+    assertTrue(sourceOnlyResult.contains(" OR "));
+
+    // Test with only destination types
+    Set<String> destTypes = new HashSet<>(Arrays.asList("user", "tag"));
+    String destOnlyResult = (String) method.invoke(service, emptySet, destTypes);
+
+    // Verify the result contains the destination type conditions
+    assertTrue(destOnlyResult.contains("dest:user"));
+    assertTrue(destOnlyResult.contains("dest:tag"));
+    assertTrue(destOnlyResult.contains(" OR "));
+
+    // Test with both source and destination types
+    String bothResult = (String) method.invoke(service, sourceTypes, destTypes);
+
+    // Verify the result contains both the source and destination type conditions
+    assertTrue(bothResult.contains("src:dataset"));
+    assertTrue(bothResult.contains("src:dataJob"));
+    assertTrue(bothResult.contains("dest:user"));
+    assertTrue(bothResult.contains("dest:tag"));
+    assertTrue(bothResult.contains(" AND "));
+  }
+
+  /** Test the GraphFilters parameter in findRelatedEntities method */
+  @Test
+  public void testFindRelatedEntitiesWithGraphFilters() throws Exception {
+    DatasetUrn datasetUrn =
+        new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
+    TagUrn tagUrn = new TagUrn("newTag");
+    Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
+    getGraphService().addEdge(edge);
+
+    // Create GraphFilters
+    Set<String> sourceTypes = Set.of(datasetType);
+    Filter sourceFilter = newFilter(Collections.singletonMap("urn", datasetUrn.toString()));
+    Set<String> destTypes = Set.of("tag");
+    Filter destFilter = EMPTY_FILTER;
+    Set<String> relationshipTypes = Set.of(TAG_RELATIONSHIP);
+    RelationshipFilter relationshipFilter =
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING);
+
+    GraphFilters graphFilters =
+        new GraphFilters(
+            sourceFilter,
+            destFilter,
+            sourceTypes,
+            destTypes,
+            relationshipTypes,
+            relationshipFilter);
+
+    // Query with GraphFilters
+    RelatedEntitiesResult result =
+        ((Neo4jGraphService) getGraphService())
+            .findRelatedEntities(operationContext, graphFilters, 0, 100);
+
+    assertEquals(result.getTotal(), 1);
+    assertEquals(result.getEntities().get(0).getRelationshipType(), TAG_RELATIONSHIP);
+  }
+
+  /** Test the removeEdgesFromNode method with Set<String> parameter instead of List<String> */
+  @Test
+  public void testRemoveEdgesFromNodeWithSetParameter() throws Exception {
+    DatasetUrn datasetUrn =
+        new DatasetUrn(new DataPlatformUrn("snowflake"), "test", FabricType.TEST);
+    TagUrn tagUrn = new TagUrn("newTag");
+    Edge edge = new Edge(datasetUrn, tagUrn, TAG_RELATIONSHIP, null, null, null, null, null);
+    getGraphService().addEdge(edge);
+
+    // Verify edge exists
+    GraphFilters graphFilters =
+        new GraphFilters(
+            newFilter(Collections.singletonMap("urn", datasetUrn.toString())),
+            EMPTY_FILTER,
+            Set.of(datasetType),
+            Set.of("tag"),
+            Set.of(TAG_RELATIONSHIP),
+            newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING));
+
+    RelatedEntitiesResult resultBefore =
+        ((Neo4jGraphService) getGraphService())
+            .findRelatedEntities(operationContext, graphFilters, 0, 100);
+    assertEquals(resultBefore.getTotal(), 1);
+
+    // Now remove edges using Set<String> parameter
+    Set<String> relationshipTypes = Set.of(TAG_RELATIONSHIP);
+    RelationshipFilter relationshipFilter =
+        newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING);
+
+    ((Neo4jGraphService) getGraphService())
+        .removeEdgesFromNode(operationContext, datasetUrn, relationshipTypes, relationshipFilter);
+
+    // Verify edge is removed
+    RelatedEntitiesResult resultAfter =
+        ((Neo4jGraphService) getGraphService())
+            .findRelatedEntities(operationContext, graphFilters, 0, 100);
+    assertEquals(resultAfter.getTotal(), 0);
   }
 }

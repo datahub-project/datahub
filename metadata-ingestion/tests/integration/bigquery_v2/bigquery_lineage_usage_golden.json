@@ -25,44 +25,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetUsageStatistics",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1643846400000,
-            "eventGranularity": {
-                "unit": "DAY",
-                "multiple": 1
-            },
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "uniqueUserCount": 1,
-            "totalSqlQueries": 4,
-            "topSqlQueries": [
-                "create view `bigquery-dataset-1`.`view-1` as select * from `bigquery-dataset-1`.`table-1`",
-                "select * from `bigquery-dataset-1`.`table-1`"
-            ],
-            "userCounts": [
-                {
-                    "user": "urn:li:corpuser:foo",
-                    "count": 4
-                }
-            ],
-            "fieldCounts": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -73,6 +36,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "create view `bigquery-dataset-1`.`view-1` as select * from `bigquery-dataset-1`.`table-1`",
                 "language": "SQL"
@@ -90,23 +54,46 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)",
+    "entityType": "query",
+    "entityUrn": "urn:li:query:176428c30cc3197730c20f6d0161efe869a0a041876d23c044aa2cd60d4c7a12",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "querySubjects",
     "aspect": {
         "json": {
-            "removed": false
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.view-1,PROD)"
+                }
+            ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:176428c30cc3197730c20f6d0161efe869a0a041876d23c044aa2cd60d4c7a12",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -138,23 +125,44 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "query",
-    "entityUrn": "urn:li:query:176428c30cc3197730c20f6d0161efe869a0a041876d23c044aa2cd60d4c7a12",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "datasetUsageStatistics",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:bigquery"
+            "timestampMillis": 1643846400000,
+            "eventGranularity": {
+                "unit": "DAY",
+                "multiple": 1
+            },
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "uniqueUserCount": 1,
+            "totalSqlQueries": 4,
+            "topSqlQueries": [
+                "select * from `bigquery-dataset-1`.`table-1`",
+                "create view `bigquery-dataset-1`.`view-1` as select * from `bigquery-dataset-1`.`table-1`"
+            ],
+            "userCounts": [
+                {
+                    "user": "urn:li:corpuser:foo",
+                    "count": 4
+                }
+            ],
+            "fieldCounts": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -190,30 +198,34 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "query",
-    "entityUrn": "urn:li:query:176428c30cc3197730c20f6d0161efe869a0a041876d23c044aa2cd60d4c7a12",
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.view-1,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "querySubjects",
+    "aspectName": "operation",
     "aspect": {
         "json": {
-            "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.view-1,PROD)"
-                }
+            "timestampMillis": 1643871600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "actor": "urn:li:corpuser:foo",
+            "operationType": "CREATE",
+            "sourceType": "DATA_PLATFORM",
+            "lastUpdatedTimestamp": 1643871600000,
+            "queries": [
+                "urn:li:query:176428c30cc3197730c20f6d0161efe869a0a041876d23c044aa2cd60d4c7a12"
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -224,6 +236,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "select * from `bigquery-dataset-1`.`table-1`",
                 "language": "SQL"
@@ -241,23 +254,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:176428c30cc3197730c20f6d0161efe869a0a041876d23c044aa2cd60d4c7a12",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -277,7 +274,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:23f1935934face229de381fad193e390153180bf1e7afaa6db58e91fc28d0021",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -309,7 +322,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -320,6 +333,7 @@
     "aspectName": "queryProperties",
     "aspect": {
         "json": {
+            "customProperties": {},
             "statement": {
                 "value": "select * from `bigquery-dataset-1`.`view-1`\nLIMIT 100\n-- {\"user\":\"@bar\",\"email\":\"bar@xyz.com\",\"url\":\"https://modeanalytics.com/acryltest/reports/6234ff78bc7d/runs/662b21949629/queries/f0aad24d5b37\",\"scheduled\":false}\n",
                 "language": "SQL"
@@ -337,23 +351,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:23f1935934face229de381fad193e390153180bf1e7afaa6db58e91fc28d0021",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:bigquery"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -373,7 +371,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -389,7 +387,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -421,33 +419,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.view-1,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,project-id-1.bigquery-dataset-1.table-1,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "operation",
+    "aspectName": "status",
     "aspect": {
         "json": {
-            "timestampMillis": 1643871600000,
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "actor": "urn:li:corpuser:foo",
-            "operationType": "CREATE",
-            "customProperties": {
-                "query_urn": "urn:li:query:176428c30cc3197730c20f6d0161efe869a0a041876d23c044aa2cd60d4c7a12"
-            },
-            "lastUpdatedTimestamp": 1643871600000
+            "removed": false
         }
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -463,7 +451,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:176428c30cc3197730c20f6d0161efe869a0a041876d23c044aa2cd60d4c7a12",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -479,7 +483,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -495,7 +499,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -517,7 +521,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1643871600000,
-        "runId": "bigquery-2022_02_03-07_00_00",
+        "runId": "bigquery-2022_02_03-07_00_00-6mhnuz",
         "lastRunId": "no-run-id-provided"
     }
 }

@@ -792,6 +792,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         datajob = DataJob(
             id=connector.connector_id,
             flow_urn=dataflow_urn,
+            platform_instance=self.config.platform_instance,
             name=connector_name,
             description=description,
             owners=owner_set,

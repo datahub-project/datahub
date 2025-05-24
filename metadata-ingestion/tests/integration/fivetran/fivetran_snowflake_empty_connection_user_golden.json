@@ -1,7 +1,7 @@
 [
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -26,7 +26,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -42,7 +42,24 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -63,7 +80,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -79,7 +96,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -115,7 +132,24 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -131,7 +165,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -223,7 +257,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -244,7 +278,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -287,7 +321,7 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
             "upstreamInstances": []
         }
     },
@@ -300,6 +334,23 @@
 {
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -410,8 +461,25 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
             "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:be36f55c13ec4e313c7510770e50784a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
         }
     },
     "systemMetadata": {
@@ -533,7 +601,7 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,calendar_elected,PROD),calendar_elected)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.calendar_elected,PROD),calendar_elected)",
             "upstreamInstances": []
         }
     },
@@ -546,6 +614,23 @@
 {
     "entityType": "dataProcessInstance",
     "entityUrn": "urn:li:dataProcessInstance:ee88d32dbe3133a23a9023c097050190",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:d8f100271d2dc3fa905717f82d083c8d",
     "changeType": "UPSERT",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
@@ -629,7 +714,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -654,7 +739,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -670,7 +755,24 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -691,7 +793,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
+    "entityUrn": "urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -707,7 +809,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -743,7 +845,24 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -759,7 +878,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -794,7 +913,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
@@ -815,7 +934,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -858,8 +977,25 @@
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
         "json": {
-            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
+            "parentTemplate": "urn:li:dataJob:(urn:li:dataFlow:(fivetran,my-fivetran.my_confluent_cloud_connector_id,PROD),my_confluent_cloud_connector_id)",
             "upstreamInstances": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1654621200000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:08bddbc8007d76bfbbb8e231d1c65290",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:fivetran",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:fivetran,my-fivetran)"
         }
     },
     "systemMetadata": {

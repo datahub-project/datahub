@@ -1,11 +1,13 @@
-import React from 'react';
 import { FolderOutlined, RightOutlined } from '@ant-design/icons';
-import styled from 'styled-components/macro';
 import { Maybe } from 'graphql/jsutils/Maybe';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { EntityType } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
-import { useEntityRegistry } from '../useEntityRegistry';
+import styled from 'styled-components/macro';
+
+import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { EntityType } from '@types';
 
 const ItemWrapper = styled.div`
     transition: 0.15s;
