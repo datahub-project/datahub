@@ -8,7 +8,12 @@ import static org.testng.Assert.*;
 
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.EntitySpec;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.common.Owner;
+import com.linkedin.common.OwnerArray;
+import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -104,8 +109,20 @@ public class IngestTestUtils {
     return result;
   }
 
+  public static Ownership getTestOwnership() {
+    final Urn actorUrn = Urn.createFromTuple(Constants.CORP_USER_ENTITY_NAME, "test");
+
+    final Ownership ownership =
+        new Ownership()
+            .setOwners(
+                new OwnerArray(
+                    ImmutableList.of(
+                        new Owner().setType(OwnershipType.DATAOWNER).setOwner(actorUrn))));
+    return ownership;
+  }
+
   public static void verifyTestIngestionSourceGraphQL(
-      IngestionSource ingestionSource, DataHubIngestionSourceInfo info) {
+      IngestionSource ingestionSource, DataHubIngestionSourceInfo info, Ownership ownership) {
     assertEquals(ingestionSource.getUrn(), TEST_INGESTION_SOURCE_URN.toString());
     assertEquals(ingestionSource.getName(), info.getName());
     assertEquals(ingestionSource.getType(), info.getType());
@@ -114,6 +131,10 @@ public class IngestTestUtils {
     assertEquals(ingestionSource.getConfig().getVersion(), info.getConfig().getVersion());
     assertEquals(ingestionSource.getSchedule().getInterval(), info.getSchedule().getInterval());
     assertEquals(ingestionSource.getSchedule().getTimezone(), info.getSchedule().getTimezone());
+    assertEquals(
+        ingestionSource.getOwnership().getLastModified().getTime(),
+        ownership.getLastModified().getTime());
+    assertEquals(ingestionSource.getOwnership().getOwners().size(), ownership.getOwners().size());
   }
 
   public static void verifyTestSecretGraphQL(Secret secret, DataHubSecretValue value) {

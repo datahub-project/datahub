@@ -6,6 +6,7 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.Ownership;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.entity.Aspect;
@@ -36,6 +37,7 @@ public class ListIngestionSourceResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     DataHubIngestionSourceInfo returnedInfo = getTestIngestionSourceInfo();
+    Ownership ownership = getTestOwnership();
     final DataHubIngestionSourceKey key = new DataHubIngestionSourceKey();
     key.setId("test");
 
@@ -65,7 +67,8 @@ public class ListIngestionSourceResolverTest {
                 Mockito.eq(
                     ImmutableSet.of(
                         Constants.INGESTION_INFO_ASPECT_NAME,
-                        Constants.INGESTION_SOURCE_KEY_ASPECT_NAME))))
+                        Constants.INGESTION_SOURCE_KEY_ASPECT_NAME,
+                        Constants.OWNERSHIP_ASPECT_NAME))))
         .thenReturn(
             ImmutableMap.of(
                 TEST_INGESTION_SOURCE_URN,
@@ -78,7 +81,9 @@ public class ListIngestionSourceResolverTest {
                                 Constants.INGESTION_INFO_ASPECT_NAME,
                                 new EnvelopedAspect().setValue(new Aspect(returnedInfo.data())),
                                 Constants.INGESTION_SOURCE_KEY_ASPECT_NAME,
-                                new EnvelopedAspect().setValue(new Aspect(key.data())))))));
+                                new EnvelopedAspect().setValue(new Aspect(key.data())),
+                                Constants.OWNERSHIP_ASPECT_NAME,
+                                new EnvelopedAspect().setValue(new Aspect(ownership.data())))))));
     ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
 
     // Execute resolver
@@ -94,7 +99,7 @@ public class ListIngestionSourceResolverTest {
     assertEquals(resolver.get(mockEnv).get().getTotal(), 1);
     assertEquals(resolver.get(mockEnv).get().getIngestionSources().size(), 1);
     verifyTestIngestionSourceGraphQL(
-        resolver.get(mockEnv).get().getIngestionSources().get(0), returnedInfo);
+        resolver.get(mockEnv).get().getIngestionSources().get(0), returnedInfo, ownership);
   }
 
   @Test

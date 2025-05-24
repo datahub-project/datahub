@@ -47,7 +47,8 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
                       context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       new HashSet<>(ImmutableSet.of(urn)),
-                      ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME));
+                      ImmutableSet.of(
+                          Constants.INGESTION_INFO_ASPECT_NAME, Constants.OWNERSHIP_ASPECT_NAME));
               if (!entities.containsKey(urn)) {
                 // No ingestion source found
                 throw new DataHubGraphQLException(
@@ -55,7 +56,7 @@ public class GetIngestionSourceResolver implements DataFetcher<CompletableFuture
                     DataHubGraphQLErrorCode.NOT_FOUND);
               }
               // Ingestion source found
-              return IngestionResolverUtils.mapIngestionSource(entities.get(urn));
+              return IngestionResolverUtils.mapIngestionSource(context, entities.get(urn));
             } catch (Exception e) {
               throw new RuntimeException("Failed to retrieve ingestion source", e);
             }

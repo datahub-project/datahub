@@ -261,6 +261,7 @@ export const IngestionSourceList = () => {
                         },
                         platform: null,
                         executions: null,
+                        ownership: null,
                     };
                     addToListIngestionSourcesCache(client, newSource, pageSize, query);
                     setTimeout(() => {

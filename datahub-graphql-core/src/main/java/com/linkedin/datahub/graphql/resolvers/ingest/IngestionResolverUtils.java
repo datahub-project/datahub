@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
+import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
@@ -8,6 +9,7 @@ import com.linkedin.datahub.graphql.generated.IngestionSchedule;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.StringMapEntry;
 import com.linkedin.datahub.graphql.generated.StructuredReport;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StringMapMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -121,11 +123,11 @@ public class IngestionResolverUtils {
   }
 
   public static List<IngestionSource> mapIngestionSources(
-      final Collection<EntityResponse> entities) {
+      final QueryContext context, final Collection<EntityResponse> entities) {
     final List<IngestionSource> results = new ArrayList<>();
     for (EntityResponse response : entities) {
       try {
-        results.add(mapIngestionSource(response));
+        results.add(mapIngestionSource(context, response));
       } catch (IllegalStateException e) {
         log.error("Unable to map ingestion source, continuing to other sources.", e);
       }
@@ -133,7 +135,8 @@ public class IngestionResolverUtils {
     return results;
   }
 
-  public static IngestionSource mapIngestionSource(final EntityResponse ingestionSource) {
+  public static IngestionSource mapIngestionSource(
+      final QueryContext context, final EntityResponse ingestionSource) {
     final Urn entityUrn = ingestionSource.getUrn();
     final EnvelopedAspectMap aspects = ingestionSource.getAspects();
 
@@ -149,7 +152,16 @@ public class IngestionResolverUtils {
     final DataHubIngestionSourceInfo ingestionSourceInfo =
         new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
 
-    return mapIngestionSourceInfo(entityUrn, ingestionSourceInfo);
+    IngestionSource result = mapIngestionSourceInfo(entityUrn, ingestionSourceInfo);
+
+    // Add ownership info
+    final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
+    if (envelopedOwnership != null) {
+      result.setOwnership(
+          OwnershipMapper.map(
+              context, new Ownership(envelopedOwnership.getValue().data()), entityUrn));
+    }
+    return result;
   }
 
   public static IngestionSource mapIngestionSourceInfo(

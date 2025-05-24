@@ -6,6 +6,7 @@ import static org.testng.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.Ownership;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -21,13 +22,13 @@ import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
 public class GetIngestionSourceResolverTest {
-
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     DataHubIngestionSourceInfo returnedInfo = getTestIngestionSourceInfo();
+    Ownership ownership = getTestOwnership();
 
     Mockito.when(
             mockClient.batchGetV2(
@@ -57,7 +58,7 @@ public class GetIngestionSourceResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     // Data Assertions
-    verifyTestIngestionSourceGraphQL(resolver.get(mockEnv).get(), returnedInfo);
+    verifyTestIngestionSourceGraphQL(resolver.get(mockEnv).get(), returnedInfo, ownership);
   }
 
   @Test
