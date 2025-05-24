@@ -82,7 +82,13 @@ ext {
             'quickstartSlim': [
                     profile: 'quickstart-backend',
                     modules: backend_profile_modules + [
-                        ':docker:datahub-ingestion',
+                        ':datahub-actions',
+                    ]
+            ],
+            'quickstartSpark': [
+                    profile: 'quickstart-backend',
+                    modules: backend_profile_modules + [
+                            ':datahub-actions',
                     ],
                     additionalEnv: [
                             'DATAHUB_ACTIONS_IMAGE': 'acryldata/datahub-ingestion',
