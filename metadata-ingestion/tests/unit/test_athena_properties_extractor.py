@@ -662,3 +662,53 @@ class TestAthenaPropertiesExtractorIntegration:
             day_transform = day_transforms[0]
             assert day_transform.column.name == "ts"
             assert day_transform.column.type == "TIMESTAMP"
+
+    def test_complex_real_world_example_with_non_escaped_column_name_and_column_comment(
+        self,
+    ):
+        """Athena's show create table statement doesn't return columns in escaped."""
+        sql = """
+             CREATE TABLE test_schema.test_table (
+                                                                                date___hour timestamp,
+                                                                                month string COMMENT 'Month of the year',
+                                                                                date string,
+                                                                                hourly_forecast bigint,
+                                                                                previous_year's_sales bigint COMMENT Previous year's sales,
+  sheet_name string,
+  _id string)
+LOCATION 's3://analytics-bucket/user-events/'
+TBLPROPERTIES (
+  'table_type'='iceberg',
+  'vacuum_max_snapshot_age_seconds'='60',
+  'write_compression'='gzip',
+  'format'='parquet',
+  'optimize_rewrite_delete_file_threshold'='2',
+  'optimize_rewrite_data_file_threshold'='5',
+  'vacuum_min_snapshots_to_keep'='6'
+)
+"""
+
+        result = AthenaPropertiesExtractor.get_table_properties(sql)
+
+        # Comprehensive validation
+        assert isinstance(result, AthenaTableInfo)
+
+        # Check table properties
+        props = result.table_properties
+        assert props.location == "s3://analytics-bucket/user-events/"
+        assert props.additional_properties is not None
+        assert props.additional_properties.get("table_type") == "iceberg"
+        assert (
+            props.additional_properties.get("vacuum_max_snapshot_age_seconds") == "60"
+        )
+        assert props.additional_properties.get("format") == "parquet"
+        assert props.additional_properties.get("write_compression") == "gzip"
+        assert (
+            props.additional_properties.get("optimize_rewrite_delete_file_threshold")
+            == "2"
+        )
+        assert (
+            props.additional_properties.get("optimize_rewrite_data_file_threshold")
+            == "5"
+        )
+        assert props.additional_properties.get("vacuum_min_snapshots_to_keep") == "6"

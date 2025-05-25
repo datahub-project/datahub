@@ -292,6 +292,11 @@ class AthenaConfig(SQLCommonConfig):
         description="Extract partitions for tables. Partition extraction needs to run a query (`select * from table$partitions`) on the table. Disable this if you don't want to grant select permission.",
     )
 
+    extract_partitions_using_create_statements: bool = pydantic.Field(
+        default=False,
+        description="Extract partitions using the `SHOW CREATE TABLE` statement instead of querying the table's partitions directly. This needs to be enabled to extract Iceberg partitions. If extraction fails it falls back to the default partition extraction. This is experimental.",
+    )
+
     _s3_staging_dir_population = pydantic_renamed_field(
         old_name="s3_staging_dir",
         new_name="query_result_location",
@@ -504,21 +509,27 @@ class AthenaSource(SQLAlchemySource):
     def get_partitions(
         self, inspector: Inspector, schema: str, table: str
     ) -> Optional[List[str]]:
-        if not self.config.extract_partitions:
+        if (
+            not self.config.extract_partitions
+            and not self.extract_partitions_using_create_statements
+        ):
             return None
 
         if not self.cursor:
             return None
 
-        try:
-            partitions = self._get_partitions_create_table(schema, table)
-        except Exception as e:
-            logger.debug(
-                f"Failed to get partitions from create table statement for {schema}.{table}. {schema}.{table}: {e}. Falling back to SQLAlchemy.",
-                exc_info=True,
-            )
+        if self.config.extract_partitions_using_create_statements:
+            try:
+                partitions = self._get_partitions_create_table(schema, table)
+            except Exception as e:
+                logger.debug(
+                    f"Failed to get partitions from create table statement for {schema}.{table}. {schema}.{table}: {e}. Falling back to SQLAlchemy.",
+                    exc_info=True,
+                )
 
-            # If we can't get create table statement, we fall back to SQLAlchemy
+                # If we can't get create table statement, we fall back to SQLAlchemy
+                partitions = self._get_partitions_sqlalchemy(schema, table)
+        else:
             partitions = self._get_partitions_sqlalchemy(schema, table)
 
         if not partitions:
