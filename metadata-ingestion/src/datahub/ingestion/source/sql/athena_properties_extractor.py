@@ -142,6 +142,10 @@ class AthenaPropertiesExtractor:
             raise AthenaPropertiesExtractionError("SQL statement cannot be empty")
 
         try:
+            # We need to do certain transformations on the sql create statement:
+            # - table names are not quoted
+            # - column expression is not quoted
+            # - sql parser fails if partition colums quoted
             fixed_sql = self._fix_sql_partitioning(sql)
             parsed = parse_one(fixed_sql, dialect=Athena)
         except ParseError as e:
@@ -167,6 +171,95 @@ class AthenaPropertiesExtractor:
             ) from e
 
     @staticmethod
+    def format_column_definition(line):
+        # Use regex to parse the line more accurately
+        # Pattern: column_name data_type [COMMENT comment_text] [,]
+        # Use greedy match for comment to capture everything until trailing comma
+        pattern = r"^\s*(.+?)\s+([\s,\w<>\[\]]+)((\s+COMMENT\s+(.+?)(,?))|(,?)\s*)?$"
+        match = re.match(pattern, line, re.IGNORECASE)
+
+        if not match:
+            return line
+        column_name = match.group(1)
+        data_type = match.group(2)
+        comment_part = match.group(5)  # COMMENT part
+        # there are different number of match groups depending on whether comment exists
+        if comment_part:
+            trailing_comma = match.group(6) if match.group(6) else ""
+        else:
+            trailing_comma = match.group(7) if match.group(7) else ""
+
+        # Add backticks to column name if not already present
+        if not (column_name.startswith("`") and column_name.endswith("`")):
+            column_name = f"`{column_name}`"
+
+        # Build the result
+        result_parts = [column_name, data_type]
+
+        if comment_part:
+            comment_part = comment_part.strip()
+
+            # Handle comment quoting and escaping
+            if comment_part.startswith("'") and comment_part.endswith("'"):
+                # Already properly single quoted - keep as is
+                formatted_comment = comment_part
+            elif comment_part.startswith('"') and comment_part.endswith('"'):
+                # Double quoted - convert to single quotes and escape internal single quotes
+                inner_content = comment_part[1:-1]
+                escaped_content = inner_content.replace("'", "''")
+                formatted_comment = f"'{escaped_content}'"
+            else:
+                # Not quoted - add quotes and escape any single quotes
+                escaped_content = comment_part.replace("'", "''")
+                formatted_comment = f"'{escaped_content}'"
+
+            result_parts.extend(["COMMENT", formatted_comment])
+
+        result = " " + " ".join(result_parts) + trailing_comma
+
+        return result
+
+    @staticmethod
+    def format_athena_column_definitions(sql_statement: str) -> str:
+        """
+        Format Athena CREATE TABLE statement by:
+        1. Adding backticks around column names in column definitions (only in the main table definition)
+        2. Quoting comments (if any exist)
+        """
+        lines = sql_statement.split("\n")
+        formatted_lines = []
+
+        in_column_definition = False
+
+        for line in lines:
+            stripped_line = line.strip()
+
+            # Check if we're entering column definitions
+            if "CREATE TABLE" in line.upper() and "(" in line:
+                in_column_definition = True
+                formatted_lines.append(line)
+                continue
+
+            # Check if we're exiting column definitions (closing parenthesis before PARTITIONED BY or end)
+            if in_column_definition and ")" in line:
+                in_column_definition = False
+                formatted_lines.append(line)
+                continue
+
+            # Process only column definitions (not PARTITIONED BY or other sections)
+            if in_column_definition and stripped_line:
+                # Match column definition pattern and format it
+                formatted_line = AthenaPropertiesExtractor.format_column_definition(
+                    line
+                )
+                formatted_lines.append(formatted_line)
+            else:
+                # For all other lines, keep as-is
+                formatted_lines.append(line)
+
+        return "\n".join(formatted_lines)
+
+    @staticmethod
     def _fix_sql_partitioning(sql: str) -> str:
         """Fix SQL partitioning by removing backticks from partition expressions and quoting table names.
 
@@ -180,13 +273,11 @@ class AthenaPropertiesExtractor:
             return sql
 
         # Quote table name
-        table_name_match: Optional[re.Match[str]] = (
-            AthenaPropertiesExtractor.CREATE_TABLE_REGEXP.search(sql)
-        )
+        table_name_match = AthenaPropertiesExtractor.CREATE_TABLE_REGEXP.search(sql)
 
         if table_name_match:
             table_name = table_name_match.group(2).strip()
-            if table_name:
+            if table_name and not (table_name.startswith("`") or "`" in table_name):
                 # Split on dots and quote each part
                 quoted_parts = [
                     f"`{part.strip()}`"
@@ -201,9 +292,7 @@ class AthenaPropertiesExtractor:
                     sql = sql.replace(table_name_match.group(0), create_part)
 
         # Fix partition expressions
-        partition_match: Optional[re.Match[str]] = (
-            AthenaPropertiesExtractor.PARTITIONED_BY_REGEXP.search(sql)
-        )
+        partition_match = AthenaPropertiesExtractor.PARTITIONED_BY_REGEXP.search(sql)
 
         if partition_match:
             partition_section = partition_match.group(2)
@@ -211,7 +300,7 @@ class AthenaPropertiesExtractor:
                 partition_section_modified = partition_section.replace("`", "")
                 sql = sql.replace(partition_section, partition_section_modified)
 
-        return sql
+        return AthenaPropertiesExtractor.format_athena_column_definitions(sql)
 
     @staticmethod
     def _extract_column_types(create_expr: Create) -> Dict[str, str]:
