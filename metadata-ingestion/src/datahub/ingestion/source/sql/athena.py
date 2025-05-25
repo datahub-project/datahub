@@ -511,7 +511,7 @@ class AthenaSource(SQLAlchemySource):
     ) -> Optional[List[str]]:
         if (
             not self.config.extract_partitions
-            and not self.extract_partitions_using_create_statements
+            and not self.config.extract_partitions_using_create_statements
         ):
             return None
 
