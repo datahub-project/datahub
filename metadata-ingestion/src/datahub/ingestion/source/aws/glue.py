@@ -25,6 +25,10 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
+from datahub.api.entities.external.external_entities import (
+    LinkedResourceSet,
+    PlatformResourceRepository,
+)
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
@@ -61,6 +65,12 @@ from datahub.ingestion.source.aws.s3_util import (
     is_s3_uri,
     make_s3_urn,
     make_s3_urn_for_lineage,
+)
+from datahub.ingestion.source.aws.tag_entities import (
+    LakeFormationSystem,
+    LakeFormationTag,
+    LakeFormationTagId,
+    LakeFormationTagSyncContext,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -111,6 +121,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.lossy_collections import LossyList
@@ -168,6 +179,12 @@ class GlueSourceConfig(
         default=False,
         description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
     )
+
+    extract_lakeformation_tags: Optional[bool] = Field(
+        default=True,
+        description="If set to True, extract lakeformation tags for glue tables.",
+    )
+
     profiling: GlueProfilingConfig = Field(
         default_factory=GlueProfilingConfig,
         description="Configs to ingest data profiles from glue table",
@@ -176,6 +193,7 @@ class GlueSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
+
     extract_delta_schema_from_parameters: Optional[bool] = Field(
         default=False,
         description="If enabled, delta schemas can be alternatively fetched from table parameters.",
@@ -198,6 +216,10 @@ class GlueSourceConfig(
     @property
     def s3_client(self):
         return self.get_s3_client()
+
+    @property
+    def lakeformation_client(self):
+        return self.get_lakeformation_client()
 
     @validator("glue_s3_lineage_direction")
     def check_direction(cls, v: str) -> str:
@@ -311,6 +333,8 @@ class GlueSource(StatefulIngestionSourceBase):
     source_config: GlueSourceConfig
     report: GlueSourceReport
 
+    lf_tag_cache: Dict[str, List[str]] = {}
+
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.ctx = ctx
@@ -320,8 +344,163 @@ class GlueSource(StatefulIngestionSourceBase):
         self.report.catalog_id = self.source_config.catalog_id
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
+        # Initialize Lake Formation client
+        self.lf_client = config.lakeformation_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
+
+        self.platform_resource_repository: Optional[PlatformResourceRepository] = None
+        if self.ctx.graph:
+            self.platform_resource_repository = PlatformResourceRepository(
+                self.ctx.graph
+            )
+
+            self.lakeformation_system = LakeFormationSystem(aws_config=config)
+        self.cache_lf_tags()
+
+    def cache_lf_tags(self) -> None:
+        """
+        Efficiently retrieve all resources with Lake Formation tags using batch operations
+        to minimize API calls.
+
+        Returns:
+            dict: Dictionary of resources and their associated LF-Tags
+        """
+        all_lf_tags = self.get_all_lf_tags()
+
+        # 2. Create expressions to search for resources with multiple tags at once
+        resources_with_tags: Dict = {}
+        self.get_lf_table_tags(all_lf_tags, resources_with_tags)
+        self.get_lf_database_tags(all_lf_tags, resources_with_tags)
+
+        self.lf_tag_cache = resources_with_tags
+
+    def get_lf_table_tags(
+        self,
+        all_lf_tags: List[Dict],
+        resources_with_tags: Dict[str, Dict[str, List[str]]],
+    ) -> None:
+        batch_size = (
+            5  # AWS typically limits the number of expressions in a single call
+        )
+        # Process tags in batches to minimize API calls
+        for i in range(0, len(all_lf_tags), batch_size):
+            batch_tags = all_lf_tags[i : i + batch_size]
+
+            # Create a combined expression for this batch of tags
+            expression = []
+            for tag in batch_tags:
+                tag_key = tag["TagKey"]
+                # Include all values for this key in one expression element
+                expression.append({"TagKey": tag_key, "TagValues": tag["TagValues"]})
+
+            # Skip if empty expression
+            if not expression:
+                continue
+
+            # Search for resources with these tags
+            search_response = self.lf_client.search_tables_by_lf_tags(
+                Expression=expression, MaxResults=50
+            )
+
+            # Process the found resources
+            self.process_search_results(search_response, resources_with_tags)
+
+            # Handle pagination
+            while "NextToken" in search_response:
+                search_response = self.lf_client.search_tables_by_lf_tags(
+                    Expression=expression,
+                    NextToken=search_response["NextToken"],
+                    MaxResults=50,
+                )
+                self.process_search_results(search_response, resources_with_tags)
+
+    def get_lf_database_tags(self, all_lf_tags, resources_with_tags):
+        batch_size = (
+            5  # AWS typically limits the number of expressions in a single call
+        )
+        # Process tags in batches to minimize API calls
+        for i in range(0, len(all_lf_tags), batch_size):
+            batch_tags = all_lf_tags[i : i + batch_size]
+
+            # Create a combined expression for this batch of tags
+            expression = []
+            for tag in batch_tags:
+                tag_key = tag["TagKey"]
+                # Include all values for this key in one expression element
+                expression.append({"TagKey": tag_key, "TagValues": tag["TagValues"]})
+
+            # Skip if empty expression
+            if not expression:
+                continue
+
+            # Search for resources with these tags
+            search_response = self.lf_client.search_databases_by_lf_tags(
+                Expression=expression, MaxResults=50
+            )
+
+            # Process the found resources
+            self.process_search_results(search_response, resources_with_tags)
+
+            # Handle pagination
+            while "NextToken" in search_response:
+                search_response = self.lf_client.search_databases_by_lf_tags(
+                    Expression=expression,
+                    NextToken=search_response["NextToken"],
+                    MaxResults=50,
+                )
+                self.process_search_results(search_response, resources_with_tags)
+
+    def get_all_lf_tags(self):
+        # 1. Get all LF-Tags in your account (metadata only)
+        response = self.lf_client.list_lf_tags(
+            MaxResults=50  # Adjust as needed
+        )
+        all_lf_tags = response["LFTags"]
+        # Continue pagination if necessary
+        while "NextToken" in response:
+            response = self.lf_client.list_lf_tags(
+                NextToken=response["NextToken"], MaxResults=50
+            )
+            all_lf_tags.extend(response["LFTags"])
+        return all_lf_tags
+
+    def process_search_results(self, search_response, resources_with_tags):
+        """
+        Helper function to process search results and update the resources dictionary
+
+        Args:
+            search_response (dict): Response from search_tables_by_lf_tags API call
+            resources_with_tags (dict): Dictionary to update with found resources
+        """
+        for table in search_response.get("TableList", []):
+            resource_id = f"{table['Table']['CatalogId']}.{table['Table']['DatabaseName']}.{table['Table']['Name']}"
+            # Extract tag information directly from the response
+            lf_tags = table.get("LFTagsOnTable", [])
+            lf_database_tags = table.get("LFTagOnDatabase", [])
+
+            # Store the tag information
+            existing_tags = {}
+            if resource_id in resources_with_tags:
+                # Merge tags (avoiding duplicates)
+                existing_tags = resources_with_tags[resource_id]
+
+            # Add LF-Tags to the resource
+            for lf_tag in lf_tags:
+                tag_key = f"{lf_tag['CatalogId']}.{lf_tag['TagKey']}"
+                tag_values = lf_tag["TagValues"]
+                existing_tags[tag_key] = tag_values
+
+            for db_lf_tag in lf_database_tags:
+                tag_key = f"{db_lf_tag['CatalogId']}.{db_lf_tag['TagKey']}"
+                tag_values = db_lf_tag["TagValues"]
+                if tag_key not in existing_tags:
+                    existing_tags[tag_key] = tag_values
+
+            if existing_tags:
+                resources_with_tags[resource_id] = existing_tags
+
+        return resources_with_tags
 
     def get_glue_arn(
         self, account_id: str, database: str, table: Optional[str] = None
@@ -869,7 +1048,7 @@ class GlueSource(StatefulIngestionSourceBase):
         table_stats: dict,
         column_stats: dict,
         partition_spec: Optional[str] = None,
-    ) -> MetadataChangeProposalWrapper:
+    ) -> Optional[MetadataChangeProposalWrapper]:
         assert self.source_config.profiling
 
         # instantiate profile class
@@ -936,6 +1115,14 @@ class GlueSource(StatefulIngestionSourceBase):
 
             dataset_profile.fieldProfiles.append(column_profile)
 
+        # if no stats are available, skip ingestion
+        if (
+            not dataset_profile.fieldProfiles
+            and dataset_profile.rowCount is None
+            and dataset_profile.columnCount is None
+        ):
+            return None
+
         if partition_spec:
             # inject partition level stats
             dataset_profile.partitionSpec = PartitionSpecClass(
@@ -990,18 +1177,20 @@ class GlueSource(StatefulIngestionSourceBase):
                     if self.source_config.profiling.partition_patterns.allowed(
                         partition_spec
                     ):
-                        yield self._create_profile_mcp(
+                        profile_mcp = self._create_profile_mcp(
                             mce, table_stats, column_stats, partition_spec
-                        ).as_workunit()
+                        )
+                        if profile_mcp:
+                            yield profile_mcp.as_workunit()
                     else:
                         continue
             else:
                 # ingest data profile without partition
                 table_stats = response["Table"]["Parameters"]
                 column_stats = response["Table"]["StorageDescriptor"]["Columns"]
-                yield self._create_profile_mcp(
-                    mce, table_stats, column_stats
-                ).as_workunit()
+                profile_mcp = self._create_profile_mcp(mce, table_stats, column_stats)
+                if profile_mcp:
+                    yield profile_mcp.as_workunit()
 
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
@@ -1299,6 +1488,73 @@ class GlueSource(StatefulIngestionSourceBase):
                 and (columns[0].get("Type", "") == "array<string>")
             )
 
+        def get_lake_formation_tags_for_glue_resource(resource_arn):
+            """
+            Extract Lake Formation tags for a specific Glue resource.
+
+            Args:
+                resource_arn (str): ARN of the Glue resource
+
+            Returns:
+                list: List of tag key-value pairs
+            """
+            try:
+                # Get the resource LF-Tags
+                response = self.lf_client.get_resource_lf_tags(
+                    Resource={
+                        "Table": {
+                            "CatalogId": resource_arn.split(":")[4],
+                            "DatabaseName": resource_arn.split(":")[5].split("/")[0],
+                            "Name": resource_arn.split(":")[5].split("/")[1],
+                        }
+                    }
+                )
+
+                return (
+                    response["LFTagOnDatabase"]
+                    if "LFTagOnDatabase" in response
+                    else response["LFTagsOnTable"]
+                )
+
+            except Exception as e:
+                print(f"Error getting Lake Formation tags: {e}")
+                return []
+
+        def list_all_resources_with_lf_tags():
+            """
+            List all resources with their Lake Formation tags.
+
+            Args:
+
+            Returns:
+                dict: Dictionary of resources and their tags
+            """
+            # Get all databases
+            # databases = self.glue_client.get_databases()['DatabaseList']
+
+            resources_with_tags: Dict = {}
+
+            # Process databases
+            # for db in databases:
+            # db_name = db['Name']
+
+            # Get tables in this database
+            # tables = self.glue_client.get_tables(DatabaseName=db_name)['TableList']
+
+            # Process tables
+            # for table in tables:
+            # table_name = table['Name']
+            # region_name = table['Region']
+            # resource_arn = f"arn:aws:glue:{region_name}:{boto3.client('sts').get_caller_identity()['Account']}:table/{db_name}/{table_name}"
+
+            # Get tags for this resource
+            # tags = get_lake_formation_tags_for_glue_resource(resource_arn, region_name)
+
+            # if tags:
+            #   resources_with_tags[resource_arn] = tags
+
+            return resources_with_tags
+
         def get_schema_metadata() -> Optional[SchemaMetadata]:
             # As soon as the hive integration with Spark is correctly providing the schema as expected in the
             # StorageProperties, the alternative path to fetch schema from table parameters for delta schemas can be removed.
@@ -1453,8 +1709,89 @@ class GlueSource(StatefulIngestionSourceBase):
             if s3_tags is not None:
                 dataset_snapshot.aspects.append(s3_tags)
 
+        if (
+            self.source_config.extract_lakeformation_tags
+            or self.source_config.extract_lakeformation_tags
+        ):
+            if self.lf_tag_cache:
+                lf_tags: Dict = self.lf_tag_cache.get(
+                    f"{table['CatalogId']}.{table['DatabaseName']}.{table['Name']}", {}
+                )
+                tag_urns = []
+                for tag_key, tag_values in lf_tags.items():
+                    for tag_value in tag_values:
+                        tag_urn = make_tag_urn(
+                            f"""{tag_key.split(".", 1)[-1]}:{tag_value}"""
+                        )
+                        tag_sync_context = LakeFormationTagSyncContext(
+                            catalog_id=table.get("CatalogId"),
+                        )
+
+                        lake_formation_tag_id = LakeFormationTagId.from_datahub_tag(
+                            tag_urn=TagUrn.from_string(tag_urn),
+                            tag_sync_context=tag_sync_context,
+                        )
+                        lake_formation_tag = self.lakeformation_system.get(
+                            lake_formation_tag_id, self.platform_resource_repository
+                        )
+                        if not lake_formation_tag:
+                            linked_resource_set = LinkedResourceSet(urns=[tag_urn])
+                            linked_resource_set.add(tag_urn)
+                            lake_formation_tag = LakeFormationTag(
+                                datahub_urns=linked_resource_set,
+                                managed_by_datahub=False,
+                                id=lake_formation_tag_id,
+                                allowed_values=None,
+                            )
+                            logger.info(
+                                f"Lakeformation tag {tag_urn} not found in platform_resource_repository. Creating new one..."
+                            )
+                        else:
+                            try:
+                                ret = lake_formation_tag.datahub_linked_resources().add(
+                                    tag_urn
+                                )
+                            except ValueError as e:
+                                logger.error(f"Failed to add tag {tag_urn}. Error: {e}")
+                                return
+                            if ret:
+                                logger.info(
+                                    f"LakeFormation tag {tag_urn} added in platform_resource_repository"
+                                )
+                            else:
+                                logger.info(
+                                    f"LakeFormation tag {tag_urn} already exists in platform_resource_repository"
+                                )
+                                return
+                        if not lake_formation_tag:
+                            return
+
+                        platform_resource = lake_formation_tag.as_platform_resource()
+
+                        for mcp in platform_resource.to_mcps():
+                            yield mcp.as_workunit()
+
+                        tag_urns.append(TagAssociationClass(tag_urn))
+                if tag_urns:
+                    dataset_snapshot.aspects.append(GlobalTagsClass(tags=tag_urns))
+
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        return metadata_record
+        yield MetadataWorkUnit(table_name, mce=metadata_record)
+
+        wu = self.get_lineage_if_enabled(metadata_record)
+        if wu:
+            yield wu
+
+        try:
+            yield from self.get_profile_if_enabled(
+                metadata_record, table["DatabaseName"], table_name
+            )
+        except KeyError as e:
+            self.report.report_failure(
+                message="Failed to extract profile for table",
+                context=f"Table: {dataset_urn}",
+                exc=e,
+            )
 
     def get_report(self):
         return self.report
