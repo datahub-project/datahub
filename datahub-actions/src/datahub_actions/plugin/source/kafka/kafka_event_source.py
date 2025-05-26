@@ -96,6 +96,8 @@ class KafkaEventSourceConfig(ConfigModel):
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
+    # MSK Auth - Simplified for AWS_MSK_IAM only
+    sasl_mechanism: Optional[str] = None  # Expected to be 'AWS_MSK_IAM' if SASL is used
 
 
 def kafka_messages_observer(pipeline_name: str) -> Callable:
@@ -136,22 +138,44 @@ class KafkaEventSource(EventSource):
                 self.source_config.async_commit_interval
             )
 
+        consumer_config: Dict[str, Any] = {
+            # Provide a custom group id to subcribe to multiple partitions via separate actions pods.
+            "group.id": ctx.pipeline_name,
+            "bootstrap.servers": self.source_config.connection.bootstrap,
+            "enable.auto.commit": False,  # We manually commit offsets.
+            "auto.offset.reset": "latest",  # Latest by default, unless overwritten.
+            "value.deserializer": AvroDeserializer(
+                schema_registry_client=self.schema_registry_client,
+                return_record_name=True,
+            ),
+            "session.timeout.ms": "10000",  # 10s timeout.
+            "max.poll.interval.ms": "10000",  # 10s poll max.
+            **self.source_config.connection.consumer_config,
+            **async_commit_config,
+        }
+
+        if self.source_config.sasl_mechanism:
+            if self.source_config.sasl_mechanism == "AWS_MSK_IAM":
+                consumer_config["security.protocol"] = "SASL_SSL"
+                consumer_config["sasl.mechanism"] = "AWS_MSK_IAM"
+                consumer_config["sasl.client.callback.handler.class"] = (
+                    "software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+                )
+                # The following is sometimes aliased or covered by the client callback handler and jaas config
+                # consumer_config[
+                #     "sasl.login.callback.handler.class"
+                # ] = "software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+                consumer_config["sasl.jaas.config"] = (
+                    "software.amazon.msk.auth.iam.IAMLoginModule required;"
+                )
+            else:
+                logger.warning(
+                    f"Unsupported SASL mechanism: {self.source_config.sasl_mechanism}. "
+                    f"Only AWS_MSK_IAM is supported in this simplified configuration."
+                )
+
         self.consumer: confluent_kafka.Consumer = confluent_kafka.DeserializingConsumer(
-            {
-                # Provide a custom group id to subcribe to multiple partitions via separate actions pods.
-                "group.id": ctx.pipeline_name,
-                "bootstrap.servers": self.source_config.connection.bootstrap,
-                "enable.auto.commit": False,  # We manually commit offsets.
-                "auto.offset.reset": "latest",  # Latest by default, unless overwritten.
-                "value.deserializer": AvroDeserializer(
-                    schema_registry_client=self.schema_registry_client,
-                    return_record_name=True,
-                ),
-                "session.timeout.ms": "10000",  # 10s timeout.
-                "max.poll.interval.ms": "10000",  # 10s poll max.
-                **self.source_config.connection.consumer_config,
-                **async_commit_config,
-            }
+            consumer_config
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
 
