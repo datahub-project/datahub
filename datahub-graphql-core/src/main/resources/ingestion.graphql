@@ -201,11 +201,16 @@ type StructuredReport {
 """
 Retrieve an ingestion execution request
 """
-type ExecutionRequest {
+type ExecutionRequest implements Entity {
   """
   Urn of the execution request
   """
   urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
 
   """
   Unique id for the execution request
@@ -221,6 +226,16 @@ type ExecutionRequest {
   Result of the execution request
   """
   result: ExecutionRequestResult
+
+  """
+  The ingestion source of this execution request
+  """
+  source: IngestionSource
+
+  """
+  Unused for execution requests
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
