@@ -84,6 +84,7 @@ def test_athena_get_table_properties():
             "s3_staging_dir": "s3://sample-staging-dir/",
             "work_group": "test-workgroup",
             "profiling": {"enabled": True, "partition_profiling_enabled": True},
+            "extract_partitions_using_create_statements": True,
         }
     )
     schema: str = "test_schema"
