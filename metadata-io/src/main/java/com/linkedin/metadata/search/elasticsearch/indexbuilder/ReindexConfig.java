@@ -67,9 +67,9 @@ public class ReindexConfig {
   private final String version;
 
   /* Calculated */
-  private final boolean requiresReindex;
-  private final boolean requiresApplySettings;
-  private final boolean requiresApplyMappings;
+  public boolean requiresReindex;
+  public boolean requiresApplySettings;
+  public boolean requiresApplyMappings;
   private final boolean isPureMappingsAddition;
   private final boolean isSettingsReindex;
   private final boolean hasNewStructuredProperty;

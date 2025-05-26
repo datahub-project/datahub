@@ -243,6 +243,59 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   }
 
   @Test
+  public void testESIndexBuilderReindex() throws Exception {
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    // index with original refresh_interval
+    //    ESIndexBuilder nsecBuilder =
+    //            new ESIndexBuilder(
+    //                    getSearchClient(),
+    //                    1,
+    //                    0,
+    //                    3,
+    //                    2,
+    //                    Map.of(),
+    //                    false,
+    //                    false,
+    //                    false,
+    //                    new ElasticSearchConfiguration(),
+    //                    gitVersion);
+    //    nsecBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    //    String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME,
+    // "index.creation_date");
+    //    // new index
+    //    ESIndexBuilder changedShardBuilder =
+    //        new ESIndexBuilder(
+    //            getSearchClient(),
+    //            Integer.parseInt(expectedShards),
+    //            testDefaultBuilder.getNumReplicas(),
+    //            testDefaultBuilder.getNumRetries(),
+    //            testDefaultBuilder.getRefreshIntervalSeconds(),
+    //            Map.of(),
+    //            true,
+    //            false,
+    //            false,
+    //            new ElasticSearchConfiguration(),
+    //            gitVersion);
+    //    // reindex
+    //    ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    //    Map.Entry<String, List<AliasMetadata>> newIndex =
+    //        getTestIndex().getAliases().entrySet().stream()
+    //            .filter(
+    //                e ->
+    //                    e.getValue().stream()
+    //                        .anyMatch(aliasMeta -> aliasMeta.alias().equals(TEST_INDEX_NAME)))
+    //            .findFirst()
+    //            .get();
+    //    String afterCreationDate = getTestIndex().getSetting(newIndex.getKey(),
+    // "index.creation_date");
+    //    assertNotEquals(beforeCreationDate, afterCreationDate, "Expected reindex to result in
+    // different timestamp");
+    //    assertEquals(rr, ReindexResult.REINDEXED_SKIPPED_0DOCS);
+    //    long nbdocs = changedShardBuilder.getCount(newIndex.getKey());
+    //    assertEquals(0, nbdocs);
+  }
+
+  @Test
   protected abstract void testCodec() throws Exception;
 
   @Test
