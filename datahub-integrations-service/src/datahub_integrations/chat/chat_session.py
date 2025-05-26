@@ -30,11 +30,19 @@ from datahub_integrations.chat.chat_history import (
 )
 from datahub_integrations.chat.mcp_server import mcp, with_client
 from datahub_integrations.chat.tool import Tool
-from datahub_integrations.gen_ai.bedrock import BedrockModel, get_bedrock_client
+from datahub_integrations.gen_ai.bedrock import (
+    BedrockModel,
+    get_bedrock_client,
+    get_bedrock_model_env_variable,
+)
 
 assert MLFLOW_INITIALIZED
-MAX_TOOL_CALLS = 12
+MAX_TOOL_CALLS = 15
 MESSAGE_LENGTH_SOFT_LIMIT = 2000
+
+_CHATBOT_MODEL = get_bedrock_model_env_variable(
+    "CHATBOT_MODEL", BedrockModel.CLAUDE_37_SONNET
+)
 
 # Mapping of tool names to user-friendly progress messages
 PROGRESS_MESSAGES = {
@@ -231,7 +239,11 @@ class ChatSession:
             tools.append({"cachePoint": {"type": "default"}})
 
         response = bedrock_client.converse(
-            modelId=BedrockModel.CLAUDE_37_SONNET.value,
+            modelId=(
+                _CHATBOT_MODEL.value
+                if isinstance(_CHATBOT_MODEL, BedrockModel)
+                else _CHATBOT_MODEL
+            ),
             system=[
                 {"text": _SYSTEM_PROMPT},
             ],
