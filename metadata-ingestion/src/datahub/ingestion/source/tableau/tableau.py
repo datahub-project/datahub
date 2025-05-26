@@ -115,7 +115,6 @@ from datahub.ingestion.source.tableau.tableau_common import (
     sheet_graphql_query,
     tableau_field_to_schema_field,
     virtual_connection_graphql_query,
-    virtual_connection_map_graphql_query,
     virtual_connection_upstream_fields_graphql_query,
     workbook_graphql_query,
 )
@@ -1353,45 +1352,18 @@ class TableauSiteSource:
         self._init_datasource_registry()
         self._init_workbook_registry()
 
-        # Build VC mappings BEFORE processing any datasources
+        # Build VC mappings after project registry is ready
         if self.config.ingest_virtual_connections:
-            logger.info("🔧 Building virtual connection mappings...")
             self._build_vc_table_mapping()
             self._build_database_table_name_mapping()
 
-            # Verify mappings were built
-            logger.info(
-                f"✅ VC mappings built: {len(self.vc_table_id_to_vc_id)} table mappings"
-            )
-            if not self.vc_table_id_to_vc_id:
-                logger.warning(
-                    "❌ No VC table mappings were built - this may cause lineage issues"
-                )
-
         logger.debug(f"All site projects {all_project_map}")
         logger.debug(f"Projects selected for ingestion {self.tableau_project_registry}")
-        logger.debug(f"Tableau data-sources {self.datasource_project_map}")
-        logger.debug(f"Tableau workbooks {self.workbook_project_map}")
-
-    def _validate_vc_mappings(self) -> None:
-        """Validate that VC mappings are working correctly."""
-        if not self.config.ingest_virtual_connections:
-            return
-
-        logger.info("🔍 Validating VC mappings...")
-
-        # Check if we have any VCs at all
-        if not self.vc_table_id_to_vc_id:
-            logger.warning("❌ No VC table mappings found")
-            return
-
-        # Sample some mappings
-        sample_mappings = list(self.vc_table_id_to_vc_id.items())[:3]
-        for table_id, vc_id in sample_mappings:
-            logger.info(f"✅ Sample mapping: table {table_id} -> VC {vc_id}")
-
-        logger.info(
-            f"✅ VC mapping validation complete: {len(self.vc_table_id_to_vc_id)} mappings"
+        logger.debug(
+            f"Tableau data-sources {self.datasource_project_map}",
+        )
+        logger.debug(
+            f"Tableau workbooks {self.workbook_project_map}",
         )
 
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
@@ -2859,7 +2831,7 @@ class TableauSiteSource:
     def _get_virtual_connection_upstreams(
         self, datasource: dict, datasource_urn: str
     ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
-        """Get VC upstreams with improved ID handling."""
+        """Get VC upstreams for datasource with proper parent reference."""
         datasource_name = datasource.get(c.NAME, "Unknown")
         logger.info(f"🔍 Checking VC upstreams for datasource: {datasource_name}")
 
@@ -2882,39 +2854,16 @@ class TableauSiteSource:
                 if col_table_type == "VirtualConnectionTable":
                     logger.info(f"🎯 Found VC table reference in field {field_name}")
 
-                    vc_id = None
-
-                    # Method 1: Get parent VC using the virtualConnection field
+                    # Get parent VC using the schema-confirmed virtualConnection field
                     virtual_connection = col_table.get("virtualConnection", {})
-                    if virtual_connection:
-                        vc_id = self._get_vc_id_as_string(virtual_connection)
-                        logger.info(
-                            f"        VC ID from virtualConnection field: {vc_id}"
-                        )
+                    vc_id = virtual_connection.get(c.ID)
 
-                    # Method 2: Fallback to our mapping
+                    # Fallback to our mapping if parent reference isn't populated
                     if not vc_id:
-                        col_table_id = (
-                            str(col_table.get(c.ID)) if col_table.get(c.ID) else None
-                        )
-                        if col_table_id:
-                            vc_id = self.vc_table_id_to_vc_id.get(col_table_id)
-                            logger.info(
-                                f"        VC ID from mapping (table {col_table_id}): {vc_id}"
-                            )
+                        col_table_id = col_table.get(c.ID)
+                        vc_id = self.vc_table_id_to_vc_id.get(col_table_id)
 
-                    # Method 3: Name-based fallback
-                    if not vc_id:
-                        col_table_name = col_table.get(c.NAME)
-                        if (
-                            col_table_name
-                            and col_table_name in self.vc_table_name_to_id
-                        ):
-                            mapped_table_id = self.vc_table_name_to_id[col_table_name]
-                            vc_id = self.vc_table_id_to_vc_id.get(mapped_table_id)
-                            logger.info(f"        VC ID from name mapping: {vc_id}")
-
-                    logger.info(f"        Final VC ID: {vc_id}")
+                    logger.info(f"        VC ID: {vc_id}")
 
                     if vc_id and vc_id not in vc_urns_seen:
                         # Create VC upstream
@@ -2936,86 +2885,19 @@ class TableauSiteSource:
                         if vc_id not in self.virtual_connection_ids_being_used:
                             self.virtual_connection_ids_being_used.append(vc_id)
 
-                        logger.info(f"        ✅ Added VC upstream: {vc_urn}")
-
                         # Create field-level lineage if enabled
                         if self.config.extract_column_level_lineage:
                             self._add_vc_to_datasource_field_lineage(
                                 vc_id,
-                                str(col_table.get(c.ID, "")),
+                                col_table.get(c.ID, ""),
                                 upstream_col.get(c.NAME, ""),
                                 datasource_urn,
                                 field_name,
                                 vc_fine_grained_lineages,
                             )
-                    else:
-                        if not vc_id:
-                            logger.warning(
-                                f"        ❌ Could not determine VC ID for table {col_table.get(c.ID)}"
-                            )
 
         logger.info(f"📊 Found {len(vc_upstreams)} VC upstreams for {datasource_name}")
         return vc_upstreams, vc_fine_grained_lineages
-
-    def _debug_vc_field_structure(self, field: dict, field_name: str) -> None:
-        """Debug helper to log field structure for VC detection."""
-        if not logger.isEnabledFor(logging.DEBUG):
-            return
-
-        logger.debug(f"  🔍 Debug field structure for: {field_name}")
-
-        # Log upstream columns
-        upstream_columns = field.get(c.UPSTREAM_COLUMNS, [])
-        logger.debug(f"    📋 Upstream columns count: {len(upstream_columns)}")
-
-        for i, upstream_col in enumerate(upstream_columns):
-            col_name = upstream_col.get(c.NAME, "Unknown")
-            col_table = upstream_col.get(c.TABLE, {})
-            col_table_type = col_table.get(c.TYPE_NAME, "Unknown")
-            col_table_id = col_table.get(c.ID, "Unknown")
-
-            logger.debug(f"      Column #{i + 1}: {col_name}")
-            logger.debug(f"        Table Type: {col_table_type}")
-            logger.debug(f"        Table ID: {col_table_id}")
-
-            if col_table_type == "VirtualConnectionTable":
-                logger.debug("        🎯 VirtualConnectionTable found!")
-                virtual_connection = col_table.get("virtualConnection", {})
-                logger.debug(f"        Virtual Connection field: {virtual_connection}")
-
-                if virtual_connection:
-                    vc_id = virtual_connection.get(c.ID)
-                    vc_name = virtual_connection.get(c.NAME)
-                    vc_luid = virtual_connection.get("luid")
-                    logger.debug(f"          VC ID: {vc_id}")
-                    logger.debug(f"          VC Name: {vc_name}")
-                    logger.debug(f"          VC LUID: {vc_luid}")
-                else:
-                    logger.debug("          ❌ virtualConnection field is empty")
-
-        # Log upstream fields
-        upstream_fields = field.get(c.UPSTREAM_FIELDS, [])
-        logger.debug(f"    📋 Upstream fields count: {len(upstream_fields)}")
-
-        for i, upstream_field in enumerate(upstream_fields):
-            field_name_up = upstream_field.get(c.NAME, "Unknown")
-            upstream_ds = upstream_field.get(c.DATA_SOURCE, {})
-            upstream_ds_type = upstream_ds.get(c.TYPE_NAME, "Unknown")
-            upstream_ds_id = upstream_ds.get(c.ID, "Unknown")
-
-            logger.debug(f"      Field #{i + 1}: {field_name_up}")
-            logger.debug(f"        DS Type: {upstream_ds_type}")
-            logger.debug(f"        DS ID: {upstream_ds_id}")
-
-            if upstream_ds_type == c.VIRTUAL_CONNECTION:
-                logger.debug("        🎯 Virtual Connection datasource found!")
-
-    def _get_vc_id_as_string(self, vc_data: dict) -> Optional[str]:
-        """Safely extract VC ID as string from various data structures."""
-        vc_id = vc_data.get(c.ID)
-        if vc_id is None:
-            return None
-        return str(vc_id)
 
     def _add_vc_to_datasource_field_lineage(
         self,
@@ -5339,55 +5221,55 @@ class TableauSiteSource:
             )
 
     def _build_vc_table_mapping(self) -> None:
-        """Build comprehensive VC table mappings with proper ID handling."""
+        """Build comprehensive VC table mappings."""
         logger.info("🔧 Building VC table mappings...")
 
         try:
+            vc_query = """
+            {
+              id
+              name
+              projectName
+              tables {
+                id
+                name
+                __typename
+              }
+            }
+            """
+
             vc_count = 0
             table_count = 0
 
             for vc in self.get_connection_objects(
-                query=virtual_connection_map_graphql_query,
+                query=vc_query,
                 connection_type=c.VIRTUAL_CONNECTIONS_CONNECTION,
                 page_size=self.config.effective_virtual_connection_page_size,
             ):
                 vc_count += 1
-                vc_id_raw = vc.get(c.ID)
-                vc_id = self._get_vc_id_as_string(vc) if vc_id_raw else None
+                vc_id = vc.get(c.ID)
                 vc_name = vc.get(c.NAME, "Unknown")
-                vc_luid = vc.get("luid", "")
                 vc_project_name = vc.get("projectName")
                 tables = vc.get("tables", [])
 
-                logger.info(f"  📋 VC #{vc_count}: {vc_name}")
-                logger.info(f"      ID: {vc_id}")
-                logger.info(f"      LUID: {vc_luid}")
-                logger.info(f"      Project: {vc_project_name}")
-                logger.info(f"      Tables: {len(tables)}")
-
-                if not vc_id:
-                    logger.error(f"❌ No valid VC ID found for VC {vc_name}")
-                    continue
+                logger.info(
+                    f"  📋 VC #{vc_count}: {vc_name} in project {vc_project_name}"
+                )
 
                 # Map VC to project (find project ID by name)
                 if vc_project_name:
                     for project_id, project in self.tableau_project_registry.items():
                         if project.name == vc_project_name:
-                            self.vc_project_map[vc_id] = project_id
+                            self.vc_project_map[str(vc_id)] = project_id
                             logger.debug(f"    🔗 Mapped to project {project_id}")
                             break
 
                 for table in tables:
-                    table_id_raw = table.get(c.ID)
-                    table_id = str(table_id_raw) if table_id_raw else None
+                    table_id = table.get(c.ID)
                     table_name = table.get(c.NAME, "Unknown")
 
-                    logger.debug(
-                        f"    📋 Processing table: {table_name} (ID: {table_id})"
-                    )
-
                     if table_id and vc_id:
-                        # Table ID → VC ID mapping (both as strings)
+                        # Table ID → VC ID mapping
                         self.vc_table_id_to_vc_id[table_id] = vc_id
 
                         # Name-based mapping for database lineage
@@ -5396,26 +5278,11 @@ class TableauSiteSource:
 
                         table_count += 1
                         logger.debug(
-                            f"      ✅ Mapped: {table_name} ({table_id}) -> VC {vc_id}"
-                        )
-                    else:
-                        logger.warning(
-                            f"      ❌ Missing ID for table {table_name}: table_id={table_id}, vc_id={vc_id}"
+                            f"      🔗 {table_name} ({table_id}) -> VC {vc_id}"
                         )
 
             logger.info(f"✅ Built VC mappings: {vc_count} VCs, {table_count} tables")
-            logger.info("📊 Final mapping counts:")
-            logger.info(f"  VC-Project mappings: {len(self.vc_project_map)}")
-            logger.info(f"  Table-to-VC mappings: {len(self.vc_table_id_to_vc_id)}")
-            logger.info(f"  Table name mappings: {len(self.vc_table_name_to_id)}")
-
-            # Debug output first few mappings
-            if logger.isEnabledFor(logging.DEBUG) and self.vc_table_id_to_vc_id:
-                logger.debug("📋 Sample VC table mappings:")
-                for _i, (table_id, vc_id) in enumerate(
-                    list(self.vc_table_id_to_vc_id.items())[:5]
-                ):
-                    logger.debug(f"  {table_id} -> {vc_id}")
+            logger.info(f"📊 VC-Project mappings: {len(self.vc_project_map)}")
 
         except Exception as e:
             logger.error(f"❌ Failed to build VC table mapping: {e}", exc_info=True)

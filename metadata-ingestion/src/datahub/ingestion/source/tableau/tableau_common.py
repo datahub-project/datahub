@@ -356,48 +356,13 @@ datasource_upstream_fields_graphql_query = """
             __typename
             id
             name
-            fullName
             ... on VirtualConnectionTable {
                 virtualConnection {
                     id
                     name
                     luid
-                    projectName
                 }
             }
-            ... on DatabaseTable {
-                database {
-                    id
-                    name
-                    connectionType
-                }
-                schema
-                connectionType
-            }
-            ... on CustomSQLTable {
-                database {
-                    id
-                    name
-                    connectionType
-                }
-                connectionType
-            }
-        }
-    }
-    upstreamTables {
-        id
-        name
-        fullName
-        schema
-        connectionType
-        description
-        database {
-            id
-            name
-            connectionType
-        }
-        columnsConnection {
-            totalCount
         }
     }
 }
@@ -497,19 +462,6 @@ database_servers_graphql_query = """
     connectionType
     extendedConnectionType
     hostName
-}
-"""
-
-virtual_connection_map_graphql_query = """
-{
-    id
-    name
-    projectName
-    tables {
-        id
-        name
-        __typename
-    }
 }
 """
 
