@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/gx-plugin.yml"
       - "metadata-ingestion-modules/gx-plugin/**"

@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths-ignore:
       - "docs/**"
       - "**.md"
@@ -21,10 +22,10 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
-      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
-      docker_change: ${{ steps.ci-optimize.outputs.docker-change == 'true' }}
+      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name != 'pull_request'}}
+      docker_change: ${{ steps.ci-optimize.outputs.docker-change == 'true' || github.event_name != 'pull_request' }}
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}

@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/dagster-plugin.yml"
       - "metadata-ingestion-modules/dagster-plugin/**"
