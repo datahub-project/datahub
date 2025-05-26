@@ -113,32 +113,15 @@ class LineageClient:
 
         return fuzzy_column_lineage
 
-    # Define overloads to document different use cases
     @overload
     def add_lineage(
         self,
         *,
         upstream: DatasetUrnOrStr,
         downstream: DatasetUrnOrStr,
-    ) -> None:
-        """
-        Add basic dataset-to-dataset lineage without column mapping or transformation details.
-
-        Args:
-            upstream: URN of the upstream dataset
-            downstream: URN of the downstream dataset
-        """
-        ...
-
-    @overload
-    def add_lineage(
-        self,
-        *,
-        upstream: DatasetUrnOrStr,
-        downstream: DatasetUrnOrStr,
-        column_lineage: Union[
-            None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
-        ],
+        column_lineage: Optional[
+            Union[ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]]
+        ] = None,
     ) -> None:
         """
         Add dataset-to-dataset lineage with column-level mapping.
@@ -147,6 +130,10 @@ class LineageClient:
             upstream: URN of the upstream dataset
             downstream: URN of the downstream dataset
             column_lineage: Column-level lineage mapping or auto-generation method
+                       - None: No column mapping
+                       - Dict: Explicit column mapping {downstream_col: [upstream_cols]}
+                       - "auto_fuzzy": Automatically match columns using fuzzy matching
+                       - "auto_strict": Automatically match columns with strict comparison
         """
         ...
 
@@ -230,7 +217,7 @@ class LineageClient:
         query_text: Optional[str] = None,
     ) -> None:
         """
-        Add lineage between any combination of datasets and datajobs.
+        Add lineage between two entities.
 
         This flexible method handles different combinations of entity types:
         - Dataset to Dataset lineage (with optional column mapping and query text)
