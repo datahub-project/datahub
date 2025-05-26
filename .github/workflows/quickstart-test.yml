@@ -1,0 +1,42 @@
+name: Quickstart Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "1 0 * * *" # Run at 1am every day
+  push:
+    branches:
+      - master
+    paths: &quickstart-test-paths
+      - "metadata-ingestion/src/datahub/cli/docker_cli.py"
+      - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - ".github/workflows/quickstart-test.yml"
+      - "docker/quickstart/docker-compose.quickstart-profile.yml"
+  pull_request:
+    branches:
+      - master
+    paths: <<:*quickstart-test-paths
+
+jobs:
+  test-quickstart-pr:
+    name: Test Quickstart on PR
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          ./gradlew :metadata-ingestion:install
+          source metadata-ingestion/venv/bin/activate
+
+      - name: Run quickstart test
+        run: |
+          datahub docker quickstart
+          # TODO: Add actual test steps here
