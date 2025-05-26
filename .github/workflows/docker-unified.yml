@@ -6,6 +6,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
   pull_request:
     branches:
       - "**"
@@ -48,11 +49,11 @@ jobs:
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
       repository_name: ${{ steps.tag.outputs.repository_name }}
-      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
-      actions_change: ${{ steps.ci-optimize.outputs.actions-change == 'true' || github.event_name == 'release' || github.event_name == 'workflow_dispatch'}}
-      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' || github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' }}
+      actions_change: ${{ steps.ci-optimize.outputs.actions-change == 'true' || github.event_name != 'pull_request'}}
+      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' || github.event_name != 'pull_request' }}
       ingestion_base_change: ${{ steps.ci-optimize.outputs.ingestion-base-change == 'true' }}
-      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name == 'release' || github.event_name == 'workflow_dispatch' }}
+      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name != 'pull_request' }}
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       backend_only: ${{ steps.ci-optimize.outputs.backend-only == 'true' }}
@@ -101,7 +102,7 @@ jobs:
         env:
           ENABLE_PUBLISH: >-
             ${{
-               (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || github.event_name == 'release' || (github.event_name == 'push' && github.ref == 'refs/heads/master')) 
+               (github.event_name != 'pull_request')) 
                && ( secrets.ACRYL_DOCKER_PASSWORD != '' )
             }}
         run: |
