@@ -852,7 +852,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                         for aspect_name, aspect_status in aspects.items():
                             if not aspect_status["success"]:
                                 error_msg = (
-                                    f"Unable to validate async write to DataHub GMS: "
+                                    f"Unable to validate async write {trace.trace_id} ({trace.extract_timestamp()}) to DataHub GMS: "
                                     f"Persistence failure for URN '{urn}' aspect '{aspect_name}'. "
                                     f"Status: {aspect_status}"
                                 )
