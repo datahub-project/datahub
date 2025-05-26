@@ -1,0 +1,27 @@
+from datahub.sdk.main_client import DataHubClient
+
+client = DataHubClient.from_env()
+
+upstream_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+downstream_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
+
+query_text = """
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("HighValueFilter").getOrCreate()
+df = spark.read.table("customers")
+high_value = df.filter("lifetime_value > 10000")
+high_value.write.saveAsTable("high_value_customers")
+"""
+
+client.lineage.add_lineage(
+    upstream=upstream_urn,
+    downstream=downstream_urn,
+    query_text=query_text,
+    column_lineage={"id": ["id", "customer_id"]},
+)
+
+# by passing the query_text, the query node will be created with the table level lineage.
+# query_text can be any transformation logic e.g. a spark job, an airflow DAG, python script, etc.
+# if you have a SQL query, we recommend using add_dataset_lineage_from_sql instead.
+# note that query_text itself will not create a column level lineage.

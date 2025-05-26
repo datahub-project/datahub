@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from datahub.errors import SdkUsageError
 from datahub.metadata.schema_classes import (
     OtherSchemaClass,
     SchemaFieldClass,
@@ -11,6 +12,8 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
+
+# from datahub.metadata.urns import DataJobUrn, DatasetUrn
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
 from datahub.sql_parsing.sql_parsing_common import QueryType
@@ -560,4 +563,262 @@ def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
     with pytest.raises(InvalidUrnError):
         client.lineage.add_datajob_lineage(
             datajob=datajob_urn, downstreams=[invalid_urn]
+        )
+
+
+def test_add_lineage_dataset_to_dataset_copy_basic(client: DataHubClient) -> None:
+    """Test add_lineage method with dataset to dataset and various column lineage strategies."""
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
+
+    # Test case 1: Basic dataset to dataset copy lineage (no column mapping)
+    client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+    assert_client_golden(client, _GOLDEN_DIR / "test_lineage_copy_basic_golden.json")
+
+
+def test_add_lineage_dataset_to_dataset_copy_auto_fuzzy(client: DataHubClient) -> None:
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
+
+    upstream_schema = SchemaMetadataClass(
+        schemaName="upstream_table",
+        platform="urn:li:dataPlatform:snowflake",
+        version=1,
+        hash="1234567890",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="id",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="string",
+            ),
+        ],
+    )
+
+    downstream_schema = SchemaMetadataClass(
+        schemaName="downstream_table",
+        platform="urn:li:dataPlatform:snowflake",
+        version=1,
+        hash="1234567890",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="id",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="string",
+            ),
+        ],
+    )
+
+    # Test case 2: Auto fuzzy column lineage
+    with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
+        # Configure the mock with a simpler side effect function
+        mock_method.side_effect = lambda urn: sorted(
+            {
+                field.fieldPath
+                for field in (
+                    upstream_schema if "upstream" in str(urn) else downstream_schema
+                ).fields
+            }
+        )
+
+        # Now use client.lineage with the patched method
+        client.lineage.add_dataset_copy_lineage(
+            upstream=upstream,
+            downstream=downstream,
+            column_lineage="auto_fuzzy",
+        )
+
+    # Use golden file for assertion
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_copy_auto_fuzzy_golden.json"
+    )
+
+
+def test_add_lineage_dataset_to_dataset_copy_auto_strict(client: DataHubClient) -> None:
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
+
+    upstream_schema = SchemaMetadataClass(
+        schemaName="upstream_table",
+        platform="urn:li:dataPlatform:snowflake",
+        version=1,
+        hash="1234567890",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="id",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="string",
+            ),
+        ],
+    )
+
+    downstream_schema = SchemaMetadataClass(
+        schemaName="downstream_table",
+        platform="urn:li:dataPlatform:snowflake",
+        version=1,
+        hash="1234567890",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="id",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="string",
+            ),
+        ],
+    )
+    # Test case 3: Auto strict column lineage
+    with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
+        # Configure the mock with a simpler side effect function
+        mock_method.side_effect = lambda urn: sorted(
+            {
+                field.fieldPath
+                for field in (
+                    upstream_schema if "upstream" in str(urn) else downstream_schema
+                ).fields
+            }
+        )
+
+        # Run the lineage function
+        client.lineage.add_dataset_copy_lineage(
+            upstream=upstream,
+            downstream=downstream,
+            column_lineage="auto_strict",
+        )
+
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_copy_auto_strict_golden.json"
+    )
+
+
+def test_add_lineage_dataset_to_dataset_copy_custom_mapping(
+    client: DataHubClient,
+) -> None:
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
+
+    # Test case 4: Custom column mapping
+    column_mapping = {"Age": ["name", "customer_id"]}
+    client.lineage.add_lineage(
+        upstream=upstream, downstream=downstream, column_lineage=column_mapping
+    )
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_custom_mapping_golden.json"
+    )
+
+
+def test_add_lineage_dataset_to_dataset_transform(client: DataHubClient) -> None:
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
+    query_text = "SELECT user_id as userId, full_name as fullName FROM upstream_table"
+    column_mapping = {"userId": ["user_id"], "fullName": ["full_name"]}
+    # Test case 5: Dataset to dataset with transformation and column mapping
+    client.lineage.add_lineage(
+        upstream=upstream,
+        downstream=downstream,
+        query_text=query_text,
+        column_lineage=column_mapping,
+    )
+    assert_client_golden(client, _GOLDEN_DIR / "test_lineage_transform_golden.json")
+
+
+def test_add_lineage_dataset_to_datajob(client: DataHubClient) -> None:
+    """Test add_lineage method with dataset to datajob."""
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+    downstream = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
+    )
+
+    # Call the method
+    client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+
+    # Validate lineage MCPs against golden file
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_dataset_to_datajob_golden.json"
+    )
+
+
+def test_add_lineage_datajob_to_dataset(client: DataHubClient) -> None:
+    """Test add_lineage method with datajob to dataset."""
+    upstream = "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
+
+    # Call the method
+    client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+
+    # Validate lineage MCPs against golden file
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_datajob_to_dataset_golden.json"
+    )
+
+
+def test_add_lineage_datajob_to_datajob(client: DataHubClient) -> None:
+    """Test add_lineage method with datajob to datajob."""
+    upstream = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),upstream_job)"
+    )
+    downstream = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),downstream_job)"
+    )
+
+    # Call the method
+    client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+
+    # Validate lineage MCPs against golden file
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_datajob_to_datajob_golden.json"
+    )
+
+
+def test_add_lineage_invalid_upstream(client: DataHubClient) -> None:
+    """Test add_lineage method with invalid upstream URN."""
+    upstream = "urn:li:glossaryNode:something"
+    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
+
+    # Should raise an InvalidUrnError
+    with pytest.raises(
+        SdkUsageError,
+        match="Unsupported entity type combination: glossaryNode -> dataset",
+    ):
+        client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+
+
+def test_add_lineage_invalid_downstream(client: DataHubClient) -> None:
+    """Test add_lineage method with invalid downstream URN."""
+    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+    downstream = "urn:li:glossaryNode:something"
+
+    # Should raise an InvalidUrnError
+    with pytest.raises(
+        SdkUsageError,
+        match="Unsupported entity type combination: dataset -> glossaryNode",
+    ):
+        client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+
+
+def test_add_lineage_invalid_parameter_combinations(client: DataHubClient) -> None:
+    """Test add_lineage method with invalid parameter combinations."""
+    # Dataset to DataJob with column_lineage (not supported)
+    with pytest.raises(SdkUsageError):
+        client.lineage.add_lineage(
+            upstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
+            downstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
+            column_lineage={"target_col": ["source_col"]},
+        )
+
+    # Dataset to DataJob with query_text (not supported)
+    with pytest.raises(SdkUsageError):
+        client.lineage.add_lineage(
+            upstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
+            downstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
+            query_text="SELECT * FROM source_table",
+        )
+
+    # DataJob to Dataset with column_lineage (not supported)
+    with pytest.raises(SdkUsageError):
+        client.lineage.add_lineage(
+            upstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
+            downstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)",
+            column_lineage={"target_col": ["source_col"]},
         )

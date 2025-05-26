@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import difflib
 import logging
-from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union
+from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union, overload
 
 from typing_extensions import assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn
+from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn, Urn
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
@@ -112,6 +112,300 @@ class LineageClient:
                 ]
 
         return fuzzy_column_lineage
+
+    # Define overloads to document different use cases
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: DatasetUrnOrStr,
+        downstream: DatasetUrnOrStr,
+    ) -> None:
+        """
+        Add basic dataset-to-dataset lineage without column mapping or transformation details.
+
+        Args:
+            upstream: URN of the upstream dataset
+            downstream: URN of the downstream dataset
+        """
+        ...
+
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: DatasetUrnOrStr,
+        downstream: DatasetUrnOrStr,
+        column_lineage: Union[
+            None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
+        ],
+    ) -> None:
+        """
+        Add dataset-to-dataset lineage with column-level mapping.
+
+        Args:
+            upstream: URN of the upstream dataset
+            downstream: URN of the downstream dataset
+            column_lineage: Column-level lineage mapping or auto-generation method
+        """
+        ...
+
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: DatasetUrnOrStr,
+        downstream: DatasetUrnOrStr,
+        query_text: str,
+        column_lineage: Optional[ColumnLineageMapping] = None,
+    ) -> None:
+        """
+        Add dataset-to-dataset lineage with transformation details.
+
+        Args:
+            upstream: URN of the upstream dataset
+            downstream: URN of the downstream dataset
+            query_text: SQL query text that defines the transformation
+            column_lineage: Optional column-level lineage mapping
+        """
+        ...
+
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: DatasetUrnOrStr,
+        downstream: DatajobUrnOrStr,
+    ) -> None:
+        """
+        Add dataset to datajob lineage (dataset as input to job).
+
+        Args:
+            upstream: URN of the upstream dataset
+            downstream: URN of the downstream datajob
+        """
+        ...
+
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: DatajobUrnOrStr,
+        downstream: DatasetUrnOrStr,
+    ) -> None:
+        """
+        Add datajob to dataset lineage (dataset as output of job).
+
+        Args:
+            upstream: URN of the upstream datajob
+            downstream: URN of the downstream dataset
+        """
+        ...
+
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: DatajobUrnOrStr,
+        downstream: DatajobUrnOrStr,
+    ) -> None:
+        """
+        Add datajob to datajob lineage (job dependency).
+
+        Args:
+            upstream: URN of the upstream datajob
+            downstream: URN of the downstream datajob
+        """
+        ...
+
+    # The actual implementation that handles all overloaded cases
+    def add_lineage(
+        self,
+        *,
+        upstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
+        downstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
+        column_lineage: Union[
+            None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
+        ] = None,
+        query_text: Optional[str] = None,
+    ) -> None:
+        """
+        Add lineage between any combination of datasets and datajobs.
+
+        This flexible method handles different combinations of entity types:
+        - Dataset to Dataset lineage (with optional column mapping and query text)
+        - Dataset to DataJob lineage (dataset as input to job)
+        - DataJob to Dataset lineage (dataset as output from job)
+        - DataJob to DataJob lineage (job dependency)
+
+        Args:
+            upstream: URN of the upstream entity (dataset or datajob)
+            downstream: URN of the downstream entity (dataset or datajob)
+            column_lineage: Optional column-level lineage mapping or auto-generation method
+                        (only applicable for dataset-to-dataset lineage)
+            query_text: Optional SQL query text that defines the transformation
+                    (only applicable for dataset-to-dataset lineage)
+
+        Raises:
+            InvalidUrnError: If the URNs provided are invalid
+            SdkUsageError: If certain parameter combinations are not supported
+        """
+        # Validate parameter combinations
+        upstream_entity_type = Urn.from_string(upstream).entity_type
+        downstream_entity_type = Urn.from_string(downstream).entity_type
+
+        # Validate parameter combinations
+        if (
+            upstream_entity_type == "dataJob" or downstream_entity_type == "dataJob"
+        ) and (column_lineage or query_text):
+            raise SdkUsageError(
+                "Column lineage and query text are only applicable for dataset-to-dataset lineage"
+            )
+
+        # Handle dataset-to-dataset lineage
+        if upstream_entity_type == "dataset" and downstream_entity_type == "dataset":
+            # Ensure the URNs are DatasetUrn type
+            upstream_urn = DatasetUrn.from_string(upstream)
+            downstream_urn = DatasetUrn.from_string(downstream)
+
+            # Determine column lineage
+            cll = None
+            if column_lineage is not None:
+                # Auto column lineage generation
+                if column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
+                    upstream_schema = self._get_fields_from_dataset_urn(upstream_urn)
+                    downstream_schema = self._get_fields_from_dataset_urn(
+                        downstream_urn
+                    )
+
+                    # Choose matching strategy
+                    mapping = (
+                        self._get_fuzzy_column_lineage(
+                            upstream_schema, downstream_schema
+                        )
+                        if column_lineage == "auto_fuzzy"
+                        else self._get_strict_column_lineage(
+                            upstream_schema, downstream_schema
+                        )
+                    )
+
+                    cll = parse_cll_mapping(
+                        upstream=upstream_urn,
+                        downstream=downstream_urn,
+                        cll_mapping=mapping,
+                    )
+                # Explicit column lineage
+                elif isinstance(column_lineage, dict):
+                    cll = parse_cll_mapping(
+                        upstream=upstream_urn,
+                        downstream=downstream_urn,
+                        cll_mapping=column_lineage,
+                    )
+                else:
+                    assert_never(column_lineage)
+
+            # Prepare for lineage based on query or copy
+            if query_text:
+                # Transform lineage with query
+                fields_involved = OrderedSet([str(upstream_urn), str(downstream_urn)])
+                if cll is not None:
+                    for c in cll:
+                        for field in c.upstreams or []:
+                            fields_involved.add(field)
+                        for field in c.downstreams or []:
+                            fields_involved.add(field)
+
+                # Create query URN and entity
+                query_urn = QueryUrn(generate_hash(query_text)).urn()
+                from datahub.sql_parsing.sql_parsing_aggregator import (
+                    make_query_subjects,
+                )
+
+                query_entity = MetadataChangeProposalWrapper.construct_many(
+                    query_urn,
+                    aspects=[
+                        models.QueryPropertiesClass(
+                            statement=models.QueryStatementClass(
+                                value=query_text, language=models.QueryLanguageClass.SQL
+                            ),
+                            source=models.QuerySourceClass.SYSTEM,
+                            created=_empty_audit_stamp,
+                            lastModified=_empty_audit_stamp,
+                        ),
+                        make_query_subjects(list(fields_involved)),
+                    ],
+                )
+
+                # Build dataset update
+                updater = DatasetPatchBuilder(str(downstream_urn))
+                updater.add_upstream_lineage(
+                    models.UpstreamClass(
+                        dataset=str(upstream_urn),
+                        type=models.DatasetLineageTypeClass.TRANSFORMED,
+                        query=query_urn,
+                    )
+                )
+
+                # Add fine-grained lineage
+                for cl in cll or []:
+                    cl.query = query_urn
+                    updater.add_fine_grained_upstream_lineage(cl)
+
+                # Check dataset existence
+                if not self._client._graph.exists(updater.urn):
+                    raise SdkUsageError(
+                        f"Dataset {updater.urn} does not exist, and hence cannot be updated."
+                    )
+
+                # Emit metadata change proposals
+                mcps: List[
+                    Union[
+                        MetadataChangeProposalWrapper,
+                        models.MetadataChangeProposalClass,
+                    ]
+                ] = list(updater.build())
+                if query_entity:
+                    mcps.extend(query_entity)
+                self._client._graph.emit_mcps(mcps)
+            else:
+                # Copy lineage without query
+                updater = DatasetPatchBuilder(str(downstream_urn))
+                updater.add_upstream_lineage(
+                    models.UpstreamClass(
+                        dataset=str(upstream_urn),
+                        type=models.DatasetLineageTypeClass.COPY,
+                    )
+                )
+
+                # Add fine-grained lineage
+                for cl in cll or []:
+                    updater.add_fine_grained_upstream_lineage(cl)
+
+                self._client.entities.update(updater)
+
+        # Handle dataset to datajob lineage
+        elif upstream_entity_type == "dataset" and downstream_entity_type == "dataJob":
+            patch_builder = DataJobPatchBuilder(str(downstream))
+            patch_builder.add_input_dataset(upstream)
+            self._client.entities.update(patch_builder)
+
+        # Handle datajob to dataset lineage
+        elif upstream_entity_type == "dataJob" and downstream_entity_type == "dataset":
+            patch_builder = DataJobPatchBuilder(str(upstream))
+            patch_builder.add_output_dataset(downstream)
+            self._client.entities.update(patch_builder)
+
+        # Handle datajob to datajob lineage
+        elif upstream_entity_type == "dataJob" and downstream_entity_type == "dataJob":
+            patch_builder = DataJobPatchBuilder(str(downstream))
+            patch_builder.add_input_datajob(upstream)
+            self._client.entities.update(patch_builder)
+
+        # Catch-all for unsupported entity type combinations
+        else:
+            raise SdkUsageError(
+                f"Unsupported entity type combination: {upstream_entity_type} -> {downstream_entity_type}"
+            )
 
     def add_dataset_copy_lineage(
         self,
