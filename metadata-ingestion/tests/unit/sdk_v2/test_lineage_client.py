@@ -1,5 +1,5 @@
 import pathlib
-from typing import Dict, List, Set, cast
+from typing import Dict, List, Optional, Set, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -820,3 +820,259 @@ def test_add_lineage_invalid_parameter_combinations(client: DataHubClient) -> No
             downstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)",
             column_lineage={"target_col": ["source_col"]},
         )
+
+
+def test_get_lineage_basic(client: DataHubClient) -> None:
+    """Test basic lineage retrieval with default parameters."""
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+
+    # Mock GraphQL response
+    mock_response = {
+        "scrollAcrossLineage": {
+            "nextScrollId": None,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)",
+                        "type": "DATASET",
+                        "platform": {"name": "snowflake"},
+                        "properties": {
+                            "name": "upstream_table",
+                            "description": "Upstream source table",
+                        },
+                    },
+                    "degree": 1,
+                }
+            ],
+        }
+    }
+
+    # Patch the GraphQL execution method
+    with patch.object(client._graph, "execute_graphql", return_value=mock_response):
+        results = client.lineage.get_lineage(source_urn=source_urn)
+
+    # Validate results
+    assert len(results) == 1
+    assert (
+        results[0]["urn"]
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
+    )
+    assert results[0]["type"] == "DATASET"
+    assert results[0]["name"] == "upstream_table"
+    assert results[0]["platform"] == "snowflake"
+    assert results[0]["direction"] == "upstream"
+    assert results[0]["hops"] == 1
+
+
+def test_get_lineage_with_filters(client: DataHubClient) -> None:
+    """Test lineage retrieval with entity type and platform filters."""
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+
+    # Mock GraphQL response with multiple entity types
+    mock_response = {
+        "scrollAcrossLineage": {
+            "nextScrollId": None,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)",
+                        "type": "DATASET",
+                        "platform": {"name": "snowflake"},
+                        "properties": {
+                            "name": "upstream_table",
+                            "description": "Upstream source table",
+                        },
+                    },
+                    "degree":1,
+                },
+                {
+                    "entity": {
+                        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
+                        "type": "DATA_JOB",
+                        "dataPlatformInstance": {"platform": {"name": "airflow"}},
+                        "properties": {
+                            "name": "process_job",
+                            "description": "Data processing job",
+                        },
+                    },
+                    "degree": 2,
+                },
+            ],
+        }
+    }
+
+    # Patch the GraphQL execution method to return results for multiple calls
+    with patch.object(client._graph, "execute_graphql", return_value=mock_response):
+        results = client.lineage.get_lineage(
+            source_urn=source_urn,
+            filters={
+                "entity_type": ["DATASET"],
+            },
+        )
+
+    # Validate results
+    assert len(results) == 1
+    assert {r["type"] for r in results} == {"DATASET"}
+    assert {r["platform"] for r in results} == {"snowflake"}
+
+
+def test_get_lineage_downstream(client: DataHubClient) -> None:
+    """Test downstream lineage retrieval."""
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+
+    # Mock GraphQL response for downstream lineage
+    mock_response = {
+        "scrollAcrossLineage": {
+            "nextScrollId": None,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)",
+                        "type": "DATASET",
+                        "properties": {
+                            "name": "downstream_table",
+                            "description": "Downstream target table",
+                            "platform": {"name": "snowflake"},
+                        },
+                    },
+                    "degree": 1,
+                }
+            ],
+        }
+    }
+
+    # Patch the GraphQL execution method
+    with patch.object(client._graph, "execute_graphql", return_value=mock_response):
+        results = client.lineage.get_lineage(
+            source_urn=source_urn, direction="downstream"
+        )
+
+    # Validate results
+    assert len(results) == 1
+    assert (
+        results[0]["urn"]
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
+    )
+    assert results[0]["direction"] == "downstream"
+
+
+def test_get_lineage_multiple_hops(client: DataHubClient) -> None:
+    """Test lineage retrieval with multiple hops."""
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+
+    # Mock GraphQL response with multiple hops
+    mock_response = {
+        "scrollAcrossLineage": {
+            "nextScrollId": None,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table1,PROD)",
+                        "type": "DATASET",
+                        "properties": {
+                            "name": "upstream_table1",
+                            "description": "First upstream table",
+                            "platform": {"name": "snowflake"},
+                        },
+                    },
+                    "degree": 1,
+                },
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table2,PROD)",
+                        "type": "DATASET",
+                        "properties": {
+                            "name": "upstream_table2",
+                            "description": "Second upstream table",
+                            "platform": {"name": "snowflake"},
+                        },
+                    },
+                    "degree": 2,
+                },
+            ],
+        }
+    }
+
+    # Patch the GraphQL execution method
+    with patch.object(client._graph, "execute_graphql", return_value=mock_response):
+        results = client.lineage.get_lineage(source_urn=source_urn, max_hops=2)
+
+    # Validate results
+    assert len(results) == 2
+    assert results[0]["hops"] == 1
+    assert results[0]["type"] == "DATASET"
+    assert results[1]["hops"] == 2
+    assert results[1]["type"] == "DATASET"
+
+
+def test_get_lineage_no_results(client: DataHubClient) -> None:
+    """Test lineage retrieval with no results."""
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+
+    # Mock GraphQL response with no results
+    mock_response: Dict[str, Dict[str, Optional[List]]] = {
+        "scrollAcrossLineage": {"nextScrollId": None, "searchResults": []}
+    }
+
+    # Patch the GraphQL execution method
+    with patch.object(client._graph, "execute_graphql", return_value=mock_response):
+        results = client.lineage.get_lineage(source_urn=source_urn)
+
+    # Validate results
+    assert len(results) == 0
+
+
+def test_get_lineage_pagination(client: DataHubClient) -> None:
+    """Test lineage retrieval with pagination."""
+    source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+
+    # Mock GraphQL responses with pagination
+    mock_responses = [
+        {
+            "scrollAcrossLineage": {
+                "nextScrollId": "scroll_token_1",
+                "searchResults": [
+                    {
+                        "entity": {
+                            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table1,PROD)",
+                            "type": "DATASET",
+                            "properties": {
+                                "name": "upstream_table1",
+                                "platform": {"name": "snowflake"},
+                            },
+                        },
+                        "degree": 1,
+                    }
+                ],
+            }
+        },
+        {
+            "scrollAcrossLineage": {
+                "nextScrollId": None,
+                "searchResults": [
+                    {
+                        "entity": {
+                            "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table2,PROD)",
+                            "type": "DATASET",
+                            "properties": {
+                                "name": "upstream_table2",
+                                "platform": {"name": "snowflake"},
+                            },
+                        },
+                        "degree": 1,
+                    }
+                ],
+            }
+        },
+    ]
+
+    # Patch the GraphQL execution method to simulate pagination
+    with patch.object(client._graph, "execute_graphql", side_effect=mock_responses):
+        results = client.lineage.get_lineage(source_urn=source_urn)
+
+    # Validate results
+    assert len(results) == 2
+    assert {result["name"] for result in results} == {
+        "upstream_table1",
+        "upstream_table2",
+    }

@@ -4,6 +4,8 @@ import difflib
 import logging
 from typing import (
     TYPE_CHECKING,
+    Any,
+    Dict,
     List,
     Literal,
     Optional,
@@ -654,3 +656,188 @@ class LineageClient:
 
         # Apply the changes to the entity
         self._client.entities.update(patch_builder)
+
+    def get_lineage(
+        self,
+        *,
+        source_urn: Union[str, Urn],
+        direction: Literal["upstream", "downstream"] = "upstream",
+        max_hops: Optional[int] = 1,
+        filters: Optional[Dict[str, List[str]]] = {},
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve lineage entities connected to a source entity.
+
+        Args:
+            source_urn: The URN of the source entity to analyze lineage from.
+            direction: Direction of lineage traversal. Defaults to "upstream".
+            hops: Number of lineage hops to traverse. None means unlimited depth. Defaults to 1.
+            filters: Optional filters for lineage results.
+                Supported keys:
+                - "entity_type": e.g., ["DATASET", "DATA_JOB"]
+                - "platform": e.g., ["snowflake", "airflow"]
+
+        Returns:
+            List of lineage entities with their metadata.
+        """
+        # Validate and convert input URN
+        source_urn = Urn.from_string(source_urn) if isinstance(source_urn, str) else source_urn
+
+        # Validate max_hops
+        if max_hops not in [1, 2]:
+            raise SdkUsageError("Max hops must be less than 3")
+        
+        max_hop_values = [str(hop) for hop in range(1, max_hops + 1)]
+
+        # Prepare filters
+        input_filters = []
+
+        # Always add degree filter
+        input_filters.append({
+            "and": [
+                {
+                    "field": "degree",
+                    "condition": "EQUAL",
+                    "values": max_hop_values,
+                    "negated": "false",
+                }
+            ]
+        })
+
+        # Add entity type filter if provided
+        if "entity_type" in filters:
+            input_filters.append({
+                "and": [
+                    {
+                        "field": "type",
+                        "condition": "EQUAL",
+                        "values": filters["entity_type"],
+                        "negated": "false",
+                    }
+                ]
+            })
+
+        # Add platform filter if provided
+        # TODO: edit filter logic to be "and" for entity_type and platform
+        if "platform" in filters:
+            input_filters.append({
+                "and": [
+                    {
+                        "field": "platform",
+                        "condition": "EQUAL",
+                        "values": filters["platform"],
+                        "negated": "false",
+                    }
+                ]
+            })
+
+        # Prepare GraphQL query variables
+        variables = {
+            "input": {
+                "urn": str(source_urn),
+                "direction": direction.upper(),
+                "count": 1000,  # Reasonable default, can be made configurable
+                "orFilters": input_filters,
+            }
+        }
+
+        # Prepare GraphQL query variables
+        variables = {
+            "input": {
+                "urn": str(source_urn),
+                "direction": direction.upper(),
+                "count": 1000,  # Reasonable default, can be made configurable
+                "orFilters": input_filters,
+            }
+        }
+
+        # GraphQL query for lineage traversal
+        graphql_query = """
+        query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
+            scrollAcrossLineage(input: $input) {
+                nextScrollId
+                searchResults {
+                    degree
+                    entity {
+                        urn
+                        type
+                            ... on Dataset {
+                                name
+                                platform {
+                                    name
+                                }
+                                properties {
+                                    description
+                                }
+                                }
+                                ... on DataJob {
+                                jobId
+                                dataPlatformInstance {
+                                    platform { name }
+                                }
+                                properties {
+                                    name
+                                    description
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        """
+
+        # Track seen entities and their hop levels
+        seen_entities: Dict[str, int] = {str(source_urn): 0}
+        results: List[Dict[str, Any]] = []
+
+        # Pagination handling
+        first_iter = True
+        scroll_id: Optional[str] = None
+
+        while first_iter or scroll_id:
+            first_iter = False
+
+            # Update scroll ID if applicable
+            if scroll_id:
+                variables["input"]["scrollId"] = scroll_id
+
+            # Execute GraphQL query
+            response = self._graph.execute_graphql(graphql_query, variables=variables)
+
+            # Process lineage results
+            data = response["scrollAcrossLineage"]
+            scroll_id = data.get("nextScrollId")
+
+            for entry in data["searchResults"]:
+                entity = entry["entity"]
+                urn = entity["urn"]
+
+                # Skip if already seen or beyond hop limit
+                if urn in seen_entities:
+                    continue
+
+                # Extract entity details
+                result = {
+                    "urn": urn,
+                    "type": entity["type"],
+                    "hops": entry["degree"],
+                    "direction": direction,
+                }
+
+                # Add platform information
+                platform = (
+                    entity.get("platform", {}).get("name") or
+                    entity.get("dataPlatformInstance", {}).get("platform", {}).get("name")
+                )
+                if platform:
+                    result["platform"] = platform
+
+                # Add properties
+                properties = entity.get("properties", {})
+                if properties:
+                    result["name"] = properties.get("name")
+                    result["description"] = properties.get("description")
+
+                results.append(result)
+
+        return results
