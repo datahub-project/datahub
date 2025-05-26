@@ -12,8 +12,6 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StringTypeClass,
 )
-
-# from datahub.metadata.urns import DataJobUrn, DatasetUrn
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
 from datahub.sql_parsing.sql_parsing_common import QueryType
