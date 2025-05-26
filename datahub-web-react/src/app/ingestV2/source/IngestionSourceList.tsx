@@ -5,6 +5,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { SortingState } from '@components/components/Table/types';
+
 import analytics, { EventType } from '@app/analytics';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
@@ -31,7 +33,7 @@ import {
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { IngestionSource, UpdateIngestionSourceInput } from '@types';
+import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -144,6 +146,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
     const [hideSystemSources, setHideSystemSources] = useState(true);
+    const [sort, setSort] = useState<SortCriterion>();
 
     // Add a useEffect to handle the showCreateModal prop
     useEffect(() => {
@@ -183,6 +186,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 count: pageSize,
                 query: query?.length ? query : undefined,
                 filters: filters.length ? filters : undefined,
+                sort,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
@@ -431,6 +435,17 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         setFocusSourceUrn(undefined);
     };
 
+    const onChangeSort = (field, order) => {
+        setSort(
+            order !== SortingState.ORIGINAL
+                ? {
+                      sortOrder: order === SortingState.ASCENDING ? SortOrder.Ascending : SortOrder.Descending,
+                      field,
+                  }
+                : undefined,
+        );
+    };
+
     const handleSearch = (value: string) => {
         setPage(1);
         setQuery(value);
@@ -485,6 +500,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         onEdit={onEdit}
                         onView={onView}
                         onDelete={onDelete}
+                        onChangeSort={onChangeSort}
                     />
                 </TableContainer>
                 <PaginationContainer>
