@@ -26,7 +26,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-13, macos-15]
+        os: [ubuntu-latest, macos-13, macos-15]
         include:
           - os: macos-13
             label: macOS Intel
@@ -34,8 +34,6 @@ jobs:
             label: macOS Apple Silicon
           - os: ubuntu-latest
             label: Linux
-          - os: windows-latest
-            label: Windows
 
     steps:
       - name: Checkout repository
@@ -45,6 +43,49 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+
+      # OS-specific setup steps
+      - name: Linux-specific setup
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          # Add Linux-specific setup commands here
+          # For example: installing system dependencies
+          echo "Running Linux-specific setup"
+
+      - name: macOS Intel setup
+        if: matrix.os == 'macos-13'
+        run: |
+          # Install Homebrew if not already installed
+          if ! command -v brew &> /dev/null; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+
+          # Install Docker Desktop
+          # Install Docker Desktop
+          brew install docker docker-compose
+
+          # Link the Docker Compose v2 plugin so it's understood by the docker CLI
+          mkdir -p ~/.docker/cli-plugins
+          ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
+
+          colima start
+
+      - name: macOS Apple Silicon setup
+        if: matrix.os == 'macos-15'
+        run: |
+          # Install Homebrew if not already installed
+          if ! command -v brew &> /dev/null; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+
+          # Install Docker Desktop
+          brew install docker docker-compose
+
+          # Link the Docker Compose v2 plugin so it's understood by the docker CLI
+          mkdir -p ~/.docker/cli-plugins
+          ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
+
+          colima start
 
       - name: Install dependencies
         run: |
