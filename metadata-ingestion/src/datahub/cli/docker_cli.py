@@ -345,7 +345,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
 
 
 def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
-    running_on_apple_silicon = is_apple_silicon(arch)
+    running_on_apple_silicon = is_apple_silicon()
     if running_on_apple_silicon:
         click.secho("Detected Apple Silicon", fg="yellow")
 
