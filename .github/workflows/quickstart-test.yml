@@ -1,0 +1,57 @@
+name: Quickstart Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # Run at midnight every day
+  push:
+    branches:
+      - master
+    paths:
+      - "metadata-ingestion/src/datahub/cli/docker_cli.py"
+      - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - ".github/workflows/quickstart-test.yml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "metadata-ingestion/src/datahub/cli/docker_cli.py"
+      - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - ".github/workflows/quickstart-test.yml"
+
+jobs:
+  test-quickstart:
+    name: Test Quickstart - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-13, macos-15]
+        include:
+          - os: macos-13
+            label: macOS Intel
+          - os: macos-15
+            label: macOS Apple Silicon
+          - os: ubuntu-latest
+            label: Linux
+          - os: windows-latest
+            label: Windows
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip wheel setuptools
+          python3 -m pip install --upgrade acryl-datahub
+
+      - name: Run quickstart test
+        run: |
+          datahub docker quickstart
+          # TODO: Add actual test steps here
