@@ -361,8 +361,41 @@ datasource_upstream_fields_graphql_query = """
                     id
                     name
                     luid
+                    projectName
                 }
             }
+            ... on DatabaseTable {
+                database {
+                    id
+                    name
+                    connectionType
+                }
+                schema
+                connectionType
+            }
+            ... on CustomSQLTable {
+                database {
+                    id
+                    name
+                    connectionType
+                }
+                connectionType
+            }
+        }
+    }
+    upstreamTables {
+        id
+        name
+        schema
+        connectionType
+        description
+        database {
+            id
+            name
+            connectionType
+        }
+        columnsConnection {
+            totalCount
         }
     }
 }

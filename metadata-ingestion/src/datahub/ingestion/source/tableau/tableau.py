@@ -1340,7 +1340,7 @@ class TableauSiteSource:
             self.workbook_project_map[wb.id] = wb.project_id
 
     def _populate_projects_registry(self) -> None:
-        """Enhanced to build VC mappings."""
+        """Enhanced to build VC mappings early."""
         if self.server is None:
             logger.warning("server is None. Can not initialize the project registry")
             return
@@ -1352,19 +1352,37 @@ class TableauSiteSource:
         self._init_datasource_registry()
         self._init_workbook_registry()
 
-        # Build VC mappings after project registry is ready
+        # FIXED: Build VC mappings BEFORE processing any datasources
         if self.config.ingest_virtual_connections:
+            logger.info("🔧 Building virtual connection mappings...")
             self._build_vc_table_mapping()
             self._build_database_table_name_mapping()
 
+            # FIXED: Verify mappings were built successfully
+            logger.info("✅ VC mappings built:")
+            logger.info(f"  Table-to-VC mappings: {len(self.vc_table_id_to_vc_id)}")
+            logger.info(f"  Table name mappings: {len(self.vc_table_name_to_id)}")
+            logger.info(f"  VC-Project mappings: {len(self.vc_project_map)}")
+
+            if not self.vc_table_id_to_vc_id:
+                logger.warning(
+                    "❌ No VC table mappings were built - this may cause lineage issues"
+                )
+                logger.warning("   Check if virtual connections exist and have tables")
+            else:
+                # FIXED: Show sample mappings for verification
+                sample_mappings = list(self.vc_table_id_to_vc_id.items())[:3]
+                logger.info(f"📋 Sample VC mappings: {sample_mappings}")
+
         logger.debug(f"All site projects {all_project_map}")
         logger.debug(f"Projects selected for ingestion {self.tableau_project_registry}")
-        logger.debug(
-            f"Tableau data-sources {self.datasource_project_map}",
-        )
-        logger.debug(
-            f"Tableau workbooks {self.workbook_project_map}",
-        )
+        logger.debug(f"Tableau data-sources {self.datasource_project_map}")
+        logger.debug(f"Tableau workbooks {self.workbook_project_map}")
+
+        # FIXED: Log VC mappings if available
+        if self.config.ingest_virtual_connections:
+            logger.debug(f"Virtual connection mappings {self.vc_table_id_to_vc_id}")
+            logger.debug(f"VC project mappings {self.vc_project_map}")
 
     def get_data_platform_instance(self) -> DataPlatformInstanceClass:
         return DataPlatformInstanceClass(
@@ -2846,57 +2864,25 @@ class TableauSiteSource:
             if not field_name:
                 continue
 
-            # Check upstream columns for VirtualConnectionTable references
-            for upstream_col in field.get(c.UPSTREAM_COLUMNS, []):
-                col_table = upstream_col.get(c.TABLE, {})
-                col_table_type = col_table.get(c.TYPE_NAME)
+            logger.debug(f"  🔍 Processing field: {field_name}")
 
-                if col_table_type == "VirtualConnectionTable":
-                    logger.info(f"🎯 Found VC table reference in field {field_name}")
+            # Process upstream columns for VC table references
+            self._process_field_upstream_columns(
+                field,
+                datasource_urn,
+                vc_upstreams,
+                vc_fine_grained_lineages,
+                vc_urns_seen,
+            )
 
-                    # Get parent VC using the schema-confirmed virtualConnection field
-                    virtual_connection = col_table.get("virtualConnection", {})
-                    vc_id = virtual_connection.get(c.ID)
-
-                    # Fallback to our mapping if parent reference isn't populated
-                    if not vc_id:
-                        col_table_id = col_table.get(c.ID)
-                        vc_id = self.vc_table_id_to_vc_id.get(col_table_id)
-
-                    logger.info(f"        VC ID: {vc_id}")
-
-                    if vc_id and vc_id not in vc_urns_seen:
-                        # Create VC upstream
-                        vc_urn = builder.make_dataset_urn_with_platform_instance(
-                            platform=self.platform,
-                            name=vc_id,
-                            platform_instance=self.config.platform_instance,
-                            env=self.config.env,
-                        )
-
-                        vc_upstreams.append(
-                            Upstream(
-                                dataset=vc_urn, type=DatasetLineageType.TRANSFORMED
-                            )
-                        )
-                        vc_urns_seen.add(vc_id)
-
-                        # Track for emission
-                        if vc_id not in self.virtual_connection_ids_being_used:
-                            self.virtual_connection_ids_being_used.append(vc_id)
-
-                        # Create field-level lineage if enabled
-                        if self.config.extract_column_level_lineage:
-                            self._add_vc_to_datasource_field_lineage(
-                                vc_id,
-                                col_table.get(c.ID, ""),
-                                upstream_col.get(c.NAME, ""),
-                                datasource_urn,
-                                field_name,
-                                vc_fine_grained_lineages,
-                            )
+            # Process upstream fields for direct VC references
+            self._process_field_upstream_fields(field, vc_upstreams, vc_urns_seen)
 
         logger.info(f"📊 Found {len(vc_upstreams)} VC upstreams for {datasource_name}")
+        logger.info(
+            f"📊 Created {len(vc_fine_grained_lineages)} VC fine-grained lineages"
+        )
+
         return vc_upstreams, vc_fine_grained_lineages
 
     def _add_vc_to_datasource_field_lineage(
@@ -2910,6 +2896,9 @@ class TableauSiteSource:
     ) -> None:
         """Create field-level lineage: VC field → Datasource field."""
         if not vc_column_name or not datasource_field_name:
+            logger.debug(
+                f"    ⚠️  Skipping field lineage - missing names: vc_col={vc_column_name}, ds_field={datasource_field_name}"
+            )
             return
 
         vc_urn = builder.make_dataset_urn_with_platform_instance(
@@ -2919,18 +2908,27 @@ class TableauSiteSource:
             env=self.config.env,
         )
 
-        # Get VC table name for proper field path
+        # FIXED: Get VC table name for proper field path
         vc_table_name = self._get_vc_table_name_from_id(vc_table_id)
 
+        # FIXED: Create proper field path for VC
         if vc_table_name:
             vc_field_path = f"{vc_table_name}.{vc_column_name}"
         else:
+            # Fallback to just column name if table name not found
             vc_field_path = vc_column_name
+            logger.debug(
+                f"    ⚠️  Using column name only for VC field path: {vc_field_path}"
+            )
 
         # Create field URNs
         vc_field_urn = builder.make_schema_field_urn(vc_urn, vc_field_path)
         ds_field_urn = builder.make_schema_field_urn(
             datasource_urn, datasource_field_name
+        )
+
+        logger.debug(
+            f"    📊 Creating field lineage: {vc_field_path} → {datasource_field_name}"
         )
 
         vc_fine_grained_lineages.append(
@@ -2944,117 +2942,211 @@ class TableauSiteSource:
 
     def _get_vc_table_name_from_id(self, table_id: str) -> Optional[str]:
         """Get VC table name from table ID."""
+        if not table_id:
+            return None
+
         # Reverse lookup: table_id → name
         for name, tid in self.vc_table_name_to_id.items():
             if tid == table_id:
                 return name
+
+        # If not found in name mapping, try to find in VC tables directly
+        for _vc_id in self.virtual_connection_ids_being_used:
+            # This would need a separate mapping if we want to be thorough
+            # For now, return None and use fallback
+            pass
+
+        logger.debug(f"    ⚠️  Could not find table name for ID: {table_id}")
         return None
 
     def _process_field_upstream_fields(
         self,
         field: dict,
-        field_name: str,
-        datasource_urn: str,
         vc_upstreams: List[Upstream],
-        vc_fine_grained_lineages: List[FineGrainedLineage],
         vc_urns_seen: Set[str],
     ) -> None:
-        """Process upstream fields for virtual connection references."""
-        upstream_fields = field.get(c.UPSTREAM_FIELDS, [])
-        if not upstream_fields:
-            return
+        """Process upstream fields for direct VC references."""
+        field_name = field.get(c.NAME)
 
-        logger.debug(
-            f"    🔍 Processing {len(upstream_fields)} upstream fields for {field_name}"
-        )
+        for upstream_field in field.get(c.UPSTREAM_FIELDS, []):
+            upstream_ds = upstream_field.get(c.DATA_SOURCE, {})
+            upstream_ds_type = upstream_ds.get(c.TYPE_NAME)
+            upstream_ds_id = upstream_ds.get(c.ID)
 
-        for i, upstream_field in enumerate(upstream_fields):
-            logger.debug(f"      📋 Upstream field #{i + 1}: {upstream_field}")
-
-            upstream_field_name = upstream_field.get(c.NAME)
-            upstream_datasource = upstream_field.get(c.DATA_SOURCE, {})
-
-            upstream_ds_id = upstream_datasource.get(c.ID)
-            upstream_ds_type = upstream_datasource.get(c.TYPE_NAME)
-
-            logger.debug(f"        Name: {upstream_field_name}")
-            logger.debug(f"        DS ID: {upstream_ds_id}")
-            logger.debug(f"        DS Type: {upstream_ds_type}")
-
-            if not upstream_ds_id or not upstream_field_name:
-                logger.debug("        ❌ Skipping - missing ID or name")
-                continue
-
-            # Check if this is a virtual connection
-            if upstream_ds_type == c.VIRTUAL_CONNECTION:
+            if upstream_ds_type == c.VIRTUAL_CONNECTION and upstream_ds_id:
+                vc_id_str = str(upstream_ds_id)
                 logger.info(
-                    f"🎯 FOUND VC REFERENCE in upstream field: {upstream_ds_id}"
-                )
-                self._add_vc_upstream_reference(
-                    upstream_ds_id, vc_upstreams, vc_urns_seen
+                    f"🎯 Found direct VC reference in field {field_name}: {vc_id_str}"
                 )
 
-                if self.config.extract_column_level_lineage:
-                    logger.debug("        📊 Adding VC field lineage")
-                    self._add_vc_field_lineage(
-                        upstream_ds_id,
-                        upstream_field_name,
-                        datasource_urn,
-                        field_name,
-                        vc_fine_grained_lineages,
-                    )
-            else:
-                logger.debug(f"        ➡️  Not a VC (type: {upstream_ds_type})")
+                if vc_id_str not in vc_urns_seen:
+                    self._add_direct_vc_upstream(vc_id_str, vc_upstreams, vc_urns_seen)
 
     def _process_field_upstream_columns(
         self,
         field: dict,
-        field_name: str,
         datasource_urn: str,
         vc_upstreams: List[Upstream],
         vc_fine_grained_lineages: List[FineGrainedLineage],
         vc_urns_seen: Set[str],
     ) -> None:
-        """Process upstream columns that might reference virtual connection tables."""
-        upstream_columns = field.get(c.UPSTREAM_COLUMNS, [])
-        if not upstream_columns:
-            return
+        """Process upstream columns for VirtualConnectionTable references."""
+        field_name = field.get(c.NAME)
 
-        logger.debug(
-            f"    🔍 Processing {len(upstream_columns)} upstream columns for {field_name}"
-        )
-
-        for i, upstream_col in enumerate(upstream_columns):
-            logger.debug(f"      📋 Upstream column #{i + 1}: {upstream_col}")
-
+        for upstream_col in field.get(c.UPSTREAM_COLUMNS, []):
             col_table = upstream_col.get(c.TABLE, {})
             col_table_type = col_table.get(c.TYPE_NAME)
 
-            logger.debug(f"        Table type: {col_table_type}")
-
-            # Check if this table is from a virtual connection
             if col_table_type == "VirtualConnectionTable":
-                logger.info("🎯 FOUND VC TABLE REFERENCE in upstream column")
-                virtual_connection = col_table.get("virtualConnection", {})
-                vc_id = virtual_connection.get(c.ID)
+                logger.info(f"🎯 Found VC table reference in field {field_name}")
 
-                logger.debug(f"        VC ID: {vc_id}")
+                # Extract VC ID using helper method
+                vc_id = self._extract_vc_id_from_table(col_table, str(field_name))
 
-                if vc_id:
-                    self._add_vc_upstream_reference(vc_id, vc_upstreams, vc_urns_seen)
+                if vc_id and vc_id not in vc_urns_seen:
+                    # Create VC upstream using helper method
+                    self._add_vc_upstream(
+                        vc_id,
+                        vc_upstreams,
+                        vc_urns_seen,
+                        datasource_urn,
+                        str(field_name),
+                        upstream_col,
+                        vc_fine_grained_lineages,
+                    )
+                elif not vc_id:
+                    logger.error(
+                        f"        ❌ FAILED to determine VC ID for table {col_table.get(c.ID)}"
+                    )
+                else:
+                    logger.debug(f"        ⚠️  VC {vc_id} already processed")
 
-                    if self.config.extract_column_level_lineage:
-                        logger.debug("        📊 Adding VC table column lineage")
-                        self._add_vc_table_column_lineage(
-                            vc_id,
-                            upstream_col,
-                            col_table,
-                            datasource_urn,
-                            field_name,
-                            vc_fine_grained_lineages,
-                        )
+    def _add_vc_upstream(
+        self,
+        vc_id: str,
+        vc_upstreams: List[Upstream],
+        vc_urns_seen: Set[str],
+        datasource_urn: str,
+        field_name: str,
+        upstream_col: dict,
+        vc_fine_grained_lineages: List[FineGrainedLineage],
+    ) -> None:
+        """Add VC upstream and field-level lineage."""
+        # Create VC upstream
+        vc_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=vc_id,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        vc_upstreams.append(
+            Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
+        )
+        vc_urns_seen.add(vc_id)
+
+        # Track for emission
+        if vc_id not in self.virtual_connection_ids_being_used:
+            self.virtual_connection_ids_being_used.append(vc_id)
+
+        logger.info(f"        ✅ Added VC upstream: {vc_urn}")
+
+        # Create field-level lineage if enabled
+        if self.config.extract_column_level_lineage:
+            col_table = upstream_col.get(c.TABLE, {})
+            col_name = upstream_col.get(c.NAME)
+            if col_name:
+                self._add_vc_to_datasource_field_lineage(
+                    vc_id,
+                    str(col_table.get(c.ID, "")),
+                    col_name,
+                    datasource_urn,
+                    field_name,
+                    vc_fine_grained_lineages,
+                )
+
+    def _add_direct_vc_upstream(
+        self,
+        vc_id: str,
+        vc_upstreams: List[Upstream],
+        vc_urns_seen: Set[str],
+    ) -> None:
+        """Add direct VC upstream reference."""
+        vc_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=vc_id,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+        vc_upstreams.append(
+            Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
+        )
+        vc_urns_seen.add(vc_id)
+
+        # Track for emission
+        if vc_id not in self.virtual_connection_ids_being_used:
+            self.virtual_connection_ids_being_used.append(vc_id)
+
+        logger.info(f"        ✅ Added direct VC upstream: {vc_urn}")
+
+    def _extract_vc_id_from_table(
+        self, col_table: dict, field_name: str
+    ) -> Optional[str]:
+        """Extract VC ID from VirtualConnectionTable with multiple fallback methods."""
+        # Method 1: Extract from virtualConnection field
+        virtual_connection = col_table.get("virtualConnection")
+        if virtual_connection and isinstance(virtual_connection, dict):
+            vc_id_raw = (
+                virtual_connection.get(c.ID)  # Using constant 'id'
+                or virtual_connection.get("id")  # Direct string 'id'
+                or virtual_connection.get("ID")  # Uppercase 'ID'
+            )
+            if vc_id_raw:
+                vc_id = str(vc_id_raw)
+                logger.info(f"        ✅ VC ID from virtualConnection field: {vc_id}")
+                return vc_id
             else:
-                logger.debug(f"        ➡️  Not a VC table (type: {col_table_type})")
+                logger.warning(
+                    f"        ⚠️  virtualConnection exists but no ID found: {virtual_connection}"
+                )
+                logger.warning(
+                    f"        Available keys: {list(virtual_connection.keys())}"
+                )
+        else:
+            logger.info(
+                f"        ❌ virtualConnection field is missing/invalid: {virtual_connection}"
+            )
+
+        # Method 2: Fallback to table mapping
+        col_table_id = col_table.get(c.ID)
+        if col_table_id:
+            col_table_id_str = str(col_table_id)
+            vc_id = self.vc_table_id_to_vc_id.get(col_table_id_str, "")
+            if vc_id:
+                logger.info(f"        🔄 VC ID from mapping fallback: {vc_id}")
+                return vc_id
+            else:
+                logger.warning(
+                    f"        ❌ Table ID {col_table_id_str} not found in VC mapping"
+                )
+                if logger.isEnabledFor(logging.DEBUG):
+                    sample_mappings = list(self.vc_table_id_to_vc_id.items())[:3]
+                    logger.debug(
+                        f"        Sample available mappings: {sample_mappings}"
+                    )
+
+        # Method 3: Name-based fallback
+        col_table_name = col_table.get(c.NAME)
+        if col_table_name and col_table_name in self.vc_table_name_to_id:
+            mapped_table_id = self.vc_table_name_to_id[col_table_name]
+            vc_id = self.vc_table_id_to_vc_id.get(mapped_table_id) or ""
+            if vc_id:
+                logger.info(f"        🔄 VC ID from name mapping fallback: {vc_id}")
+                return vc_id
+
+        logger.error(f"        ❌ FAILED to extract VC ID for field {field_name}")
+        return None
 
     def _process_field_direct_vc_reference(
         self,
@@ -4232,7 +4324,7 @@ class TableauSiteSource:
         yield self.get_metadata_change_proposal(
             dataset_snapshot.urn,
             aspect_name=c.SUB_TYPES,
-            aspect=SubTypesClass(typeNames=[c.VIEW, c.VIRTUAL_CONNECTION]),
+            aspect=SubTypesClass(typeNames=[c.TABLE, c.VIRTUAL_CONNECTION]),
         )
 
         # Create upstream lineage using name matching
@@ -5225,10 +5317,12 @@ class TableauSiteSource:
         logger.info("🔧 Building VC table mappings...")
 
         try:
+            # Enhanced query to get all needed information
             vc_query = """
             {
               id
               name
+              luid
               projectName
               tables {
                 id
@@ -5247,42 +5341,79 @@ class TableauSiteSource:
                 page_size=self.config.effective_virtual_connection_page_size,
             ):
                 vc_count += 1
-                vc_id = vc.get(c.ID)
+                vc_id_raw = vc.get(c.ID)
+                vc_id = str(vc_id_raw) if vc_id_raw else None
                 vc_name = vc.get(c.NAME, "Unknown")
+                vc_luid = vc.get("luid", "")
                 vc_project_name = vc.get("projectName")
                 tables = vc.get("tables", [])
 
-                logger.info(
-                    f"  📋 VC #{vc_count}: {vc_name} in project {vc_project_name}"
-                )
+                logger.info(f"  📋 VC #{vc_count}: {vc_name}")
+                logger.info(f"      ID: {vc_id}")
+                logger.info(f"      LUID: {vc_luid}")
+                logger.info(f"      Project: {vc_project_name}")
+                logger.info(f"      Tables: {len(tables)}")
+
+                if not vc_id:
+                    logger.error(f"❌ No valid VC ID found for VC {vc_name}")
+                    continue
 
                 # Map VC to project (find project ID by name)
                 if vc_project_name:
                     for project_id, project in self.tableau_project_registry.items():
                         if project.name == vc_project_name:
-                            self.vc_project_map[str(vc_id)] = project_id
-                            logger.debug(f"    🔗 Mapped to project {project_id}")
+                            self.vc_project_map[vc_id] = project_id
+                            logger.debug(f"    🔗 Mapped VC to project {project_id}")
                             break
 
                 for table in tables:
-                    table_id = table.get(c.ID)
+                    table_id_raw = table.get(c.ID)
+                    table_id = str(table_id_raw) if table_id_raw else None
                     table_name = table.get(c.NAME, "Unknown")
 
+                    logger.debug(
+                        f"    📋 Processing table: {table_name} (ID: {table_id})"
+                    )
+
                     if table_id and vc_id:
-                        # Table ID → VC ID mapping
+                        # FIXED: Table ID → VC ID mapping (both as strings)
                         self.vc_table_id_to_vc_id[table_id] = vc_id
 
-                        # Name-based mapping for database lineage
+                        # FIXED: Name-based mapping for database lineage
                         if table_name:
                             self.vc_table_name_to_id[table_name] = table_id
 
                         table_count += 1
                         logger.debug(
-                            f"      🔗 {table_name} ({table_id}) -> VC {vc_id}"
+                            f"      ✅ Mapped: {table_name} ({table_id}) -> VC {vc_id}"
+                        )
+                    else:
+                        logger.warning(
+                            f"      ❌ Missing ID for table {table_name}: table_id={table_id}, vc_id={vc_id}"
                         )
 
             logger.info(f"✅ Built VC mappings: {vc_count} VCs, {table_count} tables")
-            logger.info(f"📊 VC-Project mappings: {len(self.vc_project_map)}")
+            logger.info("📊 Final mapping counts:")
+            logger.info(f"  VC-Project mappings: {len(self.vc_project_map)}")
+            logger.info(f"  Table-to-VC mappings: {len(self.vc_table_id_to_vc_id)}")
+            logger.info(f"  Table name mappings: {len(self.vc_table_name_to_id)}")
+
+            # FIXED: Debug output first few mappings
+            if logger.isEnabledFor(logging.DEBUG) and self.vc_table_id_to_vc_id:
+                logger.debug("📋 Sample VC table mappings:")
+                for _i, (table_id, vc_id) in enumerate(
+                    list(self.vc_table_id_to_vc_id.items())[:5]
+                ):
+                    logger.debug(f"  {table_id} -> {vc_id}")
+
+            # FIXED: Validation check
+            if not self.vc_table_id_to_vc_id:
+                logger.warning(
+                    "❌ No VC table mappings were built - this may cause lineage issues"
+                )
+                logger.warning(
+                    "   Check if virtual connections have tables with valid IDs"
+                )
 
         except Exception as e:
             logger.error(f"❌ Failed to build VC table mapping: {e}", exc_info=True)
