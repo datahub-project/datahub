@@ -12,13 +12,7 @@ import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.util.Pair;
-import java.util.AbstractMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.Builder;
@@ -67,14 +61,41 @@ public class ReindexConfig {
   private final String version;
 
   /* Calculated */
-  public boolean requiresReindex;
-  public boolean requiresApplySettings;
-  public boolean requiresApplyMappings;
+  private boolean requiresReindex;
+  private boolean requiresApplySettings;
+  private boolean requiresApplyMappings;
   private final boolean isPureMappingsAddition;
   private final boolean isSettingsReindex;
   private final boolean hasNewStructuredProperty;
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
+
+  private void restrictedMethod() throws IllegalAccessException {
+    String allowed = "ReindexDebugStep";
+    if (!isCalledFromReindexDebugStep(allowed)) {
+      throw new IllegalAccessException("This method can only be called from " + allowed);
+    }
+  }
+
+  private boolean isCalledFromReindexDebugStep(String step) {
+    StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+    return Arrays.stream(stackTrace)
+        .anyMatch(
+            element -> {
+              try {
+                return Class.forName(element.getClassName()).getSimpleName().equals(step);
+              } catch (ClassNotFoundException e) {
+                throw new RuntimeException(e);
+              }
+            });
+  }
+
+  public void forceReindex() throws IllegalAccessException {
+    restrictedMethod();
+    requiresReindex = true;
+    requiresApplyMappings = true;
+    requiresApplySettings = true;
+  }
 
   public static ReindexConfigBuilder builder() {
     return new CalculatedBuilder();
