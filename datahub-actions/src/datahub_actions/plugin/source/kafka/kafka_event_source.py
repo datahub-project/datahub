@@ -91,13 +91,16 @@ def build_entity_change_event(payload: GenericPayloadClass) -> EntityChangeEvent
 
 class KafkaEventSourceConfig(ConfigModel):
     connection: KafkaConsumerConnectionConfig = KafkaConsumerConnectionConfig()
-    topic_routes: Optional[Dict[str, str]]
+    topic_routes: Optional[Dict[str, str]] = None
     async_commit_enabled: bool = False
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
-    # MSK Auth - Simplified for AWS_MSK_IAM only
-    sasl_mechanism: Optional[str] = None  # Expected to be 'AWS_MSK_IAM' if SASL is used
+    # MSK Auth
+    sasl_mechanism: Optional[str] = None
+    aws_region: Optional[str] = (
+        None  # For OAUTHBEARER (SASL/IAM with aws_msk_iam_sasl_signer)
+    )
 
 
 def kafka_messages_observer(pipeline_name: str) -> Callable:
@@ -155,23 +158,47 @@ class KafkaEventSource(EventSource):
         }
 
         if self.source_config.sasl_mechanism:
-            if self.source_config.sasl_mechanism == "AWS_MSK_IAM":
-                consumer_config["security.protocol"] = "SASL_SSL"
-                consumer_config["sasl.mechanism"] = "AWS_MSK_IAM"
-                consumer_config["sasl.client.callback.handler.class"] = (
-                    "software.amazon.msk.auth.iam.IAMClientCallbackHandler"
-                )
-                # The following is sometimes aliased or covered by the client callback handler and jaas config
-                # consumer_config[
-                #     "sasl.login.callback.handler.class"
-                # ] = "software.amazon.msk.auth.iam.IAMClientCallbackHandler"
-                consumer_config["sasl.jaas.config"] = (
-                    "software.amazon.msk.auth.iam.IAMLoginModule required;"
-                )
+            consumer_config["security.protocol"] = "SASL_SSL"
+            consumer_config["sasl.mechanism"] = self.source_config.sasl_mechanism
+
+            if self.source_config.sasl_mechanism == "OAUTHBEARER":
+                if not self.source_config.aws_region:
+                    raise ValueError(
+                        "aws_region must be set when using OAUTHBEARER (SASL/IAM)"
+                    )
+                try:
+                    # Delayed import to avoid making this a hard dependency if not used
+                    from aws_msk_iam_sasl_signer import MSKAuthTokenProvider
+                except ImportError as e:
+                    raise ImportError(
+                        "The 'aws_msk_iam_sasl_signer' library is required for SASL/IAM OAUTHBEARER. "
+                        "Please install it by adding 'aws-msk-iam-sasl-signer' to your project dependencies, "
+                        "or ensure your datahub installation includes kafka-iam extras."
+                    ) from e
+
+                def oauth_cb(oauth_config_str: str) -> tuple[str, float]:
+                    auth_token, expiry_ms = MSKAuthTokenProvider.generate_auth_token(
+                        self.source_config.aws_region  # type: ignore
+                    )
+                    return auth_token, expiry_ms / 1000
+
+                consumer_config["oauth_cb"] = oauth_cb
+            elif self.source_config.sasl_mechanism == "AWS_MSK_IAM":
+                # For librdkafka >= 1.5.0 with AWS_MSK_IAM mechanism,
+                # sasl.client.callback.handler.class and sasl.jaas.config
+                # are not needed and may cause errors if set, as librdkafka handles this internally.
+                # If "Unsupported SASL mechanism: AWS_MSK_IAM" occurs, it means this mechanism
+                # is not supported by the specific librdkafka build, despite its version.
+                # In that case, OAUTHBEARER with aws_msk_iam_sasl_signer is the fallback.
+                pass  # No extra config needed beyond sasl.mechanism itself
+            # Add other SASL mechanisms like SCRAM back here if general support is desired
+            # elif self.source_config.sasl_mechanism in ("SCRAM-SHA-256", "SCRAM-SHA-512"):
+            #    ... (add SCRAM logic if needed, including sasl_username/password from config)
             else:
                 logger.warning(
-                    f"Unsupported SASL mechanism: {self.source_config.sasl_mechanism}. "
-                    f"Only AWS_MSK_IAM is supported in this simplified configuration."
+                    f"SASL mechanism '{self.source_config.sasl_mechanism}' is configured but not explicitly handled "
+                    f"by OAUTHBEARER or AWS_MSK_IAM specific logic. Ensure your librdkafka build supports it directly, "
+                    f"or that it doesn't require additional client-side configuration beyond 'sasl.mechanism'."
                 )
 
         self.consumer: confluent_kafka.Consumer = confluent_kafka.DeserializingConsumer(
