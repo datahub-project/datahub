@@ -1,4 +1,4 @@
-ARG KAFKA_DOCKER_VERSION=7.9.0
+ARG KAFKA_DOCKER_VERSION=7.9.1
 
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
@@ -55,8 +55,8 @@ RUN ls -la
 COPY --from=confluent_base /usr/share/java/cp-base-new/ /usr/share/java/cp-base-new/
 COPY --from=confluent_base /etc/cp-base-new/log4j.properties /etc/cp-base-new/log4j.properties
 
-ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.0.3/aws-msk-iam-auth-2.0.3-all.jar /usr/share/java/cp-base-new
-ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.0.3/aws-msk-iam-auth-2.0.3-all.jar /opt/kafka/libs
+ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.3.0/aws-msk-iam-auth-2.3.0-all.jar /usr/share/java/cp-base-new
+ADD --chown=kafka:kafka ${GITHUB_REPO_URL}/aws/aws-msk-iam-auth/releases/download/v2.3.0/aws-msk-iam-auth-2.3.0-all.jar /opt/kafka/libs
 
 ENV METADATA_AUDIT_EVENT_NAME="MetadataAuditEvent_v4"
 ENV METADATA_CHANGE_EVENT_NAME="MetadataChangeEvent_v4"

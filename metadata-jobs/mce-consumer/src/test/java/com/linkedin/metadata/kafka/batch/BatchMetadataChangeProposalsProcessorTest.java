@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.batch;
 
+import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -10,11 +11,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -22,6 +26,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.client.SystemJavaEntityClient;
+import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -233,6 +238,16 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
   @Test
   public void testSuccessfulBatchIngestion() throws Exception {
+    // Disable inner batching
+    when(mockProvider.getMetadataChangeProposal())
+        .thenReturn(
+            new MetadataChangeProposalConfig()
+                .setConsumer(
+                    new MetadataChangeProposalConfig.ConsumerBatchConfig()
+                        .setBatch(
+                            new MetadataChangeProposalConfig.BatchConfig()
+                                .setSize(Integer.MAX_VALUE))));
+
     // Create MCPs
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
     mcp1.setSystemMetadata(new SystemMetadata());
@@ -285,6 +300,16 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
   @Test
   public void testIngestionFailure() throws Exception {
+    // Disable inner batching
+    when(mockProvider.getMetadataChangeProposal())
+        .thenReturn(
+            new MetadataChangeProposalConfig()
+                .setConsumer(
+                    new MetadataChangeProposalConfig.ConsumerBatchConfig()
+                        .setBatch(
+                            new MetadataChangeProposalConfig.BatchConfig()
+                                .setSize(Integer.MAX_VALUE))));
+
     // Create 3 Invalid MCPs
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
     mcp1.setSystemMetadata(new SystemMetadata());
@@ -386,5 +411,157 @@ public class BatchMetadataChangeProposalsProcessorTest {
 
     // Verify that kafkaProducer was not called (since we handled the deserialize exception)
     verify(mockKafkaProducer, never()).produceFailedMetadataChangeProposal(any(), any(), any());
+  }
+
+  @Test
+  public void testLargeBatchPartitioning() throws Exception {
+    // Mock the ConfigurationProvider to return a specific batch size limit
+    MetadataChangeProposalConfig.ConsumerBatchConfig batchConfig =
+        new MetadataChangeProposalConfig.ConsumerBatchConfig()
+            .setBatch(
+                new MetadataChangeProposalConfig.BatchConfig()
+                    .setSize(5 * 1024)
+                    .setEnabled(true)); // 5KB batch size limit for testing
+    when(mockProvider.getMetadataChangeProposal())
+        .thenReturn(new MetadataChangeProposalConfig().setConsumer(batchConfig));
+
+    // Create 3 MCPs, one with a large aspect value
+    MetadataChangeProposal smallMcp1 = createMcpWithAspectSize(1000); // 1KB
+    MetadataChangeProposal largeMcp =
+        createMcpWithAspectSize(4500); // 4.5KB - should trigger a new batch
+    MetadataChangeProposal smallMcp2 = createMcpWithAspectSize(2000); // 2KB
+
+    // Mock conversion from Avro to Pegasus MCP
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(smallMcp1);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(largeMcp);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord3)).thenReturn(smallMcp2);
+
+    List<ConsumerRecord<String, GenericRecord>> records =
+        List.of(mockConsumerRecord1, mockConsumerRecord2, mockConsumerRecord3);
+
+    // Execute test
+    processor.consume(records);
+
+    // Verify that entityClient.batchIngestProposals was called 3x
+    // First batch should contain only smallMcp1 (1KB)
+    // Second batch should contain largeMcp but not smallMcp2 since it exceeds 5KB (4.5KB + 2KB =
+    // 6.5KB, which exceeds limit so we process them separately)
+    verify(mockEntityService, times(3)).ingestProposal(any(), any(), eq(false));
+
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(mockEntityService, times(3)).ingestProposal(any(), batchCaptor.capture(), eq(false));
+
+    List<AspectsBatch> capturedBatches = batchCaptor.getAllValues();
+    // First batch should contain only smallMcp1
+    assertEquals(capturedBatches.get(0).getMCPItems().size(), 1);
+    // Second batch should contain largeMcp
+    assertEquals(capturedBatches.get(1).getMCPItems().size(), 1);
+    // Third batch should contain smallMcp2
+    assertEquals(capturedBatches.get(1).getMCPItems().size(), 1);
+  }
+
+  @Test
+  public void testExtremelyLargeAspect() throws Exception {
+    // Mock the ConfigurationProvider to return a specific batch size limit
+    MetadataChangeProposalConfig.ConsumerBatchConfig batchConfig =
+        new MetadataChangeProposalConfig.ConsumerBatchConfig()
+            .setBatch(
+                new MetadataChangeProposalConfig.BatchConfig()
+                    .setSize(10000)
+                    .setEnabled(true)); // 10KB batch size limit for testing
+    when(mockProvider.getMetadataChangeProposal())
+        .thenReturn(new MetadataChangeProposalConfig().setConsumer(batchConfig));
+    mock(MetadataChangeProposalConfig.ConsumerBatchConfig.class);
+
+    // Create an MCP with an aspect value that exceeds the batch size on its own
+    MetadataChangeProposal hugeMcp =
+        createMcpWithAspectSize(15000); // 15KB - larger than batch limit
+    MetadataChangeProposal smallMcp = createMcpWithAspectSize(1000); // 1KB
+
+    // Mock conversion from Avro to Pegasus MCP
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord1)).thenReturn(hugeMcp);
+    eventUtilsMock.when(() -> EventUtils.avroToPegasusMCP(mockRecord2)).thenReturn(smallMcp);
+
+    List<ConsumerRecord<String, GenericRecord>> records =
+        List.of(mockConsumerRecord1, mockConsumerRecord2);
+
+    // Execute test
+    processor.consume(records);
+
+    // Verify that entityClient.batchIngestProposals was called twice
+    // First call for hugeMcp alone (despite exceeding the limit, it's processed alone)
+    // Second call for smallMcp
+    verify(mockEntityService, times(2)).ingestProposal(any(), any(), eq(false));
+
+    ArgumentCaptor<AspectsBatch> batchCaptor = ArgumentCaptor.forClass(AspectsBatch.class);
+    verify(mockEntityService, times(2)).ingestProposal(any(), batchCaptor.capture(), eq(false));
+
+    List<AspectsBatch> capturedBatches = batchCaptor.getAllValues();
+    assertEquals(capturedBatches.get(0).getMCPItems().size(), 1);
+    assertEquals(capturedBatches.get(1).getMCPItems().size(), 1);
+  }
+
+  @Test
+  public void testEmptyBatchWithSpanCreation() throws Exception {
+    // Execute test with empty list
+    processor.consume(new ArrayList<>());
+
+    // Verify that the span was created (we can't directly test this, but we can check
+    // that the entityClient.batchIngestProposals was not called and no errors occurred)
+    verify(mockEntityService, never())
+        .ingestProposal(any(OperationContext.class), any(), anyBoolean());
+
+    // Verify that kafkaProducer was not called
+    verify(mockKafkaProducer, never()).produceFailedMetadataChangeProposal(any(), any(), any());
+  }
+
+  @Test
+  public void testCalculateMCPSize() throws Exception {
+    // Test the calculateMCPSize method using reflection
+    java.lang.reflect.Method calculateMCPSizeMethod =
+        BatchMetadataChangeProposalsProcessor.class.getDeclaredMethod(
+            "calculateMCPSize", MetadataChangeProposal.class);
+    calculateMCPSizeMethod.setAccessible(true);
+
+    // Test with null MCP
+    Long nullSize = (Long) calculateMCPSizeMethod.invoke(processor, (MetadataChangeProposal) null);
+    assertEquals(nullSize.longValue(), 0L);
+
+    // Test with MCP that has null aspect
+    MetadataChangeProposal mcpNullAspect = new MetadataChangeProposal();
+    Long nullAspectSize = (Long) calculateMCPSizeMethod.invoke(processor, mcpNullAspect);
+    assertEquals(nullAspectSize.longValue(), 1000L); // Base size
+
+    // Test with MCP that has aspect but null value
+    MetadataChangeProposal mcpEmptyAspect = new MetadataChangeProposal();
+    Long emptyAspectSize = (Long) calculateMCPSizeMethod.invoke(processor, mcpEmptyAspect);
+    assertEquals(emptyAspectSize.longValue(), 1000L); // Base size
+
+    // Test with MCP that has aspect with value
+    MetadataChangeProposal mcpWithAspect = createMcpWithAspectSize(500);
+    Long withAspectSize = (Long) calculateMCPSizeMethod.invoke(processor, mcpWithAspect);
+    assertTrue(withAspectSize >= 1500); // Base size + aspect size
+  }
+
+  // Helper method to create an MCP with a specific aspect value size
+  private MetadataChangeProposal createMcpWithAspectSize(int size) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setSystemMetadata(new SystemMetadata());
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setEntityUrn(
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,test" + size + ",PROD)"));
+    mcp.setEntityType("dataset");
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+
+    // Create an aspect with a value of the specified size
+    DatasetProperties aspect = new DatasetProperties();
+    StringBuilder valueBuilder = new StringBuilder(size);
+    for (int i = 0; i < size; i++) {
+      valueBuilder.append('x');
+    }
+    aspect.setDescription(valueBuilder.toString());
+    mcp.setAspect(GenericRecordUtils.serializeAspect(aspect));
+
+    return mcp;
   }
 }
