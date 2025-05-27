@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - "**/*.gradle"
       - "li-utils/**"

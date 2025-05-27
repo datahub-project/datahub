@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/airflow-plugin.yml"
       - "metadata-ingestion-modules/airflow-plugin/**"

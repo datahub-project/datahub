@@ -18,6 +18,7 @@ dependencies {
     implementation externalDependency.servletApi
     implementation externalDependency.jakartaValidation
     implementation externalDependency.jakartaAnnotationApi
+    implementation platform(externalDependency.jacksonBom)
     implementation externalDependency.jacksonDataBind
     implementation externalDependency.slf4jApi
 

@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/prefect-plugin.yml"
       - "metadata-ingestion-modules/prefect-plugin/**"

@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"

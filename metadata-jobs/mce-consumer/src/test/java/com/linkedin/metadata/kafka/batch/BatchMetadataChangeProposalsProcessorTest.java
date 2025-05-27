@@ -242,9 +242,11 @@ public class BatchMetadataChangeProposalsProcessorTest {
     when(mockProvider.getMetadataChangeProposal())
         .thenReturn(
             new MetadataChangeProposalConfig()
-                .setBatch(
+                .setConsumer(
                     new MetadataChangeProposalConfig.ConsumerBatchConfig()
-                        .setSize(Integer.MAX_VALUE)));
+                        .setBatch(
+                            new MetadataChangeProposalConfig.BatchConfig()
+                                .setSize(Integer.MAX_VALUE))));
 
     // Create MCPs
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
@@ -302,9 +304,11 @@ public class BatchMetadataChangeProposalsProcessorTest {
     when(mockProvider.getMetadataChangeProposal())
         .thenReturn(
             new MetadataChangeProposalConfig()
-                .setBatch(
+                .setConsumer(
                     new MetadataChangeProposalConfig.ConsumerBatchConfig()
-                        .setSize(Integer.MAX_VALUE)));
+                        .setBatch(
+                            new MetadataChangeProposalConfig.BatchConfig()
+                                .setSize(Integer.MAX_VALUE))));
 
     // Create 3 Invalid MCPs
     MetadataChangeProposal mcp1 = new MetadataChangeProposal();
@@ -412,11 +416,14 @@ public class BatchMetadataChangeProposalsProcessorTest {
   @Test
   public void testLargeBatchPartitioning() throws Exception {
     // Mock the ConfigurationProvider to return a specific batch size limit
-    MetadataChangeProposalConfig.ConsumerBatchConfig mockConfig =
-        mock(MetadataChangeProposalConfig.ConsumerBatchConfig.class);
-    when(mockConfig.getSize()).thenReturn(5 * 1024); // 5KB batch size limit for testing
+    MetadataChangeProposalConfig.ConsumerBatchConfig batchConfig =
+        new MetadataChangeProposalConfig.ConsumerBatchConfig()
+            .setBatch(
+                new MetadataChangeProposalConfig.BatchConfig()
+                    .setSize(5 * 1024)
+                    .setEnabled(true)); // 5KB batch size limit for testing
     when(mockProvider.getMetadataChangeProposal())
-        .thenReturn(new MetadataChangeProposalConfig().setBatch(mockConfig));
+        .thenReturn(new MetadataChangeProposalConfig().setConsumer(batchConfig));
 
     // Create 3 MCPs, one with a large aspect value
     MetadataChangeProposal smallMcp1 = createMcpWithAspectSize(1000); // 1KB
@@ -456,11 +463,15 @@ public class BatchMetadataChangeProposalsProcessorTest {
   @Test
   public void testExtremelyLargeAspect() throws Exception {
     // Mock the ConfigurationProvider to return a specific batch size limit
-    MetadataChangeProposalConfig.ConsumerBatchConfig mockConfig =
-        mock(MetadataChangeProposalConfig.ConsumerBatchConfig.class);
-    when(mockConfig.getSize()).thenReturn(10000); // 10KB batch size limit for testing
+    MetadataChangeProposalConfig.ConsumerBatchConfig batchConfig =
+        new MetadataChangeProposalConfig.ConsumerBatchConfig()
+            .setBatch(
+                new MetadataChangeProposalConfig.BatchConfig()
+                    .setSize(10000)
+                    .setEnabled(true)); // 10KB batch size limit for testing
     when(mockProvider.getMetadataChangeProposal())
-        .thenReturn(new MetadataChangeProposalConfig().setBatch(mockConfig));
+        .thenReturn(new MetadataChangeProposalConfig().setConsumer(batchConfig));
+    mock(MetadataChangeProposalConfig.ConsumerBatchConfig.class);
 
     // Create an MCP with an aspect value that exceeds the batch size on its own
     MetadataChangeProposal hugeMcp =

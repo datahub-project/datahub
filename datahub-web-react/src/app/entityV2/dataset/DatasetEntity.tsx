@@ -190,6 +190,15 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: PartitionOutlined,
                 },
                 {
+                    name: 'Access',
+                    component: AccessManagement,
+                    icon: UnlockOutlined,
+                    display: {
+                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
+                        enabled: (_, _2) => true,
+                    },
+                },
+                {
                     name: 'Properties',
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
@@ -252,15 +261,6 @@ export class DatasetEntity implements Entity<Dataset> {
                         enabled: (_, dataset: GetDatasetQuery) => {
                             return (dataset?.dataset?.runs?.total || 0) > 0;
                         },
-                    },
-                },
-                {
-                    name: 'Access Management',
-                    component: AccessManagement,
-                    icon: UnlockOutlined,
-                    display: {
-                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, _2) => true,
                     },
                 },
                 {

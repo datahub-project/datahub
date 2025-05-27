@@ -15,6 +15,17 @@ The connector will attempt to identify which cells contain table data. A table i
 
 Rows that are directly above or directly below the table where only the first two columns have values are assumed to contain metadata. If such rows are located, they are converted to custom properties where the first column is the key, and the second column is the value. Additionally, the workbook standard and custom properties are also imported as dataset custom properties.
 
+## Data Model Mapping
+
+The following table shows how Excel entities are mapped to DataHub entities:
+
+| Excel Entity                 | DataHub Entity | Description                                                                                                                          |
+| ---------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| **Excel Worksheet**          | **Dataset**    | Each worksheet becomes a dataset with URN pattern: `urn:li:dataset:(urn:li:dataPlatform:excel,{path}/[{filename}]{sheet_name},PROD)` |
+| **File/Directory Structure** | **Container**  | Directory hierarchy creates containers with obfuscated URNs for organizing datasets                                                  |
+
+Note: The Excel workbook file itself does not become a separate DataHub entity - only the individual worksheets within it are ingested as datasets.
+
 ## Prerequisites
 
 ### AWS S3
