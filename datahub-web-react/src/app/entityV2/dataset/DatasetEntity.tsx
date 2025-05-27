@@ -20,6 +20,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/e
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
 import { OperationsTab } from '@app/entityV2/dataset/profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from '@app/entityV2/dataset/profile/stats/stats/DatasetStatsSummarySubHeader';
+import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
@@ -48,8 +49,6 @@ import { AcrylValidationsTab } from '@app/entityV2/shared/tabs/Dataset/Validatio
 import ViewDefinitionTab from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
-import ColumnTabNameHeader from '@app/entityV2/shared/tabs/Entity/ColumnTabNameHeader';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -155,7 +154,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Columns',
                     component: SchemaTab,
                     icon: LayoutOutlined,
-                    getCount: ColumnTabNameHeader,
+                    getCount: useGetColumnTabCount,
                 },
                 {
                     name: 'View Definition',
@@ -202,12 +201,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Properties',
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,
-                    getDynamicName: (_, dataset: GetDatasetQuery, loading) => {
+                    getCount: (_, dataset: GetDatasetQuery) => {
                         const customPropertiesCount = dataset?.dataset?.properties?.customProperties?.length || 0;
                         const structuredPropertiesCount =
                             dataset?.dataset?.structuredProperties?.properties?.length || 0;
                         const propertiesCount = customPropertiesCount + structuredPropertiesCount;
-                        return <TabNameWithCount name="Properties" count={propertiesCount} loading={loading} />;
+                        return propertiesCount;
                     },
                 },
                 {
@@ -267,9 +266,8 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dataset, loading) => {
-                        const activeIncidentCount = dataset?.dataset?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dataset) => {
+                        return dataset?.dataset?.activeIncidents?.total;
                     },
                 },
             ]}

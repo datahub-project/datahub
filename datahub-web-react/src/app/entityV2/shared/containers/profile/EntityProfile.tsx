@@ -155,7 +155,7 @@ const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const BodyContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding-top: 8px;
+    padding-top: 12px;
     background-color: #ffffff;
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
@@ -401,11 +401,7 @@ export const EntityProfile = <T, U>({
                                     )}
                                     <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                                         <BodyContent $isShowNavBarRedesign={isShowNavBarRedesign}>
-                                            {!isTabFullsize && (
-                                                // <TabsWrapper>
-                                                // </TabsWrapper>
-                                                <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                            )}
+                                            <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
                                             {/* <TabContent>
                                                 {routedTab && (
                                                     <routedTab.component

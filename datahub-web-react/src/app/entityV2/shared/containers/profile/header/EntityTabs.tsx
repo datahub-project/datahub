@@ -1,12 +1,13 @@
 import { Tabs } from '@components';
 import { Tabs as AntTabs } from 'antd';
-import React, { useEffect } from 'react';
+import React, { useContext, useEffect } from 'react';
 import styled from 'styled-components/macro';
 
 import { Tab } from '@components/components/Tabs/Tabs';
 
 import { useBaseEntity, useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import { EntityTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
+import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
 type Props = {
     tabs: EntityTab[];
@@ -92,6 +93,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
     const { entityData, loading } = useEntityData();
     const routeToTab = useRouteToTab();
     const baseEntity = useBaseEntity<T>();
+    const { isTabFullsize } = useContext(TabFullsizedContext);
 
     const enabledTabs = tabs.filter((tab) => tab.display?.enabled(entityData, baseEntity));
 
@@ -118,7 +120,14 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
         count: t.getCount?.(entityData, baseEntity, loading),
     }));
 
-    return <Tabs onChange={(t) => routeToTab({ tabName: t })} selectedTab={selectedTab?.name} tabs={finalTabs} />;
+    return (
+        <Tabs
+            onChange={(t) => routeToTab({ tabName: t })}
+            selectedTab={selectedTab?.name}
+            tabs={finalTabs}
+            hideTabsHeader={isTabFullsize}
+        />
+    );
     // return (
     //     <UnborderedTabs
     //         animated={false}
