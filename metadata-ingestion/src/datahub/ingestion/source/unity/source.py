@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
@@ -78,6 +79,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     Column,
     CustomCatalogType,
+    HiveTableType,
     Metastore,
     Notebook,
     NotebookId,
@@ -88,7 +90,12 @@ from datahub.ingestion.source.unity.proxy_types import (
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
-from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
+from datahub.metadata.com.linkedin.pegasus2avro.common import (
+    GlobalTags,
+    MetadataAttribution,
+    Siblings,
+    TagAssociation,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,
@@ -116,6 +123,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import TagUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -506,6 +514,30 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         yield from self.add_table_to_dataset_container(dataset_urn, schema)
 
         table_props = self._create_table_property_aspect(table)
+        tags = None
+        if not isinstance(table.table_type, HiveTableType):
+            try:
+                table_tags = self._get_table_tags(
+                    table.ref.catalog, table.ref.schema, table.ref.table
+                )
+                logger.info(f"Table tags for {table.ref}: {table_tags}")
+                attribution = MetadataAttribution(
+                    # source="unity-catalog",
+                    actor="urn:li:corpuser:datahub",
+                    time=int(time.time() * 1000),
+                )
+                tags = GlobalTags(
+                    tags=[
+                        TagAssociation(
+                            tag=TagUrn(name=f"{tag[0]}:{tag[1]}").urn(),
+                            attribution=attribution,
+                        )
+                        for tag in table_tags
+                    ]
+                )
+
+            except Exception as e:
+                logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
 
         view_props = None
         if table.view_definition:
@@ -585,6 +617,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     domain,
                     data_platform_instance,
                     lineage,
+                    tags,
                 ],
             )
         ]
@@ -832,6 +865,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             dataset_urn=dataset_urn,
         )
 
+    def _get_table_tags(
+        self, catalog: str, schema: str, table: str
+    ) -> List[Tuple[str, str]]:
+        all_tags = self.unity_catalog_api_proxy.get_table_tags(catalog)
+        return all_tags.get(f"{catalog}.{schema}.{table}", [])
+
+    def _get_column_tags(
+        self, catalog: str, schema: str, table: str, column: str
+    ) -> List[Tuple[str, str]]:
+        all_tags = self.unity_catalog_api_proxy.get_column_tags(catalog)
+        return all_tags.get(f"{catalog}.{schema}.{table}.{column}", [])
+
     def _create_table_property_aspect(self, table: Table) -> DatasetPropertiesClass:
         custom_properties: dict = {}
         if table.storage_location is not None:
@@ -925,7 +970,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         schema_fields: List[SchemaFieldClass] = []
 
         for column in table.columns:
-            schema_fields.extend(self._create_schema_field(column))
+            column_tags = self._get_column_tags(
+                table.ref.catalog, table.ref.schema, table.ref.table, column.name
+            )
+            tag_urns = [TagUrn(name=f"{tag[0]}:{tag[1]}") for tag in column_tags]
+            schema_fields.extend(self._create_schema_field(column, tag_urns))
 
         return SchemaMetadataClass(
             schemaName=table.id,
@@ -937,14 +986,29 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     @staticmethod
-    def _create_schema_field(column: Column) -> List[SchemaFieldClass]:
+    def _create_schema_field(
+        column: Column, tags: List[TagUrn]
+    ) -> List[SchemaFieldClass]:
         _COMPLEX_TYPE = re.compile("^(struct|array)")
-
+        global_tags: Optional[GlobalTags] = None
         if _COMPLEX_TYPE.match(column.type_text.lower()):
             return get_schema_fields_for_hive_column(
                 column.name, column.type_text.lower(), description=column.comment
             )
         else:
+            logger.info(f"Column tags are: {tags}")
+            attribution = MetadataAttribution(
+                # source="unity-catalog",
+                actor="urn:li:corpuser:datahub",
+                time=int(time.time() * 1000),
+            )
+            global_tags = GlobalTags(
+                tags=[
+                    TagAssociation(tag=tag.urn(), attribution=attribution)
+                    for tag in tags
+                ]
+            )
+
             return [
                 SchemaFieldClass(
                     fieldPath=column.name,
@@ -954,6 +1018,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     nativeDataType=column.type_text,
                     nullable=column.nullable,
                     description=column.comment,
+                    globalTags=global_tags if tags else None,
                 )
             ]
 
