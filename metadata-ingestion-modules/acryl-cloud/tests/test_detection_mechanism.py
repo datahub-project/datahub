@@ -52,25 +52,25 @@ def test_parse_detection_mechanism_with_str_missing_required_kwargs(
         ({"type": "audit_log"}, "audit_log"),
         ({"type": "datahub_operation"}, "datahub_operation"),
         (
-            {"type": "last_modified_column", "column": "last_modified"},
+            {"type": "last_modified_column", "column_name": "last_modified"},
             "last_modified_column",
         ),
         (
             {
                 "type": "last_modified_column",
-                "column": "last_modified",
+                "column_name": "last_modified",
                 "additional_filter": "last_modified > '2021-01-01'",
             },
             "last_modified_column",
         ),
         (
-            {"type": "high_water_mark_column", "high_water_mark_column": "id"},
+            {"type": "high_water_mark_column", "column_name": "id"},
             "high_water_mark_column",
         ),
         (
             {
                 "type": "high_water_mark_column",
-                "high_water_mark_column": "id",
+                "column_name": "id",
                 "additional_filter": "id > 1000",
             },
             "high_water_mark_column",
@@ -135,31 +135,32 @@ def test_parse_detection_mechanism_with_extra_unrecognized_kwargs_and_missing_re
         (DetectionMechanism.AUDIT_LOG, "audit_log", {}),
         (DetectionMechanism.DATAHUB_OPERATION, "datahub_operation", {}),
         (
-            DetectionMechanism.LAST_MODIFIED_COLUMN(column="last_modified"),
+            DetectionMechanism.LAST_MODIFIED_COLUMN(column_name="last_modified"),
             "last_modified_column",
-            {"column": "last_modified"},
+            {"column_name": "last_modified"},
         ),
         (
             DetectionMechanism.LAST_MODIFIED_COLUMN(
-                column="last_modified", additional_filter="last_modified > '2021-01-01'"
+                column_name="last_modified",
+                additional_filter="last_modified > '2021-01-01'",
             ),
             "last_modified_column",
             {
-                "column": "last_modified",
+                "column_name": "last_modified",
                 "additional_filter": "last_modified > '2021-01-01'",
             },
         ),
         (
-            DetectionMechanism.HIGH_WATER_MARK_COLUMN(high_water_mark_column="id"),
+            DetectionMechanism.HIGH_WATER_MARK_COLUMN(column_name="id"),
             "high_water_mark_column",
-            {"high_water_mark_column": "id"},
+            {"column_name": "id"},
         ),
         (
             DetectionMechanism.HIGH_WATER_MARK_COLUMN(
-                high_water_mark_column="id", additional_filter="id > 1000"
+                column_name="id", additional_filter="id > 1000"
             ),
             "high_water_mark_column",
-            {"high_water_mark_column": "id", "additional_filter": "id > 1000"},
+            {"column_name": "id", "additional_filter": "id > 1000"},
         ),
     ],
 )

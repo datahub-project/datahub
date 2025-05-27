@@ -40,13 +40,13 @@ class _AuditLog(AbstractDetectionMechanism):
 
 class _LastModifiedColumn(AbstractDetectionMechanism):
     type: Literal["last_modified_column"] = "last_modified_column"
-    column: str
+    column_name: str
     additional_filter: Union[str, None] = None
 
 
 class _HighWaterMarkColumn(AbstractDetectionMechanism):
     type: Literal["high_water_mark_column"] = "high_water_mark_column"
-    high_water_mark_column: str
+    column_name: str
     additional_filter: Union[str, None] = None
 
 
@@ -76,13 +76,13 @@ class DetectionMechanism:
         "Audit Log from DetectionMechanism": "DetectionMechanism.AUDIT_LOG",
         "Last Modified Column from dict": {
             "type": "last_modified_column",
-            "column": "last_modified",
+            "column_name": "last_modified",
             "additional_filter": "last_modified > '2021-01-01'",
         },
-        "Last Modified Column from DetectionMechanism": "DetectionMechanism.LAST_MODIFIED_COLUMN(column='last_modified', additional_filter='last_modified > 2021-01-01')",
+        "Last Modified Column from DetectionMechanism": "DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified', additional_filter='last_modified > 2021-01-01')",
         "High Water Mark Column from dict": {
             "type": "high_water_mark_column",
-            "high_water_mark_column": "id",
+            "column_name": "id",
             "additional_filter": "id > 1000",
         },
         "High Water Mark Column from DetectionMechanism": "DetectionMechanism.HIGH_WATER_MARK_COLUMN(high_water_mark_column='id', additional_filter='id > 1000')",
@@ -192,7 +192,7 @@ class InferenceSensitivity(Enum):
 
     @staticmethod
     def parse(
-        sensitivity: Union[str, "InferenceSensitivity", None],
+        sensitivity: Union[str, int, "InferenceSensitivity", None],
     ) -> "InferenceSensitivity":
         if sensitivity is None:
             return DEFAULT_SENSITIVITY
@@ -203,10 +203,23 @@ class InferenceSensitivity(Enum):
             "Medium sensitivity from enum": "InferenceSensitivity.MEDIUM",
             "Low sensitivity from string": "low",
             "Low sensitivity from enum": "InferenceSensitivity.LOW",
+            "Sensitivity from int (1-3: low, 4-6: medium, 7-10: high)": "10",
         }
 
         if isinstance(sensitivity, InferenceSensitivity):
             return sensitivity
+        if isinstance(sensitivity, int):
+            if (sensitivity < 1) or (sensitivity > 10):
+                raise SDKUsageErrorWithExamples(
+                    msg=f"Invalid inference sensitivity: {sensitivity}",
+                    examples=EXAMPLES,
+                )
+            elif sensitivity < 4:
+                return InferenceSensitivity.LOW
+            elif sensitivity < 7:
+                return InferenceSensitivity.MEDIUM
+            else:
+                return InferenceSensitivity.HIGH
         try:
             return InferenceSensitivity(sensitivity)
         except ValueError as e:

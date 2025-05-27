@@ -25,3 +25,10 @@ class SDKUsageErrorWithExamples(SdkUsageError):
             for key, value in self.examples.items()
         )
         return f"{self.msg}\n\n*** Examples of Accepted Values ***\n\n{examples_str}\n\n*** End of Examples ***"
+
+
+class SDKNotYetSupportedError(Exception):
+    def __init__(self, supported_item: str):
+        msg = f"This feature is not yet supported in the Python SDK: {supported_item}"
+        super().__init__(msg)
+        self.msg = msg

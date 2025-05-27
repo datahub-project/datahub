@@ -57,35 +57,36 @@ class AssertionInputParams(TypedDict, total=False):
             id="datahub_operation (no kwargs)",
         ),
         pytest.param(
-            DetectionMechanism.LAST_MODIFIED_COLUMN(column="last_modified"),
+            DetectionMechanism.LAST_MODIFIED_COLUMN(column_name="last_modified"),
             "last_modified_column",
-            {"column": "last_modified"},
-            id="last_modified_column (column only)",
+            {"column_name": "last_modified"},
+            id="last_modified_column (column_name only)",
         ),
         pytest.param(
             DetectionMechanism.LAST_MODIFIED_COLUMN(
-                column="last_modified", additional_filter="last_modified > '2025-01-01'"
+                column_name="last_modified",
+                additional_filter="last_modified > '2025-01-01'",
             ),
             "last_modified_column",
             {
-                "column": "last_modified",
+                "column_name": "last_modified",
                 "additional_filter": "last_modified > '2025-01-01'",
             },
-            id="last_modified_column (column + additional_filter)",
+            id="last_modified_column (column_name + additional_filter)",
         ),
         pytest.param(
-            DetectionMechanism.HIGH_WATER_MARK_COLUMN(high_water_mark_column="id"),
+            DetectionMechanism.HIGH_WATER_MARK_COLUMN(column_name="id"),
             "high_water_mark_column",
-            {"high_water_mark_column": "id"},
-            id="high_water_mark_column (high_water_mark_column only)",
+            {"column_name": "id"},
+            id="high_water_mark_column (column_name only)",
         ),
         pytest.param(
             DetectionMechanism.HIGH_WATER_MARK_COLUMN(
-                high_water_mark_column="id", additional_filter="id > 1000"
+                column_name="id", additional_filter="id > 1000"
             ),
             "high_water_mark_column",
-            {"high_water_mark_column": "id", "additional_filter": "id > 1000"},
-            id="high_water_mark_column (high_water_mark_column + additional_filter)",
+            {"column_name": "id", "additional_filter": "id > 1000"},
+            id="high_water_mark_column (column_name + additional_filter)",
         ),
         pytest.param(
             None,
@@ -154,39 +155,39 @@ def test_assertion_creation_with_detection_mechanism_str(
             id="dict: datahub_operation",
         ),
         pytest.param(
-            {"type": "last_modified_column", "column": "last_modified"},
+            {"type": "last_modified_column", "column_name": "last_modified"},
             "last_modified_column",
-            {"column": "last_modified"},
-            id="dict: last_modified_column (column only)",
+            {"column_name": "last_modified"},
+            id="dict: last_modified_column (column_name only)",
         ),
         pytest.param(
             {
                 "type": "last_modified_column",
-                "column": "last_modified",
+                "column_name": "last_modified",
                 "additional_filter": "last_modified > '2025-01-01'",
             },
             "last_modified_column",
             {
-                "column": "last_modified",
+                "column_name": "last_modified",
                 "additional_filter": "last_modified > '2025-01-01'",
             },
-            id="dict: last_modified_column (column + additional_filter)",
+            id="dict: last_modified_column (column_name + additional_filter)",
         ),
         pytest.param(
-            {"type": "high_water_mark_column", "high_water_mark_column": "id"},
+            {"type": "high_water_mark_column", "column_name": "id"},
             "high_water_mark_column",
-            {"high_water_mark_column": "id"},
-            id="dict: high_water_mark_column (only)",
+            {"column_name": "id"},
+            id="dict: high_water_mark_column (column_name only)",
         ),
         pytest.param(
             {
                 "type": "high_water_mark_column",
-                "high_water_mark_column": "id",
+                "column_name": "id",
                 "additional_filter": "id > 1000",
             },
             "high_water_mark_column",
-            {"high_water_mark_column": "id", "additional_filter": "id > 1000"},
-            id="dict: high_water_mark_column (with additional_filter)",
+            {"column_name": "id", "additional_filter": "id > 1000"},
+            id="dict: high_water_mark_column (column_name + additional_filter)",
         ),
         pytest.param(
             None,
