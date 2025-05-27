@@ -62,8 +62,17 @@ jobs:
           fi
 
           # Install Docker Desktop
-          brew install --cask docker
-          brew install docker-compose
+          # brew install --cask docker
+          curl -L -o Docker.dmg  https://desktop.docker.com/mac/main/amd64/191736/Docker.dmg
+
+          whoami
+          sudo hdiutil attach Docker.dmg
+          sudo /Volumes/Docker/Docker.app/Contents/MacOS/install --accept-license 
+          sudo hdiutil detach /Volumes/Docker
+
+          #open -a /Applications/Docker.app
+
+          # brew install docker-compose
 
           # Create Docker config directory and add plugin path
           mkdir -p ~/.docker
@@ -73,7 +82,7 @@ jobs:
 
           find /Applications/Docker.app | grep Docker
           #sudo '/Applications/Docker.app/Contents/MacOS/Docker Desktop' --unattended --install-privileged-components
-          sudo '/Applications/Docker.app/Contents/MacOS/Docker Desktop.app/Contents/MacOS/Docker Desktop' --unattended --install-privileged-components
+          # sudo '/Applications/Docker.app/Contents/MacOS/Docker Desktop.app/Contents/MacOS/Docker Desktop' --unattended --install-privileged-components
           open -a /Applications/Docker.app --args --unattended --accept-license || true
           # open -a Docker 
 
