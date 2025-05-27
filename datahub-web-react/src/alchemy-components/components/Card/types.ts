@@ -1,8 +1,8 @@
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 
 export interface CardProps {
-    title: string;
-    subTitle?: string;
+    title: React.ReactNode;
+    subTitle?: React.ReactNode;
     percent?: number;
     button?: React.ReactNode;
     onClick?: () => void;

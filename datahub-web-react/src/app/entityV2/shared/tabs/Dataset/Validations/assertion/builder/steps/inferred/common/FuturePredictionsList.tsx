@@ -1,4 +1,5 @@
 import { Button, Card, Icon, Loader, Text, Tooltip } from '@components';
+import { Typography } from 'antd';
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -46,6 +47,7 @@ const SaveMessageText = styled.div<{ isTimeout?: boolean }>`
 
 const PredictionsContainer = styled.div`
     position: relative;
+    margin-bottom: 12px;
 `;
 
 const DEFAULT_PREDICTIONS_SHOWN_COUNT = 3;
@@ -184,10 +186,20 @@ export const FuturePredictionsList = forwardRef<VolumeInferenceAdjusterHandle, P
     return (
         <PredictionsContainer>
             <Card
-                title="Predictions"
-                subTitle={`Next ${totalPredictionTimeDeltaHours} hour${totalPredictionTimeDeltaHours !== 1 ? 's' : ''} of predictions${generatedAt ? ` (Generated ${toRelativeTimeString(generatedAt) || 'now'})` : ''}`}
+                title={
+                    <Typography.Title level={5} style={{ marginBottom: 0 }}>
+                        {predictionsCount > 0 ? 'Predictions' : 'No predictions available'}
+                    </Typography.Title>
+                }
+                subTitle={
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        {predictionsCount > 0
+                            ? `Next ${totalPredictionTimeDeltaHours} hour${totalPredictionTimeDeltaHours !== 1 ? 's' : ''} of predictions${generatedAt ? ` (Generated ${toRelativeTimeString(generatedAt) || 'now'})` : ''}`
+                            : 'Once training is complete, you will see predictions here.'}
+                    </Typography.Text>
+                }
             >
-                {predictionsCount > 0 ? (
+                {predictionsCount > 0 && (
                     <>
                         {predictionsToShow.map((prediction) => (
                             <PredictionRow key={prediction.index}>
@@ -221,10 +233,6 @@ export const FuturePredictionsList = forwardRef<VolumeInferenceAdjusterHandle, P
                                     : `+${predictionsCount - DEFAULT_PREDICTIONS_SHOWN_COUNT} more`}
                             </Button>
                         )}
-                    </>
-                ) : (
-                    <>
-                        <Text>No predictions available</Text>
                     </>
                 )}
             </Card>
