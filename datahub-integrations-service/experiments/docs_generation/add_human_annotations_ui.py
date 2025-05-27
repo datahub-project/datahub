@@ -2,6 +2,7 @@ import argparse
 import functools
 import json
 import os
+from typing import Any, Dict, List, Optional
 
 import dotenv
 import mlflow
@@ -23,6 +24,7 @@ from eval_common import (
     get_overall_score,
     update_table_guidelines,
 )
+from mlflow.metrics import MetricValue
 from mlflow_common import (
     get_ai_eval_result_or_none,
     get_human_eval_result_or_none,
@@ -55,19 +57,19 @@ input_run_name = args.run_name
 
 # --- Helper Functions ---
 @st.cache_data
-def get_input_run(input_run_name):
+def get_input_run(input_run_name: str) -> mlflow.entities.Run:
     return get_run_or_fail(input_run_name)
 
 
 @st.cache_data
-def get_eval_table(input_run_id):
+def get_eval_table(input_run_id: str) -> pd.DataFrame:
     return load_eval_table(input_run_id)
 
 
 def row_to_ai_judge_verdict(row: pd.Series) -> AIJudgeVerdict:
-    return AIJudgeVerdict.parse_obj(
+    return AIJudgeVerdict.model_validate(
         {
-            metric_name: JudgedMetricValue.parse_obj(
+            metric_name: JudgedMetricValue.model_validate(
                 {
                     "value": row[f"{metric_name}/score"],
                     "reasoning": row[f"{metric_name}/justification"],
@@ -81,9 +83,9 @@ def row_to_ai_judge_verdict(row: pd.Series) -> AIJudgeVerdict:
 def row_to_human_judge_verdict(
     row: pd.Series, guidelines: HumanGuidelines
 ) -> HumanJudgeVerdict:
-    return HumanJudgeVerdict.parse_obj(
+    return HumanJudgeVerdict.model_validate(
         {
-            metric_name: JudgedMetricValue.parse_obj(
+            metric_name: JudgedMetricValue.model_validate(
                 {
                     "value": row[f"{metric_name}/score"],
                     "reasoning": row[f"{metric_name}/justification"],
@@ -95,12 +97,11 @@ def row_to_human_judge_verdict(
                 }
             )
             for metric_name in METRIC_NAMES
-            # if f"{metric_name}/score" in row
         }
     )
 
 
-def show_table(current_table):
+def show_table(current_table: str) -> None:
     current_table_data = st.session_state.table_data[current_table]
 
     # reset all the values
@@ -119,7 +120,7 @@ def show_table(current_table):
         st.session_state[f"{metric_name}_ai_rerun_msg"] = ""
 
     if st.session_state.annotations.get(current_table):
-        verdict = HumanJudgeVerdict.parse_obj(
+        verdict = HumanJudgeVerdict.model_validate(
             st.session_state.annotations[current_table]["verdict"]
         )
 
@@ -166,18 +167,24 @@ def show_table(current_table):
             print("Error setting AI eval results", e, verdict)
 
 
-def prefill_annotations(human_eval_result, guidelines):
+def prefill_annotations(
+    human_eval_result: pd.DataFrame, guidelines: Dict[str, HumanGuidelines]
+) -> None:
     for _, row in human_eval_result.iterrows():
         st.session_state.annotations[row["urn"]] = {
             "verdict": row_to_human_judge_verdict(
-                row, guidelines.get(row["urn"])
-            ).dict(),
+                row,
+                guidelines.get(row["urn"])
+                or HumanGuidelines(urn=row["urn"], deployment=row["deployment"]),
+            ).model_dump(),
             "table_name": row["urn"],
         }
 
 
 # Initialize session state
-def init_session_state_with_previous_annotations(run_name, eval_result):
+def init_session_state_with_previous_annotations(
+    run_name: str, eval_result: pd.DataFrame
+) -> None:
     print("initializing session state with previous annotations")
     st.session_state.annotations = {}
 
@@ -224,10 +231,10 @@ def init_session_state_with_previous_annotations(run_name, eval_result):
         st.session_state.deployment_details = {}
 
 
-def extract_table_annotation(current_table_name):
-    verdict = HumanJudgeVerdict.parse_obj(
+def extract_table_annotation(current_table_name: str) -> Dict[str, Any]:
+    verdict = HumanJudgeVerdict.model_validate(
         {
-            metric_name: JudgedMetricValue.parse_obj(
+            metric_name: JudgedMetricValue.model_validate(
                 {
                     "value": st.session_state[f"{metric_name}_value"],
                     "guidelines": st.session_state[f"{metric_name}_guidelines"],
@@ -239,14 +246,14 @@ def extract_table_annotation(current_table_name):
     # Store the annotation with table information
     annotation = {
         "table_name": current_table_name,
-        "verdict": verdict.dict(),
+        "verdict": verdict.model_dump(),
     }
 
     return annotation
 
 
-def log_mlflow_run_with_human_annotations(annotations):
-    def common_eval_fn(table_description, urn) -> HumanJudgeVerdict:
+def log_mlflow_run_with_human_annotations(annotations: Dict[str, Any]) -> None:
+    def common_eval_fn(table_description: str, urn: str) -> HumanJudgeVerdict:
         # TODO: why quote in urn?
         urn = urn.strip('"')
 
@@ -254,10 +261,12 @@ def log_mlflow_run_with_human_annotations(annotations):
         if annotation is None:
             verdict = HumanJudgeVerdict()
         else:
-            verdict = HumanJudgeVerdict.parse_obj(annotation["verdict"])
+            verdict = HumanJudgeVerdict.model_validate(annotation["verdict"])
         return verdict
 
-    def custom_eval_fn_metric(metric, predictions, targets):
+    def custom_eval_fn_metric(
+        metric: str, predictions: List[str], targets: List[str]
+    ) -> MetricValue:
         scores = []
         justifications = []
         for prediction, target in zip(predictions, targets, strict=False):
@@ -283,14 +292,16 @@ def log_mlflow_run_with_human_annotations(annotations):
             },
         )
 
-    def overall_score_eval_fn(predictions, targets):
-        scores = []
-        justifications = []
+    def overall_score_eval_fn(
+        predictions: pd.Series, targets: pd.Series
+    ) -> MetricValue:
+        scores: List[int] = []
+        justifications: List[Optional[str]] = []
         for prediction, target in zip(predictions, targets, strict=False):
             judged_metric = get_overall_score(
                 common_eval_fn(prediction, json.dumps(target))
             )
-            if judged_metric is not None:
+            if judged_metric is not None and judged_metric.value is not None:
                 scores.append(judged_metric.value)
                 justifications.append(judged_metric.reasoning)
             else:
@@ -307,12 +318,12 @@ def log_mlflow_run_with_human_annotations(annotations):
             },
         )
 
-    def make_overall_score_metric():
+    def make_overall_score_metric() -> MetricValue:
         return mlflow.metrics.make_metric(
             eval_fn=overall_score_eval_fn, greater_is_better=True, name="overall_score"
         )
 
-    def make_custom_metric(metric_name):
+    def make_custom_metric(metric_name: str) -> MetricValue:
         """Mlflow custom AI metric allows generating single metric from single prompt.
         Since we need to generate multiple metrics from single prompt, we are using mlflow.metrics.make_metric
         with cache powered custom eval_fn that can generate multiple metrics from single prompt, instead of using
@@ -352,13 +363,13 @@ def log_mlflow_run_with_human_annotations(annotations):
         )
 
 
-def log_results():
+def log_results() -> None:
     # log mlflow run with annotations
     log_mlflow_run_with_human_annotations(st.session_state.annotations)
 
 
 # --- Callback Functions ---
-def update_table_index():
+def update_table_index() -> None:
     st.session_state.human_annotations_expander = False
     current_table_index = table_display_names.index(st.session_state.table_selector)
     current_table = table_names[current_table_index]
@@ -366,13 +377,13 @@ def update_table_index():
     show_table(current_table)
 
 
-def skip_table():
+def skip_table() -> None:
     current_table_index = table_display_names.index(st.session_state.table_selector)
     st.session_state.table_selector = table_display_names[current_table_index + 1]
     update_table_index()
 
 
-def add_table_annotations():
+def add_table_annotations() -> None:
     current_table_index = table_display_names.index(st.session_state.table_selector)
     current_table = table_names[current_table_index]
     # Create a HumanJudgeVerdict instance with the current annotations
@@ -392,13 +403,13 @@ def add_table_annotations():
         update_table_index()
 
 
-def done():
+def done() -> None:
     # add_table_annotations()
     log_results()
     st.write("All annotations logged!")
 
 
-def run_ai_judge(metric_name):
+def run_ai_judge(metric_name: str) -> None:
     """Callback to rerun AI judge for a specific metric"""
     st.session_state.human_annotations_expander = True
     current_table_index = table_display_names.index(st.session_state.table_selector)
@@ -413,7 +424,7 @@ def run_ai_judge(metric_name):
         llm_judge_verdict = llm_judge_common_eval_fn(
             st.session_state.table_data[current_table]["description"],
             json.dumps(st.session_state.table_data[current_table]["data"]),
-            table_metric_guidelines.json(),
+            table_metric_guidelines.model_dump_json(),
         )
 
     if (
@@ -432,7 +443,7 @@ def run_ai_judge(metric_name):
 
 
 def _get_edited_guidelines(current_table: str) -> HumanGuidelines:
-    return HumanGuidelines.parse_obj(
+    return HumanGuidelines.model_validate(
         {
             "urn": current_table,
             "deployment": st.session_state.table_data[current_table]["deployment"],
@@ -539,13 +550,13 @@ with b2:
     st.button("**Skip and Go to Next**", key="skip_and_next1", on_click=skip_table)
 
 with st.expander("**Table Info and Column Infos**", expanded=True):
-    info = ExtractedTableInfo.parse_obj(
+    info = ExtractedTableInfo.model_validate(
         st.session_state.table_data[current_table]["data"]
     )
     table_info, column_info = transform_table_info_for_llm(info)
-    st.json(table_info.dict(exclude_none=True), expanded=False)
+    st.json(table_info.model_dump(exclude_none=True), expanded=False)
     st.json(
-        {k: col.dict(exclude_none=True) for k, col in column_info.items()},
+        {k: col.model_dump(exclude_none=True) for k, col in column_info.items()},
         expanded=False,
     )
 

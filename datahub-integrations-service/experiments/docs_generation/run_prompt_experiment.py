@@ -1,9 +1,10 @@
 from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import json
 import os
 import pathlib
 import tempfile
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import asyncer
 import dotenv
@@ -13,6 +14,7 @@ import mlflow.metrics
 import pandas as pd
 import typer
 from datahub.utilities.perf_timer import PerfTimer
+from mlflow.metrics import MetricValue
 
 from datahub_integrations.gen_ai.description_v2 import transform_table_info_for_llm
 from datahub_integrations.gen_ai.description_v3 import (
@@ -30,8 +32,12 @@ BATCH_SIZE = 5  # Number of files to process concurrently
 
 # This holds main logic for prompt engineering and generation of entity descriptions
 @mlflow.trace(name="generate_entity_descriptions_for_urn", span_type="function")
-def generate_entity_descriptions_for_urn_eval_wrapper(data):
-    extracted_entity_info = ExtractedTableInfo.parse_obj(data["extracted_entity_info"])
+def generate_entity_descriptions_for_urn_eval_wrapper(
+    data: Dict[str, Any],
+) -> EntityDescriptionResult:
+    extracted_entity_info = ExtractedTableInfo.model_validate(
+        data["extracted_entity_info"]
+    )
     mlflow.update_current_trace(
         tags={"urn": data["urn"], "deployment": data["deployment"]}
     )
@@ -43,7 +49,9 @@ def generate_entity_descriptions_for_urn_eval_wrapper(data):
     )
 
 
-def process_single_file(file: pathlib.Path) -> Tuple[Dict, List[Dict]]:
+def process_single_file(
+    file: pathlib.Path,
+) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
     with open(file, "r") as f:
         data = json.load(f)
         with PerfTimer() as timer:
@@ -54,7 +62,7 @@ def process_single_file(file: pathlib.Path) -> Tuple[Dict, List[Dict]]:
                 result = EntityDescriptionResult(
                     table_description=None,
                     column_descriptions=None,
-                    extracted_entity_info=ExtractedTableInfo.parse_obj(
+                    extracted_entity_info=ExtractedTableInfo.model_validate(
                         data["extracted_entity_info"]
                     ),
                     failure_reason=str(e),
@@ -85,7 +93,7 @@ def process_single_file(file: pathlib.Path) -> Tuple[Dict, List[Dict]]:
             "deployment": data["deployment"],
             "description": result.table_description,
             "generation_time": generation_time,
-            "entity_info": result.extracted_entity_info.dict(),
+            "entity_info": result.extracted_entity_info.model_dump(),
             "has_schema": len(result.extracted_entity_info.column_names) > 0,
             "has_upstreams": (
                 len(result.extracted_entity_info.table_upstream_lineage_info) > 0
@@ -116,30 +124,36 @@ def process_single_file(file: pathlib.Path) -> Tuple[Dict, List[Dict]]:
         return table_desc, column_descs
 
 
-def setup_artifact_directory(tempdir):
+def setup_artifact_directory(tempdir: str) -> pathlib.Path:
     artifact_temp_path = pathlib.Path(tempdir) / "artifacts"
     os.makedirs(artifact_temp_path)
     print("Artifact temp path", artifact_temp_path)
     return artifact_temp_path
 
 
-def log_artifacts(artifact_temp_path, table_descriptions, column_descriptions):
+def log_artifacts(
+    artifact_temp_path: pathlib.Path,
+    table_descriptions: List[Dict[str, Any]],
+    column_descriptions: List[Dict[str, Any]],
+) -> None:
     table_description_artifact_path = artifact_temp_path / "table_descriptions.json"
     with open(table_description_artifact_path, "w") as f:
         json.dump(table_descriptions, f)
         # This log as table does not work due to some forbidden characters in the data
         # mlflow.log_table(table_descriptions, f)
-    mlflow.log_artifact(table_description_artifact_path)
+    mlflow.log_artifact(str(table_description_artifact_path))
     column_description_artifact_path = artifact_temp_path / "column_descriptions.json"
     with open(column_description_artifact_path, "w") as f:
         json.dump(column_descriptions, f)
-    mlflow.log_artifact(column_description_artifact_path)
+    mlflow.log_artifact(str(column_description_artifact_path))
 
     # log current file as artifact or model
     mlflow.log_artifact("./run_prompt_experiment.py")
 
 
-async def process_files(files: List[pathlib.Path]):
+async def process_files(
+    files: List[pathlib.Path],
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Process files in batches of N tasks at a time.
 
@@ -152,7 +166,9 @@ async def process_files(files: List[pathlib.Path]):
     # Process files in batches
     for i in range(0, len(files), BATCH_SIZE):
         batch_files = files[i : i + BATCH_SIZE]
-        results: List[asyncer.SoonValue[Tuple[Dict, List[Dict]]]] = []
+        results: List[
+            asyncer.SoonValue[Tuple[Dict[str, Any], List[Dict[str, Any]]]]
+        ] = []
 
         async with asyncer.create_task_group() as task_group:
             for file in batch_files:
@@ -168,7 +184,9 @@ async def process_files(files: List[pathlib.Path]):
     return table_descriptions, column_descriptions
 
 
-def has_table_description_metric_fn(predictions, targets):
+def has_table_description_metric_fn(
+    predictions: pd.Series, targets: pd.Series
+) -> MetricValue:
     scores = [
         (desc is not None and desc != "")
         for desc, target in zip(predictions, targets, strict=False)
@@ -184,7 +202,7 @@ def has_table_description_metric_fn(predictions, targets):
     )
 
 
-def log_generation_time_metrics(table_descriptions_df: pd.DataFrame):
+def log_generation_time_metrics(table_descriptions_df: pd.DataFrame) -> None:
     """Log generation time metrics to MLflow."""
     table_descriptions_df = table_descriptions_df[
         (table_descriptions_df["description"].notna())
@@ -196,7 +214,7 @@ def log_generation_time_metrics(table_descriptions_df: pd.DataFrame):
         mlflow.log_metric("generation_time_avg", generation_times.mean())
 
 
-def run_experiment(files: List[pathlib.Path], run_description: Optional[str]):
+def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) -> None:
     with (
         mlflow.start_run(description=run_description),
         tempfile.TemporaryDirectory() as tempdir,
@@ -286,7 +304,7 @@ def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:
     }
 
 
-def run_prompt_experiment(run_description: Optional[str] = None):
+def run_prompt_experiment(run_description: Optional[str] = None) -> None:
     current_dir = pathlib.Path().resolve()
     print("eval directory", current_dir)
     print("parent directory", current_dir.parent)

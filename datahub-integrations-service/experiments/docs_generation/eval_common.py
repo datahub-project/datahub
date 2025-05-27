@@ -5,10 +5,16 @@ import subprocess
 import threading
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import yaml
-from pydantic import BaseConfig, BaseModel, Field, create_model, validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    create_model,
+    field_validator,
+)
 
 
 class MetricScoringCriteria(BaseModel):
@@ -31,7 +37,7 @@ class HumanGuidelines(BaseModel):
     urn: str
     deployment: str
     guidelines: Dict[str, List[str]] = Field(
-        default_factory=lambda: defaultdict(list)
+        default_factory=lambda: defaultdict(list)  # type: ignore
     )  # metric name to list of guidelines
 
 
@@ -46,8 +52,8 @@ class JudgedMetricValue(BaseModel):
         else:
             return None
 
-    @validator("value", allow_reuse=True)
-    def value_field_validator(cls, v):
+    @field_validator("value")
+    def value_field_validator(cls, v: Any) -> Optional[str]:
         if v is None or v == "nan":
             return None
 
@@ -81,35 +87,35 @@ def load_eval_config(path: str) -> dict:
 
 
 def get_metric_configs_from_config(config: dict) -> list[MetricConfig]:
-    return [MetricConfig.parse_obj(metric) for metric in config["metrics"]]
+    return [MetricConfig.model_validate(metric) for metric in config["metrics"]]
 
 
-def get_metric_names_from_config(config: dict) -> list:
+def get_metric_names_from_config(config: dict) -> list[str]:
     return [metric["name"] for metric in config["metrics"]]
 
 
-def get_human_annotation_run_name(run_name):
+def get_human_annotation_run_name(run_name: str) -> str:
     original_run_name = run_name.replace("human_annotations_", "").replace(
         "ai_annotations_", ""
     )
     return f"human_annotations_{original_run_name}"
 
 
-def get_ai_annotation_run_name(run_name):
+def get_ai_annotation_run_name(run_name: str) -> str:
     original_run_name = run_name.replace("human_annotations_", "").replace(
         "ai_annotations_", ""
     )
     return f"ai_annotations_{original_run_name}"
 
 
-def get_ai_judge_eval_run_name(run_name):
+def get_ai_judge_eval_run_name(run_name: str) -> str:
     original_run_name = run_name.replace("human_annotations_", "").replace(
         "ai_annotations_", ""
     )
     return f"ai_judge_eval_{original_run_name}"
 
 
-def get_original_expt_run_name(run_name):
+def get_original_expt_run_name(run_name: str) -> str:
     original_run_name = run_name.replace("human_annotations_", "").replace(
         "ai_annotations_", ""
     )
@@ -122,23 +128,23 @@ METRICS_CONFIG = get_metric_configs_from_config(
 METRIC_NAMES = [metric.name for metric in METRICS_CONFIG]
 
 
-class Config(BaseConfig):
-    allow_population_by_field_name = True
-
-
 AIJudgeVerdict = create_model(
     "AIJudgeVerdict",
-    __config__=Config,
     **{
         metric.name: (
             Optional[JudgedMetricValue],
             # This is in order to support different metric name only for AI judge.
             # Ideally we can also simply rename the metric but we don't want to lose
             # earlier annotations with different metric name, so this is workaround.
-            Field(None, alias=metric.alias) if metric.alias else None,
+            Field(default=None, alias=metric.alias)
+            if metric.alias
+            else Field(default=None),
         )
         for metric in METRICS_CONFIG
     },
+    __config__=ConfigDict(
+        populate_by_name=True,
+    ),
 )
 
 HumanJudgeVerdict = create_model(
@@ -178,7 +184,8 @@ def get_overall_score(
 def get_human_guidelines() -> Dict[str, HumanGuidelines]:
     guidelines = load_eval_config("eval_config/eval_set_guidelines.yaml")
     guidelines_dict = {
-        entry["urn"]: HumanGuidelines.parse_obj(entry) for entry in guidelines["config"]
+        entry["urn"]: HumanGuidelines.model_validate(entry)
+        for entry in guidelines["config"]
     }
     return guidelines_dict
 
@@ -187,21 +194,21 @@ def get_human_guidelines() -> Dict[str, HumanGuidelines]:
 _update_guidelines_lock = threading.Lock()
 
 
-def update_table_guidelines(table_metric_guidelines: HumanGuidelines):
+def update_table_guidelines(table_metric_guidelines: HumanGuidelines) -> None:
     with _update_guidelines_lock:
         guidelines_path = "eval_config/eval_set_guidelines.yaml"
         guidelines = load_eval_config(guidelines_path)
         guidelines_dict = {
-            entry["urn"]: HumanGuidelines.parse_obj(entry)
+            entry["urn"]: HumanGuidelines.model_validate(entry)
             for entry in guidelines["config"]
         }
         # update
         guidelines_dict[table_metric_guidelines.urn] = table_metric_guidelines
         with open(guidelines_path, "w") as f:
-            yaml.dump({"config": [v.dict() for v in guidelines_dict.values()]}, f)
+            yaml.dump({"config": [g.model_dump() for g in guidelines_dict.values()]}, f)
 
 
-def update_guidelines_file(guidelines_dict: Dict[str, HumanGuidelines]):
+def update_guidelines_file(guidelines_dict: Dict[str, HumanGuidelines]) -> None:
     with _update_guidelines_lock:
         guidelines_path = "eval_config/eval_set_guidelines.yaml"
         with open(guidelines_path, "w") as f:
@@ -247,9 +254,9 @@ def execute_notebook(notebook_path: pathlib.Path, output_dir: pathlib.Path) -> s
         "--to",
         "html",
         "--execute",
-        notebook_path,
+        str(notebook_path),
         "--output",
-        executed_notebook_path_html,
+        str(executed_notebook_path_html),
     ]
     subprocess.run(command, check=True)
     print(f"Executed notebook saved to: {executed_notebook_path_html}")

@@ -3,7 +3,7 @@ import glob
 import json
 import os
 import re
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import asyncer
 import dotenv
@@ -11,6 +11,7 @@ import mlflow
 import mlflow.bedrock
 import mlflow.metrics
 import numpy as np
+import pandas as pd
 import tenacity
 import typer
 from eval_common import (
@@ -22,6 +23,7 @@ from eval_common import (
     get_human_guidelines,
     get_overall_score,
 )
+from mlflow.metrics import MetricValue
 from mlflow_common import get_run_or_fail
 from pydantic import BaseModel
 
@@ -40,7 +42,7 @@ dotenv.load_dotenv()
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
 mlflow.set_experiment(EXPERIMENT_NAME)
 mlflow.bedrock.autolog()
-AI_JUDGE_MODEL = BedrockModel.CLAUDE_37_SONNET
+AI_JUDGE_MODEL = BedrockModel.CLAUDE_4_SONNET
 
 
 class FewShotExample(BaseModel):
@@ -53,15 +55,15 @@ class FewShotExample(BaseModel):
         return f"""\
 Provided Information:
 Table Info:
-{json.dumps(self.table_info.dict(exclude_none=True), indent=4)}
+{json.dumps(self.table_info.model_dump(exclude_none=True), indent=4)}
 Column Infos:
-{json.dumps({k: v.dict(exclude_none=True) for k, v in self.column_infos.items()}, indent=4)}
+{json.dumps({k: v.model_dump(exclude_none=True) for k, v in self.column_infos.items()}, indent=4)}
 
 Generated Description To Evaluate:
 {self.description}
 
 Output:
-{json.dumps(self.ai_judge_verdict.dict(exclude_none=True, by_alias=True), indent=4)}
+{json.dumps(self.ai_judge_verdict.model_dump(exclude_none=True, by_alias=True), indent=4)}
 """
 
 
@@ -88,7 +90,7 @@ def build_few_shot_examples(limit: int = 3) -> List[FewShotExample]:
                 example_data = json.load(f)
 
             # Parse the example data into a FewShotExample
-            example = FewShotExample.parse_obj(example_data)
+            example = FewShotExample.model_validate(example_data)
             examples.append(example)
 
         except Exception as e:
@@ -141,20 +143,18 @@ Output: """
 # - Looker explores and dashboards are mentioned as tables due to absence of the downstream subtypes.
 # - Urn Links are probably not behaving correctly on UI
 
-# TODO: include Human eval guidelines here
 
-
-def parse_llm_judge_output(text) -> AIJudgeVerdict:
+def parse_llm_judge_output(text: str) -> AIJudgeVerdict:
     metrics = AIJudgeVerdict()
     match = re.search(r"\{[^}]*\}", text, re.DOTALL)
     if match:
         try:
-            return AIJudgeVerdict.parse_obj(json.loads(text))
+            return AIJudgeVerdict.model_validate_json(text)
 
         except (SyntaxError, ValueError) as e:
             try:
                 fixed_text = try_fix_text_for_error(text, e)
-                return AIJudgeVerdict.parse_obj(json.loads(fixed_text))
+                return AIJudgeVerdict.model_validate_json(fixed_text)
             except (SyntaxError, ValueError):
                 print(f"Dictionary can not be parsed. Text:{text}, Error: {e}")
 
@@ -164,7 +164,7 @@ def parse_llm_judge_output(text) -> AIJudgeVerdict:
 
 
 @tenacity.retry(stop=tenacity.stop_after_attempt(2))
-def try_fix_text_for_error(text, e):
+def try_fix_text_for_error(text: str, e: Exception) -> str:
     fix_prompt = """
             The following is the text that was returned from the LLM:
             {text}
@@ -205,10 +205,8 @@ def llm_judge_common_eval_fn(
         return metrics
 
     try:
-        entity_info = ExtractedTableInfo.parse_raw(entity_info_str)
-        mlflow.update_current_trace(
-            tags={"tag": "ai_judge", "table_name": entity_info.table_name}
-        )
+        entity_info = ExtractedTableInfo.model_validate_json(entity_info_str)
+        mlflow.update_current_trace(tags={"tag": "ai_judge", "urn": entity_info.urn})
 
         table_info, column_infos = transform_table_info_for_llm(entity_info)
         try:
@@ -222,7 +220,7 @@ def llm_judge_common_eval_fn(
 
         table_metric_guidelines: Optional[HumanGuidelines] = None
         if table_metric_guidelines_str is not None:
-            table_metric_guidelines = HumanGuidelines.parse_raw(
+            table_metric_guidelines = HumanGuidelines.model_validate_json(
                 table_metric_guidelines_str
             )
         if table_metric_guidelines is None or not table_metric_guidelines.guidelines:
@@ -247,9 +245,9 @@ Table Level Guidelines:
             response_format=response_format,
             examples=examples_str,
             table_description=table_description,
-            table_info=json.dumps(table_info.dict(exclude_none=True), indent=4),
+            table_info=json.dumps(table_info.model_dump(exclude_none=True), indent=4),
             column_infos=json.dumps(
-                {k: v.dict(exclude_none=True) for k, v in column_infos.items()},
+                {k: v.model_dump(exclude_none=True) for k, v in column_infos.items()},
                 indent=4,
             ),
             table_level_guidelines=table_level_guidelines,
@@ -260,15 +258,13 @@ Table Level Guidelines:
         )
         metrics = parse_llm_judge_output(judge_verdict)
     except Exception as e:
-        if isinstance(e, tenacity.RetryError):
-            e = e.last_attempt.exception()
         print(f"Error evaluating metric: {e}")
         return metrics
 
     return metrics
 
 
-def gen_dynamic_metric_contents():
+def gen_dynamic_metric_contents() -> Tuple[str, str]:
     metric_definitions = "\n".join(
         [
             f"""Metric {metric.name_for_ai_annotation()}:
@@ -292,16 +288,18 @@ def gen_dynamic_metric_contents():
     return metric_definitions, response_format
 
 
-def custom_eval_fn_metric(metric, predictions, targets):
-    all_scores = [None] * len(predictions)
-    all_justifications = [None] * len(predictions)
-    judged_scores = []
+def custom_eval_fn_metric(
+    metric: str, predictions: pd.Series, targets: pd.Series
+) -> MetricValue:
+    all_scores: List[Optional[bool]] = [None] * len(predictions)
+    all_justifications: List[Optional[str]] = [None] * len(predictions)
+    judged_scores: List[bool] = []
     metric_values = asyncer.syncify(eval_metrics, raise_sync_error=False)(
         metric, predictions, targets
     )
     for i, judged_metric in enumerate(metric_values):
         if judged_metric is not None:
-            judged_value = judged_metric.bool_value()
+            judged_value: Optional[bool] = judged_metric.bool_value()
             all_scores[i] = judged_value
             all_justifications[i] = judged_metric.reasoning
             if judged_value is not None:
@@ -310,18 +308,18 @@ def custom_eval_fn_metric(metric, predictions, targets):
         scores=all_scores,
         justifications=all_justifications,
         aggregate_results={
-            "pass_percentage": 100
-            * len(list(filter(lambda x: x, judged_scores)))
-            / len(judged_scores)
-            if len(judged_scores) > 0
-            else 0,
+            "pass_percentage": (
+                100 * len(list(filter(lambda x: x, judged_scores))) / len(judged_scores)
+                if len(judged_scores) > 0
+                else 0
+            ),
             "count": len(judged_scores),
         },
     )
 
 
 async def eval_metrics(
-    metric, predictions, targets
+    metric: str, predictions: pd.Series, targets: pd.Series
 ) -> List[Optional[JudgedMetricValue]]:
     results: List[asyncer.SoonValue[JudgedMetricValue]] = []
     async with asyncer.create_task_group() as task_group:
@@ -329,18 +327,22 @@ async def eval_metrics(
             result = task_group.soonify(asyncer.asyncify(eval_metric_value_ai_judge))(
                 metric, prediction, target
             )
-            results.append(result)
+            results.append(result)  # type:ignore
 
     return [result.value for result in results]
 
 
 def eval_metric_value_ai_judge(
-    metric, prediction, target
+    metric: str,
+    prediction: str,
+    target: Dict[str, Any],  # urn or entity info dict
 ) -> Optional[JudgedMetricValue]:
     human_guidelines = get_human_guidelines()
     human_guidelines_str: Optional[str] = None
     if target["urn"] in human_guidelines:
-        human_guidelines_str = human_guidelines[target["urn"]].json()
+        human_guidelines_str = human_guidelines[target["urn"]].model_dump_json()
+    else:
+        human_guidelines_str = None
     judged_metric = getattr(
         llm_judge_common_eval_fn(prediction, json.dumps(target), human_guidelines_str),
         metric,
@@ -349,15 +351,17 @@ def eval_metric_value_ai_judge(
     return judged_metric
 
 
-def overall_score_eval_fn(predictions, targets):
-    all_scores = []
-    all_justifications = []
-    judged_scores = []
+def overall_score_eval_fn(predictions: pd.Series, targets: pd.Series) -> MetricValue:
+    all_scores: List[Optional[int]] = []
+    all_justifications: List[Optional[str]] = []
+    judged_scores: List[int] = []
     human_guidelines = get_human_guidelines()
     for prediction, target in zip(predictions, targets, strict=False):
         table_human_guidelines_str: Optional[str] = None
         if target["urn"] in human_guidelines:
-            table_human_guidelines_str = human_guidelines[target["urn"]].json()
+            table_human_guidelines_str = human_guidelines[
+                target["urn"]
+            ].model_dump_json()
         judged_metric = get_overall_score(
             llm_judge_common_eval_fn(
                 prediction, json.dumps(target), table_human_guidelines_str
@@ -368,6 +372,7 @@ def overall_score_eval_fn(predictions, targets):
             all_justifications.append(judged_metric.reasoning)
             # this is hack to keep only judged entries. reasoning in always present.
             if judged_metric.reasoning is not None:
+                assert isinstance(judged_metric.value, int)
                 judged_scores.append(judged_metric.value)
         else:
             all_scores.append(0)
@@ -384,13 +389,15 @@ def overall_score_eval_fn(predictions, targets):
     )
 
 
-def make_overall_score_metric():
+def make_overall_score_metric() -> MetricValue:
     return mlflow.metrics.make_metric(
-        eval_fn=overall_score_eval_fn, greater_is_better=True, name="overall_score"
+        eval_fn=overall_score_eval_fn,
+        greater_is_better=True,
+        name="overall_score",
     )
 
 
-def make_custom_metric(metric_name):
+def make_custom_metric(metric_name: str) -> MetricValue:
     """Mlflow custom AI metric allows generating single metric from single prompt.
     Since we need to generate multiple metrics from single prompt, we are using mlflow.metrics.make_metric
     with cache powered custom eval_fn that can generate multiple metrics from single prompt, instead of using
@@ -411,11 +418,13 @@ ai_metrics = [
 ]
 
 
-def model_fn(x):
+def model_fn(x: pd.DataFrame) -> pd.DataFrame:
     return x
 
 
-def run_ai_annotations_experiment(run_name: str, run_description: Optional[str] = None):
+def run_ai_annotations_experiment(
+    run_name: str, run_description: Optional[str] = None
+) -> None:
     run = get_run_or_fail(run_name)
 
     artifact_path = "eval_results_table.json"
@@ -432,15 +441,21 @@ def run_ai_annotations_experiment(run_name: str, run_description: Optional[str] 
     ):
         mlflow.set_tag("evaluation_type", "ai_judge")
         mlflow.log_params({"ai_judge_model": AI_JUDGE_MODEL})
+        try:
+            mlflow.evaluate(
+                model=model_fn,
+                data=table_descriptions,
+                predictions="description",
+                evaluators="default",
+                targets="entity_info",
+                extra_metrics=[*ai_metrics],
+            )
+        except Exception as e:
+            import traceback
 
-        mlflow.evaluate(
-            model=model_fn,
-            data=table_descriptions,
-            predictions="description",
-            evaluators="default",
-            targets="entity_info",
-            extra_metrics=[*ai_metrics],
-        )
+            traceback.print_exc()
+            print(f"Error evaluating metrics: {e}")
+            breakpoint()
         # log current file as artifact
         mlflow.log_artifact("./run_ai_annotations.py")
         mlflow.log_artifact("./eval_config/eval_set_guidelines.yaml")

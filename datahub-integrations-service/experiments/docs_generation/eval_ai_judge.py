@@ -263,12 +263,12 @@ def eval_ai_judge_accuracy(
     )
 
 
-def run_eval_ai_judge_experiment(run_name: str, existing_run: bool = True):
-    """Run the AI judge evaluation experiment.
+def run_eval_ai_judge_experiment(run_name: str, existing_run: bool = True) -> None:
+    """Run AI judge evaluation experiment.
 
     Args:
-        run_name: Name of the run
-        existing_run: Whether to use an existing run
+        run_name: Name of the run to evaluate
+        existing_run: Whether to use existing run or create new one
     """
     human_annotation_run = get_run_or_fail(get_human_annotation_run_name(run_name))
     human_eval_results = get_human_eval_result_or_none(run_name)

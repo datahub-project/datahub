@@ -12,17 +12,22 @@ from eval_common import (
 )
 
 dotenv.load_dotenv()
-EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
+EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME", "docs_generation")
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 
-def get_run_or_fail(run_name, additional_filter_string=""):
-    return mlflow.search_runs(
+def get_run_or_fail(
+    run_name: str, additional_filter_string: str = ""
+) -> mlflow.entities.Run:
+    runs = mlflow.search_runs(
         experiment_names=[EXPERIMENT_NAME],
         filter_string=f"attributes.run_name='{run_name}' {additional_filter_string}",
         output_format="list",
         order_by=["start_time DESC"],
-    )[0]
+    )
+    if not runs:
+        raise ValueError(f"No runs found for {run_name}")
+    return runs[0]
 
 
 def get_human_evals(run_id: str) -> pd.DataFrame:
@@ -97,7 +102,7 @@ def get_latest_human_eval_result_or_none() -> Optional[pd.DataFrame]:
             return None
         table = mlflow.load_table(
             artifact_file="eval_results_table.json",
-            run_ids=[human_eval.info.run_id for human_eval in human_evals],
+            run_ids=[str(human_eval.info.run_id) for human_eval in human_evals],
             extra_columns=["run_id", "start_time", "end_time"],
         )
         filtered_table = keep_human_evals_only(table)
