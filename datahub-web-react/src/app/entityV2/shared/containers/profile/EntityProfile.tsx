@@ -387,15 +387,6 @@ export const EntityProfile = <T, U>({
                                     <Body $isShowNavBarRedesign={isShowNavBarRedesign}>
                                         <BodyContent $isShowNavBarRedesign={isShowNavBarRedesign}>
                                             <EntityTabs tabs={visibleTabs} selectedTab={routedTab} />
-                                            {/* <TabContent>
-                                                {routedTab && (
-                                                    <routedTab.component
-                                                        properties={routedTab.properties}
-                                                        contextType={TabContextType.PROFILE}
-                                                        renderType={TabRenderType.DEFAULT}
-                                                    />
-                                                )}
-                                            </TabContent> */}
                                         </BodyContent>
                                     </Body>
                                 </HeaderAndTabsFlex>
