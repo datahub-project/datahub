@@ -515,7 +515,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         table_props = self._create_table_property_aspect(table)
         tags = None
-        if not isinstance(table.table_type, HiveTableType):
+        if not isinstance(table.table_type, HiveTableType) and self.config.include_tags:
             try:
                 table_tags = self._get_table_tags(
                     table.ref.catalog, table.ref.schema, table.ref.table
@@ -970,10 +970,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         schema_fields: List[SchemaFieldClass] = []
 
         for column in table.columns:
-            column_tags = self._get_column_tags(
-                table.ref.catalog, table.ref.schema, table.ref.table, column.name
-            )
-            tag_urns = [TagUrn(name=f"{tag[0]}:{tag[1]}") for tag in column_tags]
+            tag_urns: Optional[List[TagUrn]] = None
+            if self.config.include_tags:
+                column_tags = self._get_column_tags(
+                    table.ref.catalog, table.ref.schema, table.ref.table, column.name
+                )
+                tag_urns = [TagUrn(name=f"{tag[0]}:{tag[1]}") for tag in column_tags]
             schema_fields.extend(self._create_schema_field(column, tag_urns))
 
         return SchemaMetadataClass(
@@ -987,7 +989,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     @staticmethod
     def _create_schema_field(
-        column: Column, tags: List[TagUrn]
+        column: Column, tags: Optional[List[TagUrn]]
     ) -> List[SchemaFieldClass]:
         _COMPLEX_TYPE = re.compile("^(struct|array)")
         global_tags: Optional[GlobalTags] = None
@@ -996,18 +998,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 column.name, column.type_text.lower(), description=column.comment
             )
         else:
-            logger.info(f"Column tags are: {tags}")
-            attribution = MetadataAttribution(
-                # source="unity-catalog",
-                actor="urn:li:corpuser:datahub",
-                time=int(time.time() * 1000),
-            )
-            global_tags = GlobalTags(
-                tags=[
-                    TagAssociation(tag=tag.urn(), attribution=attribution)
-                    for tag in tags
-                ]
-            )
+            if tags is not None:
+                logger.info(f"Column tags are: {tags}")
+                attribution = MetadataAttribution(
+                    # source="unity-catalog",
+                    actor="urn:li:corpuser:datahub",
+                    time=int(time.time() * 1000),
+                )
+                global_tags = GlobalTags(
+                    tags=[
+                        TagAssociation(tag=tag.urn(), attribution=attribution)
+                        for tag in tags
+                    ]
+                )
 
             return [
                 SchemaFieldClass(
