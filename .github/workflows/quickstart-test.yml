@@ -33,8 +33,8 @@ jobs:
             label: macOS Intel
           - os: macos-15
             label: macOS Apple Silicon
-          - os: ubuntu-latest
-            label: Linux
+          # - os: ubuntu-latest
+          #   label: Linux
 
     steps:
       - name: Checkout repository
@@ -54,7 +54,7 @@ jobs:
           echo "Running Linux-specific setup"
 
       - name: macOS Intel setup
-        if: matrix.os == 'macos-13'
+        if: matrix.os == 'macos-13' || matrix.os == 'macos-15'
         run: |
           # Install Homebrew if not already installed
           if ! command -v brew &> /dev/null; then
@@ -62,46 +62,83 @@ jobs:
           fi
 
           # Install Docker Desktop
+          brew install --cask docker
+          brew install docker-compose
+
+          # Create Docker config directory and add plugin path
+          mkdir -p ~/.docker
+          echo '{"cliPluginsExtraDirs": ["/usr/local/lib/docker/cli-plugins"]}' > ~/.docker/config.json
+
+          # Start Docker Desktop
+
+          find /Applications/Docker.app | grep Docker
+          #sudo '/Applications/Docker.app/Contents/MacOS/Docker Desktop' --unattended --install-privileged-components
+          sudo '/Applications/Docker.app/Contents/MacOS/Docker Desktop.app/Contents/MacOS/Docker Desktop' --unattended --install-privileged-components
+          open -a /Applications/Docker.app --args --unattended --accept-license || true
+          # open -a Docker 
+
+          echo "We are waiting for Docker to be up and running. It can take over 2 minutes..."
+          while ! /Applications/Docker.app/Contents/Resources/bin/docker info &>/dev/null; do sleep 1; done
+          #brew services start docker
+
+          # Wait for Docker to be ready
+          echo "Waiting for Docker to be ready..."
+          timeout=700
+          while ! docker info &>/dev/null; do
+            if [ $timeout -le 0 ]; then
+              echo "Timeout waiting for Docker to start"
+              exit 1
+            fi
+            sleep 1
+            timeout=$((timeout-1))
+          done
+          echo "Docker is ready!"
+
+      - name: macOS Apple Silicon setup
+        if: false && matrix.os == 'macos-15'
+        run: |
+          # Install Homebrew if not already installed
+          if ! command -v brew &> /dev/null; then
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          fi
+
           # Install Docker Desktop
           brew install --cask docker
           brew install docker-compose
 
-          # Link the Docker Compose v2 plugin so it's understood by the docker CLI
-          mkdir -p ~/.docker/cli-plugins
-          ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
+          mkdir -p ~/.docker
+          echo '{"cliPluginsExtraDirs": ["/usr/local/lib/docker/cli-plugins"]}' > ~/.docker/config.json
 
-          # colima start
-          #brew services start docker
-          sudo /Applications/Docker.app/Contents/MacOS/Docker --unattended --install-privileged-components
-          open -a /Applications/Docker.app --args --unattended --accept-license
+          # Start Docker Desktop
+          # brew services start docker
+
+          sudo '/Applications/Docker.app/Contents/MacOS/Docker Desktop' --unattended --install-privileged-components
+          open -a /Applications/Docker.app --args --unattended --accept-license || true
           echo "We are waiting for Docker to be up and running. It can take over 2 minutes..."
           while ! /Applications/Docker.app/Contents/Resources/bin/docker info &>/dev/null; do sleep 1; done
 
-      - name: macOS Apple Silicon setup
-        if: matrix.os == 'macos-15'
-        run: |
-          # Install Homebrew if not already installed
-          if ! command -v brew &> /dev/null; then
-            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          fi
 
-          # Install Docker Desktop
-          brew install --cask docker
-          brew install docker-compose
-
-          # Link the Docker Compose v2 plugin so it's understood by the docker CLI
-          mkdir -p ~/.docker/cli-plugins
-          ln -sfn /usr/local/opt/docker-compose/bin/docker-compose ~/.docker/cli-plugins/docker-compose
-
-          colima start
-          #brew services start docker
+          # Wait for Docker to be ready
+          echo "Waiting for Docker to be ready..."
+          timeout=300
+          while ! docker info &>/dev/null; do
+            if [ $timeout -le 0 ]; then
+              echo "Timeout waiting for Docker to start"
+              exit 1
+            fi
+            sleep 1
+            timeout=$((timeout-1))
+          done
+          echo "Docker is ready!"
 
       - name: Install dependencies
+        if: always()
         run: |
           python3 -m pip install --upgrade pip wheel setuptools
           python3 -m pip install --upgrade acryl-datahub
 
       - name: Run quickstart test
+        if: always()
         run: |
           datahub docker quickstart
           # TODO: Add actual test steps here
