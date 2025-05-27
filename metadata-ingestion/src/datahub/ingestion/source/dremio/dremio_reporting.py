@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
 
@@ -8,6 +8,11 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
+from datahub.utilities.stats_collections import (
+    TopKDict,
+    float_top_k_dict,
+    int_top_k_dict,
+)
 
 
 @dataclass
@@ -18,6 +23,14 @@ class DremioSourceReport(
     num_datasets_failed: int = 0
     containers_scanned: int = 0
     containers_filtered: int = 0
+
+    api_calls_total: int = 0
+    api_calls_by_method_and_path: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+    api_call_secs_by_method_and_path: TopKDict[str, float] = field(
+        default_factory=float_top_k_dict
+    )
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
 

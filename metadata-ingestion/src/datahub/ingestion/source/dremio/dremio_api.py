@@ -234,22 +234,38 @@ class DremioAPIOperations:
 
     def get(self, url: str) -> Dict:
         """execute a get request on dremio"""
-        response = self.session.get(
-            url=(self.base_url + url),
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        return response.json()
+        logger.debug(f"GET request to {self.base_url + url}")
+        self.report.api_calls_total += 1
+        self.report.api_calls_by_method_and_path["GET " + url] += 1
+
+        with PerfTimer() as timer:
+            response = self.session.get(
+                url=(self.base_url + url),
+                verify=self._verify,
+                timeout=self._timeout,
+            )
+            self.report.api_call_secs_by_method_and_path["GET " + url] += (
+                timer.elapsed_seconds()
+            )
+            return response.json()
 
     def post(self, url: str, data: str) -> Dict:
         """execute a get request on dremio"""
-        response = self.session.post(
-            url=(self.base_url + url),
-            data=data,
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        return response.json()
+        logger.debug(f"POST request to {self.base_url + url}")
+        self.report.api_calls_total += 1
+        self.report.api_calls_by_method_and_path["POST " + url] += 1
+
+        with PerfTimer() as timer:
+            response = self.session.post(
+                url=(self.base_url + url),
+                data=data,
+                verify=self._verify,
+                timeout=self._timeout,
+            )
+            self.report.api_call_secs_by_method_and_path["POST " + url] += (
+                timer.elapsed_seconds()
+            )
+            return response.json()
 
     def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
         """Execute SQL query with timeout and error handling"""
