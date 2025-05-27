@@ -39,7 +39,6 @@ import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/Docume
 import { EmbedTab } from '@app/entityV2/shared/tabs/Embed/EmbedTab';
 import { DashboardChartsTab } from '@app/entityV2/shared/tabs/Entity/DashboardChartsTab';
 import { DashboardDatasetsTab } from '@app/entityV2/shared/tabs/Entity/DashboardDatasetsTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -191,9 +190,8 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Incidents',
                     icon: WarningOutlined,
                     component: IncidentTab,
-                    getDynamicName: (_, dashboard, loading) => {
-                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dashboard) => {
+                        return dashboard?.dashboard?.activeIncidents?.total;
                     },
                 },
             ]}
