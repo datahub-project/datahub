@@ -1,4 +1,5 @@
-import { Modal, Skeleton } from 'antd';
+import { Modal } from '@components';
+import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 
@@ -84,7 +85,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
         })
     );
     return (
-        <StyledModal
+        <Modal
             data-testid="entity-paths-modal"
             title={
                 <Header>
@@ -100,6 +101,6 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
             bodyStyle={{ padding: '16px 24px' }}
         >
             {loading ? <Skeleton /> : loadedState}
-        </StyledModal>
+        </Modal>
     );
 }

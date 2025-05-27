@@ -1,4 +1,4 @@
-import { Checkbox, Collapse, Divider, Drawer, Form, Modal, Select, Spin, Typography } from 'antd';
+import { Checkbox, Collapse, Divider, Drawer, Form, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
 import { Icon, colors, typography } from '@src/alchemy-components';
@@ -288,26 +288,6 @@ export const ValueType = styled.div`
     background-color: ${colors.gray[100]};
     border-radius: 4px;
     padding: 2px 4px;
-`;
-
-export const StyledModal = styled(Modal)`
-    font-family: Mulish;
-
-    &&& .ant-modal-content {
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
-        border-radius: 12px;
-        width: 452px;
-    }
-
-    .ant-modal-header {
-        border-top-left-radius: 12px !important;
-        border-top-right-radius: 12px !important;
-        padding: 20px 20px 8px 20px;
-    }
-
-    .ant-modal-body {
-        padding: 0;
-    }
 `;
 
 export const FieldGroupContainer = styled.div`
