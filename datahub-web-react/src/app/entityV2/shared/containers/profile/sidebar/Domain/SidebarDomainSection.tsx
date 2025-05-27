@@ -1,6 +1,6 @@
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -11,6 +11,7 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ENTITY_PROFILE_DOMAINS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 
 import { useUnsetDomainMutation } from '@graphql/mutations.generated';
@@ -45,6 +46,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
     const urn = useMutationUrn();
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const [showModal, setShowModal] = useState(false);
+    const [domainToRemove, setDomainToRemove] = useState<string | undefined>();
     const domain = entityData?.domain?.domain;
 
     const canEditDomains = !!entityData?.privileges?.canEditDomains;
@@ -63,20 +65,6 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
             });
     };
 
-    const onRemoveDomain = (urnToRemoveFrom) => {
-        Modal.confirm({
-            title: `Confirm Domain Removal`,
-            content: `Are you sure you want to remove this domain?`,
-            onOk() {
-                removeDomain(urnToRemoveFrom);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
     return (
         <div id={ENTITY_PROFILE_DOMAINS_ID} className="sidebar-domain-section">
             <SidebarSection
@@ -91,7 +79,7 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                                     readOnly={readOnly}
                                     onClose={(e) => {
                                         e.preventDefault();
-                                        onRemoveDomain(entityData?.domain?.associatedUrn);
+                                        setDomainToRemove(entityData?.domain?.associatedUrn);
                                     }}
                                     fontSize={12}
                                 />
@@ -122,6 +110,13 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                     }}
                 />
             )}
+            <ConfirmationModal
+                isOpen={!!domainToRemove}
+                handleClose={() => setDomainToRemove(undefined)}
+                handleConfirm={() => removeDomain(domainToRemove)}
+                modalTitle="Confirm Domain Removal"
+                modalText="Are you sure you want to remove this domain?"
+            />
         </div>
     );
 };

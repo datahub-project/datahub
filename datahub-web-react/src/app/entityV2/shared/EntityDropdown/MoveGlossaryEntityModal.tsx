@@ -1,4 +1,4 @@
-import { Form, Modal, Typography, message } from 'antd';
+import { Form, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -8,8 +8,7 @@ import NodeParentSelect from '@app/entityV2/shared/EntityDropdown/NodeParentSele
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossary/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 
 import { useUpdateParentNodeMutation } from '@graphql/glossary.generated';
 import { Entity, EntityType } from '@types';
@@ -85,18 +84,21 @@ function MoveGlossaryEntityModal({ onClose, urn, entityData, entityType }: Props
         <Modal
             data-testid="move-glossary-entity-modal"
             title={`Move ${entityType === EntityType.GlossaryNode ? 'Term Group' : 'Term'}`}
-            visible
+            open
             onCancel={onClose}
-            footer={
-                <ModalButtonContainer>
-                    <Button onClick={onClose} variant="outline">
-                        Cancel
-                    </Button>
-                    <Button onClick={moveGlossaryEntity} data-testid="glossary-entity-modal-move-button">
-                        Move
-                    </Button>
-                </ModalButtonContainer>
-            }
+            buttons={[
+                {
+                    text: 'Cancel',
+                    variant: 'outline',
+                    onClick: onClose,
+                },
+                {
+                    text: 'Move',
+                    variant: 'filled',
+                    onClick: moveGlossaryEntity,
+                    buttonDataTestId: 'glossary-entity-modal-move-button',
+                },
+            ]}
         >
             <Form form={form} initialValues={{}} layout="vertical">
                 <Form.Item

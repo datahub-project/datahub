@@ -1,4 +1,4 @@
-import { Modal, Typography } from 'antd';
+import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -6,8 +6,7 @@ import { StyledSyntaxHighlighter } from '@app/entityV2/shared/StyledSyntaxHighli
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
 import { Editor as MarkdownEditor } from '@app/entityV2/shared/tabs/Documentation/components/editor/Editor';
-import { Button } from '@src/alchemy-components';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { Modal } from '@src/alchemy-components';
 
 const StyledModal = styled(Modal)`
     top: 4vh;
@@ -78,18 +77,19 @@ export default function QueryModal({ query, title, description, showDetails = tr
         <StyledModal
             open
             width={MODAL_WIDTH}
-            title={null}
+            title="Query"
             closable={false}
-            onCancel={onClose}
+            onCancel={() => onClose?.()}
             bodyStyle={MODAL_BODY_STYLE}
-            data-testid="query-modal"
-            footer={
-                <ModalButtonContainer>
-                    <Button variant="text" onClick={onClose} data-testid="query-modal-close-button">
-                        Close
-                    </Button>
-                </ModalButtonContainer>
-            }
+            dataTestId="query-modal"
+            buttons={[
+                {
+                    text: 'Close',
+                    onClick: () => onClose?.(),
+                    variant: 'text',
+                    buttonDataTestId: 'query-modal-close-button',
+                },
+            ]}
         >
             <QueryActions>
                 <CopyQuery query={query} showCopyText />

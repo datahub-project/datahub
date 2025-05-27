@@ -36,6 +36,7 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
                         refetch?.();
                     }, 2000);
                 }
+                setIsUnsetModalVisible(false);
             })
             .catch((e) => {
                 message.destroy();
@@ -82,8 +83,8 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
                 isOpen={isUnsetModalVisible}
                 handleClose={() => setIsUnsetModalVisible(false)}
                 handleConfirm={batchUnsetDataProducts}
-                modalTitle="If you continue, Data Product will be removed for the selected assets."
-                modalText="`Are you sure you want to unset Data Product for these assets?`Are you sure you want to unset Data Product for these assets?"
+                modalTitle="Data Product will be removed for the selected assets"
+                modalText="Are you sure you want to unset Data Product for these assets?"
             />
         </>
     );
