@@ -236,6 +236,8 @@ class DremioSQLQueries:
             """
 
     # Dremio Documentation: https://docs.dremio.com/current/reference/sql/system-tables/jobs_recent/
+    # SYS.JOBS_RECENT contains recent job history limited by jobs.max.age_in_days config [default 30 days]
+    # Used for on-premise Dremio (Community/Enterprise editions)
     # queried_datasets incorrectly documented as [varchar]. Observed as varchar.
     # LENGTH used as opposed to ARRAY_SIZE
     QUERY_ALL_JOBS = """
@@ -255,6 +257,8 @@ class DremioSQLQueries:
     """
 
     # Dremio Documentation: https://docs.dremio.com/cloud/reference/sql/system-tables/jobs-historical
+    # sys.project.history.jobs contains complete historical job metadata for the project
+    # Used for Dremio Cloud - refreshes data once per hour, so new jobs may take ~1 hour to appear
     # queried_datasets correctly documented as [varchar]
     QUERY_ALL_JOBS_CLOUD = """
         SELECT
