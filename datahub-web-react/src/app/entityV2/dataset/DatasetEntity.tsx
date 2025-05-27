@@ -70,6 +70,9 @@ import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResul
 
 import GovernMenuIcon from '@images/governMenuIcon.svg?react';
 
+export const GOVERNANCE_TAB_NAME = 'Governance';
+export const QUALITY_TAB_NAME = 'Quality';
+
 const SUBTYPES = {
     VIEW: 'view',
 };
@@ -232,12 +235,12 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Quality',
+                    name: QUALITY_TAB_NAME,
                     component: AcrylValidationsTab, // Use SaaS specific Validations Tab.
                     icon: CheckCircleOutlined,
                 },
                 {
-                    name: 'Governance',
+                    name: GOVERNANCE_TAB_NAME,
                     icon: () => (
                         <span
                             style={{
