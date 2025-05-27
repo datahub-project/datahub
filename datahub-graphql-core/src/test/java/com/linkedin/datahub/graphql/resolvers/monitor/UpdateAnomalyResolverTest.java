@@ -65,6 +65,8 @@ public class UpdateAnomalyResolverTest {
                         && proposal
                             .getAspectName()
                             .equals(Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME)));
+    // Verify retraining called
+    Mockito.verify(mockService, Mockito.times(1)).retrainAssertionMonitor(TEST_MONITOR_URN);
   }
 
   @Test

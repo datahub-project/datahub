@@ -118,6 +118,8 @@ public class ReportAnomalyResolver implements DataFetcher<CompletableFuture<Moni
                 queryContext.getOperationContext(),
                 AspectUtils.buildMetadataChangeProposal(
                     monitorUrn, Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME, anomalyEvent));
+            // best attempt to trigger retraining of the monitor
+            this._monitorService.retrainAssertionMonitor(monitorUrn);
             return MonitorMapper.mapMonitorAnomalyEvent(anomalyEvent);
           } catch (RemoteInvocationException exception) {
             throw new DataHubGraphQLException(

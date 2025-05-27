@@ -74,6 +74,8 @@ public class UpdateAnomalyResolver
                 AspectUtils.buildMetadataChangeProposal(
                     monitorUrn, Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME, gmsEvent));
 
+            // best attempt to trigger retraining of the monitor
+            this._monitorService.retrainAssertionMonitor(monitorUrn);
             return MonitorMapper.mapMonitorAnomalyEvent(gmsEvent);
           } catch (final Exception e) {
             throw new DataHubGraphQLException(
