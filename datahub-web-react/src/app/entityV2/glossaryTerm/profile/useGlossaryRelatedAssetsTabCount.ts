@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 
