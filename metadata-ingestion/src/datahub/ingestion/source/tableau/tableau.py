@@ -3969,6 +3969,7 @@ class TableauSiteSource:
         logger.info(
             f"Built database tables lookup with {len(self.db_tables_lookup)} entries"
         )
+        logger.info(self.db_tables_lookup.items())
 
     def _extract_table_name_only(self, full_name: str) -> Optional[str]:
         """Extract just the table name from a potentially qualified name"""
