@@ -204,7 +204,7 @@ export const SetDomainModal = ({ urns, onCloseModal, refetch, defaultValue, onOk
                             options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
                         />
                         <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
+                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} displayDomainColoredIcon />
                         </BrowserWrapper>
                     </ClickOutside>
                 </Form.Item>

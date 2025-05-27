@@ -87,12 +87,37 @@ class TestHexQueryFetcherExtractHexMetadata(unittest.TestCase):
         result = self.fetcher._extract_hex_metadata(sql)
         assert result is None
 
-    def test_extract_hex_metadata_with_non_scheduled_run(self):
+    def test_extract_hex_metadata_with_context_app_view(self):
         sql = """
         select * 
         from "LONG_TAIL_COMPANIONS"."ANALYTICS"."PET_DETAILS" 
         limit 100
-        -- Hex query metadata: {"categories": ["Scratchpad"], "cell_type": "SQL", "connection": "Long Tail Companions", "context": "LOGICAL_VIEW", "project_id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf", "project_name": "PlayNotebook", "project_url": "https://app.hex.tech/some-hex-workspace/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf/draft/logic?selectedCellId=67c38da0-e631-4005-9750-5bdae2a2ef3f", "status": "In development", "trace_id": "f316f99947454a7e8aff2947f848f73d", "user_email": "alice@mail.com"}
+        -- Hex query metadata: {"categories": ["Scratchpad"], "cell_type": "SQL", "connection": "Long Tail Companions", "context": "APP_VIEW", "project_id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf", "project_name": "PlayNotebook", "project_url": "https://app.hex.tech/some-hex-workspace/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf/draft/logic?selectedCellId=67c38da0-e631-4005-9750-5bdae2a2ef3f", "status": "In development", "trace_id": "f316f99947454a7e8aff2947f848f73d", "user_email": "alice@mail.com"}
+        """
+
+        result = self.fetcher._extract_hex_metadata(sql)
+        assert result is not None
+        project_id, workspace_name = result
+        assert project_id == "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf"
+        assert workspace_name == "some-hex-workspace"
+
+    def test_extract_hex_metadata_with_context_logic_view(self):
+        sql = """
+        select * 
+        from "LONG_TAIL_COMPANIONS"."ANALYTICS"."PET_DETAILS" 
+        limit 100
+        -- Hex query metadata: {"categories": ["Scratchpad"], "cell_type": "SQL", "connection": "Long Tail Companions", "context": "LOGIC_VIEW", "project_id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf", "project_name": "PlayNotebook", "project_url": "https://app.hex.tech/some-hex-workspace/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf/draft/logic?selectedCellId=67c38da0-e631-4005-9750-5bdae2a2ef3f", "status": "In development", "trace_id": "f316f99947454a7e8aff2947f848f73d", "user_email": "alice@mail.com"}
+        """
+
+        result = self.fetcher._extract_hex_metadata(sql)
+        assert result is None
+
+    def test_extract_hex_metadata_with_context_unexpected(self):
+        sql = """
+        select * 
+        from "LONG_TAIL_COMPANIONS"."ANALYTICS"."PET_DETAILS" 
+        limit 100
+        -- Hex query metadata: {"categories": ["Scratchpad"], "cell_type": "SQL", "connection": "Long Tail Companions", "context": "UNEXPECTED", "project_id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf", "project_name": "PlayNotebook", "project_url": "https://app.hex.tech/some-hex-workspace/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf/draft/logic?selectedCellId=67c38da0-e631-4005-9750-5bdae2a2ef3f", "status": "In development", "trace_id": "f316f99947454a7e8aff2947f848f73d", "user_email": "alice@mail.com"}
         """
 
         result = self.fetcher._extract_hex_metadata(sql)
