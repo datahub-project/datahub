@@ -97,6 +97,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
     TableauLineageOverrides,
     TableauUpstreamReference,
     clean_query,
+    clean_table_name,
     custom_sql_graphql_query,
     dashboard_graphql_query,
     database_servers_graphql_query,
@@ -104,7 +105,9 @@ from datahub.ingestion.source.tableau.tableau_common import (
     datasource_upstream_fields_graphql_query,
     embedded_datasource_graphql_query,
     get_filter_pages,
+    get_fully_qualified_table_name,
     get_overridden_info,
+    get_platform,
     get_unique_custom_sql,
     make_filter,
     make_fine_grained_lineage_class,
@@ -118,6 +121,9 @@ from datahub.ingestion.source.tableau.tableau_common import (
 )
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
 from datahub.ingestion.source.tableau.tableau_validation import check_user_role
+from datahub.ingestion.source.tableau.tableau_virtual_connections import (
+    VirtualConnectionProcessor,
+)
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -455,6 +461,15 @@ class TableauPageSizeConfig(ConfigModel):
     def effective_published_datasource_field_upstream_page_size(self) -> int:
         return self.published_datasource_field_upstream_page_size or self.page_size * 10
 
+    virtual_connection_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of virtual connections to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_virtual_connection_page_size(self) -> int:
+        return self.virtual_connection_page_size or self.page_size
+
     custom_sql_table_page_size: Optional[int] = Field(
         default=None,
         description="[advanced] Number of custom sql datasources to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
@@ -527,6 +542,10 @@ class TableauConfig(
     ingest_tables_external: bool = Field(
         default=False,
         description="Ingest details for tables external to (not embedded in) tableau as entities.",
+    )
+    ingest_virtual_connections: bool = Field(
+        default=True,
+        description="Ingest details for virtual connections as entities.",
     )
 
     env: str = Field(
@@ -794,6 +813,12 @@ class TableauSourceReport(
     emit_upstream_tables_timer: Dict[str, float] = dataclass_field(
         default_factory=TopKDict
     )
+    virtual_connection_processing_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_virtual_connections_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
     # lineage
     num_tables_with_upstream_lineage: int = 0
     num_upstream_table_lineage: int = 0
@@ -810,6 +835,9 @@ class TableauSourceReport(
 
     num_expected_tableau_metadata_queries: int = 0
     num_actual_tableau_metadata_queries: int = 0
+    num_virtual_connections_processed: int = 0
+    num_vc_table_references_found: int = 0
+    num_vc_lineages_created: int = 0
     tableau_server_error_stats: Dict[str, int] = dataclass_field(
         default_factory=(lambda: defaultdict(int))
     )
@@ -1031,6 +1059,8 @@ class TableauSiteSource:
         self.ctx: PipelineContext = ctx
         self.platform = platform
 
+        self.vc_processor: VirtualConnectionProcessor = VirtualConnectionProcessor(self)
+
         self.site: Optional[SiteItem] = None
         if isinstance(site, SiteItem):
             self.site = site
@@ -1049,6 +1079,7 @@ class TableauSiteSource:
         self.tableau_project_registry: Dict[str, TableauProject] = {}
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
+        self.db_tables_lookup: Dict[str, dict] = {}
 
         self.group_map: Dict[str, GroupItem] = {}
 
@@ -2724,7 +2755,7 @@ class TableauSiteSource:
         )
         dataset_snapshot.aspects.append(dataset_props)
 
-        # Upstream Tables
+        # Upstream Tables and VC Lineage
         if (
             datasource.get(c.UPSTREAM_TABLES)
             or datasource.get(c.UPSTREAM_DATA_SOURCES)
@@ -2738,11 +2769,25 @@ class TableauSiteSource:
                 datasource, browse_path, is_embedded_ds=is_embedded_ds
             )
 
-            if upstream_tables:
+            # Add VC lineage to existing lineage
+            vc_upstream_tables, vc_fine_grained_lineages = (
+                self.vc_processor.create_datasource_vc_lineage_v2(datasource_urn)
+            )
+
+            # Combine with existing upstream tables
+            upstream_tables.extend(vc_upstream_tables)
+
+            # Combine all fine-grained lineages
+            all_fine_grained_lineages = fine_grained_lineages + vc_fine_grained_lineages
+
+            # Update report statistics
+            self.report.num_vc_lineages_created += len(vc_fine_grained_lineages)
+
+            if upstream_tables or vc_fine_grained_lineages:
                 upstream_lineage = UpstreamLineage(
                     upstreams=upstream_tables,
                     fineGrainedLineages=sorted(
-                        fine_grained_lineages,
+                        all_fine_grained_lineages,
                         key=lambda x: (x.downstreams, x.upstreams),
                     )
                     or None,
@@ -2755,7 +2800,7 @@ class TableauSiteSource:
                 self.report.num_tables_with_upstream_lineage += 1
                 self.report.num_upstream_table_lineage += len(upstream_tables)
                 self.report.num_upstream_fine_grained_lineage += len(
-                    fine_grained_lineages
+                    all_fine_grained_lineages
                 )
 
         # Datasource Fields
@@ -2862,6 +2907,9 @@ class TableauSiteSource:
             query_filter=datasource_filter,
             page_size=self.config.effective_published_datasource_page_size,
         ):
+            # Process for VC references before emission
+            self.vc_processor.process_datasource_for_vc_refs(datasource, "published")
+
             datasource = self.update_datasource_for_field_upstream(
                 datasource=datasource,
                 field_upstream_query=datasource_upstream_fields_graphql_query,
@@ -3555,6 +3603,9 @@ class TableauSiteSource:
             query_filter=datasource_filter,
             page_size=self.config.effective_embedded_datasource_page_size,
         ):
+            # Process for VC references before emission
+            self.vc_processor.process_datasource_for_vc_refs(datasource, "embedded")
+
             datasource = self.update_datasource_for_field_upstream(
                 datasource=datasource,
                 field_upstream_query=datasource_upstream_fields_graphql_query,
@@ -3719,6 +3770,217 @@ class TableauSiteSource:
 
         return {"permissions": json.dumps(groups)} if len(groups) > 0 else None
 
+    def _find_matching_database_table(self, vc_table_name: str) -> Optional[dict]:
+        """Find matching database table using multiple strategies"""
+        if not hasattr(self, "db_tables_lookup"):
+            # Initialize database tables lookup if not already done
+            self._build_database_tables_lookup()
+
+        clean_vc_name = clean_table_name(vc_table_name)
+        vc_table_lower = clean_vc_name.lower()
+
+        logger.info(
+            f"Looking for database table match for: '{vc_table_name}' (cleaned: '{clean_vc_name}')"
+        )
+        logger.info(f"Database lookup has {len(self.db_tables_lookup)} entries")
+
+        # Strategy 1: Direct exact match
+        if vc_table_lower in self.db_tables_lookup:
+            matched_table = self.db_tables_lookup[vc_table_lower]
+            logger.debug(f"Direct match found for '{vc_table_name}'")
+            return matched_table
+
+        # Strategy 2: Look for suffix matches
+        for db_name_key, db_table in self.db_tables_lookup.items():
+            if (
+                db_name_key.endswith(f".{vc_table_lower}")
+                or db_name_key.endswith(f"_{vc_table_lower}")
+                or db_name_key == vc_table_lower
+            ):
+                logger.debug(
+                    f"Suffix/exact match found: '{db_name_key}' for '{vc_table_name}'"
+                )
+                return db_table
+
+        # Strategy 3: Extract table name only and try to match
+        vc_table_only = self._extract_table_name_only(vc_table_name)
+        if vc_table_only and vc_table_only.lower() != vc_table_lower:
+            if vc_table_only.lower() in self.db_tables_lookup:
+                matched_table = self.db_tables_lookup[vc_table_only.lower()]
+                logger.debug(
+                    f"Table name only match found: '{vc_table_only}' for '{vc_table_name}'"
+                )
+                return matched_table
+
+        logger.debug(
+            f"No match found for VC table '{vc_table_name}' in {len(self.db_tables_lookup)} database tables"
+        )
+        # Log a few examples of what's in the lookup for debugging
+        if self.db_tables_lookup:
+            sample_keys = list(self.db_tables_lookup.keys())[:5]
+            logger.debug(f"Sample database table keys: {sample_keys}")
+
+        return None
+
+    def _create_database_table_urn(self, db_table: dict) -> Optional[str]:
+        """Create database table URN with proper platform extraction and fully qualified names"""
+        try:
+            table_name = db_table.get(c.NAME, "")
+            full_name = db_table.get(c.FULL_NAME, "")
+            schema = db_table.get(c.SCHEMA, "")
+            database_info = db_table.get(c.DATABASE, {})
+
+            logger.info(
+                f"Creating URN for database table: name={table_name}, full_name={full_name}, schema={schema}"
+            )
+
+            # Extract platform information
+            if database_info and isinstance(database_info, dict):
+                connection_type = database_info.get(c.CONNECTION_TYPE)
+                database_name = database_info.get(c.NAME, "")
+            else:
+                connection_type = None
+                database_name = ""
+
+            if not connection_type:
+                logger.info(
+                    f"No connection type found for database table {table_name}, skipping URN creation"
+                )
+                return None
+
+            logger.info(
+                f"Database info: connection_type={connection_type}, database_name={database_name}"
+            )
+
+            # Get platform from connection type
+            platform = get_platform(connection_type)
+
+            # Determine the best table name to use
+            raw_table_name = full_name if full_name else table_name
+
+            if not raw_table_name:
+                logger.debug("No valid table name found for database table")
+                return None
+
+            # Use DataHub's fully qualified table name logic
+            fully_qualified_name = get_fully_qualified_table_name(
+                platform=platform,
+                upstream_db=database_name,
+                schema=schema,
+                table_name=raw_table_name,
+            )
+
+            logger.debug(f"Fully qualified name: {fully_qualified_name}")
+
+            # Create the URN with the fully qualified name
+            urn = builder.make_dataset_urn_with_platform_instance(
+                platform=platform,
+                name=fully_qualified_name,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            logger.debug(f"Created database table URN: {urn}")
+            return urn
+
+        except Exception as e:
+            logger.warning(f"Failed to create database table URN: {e}")
+            logger.debug(f"Database table data: {db_table}")
+            return None
+
+    def _build_database_tables_lookup(self) -> None:
+        """Build database table lookup with multiple name variations"""
+        if hasattr(self, "db_tables_lookup") and self.db_tables_lookup:
+            return  # Already built
+
+        logger.info("Building database tables lookup")
+
+        # Get database tables with full information
+        for db_table in self.get_connection_objects(
+            query=database_tables_graphql_query,
+            connection_type=c.DATABASE_TABLES_CONNECTION,
+            query_filter={},  # Get all database tables
+            page_size=self.config.effective_database_table_page_size,
+        ):
+            name = db_table.get(c.NAME, "")
+            full_name = db_table.get(c.FULL_NAME, "")
+            schema = db_table.get(c.SCHEMA, "")
+            database_info = db_table.get(c.DATABASE, {})
+            database_name = database_info.get(c.NAME, "") if database_info else ""
+            connection_type = (
+                database_info.get(c.CONNECTION_TYPE, "") if database_info else ""
+            )
+
+            if not name:
+                continue
+
+            if not connection_type:
+                logger.debug(f"Skipping table {name} - no connection type available")
+                continue
+
+            # Create multiple lookup variations
+            name_variations = set()
+
+            # 1. Original names (case-insensitive)
+            name_variations.add(name.lower())
+            if full_name and full_name != name:
+                name_variations.add(full_name.lower())
+
+            # 2. Just the table name part (extracted from qualified names)
+            table_name_only = self._extract_table_name_only(name)
+            if table_name_only:
+                name_variations.add(table_name_only.lower())
+
+            if full_name:
+                full_table_name_only = self._extract_table_name_only(full_name)
+                if full_table_name_only and full_table_name_only != table_name_only:
+                    name_variations.add(full_table_name_only.lower())
+
+            # 3. Fully qualified variations using DataHub's logic
+            if database_name and schema and table_name_only:
+                try:
+                    # Use DataHub's fully qualified name logic
+                    fq_name = get_fully_qualified_table_name(
+                        platform=get_platform(connection_type),
+                        upstream_db=database_name,
+                        schema=schema,
+                        table_name=table_name_only,
+                    )
+                    name_variations.add(fq_name.lower())
+                except Exception as e:
+                    logger.debug(
+                        f"Failed to create fully qualified name for {name}: {e}"
+                    )
+
+            # 4. Additional variations for matching
+            if database_name and table_name_only:
+                name_variations.add(f"{database_name}.{table_name_only}".lower())
+            if schema and table_name_only:
+                name_variations.add(f"{schema}.{table_name_only}".lower())
+
+            # Store all variations
+            for variation in name_variations:
+                if variation and variation not in self.db_tables_lookup:
+                    self.db_tables_lookup[variation] = db_table
+                    logger.debug(
+                        f"Added database table lookup variation: '{variation}' -> {name}"
+                    )
+
+        logger.info(
+            f"Built database tables lookup with {len(self.db_tables_lookup)} entries"
+        )
+
+    def _extract_table_name_only(self, full_name: str) -> Optional[str]:
+        """Extract just the table name from a potentially qualified name"""
+        if not full_name:
+            return None
+
+        # Split by dots and take the last part (table name)
+        parts = full_name.split(".")
+        table_name = parts[-1].strip()
+
+        return table_name if table_name else None
+
     def ingest_tableau_site(self):
         with self.report.new_stage(
             f"Ingesting Tableau Site: {self.site_id} {self.site_content_url}"
@@ -3753,6 +4015,11 @@ class TableauSiteSource:
                     timer.elapsed_seconds(digits=2)
                 )
 
+            # Build database tables lookup early (if VCs will be processed)
+            if self.config.ingest_virtual_connections:
+                logger.info("Building database tables lookup for VC processing")
+                self._build_database_tables_lookup()
+
             if self.config.add_site_container:
                 yield from self.emit_site_container()
             yield from self.emit_project_containers()
@@ -3777,6 +4044,7 @@ class TableauSiteSource:
                         timer.elapsed_seconds(digits=2)
                     )
 
+            # STEP 1: Process datasources first to collect VC references
             if self.embedded_datasource_ids_being_used:
                 with PerfTimer() as timer:
                     yield from self.emit_embedded_datasources()
@@ -3788,6 +4056,43 @@ class TableauSiteSource:
                 with PerfTimer() as timer:
                     yield from self.emit_published_datasources()
                     self.report.emit_published_datasources_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            # STEP 2: Now process Virtual Connections (after collecting VC references from datasources)
+            if self.config.ingest_virtual_connections:
+                with PerfTimer() as timer:
+                    logger.info("Processing Virtual Connection lookups and emission")
+
+                    # Build VC mappings
+                    self.vc_processor.lookup_vc_ids_from_table_ids()
+
+                    # Update report statistics
+                    self.report.num_vc_table_references_found = len(
+                        self.vc_processor.vc_table_ids_for_lookup
+                    )
+                    self.report.num_virtual_connections_processed = len(
+                        self.vc_processor.virtual_connection_ids_being_used
+                    )
+
+                    logger.info(
+                        f"VC Processing complete: {self.report.num_vc_table_references_found} table references, "
+                        f"{self.report.num_virtual_connections_processed} VCs to process"
+                    )
+
+                    # Emit Virtual Connections
+                    if self.vc_processor.virtual_connection_ids_being_used:
+                        logger.info(
+                            f"Emitting {len(self.vc_processor.virtual_connection_ids_being_used)} Virtual Connections"
+                        )
+                        yield from self.vc_processor.emit_virtual_connections()
+                        logger.info("Virtual Connection emission complete")
+
+                    # STEP 3: NOW emit datasource → VC lineage (mappings are built now!)
+                    logger.info("Creating datasource → VC lineage with built mappings")
+                    yield from self.vc_processor.emit_datasource_vc_lineages()
+
+                    self.report.emit_virtual_connections_timer[
                         self.site_content_url
                     ] = timer.elapsed_seconds(digits=2)
 
