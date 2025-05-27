@@ -34,7 +34,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                 >
                     <Image preview={false} height={184} width={500} src={acrylMainDiagram} />
                 </div>
-                <Typography.Title level={3}>Welcome to DataHub Core! </Typography.Title>
+                <Typography.Title level={3}>Welcome to DataHub Cloud! </Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
                     <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
                     within your organization. You can:
