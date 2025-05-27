@@ -1,5 +1,13 @@
 import logging
+import time
 from typing import Dict, Iterable, List, Optional
+
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from datahub.configuration import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -21,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class ActionRequestOwnerSourceConfig(ConfigModel):
-    batch_size: int = 20
+    batch_size: int = 200
 
 
 class ActionRequestOwnerSourceReport(SourceReport):
@@ -30,7 +38,7 @@ class ActionRequestOwnerSourceReport(SourceReport):
     correct_assignees_not_found = 0
     correct_proposal_owners = 0
     incorrect_proposal_owners = 0
-    missing_entity_owners = 0
+    missing_entity = 0
     action_request_info_not_found = 0
 
 
@@ -73,6 +81,14 @@ class ActionRequestOwnerSource(Source):
         self.report = ActionRequestOwnerSourceReport()
         self.graph = ctx.require_graph("Proposal Owner source")
         self.event_not_produced_warn = False
+        self.last_print_time = time.time()
+
+    def _print_report(self) -> None:
+        time_taken = round(time.time() - self.last_print_time, 1)
+        # Print report every 2 minutes
+        if time_taken > 120:
+            self.last_print_time = time.time()
+            logger.info(f"\n{self.report.as_string()}")
 
     def _process_action_request(
         self, action_request: Dict
@@ -82,8 +98,12 @@ class ActionRequestOwnerSource(Source):
         action_type = action_request.get("type")
         action_request_entity = action_request.get("entity")
         if action_request_entity is None:
-            logger.error(f"Action request entity not found for {action_request_urn}")
-            self.report.missing_entity_owners += 1
+            self.report.failure(
+                title="Action request entity not found",
+                message="Action request entity not found",
+                context=str(action_request_urn),
+            )
+            self.report.missing_entity += 1
             return None
         resource_urn = action_request_entity.get("urn")
         sub_resource = action_request.get("subResource")
@@ -134,8 +154,10 @@ class ActionRequestOwnerSource(Source):
         )
         if action_request_info is None:
             self.report.action_request_info_not_found += 1
-            logger.error(
-                f"Action request info not found for action request {action_request_urn}"
+            self.report.failure(
+                title="Action request info not found for action request",
+                message="Action request info not found for action request",
+                context=str(action_request_urn),
             )
             return None
         action_request_info.assignedUsers = correct_users
@@ -145,6 +167,12 @@ class ActionRequestOwnerSource(Source):
             entityUrn=action_request_urn, aspect=action_request_info
         )
 
+    @retry(
+        retry=retry_if_exception_type(ConnectionError),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        reraise=True,
+    )
     def _get_action_requests(self, start: int) -> List:
         list_action_requests = self.graph.execute_graphql(
             query=ACTION_REQUESTS,
@@ -166,10 +194,12 @@ class ActionRequestOwnerSource(Source):
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         start = 0
         while True:
+            logger.info(f"Fetching action requests starting from {start}")
             action_requests = self._get_action_requests(start)
             if len(action_requests) == 0:
                 break
             for action_request in action_requests:
+                self._print_report()
                 result = self._process_action_request(action_request)
                 if result is not None:
                     yield result.as_workunit()
