@@ -12,7 +12,7 @@ import com.linkedin.metadata.kafka.hook.event.EntityChangeEventGeneratorHook;
 import com.linkedin.metadata.kafka.hook.incident.IncidentsSummaryHook;
 import com.linkedin.metadata.kafka.hook.ingestion.IngestionSchedulerHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
-import com.linkedin.metadata.kafka.mcl.MCLKafkaListenerRegistrar;
+import com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;

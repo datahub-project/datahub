@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.generic;
+package com.linkedin.metadata.kafka.listener;
 
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;

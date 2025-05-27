@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.mcl;
+package com.linkedin.metadata.kafka.listener.mcl;
 
 import static com.linkedin.metadata.Constants.MDC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.MDC_CHANGE_TYPE;
@@ -8,7 +8,7 @@ import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.kafka.generic.AbstractKafkaListener;
+import com.linkedin.metadata.kafka.listener.AbstractKafkaListener;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;

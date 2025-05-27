@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.generic;
+package com.linkedin.metadata.kafka.listener;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;

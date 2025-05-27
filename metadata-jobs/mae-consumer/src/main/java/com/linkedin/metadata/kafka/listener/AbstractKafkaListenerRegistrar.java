@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.generic;
+package com.linkedin.metadata.kafka.listener;
 
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;

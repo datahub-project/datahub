@@ -1,4 +1,4 @@
-package com.linkedin.metadata.kafka.generic;
+package com.linkedin.metadata.kafka.listener;
 
 import java.util.List;
 import java.util.Map;

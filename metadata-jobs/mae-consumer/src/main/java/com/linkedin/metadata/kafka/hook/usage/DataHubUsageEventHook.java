@@ -1,7 +1,7 @@
-package com.linkedin.metadata.kafka.usage;
+package com.linkedin.metadata.kafka.hook.usage;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.linkedin.metadata.kafka.generic.EventHook;
+import com.linkedin.metadata.kafka.listener.EventHook;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.apache.kafka.clients.consumer.ConsumerRecord;

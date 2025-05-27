@@ -1,6 +1,6 @@
 package com.linkedin.metadata.kafka.hook;
 
-import com.linkedin.metadata.kafka.generic.EventHook;
+import com.linkedin.metadata.kafka.listener.EventHook;
 import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;

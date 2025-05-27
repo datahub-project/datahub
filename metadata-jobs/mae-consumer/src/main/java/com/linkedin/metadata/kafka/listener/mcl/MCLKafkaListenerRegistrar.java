@@ -1,12 +1,12 @@
-package com.linkedin.metadata.kafka.mcl;
+package com.linkedin.metadata.kafka.listener.mcl;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CONSUMER_NAME;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
-import com.linkedin.metadata.kafka.generic.AbstractKafkaListenerRegistrar;
-import com.linkedin.metadata.kafka.generic.GenericKafkaListener;
+import com.linkedin.metadata.kafka.listener.AbstractKafkaListenerRegistrar;
+import com.linkedin.metadata.kafka.listener.GenericKafkaListener;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
