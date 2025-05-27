@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.types.ingestion;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.types.ingestion.TestUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
@@ -14,10 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
-import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
@@ -48,6 +46,22 @@ public class ExecutionRequestTypeTest {
 
     Urn executionRequestUrn1 = Urn.createFromString(TEST_1_URN);
     Urn executionRequestUrn2 = Urn.createFromString(TEST_2_URN);
+    Urn ingestionSourceUrn = Urn.createFromString("urn:li:dataHubIngestionSource:id-1");
+
+    EntityResponse entityResponse =
+        getEntityResponse()
+            .setEntityName(Constants.EXECUTION_REQUEST_ENTITY_NAME)
+            .setUrn(executionRequestUrn1);
+    ExecutionRequestInput requestInput =
+        getExecutionRequestInput(
+            getExecutionRequestInputArts("recipe", "version"),
+            "task",
+            "executorId",
+            0L,
+            getExecutionRequestSource(ingestionSourceUrn, "type"));
+    ExecutionRequestResult requestResult = getExecutionRequestResult(10L, "report", 0L, "success");
+    addAspect(entityResponse, Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME, requestInput);
+    addAspect(entityResponse, Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME, requestResult);
 
     Mockito.when(
             client.batchGetV2(
@@ -56,19 +70,7 @@ public class ExecutionRequestTypeTest {
                 Mockito.eq(
                     new HashSet<>(ImmutableSet.of(executionRequestUrn1, executionRequestUrn2))),
                 Mockito.eq(ExecutionRequestType.ASPECTS_TO_FETCH)))
-        .thenReturn(
-            ImmutableMap.of(
-                executionRequestUrn1,
-                new EntityResponse()
-                    .setEntityName(Constants.EXECUTION_REQUEST_ENTITY_NAME)
-                    .setUrn(executionRequestUrn1)
-                    .setAspects(
-                        new EnvelopedAspectMap(
-                            ImmutableMap.of(
-                                Constants.EXECUTION_REQUEST_INPUT_ASPECT_NAME,
-                                new EnvelopedAspect().setValue(new Aspect(TEST_INPUT.data())),
-                                Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME,
-                                new EnvelopedAspect().setValue(new Aspect(TEST_RESULT.data())))))));
+        .thenReturn(ImmutableMap.of(executionRequestUrn1, entityResponse));
 
     ExecutionRequestType type = new ExecutionRequestType(client);
 
@@ -76,7 +78,6 @@ public class ExecutionRequestTypeTest {
     List<DataFetcherResult<ExecutionRequest>> result =
         type.batchLoad(ImmutableList.of(TEST_1_URN, TEST_2_URN), mockContext);
 
-    // Verify response
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
             any(),
@@ -89,10 +90,8 @@ public class ExecutionRequestTypeTest {
     ExecutionRequest executionRequest1 = result.get(0).getData();
     assertEquals(executionRequest1.getUrn(), TEST_1_URN);
     assertEquals(executionRequest1.getType(), EntityType.EXECUTION_REQUEST);
-    assertEquals(executionRequest1.getInput().getTask(), TEST_INPUT_TASK);
-    assertEquals(executionRequest1.getInput().getRequestedAt(), TEST_INPUT_REQUESTED_AT);
-    assertEquals(executionRequest1.getResult().getStatus(), TEST_RESULT_STATUS);
-
+    verifyExecutionRequestInput(executionRequest1, requestInput);
+    verifyExecutionRequestResult(executionRequest1, requestResult);
     // Assert second element is null.
     assertNull(result.get(1));
   }
