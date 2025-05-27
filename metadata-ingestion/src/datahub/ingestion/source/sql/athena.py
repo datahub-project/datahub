@@ -582,9 +582,7 @@ class AthenaSource(SQLAlchemySource):
         rows = res.fetchall()
 
         # Concatenate all rows into a single string with newlines
-        create_table_statement = ""
-        for row in rows:
-            create_table_statement += row[0] + "\n"  # Add a newline after each row
+        create_table_statement = "\n".join(row[0] for row in rows)
 
         try:
             athena_table_info = AthenaPropertiesExtractor.get_table_properties(
