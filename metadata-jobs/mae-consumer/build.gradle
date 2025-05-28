@@ -25,7 +25,7 @@ dependencies {
     implementation project(':metadata-events:mxe-registration')
     implementation project(':metadata-events:mxe-utils-avro')
     implementation project(':datahub-graphql-core')
-    implementation project(':metadata-jobs:common')
+    api project(':metadata-jobs:common')
 
     implementation externalDependency.elasticSearchRest
     implementation externalDependency.kafkaAvroSerde
