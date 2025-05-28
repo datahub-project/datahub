@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -575,7 +576,11 @@ class SnowflakeV2Source(
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
                     config=SnowflakeQueriesExtractorConfig(
-                        window=self.config,
+                        window=BaseTimeWindowConfig(
+                            start_time=self.config.start_time,
+                            end_time=self.config.end_time,
+                            bucket_duration=self.config.bucket_duration,
+                        ),
                         temporary_tables_pattern=self.config.temporary_tables_pattern,
                         include_lineage=self.config.include_table_lineage,
                         include_usage_statistics=self.config.include_usage_stats,
