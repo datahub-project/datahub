@@ -1,6 +1,6 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import (
     Any,
     Callable,
@@ -15,6 +15,7 @@ from typing import (
 
 from dateutil.relativedelta import relativedelta
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -238,7 +239,7 @@ class BigqueryProfiler(GenericProfiler):
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> Optional[TableProfilerRequest]:
         """
-        Create a profile request for a table.
+        Create a profile request for a table, handling BigQuery-specific functionality.
 
         Args:
             table: BaseTable instance
@@ -248,27 +249,34 @@ class BigqueryProfiler(GenericProfiler):
         Returns:
             TableProfilerRequest if the table should be profiled, None otherwise
         """
-        # Cast to BigqueryTable
         bq_table = cast(BigqueryTable, table)
 
-        # Check if table should be profiled
-        if not self._should_profile_table(bq_table, schema_name, db_name):
+        # Check if external table and if we should profile it
+        if (
+            hasattr(bq_table, "external")
+            and bq_table.external
+            and not getattr(self.config.profiling, "profile_external_tables", False)
+        ):
+            self.report.report_warning(
+                title="Profile skipped for external table",
+                message="Profile skipped as external table profiling is disabled",
+                context=f"{db_name}.{schema_name}.{bq_table.name}",
+            )
             return None
 
-        # Create the profiler request
-        profile_request = TableProfilerRequest(
-            pretty_name=bq_table.name,
-            batch_kwargs=self.get_batch_kwargs(bq_table, schema_name, db_name),
-            table=bq_table,
-        )
+        # Get the basic profile request from parent class
+        profile_request = super().get_profile_request(table, schema_name, db_name)
+        if not profile_request:
+            return None
 
+        # The batch_kwargs will be set by get_batch_kwargs with partition information
         return profile_request
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> dict:
         """
-        Get batch kwargs for profiling a table.
+        Get batch kwargs for profiling a table, handling partitions.
 
         Args:
             table: BaseTable instance
@@ -281,56 +289,53 @@ class BigqueryProfiler(GenericProfiler):
         # Cast to BigqueryTable
         bq_table = cast(BigqueryTable, table)
 
-        # Get table key
-        table_key = f"{db_name}.{schema_name}.{bq_table.name}"
-
-        # Determine which profiling strategy to use
-        profile_strategy = self._select_profile_strategy(bq_table, db_name, schema_name)
-
-        # Get partition filters if needed
-        partition_filters = None
-        if getattr(self.profiler_config, "enable_partition_optimization", True):
-            try:
-                partition_filters = (
-                    self.partition_manager.get_required_partition_filters(
-                        bq_table, db_name, schema_name
-                    )
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Error getting partition filters for {table_key}: {str(e)}"
-                )
-
-        # Generate the profile query
-        strategy = get_profile_strategy(
-            profile_strategy, self.execute_query, self.profiler_config
-        )
-
-        try:
-            profile_query = strategy.generate_profile_query(
-                bq_table, db_name, schema_name, partition_filters
-            )
-        except Exception as e:
-            logger.warning(f"Error generating profile query for {table_key}: {str(e)}")
-            # Fall back to basic profiling
-            profile_query = BasicProfileStrategy(
-                self.execute_query, self.profiler_config
-            ).generate_profile_query(bq_table, db_name, schema_name, partition_filters)
-
-        # Store which strategy was used for this table
-        self._table_strategies[table_key] = profile_strategy
-
-        # Set up the batch kwargs
+        # Start with the basic batch kwargs
         batch_kwargs = {
-            "schema": schema_name,
-            "table": bq_table.name,
-            "project": db_name,
-            "custom_sql": profile_query,
-            "partition_filters": partition_filters,
-            "profile_strategy": profile_strategy,
-            # Add partition_handling for test compatibility
-            "partition_handling": "optimize" if partition_filters else "none",
+            "schema": schema_name,  # Dataset name
+            "table": bq_table.name,  # Table name
+            "project": db_name,  # Project ID
         }
+
+        # Handle partitioning
+        try:
+            # Generate partition information and custom SQL if needed
+            partition, custom_sql = self.generate_partition_profiler_query(
+                db_name,
+                schema_name,
+                bq_table,
+                getattr(self.config.profiling, "partition_datetime", None),
+            )
+
+            if partition is None and bq_table.partition_info:
+                self.report.report_warning(
+                    title="Profile skipped for partitioned table",
+                    message="Profile skipped as partitioned table is empty or partition id or type was invalid",
+                    context=f"{db_name}.{schema_name}.{bq_table.name}",
+                )
+                return {}
+
+            if partition is not None and not getattr(
+                self.config.profiling, "partition_profiling_enabled", True
+            ):
+                logger.debug(
+                    f"{db_name}.{schema_name}.{bq_table.name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
+                )
+                self.report.profiling_skipped_partition_profiling_disabled.append(
+                    f"{db_name}.{schema_name}.{bq_table.name}"
+                )
+                return {}
+
+            # If we have a partition and custom SQL, add them to the batch kwargs
+            if partition:
+                logger.debug(f"Using partition {partition} for table {bq_table.name}")
+                batch_kwargs["partition"] = partition
+                if custom_sql:
+                    batch_kwargs["custom_sql"] = custom_sql
+
+        except Exception as e:
+            logger.warning(
+                f"Error generating partition info for {db_name}.{schema_name}.{bq_table.name}: {str(e)}"
+            )
 
         return batch_kwargs
 
@@ -440,12 +445,13 @@ class BigqueryProfiler(GenericProfiler):
         Returns:
             Iterable of MetadataWorkUnit
         """
-        # Similar implementation to parent class, but using our specialized components
+        # Create profile requests similar to the older implementation
+        profile_requests: List[TableProfilerRequest] = []
 
         for schema_name, schema_tables in tables.items():
             # Profile tables
             for table in schema_tables:
-                # Get profile request
+                # Get profile request using our specialized method that handles partitions
                 profile_request = self.get_profile_request(
                     table, schema_name, project_id
                 )
@@ -453,94 +459,42 @@ class BigqueryProfiler(GenericProfiler):
                 if profile_request is None:
                     continue
 
-                # Execute profile query
-                batch_kwargs = profile_request.batch_kwargs
+                # Use the partition determination but feed it into the standard profiling system
+                self.report.report_entity_profiled(profile_request.pretty_name)
+                profile_requests.append(profile_request)
 
-                try:
-                    # Get custom SQL and execute
-                    custom_sql = batch_kwargs.get("custom_sql")
-                    if not custom_sql:
-                        continue
+                # Update the table_urn for state tracking (for compatibility with tests)
+                table_urn = BigqueryTableIdentifier(
+                    project_id=project_id,
+                    dataset=schema_name,
+                    table=table.name,
+                ).get_table_name()
 
-                    # Set an appropriate timeout based on table size
-                    timeout = self.profiler_config.get_timeout_for_table(
-                        table.size_in_bytes
-                    )
+                if self.state_handler:
+                    # Handle both old and new APIs
+                    if hasattr(self.state_handler, "add_profiled_table"):
+                        self.state_handler.add_profiled_table(table_urn)
 
-                    # Execute the query
-                    results = self.execute_query(
-                        custom_sql,
-                        f"profile_{project_id}_{schema_name}_{table.name}",
-                        timeout=timeout,
-                    )
+        # If we don't have any tables to profile, return
+        if len(profile_requests) == 0:
+            return
 
-                    if not results:
-                        logger.warning(f"No results for {table.name}, skipping profile")
-                        continue
-
-                    # Process results
-                    profile_data = self._process_profile_results(
-                        results, table, batch_kwargs
-                    )
-
-                    # Create dataset URN
-                    dataset_urn = self.get_dataset_name(
-                        table.name, schema_name, project_id
-                    )
-
-                    # Create profile workunit
-                    profile_wu = self.get_profile_as_workunit(
-                        dataset_urn=dataset_urn,
-                        profile=profile_data,
-                    )
-
-                    # Update report
-                    if hasattr(self.report, "num_table_profiles_produced"):
-                        self.report.num_table_profiles_produced += 1
-
-                    # Update state
-                    table_urn = BigqueryTableIdentifier(
-                        project_id=project_id,
-                        dataset=schema_name,
-                        table=table.name,
-                    ).get_table_name()
-
-                    if self.state_handler:
-                        # Handle both old and new APIs
-                        if hasattr(self.state_handler, "add_profiled_table"):
-                            self.state_handler.add_profiled_table(table_urn)
-                        elif hasattr(self.state_handler, "record_profiled_dataset"):
-                            now_millis = int(
-                                datetime.now(timezone.utc).timestamp() * 1000
-                            )
-                            self.state_handler.record_profiled_dataset(
-                                dataset_urn=table_urn,
-                                last_profiled_timestamp=now_millis,
-                            )
-
-                    yield profile_wu
-
-                except Exception as e:
-                    # Mark as problematic to avoid retrying
-                    table_key = f"{project_id}.{schema_name}.{table.name}"
-                    self._problematic_tables.add(table_key)
-
-                    # Log error
-                    logger.error(f"Error profiling table {table_key}: {str(e)}")
-
-                    # Update report
-                    self.report.report_warning(
-                        "profile",
-                        f"Error profiling table {table_key}: {str(e)}",
-                    )
+        # Use the standard GenericProfiler to generate the actual profile workunits
+        # This ensures we get column-level profiles
+        yield from self.generate_profile_workunits(
+            profile_requests,
+            max_workers=self.config.profiling.max_workers,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+        )
 
     def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
         """Get the dataset URN for a table."""
-        return (
-            f"urn:li:dataset:("
-            f"urn:li:dataPlatform:{self.platform},"
-            f"{db_name}.{schema_name}.{table_name}"
-            f")"
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            name=f"{db_name}.{schema_name}.{table_name}",
+            env=self.config.env,
         )
 
     def get_profile_as_workunit(
@@ -666,3 +620,136 @@ class BigqueryProfiler(GenericProfiler):
         Compatibility method for tests that forwards to the table metadata manager.
         """
         return self.table_metadata_manager.get_table_metadata(table, project, schema)
+
+    def generate_partition_profiler_query(
+        self,
+        project: str,
+        schema: str,
+        table: BigqueryTable,
+        partition_datetime: Optional[datetime] = None,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Method returns partition id if table is partitioned or sharded and generate custom partition query for
+        partitioned table.
+        See more about partitioned tables at https://cloud.google.com/bigquery/docs/partitioned-tables
+
+        Args:
+            project: Project ID
+            schema: Dataset name
+            table: BigqueryTable instance
+            partition_datetime: Optional datetime to use for partition selection
+
+        Returns:
+            Tuple of (partition_id, custom_sql) or (None, None) if not applicable
+        """
+        logger.debug(
+            f"generate partition profiler query for project: {project} schema: {schema} and table {table.name}, partition_datetime: {partition_datetime}"
+        )
+        partition = table.max_partition_id
+        if table.partition_info and partition:
+            partition_where_clause: str
+
+            if (
+                hasattr(table.partition_info, "type")
+                and table.partition_info.type == "RANGE"
+            ):
+                if (
+                    hasattr(table.partition_info, "column")
+                    and table.partition_info.column
+                ):
+                    partition_where_clause = (
+                        f"{table.partition_info.column.name} >= {partition}"
+                    )
+                else:
+                    logger.warning(
+                        f"Partitioned table {table.name} without partition column"
+                    )
+                    if hasattr(self.report, "profiling_skipped_invalid_partition_ids"):
+                        self.report.profiling_skipped_invalid_partition_ids[
+                            f"{project}.{schema}.{table.name}"
+                        ] = partition
+                    return None, None
+            else:
+                logger.debug(
+                    f"{table.name} is partitioned and partition column is {partition}"
+                )
+                try:
+                    (
+                        partition_datetime,
+                        upper_bound_partition_datetime,
+                    ) = self.get_partition_range_from_partition_id(
+                        partition, partition_datetime
+                    )
+                except ValueError as e:
+                    logger.error(
+                        f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
+                    )
+                    if hasattr(self.report, "profiling_skipped_invalid_partition_ids"):
+                        self.report.profiling_skipped_invalid_partition_ids[
+                            f"{project}.{schema}.{table.name}"
+                        ] = partition
+                    return None, None
+
+                partition_data_type: str = "TIMESTAMP"
+                # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
+                # See more about this at
+                # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
+                partition_column_name = "_PARTITIONTIME"
+                if (
+                    hasattr(table.partition_info, "column")
+                    and table.partition_info.column
+                ):
+                    partition_column_name = table.partition_info.column.name
+                    partition_data_type = table.partition_info.column.data_type
+                if hasattr(
+                    table.partition_info, "type"
+                ) and table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
+                    partition_where_clause = f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
+                else:
+                    logger.warning(
+                        f"Not supported partition type {table.partition_info.type}"
+                    )
+                    if hasattr(self.report, "profiling_skipped_invalid_partition_type"):
+                        self.report.profiling_skipped_invalid_partition_type[
+                            f"{project}.{schema}.{table.name}"
+                        ] = table.partition_info.type
+                    return None, None
+            custom_sql = """
+SELECT
+    *
+FROM
+    `{table_catalog}.{table_schema}.{table_name}`
+WHERE
+    {partition_where_clause}
+            """.format(
+                table_catalog=project,
+                table_schema=schema,
+                table_name=table.name,
+                partition_where_clause=partition_where_clause,
+            )
+
+            return (partition, custom_sql)
+        elif hasattr(table, "max_shard_id") and table.max_shard_id:
+            # For sharded table we want to get the partition id but not needed to generate custom query
+            return table.max_shard_id, None
+
+        return None, None
+
+    def get_profile_args(self) -> Dict[str, Any]:
+        """
+        Get profiler arguments for the GenericProfiler.
+
+        Returns:
+            Dictionary of profiler arguments
+        """
+        # Get the base profiler args from parent class
+        profiler_args = super().get_profile_args()
+
+        # Add BigQuery-specific profiler args
+        profiler_args.update(
+            {
+                "query_timeout": self.config.query_timeout,
+            }
+        )
+
+        return profiler_args
