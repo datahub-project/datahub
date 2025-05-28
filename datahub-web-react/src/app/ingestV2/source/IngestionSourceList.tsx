@@ -6,6 +6,7 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import EmptySources from '@app/ingestV2/EmptySources';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
@@ -445,7 +446,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
             {error && (
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}
@@ -483,29 +483,35 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
-
-                <TableContainer>
-                    <IngestionSourceTable
-                        sources={filteredSources || []}
-                        setFocusExecutionUrn={setFocusExecutionUrn}
-                        onExecute={onExecute}
-                        onEdit={onEdit}
-                        onView={onView}
-                        onDelete={onDelete}
-                        onChangeSort={onChangeSort}
-                    />
-                </TableContainer>
-                <PaginationContainer>
-                    <Pagination
-                        currentPage={page}
-                        itemsPerPage={pageSize}
-                        totalPages={totalSources}
-                        showLessItems
-                        onPageChange={onChangePage}
-                        showSizeChanger={false}
-                        hideOnSinglePage
-                    />
-                </PaginationContainer>
+                {!loading && totalSources === 0 ? (
+                    <EmptySources sourceType="sources" isEmptySearch={!!query} />
+                ) : (
+                    <>
+                        <TableContainer>
+                            <IngestionSourceTable
+                                sources={filteredSources || []}
+                                setFocusExecutionUrn={setFocusExecutionUrn}
+                                onExecute={onExecute}
+                                onEdit={onEdit}
+                                onView={onView}
+                                onDelete={onDelete}
+                                onChangeSort={onChangeSort}
+                                isLoading={loading}
+                            />
+                        </TableContainer>
+                        <PaginationContainer>
+                            <Pagination
+                                currentPage={page}
+                                itemsPerPage={pageSize}
+                                totalPages={totalSources}
+                                showLessItems
+                                onPageChange={onChangePage}
+                                showSizeChanger={false}
+                                hideOnSinglePage
+                            />
+                        </PaginationContainer>
+                    </>
+                )}
             </SourceContainer>
             <IngestionSourceBuilderModal
                 initialState={removeExecutionsFromIngestionSource(focusSource)}
