@@ -1,5 +1,11 @@
-import { entityHasProposals, mergeFilters, replaceFilterValues } from '@app/taskCenterV2/proposalsV2/utils';
-import { ActionRequestStatus, ActionRequestType, FilterOperator } from '@src/types.generated';
+import {
+    createBatchProposalActionEvent,
+    entityHasProposals,
+    getProposalsCountByType,
+    mergeFilters,
+    replaceFilterValues,
+} from '@app/taskCenterV2/proposalsV2/utils';
+import { ActionRequest, ActionRequestStatus, ActionRequestType, FilterOperator } from '@src/types.generated';
 
 const MOCK_ENTITY_DATA = {
     proposals: [
@@ -116,6 +122,102 @@ describe('Proposal utils', () => {
             const mergedFilters2 = replaceFilterValues(MOCK_BASE_FILTERS, newFiltersWithDifferentFields);
             expect(mergedFilters2.length).toEqual(3);
             expect(mergedFilters2[0]?.values?.length).toEqual(1);
+        });
+    });
+});
+
+describe('Proposals Utils', () => {
+    describe('getProposalsCountByType', () => {
+        it('should return empty object for empty proposals array', () => {
+            const proposals: ActionRequest[] = [];
+            const result = getProposalsCountByType(proposals);
+            expect(result).toEqual({});
+        });
+
+        it('should count proposals by type correctly', () => {
+            const proposals: ActionRequest[] = [
+                { type: ActionRequestType.TagAssociation, status: ActionRequestStatus.Pending } as ActionRequest,
+                { type: ActionRequestType.TagAssociation, status: ActionRequestStatus.Pending } as ActionRequest,
+                { type: ActionRequestType.TermAssociation, status: ActionRequestStatus.Pending } as ActionRequest,
+            ];
+
+            const result = getProposalsCountByType(proposals);
+            expect(result).toEqual({
+                [ActionRequestType.TagAssociation]: 2,
+                [ActionRequestType.TermAssociation]: 1,
+            });
+        });
+    });
+
+    describe('createBatchProposalActionEvent', () => {
+        it('should create event with correct structure for empty proposals', () => {
+            const selectedProposals: ActionRequest[] = [];
+            const result = createBatchProposalActionEvent('ProposalsAccepted', selectedProposals);
+
+            expect(result).toEqual({
+                actionType: 'ProposalsAccepted',
+                entityUrns: [],
+                proposalsCount: 0,
+                countByType: {},
+            });
+        });
+
+        it('should create event with correct structure for proposals with entities', () => {
+            const selectedProposals: ActionRequest[] = [
+                {
+                    type: ActionRequestType.TagAssociation,
+                    status: ActionRequestStatus.Pending,
+                    entity: { urn: 'urn:li:dataset:1' },
+                } as ActionRequest,
+                {
+                    type: ActionRequestType.TagAssociation,
+                    status: ActionRequestStatus.Pending,
+                    entity: { urn: 'urn:li:dataset:2' },
+                } as ActionRequest,
+                {
+                    type: ActionRequestType.TermAssociation,
+                    status: ActionRequestStatus.Pending,
+                    entity: { urn: 'urn:li:dataset:3' },
+                } as ActionRequest,
+            ];
+
+            const result = createBatchProposalActionEvent('ProposalsRejected', selectedProposals);
+
+            expect(result).toEqual({
+                actionType: 'ProposalsRejected',
+                entityUrns: ['urn:li:dataset:1', 'urn:li:dataset:2', 'urn:li:dataset:3'],
+                proposalsCount: 3,
+                countByType: {
+                    [ActionRequestType.TagAssociation]: 2,
+                    [ActionRequestType.TermAssociation]: 1,
+                },
+            });
+        });
+
+        it('should filter out proposals without entity URNs', () => {
+            const selectedProposals: ActionRequest[] = [
+                {
+                    type: ActionRequestType.TagAssociation,
+                    status: ActionRequestStatus.Pending,
+                    entity: { urn: 'urn:li:dataset:1' },
+                } as ActionRequest,
+                {
+                    type: ActionRequestType.TagAssociation,
+                    status: ActionRequestStatus.Pending,
+                    entity: null,
+                } as ActionRequest,
+            ];
+
+            const result = createBatchProposalActionEvent('ProposalsAccepted', selectedProposals);
+
+            expect(result).toEqual({
+                actionType: 'ProposalsAccepted',
+                entityUrns: ['urn:li:dataset:1'],
+                proposalsCount: 2,
+                countByType: {
+                    [ActionRequestType.TagAssociation]: 2,
+                },
+            });
         });
     });
 });

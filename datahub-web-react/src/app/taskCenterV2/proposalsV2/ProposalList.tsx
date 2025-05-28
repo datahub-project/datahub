@@ -92,6 +92,7 @@ export const ProposalList = ({
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
+    const [selectedProposals, setSelectedProposals] = useState<ActionRequest[]>([]);
     const { start, pageSize, setPageSize, page, setPage } = usePagination(DEFAULT_PAGE_SIZE);
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [completedProposalUrns, setCompletedProposalUrns] = useState<string[]>([]);
@@ -280,12 +281,14 @@ export const ProposalList = ({
                     onActionRequestUpdate={onActionRequestUpdate}
                     selectedKeys={selectedUrns}
                     setSelectedKeys={setSelectedUrns}
+                    setSelectedProposals={setSelectedProposals}
                     showPendingView={showPendingView}
                 />
                 <FooterContainer>
                     {selectedUrns.length > 0 && (
                         <ActionsBar
                             selectedUrns={selectedUrns}
+                            selectedProposals={selectedProposals}
                             setSelectedUrns={setSelectedUrns}
                             onActionRequestUpdate={onActionRequestUpdate}
                             hasPagination={hasPagination}

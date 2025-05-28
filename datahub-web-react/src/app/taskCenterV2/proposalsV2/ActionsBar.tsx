@@ -5,12 +5,12 @@ import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { updateActionRequestsList } from '@app/taskCenterV2/proposalsV2/proposalsTable/cacheUtils';
-import { ProposalModalType } from '@app/taskCenterV2/proposalsV2/utils';
+import { ProposalModalType, createBatchProposalActionEvent } from '@app/taskCenterV2/proposalsV2/utils';
 import { Button, Icon, Modal, Text, TextArea, colors } from '@src/alchemy-components';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@src/graphql/actionRequest.generated';
 
-import { ActionRequestResult } from '@types';
+import { ActionRequest, ActionRequestResult } from '@types';
 
 const ActionsContainer = styled.div<{ $hasPagination?: boolean }>`
     display: flex;
@@ -73,11 +73,18 @@ const modalConfig = {
 interface Props {
     selectedUrns: string[];
     setSelectedUrns: React.Dispatch<React.SetStateAction<string[]>>;
+    selectedProposals: ActionRequest[];
     onActionRequestUpdate: (completedUrns: string[]) => void;
     hasPagination?: boolean;
 }
 
-const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasPagination }: Props) => {
+const ActionsBar = ({
+    selectedUrns,
+    selectedProposals,
+    setSelectedUrns,
+    onActionRequestUpdate,
+    hasPagination,
+}: Props) => {
     const [modalType, setModalType] = useState<ModalType>(null);
     const [note, setNote] = useState('');
 
@@ -95,9 +102,8 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
         })
             .then(() => {
                 analytics.event({
-                    type: EventType.BatchEntityActionEvent,
-                    actionType: EntityActionType.ProposalsAccepted,
-                    entityUrns: selectedUrns,
+                    type: EventType.BatchProposalActionEvent,
+                    ...createBatchProposalActionEvent(EntityActionType.ProposalsAccepted, selectedProposals),
                 });
                 message.success('Accepted proposals!');
                 updateActionRequestsList(client, selectedUrns, ActionRequestResult.Accepted, note, currentUser);
@@ -116,9 +122,8 @@ const ActionsBar = ({ selectedUrns, setSelectedUrns, onActionRequestUpdate, hasP
         })
             .then(() => {
                 analytics.event({
-                    type: EventType.BatchEntityActionEvent,
-                    actionType: EntityActionType.ProposalsRejected,
-                    entityUrns: selectedUrns,
+                    type: EventType.BatchProposalActionEvent,
+                    ...createBatchProposalActionEvent(EntityActionType.ProposalAccepted, selectedProposals),
                 });
                 message.success('Proposals declined.');
                 updateActionRequestsList(client, selectedUrns, ActionRequestResult.Rejected, note, currentUser);

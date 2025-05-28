@@ -26,6 +26,7 @@ public enum DataHubUsageEventType {
   ENTITY_SECTION_VIEW_EVENT("EntitySectionViewEvent"),
   ENTITY_ACTION_EVENT("EntityActionEvent"),
   BATCH_ENTITY_ACTION_EVENT("BatchEntityActionEvent"),
+  BATCH_PROPOSAL_ACTION_EVENT("BatchProposalActionEvent"),
   RECOMMENDATION_IMPRESSION_EVENT("RecommendationImpressionEvent"),
   RECOMMENDATION_CLICK_EVENT("RecommendationClickEvent"),
   HOME_PAGE_RECOMMENDATION_CLICK_EVENT("HomePageRecommendationClickEvent"),

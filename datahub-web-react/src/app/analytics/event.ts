@@ -5,6 +5,7 @@ import { FilterMode } from '@app/search/utils/constants';
 import { ActorType } from '@app/settings/personal/notifications/constants';
 
 import {
+    ActionRequestType,
     AllowedValue,
     DataHubViewType,
     EntityChangeType,
@@ -50,6 +51,7 @@ export enum EventType {
     EntitySectionViewEvent,
     EntityActionEvent,
     BatchEntityActionEvent,
+    BatchProposalActionEvent,
     RecommendationImpressionEvent,
     RecommendationClickEvent,
     HomePageRecommendationClickEvent,
@@ -492,6 +494,14 @@ export interface BatchEntityActionEvent extends BaseEvent {
     type: EventType.BatchEntityActionEvent;
     actionType: string;
     entityUrns: string[];
+}
+
+export interface BatchProposalActionEvent extends BaseEvent {
+    type: EventType.BatchProposalActionEvent;
+    actionType: string;
+    entityUrns: string[];
+    proposalsCount: number;
+    countByType: Partial<Record<ActionRequestType, number>>;
 }
 
 export interface RecommendationImpressionEvent extends BaseEvent {
@@ -1345,6 +1355,7 @@ export type Event =
     | RecommendationClickEvent
     | HomePageRecommendationClickEvent
     | BatchEntityActionEvent
+    | BatchProposalActionEvent
     | CreateAccessTokenEvent
     | RevokeAccessTokenEvent
     | CreateGroupEvent

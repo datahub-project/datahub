@@ -1,10 +1,11 @@
-import { message } from 'antd';
-import React from 'react';
+import { Form, message } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useRefetch } from '@app/entity/shared/EntityContext';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
-import { Button, Modal } from '@src/alchemy-components';
+import { Button, Modal, TextArea } from '@src/alchemy-components';
 import { ActionRequestListItem } from '@src/app/actionrequestV2/item/ActionRequestListItem';
 
 import { useAcceptProposalsMutation, useRejectProposalsMutation } from '@graphql/actionRequest.generated';
@@ -13,6 +14,10 @@ import { ActionRequest } from '@types';
 const ProposalModalFooter = styled.div`
     display: flex;
     justify-content: end;
+`;
+
+const StyledForm = styled(Form)`
+    margin-top: 20px;
 `;
 
 type Props = {
@@ -32,6 +37,8 @@ export default function ProposalModal({
     const [rejectProposalsMutation] = useRejectProposalsMutation();
     const entityRefetch = useRefetch();
 
+    const [note, setNote] = useState('');
+
     const handleRefetch = () => {
         if (refetch) refetch();
         entityRefetch();
@@ -43,9 +50,16 @@ export default function ProposalModal({
     };
 
     const onProposalAcceptance = () => {
-        acceptProposalsMutation({ variables: { urns: [actionRequest.urn] } })
+        acceptProposalsMutation({ variables: { urns: [actionRequest.urn], note } })
             .then(() => {
                 message.success('Successfully accepted the proposal!');
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    actionType: EntityActionType.ProposalAccepted,
+                    actionQualifier: actionRequest.type,
+                    entityType: actionRequest.entity?.type,
+                    entityUrn: actionRequest.entity?.urn || '',
+                });
             })
             .then(handleRefetch)
             .catch((err) => {
@@ -55,9 +69,16 @@ export default function ProposalModal({
     };
 
     const onProposalRejection = () => {
-        rejectProposalsMutation({ variables: { urns: [actionRequest.urn] } })
+        rejectProposalsMutation({ variables: { urns: [actionRequest.urn], note } })
             .then(() => {
                 message.info('Proposal declined.');
+                analytics.event({
+                    type: EventType.EntityActionEvent,
+                    actionType: EntityActionType.ProposalRejected,
+                    actionQualifier: actionRequest.type,
+                    entityType: actionRequest.entity?.type,
+                    entityUrn: actionRequest.entity?.urn || '',
+                });
             })
             .then(handleRefetch)
             .catch((err) => {
@@ -121,7 +142,17 @@ export default function ProposalModal({
                     </ProposalModalFooter>
                 }
             >
-                <ActionRequestListItem actionRequest={actionRequest as ActionRequest} />
+                <>
+                    <ActionRequestListItem actionRequest={actionRequest as ActionRequest} />
+                    <StyledForm>
+                        <TextArea
+                            label=""
+                            placeholder="Note - optional"
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                        />
+                    </StyledForm>
+                </>
             </Modal>
         </span>
     );

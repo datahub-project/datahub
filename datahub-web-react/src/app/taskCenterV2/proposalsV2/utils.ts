@@ -2,8 +2,10 @@ import { cloneDeep } from 'lodash';
 
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import {
+    ActionRequest,
     ActionRequestAssignee,
     ActionRequestStatus,
+    ActionRequestType,
     AndFilterInput,
     EntityType,
     FacetFilterInput,
@@ -116,3 +118,20 @@ export function isFilteringForPendingProposals(prFilters: AndFilterInput[]) {
         ),
     );
 }
+
+export const getProposalsCountByType = (proposals: ActionRequest[]): Partial<Record<ActionRequestType, number>> => {
+    return proposals.reduce(
+        (acc, curr) => {
+            acc[curr.type] = (acc[curr.type] || 0) + 1;
+            return acc;
+        },
+        {} as Partial<Record<ActionRequestType, number>>,
+    );
+};
+
+export const createBatchProposalActionEvent = (actionType: string, selectedProposals: ActionRequest[]) => ({
+    actionType,
+    entityUrns: selectedProposals.map((proposal) => proposal?.entity?.urn as string).filter(Boolean),
+    proposalsCount: selectedProposals?.length || 0,
+    countByType: getProposalsCountByType(selectedProposals),
+});

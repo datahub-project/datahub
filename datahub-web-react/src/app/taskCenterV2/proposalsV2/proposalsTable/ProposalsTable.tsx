@@ -19,6 +19,7 @@ interface Props {
     isRowSelectionDisabled: (record: ActionRequest) => boolean;
     onActionRequestUpdate: (completedUrns: string[]) => void;
     selectedKeys: string[];
+    setSelectedProposals: React.Dispatch<React.SetStateAction<ActionRequest[]>>;
     setSelectedKeys: React.Dispatch<React.SetStateAction<string[]>>;
     onRowClick?: (record: ActionRequest) => void;
     showPendingView?: boolean;
@@ -32,6 +33,7 @@ const ProposalsTable = ({
     onActionRequestUpdate,
     selectedKeys,
     setSelectedKeys,
+    setSelectedProposals,
     onRowClick,
     showPendingView,
 }: Props) => {
@@ -52,7 +54,10 @@ const ProposalsTable = ({
                     enableSelection
                         ? {
                               selectedRowKeys: selectedKeys,
-                              onChange: (keys) => setSelectedKeys(keys),
+                              onChange: (keys, rows) => {
+                                  setSelectedKeys(keys);
+                                  setSelectedProposals(rows);
+                              },
                               getCheckboxProps: (record) => ({
                                   disabled: isRowSelectionDisabled(record),
                               }),
