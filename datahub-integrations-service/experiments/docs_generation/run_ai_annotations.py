@@ -10,6 +10,7 @@ import dotenv
 import mlflow
 import mlflow.bedrock
 import mlflow.metrics
+from mlflow.entities import Run
 import numpy as np
 import pandas as pd
 import tenacity
@@ -23,6 +24,7 @@ from eval_common import (
     get_human_guidelines,
     get_overall_score,
 )
+from loguru import logger
 from mlflow.metrics import MetricValue
 from mlflow_common import get_run_or_fail
 from pydantic import BaseModel
@@ -31,7 +33,7 @@ from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
     call_bedrock_llm_with_retry,
 )
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     ColumnMetadataInfo,
     ExtractedTableInfo,
     TableInfo,
@@ -94,7 +96,7 @@ def build_few_shot_examples(limit: int = 3) -> List[FewShotExample]:
             examples.append(example)
 
         except Exception as e:
-            print(f"Error loading example from {file_path}: {e}")
+            logger.warning(f"Error loading example from {file_path}: {e}")
             continue
 
     return examples
@@ -156,10 +158,10 @@ def parse_llm_judge_output(text: str) -> AIJudgeVerdict:
                 fixed_text = try_fix_text_for_error(text, e)
                 return AIJudgeVerdict.model_validate_json(fixed_text)
             except (SyntaxError, ValueError):
-                print(f"Dictionary can not be parsed. Text:{text}, Error: {e}")
+                logger.warning(f"Dictionary can not be parsed. Text:{text}, Error: {e}")
 
     else:
-        print("No dictionary found in the text.")
+        logger.warning("No dictionary found in the text.")
         return metrics
 
 
@@ -174,9 +176,11 @@ def try_fix_text_for_error(text: str, e: Exception) -> str:
             Error:
             {e}
             Output:
-            """.format(text=text, e=e)
+            """.format(
+        text=text, e=e
+    )
     fixed_text = call_bedrock_llm_with_retry(
-        prompt=fix_prompt, model=AI_JUDGE_MODEL, max_tokens=5000
+        prompt=fix_prompt, model=AI_JUDGE_MODEL, max_tokens=2048
     )
     if not fixed_text.startswith("{"):
         json_start_idx = fixed_text.index("{")
@@ -215,7 +219,7 @@ def llm_judge_common_eval_fn(
                 [example.pretty_example() for example in examples]
             )
         except Exception as e:
-            print(f"Error building few shot examples: {e}")
+            logger.warning(f"Error building few shot examples: {e}")
             examples_str = ""
 
         table_metric_guidelines: Optional[HumanGuidelines] = None
@@ -254,12 +258,13 @@ Table Level Guidelines:
         )
 
         judge_verdict = call_bedrock_llm_with_retry(
-            prompt=judge_prompt, model=AI_JUDGE_MODEL, max_tokens=5000
+            prompt=judge_prompt, model=AI_JUDGE_MODEL, max_tokens=2048
         )
         metrics = parse_llm_judge_output(judge_verdict)
     except Exception as e:
-        print(f"Error evaluating metric: {e}")
-        return metrics
+        if isinstance(e, tenacity.RetryError):
+            e = e.last_attempt.result()
+        logger.error(f"Error evaluating metric: {e}")
 
     return metrics
 
@@ -322,12 +327,21 @@ async def eval_metrics(
     metric: str, predictions: pd.Series, targets: pd.Series
 ) -> List[Optional[JudgedMetricValue]]:
     results: List[asyncer.SoonValue[JudgedMetricValue]] = []
-    async with asyncer.create_task_group() as task_group:
-        for prediction, target in zip(predictions, targets, strict=False):
-            result = task_group.soonify(asyncer.asyncify(eval_metric_value_ai_judge))(
-                metric, prediction, target
-            )
-            results.append(result)  # type:ignore
+    batch_size = 20
+
+    # Process in batches of 10
+    for i in range(0, len(predictions), batch_size):
+        batch_predictions = predictions.iloc[i : i + batch_size]
+        batch_targets = targets.iloc[i : i + batch_size]
+
+        async with asyncer.create_task_group() as task_group:
+            for prediction, target in zip(
+                batch_predictions, batch_targets, strict=False
+            ):
+                result = task_group.soonify(
+                    asyncer.asyncify(eval_metric_value_ai_judge)
+                )(metric, prediction, target)
+                results.append(result)  # type:ignore
 
     return [result.value for result in results]
 
@@ -425,7 +439,7 @@ def model_fn(x: pd.DataFrame) -> pd.DataFrame:
 def run_ai_annotations_experiment(
     run_name: str, run_description: Optional[str] = None
 ) -> None:
-    run = get_run_or_fail(run_name)
+    run: Run = get_run_or_fail(run_name)
 
     artifact_path = "eval_results_table.json"
     table_descriptions = mlflow.load_table(
@@ -440,7 +454,13 @@ def run_ai_annotations_experiment(
         description=run_description,
     ):
         mlflow.set_tag("evaluation_type", "ai_judge")
-        mlflow.log_params({"ai_judge_model": AI_JUDGE_MODEL})
+        mlflow.log_params(
+            {
+                "ai_judge_model": AI_JUDGE_MODEL,
+                **{f"prompt_expt_{k}": v for k, v in run.data.params.items()},
+            }
+        )
+
         try:
             mlflow.evaluate(
                 model=model_fn,
@@ -454,7 +474,7 @@ def run_ai_annotations_experiment(
             import traceback
 
             traceback.print_exc()
-            print(f"Error evaluating metrics: {e}")
+            logger.error(f"Error evaluating metrics: {e}")
             breakpoint()
         # log current file as artifact
         mlflow.log_artifact("./run_ai_annotations.py")

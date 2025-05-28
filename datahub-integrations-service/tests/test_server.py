@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from datahub_integrations.gen_ai.description_v2 import ShellEntityError
+from datahub_integrations.gen_ai.description_context import ShellEntityError
 from datahub_integrations.server import app
 
 client = TestClient(app)

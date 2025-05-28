@@ -9,7 +9,7 @@ from datahub.metadata.urns import DatasetUrn, QueryUrn, Urn
 from loguru import logger
 
 from datahub_integrations.gen_ai.cached_graph import make_cached_graph
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     ShellEntityError,
 )
 from datahub_integrations.gen_ai.description_v3 import (

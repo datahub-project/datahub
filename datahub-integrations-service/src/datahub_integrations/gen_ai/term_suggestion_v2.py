@@ -16,7 +16,7 @@ from datahub_integrations.gen_ai.bedrock import (
     call_bedrock_llm,
     get_bedrock_model_env_variable,
 )
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     ColumnMetadataInfo,
     TableInfo,
     extract_metadata_for_urn,

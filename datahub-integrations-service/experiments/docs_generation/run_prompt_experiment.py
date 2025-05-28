@@ -14,9 +14,11 @@ import mlflow.metrics
 import pandas as pd
 import typer
 from datahub.utilities.perf_timer import PerfTimer
+from loguru import logger
 from mlflow.metrics import MetricValue
 
-from datahub_integrations.gen_ai.description_v2 import transform_table_info_for_llm
+from datahub_integrations.gen_ai.description_context import transform_table_info_for_llm
+import datahub_integrations.gen_ai as gen_ai_module
 from datahub_integrations.gen_ai.description_v3 import (
     CURRENT_MODEL,
     EntityDescriptionResult,
@@ -58,7 +60,7 @@ def process_single_file(
             try:
                 result = generate_entity_descriptions_for_urn_eval_wrapper(data)
             except Exception as e:
-                print(f"Error processing file {file}: {e}")
+                logger.warning(f"Error processing file {file}: {e}")
                 result = EntityDescriptionResult(
                     table_description=None,
                     column_descriptions=None,
@@ -127,7 +129,7 @@ def process_single_file(
 def setup_artifact_directory(tempdir: str) -> pathlib.Path:
     artifact_temp_path = pathlib.Path(tempdir) / "artifacts"
     os.makedirs(artifact_temp_path)
-    print("Artifact temp path", artifact_temp_path)
+    logger.info(f"Artifact temp path: {artifact_temp_path}")
     return artifact_temp_path
 
 
@@ -149,6 +151,7 @@ def log_artifacts(
 
     # log current file as artifact or model
     mlflow.log_artifact("./run_prompt_experiment.py")
+    mlflow.log_artifact(gen_ai_module.__file__)
 
 
 async def process_files(
@@ -306,9 +309,9 @@ def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:
 
 def run_prompt_experiment(run_description: Optional[str] = None) -> None:
     current_dir = pathlib.Path().resolve()
-    print("eval directory", current_dir)
-    print("parent directory", current_dir.parent)
-    print("eval data directory", current_dir / "eval_data")
+    logger.info(f"eval directory: {current_dir}")
+    logger.info(f"parent directory: {current_dir.parent}")
+    logger.info(f"eval data directory: {current_dir / 'eval_data'}")
 
     EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
     mlflow.set_experiment(EXPERIMENT_NAME)

@@ -24,6 +24,7 @@ from eval_common import (
     get_overall_score,
     update_table_guidelines,
 )
+from loguru import logger
 from mlflow.metrics import MetricValue
 from mlflow_common import (
     get_ai_eval_result_or_none,
@@ -34,7 +35,7 @@ from mlflow_common import (
 )
 from run_ai_annotations import llm_judge_common_eval_fn
 
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     ExtractedTableInfo,
     transform_table_info_for_llm,
 )
@@ -164,7 +165,7 @@ def show_table(current_table: str) -> None:
                         verdict, metric_name
                     ).reasoning
         except Exception as e:
-            print("Error setting AI eval results", e, verdict)
+            logger.error(f"Error setting AI eval results: {e}, verdict: {verdict}")
 
 
 def prefill_annotations(
@@ -185,7 +186,7 @@ def prefill_annotations(
 def init_session_state_with_previous_annotations(
     run_name: str, eval_result: pd.DataFrame
 ) -> None:
-    print("initializing session state with previous annotations")
+    logger.info("initializing session state with previous annotations")
     st.session_state.annotations = {}
 
     human_eval_result = get_human_eval_result_or_none(run_name)
@@ -214,7 +215,7 @@ def init_session_state_with_previous_annotations(
     if human_eval_result is not None:
         prefill_annotations(human_eval_result, guidelines)
     else:
-        print(
+        logger.info(
             "No matching human eval results found, trying to load latest human eval results"
         )
         human_eval_result = get_latest_human_eval_result_or_none()
@@ -227,7 +228,7 @@ def init_session_state_with_previous_annotations(
             for deployment in get_deployment_details()
         }
     except Exception as e:
-        print(f"Error getting deployment details: {e}")
+        logger.error(f"Error getting deployment details: {e}")
         st.session_state.deployment_details = {}
 
 

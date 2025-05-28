@@ -290,8 +290,11 @@ def run_eval_ai_judge_experiment(run_name: str, existing_run: bool = True) -> No
             {
                 "human_eval_run_id": human_annotation_run.info.run_id,
                 "ai_eval_run_id": ai_run.info.run_id,
+                **ai_run.data.params,
             }
         )
+
+        # Log the eval_ai_judge.py script
         mlflow.log_artifact("./eval_ai_judge.py")
 
         # Run evaluation

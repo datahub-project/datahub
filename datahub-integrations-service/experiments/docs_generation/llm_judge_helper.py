@@ -11,9 +11,8 @@ import tqdm
 from graph_helper import create_datahub_graph
 from loguru import logger
 
-from datahub_integrations.gen_ai.bedrock import BedrockModel
-from datahub_integrations.gen_ai.description_v2 import (
-    call_bedrock_llm,
+from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm_with_retry
+from datahub_integrations.gen_ai.description_context import (
     extract_metadata_for_urn,
     transform_table_info_for_llm,
 )
@@ -127,7 +126,7 @@ Provide your output in the following dictionary format:
 - Do not use utf-8 or invalid Unicode characters in the response text.
 - Avoid mismatching of braces and quotes: for example: "this is a "sample" text." has wrong arrangement of quotes which makes it non parsable.
 """
-    llm_response = call_bedrock_llm(
+    llm_response = call_bedrock_llm_with_retry(
         prompt, model=BedrockModel.CLAUDE_3_HAIKU, max_tokens=3000
     )
     return llm_response

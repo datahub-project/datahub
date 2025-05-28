@@ -154,6 +154,10 @@ def call_bedrock_llm_inner(
     )
 
 
+# TODO: As an alternative to tenacity retry, we could use the AWS SDK's built-in retry logic
+# by setting the `max_attempts` parameter in the bedrock client config.
+# Default retry mode is legacy and retries 4 times, but we can override it.
+# https://docs.aws.amazon.com/sdkref/latest/guide/feature-retry-behavior.html
 def call_bedrock_llm_with_retry(
     prompt: str, max_tokens: int, model: BedrockModel | str, temperature: float = 0.3
 ) -> str:
@@ -165,16 +169,16 @@ def call_bedrock_llm_with_retry(
     """
     boto3_bedrock = get_bedrock_client()
 
-    _MAX_RETRIES = 3
+    _MAX_ATTEMPTS = 3  # Original attempt + 2 retries
 
     @tenacity.retry(
-        stop=tenacity.stop_after_attempt(_MAX_RETRIES),
-        wait=tenacity.wait_exponential(multiplier=1, min=1, max=10),
+        stop=tenacity.stop_after_attempt(_MAX_ATTEMPTS),
+        wait=tenacity.wait_random_exponential(multiplier=1, max=10),
         retry=tenacity.retry_if_exception_type(
             boto3_bedrock.exceptions.ThrottlingException
         ),
         before_sleep=lambda retry_state: logger.info(
-            f"Bedrock throttling occurred. Retry attempt {retry_state.attempt_number} of {_MAX_RETRIES}"
+            f"Bedrock throttling occurred. Retry attempt {retry_state.attempt_number} of {_MAX_ATTEMPTS - 1}"
         ),
     )
     def _call_with_retry() -> BedrockResponseBody:

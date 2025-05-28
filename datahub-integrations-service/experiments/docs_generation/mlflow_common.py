@@ -4,12 +4,14 @@ from typing import Optional
 
 import dotenv
 import mlflow
+from mlflow.entities import Run
 import pandas as pd
 from eval_common import (
     METRIC_NAMES,
     get_ai_annotation_run_name,
     get_human_annotation_run_name,
 )
+from loguru import logger
 
 dotenv.load_dotenv()
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME", "docs_generation")
@@ -18,7 +20,7 @@ mlflow.set_experiment(EXPERIMENT_NAME)
 
 def get_run_or_fail(
     run_name: str, additional_filter_string: str = ""
-) -> mlflow.entities.Run:
+) -> Run:
     runs = mlflow.search_runs(
         experiment_names=[EXPERIMENT_NAME],
         filter_string=f"attributes.run_name='{run_name}' {additional_filter_string}",
@@ -62,7 +64,7 @@ def get_ai_eval_result_or_none(run_name: str) -> Optional[pd.DataFrame]:
             ai_run_name,
             'and tags.evaluation_type!="eval_ai_judge" and tags.evaluation_type!="ai_judge_eval"',
         )
-        print("AI run id", ai_run.info.run_id)
+        logger.info(f"AI run id: {ai_run.info.run_id}")
 
         artifact_path = "eval_results_table.json"
 
@@ -72,7 +74,7 @@ def get_ai_eval_result_or_none(run_name: str) -> Optional[pd.DataFrame]:
         )
         return table
     except Exception:
-        print(f"AI Annotations Run for {run_name} not found")
+        logger.info(f"AI Annotations Run for {run_name} not found")
 
     return None
 
@@ -81,10 +83,10 @@ def get_human_eval_result_or_none(run_name: str) -> Optional[pd.DataFrame]:
     human_run_name = get_human_annotation_run_name(run_name)
     try:
         human_run = get_run_or_fail(human_run_name)
-        print("Human eval run id", human_run.info.run_id)
+        logger.info(f"Human eval run id: {human_run.info.run_id}")
         return get_human_evals(human_run.info.run_id)
     except Exception:
-        print(f"Human Annotations Run for {run_name} not found")
+        logger.warning(f"Human Annotations Run for {run_name} not found")
     return None
 
 
@@ -96,9 +98,9 @@ def get_latest_human_eval_result_or_none() -> Optional[pd.DataFrame]:
             output_format="list",
             order_by=["start_time DESC"],
         )
-        print("Human evals total found", len(human_evals))
+        logger.info(f"Human evals total found: {len(human_evals)}")
         if len(human_evals) == 0:
-            print("Human Annotations Runs not found")
+            logger.warning("Human Annotations Runs not found")
             return None
         table = mlflow.load_table(
             artifact_file="eval_results_table.json",
@@ -109,6 +111,6 @@ def get_latest_human_eval_result_or_none() -> Optional[pd.DataFrame]:
         filtered_table.sort_values(by="start_time", ascending=False, inplace=True)
         return filtered_table.drop_duplicates(subset=["urn", "deployment"])
     except Exception as e:
-        print(f"Error getting latest human eval results: {e}")
+        logger.error(f"Error getting latest human eval results: {e}")
 
     return None

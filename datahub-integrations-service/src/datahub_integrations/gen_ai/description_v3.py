@@ -18,7 +18,7 @@ from datahub_integrations.gen_ai.bedrock import (
     call_bedrock_llm_with_retry,
     get_bedrock_model_env_variable,
 )
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     ColumnMetadataInfo,
     DescriptionParsingError,
     EntityDescriptionResult,
@@ -212,14 +212,14 @@ def generate_all_columns_description(
     return column_descriptions, failure_reason_columns
 
 
-_MAX_RETRIES = 3
+_MAX_ATTEMPTS = 3  # Original attempt + 2 retries
 
 
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(_MAX_RETRIES),
+    stop=tenacity.stop_after_attempt(_MAX_ATTEMPTS),
     retry=tenacity.retry_if_exception_type(DescriptionParsingError),
     before_sleep=lambda retry_state: logger.info(
-        f"Retry table description generation attempt {retry_state.attempt_number} of {_MAX_RETRIES}"
+        f"Retry table description generation attempt {retry_state.attempt_number} of {_MAX_ATTEMPTS - 1}"
     ),
 )
 def generate_table_description(
@@ -235,7 +235,7 @@ def generate_table_description(
 
     entity_descriptions = call_bedrock_llm_with_retry(
         formatted_prompt,
-        max_tokens=5000,
+        max_tokens=4096,
         model=CURRENT_MODEL,
     )
 
@@ -295,10 +295,10 @@ async def generate_column_descriptions(
 
 
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(_MAX_RETRIES),
+    stop=tenacity.stop_after_attempt(_MAX_ATTEMPTS),
     retry=tenacity.retry_if_result(lambda x: x[1] is None),
     before_sleep=lambda retry_state: logger.info(
-        f"Retry column batch description generation attempt {retry_state.attempt_number} of {_MAX_RETRIES}"
+        f"Retry column batch description generation attempt {retry_state.attempt_number} of {_MAX_ATTEMPTS - 1}"
     ),
 )
 @mlflow.trace(name="generate_column_batch_descriptions", span_type="function")

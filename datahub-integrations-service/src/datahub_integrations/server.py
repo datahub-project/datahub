@@ -23,7 +23,7 @@ from datahub_integrations.actions.router import (
 from datahub_integrations.analytics.router import router as analytics_router
 from datahub_integrations.app import STATIC_ASSETS_DIR
 from datahub_integrations.dist import external_router as dist_external_router
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     ShellEntityError,
     TooManyColumnsError,
 )

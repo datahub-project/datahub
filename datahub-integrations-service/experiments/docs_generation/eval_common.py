@@ -7,6 +7,7 @@ from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Union
 
+import numpy as np
 import yaml
 from pydantic import (
     BaseModel,
@@ -52,9 +53,9 @@ class JudgedMetricValue(BaseModel):
         else:
             return None
 
-    @field_validator("value")
+    @field_validator("value", mode="before")
     def value_field_validator(cls, v: Any) -> Optional[str]:
-        if v is None or v == "nan":
+        if v is None or v == "nan" or (isinstance(v, float) and np.isnan(v)):
             return None
 
         if isinstance(v, bool):
@@ -136,9 +137,11 @@ AIJudgeVerdict = create_model(
             # This is in order to support different metric name only for AI judge.
             # Ideally we can also simply rename the metric but we don't want to lose
             # earlier annotations with different metric name, so this is workaround.
-            Field(default=None, alias=metric.alias)
-            if metric.alias
-            else Field(default=None),
+            (
+                Field(default=None, alias=metric.alias)
+                if metric.alias
+                else Field(default=None)
+            ),
         )
         for metric in METRICS_CONFIG
     },

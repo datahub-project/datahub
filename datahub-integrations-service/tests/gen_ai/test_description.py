@@ -5,7 +5,7 @@ import datahub.metadata.schema_classes as models
 import pytest
 from datahub.ingestion.graph.client import DataHubGraph
 
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     EntityDescriptionResult,
     ExtractedTableInfo,
 )
@@ -252,7 +252,7 @@ def test_generate_entity_descriptions_for_urn(
         call1 = mock_call_bedrock_llm.call_args_list[0]
         call2 = mock_call_bedrock_llm.call_args_list[1]
 
-        assert call1[1]["max_tokens"] == 5000  # max_tokens
+        assert call1[1]["max_tokens"] == 4096  # max_tokens
 
         # Verify that the extracted_entity_info is correct
         check_graph_to_info_class_mapping(result)

@@ -9,15 +9,16 @@ import asyncer
 import dotenv
 from datahub.utilities.perf_timer import PerfTimer
 from graph_helper import create_datahub_graph
+from loguru import logger
 
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     AspectBag,
     extract_metadata_for_urn,
 )
 
 current_dir = pathlib.Path(__file__).parent.resolve()
-print("eval directory", current_dir)
-print("parent directory", current_dir.parent)
+logger.info(f"eval directory: {current_dir}")
+logger.info(f"parent directory: {current_dir.parent}")
 dotenv.load_dotenv()
 
 
@@ -30,7 +31,7 @@ class EvalEntry(TypedDict):
 eval_entries: List[EvalEntry] = json.loads(
     (current_dir / "eval_config/eval_set.json").read_text()
 )["entities"]
-print(len(eval_entries))
+logger.info(f"Number of eval entries: {len(eval_entries)}")
 
 
 # Copy graph_credentials.json file to parent docs_generation directory
@@ -55,7 +56,7 @@ def read_from_datahub(urn: str, deployment: str) -> Tuple[AspectBag, Dict[str, A
 def download_eval_entry(eval_data_path: pathlib.Path, eval_entry: EvalEntry) -> None:
     urn = eval_entry["urn"]
     deployment = eval_entry["deployment"]
-    print(f"Processing {deployment} URN: {urn}...")
+    logger.info(f"Processing {deployment} URN: {urn}...")
 
     with PerfTimer() as timer:
         entity, extracted_entity_info = read_from_datahub(urn, deployment)
@@ -73,7 +74,7 @@ def download_eval_entry(eval_data_path: pathlib.Path, eval_entry: EvalEntry) -> 
     # write eval_entry to a json file
     with open(eval_data_path / f"{deployment}_{urn_hash}.json", "w") as f:
         json.dump(eval_entry_updated, f, indent=2)
-        print("Processing completed for", deployment, urn)
+        logger.info(f"Processing completed for {deployment} URN: {urn}")
 
 
 async def download_eval_data(
@@ -82,7 +83,9 @@ async def download_eval_data(
     async with asyncer.create_task_group() as tg:
         for eval_entry in eval_entries:
             if eval_entry.get("skip", False):
-                print(f"Skipping {eval_entry['urn']} because it is marked as skip")
+                logger.info(
+                    f"Skipping {eval_entry['urn']} because it is marked as skip"
+                )
                 continue
             tg.soonify(asyncer.asyncify(download_eval_entry))(
                 eval_data_path, eval_entry
@@ -90,10 +93,10 @@ async def download_eval_data(
 
 
 eval_data_path = current_dir / "eval_data"
-print("eval data path", eval_data_path)
+logger.info(f"eval data path: {eval_data_path}")
 shutil.rmtree(eval_data_path, ignore_errors=True)
 os.makedirs(eval_data_path)
 asyncer.syncify(download_eval_data, raise_sync_error=False)(
     eval_entries, eval_data_path
 )
-print(len(os.listdir(eval_data_path)), "eval entries generated")
+logger.info(f"{len(os.listdir(eval_data_path))} eval entries generated")

@@ -14,7 +14,7 @@ import pandas as pd
 from loguru import logger
 from pydantic import BaseModel
 
-from datahub_integrations.gen_ai.description_v2 import (
+from datahub_integrations.gen_ai.description_context import (
     extract_metadata_for_urn,
     transform_table_info_for_llm,
 )
