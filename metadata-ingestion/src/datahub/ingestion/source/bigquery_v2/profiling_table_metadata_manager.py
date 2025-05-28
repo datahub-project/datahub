@@ -26,78 +26,43 @@ class BigQueryTableMetadataManager:
         self._column_name_mapping = {}
 
     def get_table_metadata(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
+        self, table: BigqueryTable, project: str, schema: str
     ) -> Dict[str, Any]:
         """
-        Get metadata for a table including partition information.
+        Get comprehensive metadata about a table efficiently.
+        Uses a multi-tiered approach to minimize API calls while gathering all needed information.
 
         Args:
             table: BigqueryTable instance
-            project: Project ID
+            project: BigQuery project ID
             schema: Dataset name
 
         Returns:
             Dictionary containing table metadata
         """
-        # Initialize metadata with explicit typing
-        metadata: Dict[str, Any] = {
-            "partition_columns": {},
-            "is_external": table.external,
-            "size_bytes": table.size_in_bytes,
-            "row_count": table.rows_count,
-        }
+        # Start with basic info from the table object
+        metadata = self._fetch_basic_table_metadata(table)
 
-        try:
-            # Try to get storage info first
-            storage_query = f"""
-            SELECT *
-            FROM `{project}.INFORMATION_SCHEMA.TABLE_STORAGE`
-            WHERE table_schema = '{schema}'
-            AND table_name = '{table.name}'
-            """
+        # Track if we need to query INFORMATION_SCHEMA
+        need_schema_query = len(metadata["partition_columns"]) == 0 or any(
+            v is None for v in metadata["partition_columns"].values()
+        )
 
-            storage_results = self._execute_query(
-                storage_query,
-                f"storage_{project}_{schema}_{table.name}",
-                timeout=30,
-            )
+        # If we still need more information or no partition columns were found,
+        # fetch from INFORMATION_SCHEMA with a single efficient query
+        if need_schema_query:
+            metadata = self._fetch_schema_info(table, project, schema, metadata)
 
-            if storage_results:
-                row = storage_results[0]
-                if hasattr(row, "total_partitions"):
-                    metadata["total_partitions"] = row.total_partitions
-                if hasattr(row, "total_physical_bytes"):
-                    metadata["size_bytes"] = row.total_physical_bytes
-                if hasattr(row, "total_rows"):
-                    metadata["row_count"] = row.total_rows
+        # If still no partition columns but we have DDL, parse it
+        if not metadata["partition_columns"] and metadata.get("ddl"):
+            if "PARTITION BY" in metadata["ddl"].upper():
+                self._extract_partitioning_from_ddl(
+                    metadata["ddl"], metadata, project, schema, table.name
+                )
 
-        except Exception as e:
-            logger.debug(
-                f"Could not get storage info: {e}, falling back to table attributes"
-            )
-            # Just use the values from the table object
-            pass
-
-        # Get partition columns from table schema
-        if hasattr(table, "columns") and table.columns:
-            partition_columns: Dict[str, Any] = metadata.get("partition_columns", {})
-            for column in table.columns:
-                # Look for common partition column names
-                col_lower = column.name.lower()
-                if (
-                    col_lower
-                    in ["year", "month", "day", "hour", "date", "dt", "partition_date"]
-                    or "partition" in col_lower
-                    or (
-                        hasattr(column, "is_partition_column")
-                        and column.is_partition_column
-                    )
-                ):
-                    partition_columns[column.name] = column.data_type
-            metadata["partition_columns"] = partition_columns
+        # If we need more specific table stats and didn't get them above, fetch them
+        if not table.external:  # Only for internal tables
+            metadata = self._fetch_table_stats(project, schema, table.name, metadata)
 
         return metadata
 
