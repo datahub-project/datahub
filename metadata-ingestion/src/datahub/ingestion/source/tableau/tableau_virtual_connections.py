@@ -239,7 +239,7 @@ class VirtualConnectionProcessor:
         yield self.tableau_source.get_metadata_change_proposal(
             dataset_snapshot.urn,
             aspect_name=c.SUB_TYPES,
-            aspect=SubTypesClass(typeNames=[c.VIRTUAL_CONNECTION]),
+            aspect=SubTypesClass(typeNames=["Virtual Connection"]),
         )
 
     def _get_vc_schema_metadata_grouped_by_table(
