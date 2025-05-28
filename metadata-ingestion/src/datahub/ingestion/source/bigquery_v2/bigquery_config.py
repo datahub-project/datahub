@@ -286,6 +286,13 @@ class BigQueryV2Config(
         description="Generate usage statistic",
     )
 
+    query_timeout: int = Field(
+        default=60,
+        description="Timeout in seconds for profiling queries, especially for partition determination. "
+        "Increase this value if you're encountering timeouts when profiling complex tables or partitioned tables. "
+        "Default: 60 seconds",
+    )
+
     capture_table_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery table labels as DataHub tag",

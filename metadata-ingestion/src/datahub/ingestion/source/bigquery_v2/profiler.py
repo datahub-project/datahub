@@ -110,9 +110,8 @@ class BigqueryProfiler(GenericProfiler):
         """Convert BigQueryV2Config to BigQueryProfilerConfig"""
         # Extract profiling parameters from config
         sample_size = getattr(self.config.profiling, "sample_size", 100_000)
-        query_timeout = getattr(
-            self.config.profiling, "query_timeout", 60
-        )  # Default 60 seconds
+        # Use the query_timeout directly from BigQueryV2Config
+        query_timeout = self.config.query_timeout
         max_queries_per_table = getattr(self.config.profiling, "max_workers", 50)
         profile_table_level_only = getattr(
             self.config.profiling, "profile_table_level_only", False
