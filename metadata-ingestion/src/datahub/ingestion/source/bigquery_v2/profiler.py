@@ -116,10 +116,17 @@ class BigqueryProfiler(GenericProfiler):
             self.config.profiling, "profile_table_level_only", False
         )
         tables_pattern = getattr(self.config, "tables", None)
-        # Convert schema pattern to list if it's a string
-        schema_pattern = getattr(self.config, "schema", None)
-        if isinstance(schema_pattern, str):
-            schema_pattern = [schema_pattern]
+
+        # Handle schema pattern from BigQueryV2Config
+        schema_pattern = None
+        if hasattr(self.config, "schema") and self.config.schema:
+            if hasattr(self.config.schema, "allow"):
+                schema_pattern = self.config.schema.allow
+            elif isinstance(self.config.schema, str):
+                schema_pattern = [self.config.schema]
+            elif isinstance(self.config.schema, list):
+                schema_pattern = self.config.schema
+
         external_table_sampling_percent = 0.1  # Default value
         large_table_sampling_percent = 1.0  # Default value
 
