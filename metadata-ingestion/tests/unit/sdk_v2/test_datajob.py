@@ -12,6 +12,7 @@ from datahub.metadata.urns import (
     DataJobUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
+    DatasetUrn,
     DomainUrn,
     TagUrn,
 )
@@ -377,11 +378,17 @@ def test_datajob_inlets_outlets() -> None:
     )
 
     assert job.inlets == [
-        "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset1,PROD)",
-        "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset2,PROD)",
+        DatasetUrn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset1,PROD)"
+        ),
+        DatasetUrn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset2,PROD)"
+        ),
     ]
     assert job.outlets == [
-        "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset3,PROD)"
+        DatasetUrn.from_string(
+            "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset3,PROD)"
+        ),
     ]
 
     assert_entity_golden(job, GOLDEN_DIR / "test_datajob_inlets_outlets_golden.json")

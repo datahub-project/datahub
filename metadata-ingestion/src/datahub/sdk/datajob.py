@@ -307,9 +307,10 @@ class DataJob(
         self._set_aspect(models.BrowsePathsV2Class(path=browse_path))
 
     @property
-    def inlets(self) -> List[str]:
+    def inlets(self) -> List[DatasetUrn]:
         """Get the inlets of the data job."""
-        return self._ensure_datajob_inputoutput_props().inputDatasets
+        inlets = self._ensure_datajob_inputoutput_props().inputDatasets
+        return [DatasetUrn.from_string(inlet) for inlet in inlets]
 
     def set_inlets(self, inlets: List[DatasetUrnOrStr]) -> None:
         """Set the inlets of the data job."""
@@ -320,9 +321,10 @@ class DataJob(
             )
 
     @property
-    def outlets(self) -> List[str]:
+    def outlets(self) -> List[DatasetUrn]:
         """Get the outlets of the data job."""
-        return self._ensure_datajob_inputoutput_props().outputDatasets
+        outlets = self._ensure_datajob_inputoutput_props().outputDatasets
+        return [DatasetUrn.from_string(outlet) for outlet in outlets]
 
     def set_outlets(self, outlets: List[DatasetUrnOrStr]) -> None:
         """Set the outlets of the data job."""
