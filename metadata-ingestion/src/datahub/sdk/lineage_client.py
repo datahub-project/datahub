@@ -48,7 +48,6 @@ logger = logging.getLogger(__name__)
 class LineageClient:
     def __init__(self, client: DataHubClient):
         self._client = client
-        self._graph = client._graph
 
     def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> Set[str]:
         schema_metadata = self._client._graph.get_aspect(
