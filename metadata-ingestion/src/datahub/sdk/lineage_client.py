@@ -2,14 +2,27 @@ from __future__ import annotations
 
 import difflib
 import logging
-from typing import TYPE_CHECKING, List, Literal, Optional, Set, Union, overload
+from typing import (
+    TYPE_CHECKING,
+    List,
+    Literal,
+    Optional,
+    Set,
+    Union,
+    overload,
+)
 
 from typing_extensions import assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn, Urn
+from datahub.metadata.urns import (
+    DataJobUrn,
+    DatasetUrn,
+    QueryUrn,
+    Urn,
+)
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
@@ -35,6 +48,7 @@ logger = logging.getLogger(__name__)
 class LineageClient:
     def __init__(self, client: DataHubClient):
         self._client = client
+        self._graph = client._graph
 
     def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> Set[str]:
         schema_metadata = self._client._graph.get_aspect(
@@ -275,7 +289,6 @@ class LineageClient:
                             upstream_schema, downstream_schema
                         )
                     )
-
                     cll = parse_cll_mapping(
                         upstream=upstream_urn,
                         downstream=downstream_urn,
