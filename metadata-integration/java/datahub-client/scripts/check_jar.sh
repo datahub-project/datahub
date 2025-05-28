@@ -29,6 +29,7 @@ jar -tvf $jarFile |\
       grep -v "com/google/" |\
       grep -v "org/codehaus/" |\
       grep -v "client.properties" |\
+      grep -v "kafka" |\
       grep -v "win/" |\
       grep -v "include/" |\
       grep -v "linux/" |\
@@ -42,7 +43,12 @@ jar -tvf $jarFile |\
       grep -v "com/ibm/.*" |\
       grep -v "org/apache/avro" |\
       grep -v "org/apache" |\
-      grep -v "org/publicsuffix"
+      grep -v "org/publicsuffix" |\
+      grep -v "org/apache/kafka" |\
+      grep -v "com/github/luben" |\
+      grep -v "org/lz4" |\
+      grep -v "org/xerial/snappy" |\
+      grep -v "org/slf4j"
 
 
 
