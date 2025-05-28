@@ -44,11 +44,8 @@ jar -tvf $jarFile |\
       grep -v "org/apache/avro" |\
       grep -v "org/apache" |\
       grep -v "org/publicsuffix" |\
-      grep -v "org/apache/kafka" |\
-      grep -v "com/github/luben" |\
-      grep -v "org/lz4" |\
-      grep -v "org/xerial/snappy" |\
-      grep -v "org/slf4j"
+      grep -v "com/eclipsesource/" |\
+      grep -v "freebsd/"
 
 
 
