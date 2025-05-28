@@ -39,6 +39,13 @@ ext {
                             ':datahub-actions',
                     ]
             ],
+            'quickstartCLI': [
+                    profile: 'quickstart',
+                    modules: python_services_modules + backend_profile_modules + [
+                            ':datahub-frontend',
+                            ':datahub-actions',
+                    ]
+            ],
             'quickstartDebug': [
                     profile: 'debug',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
@@ -194,6 +201,35 @@ dockerCompose {
 }
 
 
+task generateQuickstartComposeConfig {
+    description = "Generates the docker-compose config output for quickstart configuration for use with oss quickstart cli"
+    group = "docker"
+
+    doLast {
+        def composeUpTask = tasks.named("quickstartCLIComposeUp")
+
+        // Some of these details task gleaned from the docker-compose plugin source code
+        // https://github.com/avast/gradle-docker-compose-plugin/blob/main/src/main/groovy/com/avast/gradle/dockercompose/ComposeExecutor.groovy
+        def composeExecutor = composeUpTask.get().getComposeExecutor().get()
+        composeExecutor.parameters.environment.put("DATAHUB_VERSION", '__VERSION__')
+        
+        def configOutput = composeExecutor.execute('config')
+        
+        // The `config` returns a fully resolved compose file. We need to replace the DATAHUB_VERSION and HOME with values not available at build time
+        configOutput = configOutput.replace('__VERSION__', '${DATAHUB_VERSION}')
+        configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
+
+        configOutput = "# This file is generated as part of build process. If any build changes cause this file to be modified, please check in the generated file\n" + configOutput
+        
+        def outputFile = project.file("${project.projectDir}/quickstart/docker-compose.quickstart-profile.yml")
+        outputFile.getParentFile().mkdirs()
+
+        outputFile.text = configOutput
+
+        logger.lifecycle("quickstart Docker Compose config saved to: ${outputFile.absolutePath}")
+    }
+}
+
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
     tasks.register("prepareAll${taskName}"){
@@ -219,6 +255,7 @@ quickstart_configs.each { taskName, config ->
         def taskSuffix = config.isDebug? 'debug' : ''
         dependsOn(config.modules.collect { it + ":generateBakeSnippet${taskSuffix}" })
         dependsOn(tasks.getByName("prepareAll${taskName}"))
+        dependsOn tasks.named("generateQuickstartComposeConfig")
 
         def jsonFile = new File(rootProject.buildDir, "bake-spec-${taskName}.json")
 

@@ -225,6 +225,10 @@ services:
         condition: service_completed_successfully
       kafka-setup:
         condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
   system-update-quickstart-cassandra:
     <<: *datahub-system-update-service
     profiles:
