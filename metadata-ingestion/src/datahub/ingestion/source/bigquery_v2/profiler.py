@@ -488,7 +488,7 @@ class BigqueryProfiler(GenericProfiler):
             profiler_args=self.get_profile_args(),
         )
 
-    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+    def get_dataset_urn(self, table_name: str, schema_name: str, db_name: str) -> str:
         """Get the dataset URN for a table."""
         return make_dataset_urn_with_platform_instance(
             platform=self.platform,
@@ -496,6 +496,21 @@ class BigqueryProfiler(GenericProfiler):
             name=f"{db_name}.{schema_name}.{table_name}",
             env=self.config.env,
         )
+
+    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        """
+        Implementation of the abstract method from GenericProfiler.
+        Returns the dataset name for BigQuery tables.
+
+        Args:
+            table_name: Name of the table
+            schema_name: Name of the schema/dataset
+            db_name: Name of the database/project
+
+        Returns:
+            Formatted dataset name as required by GenericProfiler
+        """
+        return f"{db_name}.{schema_name}.{table_name}"
 
     def get_profile_as_workunit(
         self, dataset_urn: str, profile: Dict[str, Any]
