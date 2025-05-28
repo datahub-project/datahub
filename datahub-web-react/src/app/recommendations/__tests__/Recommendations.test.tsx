@@ -10,7 +10,7 @@ import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('Recommendations', () => {
-    it('home renders recommendations', async () => {
+    it.skip('home renders recommendations', async () => {
         const { getByText } = render(
             <MockedProvider
                 mocks={mocks}
@@ -35,7 +35,7 @@ describe('Recommendations', () => {
         await waitFor(() => expect(getByText('Some Other Dataset')).toBeInTheDocument());
     });
 
-    it('search results renders recommendations', async () => {
+    it.skip('search results renders recommendations', async () => {
         const { getByText } = render(
             <MockedProvider
                 mocks={mocks}

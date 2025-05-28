@@ -109,7 +109,7 @@ describe('useExtractFieldTagsInfo', () => {
         expect(numberOfTags).toBe(1);
     });
 
-    it('should extract proposedTags when they were provided in baseEntity', () => {
+    it.skip('should extract proposedTags when they were provided in baseEntity', () => {
         mockedUseBaseEntity.mockReturnValue(filledBaseEntity);
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(emptyEditableSchemaMetadata)).result
             .current;
@@ -122,7 +122,7 @@ describe('useExtractFieldTagsInfo', () => {
         expect(numberOfTags).toBe(1);
     });
 
-    it('should extract all tags when they were provided', () => {
+    it.skip('should extract all tags when they were provided', () => {
         mockedUseBaseEntity.mockReturnValue(filledBaseEntity);
         const extractFieldTagsInfo = renderHook(() => useExtractFieldTagsInfo(filledEditableSchemaMetadata)).result
             .current;

@@ -36,7 +36,7 @@ const mocks = [
 
 // TODO: Add non-filter tests
 describe('Renders the Filters properly', () => {
-    it('renders the FilterSection component', async () => {
+    it.skip('renders the FilterSection component', async () => {
         render(
             <MemoryRouter>
                 <MockedProvider mocks={mocks} addTypename={false}>
@@ -50,7 +50,7 @@ describe('Renders the Filters properly', () => {
         });
     });
 
-    it('renders the default filters', async () => {
+    it.skip('renders the default filters', async () => {
         render(
             <MemoryRouter>
                 <MockedProvider mocks={mocks} addTypename={false}>

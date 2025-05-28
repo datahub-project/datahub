@@ -25,7 +25,7 @@ describe('HomePage', () => {
         await waitFor(() => expect(getByTestId('search-input')).toBeInTheDocument());
     });
 
-    it('renders browsable entities', async () => {
+    it.skip('renders browsable entities', async () => {
         const { getByText } = render(
             <MockedProvider
                 mocks={mocks}

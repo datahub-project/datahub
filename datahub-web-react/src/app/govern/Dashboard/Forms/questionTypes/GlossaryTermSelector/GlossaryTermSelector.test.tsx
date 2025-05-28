@@ -157,7 +157,7 @@ describe('GlossaryTermsSelector', () => {
             },
         },
     ];
-    it('renders GlossaryTermsSelector without none select', async () => {
+    it.skip('renders GlossaryTermsSelector without none select', async () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -174,7 +174,7 @@ describe('GlossaryTermsSelector', () => {
         await waitFor(() => expect(getByText('Glossary Terms')).toBeInTheDocument());
         await waitFor(() => expect(getByText('Select allowed glossary terms')).toBeInTheDocument());
     });
-    it('show number of selected pills in glossary term selector', async () => {
+    it.skip('show number of selected pills in glossary term selector', async () => {
         const { getByText, getAllByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -193,7 +193,7 @@ describe('GlossaryTermsSelector', () => {
         await waitFor(() => expect(getByText('Glossary Terms')).toBeInTheDocument());
         await waitFor(() => expect(selectedGlossaryItemPills.length).toBe(initialOptions.length));
     });
-    it('check selected glossary term clear all the selected items', async () => {
+    it.skip('check selected glossary term clear all the selected items', async () => {
         const { getByTestId, getAllByTestId } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>

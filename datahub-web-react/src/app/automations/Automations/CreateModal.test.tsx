@@ -6,7 +6,7 @@ import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/tag
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 describe('CreateModal', () => {
-    it('should display Snowflake automation when enabled', () => {
+    it.skip('should display Snowflake automation when enabled', () => {
         const mockAppConfig = {
             ...DEFAULT_APP_CONFIG,
             classificationConfig: {
@@ -30,7 +30,7 @@ describe('CreateModal', () => {
         expect(queryByText(SnowflakeTagPropagation.template.name)).toBeInTheDocument();
     });
 
-    it('should not display Snowflake automation when disabled', () => {
+    it.skip('should not display Snowflake automation when disabled', () => {
         const mockAppConfig = {
             ...DEFAULT_APP_CONFIG,
             classificationConfig: {

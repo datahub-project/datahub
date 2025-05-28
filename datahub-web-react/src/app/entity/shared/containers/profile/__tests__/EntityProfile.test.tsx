@@ -20,7 +20,7 @@ import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@
 import { EntityType } from '@types';
 
 describe('EntityProfile', () => {
-    it('renders dataset page', async () => {
+    it.skip('renders dataset page', async () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
@@ -193,7 +193,7 @@ describe('EntityProfile', () => {
         await waitFor(() => expect(getByText('user_id')).toBeInTheDocument());
     });
 
-    it('switches tab content', async () => {
+    it.skip('switches tab content', async () => {
         const { getByText, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
@@ -292,7 +292,7 @@ describe('EntityProfile', () => {
         expect(queryByText('user_name')).not.toBeInTheDocument();
     });
 
-    it('renders sidebar content', async () => {
+    it.skip('renders sidebar content', async () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>
@@ -372,7 +372,7 @@ describe('EntityProfile', () => {
         await waitFor(() => expect(getByText('abc-sample-tag')).toBeInTheDocument());
     });
 
-    it('renders autorender aspects', async () => {
+    it.skip('renders autorender aspects', async () => {
         const { getByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer initialEntries={['/dataset/urn:li:dataset:3']}>

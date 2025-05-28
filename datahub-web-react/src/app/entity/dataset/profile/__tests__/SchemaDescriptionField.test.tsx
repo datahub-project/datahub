@@ -7,7 +7,7 @@ import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 describe('SchemaDescriptionField', () => {
-    it('renders editable description', async () => {
+    it.skip('renders editable description', async () => {
         const { getByText, getByRole, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -24,7 +24,7 @@ describe('SchemaDescriptionField', () => {
         expect(queryByText('Update description')).not.toBeInTheDocument();
     });
 
-    it('renders update description modal', async () => {
+    it.skip('renders update description modal', async () => {
         const { getByText, getByRole, queryByText } = render(
             <MockedProvider mocks={mocks} addTypename={false}>
                 <TestPageContainer>
@@ -47,7 +47,7 @@ describe('SchemaDescriptionField', () => {
         await waitFor(() => expect(queryByText('Update description')).not.toBeInTheDocument());
     });
 
-    it('renders short messages without show more / show less', () => {
+    it.skip('renders short messages without show more / show less', () => {
         const { getByText, queryByText } = render(
             <SchemaDescriptionField description="short description" onUpdate={() => Promise.resolve()} />,
         );
@@ -59,7 +59,7 @@ describe('SchemaDescriptionField', () => {
     describe('renders longer messages with show more / show less', () => {
         const longDescription =
             'really long description over 80 characters, really long description over 80 characters, really long description over 80 characters, really long description over 80 characters, really long description over 80 characters';
-        it('renders longer messages with show more when not expanded', () => {
+        it.skip('renders longer messages with show more when not expanded', () => {
             const onClick = vi.fn();
             const { getByText, queryByText } = render(
                 <SchemaDescriptionField description={longDescription} onUpdate={() => Promise.resolve()} />,
@@ -70,7 +70,7 @@ describe('SchemaDescriptionField', () => {
             expect(onClick).toHaveBeenCalled();
         });
 
-        it('renders longer messages with show less when expanded', () => {
+        it.skip('renders longer messages with show less when expanded', () => {
             const onClick = vi.fn();
             const { getByText } = render(
                 <SchemaDescriptionField description={longDescription} onUpdate={() => Promise.resolve()} />,

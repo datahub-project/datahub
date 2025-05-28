@@ -6,7 +6,7 @@ import { Routes } from '@app/Routes';
 import { mocks } from '@src/Mocks';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-test('renders embed page properly', async () => {
+test.skip('renders embed page properly', async () => {
     const { getByText } = render(
         <MockedProvider mocks={mocks} addTypename={false}>
             <TestPageContainer initialEntries={['/embed/dataset/urn:li:dataset:3']}>

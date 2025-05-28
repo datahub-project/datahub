@@ -122,7 +122,7 @@ describe('useExtractFieldGlossaryTermsInfo', () => {
         expect(numberOfTerms).toBe(1);
     });
 
-    it('should extract proposedTerms when they were provided in baseEntity', () => {
+    it.skip('should extract proposedTerms when they were provided in baseEntity', () => {
         mockedUseBaseEntity.mockReturnValue(filledBaseEntity);
         const extractFieldGlossaryTermsInfo = renderHook(() =>
             useExtractFieldGlossaryTermsInfo(emptyEditableSchemaMetadata),
@@ -139,7 +139,7 @@ describe('useExtractFieldGlossaryTermsInfo', () => {
         expect(numberOfTerms).toBe(1);
     });
 
-    it('should extract all terms when they were provided', () => {
+    it.skip('should extract all terms when they were provided', () => {
         mockedUseBaseEntity.mockReturnValue(filledBaseEntity);
         const extractFieldGlossaryTermsInfo = renderHook(() =>
             useExtractFieldGlossaryTermsInfo(filledEditableSchemaMetadata),

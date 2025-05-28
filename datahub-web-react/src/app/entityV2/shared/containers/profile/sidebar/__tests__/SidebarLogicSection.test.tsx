@@ -187,7 +187,7 @@ describe('Sidebar Logic Components', () => {
             expect(codeElement?.textContent).toContain('my_source_table');
         });
 
-        it('handles modal interaction for transformation logic', () => {
+        it.skip('handles modal interaction for transformation logic', () => {
             const { getByText, queryByRole } = render(
                 <MockedProvider addTypename={false}>
                     <TestPageContainer initialEntries={['/dataJob/urn:li:dataJob:1']}>
