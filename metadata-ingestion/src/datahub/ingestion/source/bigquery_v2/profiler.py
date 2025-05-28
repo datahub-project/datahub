@@ -122,10 +122,21 @@ class BigqueryProfiler(GenericProfiler):
         self, db_name: Optional[str] = None
     ) -> "DatahubGEProfiler":
         """Get a DatahubGEProfiler instance configured for BigQuery."""
+        from sqlalchemy import create_engine
+
         assert db_name, "db_name is required for BigQuery profiling"
+
+        # Get the SQLAlchemy URL for BigQuery
         url = self.config.get_sql_alchemy_url()
+
+        # Create SQLAlchemy engine with proper configuration
+        engine = create_engine(
+            url,
+            **self.config.get_options() if hasattr(self.config, "get_options") else {},
+        )
+
         return DatahubGEProfiler(
-            conn=url,
+            conn=engine.connect(),
             report=self.report,
             config=self.config.profiling,
             platform=self.platform,
