@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Callable, Dict, List, Optional
 
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
@@ -179,17 +179,10 @@ class BasicProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
-        last_modified = None
-        if hasattr(table, "last_modified"):
-            last_modified = table.last_modified
-        elif hasattr(table, "last_altered"):
-            last_modified = table.last_altered
-
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "lastModified": last_modified,
             "external": table.external,
             "columns": {},
         }
@@ -197,8 +190,8 @@ class BasicProfileStrategy(ProfileStrategy):
         if query_results and len(query_results) > 0:
             row = query_results[0]
             profile_data["rowCount"] = getattr(row, "row_count", 0)
-            profile_data["profileTime"] = getattr(
-                row, "profile_time", datetime.utcnow().isoformat()
+            profile_data["timestampMillis"] = int(
+                datetime.now(timezone.utc).timestamp() * 1000
             )
 
         return profile_data
@@ -342,19 +335,13 @@ class StandardProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
-        last_modified = None
-        if hasattr(table, "last_modified"):
-            last_modified = table.last_modified
-        elif hasattr(table, "last_altered"):
-            last_modified = table.last_altered
-
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "lastModified": last_modified,
             "external": table.external,
             "columns": {},
+            "timestampMillis": int(datetime.now(timezone.utc).timestamp() * 1000),
         }
 
         if not query_results or len(query_results) == 0:
@@ -362,9 +349,6 @@ class StandardProfileStrategy(ProfileStrategy):
 
         row = query_results[0]
         profile_data["rowCount"] = getattr(row, "row_count", 0)
-        profile_data["profileTime"] = getattr(
-            row, "profile_time", datetime.utcnow().isoformat()
-        )
 
         # Process column-level statistics
         if hasattr(table, "columns") and table.columns:
@@ -757,19 +741,13 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
-        last_modified = None
-        if hasattr(table, "last_modified"):
-            last_modified = table.last_modified
-        elif hasattr(table, "last_altered"):
-            last_modified = table.last_altered
-
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "lastModified": last_modified,
             "external": table.external,
             "columns": {},
+            "timestampMillis": int(datetime.now(timezone.utc).timestamp() * 1000),
         }
 
         if not query_results or len(query_results) == 0:
@@ -777,9 +755,6 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
 
         row = query_results[0]
         profile_data["rowCount"] = getattr(row, "row_count", 0)
-        profile_data["profileTime"] = getattr(
-            row, "profile_time", datetime.utcnow().isoformat()
-        )
 
         # Process only partition columns
         for column_name, column_type in partition_columns.items():
