@@ -24,7 +24,6 @@ class BigQueryTableMetadataManager:
         """
         self._execute_query = execute_query_callback
         self._column_name_mapping = {}
-        self._metadata_cache = {}
 
     def get_table_metadata(
         self, table: BigqueryTable, project: str, schema: str
@@ -41,11 +40,6 @@ class BigQueryTableMetadataManager:
         Returns:
             Dictionary containing table metadata
         """
-        # Check cache first
-        cache_key = f"{project}.{schema}.{table.name}"
-        if cache_key in self._metadata_cache:
-            return self._metadata_cache[cache_key]
-
         # Start with basic info from the table object
         metadata = self._fetch_basic_table_metadata(table)
 
@@ -70,8 +64,6 @@ class BigQueryTableMetadataManager:
         if not table.external:  # Only for internal tables
             metadata = self._fetch_table_stats(project, schema, table.name, metadata)
 
-        # Cache the result
-        self._metadata_cache[cache_key] = metadata
         return metadata
 
     def _fetch_basic_table_metadata(self, table: BigqueryTable) -> Dict[str, Any]:
@@ -85,17 +77,7 @@ class BigQueryTableMetadataManager:
             "ddl": table.ddl,
             "creation_time": table.created,
             "last_modified_time": table.last_altered,
-            "columns": {},  # Add column info for profiling
         }
-
-        # Add column information
-        if hasattr(table, "columns") and table.columns:
-            for col in table.columns:
-                metadata["columns"][col.name] = {
-                    "type": col.data_type,
-                    "description": col.description,
-                    "mode": col.mode,
-                }
 
         # Process partition info if available
         if table.partition_info:
@@ -126,13 +108,12 @@ class BigQueryTableMetadataManager:
                 column_name,
                 data_type,
                 is_partitioning_column,
-                clustering_ordinal_position,
-                is_nullable,
-                column_default
+                clustering_ordinal_position
             FROM 
                 `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
             WHERE 
                 table_name = '{table.name}'
+                AND (is_partitioning_column = 'YES' OR clustering_ordinal_position IS NOT NULL)
             """
 
             columns_results = self._execute_query(
@@ -141,22 +122,15 @@ class BigQueryTableMetadataManager:
                 timeout=45,
             )
 
-            # Process all columns
+            # Process partition and clustering columns
             for row in columns_results:
-                col_name = row.column_name
-                metadata["columns"][col_name] = {
-                    "type": row.data_type,
-                    "is_nullable": row.is_nullable == "YES",
-                    "default": row.column_default,
-                }
-
                 # Update partition columns
                 if row.is_partitioning_column == "YES":
-                    metadata["partition_columns"][col_name] = row.data_type
+                    metadata["partition_columns"][row.column_name] = row.data_type
 
                 # Update clustering columns
                 if row.clustering_ordinal_position is not None:
-                    metadata["clustering_columns"][col_name] = {
+                    metadata["clustering_columns"][row.column_name] = {
                         "position": row.clustering_ordinal_position,
                         "data_type": row.data_type,
                     }
@@ -166,9 +140,7 @@ class BigQueryTableMetadataManager:
             SELECT
                 ddl,
                 creation_time,
-                table_type,
-                total_rows,
-                total_logical_bytes as size_bytes
+                table_type
             FROM
                 `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
             WHERE
@@ -189,10 +161,77 @@ class BigQueryTableMetadataManager:
                     metadata["creation_time"] = row.creation_time
                 if hasattr(row, "table_type") and row.table_type:
                     metadata["table_type"] = row.table_type
-                if hasattr(row, "total_rows") and row.total_rows is not None:
-                    metadata["row_count"] = row.total_rows
-                if hasattr(row, "size_bytes") and row.size_bytes is not None:
-                    metadata["size_bytes"] = row.size_bytes
+
+            # Try to get storage statistics - this might fail if TABLE_STORAGE doesn't exist
+            try:
+                storage_query = f"""
+                SELECT
+                    total_rows,
+                    total_logical_bytes,
+                    storage_last_modified_time
+                FROM
+                    `{project}.INFORMATION_SCHEMA.TABLE_STORAGE`
+                WHERE
+                    table_name = '{table.name}'
+                """
+
+                storage_results = self._execute_query(
+                    storage_query,
+                    f"storage_info_{project}_{schema}_{table.name}",
+                    timeout=30,
+                )
+
+                if storage_results and len(storage_results) > 0:
+                    row = storage_results[0]
+                    if hasattr(row, "total_rows") and row.total_rows is not None:
+                        metadata["row_count"] = row.total_rows
+                    if (
+                        hasattr(row, "total_logical_bytes")
+                        and row.total_logical_bytes is not None
+                    ):
+                        metadata["size_bytes"] = row.total_logical_bytes
+                    if (
+                        hasattr(row, "storage_last_modified_time")
+                        and row.storage_last_modified_time is not None
+                    ):
+                        metadata["last_modified_time"] = row.storage_last_modified_time
+            except Exception as e:
+                logger.info(
+                    f"TABLE_STORAGE not available, getting table info from alternative source: {e}"
+                )
+
+                # Try to get basic table info from INFORMATION_SCHEMA.TABLES
+                try:
+                    basic_info_query = f"""
+                    SELECT
+                        row_count,
+                        size_bytes,
+                        last_modified_time
+                    FROM
+                        `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
+                    WHERE
+                        table_name = '{table.name}'
+                    """
+
+                    basic_info_results = self._execute_query(
+                        basic_info_query,
+                        f"basic_info_{project}_{schema}_{table.name}",
+                        timeout=30,
+                    )
+
+                    if basic_info_results and len(basic_info_results) > 0:
+                        row = basic_info_results[0]
+                        if hasattr(row, "row_count") and row.row_count is not None:
+                            metadata["row_count"] = row.row_count
+                        if hasattr(row, "size_bytes") and row.size_bytes is not None:
+                            metadata["size_bytes"] = row.size_bytes
+                        if (
+                            hasattr(row, "last_modified_time")
+                            and row.last_modified_time is not None
+                        ):
+                            metadata["last_modified_time"] = row.last_modified_time
+                except Exception as inner_e:
+                    logger.warning(f"Failed to get alternative table info: {inner_e}")
 
         except Exception as e:
             logger.warning(f"Error fetching schema information: {e}")
