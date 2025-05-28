@@ -165,6 +165,40 @@ class BasicProfileStrategy(ProfileStrategy):
         # Add partition filters if provided
         if partition_filters and len(partition_filters) > 0:
             query += f"\nWHERE {' AND '.join(partition_filters)}"
+        else:
+            # If no partition filters provided but table has required partition columns,
+            # add a filter for the most recent partition
+            from datahub.ingestion.source.bigquery_v2.profiling_table_metadata_manager import (
+                BigQueryTableMetadataManager,
+            )
+
+            metadata_manager = BigQueryTableMetadataManager(self._execute_query)
+            metadata = metadata_manager.get_table_metadata(table, project, schema)
+            partition_columns = metadata.get("partition_columns", {})
+
+            if partition_columns:
+                filters = []
+                for col_name in partition_columns:
+                    col_lower = col_name.lower()
+                    if col_lower in ["year"]:
+                        filters.append(
+                            f"{col_name} = EXTRACT(YEAR FROM CURRENT_DATE())"
+                        )
+                    elif col_lower in ["month"]:
+                        filters.append(
+                            f"{col_name} = EXTRACT(MONTH FROM CURRENT_DATE())"
+                        )
+                    elif col_lower in ["day"]:
+                        filters.append(f"{col_name} = EXTRACT(DAY FROM CURRENT_DATE())")
+                    elif col_lower in ["hour"]:
+                        filters.append(
+                            f"{col_name} = EXTRACT(HOUR FROM CURRENT_TIMESTAMP())"
+                        )
+                    elif col_lower in ["date", "dt", "partition_date"]:
+                        filters.append(f"{col_name} = CURRENT_DATE()")
+
+                if filters:
+                    query += f"\nWHERE {' AND '.join(filters)}"
 
         # Apply sampling for large tables
         return self.apply_sampling_clause(table, query)
@@ -183,16 +217,13 @@ class BasicProfileStrategy(ProfileStrategy):
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "external": table.external,
+            "timestampMillis": int(datetime.now(timezone.utc).timestamp() * 1000),
             "columns": {},
         }
 
         if query_results and len(query_results) > 0:
             row = query_results[0]
             profile_data["rowCount"] = getattr(row, "row_count", 0)
-            profile_data["timestampMillis"] = int(
-                datetime.now(timezone.utc).timestamp() * 1000
-            )
 
         return profile_data
 
@@ -339,9 +370,8 @@ class StandardProfileStrategy(ProfileStrategy):
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "external": table.external,
-            "columns": {},
             "timestampMillis": int(datetime.now(timezone.utc).timestamp() * 1000),
+            "columns": {},
         }
 
         if not query_results or len(query_results) == 0:
@@ -745,9 +775,8 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "external": table.external,
-            "columns": {},
             "timestampMillis": int(datetime.now(timezone.utc).timestamp() * 1000),
+            "columns": {},
         }
 
         if not query_results or len(query_results) == 0:
