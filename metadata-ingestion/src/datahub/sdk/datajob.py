@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import warnings
 from datetime import datetime
-from typing import Dict, Optional, Type
+from typing import Dict, List, Optional, Type
 
 from typing_extensions import Self
 
@@ -12,11 +12,13 @@ from datahub.errors import IngestionAttributionWarning
 from datahub.metadata.urns import (
     DataFlowUrn,
     DataJobUrn,
+    DatasetUrn,
     Urn,
 )
 from datahub.sdk._attribution import is_ingestion_attribution
 from datahub.sdk._shared import (
     DataflowUrnOrStr,
+    DatasetUrnOrStr,
     DomainInputType,
     HasContainer,
     HasDomain,
@@ -80,6 +82,8 @@ class DataJob(
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
         extra_aspects: ExtraAspectsType = None,
+        inlets: Optional[List[DatasetUrnOrStr]] = None,
+        outlets: Optional[List[DatasetUrnOrStr]] = None,
     ):
         """
         Initialize a DataJob with either a DataFlow or a DataFlowUrn with platform instance.
@@ -97,16 +101,16 @@ class DataJob(
         if flow is None:
             if flow_urn is None or platform_instance is None:
                 raise ValueError(
-                    "You must provide either: "
-                    "1. a DataFlow object, or "
-                    "2. both a DataFlowUrn and a platform_instance"
+                    "You must provide either: 1. a DataFlow object, or 2. a DataFlowUrn (and a platform_instance config if required)"
                 )
             flow_urn = DataFlowUrn.from_string(flow_urn)
+            if flow_urn.flow_id.startswith(f"{platform_instance}."):
+                flow_name = flow_urn.flow_id[len(platform_instance) + 1 :]
+            else:
+                flow_name = flow_urn.flow_id
             flow = DataFlow(
                 platform=flow_urn.orchestrator,
-                name=flow_urn.flow_id.split(".")[
-                    -1
-                ],  # TODO: this is a hack to get the flow name (excluding the platform instance) from the flow URN
+                name=flow_name,
                 platform_instance=platform_instance,
             )
         urn = DataJobUrn.create_from_ids(
@@ -151,6 +155,10 @@ class DataJob(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
+        if inlets is not None:
+            self.set_inlets(inlets)
+        if outlets is not None:
+            self.set_outlets(outlets)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -180,6 +188,18 @@ class DataJob(
             )
             self._set_aspect(props)
         return props
+
+    def _get_datajob_inputoutput_props(
+        self,
+    ) -> Optional[models.DataJobInputOutputClass]:
+        return self._get_aspect(models.DataJobInputOutputClass)
+
+    def _ensure_datajob_inputoutput_props(
+        self,
+    ) -> models.DataJobInputOutputClass:
+        return self._setdefault_aspect(
+            models.DataJobInputOutputClass(inputDatasets=[], outputDatasets=[])
+        )
 
     def _get_editable_props(self) -> Optional[models.EditableDataJobPropertiesClass]:
         return self._get_aspect(models.EditableDataJobPropertiesClass)
@@ -285,3 +305,29 @@ class DataJob(
         browse_path.append(models.BrowsePathEntryClass(id=flow.name, urn=str(flow.urn)))
         # Set the browse path aspect
         self._set_aspect(models.BrowsePathsV2Class(path=browse_path))
+
+    @property
+    def inlets(self) -> List[str]:
+        """Get the inlets of the data job."""
+        return self._ensure_datajob_inputoutput_props().inputDatasets
+
+    def set_inlets(self, inlets: List[DatasetUrnOrStr]) -> None:
+        """Set the inlets of the data job."""
+        for inlet in inlets:
+            inlet_urn = DatasetUrn.from_string(inlet)  # type checking
+            self._ensure_datajob_inputoutput_props().inputDatasets.append(
+                str(inlet_urn)
+            )
+
+    @property
+    def outlets(self) -> List[str]:
+        """Get the outlets of the data job."""
+        return self._ensure_datajob_inputoutput_props().outputDatasets
+
+    def set_outlets(self, outlets: List[DatasetUrnOrStr]) -> None:
+        """Set the outlets of the data job."""
+        for outlet in outlets:
+            outlet_urn = DatasetUrn.from_string(outlet)  # type checking
+            self._ensure_datajob_inputoutput_props().outputDatasets.append(
+                str(outlet_urn)
+            )

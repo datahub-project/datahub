@@ -5,7 +5,6 @@ from unittest import mock
 
 import pytest
 
-from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import (
@@ -20,6 +19,7 @@ from datahub.sdk.container import Container
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
+from datahub.utilities.urns.error import InvalidUrnError
 
 GOLDEN_DIR = pathlib.Path(__file__).parent / "datajob_golden"
 GOLDEN_DIR.mkdir(exist_ok=True)
@@ -43,7 +43,7 @@ def test_datajob_basic(pytestconfig: pytest.Config) -> None:
     assert isinstance(job.urn, DataJobUrn)
     assert (
         str(job.urn)
-        == f"urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,{DEFAULT_ENV}),example_task)"
+        == "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),example_task)"
     )
     assert str(job.urn) in repr(job)
 
@@ -152,7 +152,7 @@ def test_client_get_datajob() -> None:
     mock_entities.get.reset_mock()
 
     # String URN
-    urn_str = f"urn:li:dataJob:(urn:li:dataFlow:(airflow,string_dag,{DEFAULT_ENV}),string_task)"
+    urn_str = "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),string_task)"
     mock_entities.get.return_value = DataJob(
         flow=flow,
         name="string_task",
@@ -218,6 +218,14 @@ def test_datajob_init_with_flow_urn() -> None:
         name="example_task",
     )
 
+    print("\n")
+    print("job.flow_urn:", job.flow_urn)
+    print("flow.urn:", flow.urn)
+    print("job.platform_instance:", job.platform_instance)
+    print("flow.platform_instance:", flow.platform_instance)
+    print("job.name:", job.name)
+    print("flow.name:", flow.name)
+
     assert job.flow_urn == flow.urn
     assert job.platform_instance == flow.platform_instance
     assert job.name == "example_task"
@@ -235,7 +243,9 @@ def test_invalid_init() -> None:
 
     with pytest.raises(
         ValueError,
-        match="You must provide either: 1. a DataFlow object, or 2. both a DataFlowUrn and a platform_instance",
+        match=re.escape(
+            "You must provide either: 1. a DataFlow object, or 2. a DataFlowUrn (and a platform_instance config if required)"
+        ),
     ):
         DataJob(
             name="example_task",
@@ -243,7 +253,9 @@ def test_invalid_init() -> None:
         )
     with pytest.raises(
         ValueError,
-        match="You must provide either: 1. a DataFlow object, or 2. both a DataFlowUrn and a platform_instance",
+        match=re.escape(
+            "You must provide either: 1. a DataFlow object, or 2. a DataFlowUrn (and a platform_instance config if required)"
+        ),
     ):
         DataJob(
             name="example_task",
@@ -310,14 +322,14 @@ def test_datajob_browse_path_with_containers() -> None:
     # Create a container
     container1 = Container(
         container_key=ContainerKey(
-            platform="airflow", name="my_container", instance="my_instance"
+            platform="airflow", name="my_container1", instance="my_instance"
         ),
         display_name="My Container",
     )
 
     container2 = Container(
         container_key=ContainerKey(
-            platform="airflow", name="my_container", instance="my_instance"
+            platform="airflow", name="my_container2", instance="my_instance"
         ),
         display_name="My Container",
         parent_container=container1,
@@ -338,9 +350,62 @@ def test_datajob_browse_path_with_containers() -> None:
 
     # Check that parent and browse paths are set correctly
     assert flow.parent_container == container2.urn
-    assert flow.browse_path == [container2.urn, container1.urn]
-    assert job.browse_path == [container2.urn, container1.urn, flow.urn]
+    assert flow.browse_path == [container1.urn, container2.urn]
+    assert job.browse_path == [container1.urn, container2.urn, flow.urn]
 
     assert_entity_golden(
         job, GOLDEN_DIR / "test_datajob_browse_path_with_containers_golden.json"
     )
+
+
+def test_datajob_inlets_outlets() -> None:
+    # Create a dataflow first
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+    )
+
+    # Create a datajob with the flow
+    job = DataJob(
+        flow=flow,
+        name="example_task",
+        inlets=[
+            "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset2,PROD)",
+        ],
+        outlets=["urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset3,PROD)"],
+    )
+
+    assert job.inlets == [
+        "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset1,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset2,PROD)",
+    ]
+    assert job.outlets == [
+        "urn:li:dataset:(urn:li:dataPlatform:airflow,example_dataset3,PROD)"
+    ]
+
+    assert_entity_golden(job, GOLDEN_DIR / "test_datajob_inlets_outlets_golden.json")
+
+
+def test_datajob_invalid_inlets_outlets() -> None:
+    # Create a dataflow first
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+    )
+
+    # Create a datajob with the flow
+    job = DataJob(
+        flow=flow,
+        name="example_task",
+    )
+
+    with pytest.raises(InvalidUrnError):
+        job.set_inlets(
+            ["urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),example_task)"]
+        )
+
+    with pytest.raises(InvalidUrnError):
+        job.set_outlets(
+            ["urn:li:datajob:(urn:li:dataFlow:(airflow,example_dag,PROD),example_task)"]
+        )

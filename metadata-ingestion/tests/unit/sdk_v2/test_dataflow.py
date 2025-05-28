@@ -57,7 +57,7 @@ def test_dataflow_basic(pytestconfig: pytest.Config) -> None:
     assert_entity_golden(d, GOLDEN_DIR / "test_dataflow_basic_golden.json")
 
 
-def build_complex_dataflow() -> DataFlow:
+def test_dataflow_complex() -> None:
     created = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
     updated = datetime(2025, 1, 9, 3, 4, 6, tzinfo=timezone.utc)
 
@@ -120,11 +120,6 @@ def build_complex_dataflow() -> DataFlow:
     assert d.links[0].url == "https://example.com/doc1"
     assert d.links[1].url == "https://example.com/doc2"
 
-    return d
-
-
-def test_dataflow_complex() -> None:
-    d = build_complex_dataflow()
     assert_entity_golden(d, GOLDEN_DIR / "test_dataflow_complex_golden.json")
 
 

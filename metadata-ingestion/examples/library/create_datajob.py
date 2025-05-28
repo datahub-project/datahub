@@ -18,4 +18,5 @@ datajob = DataJob(
     flow=dataflow,
 )
 
+client.entities.upsert(dataflow)
 client.entities.upsert(datajob)
