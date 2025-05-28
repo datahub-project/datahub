@@ -159,66 +159,48 @@ class BigqueryProfiler(GenericProfiler):
                 # Ensure we never return None from the cache
                 return [] if cached_result is None else cached_result
 
-            client = None
-            try:
-                # Get the BigQuery client from config
-                client = self.config.get_bigquery_client()
-                if not client:
-                    logger.error(
-                        "Failed to initialize BigQuery client - client is None"
-                    )
+            # Get the BigQuery client from config
+            client = self.config.get_bigquery_client()
+
+            def execute_with_timeout() -> List[Any]:
+                try:
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        future = executor.submit(
+                            lambda: list(client.query(query).result())
+                        )
+                        # Add a bit of extra time to the timeout for processing
+                        result = future.result(timeout=timeout + 5)
+
+                        # Cache the result if a cache key was provided
+                        if cache_key and result is not None:
+                            self.cache_manager.add_query_result(cache_key, result)
+
+                        # Ensure we always return a list, never None
+                        return [] if result is None else result
+                except TimeoutError:
+                    logger.warning(f"Query timed out after {timeout} seconds")
+                    return []
+                except Exception as e:
+                    error_msg = str(e)
+                    logger.warning(f"Query execution error: {error_msg}")
+                    # Store the error message for partition extraction
+                    if hasattr(self.partition_manager, "_last_error_message"):
+                        self.partition_manager._last_error_message = error_msg
                     return []
 
-                def execute_with_timeout() -> List[Any]:
-                    try:
-                        with ThreadPoolExecutor(max_workers=1) as executor:
-                            future = executor.submit(
-                                lambda: list(client.query(query).result())
-                            )
-                            # Add a bit of extra time to the timeout for processing
-                            result = future.result(timeout=timeout + 5)
+            # Execute the query with retries
+            result = execute_with_timeout()
+            retries = 0
 
-                            # Cache the result if a cache key was provided
-                            if cache_key and result is not None:
-                                self.cache_manager.add_query_result(cache_key, result)
-
-                            # Ensure we always return a list, never None
-                            return [] if result is None else result
-                    except TimeoutError:
-                        logger.warning(f"Query timed out after {timeout} seconds")
-                        return []
-                    except Exception as e:
-                        error_msg = str(e)
-                        logger.warning(f"Query execution error: {error_msg}")
-                        # Store the error message for partition extraction
-                        if hasattr(self.partition_manager, "_last_error_message"):
-                            self.partition_manager._last_error_message = error_msg
-                        return []
-
-                # Execute the query with retries
+            while not result and retries < max_retries:
+                retries += 1
+                logger.info(f"Retrying query, attempt {retries + 1}/{max_retries + 1}")
                 result = execute_with_timeout()
-                retries = 0
 
-                while not result and retries < max_retries:
-                    retries += 1
-                    logger.info(
-                        f"Retrying query, attempt {retries + 1}/{max_retries + 1}"
-                    )
-                    result = execute_with_timeout()
-
-                # Ensure we never return None
-                return [] if result is None else result
-
-            except Exception as e:
-                logger.error(f"Failed to initialize or use BigQuery client: {e}")
+            # Ensure we never return None
+            if result is None:
                 return []
-            finally:
-                # Ensure we close the client to prevent resource leaks
-                if client:
-                    try:
-                        client.close()
-                    except Exception as e:
-                        logger.warning(f"Error closing BigQuery client: {e}")
+            return result
 
         return execute_query
 
