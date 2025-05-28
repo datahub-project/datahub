@@ -201,7 +201,7 @@ class BigqueryProfiler(GenericProfiler):
         partition_filters = None
         if metadata["partition_columns"]:
             try:
-                # Get required partition filters
+                # First try to get required partition filters
                 partition_filters = (
                     self._partition_manager.get_required_partition_filters(
                         table, db_name, schema_name
@@ -223,11 +223,42 @@ class BigqueryProfiler(GenericProfiler):
                                 partition_values,
                             )
                         )
+
+                # If we still don't have filters for a partitioned table, try emergency filters
+                if not partition_filters and metadata["partition_columns"]:
+                    logger.warning(
+                        f"No partition filters found for {table.name}, trying emergency filters"
+                    )
+                    emergency_filter = (
+                        self._partition_manager._get_emergency_partition_filter(
+                            table, db_name, schema_name
+                        )
+                    )
+                    if emergency_filter:
+                        partition_filters = [emergency_filter]
+                    else:
+                        # If we can't get any filters for a partitioned table, we should skip it
+                        logger.error(
+                            f"Could not generate partition filters for {table.name}. "
+                            f"Required partition columns: {list(metadata['partition_columns'].keys())}"
+                        )
+                        self._cache_manager.add_problematic_table(
+                            f"{db_name}.{schema_name}.{table.name}",
+                            "Failed to generate partition filters",
+                            datetime.now().timestamp(),
+                        )
+                        raise Exception(
+                            f"Cannot profile table {table.name} without partition filters"
+                        )
+
             except Exception as e:
-                logger.warning(f"Failed to get partition filters: {e}")
+                logger.error(f"Failed to get partition filters: {e}")
                 if metadata["is_external"]:
                     # For external tables, use empty filter list as fallback
                     partition_filters = []
+                else:
+                    # For regular tables, we need to fail if we can't get partition filters
+                    raise
 
         # Choose appropriate profiling strategy based on table characteristics
         strategy = self._get_profiling_strategy(table, metadata)
