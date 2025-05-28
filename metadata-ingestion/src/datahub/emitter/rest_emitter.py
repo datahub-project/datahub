@@ -267,13 +267,7 @@ class RequestsSessionConfig(ConfigModel):
 
         # 1.0 refers to the user agent string version
         datahub_component = self.datahub_component or DATAHUB_COMPONENT_ENV
-        if "/" in datahub_component:
-            component_string = f"{datahub_component}; datahub/{datahub_version}"
-        else:
-            # We expect users of datahub_component to include a / if they want
-            # to set a version separate from the acryl-datahub version.
-            component_string = f"{datahub_component}/{datahub_version}"
-        return f"DataHub-Client/1.0 ({client_mode.name.lower()}; {component_string}){requests_user_agent}"
+        return f"DataHub-Client/1.0 ({client_mode.name.lower()}; datahub/{datahub_version}) {datahub_component}{requests_user_agent}"
 
 
 @dataclass
