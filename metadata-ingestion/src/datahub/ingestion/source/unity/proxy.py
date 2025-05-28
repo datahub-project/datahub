@@ -605,6 +605,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     @cached(cachetools.FIFOCache(maxsize=100))
     def get_table_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
+        logger.info(f"Fetching table tags for catalog: {catalog}")
         statement = f"SELECT * from {catalog}.information_schema.table_tags"
         response = self.run_statement(statement)
         if (
@@ -621,6 +622,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     @cached(cachetools.FIFOCache(maxsize=100))
     def get_column_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
+        logger.info(f"Fetching column tags for catalog: {catalog}")
         statement = f"SELECT * from {catalog}.information_schema.column_tags"
         response = self.run_statement(statement)
         if (

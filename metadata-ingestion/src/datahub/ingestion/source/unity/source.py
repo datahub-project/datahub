@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
+from datahub.api.entities.external.external_entities import PlatformResourceRepository
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -89,6 +90,11 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.ingestion.source.unity.tag_entities import (
+    UnityCatalogTag,
+    UnityCatalogTagId,
+    UnityCatalogTagSyncContext,
+)
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     GlobalTags,
@@ -170,6 +176,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     platform: str = "databricks"
     platform_instance_name: Optional[str]
     sql_parser_schema_resolver: Optional[SchemaResolver] = None
+    platform_resource_repository: Optional[PlatformResourceRepository] = None
 
     def get_report(self) -> UnityCatalogReport:
         return self.report
@@ -219,6 +226,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         # Global map of tables, for profiling
         self.tables: FileBackedDict[Table] = FileBackedDict()
+        if self.ctx.graph:
+            self.platform_resource_repository = PlatformResourceRepository(
+                self.ctx.graph
+            )
 
     def init_hive_metastore_proxy(self):
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
@@ -520,21 +531,26 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 table_tags = self._get_table_tags(
                     table.ref.catalog, table.ref.schema, table.ref.table
                 )
-                logger.info(f"Table tags for {table.ref}: {table_tags}")
-                attribution = MetadataAttribution(
-                    # source="unity-catalog",
-                    actor="urn:li:corpuser:datahub",
-                    time=int(time.time() * 1000),
-                )
-                tags = GlobalTags(
-                    tags=[
-                        TagAssociation(
-                            tag=TagUrn(name=f"{tag[0]}:{tag[1]}").urn(),
-                            attribution=attribution,
-                        )
-                        for tag in table_tags
-                    ]
-                )
+                if table_tags:
+                    logger.info(f"Table tags for {table.ref}: {table_tags}")
+                    attribution = MetadataAttribution(
+                        # source="unity-catalog",
+                        actor="urn:li:corpuser:datahub",
+                        time=int(time.time() * 1000),
+                    )
+                    tags = GlobalTags(
+                        tags=[
+                            TagAssociation(
+                                tag=TagUrn(name=f"{tag[0]}:{tag[1]}").urn(),
+                                attribution=attribution,
+                            )
+                            for tag in table_tags
+                        ]
+                    )
+
+                    yield from self.gen_platform_resources(
+                        [TagUrn.from_string(tag.tag) for tag in tags.tags]
+                    )
 
             except Exception as e:
                 logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
@@ -545,6 +561,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         sub_type = self._create_table_sub_type_aspect(table)
         schema_metadata = self._create_schema_metadata_aspect(table)
+        for field in schema_metadata.fields:
+            if field.globalTags:
+                yield from self.gen_platform_resources(
+                    [TagUrn.from_string(tag.tag) for tag in field.globalTags.tags]
+                )
+
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect()
@@ -965,6 +987,35 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return ViewProperties(
             materialized=False, viewLanguage="SQL", viewLogic=table.view_definition
         )
+
+    def gen_platform_resources(
+        self, tag_urns: List[TagUrn]
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.ctx.graph and self.platform_resource_repository:
+            for tag_urn in tag_urns:
+                tag_sync_context = UnityCatalogTagSyncContext()
+                platform_resource_id = UnityCatalogTagId.from_datahub_urn(
+                    platform_resource_repository=self.platform_resource_repository,
+                    tag_sync_context=tag_sync_context,
+                    urn=tag_urn.urn(),
+                    graph=self.ctx.graph,
+                )
+                logger.info(f"Created platform resource {platform_resource_id}")
+
+                unity_catalog_tag = UnityCatalogTag.get_from_datahub(
+                    platform_resource_id, self.platform_resource_repository, True
+                )
+                if (
+                    tag_urn.urn()
+                    not in unity_catalog_tag.datahub_linked_resources().urns
+                ):
+                    unity_catalog_tag.datahub_linked_resources().add(tag_urn.urn())
+                    platform_resource = unity_catalog_tag.as_platform_resource()
+                    for mcp in platform_resource.to_mcps():
+                        yield MetadataWorkUnit(
+                            id=f"platform_resource-{platform_resource.id}",
+                            mcp=mcp,
+                        )
 
     def _create_schema_metadata_aspect(self, table: Table) -> SchemaMetadataClass:
         schema_fields: List[SchemaFieldClass] = []
