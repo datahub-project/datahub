@@ -100,7 +100,11 @@ class BigqueryProfiler(GenericProfiler):
     ) -> dict:
         """Get batch kwargs for profiling, including sampling configuration."""
         table = cast(BigqueryTable, table)
-        batch_kwargs = super().get_batch_kwargs(table, schema_name, db_name)
+        batch_kwargs = {
+            "table": table.name,
+            "schema": schema_name,
+            "database": db_name,  # This is the project_id in BigQuery
+        }
 
         if (
             not self.config.profiling.limit
