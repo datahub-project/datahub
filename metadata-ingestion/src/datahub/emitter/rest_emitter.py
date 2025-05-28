@@ -29,7 +29,7 @@ from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 from typing_extensions import deprecated
 
-from datahub._version import nice_version_name
+from datahub._version import __version__ as datahub_version
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
 from datahub.cli.env_utils import get_boolean_env_variable
@@ -161,10 +161,10 @@ class RequestsSessionConfig(ConfigModel):
 
         base_headers = {
             "User-Agent": user_agent,
-            "X-DataHub-Client-Mode": self.client_mode.name
-            if self.client_mode
-            else _DEFAULT_CLIENT_MODE.name,
-            "X-DataHub-Py-Cli-Version": nice_version_name(),
+            "X-DataHub-Client-Mode": (
+                self.client_mode.name if self.client_mode else _DEFAULT_CLIENT_MODE.name
+            ),
+            "X-DataHub-Py-Cli-Version": datahub_version,
         }
 
         headers = {**base_headers, **self.extra_headers}
@@ -254,7 +254,6 @@ class RequestsSessionConfig(ConfigModel):
 
     def _get_user_agent_string(self, session: requests.Session) -> str:
         """Generate appropriate user agent string based on client mode"""
-        version = nice_version_name()
         client_mode = self.client_mode if self.client_mode else _DEFAULT_CLIENT_MODE
 
         if "User-Agent" in session.headers:
@@ -267,7 +266,14 @@ class RequestsSessionConfig(ConfigModel):
             requests_user_agent = ""
 
         # 1.0 refers to the user agent string version
-        return f"DataHub-Client/1.0 ({client_mode.name.lower()}; {self.datahub_component if self.datahub_component else DATAHUB_COMPONENT_ENV}; {version}){requests_user_agent}"
+        datahub_component = self.datahub_component or DATAHUB_COMPONENT_ENV
+        if "/" in datahub_component:
+            component_string = f"{datahub_component}; datahub/{datahub_version}"
+        else:
+            # We expect users of datahub_component to include a / if they want
+            # to set a version separate from the acryl-datahub version.
+            component_string = f"{datahub_component}/{datahub_version}"
+        return f"DataHub-Client/1.0 ({client_mode.name.lower()}; {component_string}){requests_user_agent}"
 
 
 @dataclass
