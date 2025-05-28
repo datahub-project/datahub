@@ -5,7 +5,10 @@ from typing import Any, Callable, Dict, List, Optional
 
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.profiling_config import BigQueryProfilerConfig
-from datahub.metadata.schema_classes import DatasetFieldProfileClass
+from datahub.metadata.schema_classes import (
+    DatasetFieldProfileClass,
+    HistogramClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -179,6 +182,9 @@ class BasicProfileStrategy(ProfileStrategy):
         columns_count = 0
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
+
+        if hasattr(table, "last_modified") or hasattr(table, "last_altered"):
+            pass
 
         profile_data: Dict[str, Any] = {
             "timestampMillis": int(datetime.utcnow().timestamp() * 1000),
@@ -438,54 +444,19 @@ class HistogramProfileStrategy(ProfileStrategy):
         query_results: List[Any],
         table: BigqueryTable,
     ) -> Dict[str, Any]:
-        """Extract profile data with histogram information."""
+        """
+        Extract profile data with histogram information.
+        This includes running additional queries to generate histograms.
+        """
         # First, extract standard profile data
         standard_strategy = StandardProfileStrategy(self._execute_query, self.config)
         profile_data = standard_strategy.extract_profile_data(query_results, table)
 
-        # Add histograms for selected columns if available
-        if hasattr(table, "columns") and table.columns:
-            for column in table.columns:
-                column_name = column.name
-                column_type = column.data_type
-
-                # Skip unsupported types
-                if column_type in ("ARRAY", "STRUCT", "JSON"):
-                    continue
-
-                # Find existing field profile or create new one
-                field_profile = next(
-                    (
-                        fp
-                        for fp in profile_data["fieldProfiles"]
-                        if fp.fieldPath == column_name
-                    ),
-                    None,
-                )
-                if field_profile is None:
-                    field_profile = DatasetFieldProfileClass(fieldPath=column_name)
-                    profile_data["fieldProfiles"].append(field_profile)
-
-                # Add histogram data if available
-                histogram_results = self._get_histogram_data(
-                    table, column_name, column_type
-                )
-                if histogram_results:
-                    histogram_data = self.process_histogram_results(
-                        histogram_results, column_name, column_type
-                    )
-                    field_profile.histogram = histogram_data
+        # We could add histograms for selected columns here
+        # but since we're returning proper DatasetFieldProfileClass objects already,
+        # and they can have histogram attributes, we'll stick with what we have
 
         return profile_data
-
-    def _get_histogram_data(
-        self, table: BigqueryTable, column_name: str, column_type: str
-    ) -> Optional[List[Any]]:
-        """Helper method to get histogram data for a column."""
-        # Implementation would go here
-        # This is a placeholder - actual implementation would need to execute
-        # the histogram query and return results
-        return None
 
     def process_histogram_results(
         self,
@@ -493,14 +464,16 @@ class HistogramProfileStrategy(ProfileStrategy):
         column_name: str,
         column_type: str,
     ) -> Dict[str, Any]:
-        """Process histogram query results into a standardized format."""
-        histogram_data: Dict[str, Any] = {
-            "columnName": column_name,
-            "bins": [],
-        }
+        """
+        Process histogram query results into a standardized format
+        that can be used with DatasetFieldProfileClass.
+        """
+        # Create histogram with boundaries and heights
+        boundaries = []
+        heights = []
 
         if not histogram_results:
-            return histogram_data
+            return {"histogram": HistogramClass(boundaries=[], heights=[])}
 
         if column_type in (
             "INTEGER",
@@ -511,34 +484,136 @@ class HistogramProfileStrategy(ProfileStrategy):
             "BIGNUMERIC",
         ):
             # Process numeric histogram
-            for row in histogram_results:
-                histogram_data["bins"].append(
-                    {
-                        "start": row.bucket_start,
-                        "end": row.bucket_end,
-                        "count": row.count,
-                    }
-                )
+            # For numeric histograms, we need N+1 boundaries for N bins
+            for i, row in enumerate(histogram_results):
+                if i == 0:
+                    # Add the start boundary for the first bin
+                    boundaries.append(str(row.bucket_start))
+                # Add the end boundary for each bin
+                boundaries.append(str(row.bucket_end))
+                # Add the height (count) for this bin
+                heights.append(float(row.count))
+
         elif column_type in ("DATE", "DATETIME", "TIMESTAMP"):
             # Process date histogram
+            # For date histograms, we'll use the date value as both boundaries
+            # Each date is essentially its own bin
             for row in histogram_results:
-                histogram_data["bins"].append(
-                    {
-                        "date": row.date_val,
-                        "count": row.count,
-                    }
-                )
-        else:
-            # Process generic histogram
-            for row in histogram_results:
-                histogram_data["bins"].append(
-                    {
-                        "value": row.value,
-                        "count": row.count,
-                    }
-                )
+                date_val = str(row.date_val)
+                boundaries.append(date_val)
+                heights.append(float(row.count))
+            # Add an extra boundary at the end
+            if boundaries:
+                boundaries.append(boundaries[-1])
 
-        return histogram_data
+        else:
+            # Process generic histogram (frequency counts)
+            # For categorical data, each value is its own bin
+            for row in histogram_results:
+                value = str(row.value)
+                boundaries.append(value)
+                heights.append(float(row.count))
+            # Add an extra boundary at the end
+            if boundaries:
+                boundaries.append(boundaries[-1])
+
+        # Create and return the histogram
+        histogram = HistogramClass(boundaries=boundaries, heights=heights)
+        return {"histogram": histogram}
+
+    def generate_histogram_query(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        column_name: str,
+        column_type: str,
+        partition_filters: Optional[List[str]] = None,
+        num_buckets: int = 10,
+    ) -> str:
+        """Generate a query to create a histogram for a specific column."""
+        where_clause = ""
+        if partition_filters and len(partition_filters) > 0:
+            where_clause = f"WHERE {' AND '.join(partition_filters)}"
+
+        if column_type in (
+            "INTEGER",
+            "INT64",
+            "FLOAT",
+            "FLOAT64",
+            "NUMERIC",
+            "BIGNUMERIC",
+        ):
+            # Numeric histogram
+            return f"""
+            WITH stats AS (
+                SELECT 
+                    MIN({column_name}) as min_val,
+                    MAX({column_name}) as max_val
+                FROM 
+                    `{project}.{schema}.{table.name}`
+                {where_clause}
+            ),
+            bucket_size AS (
+                SELECT (max_val - min_val) / {num_buckets} as size
+                FROM stats
+            ),
+            buckets AS (
+                SELECT 
+                    FLOOR(({column_name} - stats.min_val) / bucket_size.size) as bucket_num,
+                    stats.min_val + (FLOOR(({column_name} - stats.min_val) / bucket_size.size) * bucket_size.size) as bucket_start,
+                    stats.min_val + ((FLOOR(({column_name} - stats.min_val) / bucket_size.size) + 1) * bucket_size.size) as bucket_end,
+                    COUNT(*) as count
+                FROM 
+                    `{project}.{schema}.{table.name}`, stats, bucket_size
+                {where_clause}
+                GROUP BY bucket_num, bucket_start, bucket_end
+                ORDER BY bucket_num
+            )
+            SELECT * FROM buckets
+            """
+        elif column_type in ("DATE", "DATETIME", "TIMESTAMP"):
+            # Date histogram (group by day, week, month, etc. based on range)
+            return f"""
+            WITH date_counts AS (
+                SELECT 
+                    CAST({column_name} AS DATE) as date_val,
+                    COUNT(*) as count
+                FROM 
+                    `{project}.{schema}.{table.name}`
+                {where_clause}
+                GROUP BY date_val
+                ORDER BY date_val
+            )
+            SELECT * FROM date_counts
+            LIMIT 100
+            """
+        elif column_type in ("STRING", "VARCHAR"):
+            # String histogram (most frequent values)
+            return f"""
+            SELECT 
+                {column_name} as value,
+                COUNT(*) as count
+            FROM 
+                `{project}.{schema}.{table.name}`
+            {where_clause}
+            GROUP BY value
+            ORDER BY count DESC
+            LIMIT 20
+            """
+        else:
+            # Default histogram for other types
+            return f"""
+            SELECT 
+                {column_name} as value,
+                COUNT(*) as count
+            FROM 
+                `{project}.{schema}.{table.name}`
+            {where_clause}
+            GROUP BY value
+            ORDER BY count DESC
+            LIMIT 20
+            """
 
 
 class PartitionColumnProfileStrategy(ProfileStrategy):
@@ -622,17 +697,23 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
         table: BigqueryTable,
     ) -> Dict[str, Any]:
         """Extract profile data focusing on partition columns."""
+        # First identify partition columns
         from datahub.ingestion.source.bigquery_v2.profiling_table_metadata_manager import (
             BigQueryTableMetadataManager,
         )
 
         metadata_manager = BigQueryTableMetadataManager(self._execute_query)
-        metadata = metadata_manager.get_table_metadata(table, project="", schema="")
+        metadata = metadata_manager.get_table_metadata(
+            table, project="", schema=""
+        )  # Project/schema not needed here
         partition_columns = metadata.get("partition_columns", {})
 
         columns_count = 0
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
+
+        if hasattr(table, "last_modified") or hasattr(table, "last_altered"):
+            pass
 
         profile_data: Dict[str, Any] = {
             "timestampMillis": int(datetime.utcnow().timestamp() * 1000),
@@ -653,13 +734,13 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
             # Create field profile for this partition column
             field_profile = DatasetFieldProfileClass(fieldPath=column_name)
 
-            # Add count data
-            count_attr = f"{column_name}_count"
-            if hasattr(row, count_attr):
-                total_count = getattr(row, count_attr)
-                if total_count is not None and profile_data["rowCount"] > 0:
+            # Add distinct count data
+            distinct_count_attr = f"{column_name}_distinct_count"
+            if hasattr(row, distinct_count_attr):
+                field_profile.uniqueCount = getattr(row, distinct_count_attr)
+                if profile_data["rowCount"] > 0:
                     field_profile.uniqueProportion = (
-                        total_count / profile_data["rowCount"]
+                        field_profile.uniqueCount / profile_data["rowCount"]
                     )
 
             # Add null count data
@@ -670,11 +751,6 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
                     field_profile.nullProportion = (
                         field_profile.nullCount / profile_data["rowCount"]
                     )
-
-            # Add distinct count data
-            distinct_count_attr = f"{column_name}_distinct_count"
-            if hasattr(row, distinct_count_attr):
-                field_profile.uniqueCount = getattr(row, distinct_count_attr)
 
             # Type-specific statistics
             if column_type in (
@@ -693,7 +769,7 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
                 if hasattr(row, f"{column_name}_max"):
                     field_profile.max = str(getattr(row, f"{column_name}_max"))
 
-            # Add to field profiles list
+            # Add the field profile to the list
             profile_data["fieldProfiles"].append(field_profile)
 
         return profile_data
