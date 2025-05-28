@@ -864,7 +864,7 @@ def test_get_lineage_basic(client: DataHubClient) -> None:
     assert results[0]["hops"] == 1
 
 
-def test_get_lineage_with_filters(client: DataHubClient) -> None:
+def test_get_lineage_with_entity_type_filters(client: DataHubClient) -> None:
     """Test lineage retrieval with entity type and platform filters."""
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
 
@@ -884,18 +884,6 @@ def test_get_lineage_with_filters(client: DataHubClient) -> None:
                         },
                     },
                     "degree":1,
-                },
-                {
-                    "entity": {
-                        "urn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
-                        "type": "DATA_JOB",
-                        "dataPlatformInstance": {"platform": {"name": "airflow"}},
-                        "properties": {
-                            "name": "process_job",
-                            "description": "Data processing job",
-                        },
-                    },
-                    "degree": 2,
                 },
             ],
         }

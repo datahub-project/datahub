@@ -44,16 +44,15 @@ client.lineage.add_lineage(
     upstream=downstream_dataset_urn, downstream=downstream2_dataset_urn
 )
 
-downstream_lineage = client.lineage.get_lineage(
-    source_urn=upstream_dataset_urn, direction="downstream", max_hops=2, filters={"platform": ["airflow"]}
-)
-print("downstream_lineage")
-for lineage in downstream_lineage:
-    print(lineage)
+# direct_lineage = client.lineage.get_direct_lineage(
+#     source_urn=downstream_dataset_urn, source_column="id", direction="downstream"
+# )
 
-upstream_lineage = client.lineage.get_lineage(
-    source_urn=upstream_dataset_urn, direction="upstream", max_hops=2
+
+# print(direct_lineage)
+
+direct_lineage2 = client.lineage.get_direct_lineage(
+    source_urn=upstream_dataset_urn, source_column="id", direction="upstream"
 )
-print("upstream_lineage")
-for lineage in upstream_lineage:
-    print(lineage)
+
+print(direct_lineage2)
