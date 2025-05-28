@@ -167,8 +167,8 @@ class BigQueryTableMetadataManager:
                 ddl,
                 creation_time,
                 table_type,
-                total_rows,
-                total_logical_bytes as size_bytes
+                row_count,
+                size_bytes
             FROM
                 `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
             WHERE
@@ -189,8 +189,8 @@ class BigQueryTableMetadataManager:
                     metadata["creation_time"] = row.creation_time
                 if hasattr(row, "table_type") and row.table_type:
                     metadata["table_type"] = row.table_type
-                if hasattr(row, "total_rows") and row.total_rows is not None:
-                    metadata["row_count"] = row.total_rows
+                if hasattr(row, "row_count") and row.row_count is not None:
+                    metadata["row_count"] = row.row_count
                 if hasattr(row, "size_bytes") and row.size_bytes is not None:
                     metadata["size_bytes"] = row.size_bytes
 
