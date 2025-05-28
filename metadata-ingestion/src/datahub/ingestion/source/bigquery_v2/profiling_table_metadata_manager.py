@@ -125,7 +125,7 @@ class BigQueryTableMetadataManager:
             SELECT 
                 table_name,
                 table_type,
-                total_rows,
+                table_rows,
                 creation_time,
                 last_modified_time
             FROM 
@@ -139,7 +139,7 @@ class BigQueryTableMetadataManager:
                 metadata.update(
                     {
                         "table_type": table_info["table_type"],
-                        "rows_count": table_info["total_rows"],
+                        "rows_count": table_info["table_rows"],
                         "created_at": table_info["creation_time"],
                         "last_modified": table_info["last_modified_time"],
                     }

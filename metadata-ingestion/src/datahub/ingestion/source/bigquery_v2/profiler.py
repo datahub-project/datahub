@@ -1,7 +1,9 @@
 import logging
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime, timedelta
 from typing import (
     Any,
+    Callable,
     Dict,
     Iterable,
     List,
@@ -12,6 +14,7 @@ from typing import (
 )
 
 from dateutil.relativedelta import relativedelta
+from sqlalchemy import create_engine, inspect
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -19,7 +22,19 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Repor
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 
 # Import the new specialized components
+from datahub.ingestion.source.bigquery_v2.profiling_cache_manager import (
+    BigQueryCacheManager,
+)
 from datahub.ingestion.source.bigquery_v2.profiling_config import BigQueryProfilerConfig
+from datahub.ingestion.source.bigquery_v2.profiling_filter_builder import (
+    BigQueryFilterBuilder,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_partition_manager import (
+    BigQueryPartitionManager,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_table_metadata_manager import (
+    BigQueryTableMetadataManager,
+)
 from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
@@ -33,8 +48,22 @@ logger = logging.getLogger(__name__)
 
 class BigqueryProfiler(GenericProfiler):
     """
-    BigQuery profiler that uses DatahubGEProfiler for profiling.
+    Refactored BigQuery profiler that uses DatahubGEProfiler for profiling while maintaining
+    custom partition handling logic.
     """
+
+    config: BigQueryV2Config
+    report: BigQueryV2Report
+    cache_manager: BigQueryCacheManager
+    table_metadata_manager: BigQueryTableMetadataManager
+    filter_builder: BigQueryFilterBuilder
+    partition_manager: BigQueryPartitionManager
+    execute_query: Callable
+    profiler_config: BigQueryProfilerConfig
+    _problematic_tables: Set[str]
+    _table_strategies: Dict[str, str]
+    _successful_filters_cache: Dict[str, List[str]]
+    _queried_tables: Set[str]
 
     def __init__(
         self,
@@ -45,19 +74,49 @@ class BigqueryProfiler(GenericProfiler):
         super().__init__(config, report, "bigquery", state_handler)
         self.config = config
         self.report = report
+
+        # Create profiler config from BigQueryV2Config
         self.profiler_config = self._create_profiler_config()
+
+        # Initialize specialized components with dependency injection
+        self.cache_manager = BigQueryCacheManager(
+            max_cache_size=self.profiler_config.max_cache_size
+        )
+
+        # Set up the execute_query function with proper caching
+        self.execute_query = self._create_execute_query_function()
+
+        # Initialize components in proper order (dependency injection)
+        self.table_metadata_manager = BigQueryTableMetadataManager(self.execute_query)
+        self.filter_builder = BigQueryFilterBuilder(self.execute_query)
+        self.partition_manager = BigQueryPartitionManager(
+            self.execute_query, self.filter_builder
+        )
+
+        # Track tables that had issues during profiling
         self._problematic_tables: Set[str] = set()
+
+        # Track profiling strategies for each table
+        self._table_strategies: Dict[str, str] = {}
+
+        # For compatibility with tests
+        self._successful_filters_cache: Dict[str, List[str]] = {}
+        self._queried_tables: Set[str] = set()
 
     def _create_profiler_config(self) -> BigQueryProfilerConfig:
         """Convert BigQueryV2Config to BigQueryProfilerConfig"""
+        # Extract profiling parameters from config
         sample_size = getattr(self.config.profiling, "sample_size", 100_000)
-        query_timeout = getattr(self.config.profiling, "query_timeout", 60)
+        query_timeout = getattr(
+            self.config.profiling, "query_timeout", 60
+        )  # Default 60 seconds
         max_queries_per_table = getattr(self.config.profiling, "max_workers", 50)
         profile_table_level_only = getattr(
             self.config.profiling, "profile_table_level_only", False
         )
         tables_pattern = getattr(self.config, "tables", None)
 
+        # Handle schema pattern from BigQueryV2Config
         schema_pattern = None
         config_schema = getattr(self.config, "schema", None)
         if config_schema is not None:
@@ -68,6 +127,10 @@ class BigqueryProfiler(GenericProfiler):
             elif isinstance(config_schema, list):
                 schema_pattern = config_schema
 
+        external_table_sampling_percent = 0.1  # Default value
+        large_table_sampling_percent = 1.0  # Default value
+
+        # Create and return profiler config
         return BigQueryProfilerConfig(
             sample_size=sample_size,
             query_timeout=query_timeout,
@@ -75,98 +138,116 @@ class BigqueryProfiler(GenericProfiler):
             profile_table_level_only=profile_table_level_only,
             tables_pattern=tables_pattern,
             schema_pattern=schema_pattern,
-            external_table_sampling_percent=0.1,
-            large_table_sampling_percent=1.0,
+            external_table_sampling_percent=external_table_sampling_percent,
+            large_table_sampling_percent=large_table_sampling_percent,
         )
+
+    def _create_execute_query_function(self) -> Callable:
+        """
+        Create a function for executing BigQuery queries with caching.
+        """
+
+        def execute_query(
+            query: str,
+            cache_key: Optional[str] = None,
+            timeout: int = 60,  # Default 60 seconds
+            max_retries: int = 2,
+        ) -> List[Any]:
+            # Check cache first if a cache key is provided
+            if cache_key and cache_key in self.cache_manager._query_cache:
+                cached_result = self.cache_manager.get_query_result(cache_key)
+                # Ensure we never return None from the cache
+                return [] if cached_result is None else cached_result
+
+            client = None
+            try:
+                # Get the BigQuery client from config
+                client = self.config.get_bigquery_client()
+                if not client:
+                    logger.error(
+                        "Failed to initialize BigQuery client - client is None"
+                    )
+                    return []
+
+                def execute_with_timeout() -> List[Any]:
+                    try:
+                        with ThreadPoolExecutor(max_workers=1) as executor:
+                            future = executor.submit(
+                                lambda: list(client.query(query).result())
+                            )
+                            # Add a bit of extra time to the timeout for processing
+                            result = future.result(timeout=timeout + 5)
+
+                            # Cache the result if a cache key was provided
+                            if cache_key and result is not None:
+                                self.cache_manager.add_query_result(cache_key, result)
+
+                            # Ensure we always return a list, never None
+                            return [] if result is None else result
+                    except TimeoutError:
+                        logger.warning(f"Query timed out after {timeout} seconds")
+                        return []
+                    except Exception as e:
+                        error_msg = str(e)
+                        logger.warning(f"Query execution error: {error_msg}")
+                        # Store the error message for partition extraction
+                        if hasattr(self.partition_manager, "_last_error_message"):
+                            self.partition_manager._last_error_message = error_msg
+                        return []
+
+                # Execute the query with retries
+                result = execute_with_timeout()
+                retries = 0
+
+                while not result and retries < max_retries:
+                    retries += 1
+                    logger.info(
+                        f"Retrying query, attempt {retries + 1}/{max_retries + 1}"
+                    )
+                    result = execute_with_timeout()
+
+                # Ensure we never return None
+                return [] if result is None else result
+
+            except Exception as e:
+                logger.error(f"Failed to initialize or use BigQuery client: {e}")
+                return []
+            finally:
+                # Ensure we close the client to prevent resource leaks
+                if client:
+                    try:
+                        client.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing BigQuery client: {e}")
+
+        return execute_query
 
     def _should_profile_table(
         self, table: BigqueryTable, schema_name: str, db_name: str
     ) -> bool:
-        """Determine if a table should be profiled based on configuration."""
+        """
+        Determine if a table should be profiled based on configuration.
+
+        Args:
+            table: BigqueryTable instance
+            schema_name: Dataset name
+            db_name: Project ID
+
+        Returns:
+            True if the table should be profiled, False otherwise
+        """
         if not self.config.profiling.enabled:
             return False
 
+        # Skip tables that had issues during profiling
         table_key = f"{db_name}.{schema_name}.{table.name}"
         if table_key in self._problematic_tables:
             logger.info(f"Skipping problematic table: {table_key}")
             return False
 
+        # Check if table matches configuration patterns
         return self.profiler_config.should_profile_table(
             db_name, schema_name, table.name
-        )
-
-    def get_batch_kwargs(
-        self, table: BaseTable, schema_name: str, db_name: str
-    ) -> dict:
-        """Get batch kwargs for profiling, including sampling configuration."""
-        table = cast(BigqueryTable, table)
-        batch_kwargs = super().get_batch_kwargs(table, schema_name, db_name)
-
-        if (
-            not self.config.profiling.limit
-            and self.config.profiling.use_sampling
-            and table.rows_count
-            and table.rows_count > self.config.profiling.sample_size
-        ):
-            # Use BigQuery's TABLESAMPLE for efficient sampling
-            table_ref = f"`{db_name}`.`{schema_name}`.`{table.name}`"
-            sampling_rate = min(
-                100.0, (self.config.profiling.sample_size / table.rows_count) * 100
-            )
-            custom_sql = f"SELECT * FROM {table_ref} TABLESAMPLE SYSTEM ({sampling_rate:.4f} PERCENT)"
-            batch_kwargs["custom_sql"] = custom_sql
-
-        return batch_kwargs
-
-    def get_profiler_instance(
-        self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
-        """Get a DatahubGEProfiler instance configured for BigQuery."""
-        assert db_name, "db_name is required for BigQuery profiling"
-        url = self.config.get_sql_alchemy_url()
-        return DatahubGEProfiler(
-            conn=url,
-            report=self.report,
-            config=self.config.profiling,
-            platform=self.platform,
-        )
-
-    def get_workunits(
-        self, project_id: str, tables: Dict[str, List[BigqueryTable]]
-    ) -> Iterable[MetadataWorkUnit]:
-        """Generate profiling workunits for BigQuery tables."""
-        if not self.config.profiling.enabled:
-            return
-
-        profile_requests = []
-        for schema, schema_tables in tables.items():
-            for table in schema_tables:
-                if not self._should_profile_table(table, schema, project_id):
-                    continue
-
-                profile_request = self.get_profile_request(table, schema, project_id)
-                if profile_request is not None:
-                    self.report.report_entity_profiled(profile_request.pretty_name)
-                    profile_requests.append(profile_request)
-
-        if len(profile_requests) == 0:
-            return
-
-        yield from self.generate_profile_workunits(
-            profile_requests,
-            max_workers=self.config.profiling.max_workers,
-            platform=self.platform,
-            profiler_args=self.get_profile_args(),
-            db_name=project_id,
-        )
-
-    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
-        """Get the dataset URN for a table."""
-        return (
-            f"urn:li:dataset:("
-            f"urn:li:dataPlatform:{self.platform},"
-            f"{db_name}.{schema_name}.{table_name}"
-            f")"
         )
 
     def get_profile_request(
@@ -198,6 +279,131 @@ class BigqueryProfiler(GenericProfiler):
         )
 
         return profile_request
+
+    def get_batch_kwargs(
+        self, table: BaseTable, schema_name: str, db_name: str
+    ) -> dict:
+        """
+        Get batch kwargs for profiling, including partition handling.
+        """
+        table = cast(BigqueryTable, table)
+        batch_kwargs = super().get_batch_kwargs(table, schema_name, db_name)
+
+        # Get table metadata including partition information
+        metadata = self._get_table_metadata(table, db_name, schema_name)
+
+        # Handle partitioned tables
+        if metadata.get("partition_columns"):
+            partition_filters = self.partition_manager.get_required_partition_filters(
+                table, db_name, schema_name
+            )
+            if partition_filters:
+                batch_kwargs["partition_filters"] = partition_filters
+
+        # Handle sampling for large tables
+        if (
+            not self.config.profiling.limit
+            and self.config.profiling.use_sampling
+            and table.rows_count
+            and table.rows_count > self.config.profiling.sample_size
+        ):
+            sample_query = self._build_sample_query(
+                table, schema_name, db_name, metadata
+            )
+            if sample_query:
+                batch_kwargs["custom_sql"] = sample_query
+
+        return batch_kwargs
+
+    def _build_sample_query(
+        self,
+        table: BigqueryTable,
+        schema_name: str,
+        db_name: str,
+        metadata: Dict[str, Any],
+    ) -> Optional[str]:
+        """
+        Build a sampling query for large tables.
+        """
+        table_ref = f"`{db_name}`.`{schema_name}`.`{table.name}`"
+        sample_size = self.config.profiling.sample_size
+
+        if table.rows_count:
+            sampling_rate = min(1.0, sample_size / table.rows_count)
+            return f"SELECT * FROM {table_ref} TABLESAMPLE SYSTEM ({sampling_rate * 100} PERCENT)"
+
+        return None
+
+    def _get_table_metadata(
+        self, table: BigqueryTable, project: str, schema: str
+    ) -> Dict[str, Any]:
+        """
+        Get table metadata including partition information.
+        """
+        return self.table_metadata_manager.get_table_metadata(table, project, schema)
+
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> "DatahubGEProfiler":
+        """
+        Get a DatahubGEProfiler instance configured for BigQuery.
+        """
+        client = self.config.get_bigquery_client()
+
+        # Create a SQLAlchemy engine using the BigQuery client
+        engine = create_engine(
+            "bigquery://",
+            creator=lambda: client,
+        )
+
+        inspector = inspect(engine)
+
+        return DatahubGEProfiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+        )
+
+    def get_workunits(
+        self, project_id: str, tables: Dict[str, List[BigqueryTable]]
+    ) -> Iterable[MetadataWorkUnit]:
+        """
+        Generate profiling workunits for BigQuery tables.
+        """
+        if not self.config.profiling.enabled:
+            return
+
+        profile_requests = []
+        for schema in tables:
+            for table in tables[schema]:
+                if not self._should_profile_table(table, schema, project_id):
+                    continue
+
+                profile_request = self.get_profile_request(table, schema, project_id)
+                if profile_request is not None:
+                    self.report.report_entity_profiled(profile_request.pretty_name)
+                    profile_requests.append(profile_request)
+
+        if len(profile_requests) == 0:
+            return
+
+        yield from self.generate_profile_workunits(
+            profile_requests,
+            max_workers=self.config.profiling.max_workers,
+            platform=self.platform,
+            profiler_args=self.get_profile_args(),
+            db_name=project_id,
+        )
+
+    def get_dataset_name(self, table_name: str, schema_name: str, db_name: str) -> str:
+        """Get the dataset URN for a table."""
+        return (
+            f"urn:li:dataset:("
+            f"urn:li:dataPlatform:{self.platform},"
+            f"{db_name}.{schema_name}.{table_name}"
+            f")"
+        )
 
     def get_profile_as_workunit(
         self, dataset_urn: str, profile: Dict[str, Any]
