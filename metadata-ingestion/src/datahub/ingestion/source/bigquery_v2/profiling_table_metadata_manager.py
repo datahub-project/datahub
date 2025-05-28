@@ -120,6 +120,31 @@ class BigQueryTableMetadataManager:
     ) -> Dict[str, Any]:
         """Fetch schema information from INFORMATION_SCHEMA."""
         try:
+            # Get table metadata from TABLES
+            tables_query = f"""
+            SELECT 
+                table_name,
+                table_type,
+                table_rows,
+                creation_time,
+                last_modified_time
+            FROM 
+                `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
+            WHERE 
+                table_name = '{table.name}'
+            """
+            tables_result = self._execute_query(tables_query)
+            if tables_result and len(tables_result) > 0:
+                table_info = tables_result[0]
+                metadata.update(
+                    {
+                        "table_type": table_info["table_type"],
+                        "rows_count": table_info["table_rows"],
+                        "created_at": table_info["creation_time"],
+                        "last_modified": table_info["last_modified_time"],
+                    }
+                )
+
             # Get partition and clustering info from COLUMNS
             columns_query = f"""
             SELECT 
@@ -127,77 +152,36 @@ class BigQueryTableMetadataManager:
                 data_type,
                 is_partitioning_column,
                 clustering_ordinal_position,
-                is_nullable,
-                column_default
+                is_nullable
             FROM 
                 `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
             WHERE 
                 table_name = '{table.name}'
+            ORDER BY 
+                ordinal_position
             """
+            columns_result = self._execute_query(columns_query)
 
-            columns_results = self._execute_query(
-                columns_query,
-                f"columns_info_{project}_{schema}_{table.name}",
-                timeout=45,
-            )
+            partition_columns = {}
+            clustering_columns = []
 
-            # Process all columns
-            for row in columns_results:
-                col_name = row.column_name
-                metadata["columns"][col_name] = {
-                    "type": row.data_type,
-                    "is_nullable": row.is_nullable == "YES",
-                    "default": row.column_default,
-                }
-
-                # Update partition columns
-                if row.is_partitioning_column == "YES":
-                    metadata["partition_columns"][col_name] = row.data_type
-
-                # Update clustering columns
-                if row.clustering_ordinal_position is not None:
-                    metadata["clustering_columns"][col_name] = {
-                        "position": row.clustering_ordinal_position,
-                        "data_type": row.data_type,
+            for col in columns_result:
+                if col["is_partitioning_column"] == "YES":
+                    partition_columns[col["column_name"]] = {
+                        "type": col["data_type"],
+                        "nullable": col["is_nullable"] == "YES",
                     }
+                if col["clustering_ordinal_position"] is not None:
+                    clustering_columns.append(col["column_name"])
 
-            # Get tables info - schema definition, creation time, etc.
-            table_query = f"""
-            SELECT
-                ddl,
-                creation_time,
-                table_type,
-                row_count,
-                size_bytes
-            FROM
-                `{project}.{schema}.INFORMATION_SCHEMA.TABLES`
-            WHERE
-                table_name = '{table.name}'
-            """
+            metadata["partition_columns"] = partition_columns
+            if clustering_columns:
+                metadata["clustering_columns"] = clustering_columns
 
-            table_results = self._execute_query(
-                table_query,
-                f"table_info_{project}_{schema}_{table.name}",
-                timeout=30,
-            )
-
-            if table_results and len(table_results) > 0:
-                row = table_results[0]
-                if hasattr(row, "ddl") and row.ddl:
-                    metadata["ddl"] = row.ddl
-                if hasattr(row, "creation_time") and row.creation_time:
-                    metadata["creation_time"] = row.creation_time
-                if hasattr(row, "table_type") and row.table_type:
-                    metadata["table_type"] = row.table_type
-                if hasattr(row, "row_count") and row.row_count is not None:
-                    metadata["row_count"] = row.row_count
-                if hasattr(row, "size_bytes") and row.size_bytes is not None:
-                    metadata["size_bytes"] = row.size_bytes
-
+            return metadata
         except Exception as e:
-            logger.warning(f"Error fetching schema information: {e}")
-
-        return metadata
+            logger.warning(f"Error fetching schema info: {e}")
+            return metadata
 
     def _fetch_table_stats(
         self, project: str, schema: str, table_name: str, metadata: Dict[str, Any]
