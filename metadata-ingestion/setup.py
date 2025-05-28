@@ -377,7 +377,9 @@ plugins: Dict[str, Set[str]] = {
     "datahub-rest": rest_common,
     "sync-file-emitter": {"filelock"},
     "datahub-lite": {
-        "duckdb",
+        "duckdb>=1.0.0",
+        # duckdb dropped support for python 3.8 in 1.3.0
+        "duckdb<1.3.0; python_version < '3.9'",
         "fastapi",
         "uvicorn",
     },
