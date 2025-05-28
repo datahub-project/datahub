@@ -378,6 +378,7 @@ public class ActionRequestUtils {
       final GlossaryTerm emptyTerm = new GlossaryTerm();
       emptyTerm.setUrn(proposal.getGlossaryTerm().toString());
       params.setGlossaryTerm(emptyTerm);
+      params.setGlossaryTerms(new ArrayList<>(List.of(emptyTerm)));
     }
 
     if (proposal.hasGlossaryTerms()) {
@@ -402,6 +403,7 @@ public class ActionRequestUtils {
     if (proposal.hasTag()) {
       emptyTag.setUrn(proposal.getTag().toString());
       params.setTag(emptyTag);
+      params.setTags(new ArrayList<>(List.of(emptyTag)));
     }
 
     if (proposal.hasTags()) {

@@ -1373,7 +1373,7 @@ public class ProposalUtils {
     if (roleUrns != null) {
       disjunction.addAll(
           createRoleFilterDisjunction(
-              roleUrns, type, status, startTimestampMillis, endTimestampMillis));
+              roleUrns, type, status, resourceUrn, startTimestampMillis, endTimestampMillis));
     }
   }
 
@@ -1503,6 +1503,7 @@ public class ProposalUtils {
       final List<Urn> roleUrns,
       final @Nullable ActionRequestType type,
       final @Nullable com.linkedin.datahub.graphql.generated.ActionRequestStatus status,
+      final @Nullable Urn resourceUrn,
       final @Nullable Long startTimestampMillis,
       final @Nullable Long endTimestampMillis) {
     final List<ConjunctiveCriterion> disjunction = new ArrayList<>();
@@ -1518,6 +1519,9 @@ public class ProposalUtils {
       }
       if (type != null) {
         andCriterion.add(ActionRequestUtils.createTypeCriterion(type));
+      }
+      if (resourceUrn != null) {
+        andCriterion.add(ActionRequestUtils.createResourceCriterion(resourceUrn.toString()));
       }
       if (startTimestampMillis != null) {
         andCriterion.add(ActionRequestUtils.createStartTimestampCriterion(startTimestampMillis));

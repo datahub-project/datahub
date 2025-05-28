@@ -2,6 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 
 import { ContentWrapper, StyledLink } from '@app/actionrequestV2/item/styledComponents';
+import { downgradeV2FieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ActionRequest } from '@types';
@@ -30,7 +31,7 @@ function RequestTargetEntityView({ actionRequest }: Props) {
                         {' '}
                         column{' '}
                         <Text color="gray" weight="bold" type="span">
-                            {actionRequest.subResource}
+                            {downgradeV2FieldPath(actionRequest.subResource)}
                         </Text>
                     </Text>
                 </>

@@ -22,7 +22,7 @@ import FilterSection from '@src/app/sharedV2/filters/FilterSection';
 import usePagination from '@src/app/sharedV2/pagination/usePagination';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
-import { useAggregateActionRequestsQuery, useListActionRequestsQuery } from '@graphql/actionRequest.generated';
+import { useAggregateActionRequestsQuery, useListActionRequestsV2Query } from '@graphql/actionRequest.generated';
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { ActionRequest, ActionRequestAssignee, Entity, EntityType, FacetFilterInput, FilterOperator } from '@types';
 
@@ -119,7 +119,7 @@ export const ProposalList = ({
         facets: ACTION_REQUEST_DEFAULT_FACETS,
         allActionRequests: getAllActionRequests,
     };
-    const { loading, error, data, refetch, networkStatus } = useListActionRequestsQuery({
+    const { loading, error, data, refetch, networkStatus } = useListActionRequestsV2Query({
         variables: {
             input: {
                 start,
@@ -163,7 +163,13 @@ export const ProposalList = ({
 
     const actionRequests = useMemo(() => data?.listActionRequests?.actionRequests || [], [data]);
     const totalActionRequests = data?.listActionRequests?.total || 0;
-    const hasPagination = totalActionRequests > pageSize;
+
+    const [paginationTotal, setPaginationTotal] = useState(totalActionRequests);
+    useEffect(() => {
+        if (data?.listActionRequests?.actionRequests?.length) {
+            setPaginationTotal(totalActionRequests);
+        }
+    }, [totalActionRequests, data]);
 
     const onActionRequestUpdate = (completedUrns: string[]) => {
         // if we're bulk accepting or rejecting, filter out the completed urns and show reload
@@ -202,17 +208,6 @@ export const ProposalList = ({
         }, 3000);
     };
 
-    // go to the last page with data if there's no data on the current page after a timeout because of elastic consitency issues
-    useEffect(() => {
-        const timeout = setTimeout(() => {
-            const lastValidPage = Math.max(1, Math.ceil(totalActionRequests / pageSize));
-            if (!loading && page > lastValidPage) {
-                setPage(lastValidPage);
-            }
-        }, 3000);
-        return () => clearTimeout(timeout);
-    }, [data, totalActionRequests, pageSize, page, setPage, loading]);
-
     const FinalContainer = isShowNavBarRedesign ? Container : React.Fragment;
 
     const onSelectEntities = (selectedValues: string[]) => {
@@ -222,6 +217,7 @@ export const ProposalList = ({
             negated: false,
             values: selectedValues,
         };
+        setPage(1);
         onChangeFilters([entityFilter], true);
     };
 
@@ -273,7 +269,8 @@ export const ProposalList = ({
                 <ProposalsTable
                     onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
-                    isLoading={isLoading && !data}
+                    // Show loading indicator when there is no cached data, or the when the cached data is empty after bulk operations
+                    isLoading={isLoading && (!data || data?.listActionRequests?.actionRequests.length === 0)}
                     enableSelection={enableSelection}
                     isRowSelectionDisabled={(record: ActionRequest) => {
                         return record.status === 'COMPLETED';
@@ -291,17 +288,20 @@ export const ProposalList = ({
                             selectedProposals={selectedProposals}
                             setSelectedUrns={setSelectedUrns}
                             onActionRequestUpdate={onActionRequestUpdate}
-                            hasPagination={hasPagination}
+                            hasPagination
                         />
                     )}
                     <Pagination
                         currentPage={page}
                         itemsPerPage={pageSize}
-                        totalPages={totalActionRequests}
+                        totalPages={paginationTotal}
                         onPageChange={(newPage) => setPage(newPage)}
                         showSizeChanger
-                        onShowSizeChange={(_currNum, newNum) => setPageSize(newNum)}
-                        hideOnSinglePage
+                        onShowSizeChange={(_currNum, newNum) => {
+                            setPageSize(newNum);
+                            setPaginationTotal(totalActionRequests);
+                        }}
+                        hideOnSinglePage={!data}
                         showLessItems
                     />
                 </FooterContainer>
