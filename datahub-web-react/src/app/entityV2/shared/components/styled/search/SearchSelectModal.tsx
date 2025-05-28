@@ -1,6 +1,5 @@
 import { Modal } from '@components';
 import React, { useState } from 'react';
-import styled from 'styled-components';
 
 import { EntityAndType } from '@app/entity/shared/types';
 import { SearchSelect } from '@app/entityV2/shared/components/styled/search/SearchSelect';
@@ -8,10 +7,6 @@ import ClickOutside from '@app/shared/ClickOutside';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { EntityType } from '@types';
-
-const StyledModal = styled(Modal)`
-    top: 30px;
-`;
 
 const MODAL_WIDTH_PX = 800;
 

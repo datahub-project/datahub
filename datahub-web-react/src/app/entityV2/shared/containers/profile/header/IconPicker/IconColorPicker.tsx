@@ -1,7 +1,6 @@
 import { Modal } from '@components';
 import { Input } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import { ChatIconPicker } from '@app/entityV2/shared/containers/profile/header/IconPicker/IconPicker';

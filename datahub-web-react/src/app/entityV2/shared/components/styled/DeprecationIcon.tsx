@@ -145,6 +145,7 @@ export const DeprecationIcon = ({
                     message.success({ content: 'Marked assets as un-deprecated!', duration: 2 });
                     refetch?.();
                 }
+                setShowUndeprecateModal(false);
             })
             .catch((e) => {
                 message.destroy();

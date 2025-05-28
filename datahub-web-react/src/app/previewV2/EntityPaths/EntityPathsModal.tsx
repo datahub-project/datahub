@@ -1,5 +1,4 @@
-import { Modal } from '@components';
-import { Skeleton } from 'antd';
+import { Modal, Skeleton } from 'antd';
 import React, { useContext } from 'react';
 import styled from 'styled-components/macro';
 
@@ -11,11 +10,6 @@ import { CompactEntityNameList } from '@app/recommendations/renderer/component/C
 import { useGetEntitiesQuery } from '@src/graphql/entity.generated';
 
 import { Entity, EntityPath, LineageDirection } from '@types';
-
-const StyledModal = styled(Modal)`
-    width: 70vw;
-    max-width: 850px;
-`;
 
 const PathWrapper = styled.div`
     display: inline-block;
@@ -94,7 +88,7 @@ export default function EntityPathsModal({ paths, resultEntityUrn, hideModal }: 
                 </Header>
             }
             width="75vw"
-            visible
+            open
             onCancel={hideModal}
             onOk={hideModal}
             footer={null}

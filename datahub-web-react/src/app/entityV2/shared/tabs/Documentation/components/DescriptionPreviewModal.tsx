@@ -44,7 +44,7 @@ export const DescriptionPreviewModal = ({ description, editMode, onClose }: Desc
                 width="80%"
                 style={modalStyle}
                 bodyStyle={bodyStyle}
-                title={''}
+                title=""
                 open
                 closable={false}
                 onCancel={onConfirmClose}

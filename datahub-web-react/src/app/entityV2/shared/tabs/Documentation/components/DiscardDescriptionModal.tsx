@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
