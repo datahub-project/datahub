@@ -5,9 +5,9 @@ import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CO
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
+import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListenerRegistrar;
 import com.linkedin.metadata.kafka.listener.GenericKafkaListener;
-import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
