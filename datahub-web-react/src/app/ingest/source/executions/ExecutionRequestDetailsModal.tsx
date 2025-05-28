@@ -178,14 +178,14 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
             bodyStyle={modalBodyStyle}
             title={
                 <HeaderSection>
-                    <StyledTitle level={4}>Sync Details</StyledTitle>
+                    <StyledTitle level={4}>Execution Run Details</StyledTitle>
                 </HeaderSection>
             }
             open={open}
             onCancel={onClose}
         >
-            {!data && loading && <Message type="loading" content="Loading sync details..." />}
-            {error && message.error('Failed to load sync details :(')}
+            {!data && loading && <Message type="loading" content="Loading execution run details..." />}
+            {error && message.error('Failed to load execution run details :(')}
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>
