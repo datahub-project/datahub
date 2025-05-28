@@ -612,6 +612,46 @@ class BigQueryPartitionManager:
 
         return result
 
+    def _extract_partition_info_from_error(
+        self, error_message: str
+    ) -> Optional[Dict[str, str]]:
+        """
+        Extract partition information from BigQuery error messages.
+
+        Args:
+            error_message: The error message from BigQuery
+
+        Returns:
+            Dictionary of partition column values if found, None otherwise
+        """
+        try:
+            # Look for file path in error message that contains partition info
+            if "gs://" not in error_message:
+                return None
+
+            # Extract the GCS path
+            start_idx = error_message.find("gs://")
+            end_idx = error_message.find(".parquet", start_idx)
+            if end_idx == -1:
+                return None
+
+            file_path = error_message[start_idx : end_idx + 8]  # Include .parquet
+
+            # Extract partition information from path
+            # Example: .../feed=value/year=2025/month=05/day=28/...
+            partition_info = {}
+            parts = file_path.split("/")
+            for part in parts:
+                if "=" in part:
+                    key, value = part.split("=")
+                    partition_info[key] = value
+
+            return partition_info if partition_info else None
+
+        except Exception as e:
+            logger.debug(f"Error extracting partition info from error message: {e}")
+            return None
+
     def get_required_partition_filters(
         self,
         table: BigqueryTable,
@@ -630,8 +670,9 @@ class BigQueryPartitionManager:
         Returns:
             List of partition filter strings, empty list, or None (no partitioning needed)
         """
-        # Check if we already have cached filters for this table
         table_key = f"{project}.{schema}.{table.name}"
+
+        # Check cache first
         if table_key in self._successful_filters_cache:
             logger.info(f"Using cached filters for {table_key}")
             return self._successful_filters_cache[table_key]
@@ -648,7 +689,8 @@ class BigQueryPartitionManager:
         # If no partition columns found, this table doesn't require partition filters
         if not partition_columns:
             logger.debug(f"No partition columns found for table {table.name}")
-            return None
+            self._successful_filters_cache[table_key] = []
+            return []
 
         logger.info(f"Found partition columns for {table.name}: {partition_columns}")
 
@@ -1066,7 +1108,28 @@ class BigQueryPartitionManager:
             f"Standard approach failed for large table {table.name}, trying last-resort options"
         )
 
-        # Try to find ANY partition that has data - even a small amount - to make profiling possible
+        # First try to get partition info from any previous error messages in the thread
+        error_info = getattr(self, "_last_error_message", None)
+        if error_info:
+            partition_info = self._extract_partition_info_from_error(error_info)
+            if partition_info:
+                filters = []
+                for col, value in partition_info.items():
+                    if col in partition_columns:
+                        # Handle different data types appropriately
+                        if partition_columns[col].upper() in ("STRING", "VARCHAR"):
+                            filters.append(f"`{col}` = '{value}'")
+                        else:
+                            filters.append(f"`{col}` = {value}")
+
+                # Verify these filters work
+                if filters and self._filter_builder.verify_partition_has_data(
+                    table, project, schema, filters, timeout // 2
+                ):
+                    logger.info(f"Found working filters from error message: {filters}")
+                    return filters
+
+        # If that didn't work, continue with existing last resort approach
         for col_name, col_type in partition_columns.items():
             try:
                 # Find the value with ANY data (not necessarily the most data)

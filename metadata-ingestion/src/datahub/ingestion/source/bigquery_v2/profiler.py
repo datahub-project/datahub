@@ -110,7 +110,9 @@ class BigqueryProfiler(GenericProfiler):
         """Convert BigQueryV2Config to BigQueryProfilerConfig"""
         # Extract profiling parameters from config
         sample_size = getattr(self.config.profiling, "sample_size", 100_000)
-        query_timeout = getattr(self.config.profiling, "query_timeout", 60)
+        query_timeout = getattr(
+            self.config.profiling, "query_timeout", 60
+        )  # Default 60 seconds
         max_queries_per_table = getattr(self.config.profiling, "max_workers", 50)
         profile_table_level_only = getattr(
             self.config.profiling, "profile_table_level_only", False
@@ -119,13 +121,14 @@ class BigqueryProfiler(GenericProfiler):
 
         # Handle schema pattern from BigQueryV2Config
         schema_pattern = None
-        if hasattr(self.config, "schema") and self.config.schema:
-            if hasattr(self.config.schema, "allow"):
-                schema_pattern = self.config.schema.allow
-            elif isinstance(self.config.schema, str):
-                schema_pattern = [self.config.schema]
-            elif isinstance(self.config.schema, list):
-                schema_pattern = self.config.schema
+        config_schema = getattr(self.config, "schema", None)
+        if config_schema is not None:
+            if hasattr(config_schema, "allow"):
+                schema_pattern = config_schema.allow
+            elif isinstance(config_schema, str):
+                schema_pattern = [config_schema]
+            elif isinstance(config_schema, list):
+                schema_pattern = config_schema
 
         external_table_sampling_percent = 0.1  # Default value
         large_table_sampling_percent = 1.0  # Default value
@@ -150,7 +153,7 @@ class BigqueryProfiler(GenericProfiler):
         def execute_query(
             query: str,
             cache_key: Optional[str] = None,
-            timeout: int = 60,
+            timeout: int = 60,  # Default 60 seconds
             max_retries: int = 2,
         ) -> List[Any]:
             # Check cache first if a cache key is provided
@@ -181,7 +184,11 @@ class BigqueryProfiler(GenericProfiler):
                     logger.warning(f"Query timed out after {timeout} seconds")
                     return []
                 except Exception as e:
-                    logger.warning(f"Query execution error: {str(e)}")
+                    error_msg = str(e)
+                    logger.warning(f"Query execution error: {error_msg}")
+                    # Store the error message for partition extraction
+                    if hasattr(self.partition_manager, "_last_error_message"):
+                        self.partition_manager._last_error_message = error_msg
                     return []
 
             # Execute the query with retries
