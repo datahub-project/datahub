@@ -198,6 +198,12 @@ class BasicProfileStrategy(ProfileStrategy):
             row = query_results[0]
             profile_data["rowCount"] = getattr(row, "row_count", 0)
 
+        # Add a field profile for each column, even if we don't have detailed statistics
+        if hasattr(table, "columns") and table.columns:
+            for column in table.columns:
+                field_profile = DatasetFieldProfileClass(fieldPath=column.name)
+                profile_data["fieldProfiles"].append(field_profile)
+
         return profile_data
 
 
@@ -335,84 +341,143 @@ class StandardProfileStrategy(ProfileStrategy):
         table: BigqueryTable,
     ) -> Dict[str, Any]:
         """Extract comprehensive profile data from query results."""
+        # Initialize the profile data structure
+        profile_data = self._initialize_profile_data(table)
+
+        if not query_results or len(query_results) == 0:
+            # Even without results, we should still include all columns in the profile
+            self._add_basic_field_profiles(table, profile_data)
+            return profile_data
+
+        # Update row count from query results
+        row = query_results[0]
+        profile_data["rowCount"] = getattr(row, "row_count", 0)
+
+        # Add field profiles for all columns
+        self._add_field_profiles_with_stats(table, row, profile_data)
+
+        return profile_data
+
+    def _initialize_profile_data(self, table: BigqueryTable) -> Dict[str, Any]:
+        """Initialize the profile data structure."""
         columns_count = 0
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
-        profile_data: Dict[str, Any] = {
-            "timestampMillis": int(
-                datetime.utcnow().timestamp() * 1000
-            ),  # Current time in milliseconds
+        return {
+            "timestampMillis": int(datetime.utcnow().timestamp() * 1000),
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
             "fieldProfiles": [],
         }
 
-        if not query_results or len(query_results) == 0:
-            return profile_data
-
-        row = query_results[0]
-        profile_data["rowCount"] = getattr(row, "row_count", 0)
-
-        # Process column-level statistics
+    def _add_basic_field_profiles(
+        self, table: BigqueryTable, profile_data: Dict[str, Any]
+    ) -> None:
+        """Add basic field profiles for all columns."""
         if hasattr(table, "columns") and table.columns:
+            for column in table.columns:
+                field_profile = DatasetFieldProfileClass(fieldPath=column.name)
+                profile_data["fieldProfiles"].append(field_profile)
+
+    def _add_field_profiles_with_stats(
+        self, table: BigqueryTable, row: Any, profile_data: Dict[str, Any]
+    ) -> None:
+        """Add field profiles with statistics for all columns."""
+        # Create a mapping of field profiles by column name
+        field_profiles_by_name = {}
+
+        # First, add a basic field profile for each column
+        if hasattr(table, "columns") and table.columns:
+            for column in table.columns:
+                field_profile = DatasetFieldProfileClass(fieldPath=column.name)
+                field_profiles_by_name[column.name] = field_profile
+                profile_data["fieldProfiles"].append(field_profile)
+
+            # Process column-level statistics for columns we can profile
             for column in table.columns:
                 column_name = column.name
                 column_type = column.data_type
 
-                # Skip unsupported types
+                # Skip statistics for unsupported types, but we've already added the basic profile
                 if column_type in ("ARRAY", "STRUCT", "JSON"):
                     continue
 
-                # Create field profile for this column
-                field_profile = DatasetFieldProfileClass(fieldPath=column_name)
+                # Get the field profile we already created
+                field_profile = field_profiles_by_name[column_name]
 
                 # Add common statistics
-                distinct_count_attr = f"{column_name}_distinct_count"
-                if hasattr(row, distinct_count_attr):
-                    field_profile.uniqueCount = getattr(row, distinct_count_attr)
-                    if profile_data["rowCount"] > 0:
-                        field_profile.uniqueProportion = (
-                            field_profile.uniqueCount / profile_data["rowCount"]
-                        )
-
-                null_count_attr = f"{column_name}_null_count"
-                if hasattr(row, null_count_attr):
-                    field_profile.nullCount = getattr(row, null_count_attr)
-                    if profile_data["rowCount"] > 0:
-                        field_profile.nullProportion = (
-                            field_profile.nullCount / profile_data["rowCount"]
-                        )
+                self._add_common_stats(
+                    field_profile, row, column_name, profile_data["rowCount"]
+                )
 
                 # Add type-specific statistics
-                if column_type in (
-                    "INTEGER",
-                    "INT64",
-                    "FLOAT",
-                    "FLOAT64",
-                    "NUMERIC",
-                    "BIGNUMERIC",
-                ):
-                    if hasattr(row, f"{column_name}_min"):
-                        field_profile.min = str(getattr(row, f"{column_name}_min"))
-                    if hasattr(row, f"{column_name}_max"):
-                        field_profile.max = str(getattr(row, f"{column_name}_max"))
-                    if hasattr(row, f"{column_name}_avg"):
-                        field_profile.mean = str(getattr(row, f"{column_name}_avg"))
-                    if hasattr(row, f"{column_name}_stddev"):
-                        field_profile.stdev = str(getattr(row, f"{column_name}_stddev"))
+                self._add_type_specific_stats(
+                    field_profile, row, column_name, column_type
+                )
 
-                elif column_type in ("DATE", "DATETIME", "TIMESTAMP"):
-                    if hasattr(row, f"{column_name}_min"):
-                        field_profile.min = str(getattr(row, f"{column_name}_min"))
-                    if hasattr(row, f"{column_name}_max"):
-                        field_profile.max = str(getattr(row, f"{column_name}_max"))
+    def _add_common_stats(
+        self,
+        field_profile: DatasetFieldProfileClass,
+        row: Any,
+        column_name: str,
+        row_count: int,
+    ) -> None:
+        """Add common statistics for a column."""
+        distinct_count_attr = f"{column_name}_distinct_count"
+        if hasattr(row, distinct_count_attr):
+            field_profile.uniqueCount = getattr(row, distinct_count_attr)
+            if row_count > 0 and field_profile.uniqueCount is not None:
+                field_profile.uniqueProportion = field_profile.uniqueCount / row_count
 
-                # Add the field profile to the list
-                profile_data["fieldProfiles"].append(field_profile)
+        null_count_attr = f"{column_name}_null_count"
+        if hasattr(row, null_count_attr):
+            field_profile.nullCount = getattr(row, null_count_attr)
+            if row_count > 0 and field_profile.nullCount is not None:
+                field_profile.nullProportion = field_profile.nullCount / row_count
 
-        return profile_data
+    def _add_type_specific_stats(
+        self,
+        field_profile: DatasetFieldProfileClass,
+        row: Any,
+        column_name: str,
+        column_type: str,
+    ) -> None:
+        """Add type-specific statistics for a column."""
+        if column_type in (
+            "INTEGER",
+            "INT64",
+            "FLOAT",
+            "FLOAT64",
+            "NUMERIC",
+            "BIGNUMERIC",
+        ):
+            self._add_numeric_stats(field_profile, row, column_name)
+        elif column_type in ("DATE", "DATETIME", "TIMESTAMP"):
+            self._add_datetime_stats(field_profile, row, column_name)
+
+    def _add_numeric_stats(
+        self, field_profile: DatasetFieldProfileClass, row: Any, column_name: str
+    ) -> None:
+        """Add numeric statistics for a column."""
+        if hasattr(row, f"{column_name}_min"):
+            field_profile.min = str(getattr(row, f"{column_name}_min"))
+        if hasattr(row, f"{column_name}_max"):
+            field_profile.max = str(getattr(row, f"{column_name}_max"))
+        if hasattr(row, f"{column_name}_avg"):
+            field_profile.mean = str(getattr(row, f"{column_name}_avg"))
+        if hasattr(row, f"{column_name}_stddev"):
+            field_profile.stdev = str(getattr(row, f"{column_name}_stddev"))
+
+    def _add_datetime_stats(
+        self, field_profile: DatasetFieldProfileClass, row: Any, column_name: str
+    ) -> None:
+        """Add datetime statistics for a column."""
+        if hasattr(row, f"{column_name}_min"):
+            field_profile.min = str(getattr(row, f"{column_name}_min"))
+        if hasattr(row, f"{column_name}_max"):
+            field_profile.max = str(getattr(row, f"{column_name}_max"))
 
 
 class HistogramProfileStrategy(ProfileStrategy):
@@ -724,17 +789,39 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
         }
 
         if not query_results or len(query_results) == 0:
+            # Even without results, we should still include all columns in the profile
+            if hasattr(table, "columns") and table.columns:
+                for column in table.columns:
+                    field_profile = DatasetFieldProfileClass(fieldPath=column.name)
+                    profile_data["fieldProfiles"].append(field_profile)
             return profile_data
 
         row = query_results[0]
         profile_data["rowCount"] = getattr(row, "row_count", 0)
 
-        # Process only partition columns
-        for column_name, column_type in partition_columns.items():
-            # Create field profile for this partition column
-            field_profile = DatasetFieldProfileClass(fieldPath=column_name)
+        # Create a mapping of field profiles by column name
+        field_profiles_by_name = {}
 
-            # Add distinct count data
+        # First, add a basic field profile for each column
+        if hasattr(table, "columns") and table.columns:
+            for column in table.columns:
+                field_profile = DatasetFieldProfileClass(fieldPath=column.name)
+                field_profiles_by_name[column.name] = field_profile
+                profile_data["fieldProfiles"].append(field_profile)
+
+        # Process partition columns with detailed statistics
+        for column_name, column_type in partition_columns.items():
+            # Use existing field profile if it exists, or create a new one
+            field_profile = field_profiles_by_name.get(
+                column_name, DatasetFieldProfileClass(fieldPath=column_name)
+            )
+
+            # If this is a new field profile not in our mapping, add it
+            if column_name not in field_profiles_by_name:
+                field_profiles_by_name[column_name] = field_profile
+                profile_data["fieldProfiles"].append(field_profile)
+
+            # Add statistics for partition columns
             distinct_count_attr = f"{column_name}_distinct_count"
             if hasattr(row, distinct_count_attr):
                 field_profile.uniqueCount = getattr(row, distinct_count_attr)
@@ -743,7 +830,6 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
                         field_profile.uniqueCount / profile_data["rowCount"]
                     )
 
-            # Add null count data
             null_count_attr = f"{column_name}_null_count"
             if hasattr(row, null_count_attr):
                 field_profile.nullCount = getattr(row, null_count_attr)
@@ -768,9 +854,6 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
                     field_profile.min = str(getattr(row, f"{column_name}_min"))
                 if hasattr(row, f"{column_name}_max"):
                     field_profile.max = str(getattr(row, f"{column_name}_max"))
-
-            # Add the field profile to the list
-            profile_data["fieldProfiles"].append(field_profile)
 
         return profile_data
 
