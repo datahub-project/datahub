@@ -11,10 +11,7 @@ from acryl_datahub_cloud._sdk_extras.assertion import (
 from acryl_datahub_cloud._sdk_extras.assertions_client import AssertionsClient
 from datahub.metadata.urns import AssertionUrn, DatasetUrn
 from datahub.utilities.urns.urn import Urn
-
-
-class DummyDataHubClient:
-    pass
+from tests.conftest import StubDataHubClient
 
 
 @pytest.mark.parametrize(
@@ -25,9 +22,10 @@ class DummyDataHubClient:
     ],
 )
 def test_upsert_smart_freshness_assertion_with_default_values(
+    stub_datahub_client: StubDataHubClient,
     assertion_urn: Optional[AssertionUrn],
 ) -> None:
-    assertions_client = AssertionsClient(client=DummyDataHubClient())  # type: ignore[arg-type]  # Ignore type check for dummy client
+    assertions_client = AssertionsClient(client=stub_datahub_client)  # type: ignore[arg-type]  # Ignore type check for dummy client
 
     assertion = assertions_client.upsert_smart_freshness_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 from acryl_datahub_cloud._sdk_extras.assertion import (
     AssertionMode,
@@ -14,8 +14,9 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
     InferenceSensitivity,
-    _AssertionInput,
+    _SmartFreshnessAssertionInput,
 )
+from acryl_datahub_cloud._sdk_extras.entities.assertion import TagsInputType
 from datahub.metadata.urns import AssertionUrn, DatasetUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -53,6 +54,7 @@ class AssertionsClient:
         incident_behavior: Union[
             AssertionIncidentBehavior, list[AssertionIncidentBehavior], None
         ] = None,
+        tags: Optional[TagsInputType] = None,
     ) -> SmartFreshnessAssertion:
         """
         Upsert a smart freshness assertion. Note keyword arguments are required.
@@ -97,10 +99,16 @@ class AssertionsClient:
                 Valid values are:
                 - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
                 - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+            tags: The tags to be applied to the assertion.
+                Valid values are:
+                - a list of strings (strings will be converted to TagUrn objects)
+                - a list of TagUrn objects
+                - a list of TagAssociationClass objects
         """
         _print_experimental_warning()
-        assertion_input = _AssertionInput(  # noqa: F841 - This will be used
+        assertion_input = _SmartFreshnessAssertionInput(  # noqa: F841 - This will be used
             urn=urn,
+            entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             display_name=display_name,
             detection_mechanism=detection_mechanism,
@@ -109,9 +117,11 @@ class AssertionsClient:
             training_data_lookback_days=training_data_lookback_days,
             incident_behavior=incident_behavior,
         )
+        # TODO: In _AssertionInput, make sure the detection mechanism is a valid selectable option based on the assertion type
         # TODO: Create the Entities from the AssertionInput
         # assertion_entity = assertion_input.to_assertion_entity()
         # monitor_entity = assertion_input.to_monitor_entity()
+        # TODO: Add the source / lastUpdated to the assertion and monitor entities (consider using _AssertionInput for this)
         # TODO: Call the DataHub API to upsert the assertion and monitor entities
         # TODO: Do this in a "transaction" i.e. if one fails we are not left in a half-baked state
         #   - can this be done in a single call?:

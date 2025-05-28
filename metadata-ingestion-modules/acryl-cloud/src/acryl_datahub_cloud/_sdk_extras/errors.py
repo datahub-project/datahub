@@ -2,12 +2,12 @@ import json
 from typing import Collection, Mapping, Union
 
 
-class SdkUsageError(Exception):
-    # TODO: Import from datahub.errors
-    pass
+class SDKUsageError(Exception):
+    def __init__(self, msg: str):
+        super().__init__(msg)
 
 
-class SDKUsageErrorWithExamples(SdkUsageError):
+class SDKUsageErrorWithExamples(SDKUsageError):
     def __init__(
         self,
         msg: str,

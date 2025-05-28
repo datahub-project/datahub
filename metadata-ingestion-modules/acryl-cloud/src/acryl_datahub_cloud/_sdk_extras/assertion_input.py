@@ -5,16 +5,31 @@ validate and represent the input for creating an Assertion in DataHub.
 
 import random
 import string
-from abc import ABC
+from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Literal, TypeAlias, Union
+from typing import Literal, Optional, TypeAlias, Union
 
 import pydantic
+from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel, Extra, ValidationError
 
-from acryl_datahub_cloud._sdk_extras.errors import SDKUsageErrorWithExamples
+from acryl_datahub_cloud._sdk_extras.entities.assertion import (
+    Assertion,
+    AssertionActionsInputType,
+    AssertionInfoInputType,
+    TagsInputType,
+)
+from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+from acryl_datahub_cloud._sdk_extras.errors import (
+    SDKNotYetSupportedError,
+    SDKUsageError,
+    SDKUsageErrorWithExamples,
+)
+from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, DatasetUrn
+from datahub.sdk import Dataset
+from datahub.sdk.entity_client import EntityClient
 
 # TODO: Import ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS from datahub_executor.config
 ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS = 60
@@ -38,10 +53,24 @@ class _AuditLog(AbstractDetectionMechanism):
     type: Literal["audit_log"] = "audit_log"
 
 
+# Keep this in sync with the allowed field types in the UI, currently in
+# datahub-web-react/src/app/entity/shared/tabs/Dataset/Validations/assertion/builder/constants.ts: LAST_MODIFIED_FIELD_TYPES
+LAST_MODIFIED_ALLOWED_FIELD_TYPES = [models.DateTypeClass(), models.TimeTypeClass()]
+
+
 class _LastModifiedColumn(AbstractDetectionMechanism):
     type: Literal["last_modified_column"] = "last_modified_column"
     column_name: str
     additional_filter: Union[str, None] = None
+
+
+# Keep this in sync with the allowed field types in the UI, currently in
+# datahub-web-react/src/app/entity/shared/tabs/Dataset/Validations/assertion/builder/constants.ts: HIGH_WATERMARK_FIELD_TYPES
+HIGH_WATERMARK_ALLOWED_FIELD_TYPES = [
+    models.NumberTypeClass(),
+    models.DateTypeClass(),
+    models.TimeTypeClass(),
+]
 
 
 class _HighWaterMarkColumn(AbstractDetectionMechanism):
@@ -54,22 +83,33 @@ class _DataHubOperation(AbstractDetectionMechanism):
     type: Literal["datahub_operation"] = "datahub_operation"
 
 
+# Keep these two lists in sync:
+_DETECTION_MECHANISM_CONCRETE_TYPES = (
+    _InformationSchema,
+    _AuditLog,
+    _LastModifiedColumn,
+    _HighWaterMarkColumn,
+    _DataHubOperation,
+)
+_DETECTION_MECHANISM_TYPES = Union[
+    _InformationSchema,
+    _AuditLog,
+    _LastModifiedColumn,
+    _HighWaterMarkColumn,
+    _DataHubOperation,
+]
+
+
 class DetectionMechanism:
+    # To have a more enum-like user experience even with sub parameters, we define the detection mechanisms as class attributes.
+    # The options with sub parameters are the classes themselves so that parameters can be applied, and the rest are already instantiated instances of the classes.
     INFORMATION_SCHEMA = _InformationSchema()
     AUDIT_LOG = _AuditLog()
     LAST_MODIFIED_COLUMN = _LastModifiedColumn
     HIGH_WATER_MARK_COLUMN = _HighWaterMarkColumn
     DATAHUB_OPERATION = _DataHubOperation()
 
-    DETECTION_MECHANISM_TYPES = Union[
-        _InformationSchema,
-        _AuditLog,
-        _LastModifiedColumn,
-        _HighWaterMarkColumn,
-        _DataHubOperation,
-    ]
-
-    DETECTION_MECHANISM_EXAMPLES = {
+    _DETECTION_MECHANISM_EXAMPLES = {
         "Information Schema from string": "information_schema",
         "Information Schema from DetectionMechanism": "DetectionMechanism.INFORMATION_SCHEMA",
         "Audit Log from string": "audit_log",
@@ -93,27 +133,27 @@ class DetectionMechanism:
     @staticmethod
     def parse(
         detection_mechanism_config: Union[
-            str, dict[str, str], DETECTION_MECHANISM_TYPES, None
+            str, dict[str, str], _DETECTION_MECHANISM_TYPES, None
         ],
-    ) -> DETECTION_MECHANISM_TYPES:
+    ) -> _DETECTION_MECHANISM_TYPES:
         if detection_mechanism_config is None:
             return DEFAULT_DETECTION_MECHANISM
-        if isinstance(detection_mechanism_config, str):
+        if isinstance(detection_mechanism_config, _DETECTION_MECHANISM_CONCRETE_TYPES):
+            return detection_mechanism_config
+        elif isinstance(detection_mechanism_config, str):
             return DetectionMechanism._try_parse_from_string(detection_mechanism_config)
         elif isinstance(detection_mechanism_config, dict):
             return DetectionMechanism._try_parse_from_dict(detection_mechanism_config)
-        elif issubclass(type(detection_mechanism_config), AbstractDetectionMechanism):
-            return detection_mechanism_config
         else:
             raise SDKUsageErrorWithExamples(
                 msg=f"Invalid detection mechanism: {detection_mechanism_config}",
-                examples=DetectionMechanism.DETECTION_MECHANISM_EXAMPLES,
+                examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
             )
 
     @staticmethod
     def _try_parse_from_string(
         detection_mechanism_config: str,
-    ) -> DETECTION_MECHANISM_TYPES:
+    ) -> _DETECTION_MECHANISM_TYPES:
         try:
             return_value = getattr(
                 DetectionMechanism, detection_mechanism_config.upper()
@@ -126,25 +166,25 @@ class DetectionMechanism:
                 except ValidationError as e:
                     raise SDKUsageErrorWithExamples(
                         msg=f"Detection mechanism type '{detection_mechanism_config}' requires additional parameters: {e}",
-                        examples=DetectionMechanism.DETECTION_MECHANISM_EXAMPLES,
+                        examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
                     ) from e
             return return_value
         except AttributeError as e:
             raise SDKUsageErrorWithExamples(
                 msg=f"Invalid detection mechanism type: {detection_mechanism_config}",
-                examples=DetectionMechanism.DETECTION_MECHANISM_EXAMPLES,
+                examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
             ) from e
 
     @staticmethod
     def _try_parse_from_dict(
         detection_mechanism_config: dict[str, str],
-    ) -> DETECTION_MECHANISM_TYPES:
+    ) -> _DETECTION_MECHANISM_TYPES:
         try:
             detection_mechanism_type = detection_mechanism_config.pop("type")
         except KeyError as e:
             raise SDKUsageErrorWithExamples(
                 msg="Detection mechanism type is required if using a dict to create a DetectionMechanism",
-                examples=DetectionMechanism.DETECTION_MECHANISM_EXAMPLES,
+                examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
             ) from e
         try:
             detection_mechanism_obj = getattr(
@@ -153,7 +193,7 @@ class DetectionMechanism:
         except AttributeError as e:
             raise SDKUsageErrorWithExamples(
                 msg=f"Invalid detection mechanism type: {detection_mechanism_type}",
-                examples=DetectionMechanism.DETECTION_MECHANISM_EXAMPLES,
+                examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
             ) from e
 
         try:
@@ -168,20 +208,20 @@ class DetectionMechanism:
                 # If it is not empty, we raise an error.
                 raise SDKUsageErrorWithExamples(
                     msg=f"Invalid additional fields specified for detection mechanism '{detection_mechanism_type}': {detection_mechanism_config}",
-                    examples=DetectionMechanism.DETECTION_MECHANISM_EXAMPLES,
+                    examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
                 ) from e
             return detection_mechanism_obj
         except ValidationError as e:
             raise SDKUsageErrorWithExamples(
                 msg=f"Invalid detection mechanism type '{detection_mechanism_type}': {detection_mechanism_config} {e}",
-                examples=DetectionMechanism.DETECTION_MECHANISM_EXAMPLES,
+                examples=DetectionMechanism._DETECTION_MECHANISM_EXAMPLES,
             ) from e
 
 
 DEFAULT_DETECTION_MECHANISM = DetectionMechanism.INFORMATION_SCHEMA
 
 DetectionMechanismInputTypes: TypeAlias = Union[
-    str, dict[str, str], DetectionMechanism.DETECTION_MECHANISM_TYPES, None
+    str, dict[str, str], _DETECTION_MECHANISM_TYPES, None
 ]
 
 
@@ -227,6 +267,14 @@ class InferenceSensitivity(Enum):
                 msg=f"Invalid inference sensitivity: {sensitivity}",
                 examples=EXAMPLES,
             ) from e
+
+    @staticmethod
+    def to_int(sensitivity: "InferenceSensitivity") -> int:
+        return {
+            InferenceSensitivity.HIGH: 10,
+            InferenceSensitivity.MEDIUM: 5,
+            InferenceSensitivity.LOW: 1,
+        }[sensitivity]
 
 
 DEFAULT_SENSITIVITY = InferenceSensitivity.MEDIUM
@@ -397,20 +445,24 @@ def _try_parse_training_data_lookback_days(
             msg=f"Invalid training data lookback days: {training_data_lookback_days}",
             examples=TRAINING_DATA_LOOKBACK_DAYS_EXAMPLES,
         )
+    if training_data_lookback_days < 0:
+        raise SDKUsageError("Training data lookback days must be non-negative")
     return training_data_lookback_days
 
 
-class _AssertionInput:
+class _AssertionInput(ABC):
     def __init__(
         self,
         *,
         # Required fields
         dataset_urn: Union[str, DatasetUrn],
+        entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
         # Optional fields
         urn: Union[
             str, None, AssertionUrn
         ] = None,  # Can be None if the assertion is not yet created
         display_name: Union[str, None] = None,
+        enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
         sensitivity: Union[str, InferenceSensitivity, None] = None,
         exclusion_windows: ExclusionWindowInputTypes = None,
@@ -418,6 +470,7 @@ class _AssertionInput:
         incident_behavior: Union[
             AssertionIncidentBehavior, list[AssertionIncidentBehavior], None
         ] = None,
+        tags: Optional[TagsInputType] = None,
     ):
         """
         Create an AssertionInput object.
@@ -426,17 +479,22 @@ class _AssertionInput:
             urn: The urn of the assertion.
             dataset_urn: The urn of the dataset to be monitored.
             display_name: The display name of the assertion, which will be generated randomly if not provided.
+            enabled: Whether the assertion is enabled, defaults to True.
             detection_mechanism: The detection mechanism to be used for the assertion.
             sensitivity: The sensitivity to be applied to the assertion.
             exclusion_windows: The exclusion windows to be applied to the assertion.
             training_data_lookback_days: The training data lookback days to be applied to the assertion.
             incident_behavior: The incident behavior to be applied to the assertion.
+            tags: The tags to be applied to the assertion.
         """
         self.dataset_urn = DatasetUrn.from_string(dataset_urn)
+        self.entity_client = entity_client
         self.urn = AssertionUrn(urn) if urn else None
-        self.name = display_name or _generate_default_name(
+        self.display_name = display_name or _generate_default_name(
             DEFAULT_NAME_PREFIX, DEFAULT_NAME_SUFFIX_LENGTH
         )
+        self.enabled = enabled
+
         self.detection_mechanism = DetectionMechanism.parse(detection_mechanism)
         self.sensitivity = InferenceSensitivity.parse(sensitivity)
         self.exclusion_windows = _try_parse_exclusion_window(exclusion_windows)
@@ -444,10 +502,472 @@ class _AssertionInput:
             training_data_lookback_days
         )
         self.incident_behavior = _try_parse_incident_behavior(incident_behavior)
+        self.tags = tags
+        self.cached_dataset: Optional[Dataset] = None
 
-    # TODO: Implement the following methods:
-    # def to_assertion_entity(self) -> Assertion:
-    #     pass
+    def to_assertion_and_monitor_entities(self) -> tuple[Assertion, Monitor]:
+        """
+        Convert the assertion input to an assertion and monitor entity.
 
-    # def to_monitor_entity(self) -> Monitor:
-    #     pass
+        Returns:
+            A tuple of (assertion, monitor) entities.
+        """
+        assertion = self.to_assertion_entity()
+        monitor = self.to_monitor_entity(assertion.urn)
+        return assertion, monitor
+
+    def to_assertion_entity(self) -> Assertion:
+        """
+        Convert the assertion input to an assertion entity.
+
+        Returns:
+            The created assertion entity.
+        """
+        on_success, on_failure = self._convert_incident_behavior()
+        filter = self._create_filter_from_detection_mechanism()
+
+        return Assertion(
+            id=self.urn,
+            info=self._create_assertion_info(filter),
+            description=self.display_name,
+            on_success=on_success,
+            on_failure=on_failure,
+            tags=self._convert_tags(),
+        )
+
+    def _convert_incident_behavior(
+        self,
+    ) -> tuple[
+        Optional[AssertionActionsInputType],
+        Optional[AssertionActionsInputType],
+    ]:
+        """
+        Convert incident behavior to on_success and on_failure actions.
+
+        Returns:
+            A tuple of (on_success, on_failure) actions.
+        """
+        if not self.incident_behavior:
+            return None, None
+
+        behaviors = (
+            [self.incident_behavior]
+            if isinstance(self.incident_behavior, AssertionIncidentBehavior)
+            else self.incident_behavior
+        )
+
+        on_success: Optional[AssertionActionsInputType] = [
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RESOLVE_INCIDENT
+            )
+            for behavior in behaviors
+            if behavior == AssertionIncidentBehavior.RESOLVE_ON_PASS
+        ] or None
+
+        on_failure: Optional[AssertionActionsInputType] = [
+            models.AssertionActionClass(
+                type=models.AssertionActionTypeClass.RAISE_INCIDENT
+            )
+            for behavior in behaviors
+            if behavior == AssertionIncidentBehavior.RAISE_ON_FAIL
+        ] or None
+
+        return on_success, on_failure
+
+    def _create_filter_from_detection_mechanism(
+        self,
+    ) -> Optional[models.DatasetFilterClass]:
+        """
+        Create a filter from the detection mechanism if it has an additional filter.
+
+        Returns:
+            A DatasetFilterClass if the detection mechanism has an additional filter, None otherwise.
+        """
+        if not isinstance(
+            self.detection_mechanism,
+            (
+                DetectionMechanism.LAST_MODIFIED_COLUMN,
+                DetectionMechanism.HIGH_WATER_MARK_COLUMN,
+            ),
+        ):
+            return None
+
+        additional_filter = self.detection_mechanism.additional_filter
+        if not additional_filter:
+            return None
+
+        return models.DatasetFilterClass(
+            type=models.DatasetFilterTypeClass.SQL,
+            sql=additional_filter,
+        )
+
+    @abstractmethod
+    def _create_assertion_info(
+        self, filter: Optional[models.DatasetFilterClass]
+    ) -> AssertionInfoInputType:
+        pass
+
+    def _convert_tags(self) -> Optional[TagsInputType]:
+        """
+        Convert the tags input into a standardized format.
+
+        Returns:
+            A list of tags or None if no tags are provided.
+
+        Raises:
+            SDKUsageErrorWithExamples: If the tags input is invalid.
+        """
+        if not self.tags:
+            return None
+
+        if isinstance(self.tags, str):
+            return [self.tags]
+        elif isinstance(self.tags, list):
+            return self.tags
+        else:
+            raise SDKUsageErrorWithExamples(
+                msg=f"Invalid tags: {self.tags}",
+                examples={
+                    "Tags from string": "urn:li:tag:my_tag_1",
+                    "Tags from list": [
+                        "urn:li:tag:my_tag_1",
+                        "urn:li:tag:my_tag_2",
+                    ],
+                },
+            )
+
+    def to_monitor_entity(self, assertion_urn: AssertionUrn) -> Monitor:
+        """
+        Convert the assertion input to a monitor entity.
+
+        Args:
+            assertion_urn: The URN of the assertion to monitor.
+
+        Returns:
+            A Monitor entity configured with the assertion input parameters.
+        """
+        source_type, field = self._convert_assertion_source_type_and_field()
+        return Monitor(
+            id=self._create_monitor_key(assertion_urn),
+            info=self._create_monitor_info(
+                assertion_urn=assertion_urn,
+                status=self._convert_monitor_status(),
+                schedule=self._convert_schedule(),
+                source_type=source_type,
+                field=field,
+                sensitivity=self._convert_sensitivity(),
+                exclusion_windows=self._convert_exclusion_windows(),
+            ),
+        )
+
+    def _create_monitor_key(
+        self, assertion_urn: AssertionUrn
+    ) -> models.MonitorKeyClass:
+        """
+        Create a MonitorKeyClass for this assertion.
+
+        Returns:
+            A MonitorKeyClass with the dataset URN and assertion URN.
+        """
+        return models.MonitorKeyClass(
+            entity=str(self.dataset_urn),
+            id=str(assertion_urn),
+        )
+
+    def _convert_monitor_status(self) -> models.MonitorStatusClass:
+        """
+        Convert the enabled flag into a MonitorStatusClass.
+
+        Returns:
+            A MonitorStatusClass with ACTIVE or INACTIVE mode based on the enabled flag.
+        """
+        return models.MonitorStatusClass(
+            mode=models.MonitorModeClass.ACTIVE
+            if self.enabled
+            else models.MonitorModeClass.INACTIVE,
+        )
+
+    def _convert_exclusion_windows(
+        self,
+    ) -> list[models.AssertionExclusionWindowClass]:
+        """
+        Convert exclusion windows into AssertionExclusionWindowClass objects.
+
+        Returns:
+            A list of AssertionExclusionWindowClass objects.
+
+        Raises:
+            SDKUsageErrorWithExamples: If an exclusion window is of an invalid type.
+        """
+        exclusion_windows: list[models.AssertionExclusionWindowClass] = []
+        if self.exclusion_windows:
+            for window in self.exclusion_windows:
+                if not isinstance(window, FixedRangeExclusionWindow):
+                    raise SDKUsageErrorWithExamples(
+                        msg=f"Invalid exclusion window type: {window}",
+                        examples=FIXED_RANGE_EXCLUSION_WINDOW_EXAMPLES,
+                    )
+                exclusion_windows.append(
+                    models.AssertionExclusionWindowClass(
+                        type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,  # Currently only fixed range is supported
+                        fixedRange=models.AbsoluteTimeWindowClass(
+                            startTimeMillis=int(window.start.timestamp() * 1000),
+                            endTimeMillis=int(window.end.timestamp() * 1000),
+                        ),
+                    )
+                )
+        return exclusion_windows
+
+    @abstractmethod
+    def _convert_assertion_source_type_and_field(
+        self,
+    ) -> tuple[str, Optional[models.FreshnessFieldSpecClass]]:
+        """
+        Convert detection mechanism into source type and field specification for freshness assertions.
+
+        Returns:
+            A tuple of (source_type, field) where field may be None.
+            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass since
+            the source type is not a enum in the code generated from the DatasetFreshnessSourceType enum in the PDL.
+
+        Raises:
+            SDKNotYetSupportedError: If the detection mechanism is not supported.
+            SDKUsageError: If the field (column) is not found in the dataset,
+            and the detection mechanism requires a field. Also if the field
+            is not an allowed type for the detection mechanism.
+        """
+        pass
+
+    @abstractmethod
+    def _convert_schedule(self) -> models.CronScheduleClass:
+        pass
+
+    def _convert_sensitivity(self) -> models.AssertionMonitorSensitivityClass:
+        """
+        Convert sensitivity into an AssertionMonitorSensitivityClass.
+
+        Returns:
+            An AssertionMonitorSensitivityClass with the appropriate sensitivity.
+        """
+        return models.AssertionMonitorSensitivityClass(
+            level=InferenceSensitivity.to_int(self.sensitivity),
+        )
+
+    def _create_monitor_info(
+        self,
+        assertion_urn: AssertionUrn,
+        status: models.MonitorStatusClass,
+        schedule: models.CronScheduleClass,
+        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
+        field: Optional[models.FreshnessFieldSpecClass],
+        sensitivity: models.AssertionMonitorSensitivityClass,
+        exclusion_windows: list[models.AssertionExclusionWindowClass],
+    ) -> models.MonitorInfoClass:
+        """
+        Create a MonitorInfoClass with all the necessary components.
+
+        Args:
+            status: The monitor status.
+            schedule: The monitor schedule.
+            source_type: The freshness source type.
+            field: Optional field specification.
+            sensitivity: The monitor sensitivity.
+            exclusion_windows: List of exclusion windows.
+
+        Returns:
+            A MonitorInfoClass configured with all the provided components.
+        """
+        return models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=status,
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(assertion_urn),
+                        schedule=schedule,
+                        parameters=models.AssertionEvaluationParametersClass(
+                            type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
+                            datasetFreshnessParameters=models.DatasetFreshnessAssertionParametersClass(
+                                sourceType=source_type,
+                                field=field,
+                            ),
+                        ),
+                    )
+                ],
+                settings=models.AssertionMonitorSettingsClass(
+                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                        sensitivity=sensitivity,
+                        exclusionWindows=exclusion_windows,
+                        trainingDataLookbackWindowDays=self.training_data_lookback_days,
+                    ),
+                ),
+            ),
+        )
+
+    def _get_schema_field_spec(self, column_name: str) -> models.SchemaFieldSpecClass:
+        """
+        Get the schema field spec for the detection mechanism if needed.
+        """
+        # Only fetch the dataset if it's not already cached.
+        # Also we only fetch the dataset if it's needed for the detection mechanism.
+        if self.cached_dataset is None:
+            self.cached_dataset = self.entity_client.get(self.dataset_urn)
+
+        # TODO: Make a public accessor for _schema_dict in the SDK
+        schema_fields = self.cached_dataset._schema_dict()
+        field = schema_fields.get(column_name)
+        if field:
+            return models.SchemaFieldSpecClass(
+                path=field.fieldPath,
+                type=field.type.type.__class__.__name__,
+                nativeType=field.nativeDataType,
+            )
+        else:
+            raise SDKUsageError(
+                msg=f"Column {column_name} not found in dataset {self.dataset_urn}",
+            )
+
+
+class _SmartFreshnessAssertionInput(_AssertionInput):
+    def __init__(
+        self,
+        *,
+        dataset_urn: Union[str, DatasetUrn],
+        entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
+        urn: Union[str, None, AssertionUrn] = None,
+        display_name: Union[str, None] = None,
+        enabled: bool = True,
+        detection_mechanism: DetectionMechanismInputTypes = None,
+        sensitivity: Union[str, InferenceSensitivity, None] = None,
+        exclusion_windows: ExclusionWindowInputTypes = None,
+        training_data_lookback_days: Union[int, None] = None,
+        incident_behavior: Union[
+            AssertionIncidentBehavior, list[AssertionIncidentBehavior], None
+        ] = None,
+        tags: Optional[TagsInputType] = None,
+    ):
+        super().__init__(
+            dataset_urn=dataset_urn,
+            entity_client=entity_client,
+            urn=urn,
+            display_name=display_name,
+            enabled=enabled,
+            detection_mechanism=detection_mechanism,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
+            incident_behavior=incident_behavior,
+            tags=tags,
+        )
+
+    def _create_assertion_info(
+        self, filter: Optional[models.DatasetFilterClass]
+    ) -> AssertionInfoInputType:
+        """
+        Create a FreshnessAssertionInfoClass for a smart freshness assertion.
+
+        Args:
+            filter: Optional filter to apply to the assertion.
+
+        Returns:
+            A FreshnessAssertionInfoClass configured for smart freshness.
+        """
+        return models.FreshnessAssertionInfoClass(
+            type=models.FreshnessAssertionTypeClass.DATASET_CHANGE,  # Currently only dataset change is supported
+            entity=str(self.dataset_urn),
+            # schedule (optional, not used for smart freshness assertions)
+            filter=filter,
+        )
+
+    def _convert_schedule(self) -> models.CronScheduleClass:
+        """Create a schedule for a smart freshness assertion.
+
+        Since the schedule is not used for smart freshness assertions, we return a default schedule.
+
+        Returns:
+            A CronScheduleClass with appropriate schedule settings.
+        """
+        return models.CronScheduleClass(
+            cron="0 0 * * *",
+            timezone="America/Los_Angeles",
+        )
+
+    def _convert_assertion_source_type_and_field(
+        self,
+    ) -> tuple[str, Optional[models.FreshnessFieldSpecClass]]:
+        """
+        Convert detection mechanism into source type and field specification for freshness assertions.
+
+        Returns:
+            A tuple of (source_type, field) where field may be None.
+            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass since
+            the source type is not a enum in the code generated from the DatasetFreshnessSourceType enum in the PDL.
+
+        Raises:
+            SDKNotYetSupportedError: If the detection mechanism is not supported.
+            SDKUsageError: If the field (column) is not found in the dataset,
+            and the detection mechanism requires a field. Also if the field
+            is not an allowed type for the detection mechanism.
+        """
+        source_type = models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA
+        field = None
+
+        if isinstance(self.detection_mechanism, _LastModifiedColumn):
+            source_type = models.DatasetFreshnessSourceTypeClass.FIELD_VALUE
+            field = self._create_field_spec(
+                self.detection_mechanism.column_name,
+                LAST_MODIFIED_ALLOWED_FIELD_TYPES,
+                "last modified column",
+            )
+        elif isinstance(self.detection_mechanism, _HighWaterMarkColumn):
+            source_type = models.DatasetFreshnessSourceTypeClass.FIELD_VALUE
+            field = self._create_field_spec(
+                self.detection_mechanism.column_name,
+                HIGH_WATERMARK_ALLOWED_FIELD_TYPES,
+                "high watermark column",
+            )
+        elif isinstance(self.detection_mechanism, _InformationSchema):
+            source_type = models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA
+        elif isinstance(self.detection_mechanism, _DataHubOperation):
+            source_type = models.DatasetFreshnessSourceTypeClass.DATAHUB_OPERATION
+        elif isinstance(self.detection_mechanism, _AuditLog):
+            source_type = models.DatasetFreshnessSourceTypeClass.AUDIT_LOG
+        else:
+            raise SDKNotYetSupportedError(
+                f"Detection mechanism {self.detection_mechanism} not yet supported for smart freshness assertions"
+            )
+
+        return source_type, field
+
+    def _create_field_spec(
+        self,
+        column_name: str,
+        allowed_types: list[DictWrapper],  # TODO: Use the type from the PDL
+        field_type_name: str,
+    ) -> models.FreshnessFieldSpecClass:
+        """
+        Create a field specification for a column, validating its type.
+
+        Args:
+            column_name: The name of the column to create a spec for
+            allowed_types: List of allowed field types
+            field_type_name: Human-readable name of the field type for error messages
+
+        Returns:
+            A FreshnessFieldSpecClass for the column
+
+        Raises:
+            SDKUsageError: If the column is not found or has an invalid type
+        """
+        field_spec = self._get_schema_field_spec(column_name)
+        allowed_type_names = [t.__class__.__name__ for t in allowed_types]
+        if field_spec.type not in allowed_type_names:
+            raise SDKUsageError(
+                msg=f"Column {column_name} with type {field_spec.type} does not have an allowed type for a {field_type_name} in dataset {self.dataset_urn}. "
+                f"Allowed types are {allowed_type_names}.",
+            )
+        return models.FreshnessFieldSpecClass(
+            path=field_spec.path,
+            type=field_spec.type,
+            nativeType=field_spec.nativeType,
+        )

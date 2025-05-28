@@ -15,6 +15,7 @@ from typing import Any, Optional, Union
 from typing_extensions import Self
 
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
+    _DETECTION_MECHANISM_TYPES,
     AssertionIncidentBehavior,
     DetectionMechanism,
     ExclusionWindowTypes,
@@ -91,7 +92,7 @@ class _HasSmartFunctionality:
         exclusion_windows: list[ExclusionWindowTypes],
         training_data_lookback_days: int = DEFAULT_TRAINING_DATA_LOOKBACK_DAYS,
         incident_behavior: list[AssertionIncidentBehavior],
-        detection_mechanism: DetectionMechanism.DETECTION_MECHANISM_TYPES = DEFAULT_DETECTION_MECHANISM,
+        detection_mechanism: _DETECTION_MECHANISM_TYPES = DEFAULT_DETECTION_MECHANISM,
     ) -> None:
         """
         Initialize the smart functionality mixin.
@@ -127,7 +128,7 @@ class _HasSmartFunctionality:
         return self._incident_behavior
 
     @property
-    def detection_mechanism(self) -> DetectionMechanism.DETECTION_MECHANISM_TYPES:
+    def detection_mechanism(self) -> _DETECTION_MECHANISM_TYPES:
         return self._detection_mechanism
 
     @staticmethod
@@ -193,7 +194,7 @@ class _HasSmartFunctionality:
     @staticmethod
     def _get_detection_mechanism(
         assertion: Assertion, monitor: Monitor
-    ) -> DetectionMechanism.DETECTION_MECHANISM_TYPES:
+    ) -> _DETECTION_MECHANISM_TYPES:
         """Get the detection mechanism from the monitor and assertion."""
         if not _HasSmartFunctionality._has_valid_monitor_info(monitor):
             return DEFAULT_DETECTION_MECHANISM
@@ -201,7 +202,7 @@ class _HasSmartFunctionality:
         # 1. Check if the assertion has a parameters field
         def _warn_and_return_default_detection_mechanism(
             field_name: str,
-        ) -> DetectionMechanism.DETECTION_MECHANISM_TYPES:
+        ) -> _DETECTION_MECHANISM_TYPES:
             logger.warning(
                 f"Monitor {monitor.urn} does not have an `{field_name}` field, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
             )
@@ -275,7 +276,7 @@ class _HasSmartFunctionality:
     def _get_freshness_detection_mechanism(
         assertion: Assertion,
         parameters: models.AssertionEvaluationParametersClass,
-    ) -> DetectionMechanism.DETECTION_MECHANISM_TYPES:
+    ) -> _DETECTION_MECHANISM_TYPES:
         """Get the detection mechanism for freshness assertions."""
         if parameters.datasetFreshnessParameters is None:
             logger.warning(
@@ -303,7 +304,7 @@ class _HasSmartFunctionality:
     def _get_field_value_detection_mechanism(
         assertion: Assertion,
         parameters: models.AssertionEvaluationParametersClass,
-    ) -> DetectionMechanism.DETECTION_MECHANISM_TYPES:
+    ) -> _DETECTION_MECHANISM_TYPES:
         """Get the detection mechanism for field value based freshness."""
         # We know datasetFreshnessParameters is not None from _get_freshness_detection_mechanism check
         assert parameters.datasetFreshnessParameters is not None
@@ -558,7 +559,7 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _Assertion):
         exclusion_windows: list[ExclusionWindowTypes],
         training_data_lookback_days: int = DEFAULT_TRAINING_DATA_LOOKBACK_DAYS,
         incident_behavior: list[AssertionIncidentBehavior],
-        detection_mechanism: DetectionMechanism.DETECTION_MECHANISM_TYPES = DEFAULT_DETECTION_MECHANISM,
+        detection_mechanism: _DETECTION_MECHANISM_TYPES = DEFAULT_DETECTION_MECHANISM,
         tags: list[Urn],
         created_by: Union[Urn, None] = None,
         created_at: Union[datetime, None] = None,
