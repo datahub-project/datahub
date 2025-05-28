@@ -101,9 +101,9 @@ class BigqueryProfiler(GenericProfiler):
         """Get batch kwargs for profiling, including sampling configuration."""
         table = cast(BigqueryTable, table)
         batch_kwargs = {
-            "table": table.name,
-            "schema": schema_name,
-            "database": db_name,  # This is the project_id in BigQuery
+            "table": f"{db_name}.{schema_name}.{table.name}",  # Use fully qualified table name
+            "schema": None,  # Schema is included in the table name
+            "database": None,  # Database is included in the table name
         }
 
         if (
