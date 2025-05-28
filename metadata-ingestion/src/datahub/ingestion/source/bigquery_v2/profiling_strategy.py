@@ -179,10 +179,19 @@ class BasicProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
+        last_modified = None
+        if hasattr(table, "last_modified"):
+            last_modified = table.last_modified
+        elif hasattr(table, "last_altered"):
+            last_modified = table.last_altered
+
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
+            "lastModified": last_modified,
+            "external": table.external,
+            "columns": {},
         }
 
         if query_results and len(query_results) > 0:
@@ -333,10 +342,19 @@ class StandardProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
+        last_modified = None
+        if hasattr(table, "last_modified"):
+            last_modified = table.last_modified
+        elif hasattr(table, "last_altered"):
+            last_modified = table.last_altered
+
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
+            "lastModified": last_modified,
+            "external": table.external,
+            "columns": {},
         }
 
         if not query_results or len(query_results) == 0:
@@ -739,10 +757,19 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
+        last_modified = None
+        if hasattr(table, "last_modified"):
+            last_modified = table.last_modified
+        elif hasattr(table, "last_altered"):
+            last_modified = table.last_altered
+
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
+            "lastModified": last_modified,
+            "external": table.external,
+            "columns": {},
         }
 
         if not query_results or len(query_results) == 0:
