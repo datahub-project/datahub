@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - "metadata_models/**"
       - "metadata-integration/java/datahub-client/**"
