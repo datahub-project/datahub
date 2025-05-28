@@ -17,9 +17,25 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
+from datahub.ingestion.source.bigquery_v2.profiling_cache_manager import (
+    BigQueryCacheManager,
+)
 
-# Import the new specialized components
+# Import all specialized components
 from datahub.ingestion.source.bigquery_v2.profiling_config import BigQueryProfilerConfig
+from datahub.ingestion.source.bigquery_v2.profiling_filter_builder import (
+    BigQueryFilterBuilder,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_partition_manager import (
+    BigQueryPartitionManager,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_strategy import (
+    ProfileStrategy,
+    get_profile_strategy,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_table_metadata_manager import (
+    BigQueryTableMetadataManager,
+)
 from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
@@ -47,6 +63,32 @@ class BigqueryProfiler(GenericProfiler):
         self.report = report
         self.profiler_config = self._create_profiler_config()
         self._problematic_tables: Set[str] = set()
+
+        # Initialize all specialized components
+        self._cache_manager = BigQueryCacheManager(
+            max_cache_size=self.profiler_config.max_cache_size
+        )
+        self._filter_builder = BigQueryFilterBuilder(self._execute_query)
+        self._partition_manager = BigQueryPartitionManager(
+            self._execute_query, self._filter_builder
+        )
+        self._metadata_manager = BigQueryTableMetadataManager(self._execute_query)
+
+        # Initialize profiling strategies
+        self._profile_strategies = {
+            "basic": get_profile_strategy(
+                "basic", self._execute_query, self.profiler_config
+            ),
+            "standard": get_profile_strategy(
+                "standard", self._execute_query, self.profiler_config
+            ),
+            "histogram": get_profile_strategy(
+                "histogram", self._execute_query, self.profiler_config
+            ),
+            "partition": get_profile_strategy(
+                "partition", self._execute_query, self.profiler_config
+            ),
+        }
 
     def _create_profiler_config(self) -> BigQueryProfilerConfig:
         """Convert BigQueryV2Config to BigQueryProfilerConfig"""
@@ -79,48 +121,169 @@ class BigqueryProfiler(GenericProfiler):
             large_table_sampling_percent=1.0,
         )
 
-    def _should_profile_table(
-        self, table: BigqueryTable, schema_name: str, db_name: str
-    ) -> bool:
-        """Determine if a table should be profiled based on configuration."""
-        if not self.config.profiling.enabled:
-            return False
+    def _execute_query(
+        self,
+        query: str,
+        cache_key: Optional[str] = None,
+        timeout: int = 60,
+        max_retries: int = 3,
+    ) -> List[Any]:
+        """Execute a BigQuery query with caching and retries.
 
-        table_key = f"{db_name}.{schema_name}.{table.name}"
-        if table_key in self._problematic_tables:
-            logger.info(f"Skipping problematic table: {table_key}")
-            return False
+        Args:
+            query: The query to execute
+            cache_key: Optional cache key for caching results
+            timeout: Query timeout in seconds
+            max_retries: Maximum number of retries for failed queries
 
-        return self.profiler_config.should_profile_table(
-            db_name, schema_name, table.name
+        Returns:
+            List of query results
+        """
+        # Use cache if enabled and cache key provided
+        if self.profiler_config.enable_caching and cache_key:
+            cached_result = self._cache_manager.get_query_result(cache_key)
+            if cached_result:
+                return cached_result
+
+        from sqlalchemy import create_engine
+
+        url = self.config.get_sql_alchemy_url()
+        engine = create_engine(
+            url,
+            **self.config.get_options() if hasattr(self.config, "get_options") else {},
         )
+
+        last_exception = None
+        for attempt in range(max_retries):
+            try:
+                with engine.connect() as conn:
+                    result = conn.execute(query)
+                    results = result.fetchall()
+
+                    # Cache results if caching is enabled
+                    if self.profiler_config.enable_caching and cache_key:
+                        self._cache_manager.add_query_result(cache_key, results)
+
+                    return results
+            except Exception as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"Query execution failed (attempt {attempt + 1}/{max_retries}): {e}"
+                    )
+                    import time
+
+                    time.sleep(min(2**attempt, 10))  # Exponential backoff
+                    continue
+                else:
+                    logger.error(
+                        f"Query execution failed after {max_retries} attempts: {e}"
+                    )
+                    raise Exception(
+                        f"Query execution failed after {max_retries} attempts"
+                    ) from last_exception
+
+        # This should never be reached due to the raise in the loop
+        raise Exception("Query execution failed") from None
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
     ) -> dict:
         """Get batch kwargs for profiling, including sampling configuration."""
         table = cast(BigqueryTable, table)
+
+        # Get comprehensive table metadata
+        metadata = self._metadata_manager.get_table_metadata(
+            table, db_name, schema_name
+        )
+
+        # Get partition filters using the partition manager
+        partition_filters = None
+        if metadata["partition_columns"]:
+            try:
+                # Get required partition filters
+                partition_filters = (
+                    self._partition_manager.get_required_partition_filters(
+                        table, db_name, schema_name
+                    )
+                )
+
+                if not partition_filters and not metadata["is_external"]:
+                    # If no filters returned for non-external tables, try to get partition values
+                    partition_values = self._partition_manager.get_partition_values(
+                        table, db_name, schema_name, metadata["partition_columns"]
+                    )
+                    if partition_values:
+                        partition_filters = (
+                            self._filter_builder.create_partition_filters(
+                                table,
+                                db_name,
+                                schema_name,
+                                metadata["partition_columns"],
+                                partition_values,
+                            )
+                        )
+            except Exception as e:
+                logger.warning(f"Failed to get partition filters: {e}")
+                if metadata["is_external"]:
+                    # For external tables, use empty filter list as fallback
+                    partition_filters = []
+
+        # Choose appropriate profiling strategy based on table characteristics
+        strategy = self._get_profiling_strategy(table, metadata)
+
+        # Generate profile query using the selected strategy
+        query = strategy.generate_profile_query(
+            table, db_name, schema_name, partition_filters
+        )
+
         batch_kwargs = {
-            "table": f"{db_name}.{schema_name}.{table.name}",  # Use fully qualified table name
+            "custom_sql": query,
+            "table": f"{db_name}.{schema_name}.{table.name}",
             "schema": None,  # Schema is included in the table name
             "database": None,  # Database is included in the table name
         }
 
-        if (
-            not self.config.profiling.limit
-            and self.config.profiling.use_sampling
-            and table.rows_count
-            and table.rows_count > self.config.profiling.sample_size
-        ):
-            # Use BigQuery's TABLESAMPLE for efficient sampling
-            table_ref = f"`{db_name}`.`{schema_name}`.`{table.name}`"
-            sampling_rate = min(
-                100.0, (self.config.profiling.sample_size / table.rows_count) * 100
-            )
-            custom_sql = f"SELECT * FROM {table_ref} TABLESAMPLE SYSTEM ({sampling_rate:.4f} PERCENT)"
-            batch_kwargs["custom_sql"] = custom_sql
-
         return batch_kwargs
+
+    def _get_profiling_strategy(
+        self, table: BigqueryTable, metadata: Dict[str, Any]
+    ) -> ProfileStrategy:
+        """Choose the most appropriate profiling strategy based on table characteristics."""
+        if self.profiler_config.profile_table_level_only:
+            return self._profile_strategies["basic"]
+
+        if metadata["is_external"]:
+            # Use partition-focused strategy for external tables
+            return self._profile_strategies["partition"]
+
+        if (
+            metadata.get("size_bytes", 0) > 10_000_000_000  # 10 GB
+            or metadata.get("row_count", 0) > 100_000_000  # 100M rows
+        ):
+            # Use basic strategy for very large tables
+            return self._profile_strategies["basic"]
+
+        # Default to standard strategy
+        return self._profile_strategies["standard"]
+
+    def _should_profile_table(
+        self, table: BigqueryTable, schema_name: str, db_name: str
+    ) -> bool:
+        """Determine if a table should be profiled based on configuration and cache."""
+        if not self.config.profiling.enabled:
+            return False
+
+        table_key = f"{db_name}.{schema_name}.{table.name}"
+
+        # Check if table is marked as problematic
+        if self._cache_manager.is_problematic_table(table_key):
+            logger.info(f"Skipping problematic table: {table_key}")
+            return False
+
+        return self.profiler_config.should_profile_table(
+            db_name, schema_name, table.name
+        )
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
