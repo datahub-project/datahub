@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import BigqueryTable
 from datahub.ingestion.source.bigquery_v2.profiling_config import BigQueryProfilerConfig
+from datahub.metadata.schema_classes import DatasetFieldProfileClass
 
 logger = logging.getLogger(__name__)
 
@@ -179,18 +180,13 @@ class BasicProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
-        last_modified = None
-        if hasattr(table, "last_modified"):
-            last_modified = table.last_modified
-        elif hasattr(table, "last_altered"):
-            last_modified = table.last_altered
+        if hasattr(table, "last_modified") or hasattr(table, "last_altered"):
+            pass
 
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "lastModified": last_modified,
-            "external": table.external,
             "columns": {},
         }
 
@@ -342,19 +338,11 @@ class StandardProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
-        last_modified = None
-        if hasattr(table, "last_modified"):
-            last_modified = table.last_modified
-        elif hasattr(table, "last_altered"):
-            last_modified = table.last_altered
-
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "lastModified": last_modified,
-            "external": table.external,
-            "columns": {},
+            "fieldProfiles": [],  # Changed from "columns" to "fieldProfiles"
         }
 
         if not query_results or len(query_results) == 0:
@@ -362,9 +350,6 @@ class StandardProfileStrategy(ProfileStrategy):
 
         row = query_results[0]
         profile_data["rowCount"] = getattr(row, "row_count", 0)
-        profile_data["profileTime"] = getattr(
-            row, "profile_time", datetime.utcnow().isoformat()
-        )
 
         # Process column-level statistics
         if hasattr(table, "columns") and table.columns:
@@ -372,18 +357,31 @@ class StandardProfileStrategy(ProfileStrategy):
                 column_name = column.name
                 column_type = column.data_type
 
-                # Initialize column data
-                column_data: Dict[str, Any] = {
-                    "name": column_name,
-                    "type": column_type,
-                    "description": column.description or "",
-                    "nullable": column.nullable,
-                }
+                # Skip unsupported types
+                if column_type in ("ARRAY", "STRUCT", "JSON"):
+                    continue
+
+                # Create field profile for this column
+                field_profile = DatasetFieldProfileClass(fieldPath=column_name)
 
                 # Add common statistics
-                self._add_common_column_stats(column_data, row, column_name)
+                distinct_count_attr = f"{column_name}_distinct_count"
+                if hasattr(row, distinct_count_attr):
+                    field_profile.uniqueCount = getattr(row, distinct_count_attr)
+                    if profile_data["rowCount"] > 0:
+                        field_profile.uniqueProportion = (
+                            field_profile.uniqueCount / profile_data["rowCount"]
+                        )
 
-                # Process type-specific statistics
+                null_count_attr = f"{column_name}_null_count"
+                if hasattr(row, null_count_attr):
+                    field_profile.nullCount = getattr(row, null_count_attr)
+                    if profile_data["rowCount"] > 0:
+                        field_profile.nullProportion = (
+                            field_profile.nullCount / profile_data["rowCount"]
+                        )
+
+                # Add type-specific statistics
                 if column_type in (
                     "INTEGER",
                     "INT64",
@@ -392,82 +390,25 @@ class StandardProfileStrategy(ProfileStrategy):
                     "NUMERIC",
                     "BIGNUMERIC",
                 ):
-                    self._add_numeric_stats(column_data, row, column_name)
-                elif column_type in ("STRING", "VARCHAR"):
-                    self._add_string_stats(column_data, row, column_name)
-                elif column_type in ("DATE", "DATETIME", "TIMESTAMP"):
-                    self._add_datetime_stats(column_data, row, column_name)
-                elif column_type in ("BOOL", "BOOLEAN"):
-                    self._add_boolean_stats(column_data, row, column_name)
+                    if hasattr(row, f"{column_name}_min"):
+                        field_profile.min = str(getattr(row, f"{column_name}_min"))
+                    if hasattr(row, f"{column_name}_max"):
+                        field_profile.max = str(getattr(row, f"{column_name}_max"))
+                    if hasattr(row, f"{column_name}_avg"):
+                        field_profile.mean = str(getattr(row, f"{column_name}_avg"))
+                    if hasattr(row, f"{column_name}_stddev"):
+                        field_profile.stdev = str(getattr(row, f"{column_name}_stddev"))
 
-                # Add to columns dictionary with type check
-                if "columns" in profile_data and isinstance(
-                    profile_data["columns"], dict
-                ):
-                    profile_data["columns"][column_name] = column_data
+                elif column_type in ("DATE", "DATETIME", "TIMESTAMP"):
+                    if hasattr(row, f"{column_name}_min"):
+                        field_profile.min = str(getattr(row, f"{column_name}_min"))
+                    if hasattr(row, f"{column_name}_max"):
+                        field_profile.max = str(getattr(row, f"{column_name}_max"))
+
+                # Add the field profile to the list
+                profile_data["fieldProfiles"].append(field_profile)
 
         return profile_data
-
-    def _add_common_column_stats(
-        self, column_data: Dict[str, Any], row: Any, column_name: str
-    ) -> None:
-        """Add common statistics for all column types."""
-        # Add count data
-        count_attr = f"{column_name}_count"
-        if hasattr(row, count_attr):
-            column_data["count"] = getattr(row, count_attr)
-
-        # Add null count data
-        null_count_attr = f"{column_name}_null_count"
-        if hasattr(row, null_count_attr):
-            column_data["nullCount"] = getattr(row, null_count_attr)
-
-        # Add distinct count data
-        distinct_count_attr = f"{column_name}_distinct_count"
-        if hasattr(row, distinct_count_attr):
-            column_data["distinctCount"] = getattr(row, distinct_count_attr)
-
-    def _add_numeric_stats(
-        self, column_data: Dict[str, Any], row: Any, column_name: str
-    ) -> None:
-        """Add statistics specific to numeric columns."""
-        if hasattr(row, f"{column_name}_min"):
-            column_data["min"] = getattr(row, f"{column_name}_min")
-        if hasattr(row, f"{column_name}_max"):
-            column_data["max"] = getattr(row, f"{column_name}_max")
-        if hasattr(row, f"{column_name}_avg"):
-            column_data["avg"] = getattr(row, f"{column_name}_avg")
-        if hasattr(row, f"{column_name}_stddev"):
-            column_data["stdDev"] = getattr(row, f"{column_name}_stddev")
-
-    def _add_string_stats(
-        self, column_data: Dict[str, Any], row: Any, column_name: str
-    ) -> None:
-        """Add statistics specific to string columns."""
-        if hasattr(row, f"{column_name}_min_length"):
-            column_data["minLength"] = getattr(row, f"{column_name}_min_length")
-        if hasattr(row, f"{column_name}_max_length"):
-            column_data["maxLength"] = getattr(row, f"{column_name}_max_length")
-        if hasattr(row, f"{column_name}_avg_length"):
-            column_data["avgLength"] = getattr(row, f"{column_name}_avg_length")
-
-    def _add_datetime_stats(
-        self, column_data: Dict[str, Any], row: Any, column_name: str
-    ) -> None:
-        """Add statistics specific to date/time columns."""
-        if hasattr(row, f"{column_name}_min"):
-            column_data["min"] = getattr(row, f"{column_name}_min")
-        if hasattr(row, f"{column_name}_max"):
-            column_data["max"] = getattr(row, f"{column_name}_max")
-
-    def _add_boolean_stats(
-        self, column_data: Dict[str, Any], row: Any, column_name: str
-    ) -> None:
-        """Add statistics specific to boolean columns."""
-        if hasattr(row, f"{column_name}_true_count"):
-            column_data["trueCount"] = getattr(row, f"{column_name}_true_count")
-        if hasattr(row, f"{column_name}_false_count"):
-            column_data["falseCount"] = getattr(row, f"{column_name}_false_count")
 
 
 class HistogramProfileStrategy(ProfileStrategy):
@@ -757,18 +698,13 @@ class PartitionColumnProfileStrategy(ProfileStrategy):
         if hasattr(table, "columns") and table.columns:
             columns_count = len(table.columns)
 
-        last_modified = None
-        if hasattr(table, "last_modified"):
-            last_modified = table.last_modified
-        elif hasattr(table, "last_altered"):
-            last_modified = table.last_altered
+        if hasattr(table, "last_modified") or hasattr(table, "last_altered"):
+            pass
 
         profile_data: Dict[str, Any] = {
             "rowCount": 0,
             "columnCount": columns_count,
             "sizeInBytes": table.size_in_bytes,
-            "lastModified": last_modified,
-            "external": table.external,
             "columns": {},
         }
 
