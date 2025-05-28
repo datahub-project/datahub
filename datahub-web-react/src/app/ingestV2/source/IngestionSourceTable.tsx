@@ -26,6 +26,7 @@ interface Props {
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
+    isLoading?: boolean;
 }
 
 function IngestionSourceTable({
@@ -36,6 +37,7 @@ function IngestionSourceTable({
     onView,
     onDelete,
     onChangeSort,
+    isLoading,
 }: Props) {
     const tableData = sources.map((source) => ({
         urn: source.urn,
@@ -121,6 +123,7 @@ function IngestionSourceTable({
             data={tableData}
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
+            isLoading={isLoading}
         />
     );
 }
