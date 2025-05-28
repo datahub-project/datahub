@@ -80,6 +80,7 @@ export const DEFAULT_APP_CONFIG = {
         showIntroducePage: false,
         showIngestionPageRedesign: false,
         showLineageExpandMore: false,
+        showStatsTabRedesign: false,
     },
     chromeExtensionConfig: {
         enabled: false,

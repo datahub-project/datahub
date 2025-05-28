@@ -50,6 +50,7 @@ export function Pill({
     customIconRenderer,
     showLabel,
     className,
+    dataTestId,
 }: PillProps) {
     if (!SUPPORTED_CONFIGURATIONS[variant].includes(color)) {
         console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
@@ -62,7 +63,7 @@ export function Pill({
             size={size}
             clickable={clickable}
             id={id}
-            data-testid="pill-container"
+            data-testid={dataTestId ?? 'pill-container'}
             onClick={onPillClick}
             style={{
                 backgroundColor: customStyle?.backgroundColor,

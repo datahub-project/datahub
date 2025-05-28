@@ -702,6 +702,11 @@ type FeatureFlagsConfig {
   If enabled, show the expand more button (>>) in the lineage graph
   """
   showLineageExpandMore: Boolean!
+
+  """
+  If turned on, show the re-designed Stats tab on the entity page
+  """
+  showStatsTabRedesign: Boolean!
 }
 
 """

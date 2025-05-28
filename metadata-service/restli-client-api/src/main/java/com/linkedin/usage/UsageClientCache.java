@@ -11,6 +11,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
 
@@ -23,12 +24,16 @@ public class UsageClientCache {
   public UsageQueryResult getUsageStats(
       @Nonnull OperationContext opContext,
       @Nonnull String resource,
-      @Nonnull UsageTimeRange range) {
+      @Nonnull UsageTimeRange range,
+      @Nullable Long startTimeMillis,
+      @Nullable String timeZone) {
     Key cacheKey =
         Key.builder()
             .contextId(opContext.getEntityContextId())
             .resource(resource)
             .range(range)
+            .startTimeMillis(startTimeMillis)
+            .timeZone(timeZone)
             .build();
     if (config.isEnabled()) {
       return cache.get(cacheKey);
@@ -77,5 +82,7 @@ public class UsageClientCache {
     private final String contextId;
     private final String resource;
     private final UsageTimeRange range;
+    private final Long startTimeMillis;
+    private final String timeZone;
   }
 }
