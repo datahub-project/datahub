@@ -116,8 +116,6 @@ export function Tabs({
         }
     }, [getCurrentUrl, onChange, onUrlChange, selectedTab, urlMap, urlToTabMap, defaultTab]);
 
-    
-
     function handleTabClick(key: string) {
         onChange?.(key);
         const newTab = tabs.find((t) => t.key === key);
