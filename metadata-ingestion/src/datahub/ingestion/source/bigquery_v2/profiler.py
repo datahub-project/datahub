@@ -298,22 +298,78 @@ class BigqueryProfiler(GenericProfiler):
 
         # Handle partitioning
         try:
-            # Generate partition information and custom SQL if needed
-            partition, custom_sql = self.generate_partition_profiler_query(
-                db_name,
-                schema_name,
-                bq_table,
-                getattr(self.config.profiling, "partition_datetime", None),
-            )
+            custom_sql = None
+            partition = None
 
-            if partition is None and bq_table.partition_info:
-                self.report.report_warning(
-                    title="Profile skipped for partitioned table",
-                    message="Profile skipped as partitioned table is empty or partition id or type was invalid",
-                    context=f"{db_name}.{schema_name}.{bq_table.name}",
+            # First, see if we have partitioning
+            if hasattr(bq_table, "partition_info") and bq_table.partition_info:
+                logger.info(
+                    f"Table {bq_table.name} has partition information, determining optimal filters"
                 )
-                return {}
 
+                # Use our partition_manager to get the right partition filters
+                # This leverages all of our specialized partition handling logic
+                partition_filters = (
+                    self.partition_manager.get_required_partition_filters(
+                        bq_table, db_name, schema_name
+                    )
+                )
+
+                if partition_filters is None:
+                    logger.warning(
+                        f"Could not determine partition filters for {bq_table.name}, skipping profiling"
+                    )
+                    self.report.report_warning(
+                        title="Profile skipped for partitioned table",
+                        message="Profile skipped as partitioned table requires partition filters but none could be determined",
+                        context=f"{db_name}.{schema_name}.{bq_table.name}",
+                    )
+                    return {}
+
+                # If we have partition filters, build a custom SQL query with those filters
+                if partition_filters:
+                    logger.info(
+                        f"Using partition filters for {bq_table.name}: {partition_filters}"
+                    )
+                    where_clause = " AND ".join(partition_filters)
+
+                    # Create a SQL query with the partition filters
+                    custom_sql = f"""
+                    SELECT * 
+                    FROM `{db_name}.{schema_name}.{bq_table.name}`
+                    WHERE {where_clause}
+                    """
+
+                    # Store the partition ID for reference - use first filter as representative
+                    partition = partition_filters[0] if partition_filters else None
+                else:
+                    # No filters needed, but table is partitioned
+                    logger.info(
+                        f"Table {bq_table.name} is partitioned but no filters are required"
+                    )
+
+                    # Try the original approach as fallback if we couldn't get better filters
+                    # but we know the table is partitioned
+                    if not partition and bq_table.max_partition_id:
+                        old_partition, old_custom_sql = (
+                            self.generate_partition_profiler_query(
+                                db_name,
+                                schema_name,
+                                bq_table,
+                                getattr(
+                                    self.config.profiling, "partition_datetime", None
+                                ),
+                            )
+                        )
+
+                        if old_partition and old_custom_sql:
+                            logger.info(
+                                f"Using fallback partition approach for {bq_table.name}"
+                            )
+                            partition = old_partition
+                            custom_sql = old_custom_sql
+
+            # Skip profiling if partitioning is disabled
             if partition is not None and not getattr(
                 self.config.profiling, "partition_profiling_enabled", True
             ):
@@ -325,12 +381,29 @@ class BigqueryProfiler(GenericProfiler):
                 )
                 return {}
 
-            # If we have a partition and custom SQL, add them to the batch kwargs
-            if partition:
-                logger.debug(f"Using partition {partition} for table {bq_table.name}")
-                batch_kwargs["partition"] = partition
+            # For BigQuery, if we have partition and custom SQL, use it for profiling
+            # This is crucial - we need to use the custom SQL with partition filters
+            # so all profiling queries operate on the right partition
+            if partition or custom_sql:
+                logger.info(f"Using partitioning for {bq_table.name}")
+                if partition:
+                    batch_kwargs["partition"] = partition
+
                 if custom_sql:
-                    batch_kwargs["custom_sql"] = custom_sql
+                    # Replace the schema/table with custom SQL to ensure partitioning is applied
+                    # This is critical - all GE profiling queries will use this filtered query
+                    batch_kwargs["query"] = custom_sql
+                    # Remove schema and table when using custom SQL
+                    if "schema" in batch_kwargs:
+                        del batch_kwargs["schema"]
+                    if "table" in batch_kwargs:
+                        del batch_kwargs["table"]
+
+            # Add a strategy tag so the GE profiler knows what type of profiling to use
+            profile_strategy = self._select_profile_strategy(
+                bq_table, db_name, schema_name
+            )
+            batch_kwargs["profile_strategy"] = profile_strategy
 
         except Exception as e:
             logger.warning(
@@ -763,7 +836,16 @@ WHERE
         # Add BigQuery-specific profiler args
         profiler_args.update(
             {
+                # Pass query timeout to the GE profiler
                 "query_timeout": self.config.query_timeout,
+                # Pass the partition manager for any partition filtering needs
+                "partition_manager": self.partition_manager,
+                # Pass the filter builder for building queries
+                "filter_builder": self.filter_builder,
+                # Pass the table metadata manager for table metadata
+                "table_metadata_manager": self.table_metadata_manager,
+                # Use our cache manager for caching profiling results
+                "cache_manager": self.cache_manager,
             }
         )
 
