@@ -22,9 +22,23 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
+### Known Issues
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+## 1.1.0
+
+### Breaking Changes
+
+- #12795: slack source v2 - now ingests all user and channels. Make sure the ingestion source and GMS are on the same version of DataHub.
 - #13004: The `acryl-datahub-airflow-plugin` dropped support for Airflow 2.3 and 2.4.
 - #13186: NoCode Migration Removed - This code hasn't been required in many years. If needed, a user should upgrade to DataHub 1.0.x prior to upgrading to a later version.
 - #13397: `async_flag` removed from rest emitter, replaced with emit mode ASYNC
+- #13120: DataHub Actions Integration: Moved datahub-actions into OSS DataHub. Users building their own DataHub Actions docker images can now build from the OSS project.
 
 ### Known Issues
 
@@ -38,12 +52,22 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Other Notable Changes
 
+- SDK Improvements: Added URN to URL helpers, lineage client, ML model support, and search enhancements.
+- Connector Improvements: Significant enhancements to PowerBI, Superset, MLflow, and Redshift connectors.
+- New Connectors: Added connectors for Hex notebooks and VertexAI.
+- Iceberg Connector Refactoring: The Iceberg connector has been completely refactored to use MCPWs instead of MCEs.
+- Entity Subtypes Model Change: The addition of subtypes to most entities.
+- #13151 #13255: UI Search Bar Redesign: search bar with new autocomplete functionality has been added.
+- #12976: Edit Lineage Feature: Added ability to edit lineage directly in the UI.
+- #12983 #13107: Manage Tags Interface: Added a dedicated "Manage Tags" navigation page.
+- #13361: Theme Support: Added foundation for basic theme support with primary color configuration.
 - #13165 - OpenAPI v3 Patching Improvements
 - #13397 - Ingestion Rest Emitter - Added EmitMode parameter for write guarantees.
   - SYNC_WAIT: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
   - SYNC_PRIMARY: Synchronously updates the primary storage (SQL) but asynchronously updates search storage (Elasticsearch). Provides a balance between consistency and performance. Suitable for updates that need to be immediately reflected in direct entity retrievals but where search index consistency can be slightly delayed.
   - ASYNC: Queues the metadata change for asynchronous processing and returns immediately. The client continues execution without waiting for the change to be fully processed. Best for high-throughput scenarios where eventual consistency is acceptable.
   - ASYNC_WAIT: Queues the metadata change asynchronously but blocks until confirmation that the write has been fully persisted. More efficient than fully synchronous operations due to backend parallelization and batching while still providing strong consistency guarantees. Useful when you need confirmation of successful persistence without sacrificing performance.
+- #13426 - Added support for extracting column transformation logic when using `use_queries_v2` with warehouse ingestion.
 - #13499 - Added ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH configuration for ElasticSearch index config. If modified from the default, this configuration can have significant impact on search performance if changed and will trigger reindexing causing large delays in updates. Most users will not want to modify this.
 
 ## 1.0.0

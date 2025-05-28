@@ -97,6 +97,7 @@ query appConfig {
             showManageTags
             showIntroducePage
             showIngestionPageRedesign
+            showLineageExpandMore
         }
         chromeExtensionConfig {
             enabled
