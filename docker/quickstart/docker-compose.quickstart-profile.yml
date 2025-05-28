@@ -428,6 +428,8 @@ services:
       SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: "true"
     hostname: datahub-system-update
     image: acryldata/datahub-upgrade:${DATAHUB_VERSION}
+    labels:
+      datahub_setup_job: "true"
     networks:
       default: null
     volumes:
