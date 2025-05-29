@@ -75,7 +75,9 @@ import org.opensearch.tasks.TaskInfo;
 @Slf4j
 public class ESIndexBuilder {
 
-  public static final String INDICES_MEMORY_INDEX_BUFFER_SIZE = "indices.memory.index_buffer_size";
+  //  this setting is not allowed to change as of now in AOS
+  //  public static final String INDICES_MEMORY_INDEX_BUFFER_SIZE =
+  // "indices.memory.index_buffer_size";
   public static final String INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE =
       "index.translog.flush_threshold_size";
   public static final String REFRESH_INTERVAL = "refresh_interval";
@@ -85,6 +87,9 @@ public class ESIndexBuilder {
   public static final String NUMBER_OF_SHARDS = "number_of_shards";
   public static final String ORIGINALPREFIX = "original";
   private static final Integer REINDEX_BATCHSIZE = 5000;
+  private static final Float MINJVMHEAP = 10.F;
+  // for debugging
+  // private static final Float MINJVMHEAP = 0.1F;
 
   private final RestHighLevelClient _searchClient;
   @Getter private final int numShards;
@@ -463,7 +468,9 @@ public class ESIndexBuilder {
     GetIndexResponse response =
         _searchClient.indices().get(getIndexRequest, RequestOptions.DEFAULT);
     Map<String, Settings> indexToSettings = response.getSettings();
-    Settings indexSettings = indexToSettings.get(indexName);
+    Optional<String> key = indexToSettings.keySet().stream().findFirst();
+    String thekey = key.get();
+    Settings indexSettings = indexToSettings.get(thekey);
     int replicaCount = Integer.parseInt(indexSettings.get("index.number_of_replicas", "1"));
     CountRequest countRequest = new CountRequest(indexName);
     CountResponse countResponse = _searchClient.count(countRequest, RequestOptions.DEFAULT);
@@ -511,7 +518,9 @@ public class ESIndexBuilder {
     GetIndexResponse response =
         _searchClient.indices().get(getIndexRequest, RequestOptions.DEFAULT);
     Map<String, Settings> indexToSettings = response.getSettings();
-    Settings indexSettings = indexToSettings.get(indexName);
+    Optional<String> key = indexToSettings.keySet().stream().findFirst();
+    String thekey = key.get();
+    Settings indexSettings = indexToSettings.get(thekey);
     int replicaCount = Integer.parseInt(indexSettings.get("index.number_of_replicas", "1"));
     CountRequest countRequest = new CountRequest(indexName);
     CountResponse countResponse = _searchClient.count(countRequest, RequestOptions.DEFAULT);
@@ -819,8 +828,10 @@ public class ESIndexBuilder {
     log.info("Reindex from {} to {} succeeded", indexState.name(), tempIndexName);
     String targetReplicas =
         String.valueOf(((Map) indexState.targetSettings().get("index")).get(NUMBER_OF_REPLICAS));
+    String targetRefresh =
+        String.valueOf(((Map) indexState.targetSettings().get("index")).get(REFRESH_INTERVAL));
     if (result != ReindexResult.REINDEXED_SKIPPED_0DOCS) {
-      setReindexOptimalSettingsUndo(tempIndexName, targetReplicas, reinfo);
+      setReindexOptimalSettingsUndo(tempIndexName, targetReplicas, targetRefresh, reinfo);
     }
     renameReindexedIndices(
         _searchClient, indexState.name(), indexState.indexPattern(), tempIndexName, true);
@@ -917,7 +928,7 @@ public class ESIndexBuilder {
       throws IOException {
     Map<String, Object> res = new HashMap<>();
     setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
-    //    setIndexSetting(tempIndexName, "-1", INDEX_REFRESH_INTERVAL);
+    setIndexSetting(tempIndexName, "-1", INDEX_REFRESH_INTERVAL);
     // these depend on jvm max heap...
     // flush_threshold_size: 512MB by def. Increasing to 1gb, if heap at least 16gb (this is more
     // conservative than %25 mentioned
@@ -927,19 +938,19 @@ public class ESIndexBuilder {
     String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;
     String optimValue = "1024mb";
     String curval = getIndexSetting(tempIndexName, setting);
-    if (SizeUtils.isGreaterSize(optimValue, curval) && jvmheapgb >= 10) {
+    if (SizeUtils.isGreaterSize(optimValue, curval) && jvmheapgb >= MINJVMHEAP) {
       setIndexSetting(tempIndexName, optimValue, setting);
       res.put(ORIGINALPREFIX + setting, curval);
     }
     // this is a cluster setting "index_buffer_size": "10%",
     // GET _cluster/settings?include_defaults&filter_path=defaults.indices.memory
-    setting = INDICES_MEMORY_INDEX_BUFFER_SIZE;
-    optimValue = "25%";
-    curval = getClusterSetting(setting);
-    if (SizeUtils.isGreaterPercent(optimValue, curval) && jvmheapgb >= 10) {
-      setClusterSettings(setting, optimValue);
-      res.put(ORIGINALPREFIX + setting, curval);
-    }
+    //    setting = INDICES_MEMORY_INDEX_BUFFER_SIZE;
+    //    optimValue = "25%";
+    //    curval = getClusterSetting(setting);
+    //    if (SizeUtils.isGreaterPercent(optimValue, curval) && jvmheapgb >= MINJVMHEAP) {
+    //      setClusterSettings(setting, optimValue);
+    //      res.put(ORIGINALPREFIX + setting, curval);
+    //    }
     // calculate best slices number..., by def == primary shards
     int slices = targetShards;
     // but if too large, tone it done
@@ -952,19 +963,23 @@ public class ESIndexBuilder {
   }
 
   private void setReindexOptimalSettingsUndo(
-      String tempIndexName, String targetReplicas, Map<String, Object> reinfo) throws IOException {
+      String tempIndexName,
+      String targetReplicas,
+      String refreshinterval,
+      Map<String, Object> reinfo)
+      throws IOException {
     // set the original values
     setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
-    //    setIndexSetting(tempIndexName, targetReplicas, INDEX_REFRESH_INTERVAL);
+    setIndexSetting(tempIndexName, refreshinterval, INDEX_REFRESH_INTERVAL);
     // reinfo could be emtpy (if reindex was already ongoing...)
     String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;
     if (reinfo.containsKey(ORIGINALPREFIX + setting)) {
-      setIndexSetting(tempIndexName, setting, (String) reinfo.get(ORIGINALPREFIX + setting));
+      setIndexSetting(tempIndexName, (String) reinfo.get(ORIGINALPREFIX + setting), setting);
     }
-    setting = INDICES_MEMORY_INDEX_BUFFER_SIZE;
-    if (reinfo.containsKey(ORIGINALPREFIX + setting)) {
-      setClusterSettings(setting, (String) reinfo.get(ORIGINALPREFIX + setting));
-    }
+    //    setting = INDICES_MEMORY_INDEX_BUFFER_SIZE;
+    //    if (reinfo.containsKey(ORIGINALPREFIX + setting)) {
+    //      setClusterSettings(setting, (String) reinfo.get(ORIGINALPREFIX + setting));
+    //    }
   }
 
   public static void renameReindexedIndices(
