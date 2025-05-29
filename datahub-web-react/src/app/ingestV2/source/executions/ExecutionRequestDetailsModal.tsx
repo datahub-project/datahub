@@ -1,4 +1,5 @@
 import { DownloadOutlined } from '@ant-design/icons';
+import { Icon, Pill } from '@components';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -144,11 +145,17 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     });
 
     const ResultIcon = status && getExecutionRequestStatusIcon(status);
-    const resultColor = status && getExecutionRequestStatusDisplayColor(status);
+    const resultColor = status ? getExecutionRequestStatusDisplayColor(status) : 'gray';
     const resultText = status && (
         <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
-            {ResultIcon && <ResultIcon style={{ marginRight: 4 }} />}
-            {getExecutionRequestStatusDisplayText(status)}
+            {ResultIcon && (
+                <Pill
+                    customIconRenderer={() => <Icon icon={ResultIcon} source="phosphor" size="lg" />}
+                    label={getExecutionRequestStatusDisplayText(status)}
+                    color={resultColor}
+                    size="md"
+                />
+            )}
         </Typography.Text>
     );
 
