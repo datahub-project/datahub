@@ -227,6 +227,11 @@ fragment autoCompleteFields on Entity {
             name
         }
     }
+    ... on Application {
+        properties {
+            name
+        }
+    }
     ... on Container {
         properties {
             name
@@ -1057,6 +1062,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
+    ... on Application {
+        ...applicationSearchFields
+    }
     ... on ERModelRelationship {
         urn
         type
@@ -1207,6 +1215,11 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on DataProduct {
+                properties {
+                    name
+                }
+            }
+            ... on Application {
                 properties {
                     name
                 }
@@ -1473,6 +1486,12 @@ query aggregateAcrossEntities($input: AggregateAcrossEntitiesInput!) {
 
 query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
     listDataProductAssets(urn: $urn, input: $input) {
+        ...searchResults
+    }
+}
+
+query listApplicationAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
+    listApplicationAssets(urn: $urn, input: $input) {
         ...searchResults
     }
 }
