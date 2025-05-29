@@ -136,6 +136,10 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
+    AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+    AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+    AWS_DEFAULT_REGION: ${DATAHUB_AWS_DEFAULT_REGION:-us-east-1}
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
