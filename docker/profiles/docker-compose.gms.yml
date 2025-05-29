@@ -254,6 +254,7 @@ services:
       - debug
       - debug-min
       - debug-backend
+      - debug-backend-aws
     depends_on:
       mysql-setup-dev:
         condition: service_completed_successfully
@@ -360,6 +361,7 @@ services:
     profiles:
       - debug
       - debug-backend
+      - debug-backend-aws
     depends_on:
       system-update-debug:
         condition: service_completed_successfully
