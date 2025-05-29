@@ -1,4 +1,5 @@
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime, timedelta
 from typing import (
@@ -300,6 +301,7 @@ class BigqueryProfiler(GenericProfiler):
         try:
             custom_sql = None
             partition = None
+            temp_table_name = None
 
             # First, see if we have partitioning
             if hasattr(bq_table, "partition_info") and bq_table.partition_info:
@@ -326,22 +328,70 @@ class BigqueryProfiler(GenericProfiler):
                     )
                     return {}
 
-                # If we have partition filters, build a custom SQL query with those filters
+                # If we have partition filters, create a temporary table or view with the partition filters
                 if partition_filters:
                     logger.info(
                         f"Using partition filters for {bq_table.name}: {partition_filters}"
                     )
                     where_clause = " AND ".join(partition_filters)
 
-                    # Create a SQL query with the partition filters
-                    custom_sql = f"""
-                    SELECT * 
-                    FROM `{db_name}.{schema_name}.{bq_table.name}`
-                    WHERE {where_clause}
-                    """
-
                     # Store the partition ID for reference - use first filter as representative
                     partition = partition_filters[0] if partition_filters else None
+
+                    # For BigQuery, we need to create a temporary table or view to ensure ALL queries use the partition filter
+                    # This is critical - without this, the GE profiler will query the original table without filters
+                    temp_table_name = f"temp_{bq_table.name}_{int(time.time())}"
+
+                    # Use different approaches for external vs regular tables
+                    if bq_table.external:
+                        # For external tables, use a temporary view (more efficient, no data copy)
+                        logger.info(
+                            f"Creating temporary VIEW for external table {bq_table.name}"
+                        )
+                        create_temp_sql = f"""
+                        CREATE OR REPLACE TEMPORARY VIEW `{temp_table_name}` AS
+                        SELECT * 
+                        FROM `{db_name}.{schema_name}.{bq_table.name}`
+                        WHERE {where_clause}
+                        """
+                    else:
+                        # For regular tables, use a temporary table
+                        logger.info(
+                            f"Creating temporary TABLE for regular table {bq_table.name}"
+                        )
+                        create_temp_sql = f"""
+                        CREATE OR REPLACE TEMPORARY TABLE `{temp_table_name}` AS
+                        SELECT * 
+                        FROM `{db_name}.{schema_name}.{bq_table.name}`
+                        WHERE {where_clause}
+                        """
+
+                    try:
+                        # Execute the query to create the temporary table or view
+                        logger.info(
+                            f"Creating temporary {'view' if bq_table.external else 'table'} {temp_table_name} with partition filters"
+                        )
+                        self.execute_query(create_temp_sql, timeout=120)
+
+                        # Update batch_kwargs to use the temporary table/view instead of the original
+                        batch_kwargs["table"] = temp_table_name
+                        # Remove schema since temp tables/views don't have a schema
+                        del batch_kwargs["schema"]
+                        # Add a flag to indicate we're using a temp table - use string "true"
+                        # to ensure consistent types with other batch_kwargs values
+                        batch_kwargs["is_temp_table"] = "true"
+                        # Store the partition for reference - only if it's not None
+                        if partition:
+                            batch_kwargs["partition"] = partition
+                    except Exception as e:
+                        logger.warning(f"Failed to create temporary table: {str(e)}")
+                        # Fall back to using custom SQL instead
+                        custom_sql = f"""
+                        SELECT * 
+                        FROM `{db_name}.{schema_name}.{bq_table.name}`
+                        WHERE {where_clause}
+                        """
+
                 else:
                     # No filters needed, but table is partitioned
                     logger.info(
@@ -381,23 +431,18 @@ class BigqueryProfiler(GenericProfiler):
                 )
                 return {}
 
-            # For BigQuery, if we have partition and custom SQL, use it for profiling
-            # This is crucial - we need to use the custom SQL with partition filters
-            # so all profiling queries operate on the right partition
-            if partition or custom_sql:
-                logger.info(f"Using partitioning for {bq_table.name}")
-                if partition:
-                    batch_kwargs["partition"] = partition
-
-                if custom_sql:
-                    # Replace the schema/table with custom SQL to ensure partitioning is applied
-                    # This is critical - all GE profiling queries will use this filtered query
-                    batch_kwargs["query"] = custom_sql
-                    # Remove schema and table when using custom SQL
-                    if "schema" in batch_kwargs:
-                        del batch_kwargs["schema"]
-                    if "table" in batch_kwargs:
-                        del batch_kwargs["table"]
+            # For BigQuery, if we have custom SQL but no temp table, use it for profiling
+            if custom_sql and not temp_table_name:
+                logger.info(
+                    f"Using custom SQL with partition filters for {bq_table.name}"
+                )
+                # Replace the schema/table with custom SQL to ensure partitioning is applied
+                batch_kwargs["query"] = custom_sql
+                # Remove schema and table when using custom SQL
+                if "schema" in batch_kwargs:
+                    del batch_kwargs["schema"]
+                if "table" in batch_kwargs:
+                    del batch_kwargs["table"]
 
             # Add a strategy tag so the GE profiler knows what type of profiling to use
             profile_strategy = self._select_profile_strategy(
