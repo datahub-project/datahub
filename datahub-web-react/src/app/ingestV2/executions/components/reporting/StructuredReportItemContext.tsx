@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { StructuredReportLogEntry } from '@app/ingestV2/source/types';
+import { StructuredReportLogEntry } from '@app/ingestV2/executions/components/reporting/types';
 
 const Container = styled.div`
     display: flex;

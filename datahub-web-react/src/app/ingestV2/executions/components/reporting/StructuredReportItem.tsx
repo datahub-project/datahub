@@ -3,8 +3,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { StructuredReportItemContext } from '@app/ingestV2/source/executions/reporting/StructuredReportItemContext';
-import { StructuredReportLogEntry } from '@app/ingestV2/source/types';
+import { StructuredReportItemContext } from '@app/ingestV2/executions/components/reporting/StructuredReportItemContext';
+import { StructuredReportLogEntry } from '@app/ingestV2/executions/components/reporting/types';
 import { applyOpacity } from '@app/shared/styleUtils';
 
 const StyledCollapse = styled(Collapse)<{ color: string }>`

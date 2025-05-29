@@ -6,11 +6,6 @@ record ExecutionRequestSource {
   /**
   * The type of the execution request source, e.g. INGESTION_SOURCE
   */
-  @Searchable = {
-    "fieldName": "sourceType",
-    "fieldType": "KEYWORD",
-    "queryByDefault": false
-  }
   type: string
 
   /**

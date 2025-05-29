@@ -3,8 +3,11 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { REDESIGN_COLORS } from '@app/entity/shared/constants';
-import { StructuredReportItemList } from '@app/ingestV2/source/executions/reporting/StructuredReportItemList';
-import { StructuredReportItemLevel, StructuredReport as StructuredReportType } from '@app/ingestV2/source/types';
+import { StructuredReportItemList } from '@app/ingestV2/executions/components/reporting/StructuredReportItemList';
+import {
+    StructuredReportItemLevel,
+    StructuredReport as StructuredReportType,
+} from '@app/ingestV2/executions/components/reporting/types';
 
 const Container = styled.div`
     display: flex;
