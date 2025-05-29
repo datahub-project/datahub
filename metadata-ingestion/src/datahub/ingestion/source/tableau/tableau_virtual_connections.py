@@ -6,9 +6,7 @@ from datahub.emitter.mcp_builder import add_entity_to_container
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
-    clean_table_name,
     create_vc_schema_field_v2,
-    create_vc_table_schema_field_v2,
     virtual_connection_detailed_graphql_query,
     virtual_connection_graphql_query,
 )
@@ -176,92 +174,43 @@ class VirtualConnectionProcessor:
         ):
             yield from self._emit_single_virtual_connection(vc)
 
-    def _emit_single_virtual_connection(self, vc: dict) -> Iterable[MetadataWorkUnit]:
-        """Emit a single Virtual Connection dataset"""
-        vc_id = vc[c.ID]
-        vc_urn = builder.make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=vc_id,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+    def _group_vc_columns_by_table(
+        self, vc_tables: List[dict]
+    ) -> Dict[str, Dict[str, Any]]:
+        """Group VC columns by table name"""
+        table_columns = {}
 
-        logger.debug(f"Emitting Virtual Connection: {vc.get(c.NAME)} ({vc_id})")
+        for table in vc_tables:
+            table_name = table.get(c.NAME)
+            if not table_name:
+                continue
 
-        # Create dataset snapshot
-        dataset_snapshot = DatasetSnapshot(
-            urn=vc_urn,
-            aspects=[self.tableau_source.get_data_platform_instance()],
-        )
+            columns = table.get(c.COLUMNS, [])
 
-        # Dataset properties
-        dataset_props = DatasetPropertiesClass(
-            name=vc.get(c.NAME),
-            description=vc.get(c.DESCRIPTION),
-            customProperties=self.tableau_source.get_custom_props_from_dict(
-                vc, [c.LUID]
-            ),
-        )
-        dataset_snapshot.aspects.append(dataset_props)
+            if table_name not in table_columns:
+                table_columns[table_name] = {
+                    "original_name": table_name,
+                    "columns": [],
+                }
 
-        # Schema metadata with v2 field paths grouped by table
-        vc_tables = vc.get("tables", [])
-        schema_metadata = self._get_vc_schema_metadata_grouped_by_table(vc_tables)
-        if schema_metadata:
-            dataset_snapshot.aspects.append(schema_metadata)
+            table_columns[table_name]["columns"].extend(columns)
 
-        # Create upstream lineage to database tables
-        upstream_tables, fine_grained_lineages = self._create_vc_upstream_lineage_v2(
-            vc, vc_tables, vc_urn
-        )
-
-        if upstream_tables:
-            upstream_lineage = UpstreamLineage(
-                upstreams=upstream_tables,
-                fineGrainedLineages=fine_grained_lineages or None,
-            )
-            yield self.tableau_source.get_metadata_change_proposal(
-                vc_urn,
-                aspect_name=c.UPSTREAM_LINEAGE,
-                aspect=upstream_lineage,
-            )
-
-        # Add to project container if available
-        project_luid = self._get_vc_project_luid(vc)
-        if project_luid:
-            yield from add_entity_to_container(
-                self.tableau_source.gen_project_key(project_luid),
-                c.DATASET,
-                dataset_snapshot.urn,
-            )
-
-        yield self.tableau_source.get_metadata_change_event(dataset_snapshot)
-        yield self.tableau_source.get_metadata_change_proposal(
-            dataset_snapshot.urn,
-            aspect_name=c.SUB_TYPES,
-            aspect=SubTypesClass(typeNames=["Virtual Connection"]),
-        )
+        return table_columns
 
     def _get_vc_schema_metadata_grouped_by_table(
         self, vc_tables: List[dict]
-    ) -> Optional[SchemaMetadata]:
-        """Create schema metadata for VC with fields grouped by table using v2 specification"""
-        fields = []
+    ) -> Dict[str, SchemaMetadata]:
+        """Create separate schema metadata for each table in the Virtual Connection"""
+        table_schemas = {}
 
-        # Group columns by table to ensure proper v2 field path creation
+        # Group columns by table
         table_columns = self._group_vc_columns_by_table(vc_tables)
 
         for table_name, table_info in table_columns.items():
-            original_table_name = table_info["original_name"]
+            fields = []
             columns = table_info["columns"]
 
-            # Add table-level field (represents the table itself in the VC)
-            table_field = create_vc_table_schema_field_v2(
-                table_name=table_name, description=f"Table: {original_table_name}"
-            )
-            fields.append(table_field)
-
-            # Add column-level fields under this table
+            # Add column-level fields for this table
             for column in columns:
                 column_name = column.get(c.NAME)
                 if not column_name:
@@ -274,7 +223,7 @@ class VirtualConnectionProcessor:
                 column_type = column.get(c.REMOTE_TYPE, c.UNKNOWN)
                 description = column.get(c.DESCRIPTION)
 
-                # Create v2 schema field
+                # Create schema field for the column
                 schema_field = create_vc_schema_field_v2(
                     table_name=table_name,
                     column_name=column_name,
@@ -282,45 +231,21 @@ class VirtualConnectionProcessor:
                     description=description,
                     ingest_tags=self.config.ingest_tags,
                 )
-                fields.append(schema_field)
+                if schema_field:
+                    fields.append(schema_field)
 
-        if not fields:
-            return None
+            if fields:
+                # Create schema metadata for this table
+                table_schemas[table_name] = SchemaMetadata(
+                    schemaName=f"VirtualConnection_{table_name}",
+                    platform=f"urn:li:dataPlatform:{self.platform}",
+                    version=0,
+                    fields=fields,
+                    hash="",
+                    platformSchema=OtherSchema(rawSchema=""),
+                )
 
-        return SchemaMetadata(
-            schemaName="VirtualConnection",
-            platform=f"urn:li:dataPlatform:{self.platform}",
-            version=0,
-            fields=fields,
-            hash="",
-            platformSchema=OtherSchema(rawSchema=""),
-        )
-
-    def _group_vc_columns_by_table(
-        self, vc_tables: List[dict]
-    ) -> Dict[str, Dict[str, Any]]:
-        """Group VC columns by table name for v2 schema field creation"""
-        table_columns = {}
-
-        for table in vc_tables:
-            table_name = table.get(c.NAME)
-            if not table_name:
-                continue
-
-            # Add this line:
-            clean_table_name_val = clean_table_name(table_name)
-            columns = table.get(c.COLUMNS, [])
-
-            # Use cleaned name as key:
-            if clean_table_name_val not in table_columns:
-                table_columns[clean_table_name_val] = {
-                    "original_name": table_name,
-                    "columns": [],
-                }
-
-            table_columns[clean_table_name_val]["columns"].extend(columns)
-
-        return table_columns
+        return table_schemas
 
     def _create_vc_upstream_lineage_v2(
         self, vc: dict, vc_tables: List[dict], vc_urn: str
@@ -393,9 +318,7 @@ class VirtualConnectionProcessor:
                             db_col_name = db_column_map[vc_col_name.lower()]
 
                             # Create v2 field path for VC column
-                            clean_vc_table_name = clean_table_name(vc_table_name)
-                            clean_vc_col_name = clean_table_name(vc_col_name)
-                            vc_field_path = f"[version=2.0].[type=struct].[type=struct].{clean_vc_table_name}.[type={vc_col_type.lower()}].{clean_vc_col_name}"
+                            vc_field_path = f"{vc_table_name}.[type={vc_col_type.lower()}].{vc_col_name}"
 
                             # Create fine-grained lineage
                             fine_grained_lineages.append(
@@ -468,7 +391,6 @@ class VirtualConnectionProcessor:
                 and vc_table_id in self.vc_table_id_to_name
             ):
                 vc_id = self.vc_table_id_to_vc_id[vc_table_id]
-                table_name = self.vc_table_id_to_name[vc_table_id]
 
                 vc_urn = builder.make_dataset_urn_with_platform_instance(
                     self.platform, vc_id, self.config.platform_instance, self.config.env
@@ -489,9 +411,7 @@ class VirtualConnectionProcessor:
                     )
 
                     # Create v2 field path for VC column
-                    clean_table_name_val = clean_table_name(table_name)
-                    clean_column_name_val = clean_table_name(str(column_name))
-                    vc_field_path = f"[version=2.0].[type=struct].[type=struct].{clean_table_name_val}.[type={column_type.lower()}].{clean_column_name_val}"
+                    vc_field_path = f"[type={column_type.lower()}].{column_name}"
 
                     fine_grained_lineages.append(
                         FineGrainedLineage(
@@ -558,3 +478,149 @@ class VirtualConnectionProcessor:
                 if project.name == project_name:
                     return project_id
         return None
+
+    def _emit_single_virtual_connection(self, vc: dict) -> Iterable[MetadataWorkUnit]:
+        """Emit a single Virtual Connection dataset"""
+        vc_id = vc[c.ID]
+
+        # Schema metadata with separate schemas for each table
+        vc_tables = vc.get("tables", [])
+        table_schemas = self._get_vc_schema_metadata_grouped_by_table(vc_tables)
+
+        # Process each table as a separate dataset
+        for table_name, schema_metadata in table_schemas.items():
+            table_urn = builder.make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=f"{vc_id}.{table_name}",
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+
+            # Create dataset snapshot for the table
+            dataset_snapshot = DatasetSnapshot(
+                urn=table_urn,
+                aspects=[self.tableau_source.get_data_platform_instance()],
+            )
+
+            # Dataset properties for the table
+            table_info = next(
+                (t for t in vc_tables if t.get(c.NAME) == table_name),
+                {},
+            )
+            dataset_props = DatasetPropertiesClass(
+                name=table_info.get(c.NAME, table_name),
+                description=table_info.get(c.DESCRIPTION),
+                customProperties=self.tableau_source.get_custom_props_from_dict(
+                    table_info, [c.LUID]
+                ),
+            )
+            dataset_snapshot.aspects.append(dataset_props)
+
+            # Add schema metadata for this table
+            dataset_snapshot.aspects.append(schema_metadata)
+
+            # Create upstream lineage for this table
+            upstream_tables, fine_grained_lineages = (
+                self._create_table_upstream_lineage(table_info, table_urn)
+            )
+
+            if upstream_tables:
+                upstream_lineage = UpstreamLineage(
+                    upstreams=upstream_tables,
+                    fineGrainedLineages=fine_grained_lineages or None,
+                )
+                yield self.tableau_source.get_metadata_change_proposal(
+                    table_urn,
+                    aspect_name=c.UPSTREAM_LINEAGE,
+                    aspect=upstream_lineage,
+                )
+
+            # Add to project container if available
+            project_luid = self._get_vc_project_luid(vc)
+            if project_luid:
+                yield from add_entity_to_container(
+                    self.tableau_source.gen_project_key(project_luid),
+                    c.DATASET,
+                    dataset_snapshot.urn,
+                )
+
+            yield self.tableau_source.get_metadata_change_event(dataset_snapshot)
+            yield self.tableau_source.get_metadata_change_proposal(
+                dataset_snapshot.urn,
+                aspect_name=c.SUB_TYPES,
+                aspect=SubTypesClass(typeNames=["Virtual Connection Table"]),
+            )
+
+    def _create_table_upstream_lineage(
+        self, table_info: dict, table_urn: str
+    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
+        """Create upstream lineage for a single table"""
+        upstream_tables = []
+        fine_grained_lineages = []
+
+        table_name = table_info.get(c.NAME)
+        if not table_name:
+            return [], []
+
+        # Find matching database table
+        matched_db_table = self.tableau_source._find_matching_database_table(table_name)
+        if not matched_db_table:
+            logger.warning(
+                f"No matching database table found for VC table: {table_name}"
+            )
+            return [], []
+
+        # Create database table URN
+        db_table_urn = self.tableau_source._create_database_table_urn(matched_db_table)
+        if not db_table_urn:
+            logger.warning(
+                f"Failed to create URN for matched database table: {matched_db_table.get('name', 'Unknown')}"
+            )
+            return [], []
+
+        # Add table-level upstream
+        upstream_tables.append(
+            Upstream(dataset=db_table_urn, type=DatasetLineageType.TRANSFORMED)
+        )
+
+        # Create column-level lineage
+        if self.config.extract_column_level_lineage:
+            vc_columns = table_info.get(c.COLUMNS, [])
+            db_columns = matched_db_table.get(c.COLUMNS, [])
+
+            if vc_columns and db_columns:
+                # Create mapping of database column names (case-insensitive)
+                db_column_map = {
+                    col.get(c.NAME, "").lower(): col.get(c.NAME, "")
+                    for col in db_columns
+                    if col.get(c.NAME)
+                }
+
+                for vc_column in vc_columns:
+                    vc_col_name = vc_column.get(c.NAME)
+                    if not vc_col_name:
+                        continue
+
+                    # Check if this VC column matches a database column
+                    if vc_col_name.lower() in db_column_map:
+                        db_col_name = db_column_map[vc_col_name.lower()]
+
+                        # Create fine-grained lineage
+                        fine_grained_lineages.append(
+                            FineGrainedLineage(
+                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                downstreams=[
+                                    builder.make_schema_field_urn(
+                                        table_urn, vc_col_name
+                                    )
+                                ],
+                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                upstreams=[
+                                    builder.make_schema_field_urn(
+                                        db_table_urn, db_col_name
+                                    )
+                                ],
+                            )
+                        )
+
+        return upstream_tables, fine_grained_lineages
