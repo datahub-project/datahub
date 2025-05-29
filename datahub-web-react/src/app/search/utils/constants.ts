@@ -168,4 +168,5 @@ export const EMBEDDED_LIST_SEARCH_ENTITY_TYPES = [
     EntityType.Notebook,
     EntityType.BusinessAttribute,
     EntityType.DataProcessInstance,
+    EntityType.SchemaField,
 ];

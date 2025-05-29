@@ -24,12 +24,12 @@ module.exports = {
         {
           type: "link",
           label: "Demo",
-          href: "https://demo.datahubproject.io/",
+          href: "https://demo.datahub.com/",
         },
         {
           type: "link",
           label: "Adoption Stories",
-          href: "/adoption-stories",
+          href: "https://datahub.com/adoption-stories/",
         },
       ],
     },
@@ -100,7 +100,7 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
-          collapsed: false,
+          collapsed: true,
           items: [
             {
               label: "Documentation Propagation",
@@ -164,6 +164,11 @@ module.exports = {
             {
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/analytics",
+              className: "saasOnly",
             },
           ],
         },
@@ -381,6 +386,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_11",
             "docs/managed-datahub/release-notes/v_0_3_10",
             "docs/managed-datahub/release-notes/v_0_3_9",
             "docs/managed-datahub/release-notes/v_0_3_8",
@@ -885,7 +891,6 @@ module.exports = {
         "docs/advanced/monitoring",
         "docs/deploy/telemetry",
         "docs/how/kafka-config",
-        "docs/advanced/no-code-upgrade",
         "docs/how/jattach-guide",
       ],
     },
@@ -966,7 +971,6 @@ module.exports = {
         "docs/advanced/mcp-mcl",
         "docs/advanced/writing-mcps",
         "docs/modeling/extending-the-metadata-model",
-        "docs/advanced/no-code-modeling",
         "docs/advanced/api-tracing",
         "datahub-web-react/src/app/analytics/README",
         "docker/datahub-upgrade/README",
@@ -1029,6 +1033,9 @@ module.exports = {
     //"docs/how/build-metadata-service",
     //"docs/how/graph-onboarding",
     //"docs/demo/graph-onboarding",
+    //"datahub-actions/README",
+    //"datahub-actions/src/datahub_actions/plugin/action/tag/README",
+    //"datahub-actions/src/datahub_actions/plugin/action/term/README",
     //"metadata-integration/java/spark-lineage/README",
     // "metadata-integration/java/acryl-spark-lineage/README.md
     // "metadata-integration/java/openlineage-converter/README"
@@ -1066,6 +1073,7 @@ module.exports = {
     // - "metadata-service/services/README"
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
+    // "smoke-test/tests/cypress/README"
     // "docs/SECURITY_STANCE"
     // "metadata-integration/java/datahub-schematron/README"
     // ],

@@ -1,14 +1,14 @@
+import { ASSET_ENTITY_TYPES, OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
-import { useGetSearchResultsForMultipleQuery } from '../../../../../graphql/search.generated';
-import { CorpUser } from '../../../../../types.generated';
-import { ASSET_ENTITY_TYPES, OWNERS_FILTER_NAME } from '../../../../searchV2/utils/constants';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
+
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
+import { CorpUser } from '@types';
 
 const MAX_ASSETS_TO_FETCH = 50;
 
 export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO_FETCH) => {
-    const userUrn = user?.urn || '';
-    const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(userUrn);
+    const { groupUrns, loading: groupDataLoading } = useGetUserGroupUrns(user?.urn);
 
     const { loading, data, error } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -20,8 +20,8 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: userUrn,
-                        values: [userUrn, ...groupUrns],
+                        value: user?.urn,
+                        values: [user?.urn || '', ...groupUrns],
                     },
                 ],
                 searchFlags: {
@@ -29,7 +29,7 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, count = MAX_ASSETS_TO
                 },
             },
         },
-        skip: !userUrn || groupDataLoading,
+        skip: !user?.urn || groupDataLoading,
         fetchPolicy: 'cache-first',
     });
 

@@ -194,6 +194,12 @@ public class PoliciesConfig {
           "Manage System Operations",
           "Allow access to all system operations/management APIs and controls.");
 
+  public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
+      Privilege.of(
+          "GET_PLATFORM_EVENTS",
+          "Get Platform Events",
+          "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -226,7 +232,8 @@ public class PoliciesConfig {
           VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
-          MANAGE_SYSTEM_OPERATIONS_PRIVILEGE);
+          MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
+          GET_PLATFORM_EVENTS_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -421,22 +428,28 @@ public class PoliciesConfig {
           "The ability to read & write the data in a dataset.");
 
   public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_TABLES", "Manage tables", "The ability to create and drop tables.");
+      Privilege.of(
+          "DATA_MANAGE_TABLES",
+          "Manage Iceberg Tables",
+          "The ability to create and drop Iceberg tables registered in DataHub.");
 
   public static final Privilege DATA_MANAGE_VIEWS_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_VIEWS", "Manage views", "The ability to create and drop views.");
+      Privilege.of(
+          "DATA_MANAGE_VIEWS",
+          "Manage Iceberg Views",
+          "The ability to create and drop views registered in DataHub.");
 
   public static final Privilege DATA_MANAGE_NAMESPACES_PRIVILEGE =
       Privilege.of(
           "DATA_MANAGE_NAMESPACES",
-          "Manage namespaces",
-          "The ability to create and drop namespaces.");
+          "Manage Iceberg Namespaces",
+          "The ability to create and drop Iceberg namespaces registered in DataHub.");
 
   public static final Privilege DATA_LIST_ENTITIES_PRIVILEGE =
       Privilege.of(
           "DATA_LIST_ENTITIES",
-          "List tables, views & namespaces",
-          "The ability to list tables, views and namespaces.");
+          "List Iceberg Tables, Views & Namespaces",
+          "The ability to list Iceberg tables, views and namespaces registered in DataHub.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
@@ -578,7 +591,8 @@ public class PoliciesConfig {
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
                       EDIT_QUERIES_PRIVILEGE,
-                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
+                      // CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE, TODO: Remove this once confirmed
+                      // safe.
                       DATA_READ_ONLY_PRIVILEGE,
                       DATA_READ_WRITE_PRIVILEGE,
                       EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))

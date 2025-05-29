@@ -1,7 +1,8 @@
 # What is a snapshot?
 
-A metadata snapshot models the current state of one or multiple metadata [aspects](aspect.md) associated with a particular [entity](entity.md). 
+A metadata snapshot models the current state of one or multiple metadata [aspects](aspect.md) associated with a particular [entity](entity.md).
 Each entity type is expected to have:
+
 1. An entity-specific aspect (e.g. `CorpGroupAspect` from below), which is a `typeref` containing a union of all possible metadata aspects for the entity.
 2. An entity-specific snapshot (e.g. `CorpGroupSnapshot` from below), which contains an array (aspects) of entity-specific aspects.
 

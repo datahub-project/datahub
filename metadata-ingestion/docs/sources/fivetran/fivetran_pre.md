@@ -13,14 +13,14 @@ This source extracts the following:
 2. You need to setup and start the initial sync of the fivetran platform connector before using this source. Refer [link](https://fivetran.com/docs/logs/fivetran-platform/setup-guide).
 3. Once initial sync up of your fivetran platform connector is done, you need to provide the fivetran platform connector's destination platform and its configuration in the recipe.
 
-## Concept mapping 
+## Concept mapping
 
-| Fivetran		   | Datahub												    |
-|--------------------------|--------------------------------------------------------------------------------------------------------|
-| `Connector`              | [DataJob](https://datahubproject.io/docs/generated/metamodel/entities/datajob/)       	            |
-| `Source`                 | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                        |
-| `Destination`            | [Dataset](https://datahubproject.io/docs/generated/metamodel/entities/dataset/)                        |
-| `Connector Run`          | [DataProcessInstance](https://datahubproject.io/docs/generated/metamodel/entities/dataprocessinstance) |
+| Fivetran        | Datahub                                                                                               |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| `Connector`     | [DataJob](https://docs.datahub.com/docs/generated/metamodel/entities/datajob/)                        |
+| `Source`        | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)                        |
+| `Destination`   | [Dataset](https://docs.datahub.com/docs/generated/metamodel/entities/dataset/)                        |
+| `Connector Run` | [DataProcessInstance](https://docs.datahub.com/docs/generated/metamodel/entities/dataprocessinstance) |
 
 Source and destination are mapped to Dataset as an Input and Output of Connector.
 
@@ -32,6 +32,7 @@ Works only for
 - Bigquery destination
 
 ## Snowflake destination Configuration Guide
+
 1. If your fivetran platform connector destination is snowflake, you need to provide user details and its role with correct privileges in order to fetch metadata.
 2. Snowflake system admin can follow this guide to create a fivetran_datahub role, assign it the required privileges, and assign it to a user by executing the following Snowflake commands from a user with the ACCOUNTADMIN role or MANAGE GRANTS privilege.
 
@@ -53,41 +54,57 @@ grant role fivetran_datahub to user snowflake_user;
 ```
 
 ## Bigquery destination Configuration Guide
-1. If your fivetran platform connector destination is bigquery, you need to setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and select BigQuery Data Viewer and BigQuery Job User IAM roles. 
+
+1. If your fivetran platform connector destination is bigquery, you need to setup a ServiceAccount as per [BigQuery docs](https://cloud.google.com/iam/docs/creating-managing-service-accounts#iam-service-accounts-create-console) and select BigQuery Data Viewer and BigQuery Job User IAM roles.
 2. Create and Download a service account JSON keyfile and provide bigquery connection credential in bigquery destination config.
 
 ## Advanced Configurations
 
 ### Working with Platform Instances
-If you've multiple instances of source/destination systems that are referred in your `fivetran` setup, you'd need to configure platform instance for these systems in `fivetran` recipe to generate correct lineage edges. Refer the document [Working with Platform Instances](https://datahubproject.io/docs/platform-instances) to understand more about this.
 
-While configuration of platform instance for source system you need to provide connector id as key and for destination system provide destination id as key.
+If you have multiple instances of source/destination systems that are referred in your `fivetran` setup, you'd need to configure platform instance for these systems in `fivetran` recipe to generate correct lineage edges. Refer the document [Working with Platform Instances](https://docs.datahub.com/docs/platform-instances) to understand more about this.
+
+While configuring the platform instance for source system you need to provide connector id as key and for destination system provide destination id as key.
+When creating the conection details in the fivetran UI make a note of the destination Group ID of the service account, as that will need to be used in the `destination_to_platform_instance` configuration.
+I.e:
+
+<p align="center">
+  <img width="70%"  src="https://github.com/datahub-project/static-assets/raw/main/imgs/integrations/bigquery/bq-connection-id.png"/>
+</p>
+
+In this case the configuration would be something like:
+
+```yaml
+destination_to_platform_instance:
+  greyish_positive: <--- this comes from bigquery destination - see screenshot
+    database: <big query project ID>
+    env: PROD
+```
 
 #### Example - Multiple Postgres Source Connectors each reading from different postgres instance
-```yml
-    # Map of connector source to platform instance
-    sources_to_platform_instance:
-      postgres_connector_id1: 
-        platform_instance: cloud_postgres_instance
-        env: PROD
 
-      postgres_connector_id2:
-        platform_instance: local_postgres_instance
-        env: DEV
+```yml
+# Map of connector source to platform instance
+sources_to_platform_instance:
+  postgres_connector_id1:
+    platform_instance: cloud_postgres_instance
+    env: PROD
+
+  postgres_connector_id2:
+    platform_instance: local_postgres_instance
+    env: DEV
 ```
 
 #### Example - Multiple Snowflake Destinations each writing to different snowflake instance
+
 ```yml
-    # Map of destination to platform instance
-    destination_to_platform_instance:
-      snowflake_destination_id1: 
-        platform_instance: prod_snowflake_instance
-        env: PROD
+# Map of destination to platform instance
+destination_to_platform_instance:
+  snowflake_destination_id1:
+    platform_instance: prod_snowflake_instance
+    env: PROD
 
-      snowflake_destination_id2:
-        platform_instance: dev_snowflake_instance
-        env: PROD
+  snowflake_destination_id2:
+    platform_instance: dev_snowflake_instance
+    env: PROD
 ```
-
-
-

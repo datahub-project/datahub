@@ -9,7 +9,7 @@ import { retry } from "@octokit/plugin-retry";
 // Note: this must be executed within the docs-website directory.
 
 // Constants.
-const HOSTED_SITE_URL = "https://datahubproject.io";
+const HOSTED_SITE_URL = "https://docs.datahub.com";
 const GITHUB_EDIT_URL =
   "https://github.com/datahub-project/datahub/blob/master";
 const GITHUB_BROWSE_URL =
@@ -283,6 +283,10 @@ function markdown_add_slug(
 //   );
 // }
 
+function preprocess_url(url: string): string {
+  return url.trim().replace(/^<(.+)>$/, "$1");
+}
+
 function trim_anchor_link(url: string): string {
   return url.replace(/#.+$/, "");
 }
@@ -382,7 +386,7 @@ function markdown_rewrite_urls(
       // See https://stackoverflow.com/a/17759264 for explanation of the second capture group.
       /\[(.*?)\]\(((?:[^)(]+|\((?:[^)(]+|\([^)(]*\))*\))*)\)/g,
       (_, text, url) => {
-        const updated = new_url(url.trim(), filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}](${updated})`;
       }
     )
@@ -390,7 +394,7 @@ function markdown_rewrite_urls(
       // Also look for the [text]: url syntax.
       /^\[([^^\n\r]+?)\]\s*:\s*(.+?)\s*$/gm,
       (_, text, url) => {
-        const updated = new_url(url, filepath);
+        const updated = new_url(preprocess_url(url), filepath);
         return `[${text}]: ${updated}`;
       }
     );
@@ -412,8 +416,15 @@ function markdown_process_inline_directives(
   filepath: string
 ): void {
   const new_content = contents.content.replace(
-    /^{{\s+inline\s+(\S+)\s+(show_path_as_comment\s+)?\s*}}$/gm,
-    (_, inline_file_path: string, show_path_as_comment: string) => {
+    /^(\s*){{(\s*)inline\s+(\S+)(\s+)(show_path_as_comment\s+)?(\s*)}}$/gm,
+    (
+      _,
+      indent: string,
+      __,
+      inline_file_path: string,
+      ___,
+      show_path_as_comment: string
+    ) => {
       if (!inline_file_path.startsWith("/")) {
         throw new Error(`inline path must be absolute: ${inline_file_path}`);
       }
@@ -428,9 +439,14 @@ function markdown_process_inline_directives(
       // that can be used to limit the inlined content to a specific range of lines.
       let new_contents = "";
       if (show_path_as_comment) {
-        new_contents += `# Inlined from ${inline_file_path}\n`;
+        new_contents += `${indent}# Inlined from ${inline_file_path}\n`;
       }
-      new_contents += referenced_file;
+
+      // Add indentation to each line of the referenced file
+      new_contents += referenced_file
+        .split("\n")
+        .map((line) => `${indent}${line}`)
+        .join("\n");
 
       return new_contents;
     }

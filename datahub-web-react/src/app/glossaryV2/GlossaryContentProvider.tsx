@@ -1,13 +1,15 @@
+import { Button } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
+
+import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
+import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
+import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
-import { Button } from '@components';
-import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
-import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import { GlossaryNode, GlossaryTerm } from '../../types.generated';
-import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
-import EmptyGlossarySection from './EmptyGlossarySection';
-import GlossaryEntitiesList from './GlossaryEntitiesList';
+
+import { GlossaryNodeFragment } from '@graphql/fragments.generated';
+import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
+import { GlossaryNode, GlossaryTerm } from '@types';
 
 const MainContentWrapper = styled.div`
     display: flex;
@@ -34,25 +36,23 @@ const ListWrapper = styled.div`
 
 interface Props {
     setIsCreateNodeModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsCreateTermModalVisible: React.Dispatch<React.SetStateAction<boolean>>;
     hasTermsOrNodes: boolean;
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
     termsLoading: boolean;
     nodesLoading: boolean;
-    refetchForTerms: () => void;
-    refetchForNodes: () => void;
 }
 
 const GlossaryContentProvider = (props: Props) => {
     const {
         setIsCreateNodeModalVisible,
+        setIsCreateTermModalVisible,
         hasTermsOrNodes,
         nodes,
         terms,
         termsLoading,
         nodesLoading,
-        refetchForTerms,
-        refetchForNodes,
     } = props;
 
     return (
@@ -82,8 +82,8 @@ const GlossaryContentProvider = (props: Props) => {
                 <EmptyGlossarySection
                     title="Empty Glossary"
                     description="Create Terms and Term Groups to organize data assets using a shared vocabulary."
-                    refetchForTerms={refetchForTerms}
-                    refetchForNodes={refetchForNodes}
+                    onAddTerm={() => setIsCreateTermModalVisible(true)}
+                    onAddtermGroup={() => setIsCreateNodeModalVisible(true)}
                 />
             )}
         </MainContentWrapper>

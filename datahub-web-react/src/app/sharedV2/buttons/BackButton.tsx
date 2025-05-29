@@ -1,17 +1,16 @@
-import React from 'react';
-import styled from 'styled-components';
-import { Button } from 'antd';
 import { Tooltip } from '@components';
 import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
-import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
+import { Button } from 'antd';
+import React from 'react';
+import styled from 'styled-components';
 
 const StyledButton = styled(Button)`
     height: 25px;
     width: 25px;
-    color: ${REDESIGN_COLORS.TITLE_PURPLE};
+    color: ${(p) => p.theme.styles['primary-color']};
     padding: 0px;
     border-radius: 20px;
-    border: 1px solid ${REDESIGN_COLORS.TITLE_PURPLE};
+    border: 1px solid ${(p) => p.theme.styles['primary-color']};
     display: flex;
     align-items: center;
     justify-content: center;
@@ -20,8 +19,8 @@ const StyledButton = styled(Button)`
     margin-top: 2px;
 
     &:hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${(p) => p.theme.styles['primary-color']};
+        border-color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 

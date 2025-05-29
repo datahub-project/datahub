@@ -1,14 +1,13 @@
 package com.linkedin.datahub.upgrade;
 
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
-import com.linkedin.datahub.upgrade.nocode.NoCodeUpgrade;
-import com.linkedin.datahub.upgrade.nocodecleanup.NoCodeCleanupUpgrade;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
 import com.linkedin.datahub.upgrade.restorebackup.RestoreBackup;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
+import com.linkedin.datahub.upgrade.system.cron.SystemUpdateCron;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -33,14 +32,6 @@ public class UpgradeCli implements CommandLineRunner {
   }
 
   private final UpgradeManager _upgradeManager = new DefaultUpgradeManager();
-
-  @Inject
-  @Named("noCodeUpgrade")
-  private NoCodeUpgrade noCodeUpgrade;
-
-  @Inject
-  @Named("noCodeCleanup")
-  private NoCodeCleanupUpgrade noCodeCleanup;
 
   @Inject
   @Named("restoreIndices")
@@ -70,10 +61,12 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("systemOperationContext")
   private OperationContext systemOperationContext;
 
+  @Autowired(required = false)
+  @Named("systemUpdateCron")
+  private SystemUpdateCron systemUpdateCron;
+
   @Override
   public void run(String... cmdLineArgs) {
-    _upgradeManager.register(noCodeUpgrade);
-    _upgradeManager.register(noCodeCleanup);
     _upgradeManager.register(restoreIndices);
     _upgradeManager.register(restoreBackup);
     _upgradeManager.register(removeUnknownAspects);
@@ -85,6 +78,9 @@ public class UpgradeCli implements CommandLineRunner {
     }
     if (systemUpdateNonBlocking != null) {
       _upgradeManager.register(systemUpdateNonBlocking);
+    }
+    if (systemUpdateCron != null) {
+      _upgradeManager.register(systemUpdateCron);
     }
 
     final Args args = new Args();

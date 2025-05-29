@@ -1,9 +1,10 @@
+import react from '@vitejs/plugin-react';
 import * as path from 'path';
 import { defineConfig, loadEnv } from 'vite';
-import react from '@vitejs/plugin-react';
-import svgr from 'vite-plugin-svgr';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
+import { codecovVitePlugin } from "@codecov/vite-plugin";
+import svgr from 'vite-plugin-svgr';
 
 const injectMeticulous = () => {
     if (!process.env.REACT_APP_METICULOUS_PROJECT_TOKEN) {
@@ -86,6 +87,12 @@ export default defineConfig(({ mode }) => {
                 ],
                 structured: true,
             }),
+            codecovVitePlugin({
+                enableBundleAnalysis: true,
+                bundleName: "datahub-react-web",
+                uploadToken: process.env.CODECOV_TOKEN,
+                gitService: "github",
+            }),
         ],
         // optimizeDeps: {
         //     include: ['@ant-design/colors', '@ant-design/icons', 'lodash-es', '@ant-design/icons/es/icons'],
@@ -142,17 +149,6 @@ export default defineConfig(({ mode }) => {
                 '@images': path.resolve(__dirname, 'src/images'),
                 '@providers': path.resolve(__dirname, 'src/providers'),
                 '@utils': path.resolve(__dirname, 'src/utils'),
-
-                // App Specific Directories
-                '@app/entityV1': path.resolve(__dirname, 'src/app/entity'),
-                '@app/entityV2': path.resolve(__dirname, 'src/app/entityV2'),
-                '@app/searchV2': path.resolve(__dirname, 'src/app/searchV2'),
-                '@app/domainV2': path.resolve(__dirname, 'src/app/domainV2'),
-                '@app/glossaryV2': path.resolve(__dirname, 'src/app/glossaryV2'),
-                '@app/homeV2': path.resolve(__dirname, 'src/app/homeV2'),
-                '@app/lineageV2': path.resolve(__dirname, 'src/app/lineageV2'),
-                '@app/previewV2': path.resolve(__dirname, 'src/app/previewV2'),
-                '@app/sharedV2': path.resolve(__dirname, 'src/app/sharedV2'),
 
                 // Specific Files
                 '@types': path.resolve(__dirname, 'src/types.generated.ts'),

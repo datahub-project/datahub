@@ -12,6 +12,7 @@ from typing import (
     Dict,
     Iterable,
     List,
+    Literal,
     Optional,
     Set,
     Tuple,
@@ -612,10 +613,14 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
-    ingest_hidden_assets: bool = Field(
-        True,
-        description="When enabled, hidden views and dashboards are ingested into Datahub. "
-        "If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
+    ingest_hidden_assets: Union[List[Literal["worksheet", "dashboard"]], bool] = Field(
+        default=["worksheet", "dashboard"],
+        description=(
+            "When enabled, hidden worksheets and dashboards are ingested into Datahub."
+            " If a dashboard or worksheet is hidden in Tableau the luid is blank."
+            " A list of asset types can also be specified, to only ingest those hidden assets."
+            " Current options supported are 'worksheet' and 'dashboard'."
+        ),
     )
 
     tags_for_hidden_assets: List[str] = Field(
@@ -1348,6 +1353,26 @@ class TableauSiteSource:
         # More info here: https://help.tableau.com/current/api/metadata_api/en-us/reference/view.doc.html
         return not dashboard_or_view.get(c.LUID)
 
+    def _should_ingest_worksheet(self, worksheet: Dict) -> bool:
+        return (
+            self.config.ingest_hidden_assets is True
+            or (
+                isinstance(self.config.ingest_hidden_assets, list)
+                and "worksheet" in self.config.ingest_hidden_assets
+            )
+            or not self._is_hidden_view(worksheet)
+        )
+
+    def _should_ingest_dashboard(self, dashboard: Dict) -> bool:
+        return (
+            self.config.ingest_hidden_assets is True
+            or (
+                isinstance(self.config.ingest_hidden_assets, list)
+                and "dashboard" in self.config.ingest_hidden_assets
+            )
+            or not self._is_hidden_view(dashboard)
+        )
+
     def get_connection_object_page(
         self,
         query: str,
@@ -1369,7 +1394,9 @@ class TableauSiteSource:
         `fetch_size:` The number of records to retrieve from Tableau
             Server in a single API call, starting from the current cursor position on Tableau Server.
         """
-        retries_remaining = retries_remaining or self.config.max_retries
+        retries_remaining = (
+            self.config.max_retries if retries_remaining is None else retries_remaining
+        )
 
         logger.debug(
             f"Query {connection_type} to get {fetch_size} objects with cursor {current_cursor}"
@@ -1540,7 +1567,7 @@ class TableauSiteSource:
                         fetch_size=fetch_size,
                         current_cursor=current_cursor,
                         retry_on_auth_error=True,
-                        retries_remaining=retries_remaining,
+                        retries_remaining=retries_remaining - 1,
                     )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
 
@@ -3059,7 +3086,7 @@ class TableauSiteSource:
             query_filter=sheets_filter,
             page_size=self.config.effective_sheet_page_size,
         ):
-            if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
+            if self._should_ingest_worksheet(sheet):
                 yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
             else:
                 self.report.num_hidden_assets_skipped += 1
@@ -3380,7 +3407,7 @@ class TableauSiteSource:
             query_filter=dashboards_filter,
             page_size=self.config.effective_dashboard_page_size,
         ):
-            if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
+            if self._should_ingest_dashboard(dashboard):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
             else:
                 self.report.num_hidden_assets_skipped += 1

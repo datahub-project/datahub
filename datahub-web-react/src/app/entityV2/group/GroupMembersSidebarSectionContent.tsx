@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
 import { Typography } from 'antd';
-import { useRouteMatch } from 'react-router-dom';
+import React, { useState } from 'react';
 import { useHistory } from 'react-router';
-import { CorpUser, EntityRelationshipsResult } from '../../../types.generated';
-import { useEntityRegistry } from '../../useEntityRegistry';
-import { ShowMoreButton, TagsSection } from '../shared/SidebarStyledComponents';
-import { ShowMoreSection } from '../shared/sidebarSection/ShowMoreSection';
-import { GroupMemberLink } from './GroupMemberLink';
-import { TabType } from './types';
+import { useRouteMatch } from 'react-router-dom';
+
+import { GroupMemberLink } from '@app/entityV2/group/GroupMemberLink';
+import { TabType } from '@app/entityV2/group/types';
+import { ShowMoreButton, TagsSection } from '@app/entityV2/shared/SidebarStyledComponents';
+import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { CorpUser, EntityRelationshipsResult } from '@types';
 
 type Props = {
     groupMemberRelationships: EntityRelationshipsResult;
@@ -21,7 +23,7 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
 
     const entityRegistry = useEntityRegistry();
     const relationshipsTotal = groupMemberRelationships?.total || 0;
-    const relationshipsAvailableCount = groupMemberRelationships.relationships?.length || 0;
+    const relationshipsAvailableCount = groupMemberRelationships?.relationships?.length || 0;
 
     const hasHiddenEntities = relationshipsTotal > relationshipsAvailableCount;
     const isShowingMaxEntities = entityCount >= relationshipsAvailableCount;
@@ -34,7 +36,7 @@ export default function GroupMembersSidebarSectionContent({ groupMemberRelations
                     <Typography.Paragraph type="secondary">No members yet.</Typography.Paragraph>
                 )}
                 {relationshipsTotal > 0 &&
-                    groupMemberRelationships.relationships.map((item, index) => {
+                    groupMemberRelationships?.relationships?.map((item, index) => {
                         const user = item.entity as CorpUser;
                         return index < entityCount && <GroupMemberLink user={user} entityRegistry={entityRegistry} />;
                     })}

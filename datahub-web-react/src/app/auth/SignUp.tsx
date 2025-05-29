@@ -1,17 +1,19 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Input, Button, Form, message, Image, Select } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { useReactiveVar } from '@apollo/client';
-import styled, { useTheme } from 'styled-components/macro';
+import { Button, Form, Image, Input, Select, message } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
-import styles from './login.module.css';
-import { Message } from '../shared/Message';
-import { isLoggedInVar } from './checkAuthStatus';
-import analytics, { EventType } from '../analytics';
-import { useAppConfig } from '../useAppConfig';
-import { PageRoutes } from '../../conf/Global';
-import useGetInviteTokenFromUrlParams from './useGetInviteTokenFromUrlParams';
-import { useAcceptRoleMutation } from '../../graphql/mutations.generated';
+import styled, { useTheme } from 'styled-components/macro';
+
+import analytics, { EventType } from '@app/analytics';
+import { isLoggedInVar } from '@app/auth/checkAuthStatus';
+import styles from '@app/auth/login.module.css';
+import useGetInviteTokenFromUrlParams from '@app/auth/useGetInviteTokenFromUrlParams';
+import { Message } from '@app/shared/Message';
+import { useAppConfig } from '@app/useAppConfig';
+import { PageRoutes } from '@conf/Global';
+
+import { useAcceptRoleMutation } from '@graphql/mutations.generated';
 
 type FormValues = {
     fullName: string;

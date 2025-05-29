@@ -10,7 +10,8 @@ describe("search", () => {
   const setSearchFiltersFeatureFlag = (isOn) => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       if (hasOperationName(req, "appConfig")) {
-        req.reply((res) => {
+        req.alias = "gqlappConfigQuery";
+        req.on("response", (res) => {
           // Modify the response body directly
           res.body.data.appConfig.featureFlags.showSearchFiltersV2 = isOn;
         });
@@ -44,9 +45,13 @@ describe("search", () => {
     cy.visit("/");
     cy.get("input[data-testid=search-input]").type("*{enter}");
 
-    // click tag filter dropdown inside of "More Filters"
-    cy.get("[data-testid=more-filters-dropdown").click({ force: true });
-    cy.get("[data-testid=more-filter-Tag").click({ force: true });
+    // open up more filters so we can see all filters at once
+    cy.get("[data-testid=more-filters-dropdown]").click();
+
+    // look for the high level tag filter first and select the more filter tag if it doesn't exist
+    cy.get("[data-testid=filter-dropdown-Tag], [data-testid=more-filter-Tag]")
+      .first()
+      .click();
 
     // click and search for tag, save that tag
     cy.get("[data-testid=search-bar").eq(1).type("cypress");

@@ -1,22 +1,34 @@
 import { useEffect, useMemo } from 'react';
+
+import {
+    deduplicateAggregations,
+    filterEmptyAggregations,
+    getNewFilters,
+    getNumActiveFiltersForFilter,
+} from '@app/searchV2/filters/utils';
+import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import { ENTITY_FILTER_NAME } from '@app/searchV2/utils/constants';
+import usePrevious from '@app/shared/usePrevious';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
-import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from './utils';
-import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
-import { ENTITY_FILTER_NAME } from '../utils/constants';
+
+import { EntityType, FacetFilterInput, FacetMetadata } from '@types';
 
 interface Props {
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
+    aggregationsEntityTypes?: Array<EntityType>;
     shouldUseAggregationsFromFilter?: boolean;
+    shouldApplyView?: boolean;
 }
 
 export default function useSearchFilterDropdown({
     filter,
     activeFilters,
     onChangeFilters,
+    aggregationsEntityTypes,
     shouldUseAggregationsFromFilter,
+    shouldApplyView = true,
 }: Props) {
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
     const shouldFetchAggregations: boolean = !!filter.field && numActiveFilters > 0 && !shouldUseAggregationsFromFilter;
@@ -34,20 +46,41 @@ export default function useSearchFilterDropdown({
             aggregateAcrossEntities({
                 variables: {
                     input: {
-                        types: filter.field === ENTITY_FILTER_NAME ? null : entityFilters,
+                        types: aggregationsEntityTypes || (filter.field === ENTITY_FILTER_NAME ? null : entityFilters),
                         query,
                         orFilters,
-                        viewUrn,
+                        ...(shouldApplyView ? { viewUrn } : {}),
                         facets: [filter.field],
                     },
                 },
             });
         }
-    }, [aggregateAcrossEntities, entityFilters, filter.field, orFilters, query, viewUrn, shouldFetchAggregations]);
+    }, [
+        aggregateAcrossEntities,
+        entityFilters,
+        filter.field,
+        orFilters,
+        query,
+        viewUrn,
+        shouldFetchAggregations,
+        aggregationsEntityTypes,
+        shouldApplyView,
+    ]);
+
+    const newAggregations =
+        data?.aggregateAcrossEntities?.facets?.find((f) => f.field === filter.field)?.aggregations || [];
+    const searchAggregations = filter.aggregations;
+    const activeAggregations = searchAggregations.filter((agg) =>
+        activeFilters.find((f) => f.values?.includes(agg.value) || f.value === agg.value),
+    );
+
+    const prevNewAggregations = usePrevious(newAggregations);
+    // Avoid flicker while we fetch aggregations
+    const fetchedAggregations = newAggregations.length > 0 ? newAggregations : prevNewAggregations || [];
 
     const aggregations = shouldFetchAggregations
-        ? data?.aggregateAcrossEntities?.facets?.[0]?.aggregations
-        : filter.aggregations;
+        ? [...fetchedAggregations, ...deduplicateAggregations(fetchedAggregations, activeAggregations)]
+        : searchAggregations;
 
     const finalAggregations = filterEmptyAggregations(aggregations || [], activeFilters);
 

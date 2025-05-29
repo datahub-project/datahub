@@ -1,24 +1,23 @@
-import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Empty, Form, message, Modal, Select, Tag, Typography } from 'antd';
-import styled from 'styled-components/macro';
-import { getModalDomContainer } from '@src/utils/focus';
-import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { LoadingOutlined } from '@ant-design/icons';
+import { Empty, Form, Modal, Select, Tag, Typography, message } from 'antd';
+import React, { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import styled from 'styled-components/macro';
+
+import analytics, { EntityActionType, EventType } from '@app/analytics';
+import OwnershipTypesSelect from '@app/entityV2/shared/containers/profile/sidebar/Ownership/OwnershipTypesSelect';
+import { handleBatchError } from '@app/entityV2/shared/utils';
+import { OwnerLabel } from '@app/shared/OwnerLabel';
+import { useGetRecommendations } from '@app/shared/recommendation';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
+import { ANTD_GRAY } from '@src/app/entityV2/shared/constants';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
-import { CorpUser, Entity, EntityType, OwnerEntityType } from '../../../../../../../types.generated';
-import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import analytics, { EventType, EntityActionType } from '../../../../../../analytics';
-import {
-    useBatchAddOwnersMutation,
-    useBatchRemoveOwnersMutation,
-} from '../../../../../../../graphql/mutations.generated';
-import { useGetAutoCompleteResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { useGetRecommendations } from '../../../../../../shared/recommendation';
-import { OwnerLabel } from '../../../../../../shared/OwnerLabel';
-import { handleBatchError } from '../../../../utils';
-import { useListOwnershipTypesQuery } from '../../../../../../../graphql/ownership.generated';
-import OwnershipTypesSelect from './OwnershipTypesSelect';
+import { getModalDomContainer } from '@src/utils/focus';
+
+import { useBatchAddOwnersMutation, useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
+import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
+import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
+import { CorpUser, Entity, EntityType, OwnerEntityType } from '@types';
 
 const SelectInput = styled(Select)`
     width: 480px;

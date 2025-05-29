@@ -1,17 +1,19 @@
+import { Tooltip, colors } from '@components';
 import { Typography } from 'antd';
-import { colors, Tooltip } from '@components';
 import React, { useEffect, useMemo } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
-import { Domain } from '../../../../types.generated';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { RotatingTriangle } from '../../../sharedV2/sidebar/components';
-import useListDomains from '../../useListDomains';
-import useToggle from '../../../shared/useToggle';
-import { BodyContainer, BodyGridExpander } from '../../../shared/components';
-import { useDomainsContext as useDomainsContextV2 } from '../../DomainsContext';
-import { DomainColoredIcon } from '../../../entityV2/shared/links/DomainColoredIcon';
-import { REDESIGN_COLORS, SEARCH_COLORS } from '../../../entityV2/shared/constants';
+
+import { useDomainsContext as useDomainsContextV2 } from '@app/domainV2/DomainsContext';
+import useListDomains from '@app/domainV2/useListDomains';
+import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
+import { BodyContainer, BodyGridExpander } from '@app/shared/components';
+import useToggle from '@app/shared/useToggle';
+import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
+import { Domain } from '@types';
 
 const Count = styled.div`
     color: ${colors.gray[1700]};
@@ -31,7 +33,7 @@ const Count = styled.div`
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
     flex: 1;
     padding: 2px;
-    ${(props) => props.$isSelected && `color: ${SEARCH_COLORS.TITLE_PURPLE};`}
+    ${(props) => props.$isSelected && `color: ${props.theme.styles['primary-color']};`}
     ${(props) => props.$addLeftPadding && 'padding-left: 20px;'}
 
     &:hover {
@@ -48,7 +50,7 @@ const DisplayName = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${(props) => (props.$isSelected ? REDESIGN_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BODY_TEXT_GREY)};
+    color: ${(props) => (props.$isSelected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BODY_TEXT_GREY)};
 `;
 
 const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boolean }>`
@@ -58,7 +60,7 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     svg {
         font-size: 16px !important;
         color: ${(props) =>
-            props.$isSelected ? REDESIGN_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BODY_TEXT_GREY} !important;
+            props.$isSelected ? props.theme.styles['primary-color'] : REDESIGN_COLORS.BODY_TEXT_GREY} !important;
     }
 
     .ant-btn {
@@ -79,11 +81,11 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean }>`
         background-color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
         ${ButtonWrapper} {
             svg {
-                color: ${REDESIGN_COLORS.TITLE_PURPLE} !important;
+                color: ${(props) => props.theme.styles['primary-color']} !important;
             }
         }
         ${DisplayName} {
-            color: ${REDESIGN_COLORS.TITLE_PURPLE};
+            color: ${(props) => props.theme.styles['primary-color']};
         }
     }
 `;

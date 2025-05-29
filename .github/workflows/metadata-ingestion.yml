@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
     paths:
       - ".github/workflows/metadata-ingestion.yml"
       - "metadata-ingestion/**"
@@ -99,11 +100,13 @@ jobs:
           flags: ingestion
           name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
           verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
     runs-on: ubuntu-latest

@@ -6,7 +6,7 @@ import time
 import pytest
 
 from datahub.ingestion.run.pipeline import Pipeline
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)

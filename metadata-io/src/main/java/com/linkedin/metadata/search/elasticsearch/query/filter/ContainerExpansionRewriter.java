@@ -8,7 +8,6 @@ import com.linkedin.metadata.config.search.QueryFilterRewriterConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -47,7 +46,7 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
           return expandUrnsByGraph(
               opContext,
               filterQuery,
-              List.of("IsPartOf"),
+              Set.of("IsPartOf"),
               RelationshipDirection.INCOMING,
               config.getPageSize(),
               config.getLimit());
@@ -55,7 +54,7 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
           return expandUrnsByGraph(
               opContext,
               filterQuery,
-              List.of("IsPartOf"),
+              Set.of("IsPartOf"),
               RelationshipDirection.OUTGOING,
               config.getPageSize(),
               config.getLimit());
@@ -66,14 +65,14 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
               expandUrnsByGraph(
                   opContext,
                   filterQuery,
-                  List.of("IsPartOf"),
+                  Set.of("IsPartOf"),
                   RelationshipDirection.INCOMING,
                   config.getPageSize(),
                   config.getLimit());
           return expandUrnsByGraph(
               opContext,
               descendantQuery,
-              List.of("IsPartOf"),
+              Set.of("IsPartOf"),
               RelationshipDirection.OUTGOING,
               config.getPageSize(),
               config.getLimit());

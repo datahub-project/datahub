@@ -11,6 +11,7 @@ title: "Local Development"
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)
 - [Docker Compose >=2.20](https://docs.docker.com/compose/)
+- [Yarn >=v1.22](https://yarnpkg.com/en/docs/cli/) for documentation building
 - Docker engine with at least 8GB of memory to run tests.
 
 On macOS, these can be installed using [Homebrew](https://brew.sh/).
@@ -77,10 +78,12 @@ We suggest partially compiling DataHub according to your needs:
   ./gradlew :docs-website:serve
   ```
 
-##  Deploying Local Versions
+## Deploying Local Versions
+
 This guide explains how to set up and deploy DataHub locally for development purposes.
 
-###  Initial Setup
+### Initial Setup
+
 Before you begin, you'll need to install the local `datahub` CLI tool:
 
 ```shell
@@ -93,6 +96,7 @@ cd ../
 ### Deploying the Full Stack
 
 Deploy the entire system using docker-compose:
+
 ```shell
 ./gradlew quickstartDebug
 ```
@@ -102,20 +106,52 @@ Access the DataHub UI at `http://localhost:9002`
 ### Refreshing the Frontend
 
 To run and update the frontend with local changes, open a new terminal and run:
+
 ```shell
 cd datahub-web-react
 yarn install && yarn start
 ```
+
 The frontend will be available at `http://localhost:3000` and will automatically update as you make changes to the code.
 
-### Refreshing GMS
+### Refreshing components of quickStart
 
-To refresh the GMS (Generalized Metadata Service) with local changes:
+To refresh any of the running system stared by `./gradlew quickStartDebug`, run
+
 ```shell
-./gradlew :metadata-service:war:build -x test --parallel && docker restart datahub-datahub-gms-debug-1
+./gradlew debugReload
 ```
 
-### Refreshing the CLI 
+This will build any changed components and restart those containers that had changes.
+There are a few other quickStart\* variants, like quickStartDebugMin, quickStartDebugConsumers
+
+For each of those variants, there is a corresponding reloadTask.
+
+For `./gradlew quickStartDebugConsumers`, the reload command is `./gradlew debugConsumersReload`
+For `./gradlew quickStartDebugMin`, the reload command is `./gradlew debugMinReload`
+
+A full restart using `./gradlew quickStartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
+For incremental changes, the `debugReload*` variants can be used.
+
+### Using .env to configure settings of services started by quickstart
+
+To start datahub with a customized set of environment variables, .env files can be created in the docker/profiles folder.
+For example, an env file `my-settings.env` can be created in docker/profiles folder and loaded using
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-settings.env ./gradlew quickStartDebug
+```
+
+To refresh the containers due to code changes, `debugReload` task can be used.
+To change the env and reload containers, use the task `debugReloadEnv`
+
+```shell
+DATAHUB_LOCAL_COMMON_ENV=my-other-settings.env ./gradlew debugReloadEnv
+```
+
+This will build any container artifacts were changed and all reloadable containers are re-created to use the new env settings.
+
+### Refreshing the CLI
 
 If you haven't set up the CLI for local development yet, run:
 
@@ -125,7 +161,7 @@ cd metadata-ingestion
 source venv/bin/activate
 ```
 
-Once you're in `venv`, your local changes will be reflected automatically. 
+Once you're in `venv`, your local changes will be reflected automatically.
 For example, you can run `datahub ingest -c <file>` to test local changes in ingestion connectors.
 
 To verify that you're using the local version, run:
@@ -135,17 +171,10 @@ datahub --version
 ```
 
 Expected Output:
+
 ```commandline
 acryl-datahub, version unavailable (installed in develop mode)
 ```
-
-### Refreshing Other Components
-
-To refresh other components with local changes, just run:
-```commandline
-./gradlew quickstartDebug
-```
-
 
 ## IDE Support
 
@@ -211,8 +240,7 @@ This could mean that you need to update your [Yarn](https://yarnpkg.com/getting-
 
 #### `:buildSrc:compileJava` task fails with `package com.linkedin.metadata.models.registry.config does not exist` and `cannot find symbol` error for `Entity`
 
-There are currently two symbolic links within the [buildSrc](https://github.com/datahub-project/datahub/tree/master/buildSrc) directory for the [com.linkedin.metadata.aspect.plugins.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/aspect/plugins/config) and [com.linkedin.metadata.models.registry.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/models/registry/config
-) packages, which points to the corresponding packages in the [entity-registry](https://github.com/datahub-project/datahub/tree/master/entity-registry) subproject.
+There are currently two symbolic links within the [buildSrc](https://github.com/datahub-project/datahub/tree/master/buildSrc) directory for the [com.linkedin.metadata.aspect.plugins.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/aspect/plugins/config) and [com.linkedin.metadata.models.registry.config](https://github.com/datahub-project/datahub/blob/master/buildSrc/src/main/java/com/linkedin/metadata/models/registry/config) packages, which points to the corresponding packages in the [entity-registry](https://github.com/datahub-project/datahub/tree/master/entity-registry) subproject.
 
 When the repository is checked out using Windows 10/11 - even if WSL is later used for building using the mounted Windows filesystem in `/mnt/` - the symbolic links might have not been created correctly, instead the symbolic links were checked out as plain files. Although it is technically possible to use the mounted Windows filesystem in `/mnt/` for building in WSL, it is **strongly recommended** to checkout the repository within the Linux filesystem (e.g., in `/home/`) and building it from there, because accessing the Windows filesystem from Linux is relatively slow compared to the Linux filesystem and slows down the whole building process.
 

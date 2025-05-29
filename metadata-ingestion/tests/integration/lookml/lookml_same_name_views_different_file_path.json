@@ -333,6 +333,9 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Timestamp"
                                         }
                                     ]
                                 },
@@ -354,6 +357,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Measure"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Measurement"
                                         }
                                     ]
                                 },
@@ -622,6 +628,9 @@
                                         },
                                         {
                                             "tag": "urn:li:tag:Temporal"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Timestamp"
                                         }
                                     ]
                                 },
@@ -643,6 +652,9 @@
                                     "tags": [
                                         {
                                             "tag": "urn:li:tag:Measure"
+                                        },
+                                        {
+                                            "tag": "urn:li:tag:looker:group_label:Measurement"
                                         }
                                     ]
                                 },
@@ -801,6 +813,38 @@
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:looker:group_label:Measurement",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "looker:group_label:Measurement"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:looker:group_label:Timestamp",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "looker:group_label:Timestamp"
         }
     },
     "systemMetadata": {

@@ -37,7 +37,7 @@ jobs:
       deployments: write
     timeout-minutes: 30
     needs: setup
-    if: !github.event.pull_request.head.repo.fork
+    if: ${{ github.event.pull_request.head.repo.fork != 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -46,7 +46,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 17
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/gradle-build-action@v3
       - name: Gradle build for frontend
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         run: |

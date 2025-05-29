@@ -1,7 +1,17 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import React from 'react';
+
+import { GenericEntityProperties } from '@app/entity/shared/types';
+import { IconStyleType } from '@app/entityV2/Entity';
+import { ChartStatsSummary as ChartStatsSummaryView } from '@app/entityV2/chart/shared/ChartStatsSummary';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { DashboardLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
+import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+
 import {
     AccessLevel,
+    BrowsePathV2,
     ChartStatsSummary,
     Container,
     DataProduct,
@@ -14,15 +24,7 @@ import {
     Owner,
     ParentContainersResult,
     SearchInsight,
-    BrowsePathV2,
-} from '../../../../types.generated';
-import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
-import { useEntityRegistry } from '../../../useEntityRegistry';
-import { IconStyleType } from '../../Entity';
-import { PopularityTier } from '../../shared/containers/profile/sidebar/shared/utils';
-import { summaryHasStats, DashboardLastUpdatedMs } from '../../shared/utils';
-import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
-import { EntityMenuItems } from '../../shared/EntityDropdown/EntityMenuActions';
+} from '@types';
 
 export const ChartPreview = ({
     urn,

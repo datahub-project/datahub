@@ -28,4 +28,7 @@ XPACK_SECURITY_ENABLED="$XPACK_SECURITY_ENABLED" ELASTICSEARCH_USE_SSL="$ELASTIC
 USE_AWS_ELASTICSEARCH="$USE_AWS_ELASTICSEARCH" \
 DATAHUB_VERSION=${DATAHUB_VERSION} \
 ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=1 \
+DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
+DATAHUB_LOCAL_ACTIONS_ENV=`pwd`/test_resources/actions/actions.env  \
 docker compose --project-directory ../docker/profiles --profile quickstart-consumers up -d --quiet-pull --wait --wait-timeout 900
+
