@@ -1,8 +1,13 @@
 import logging
+import re
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 import datahub.emitter.mce_builder as builder
-from datahub.emitter.mcp_builder import add_entity_to_container
+from datahub.emitter.mcp_builder import (
+    ContainerKey,
+    add_entity_to_container,
+    gen_containers,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau_common import (
@@ -33,6 +38,12 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
+class VCFolderKey(ContainerKey):
+    """Container key for Virtual Connection folders"""
+
+    virtual_connection_id: str
+
+
 class VirtualConnectionProcessor:
     """Handles Virtual Connection processing for Tableau connector"""
 
@@ -51,6 +62,13 @@ class VirtualConnectionProcessor:
         self.virtual_connection_ids_being_used: List[str] = []
         self.datasource_vc_relationships: Dict[str, List[Dict[str, Any]]] = {}
         self.vc_table_column_types: Dict[str, str] = {}
+
+    def gen_vc_folder_key(self, vc_id: str) -> VCFolderKey:
+        return VCFolderKey(
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            virtual_connection_id=vc_id,
+        )
 
     def process_datasource_for_vc_refs(
         self, datasource: dict, datasource_type: str
@@ -346,7 +364,7 @@ class VirtualConnectionProcessor:
     def create_datasource_vc_lineage_v2(
         self, datasource_urn: str
     ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
-        """Create datasource to VC lineage using v2 field paths - FIXED to return both table and column lineage"""
+        """Create datasource to VC lineage using v2 field paths - pointing to specific VC tables"""
         upstream_tables: List[Upstream] = []
         fine_grained_lineages: List[FineGrainedLineage] = []
 
@@ -375,43 +393,77 @@ class VirtualConnectionProcessor:
             f"Creating VC lineage for datasource {datasource_id} with {len(vc_references)} VC references"
         )
 
-        # Track unique VCs for table-level lineage (avoid duplicates)
-        vc_ids_seen = set()
+        # Track unique VC tables for table-level lineage (avoid duplicates)
+        vc_table_urns_seen = set()
+
+        # Build a mapping of VC table names to their IDs for reference table lookup
+        vc_table_name_to_id: Dict[str, str] = {}
+        for table_id, _vc_id in self.vc_table_id_to_vc_id.items():
+            if table_id in self.vc_table_id_to_name:
+                table_name = self.vc_table_id_to_name[table_id]
+                vc_table_name_to_id[table_name.lower()] = table_id
 
         for ref in vc_references:
             vc_table_id = ref.get("vc_table_id")
             field_name = str(ref.get("field_name"))
+            vc_table_name = ref.get("vc_table_name")
             column_name = ref.get("column_name")
 
-            if not all([vc_table_id, field_name, column_name]):
+            if not all([vc_table_id, field_name, column_name, vc_table_name]):
                 continue
 
-            if (
-                vc_table_id in self.vc_table_id_to_vc_id
-                and vc_table_id in self.vc_table_id_to_name
-            ):
-                vc_id = self.vc_table_id_to_vc_id[vc_table_id]
-
-                vc_urn = builder.make_dataset_urn_with_platform_instance(
-                    self.platform, vc_id, self.config.platform_instance, self.config.env
+            # Process complex field names like "Column Name (table_name)"
+            # to extract any referenced table name
+            referenced_table = None
+            clean_field_name = field_name
+            table_match = re.search(r"(.*?)\s*\((.*?)\)", field_name)
+            if table_match:
+                clean_field_name = table_match.group(1).strip()
+                referenced_table = table_match.group(2).strip().lower()
+                logger.debug(
+                    f"Extracted referenced table '{referenced_table}' from field '{field_name}'"
                 )
 
-                if vc_id not in vc_ids_seen:
-                    vc_ids_seen.add(vc_id)
+                # If the field references a specific table, see if we can find that table
+                # in our VC tables mapping
+                if referenced_table in vc_table_name_to_id:
+                    ref_table_id = vc_table_name_to_id[referenced_table]
+                    # Override the vc_table_id if we found a better match
+                    if ref_table_id != vc_table_id:
+                        logger.debug(
+                            f"Overriding table ID from {vc_table_id} to {ref_table_id} based on field name reference"
+                        )
+                        vc_table_id = ref_table_id
+                        if ref_table_id in self.vc_table_id_to_name:
+                            vc_table_name = self.vc_table_id_to_name[ref_table_id]
+
+            if vc_table_id in self.vc_table_id_to_vc_id:
+                vc_id = self.vc_table_id_to_vc_id[vc_table_id]
+
+                # Create URN for the specific table within the VC
+                # Format: {vc_id}.{table_name} as used in _emit_single_virtual_connection
+                vc_table_urn = builder.make_dataset_urn_with_platform_instance(
+                    platform=self.platform,
+                    name=f"{vc_id}.{vc_table_name}",
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                )
+
+                if vc_table_urn not in vc_table_urns_seen:
+                    vc_table_urns_seen.add(vc_table_urn)
                     upstream_tables.append(
-                        Upstream(dataset=vc_urn, type=DatasetLineageType.TRANSFORMED)
+                        Upstream(
+                            dataset=vc_table_urn, type=DatasetLineageType.TRANSFORMED
+                        )
                     )
-                    logger.debug(f"Added table-level upstream: {vc_urn}")
+                    logger.debug(f"Added table-level upstream: {vc_table_urn}")
 
                 # Add column-level lineage with v2 field paths
                 if self.config.extract_column_level_lineage:
                     # Get column type from stored mappings
-                    column_type = self.vc_table_column_types.get(
+                    self.vc_table_column_types.get(
                         f"{vc_table_id}.{column_name}", c.UNKNOWN
                     )
-
-                    # Create v2 field path for VC column
-                    vc_field_path = f"[type={column_type.lower()}].{column_name}"
 
                     fine_grained_lineages.append(
                         FineGrainedLineage(
@@ -423,12 +475,19 @@ class VirtualConnectionProcessor:
                             ],
                             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                             upstreams=[
-                                builder.make_schema_field_urn(vc_urn, vc_field_path)
+                                builder.make_schema_field_urn(
+                                    vc_table_urn, str(column_name)
+                                )
                             ],
+                            transformOperation=f"Source: {clean_field_name} from {vc_table_name}"
+                            if referenced_table
+                            else None,
                         )
                     )
 
-                    logger.debug(f"Created VC lineage: {field_name} ← {vc_field_path}")
+                    logger.debug(
+                        f"Created VC lineage: {field_name} ← {column_name} (in {vc_table_name})"
+                    )
 
         logger.debug(
             f"Created {len(upstream_tables)} table lineages and {len(fine_grained_lineages)} column lineages for datasource {datasource_id}"
@@ -479,9 +538,54 @@ class VirtualConnectionProcessor:
                     return project_id
         return None
 
+    def _create_vc_folder_container(
+        self, vc: dict
+    ) -> Tuple[str, List[MetadataWorkUnit]]:
+        """Create a folder container for a Virtual Connection"""
+        vc_id = vc.get(c.ID)
+        vc_name = vc.get(c.NAME, "Unknown Virtual Connection")
+        vc_description = vc.get(c.DESCRIPTION, "")
+
+        # Create a proper container key for the VC folder
+        vc_folder_key = VCFolderKey(
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            virtual_connection_id=vc_id,
+        )
+
+        # Create container URN
+        container_urn = vc_folder_key.as_urn()
+
+        # Generate container entities
+        container_workunits = list(
+            gen_containers(
+                container_key=vc_folder_key,
+                name=vc_name,
+                description=vc_description,
+                sub_types=["Virtual Connection"],
+            )
+        )
+
+        # If VC is in a project, add the container to that project
+        project_luid = self._get_vc_project_luid(vc)
+        if project_luid:
+            project_key = self.tableau_source.gen_project_key(project_luid)
+            container_workunits.extend(
+                add_entity_to_container(project_key, "container", container_urn)
+            )
+
+        return container_urn, container_workunits
+
     def _emit_single_virtual_connection(self, vc: dict) -> Iterable[MetadataWorkUnit]:
         """Emit a single Virtual Connection dataset"""
         vc_id = vc[c.ID]
+        vc.get(c.NAME, "Unknown Virtual Connection")
+
+        # Create a VC folder container
+        vc_container_urn, container_workunits = self._create_vc_folder_container(vc)
+
+        # Emit container workunits
+        yield from container_workunits
 
         # Schema metadata with separate schemas for each table
         vc_tables = vc.get("tables", [])
@@ -503,7 +607,7 @@ class VirtualConnectionProcessor:
             )
 
             # Dataset properties for the table
-            table_info = next(
+            table_info: dict = next(
                 (t for t in vc_tables if t.get(c.NAME) == table_name),
                 {},
             )
@@ -535,7 +639,15 @@ class VirtualConnectionProcessor:
                     aspect=upstream_lineage,
                 )
 
-            # Add to project container if available
+            # Add table to the VC folder container
+            vc_folder_key = self.gen_vc_folder_key(vc_id)
+            yield from add_entity_to_container(
+                vc_folder_key,
+                c.DATASET,
+                table_urn,
+            )
+
+            # Also add to project container if available
             project_luid = self._get_vc_project_luid(vc)
             if project_luid:
                 yield from add_entity_to_container(
