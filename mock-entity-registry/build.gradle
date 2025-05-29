@@ -7,6 +7,3 @@ apply from: '../gradle/coverage/java-coverage.gradle'
 dependencies {
     implementation project(':entity-registry')
 }
-dependencyLocking {
-  lockAllConfigurations()
-}

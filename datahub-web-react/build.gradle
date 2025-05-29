@@ -225,7 +225,3 @@ jar {
   archiveClassifier = 'assets'
 }
 build.dependsOn jar
-
-dependencyLocking {
-  lockAllConfigurations()
-}

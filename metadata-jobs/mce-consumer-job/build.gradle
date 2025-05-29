@@ -99,7 +99,3 @@ docker {
         buildArgs(dockerBuildArgs)
     }
 }
-
-dependencyLocking {
-  lockAllConfigurations()
-}

@@ -127,7 +127,3 @@ createPlayBinaryTarDist.dependsOn 'stageDatahub-frontendDist'
 createPlayBinaryZipDist.dependsOn 'stageDatahub-frontendDist'
 createPlayBinaryTarDist.dependsOn 'stageMainDist'
 createPlayBinaryZipDist.dependsOn 'stageMainDist'
-
-dependencyLocking {
-  lockAllConfigurations()
-}

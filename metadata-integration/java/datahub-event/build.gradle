@@ -55,7 +55,3 @@ test {
 //  archiveClassifier = 'javadoc'
 //  from javadoc
 //}
-
-dependencyLocking {
-  lockAllConfigurations()
-}

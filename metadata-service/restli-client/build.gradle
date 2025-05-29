@@ -27,7 +27,3 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation spec.product.pegasus.restliTestUtils
 }
-
-dependencyLocking {
-  lockAllConfigurations()
-}

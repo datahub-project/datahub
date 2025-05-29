@@ -30,7 +30,3 @@ test {
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
 }
-
-dependencyLocking {
-  lockAllConfigurations()
-}

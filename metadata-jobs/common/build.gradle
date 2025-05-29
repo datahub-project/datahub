@@ -22,6 +22,3 @@ dependencies {
 
     annotationProcessor externalDependency.lombok
 }
-dependencyLocking {
-  lockAllConfigurations()
-}

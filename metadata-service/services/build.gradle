@@ -83,7 +83,3 @@ test {
 tasks.withType(Test) {
     enableAssertions = false
 }
-
-dependencyLocking {
-  lockAllConfigurations()
-}

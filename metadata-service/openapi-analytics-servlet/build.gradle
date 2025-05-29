@@ -66,7 +66,3 @@ task openApiGenerate(type: GenerateSwaggerCode) {
     ]
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
-
-dependencyLocking {
-  lockAllConfigurations()
-}

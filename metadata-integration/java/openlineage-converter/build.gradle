@@ -56,7 +56,3 @@ jar {
 //    classifier 'javadoc'
 //    from javadoc.destinationDir
 //}
-
-dependencyLocking {
-  lockAllConfigurations()
-}

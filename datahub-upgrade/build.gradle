@@ -271,6 +271,3 @@ docker {
   }
 }
 
-dependencyLocking {
-  lockAllConfigurations()
-}

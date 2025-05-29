@@ -69,7 +69,3 @@ compileJava.dependsOn 'graphqlCodegen'
 build.dependsOn ':datahub-web-react:graphqlPrettierCheck'
 spotlessApply.dependsOn ':datahub-web-react:graphqlPrettierWrite'
 sourceSets.main.java.srcDir "$projectDir/src/mainGeneratedGraphQL/java"
-
-dependencyLocking {
-  lockAllConfigurations()
-}

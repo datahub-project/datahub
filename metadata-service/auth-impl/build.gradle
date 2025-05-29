@@ -29,6 +29,3 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
 }
-dependencyLocking {
-  lockAllConfigurations()
-}

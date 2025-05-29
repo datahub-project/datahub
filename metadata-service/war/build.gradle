@@ -149,7 +149,3 @@ test {
                 "com.linkedin.gms.GMSApplication"]
   }
 }
-
-dependencyLocking {
-  lockAllConfigurations()
-}

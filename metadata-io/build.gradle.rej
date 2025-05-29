@@ -1,8 +1,0 @@
-@@ -164,3 +164,7 @@
-   delete "$projectDir/generated"
- }
- 
-+
-+dependencyLocking {
-+  lockAllConfigurations()
-+}

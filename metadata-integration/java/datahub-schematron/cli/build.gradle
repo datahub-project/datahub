@@ -108,6 +108,3 @@ configurations {
     provided
     implementation.extendsFrom provided
 }
-dependencyLocking {
-  lockAllConfigurations()
-}
