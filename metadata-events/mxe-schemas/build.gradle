@@ -38,3 +38,7 @@ clean {
   delete 'src/mainGeneratedAvroSchema/avro'
   delete 'src/renamed/avro'
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

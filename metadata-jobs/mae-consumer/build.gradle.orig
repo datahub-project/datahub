@@ -1,0 +1,91 @@
+plugins {
+    id 'java-library'
+}
+apply from: '../../gradle/coverage/java-coverage.gradle'
+apply plugin: 'pegasus'
+
+configurations {
+    avro
+}
+
+dependencies {
+    avro project(path: ':metadata-models', configuration: 'avroSchema')
+
+    implementation platform("software.amazon.awssdk:bom:$awsSdk2Version")
+    implementation 'software.amazon.awssdk:regions'
+    implementation 'software.amazon.awssdk:sqs'
+
+    implementation project(':li-utils')
+    implementation(project(':metadata-service:factories')) {
+        exclude group: 'org.neo4j.test'
+    }
+    implementation project(':metadata-service:auth-config')
+    implementation project(':metadata-service:restli-client-api')
+    implementation project(':metadata-io')
+    implementation project(':ingestion-scheduler')
+    implementation project(':metadata-utils')
+    implementation project(":entity-registry")
+    implementation project(':metadata-events:mxe-avro')
+    implementation project(':metadata-events:mxe-registration')
+    implementation project(':metadata-events:mxe-utils-avro')
+    implementation project(':datahub-graphql-core')
+
+    // acryl-main
+    implementation project(':notifications')
+    implementation project(':metadata-dao-impl:kafka-producer')
+    implementation externalDependency.opentelemetryAnnotations
+    implementation project(':metadata-service:openapi-servlet:models')
+
+    implementation externalDependency.elasticSearchRest
+    implementation externalDependency.kafkaAvroSerde
+    implementation externalDependency.protobuf
+    implementation externalDependency.neo4jJavaDriver
+
+    implementation externalDependency.springKafka
+    implementation externalDependency.annotationApi
+    implementation externalDependency.opentelemetrySdkTrace
+    implementation externalDependency.opentelemetrySdkMetrics
+
+    implementation externalDependency.slf4jApi
+    compileOnly externalDependency.lombok
+
+    annotationProcessor externalDependency.lombok
+
+    runtimeOnly externalDependency.logbackClassic
+    runtimeOnly externalDependency.logbackJackson
+    runtimeOnly externalDependency.logbackJsonClassic
+
+    testImplementation externalDependency.mockito
+    implementation externalDependency.awsMskIamAuth
+    implementation externalDependency.azureIdentityExtensions
+    implementation externalDependency.azureIdentity
+
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.springBootTest
+    testRuntimeOnly externalDependency.logbackClassic
+    testRuntimeOnly externalDependency.logbackJackson
+    testRuntimeOnly externalDependency.logbackJsonClassic
+    testImplementation project(':test-models')
+}
+
+task avroSchemaSources(type: Copy) {
+    dependsOn configurations.avro
+
+    from { // use of closure defers evaluation until execution time
+        configurations.avro.collect { zipTree(it) }
+    }
+    into("src/main/resources/")
+    include("avro/com/linkedin/mxe/")
+}
+
+test {
+  testLogging.exceptionFormat = 'full'
+  testLogging.showStandardStreams = true
+}
+
+compileJava.dependsOn avroSchemaSources
+processResources.dependsOn avroSchemaSources
+
+clean {
+    delete "src/main/resources/avro"
+}

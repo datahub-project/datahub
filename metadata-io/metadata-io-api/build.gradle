@@ -22,3 +22,6 @@ dependencies {
 test {
   environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 }
+dependencyLocking {
+  lockAllConfigurations()
+}

@@ -159,3 +159,7 @@ clean {
   delete 'dist'
 }
 clean.dependsOn cleanPythonCache
+
+dependencyLocking {
+  lockAllConfigurations()
+}

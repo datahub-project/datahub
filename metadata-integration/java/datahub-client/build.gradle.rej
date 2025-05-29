@@ -1,0 +1,11 @@
+@@ -259,4 +259,8 @@
+   //required only for projects registered in Sonatype after 2021-02-24
+   username = System.getenv("NEXUS_USERNAME")
+   password = System.getenv("NEXUS_PASSWORD")
+-}
+\ No newline at end of line
++}
++
++dependencyLocking {
++  lockAllConfigurations()
++}

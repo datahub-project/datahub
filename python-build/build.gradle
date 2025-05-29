@@ -27,3 +27,7 @@ task buildWheels(type: Exec, dependsOn: [
 task buildSite(type: Exec, dependsOn: [buildWheels]) {
   commandLine python_executable, "build_site.py"
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

@@ -133,6 +133,10 @@ For `./gradlew quickStartDebugMin`, the reload command is `./gradlew debugMinRel
 A full restart using `./gradlew quickStartDebug` is recommended if there are significant changes and the setup/system update containers need to be run again.
 For incremental changes, the `debugReload*` variants can be used.
 
+### Updating gradle.lockfile
+
+If dependency versions are updated in gradle.build, also gradle.lockfile has to be updated manually or by running `./gradlew --write-locks`
+
 ### Using .env to configure settings of services started by quickstart
 
 To start datahub with a customized set of environment variables, .env files can be created in the docker/profiles folder.

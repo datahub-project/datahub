@@ -1,0 +1,227 @@
+import java.nio.file.FileSystems
+import java.nio.file.Paths
+
+plugins {
+  id 'java'
+  id 'distribution'
+  id 'com.github.node-gradle.node'
+}
+
+node {
+
+  // If true, it will download node using above parameters.
+  // If false, it will try to use globally installed node.
+
+  if (project.hasProperty('useSystemNode')) {
+    download = ! project.getProperty('useSystemNode').toBoolean()
+  } else {
+    download = true
+  }
+
+  // Version of node to use.
+  version = '22.12.0'
+
+  // Version of Yarn to use.
+  yarnVersion = '1.22.22'
+
+  // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
+  if (project.hasProperty('nodeDistBaseUrl')) {
+    distBaseUrl = project.getProperty('nodeDistBaseUrl')
+  } else {
+    distBaseUrl = 'https://nodejs.org/dist'
+  }
+
+  // Set the work directory for unpacking node
+  workDir = file("${project.projectDir}/.gradle/nodejs")
+
+  // Set the work directory for NPM
+  yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
+
+  // Set the work directory where node_modules should be located
+  nodeProjectDir = file("${project.projectDir}")
+
+}
+
+/*
+  Wrappers around Yarn Tasks.
+ */
+task yarnInstall(type: YarnTask) {
+  args = ['install', '--network-timeout', '300000']
+
+  // The node_modules directory can contain built artifacts, so
+  // it's not really safe to cache it.
+  outputs.cacheIf { false }
+
+  inputs.files(
+    file('yarn.lock'),
+    file('package.json'),
+  )
+  outputs.dir('node_modules')
+}
+
+task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
+  args = ['run', 'generate']
+
+  outputs.cacheIf { true }
+
+  inputs.files(
+    yarnInstall.inputs.files,
+    file('codegen.yml'),
+    project.fileTree(dir: "../datahub-graphql-core/src/main/resources/", include: "*.graphql"),
+    project.fileTree(dir: "src", include: "**/*.graphql"),
+  )
+
+  outputs.files(
+    project.fileTree(dir: "src", include: "**/*.generated.ts"),
+  )
+}
+
+task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  environment.put('REACT_APP_PROXY_TARGET', 'http://localhost:9001')
+  args = ['run', 'start']
+}
+
+task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  environment.put('REACT_APP_PROXY_TARGET', project.findProperty('proxy') ?: 'http://localhost:9001')
+  args = ['run', 'preview']
+}
+
+task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  // Explicitly runs in non-watch mode.
+  args = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
+  def test_sentinel = "${buildDir}/.yarn-test-sentinel"
+  outputs.file(test_sentinel)
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  doLast {
+    // touch a file with name yarn-lint.txt in the build directory
+    def file = file(test_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
+}
+
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'lint']
+}
+
+test.dependsOn([yarnInstall, yarnTest, yarnLint])
+
+task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'lint-fix']
+  def lint_sentinel = "${buildDir}/.yarn-lint-sentinel"
+  outputs.file(lint_sentinel)
+  inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  doLast {
+    // touch a file with name yarn-lint.txt in the build directory
+    def file = file(lint_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
+}
+
+task yarnBuildStoryBook(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'build-storybook']
+}
+
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap' :'build']
+
+  outputs.cacheIf { true }
+  inputs.files(
+    file('index.html'),
+    project.fileTree(dir: "src"),
+    project.fileTree(dir: "public"),
+
+    yarnInstall.inputs.files,
+    yarnGenerate.outputs.files,
+
+    file('.env'),
+    file('vite.config.ts'),
+    file('tsconfig.json'),
+  )
+  outputs.dir('dist')
+}
+
+// Define a list of configurations for prettier tasks
+def externalPrettierConfigs = [
+    [
+        name: 'graphql',
+        pattern: 'datahub-graphql-core/src/main/resources/**/*.graphql'
+    ],
+    [
+        name: 'githubActions',
+        pattern: '.github/**/*.{yml,yaml}'
+    ],
+    [
+        name: 'md',
+        pattern: '**/*.md'
+    ]
+]
+
+// Iterate through the configurations to create check and write tasks
+externalPrettierConfigs.each { config ->
+  tasks.register("${config.name}PrettierCheck", YarnTask) {
+    dependsOn(tasks.named('yarnInstall'))
+    args = ['run', 'prettier', '--check', "../${config.pattern}"]
+  }
+
+  tasks.register("${config.name}PrettierWrite", YarnTask) {
+    dependsOn(tasks.named('yarnInstall'))
+    args = ['run', 'prettier', '--write', "../${config.pattern}"]
+  }
+
+  tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
+    // Get the list of changed Markdown files using Git
+    def changedFiles = new ByteArrayOutputStream()
+    exec {
+      commandLine 'git', 'diff', '--name-only', '--diff-filter=ACMRT', 'HEAD'
+      standardOutput = changedFiles
+    }
+    def allChangedFiles = changedFiles.toString().trim().split('\n').findAll { it != '' }
+    def matcher = FileSystems.getDefault().getPathMatcher("glob:${config.pattern}")
+    def matchingFiles = allChangedFiles.findAll { file -> matcher.matches(Paths.get(file)) }
+
+    if (matchingFiles.isEmpty()) {
+      logger.lifecycle("No changed files found matching ${config.pattern}.")
+      return
+    }
+
+    logger.lifecycle("Running Prettier on ${matchingFiles.size()} changed ${config.name} files")
+    args = ['run', 'prettier', '--write'] + matchingFiles.collect { "../${it}" }
+  }
+}
+
+clean {
+  delete 'node_modules/.yarn-integrity'
+  delete 'dist'
+  delete 'tmp'
+  delete 'just'
+  delete fileTree(dir: 'src', include: '*.generated.ts')
+}
+
+configurations {
+  assets
+}
+
+distZip {
+  dependsOn yarnBuild
+  archiveFileName = "datahub-web-react-${archiveVersion}.${archiveExtension}"
+  from 'dist'
+}
+
+jar {
+  dependsOn yarnBuild
+  into('public') {
+    from 'dist'
+  }
+  archiveClassifier = 'assets'
+}
+build.dependsOn jar

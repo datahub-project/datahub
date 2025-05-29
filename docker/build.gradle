@@ -354,3 +354,7 @@ quickstart_configs.each { taskName, config ->
         }
     }
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

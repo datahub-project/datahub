@@ -28,3 +28,7 @@ clean {
   delete 'buildDir', '../resources/sample-plugins'
 }
 build.dependsOn copyJar
+
+dependencyLocking {
+  lockAllConfigurations()
+}

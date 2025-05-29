@@ -77,3 +77,7 @@ tasks.getByName("compileJava").dependsOn(openApiGenerate)
 clean {
   delete "$projectDir/src/generatedJsonSchema"
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

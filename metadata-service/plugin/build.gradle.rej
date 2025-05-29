@@ -1,0 +1,10 @@
+@@ -43,4 +43,7 @@
+ 
+ clean {
+   dependsOn ':metadata-service:plugin:src:test:sample-test-plugins:clean'
+-}
+\ No newline at end of line
++}
++dependencyLocking {
++  lockAllConfigurations()
++}

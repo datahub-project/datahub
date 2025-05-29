@@ -150,3 +150,7 @@ test {
   ]
   jvmArgs = playJava17CompatibleJvmArgs
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

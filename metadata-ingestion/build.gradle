@@ -239,3 +239,7 @@ idea {
     testSourceDirs += file('tests')
   }
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

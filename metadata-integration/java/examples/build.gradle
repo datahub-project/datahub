@@ -37,3 +37,6 @@ task integrationTest(type: Exec, dependsOn: [build, ':docker:quickstart'] ) {
 jacocoTestReport {
     dependsOn test // tests are required to run before generating the report
 }
+dependencyLocking {
+  lockAllConfigurations()
+}

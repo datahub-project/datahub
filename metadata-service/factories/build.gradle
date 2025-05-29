@@ -94,3 +94,7 @@ configurations.all{
   exclude group: "commons-io", module:"commons-io"
   exclude group: "jline", module:"jline"
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

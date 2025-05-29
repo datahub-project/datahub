@@ -83,3 +83,7 @@ configurations {
 //}
 
 
+
+dependencyLocking {
+  lockAllConfigurations()
+}

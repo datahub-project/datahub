@@ -34,3 +34,7 @@ idea {
 
 // Need to compile backing java parameterDefinitions with the data template.
 sourceSets.mainGeneratedDataTemplate.java.srcDirs('src/main/javaPegasus/')
+
+dependencyLocking {
+  lockAllConfigurations()
+}

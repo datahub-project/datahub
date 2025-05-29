@@ -56,3 +56,7 @@ dependencies {
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')
 
+
+dependencyLocking {
+  lockAllConfigurations()
+}

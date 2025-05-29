@@ -80,3 +80,7 @@ modelDeploy.dependsOn modelArtifact
 publish.dependsOn modelDeploy
 
 
+
+dependencyLocking {
+  lockAllConfigurations()
+}

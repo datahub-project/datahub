@@ -24,3 +24,7 @@ dependencies {
 processResources.configure {
   finalizedBy printVersionDetails // always print version details
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

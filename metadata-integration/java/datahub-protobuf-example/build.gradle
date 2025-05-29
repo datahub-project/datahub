@@ -76,3 +76,7 @@ task publishSchema(dependsOn: build) {
         }
     }
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

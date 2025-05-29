@@ -67,3 +67,7 @@ processResources.dependsOn avroSchemaSources
 clean {
     delete "src/main/resources/avro"
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

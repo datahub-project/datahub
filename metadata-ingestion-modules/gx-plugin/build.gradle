@@ -109,3 +109,7 @@ clean {
   delete '.pytest_cache'
 }
 clean.dependsOn cleanPythonCache
+
+dependencyLocking {
+  lockAllConfigurations()
+}

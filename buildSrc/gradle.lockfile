@@ -1,0 +1,40 @@
+# This is a Gradle generated file for dependency locking.
+# Manual edits can break the build and are not advised.
+# This file is expected to be part of source control.
+com.fasterxml.jackson.core:jackson-annotations:2.13.5=compileClasspath
+com.fasterxml.jackson.core:jackson-annotations:2.14.2=buildScriptClasspath
+com.fasterxml.jackson.core:jackson-core:2.13.5=compileClasspath
+com.fasterxml.jackson.core:jackson-core:2.14.2=buildScriptClasspath
+com.fasterxml.jackson.core:jackson-databind:2.13.5=compileClasspath
+com.fasterxml.jackson.core:jackson-databind:2.14.2=buildScriptClasspath
+com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.5=compileClasspath
+com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.14.2=buildScriptClasspath
+com.fasterxml.jackson:jackson-bom:2.13.5=compileClasspath
+com.fasterxml.jackson:jackson-bom:2.14.2=buildScriptClasspath
+com.github.java-json-tools:btf:1.3=buildScriptClasspath,compileClasspath
+com.github.java-json-tools:jackson-coreutils-equivalence:1.0=buildScriptClasspath,compileClasspath
+com.github.java-json-tools:jackson-coreutils:2.0=buildScriptClasspath,compileClasspath
+com.github.java-json-tools:json-schema-core:1.2.14=buildScriptClasspath,compileClasspath
+com.github.java-json-tools:json-schema-validator:2.2.14=buildScriptClasspath,compileClasspath
+com.github.java-json-tools:msg-simple:1.2=buildScriptClasspath,compileClasspath
+com.github.java-json-tools:uri-template:0.10=buildScriptClasspath,compileClasspath
+com.google.code.findbugs:jsr305:3.0.2=buildScriptClasspath,compileClasspath
+com.google.errorprone:error_prone_annotations:2.18.0=buildScriptClasspath,compileClasspath
+com.google.guava:failureaccess:1.0.1=buildScriptClasspath,compileClasspath
+com.google.guava:guava-parent:32.1.2-jre=buildScriptClasspath,compileClasspath
+com.google.guava:guava:32.1.2-jre=buildScriptClasspath,compileClasspath
+com.google.guava:listenablefuture:9999.0-empty-to-avoid-conflict-with-guava=buildScriptClasspath,compileClasspath
+com.google.j2objc:j2objc-annotations:2.8=compileClasspath
+com.googlecode.libphonenumber:libphonenumber:8.11.1=buildScriptClasspath,compileClasspath
+com.sun.mail:mailapi:1.6.2=buildScriptClasspath,compileClasspath
+commons-io:commons-io:2.17.0=buildScriptClasspath,compileClasspath
+io.acryl:json-schema-avro:0.2.3=buildScriptClasspath,compileClasspath
+joda-time:joda-time:2.10.5=buildScriptClasspath,compileClasspath
+net.sf.jopt-simple:jopt-simple:5.0.4=buildScriptClasspath,compileClasspath
+org.apache.avro:avro:1.11.3=buildScriptClasspath
+org.checkerframework:checker-qual:3.33.0=buildScriptClasspath,compileClasspath
+org.mozilla:rhino:1.7.7.2=buildScriptClasspath,compileClasspath
+org.projectlombok:lombok:1.18.30=annotationProcessor,compileClasspath
+org.yaml:snakeyaml:1.31=compileClasspath
+org.yaml:snakeyaml:1.33=buildScriptClasspath
+empty=

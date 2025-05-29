@@ -43,3 +43,7 @@ dependencies {
     testImplementation externalDependency.jacksonDataBind
     testImplementation externalDependency.springBootStarterWeb
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

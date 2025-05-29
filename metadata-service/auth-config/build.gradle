@@ -12,3 +12,6 @@ dependencies {
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
 }
+dependencyLocking {
+  lockAllConfigurations()
+}

@@ -238,4 +238,3 @@ clean{
   delete "$projectDir/src/test/resources/data/out_persist.csv"
   delete "$projectDir/spark-smoke-test/venv"
 }
-

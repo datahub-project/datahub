@@ -50,3 +50,7 @@ jar {
 clean {
     delete 'src'
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

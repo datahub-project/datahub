@@ -91,3 +91,6 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "ruff check --fix src/integrationTest/ && " +
     "ruff format src/integrationTest/ "
 }
+dependencyLocking {
+  lockAllConfigurations()
+}

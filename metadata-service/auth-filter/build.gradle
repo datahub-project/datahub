@@ -21,3 +21,6 @@ dependencies {
   testImplementation externalDependency.testng
   testImplementation externalDependency.springBootTest
 }
+dependencyLocking {
+  lockAllConfigurations()
+}

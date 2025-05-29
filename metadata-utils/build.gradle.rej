@@ -1,0 +1,10 @@
+@@ -51,4 +51,7 @@
+   }
+   implementation externalDependency.logbackClassic
+ 
+-}
+\ No newline at end of line
++}
++dependencyLocking {
++  lockAllConfigurations()
++}

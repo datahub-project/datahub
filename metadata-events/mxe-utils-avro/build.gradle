@@ -38,3 +38,7 @@ processResources.dependsOn copyOriginalMXESchemas
 clean {
   delete "src/main/resources/avro"
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}

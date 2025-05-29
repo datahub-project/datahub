@@ -22,3 +22,7 @@ dependencies {
     }
   }
 }
+
+dependencyLocking {
+  lockAllConfigurations()
+}
