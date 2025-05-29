@@ -26,6 +26,7 @@ import { SchemaFieldEntity } from '@app/entityV2/schemaField/SchemaFieldEntity';
 import { StructuredPropertyEntity } from '@app/entityV2/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entityV2/tag/Tag';
 import { UserEntity } from '@app/entityV2/user/User';
+import { ApplicationEntity } from './entityV2/application/ApplicationEntity';
 
 export default function buildEntityRegistryV2() {
     const registry = new EntityRegistry();
@@ -56,5 +57,6 @@ export default function buildEntityRegistryV2() {
     registry.register(new StructuredPropertyEntity());
     registry.register(new DataProcessInstanceEntity());
     registry.register(new BusinessAttributeEntity());
+    registry.register(new ApplicationEntity());
     return registry;
 }
