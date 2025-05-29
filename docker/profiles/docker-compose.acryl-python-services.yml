@@ -4,6 +4,10 @@ x-search-datastore-elasticsearch-env: &search-datastore-env
   ELASTICSEARCH_PROTOCOL: http
   ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
 
+x-executor-worker-env: &executor-worker-env
+  DATAHUB_EXECUTOR_WORKER_ID: ${DATAHUB_EXECUTOR_WORKER_ID:-remote-ci}
+  DATAHUB_SMOKETEST_EXECUTOR_ID: ${DATAHUB_SMOKETEST_EXECUTOR_ID}
+
 #################################
 # Integrations Service
 #################################
@@ -44,6 +48,29 @@ x-datahub-executor: &datahub-executor
   env_file: datahub-executor/env/docker.env
   environment: &datahub-executor-env
     <<: *search-datastore-env
+
+x-datahub-executor-setup: &datahub-executor-worker-setup
+  hostname: datahub-executor-worker
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+  env_file: datahub-executor/env/docker-worker.env
+  environment: &datahub-executor-worker-setup-env
+    <<: *executor-worker-env
+  command:
+    - python
+    - /datahub-executor/scripts/smoke-test-helper.py
+
+x-datahub-executor-worker: &datahub-executor-worker
+  hostname: datahub-executor-worker
+  image: ${DATAHUB_EXECUTOR_IMAGE:-${DATAHUB_REPO:-795586375822.dkr.ecr.us-west-2.amazonaws.com}/datahub-executor}:${DATAHUB_EXECUTOR_VERSION:-head}
+  env_file: datahub-executor/env/docker-worker.env
+  environment: &datahub-executor-worker-env
+    <<: *executor-worker-env
+  healthcheck:
+    test: ["CMD-SHELL", "/health_status /tmp/worker_readiness_heartbeat"]
+    interval: 30s
+    retries: 5
+    start_period: 30s
+    timeout: 10s
 
 x-datahub-executor-dev: &datahub-executor-dev
   <<: *datahub-executor
@@ -112,6 +139,13 @@ services:
   #################################
   # Executor Service
   #################################
+  datahub-executor-worker-quickstart-setup:
+    <<: *datahub-executor-worker-setup
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
   datahub-executor-quickstart-consumers:
     <<: *datahub-executor
     profiles:
@@ -119,6 +153,15 @@ services:
     depends_on:
       datahub-gms-quickstart-consumers:
         condition: service_healthy
+  datahub-executor-worker-quickstart-consumers:
+    <<: *datahub-executor-worker
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+      datahub-executor-worker-quickstart-setup:
+        condition: service_completed_successfully
   datahub-executor-quickstart-dev:
     <<: *datahub-executor-dev
     profiles:
