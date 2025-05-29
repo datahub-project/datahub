@@ -1,11 +1,13 @@
 package com.linkedin.datahub.graphql.types.ingestion;
 
+import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.IngestionConfig;
 import com.linkedin.datahub.graphql.generated.IngestionSchedule;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.StringMapEntry;
+import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -50,7 +52,7 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
   @Override
   public IngestionSource apply(
       @Nullable QueryContext context, @Nonnull EntityResponse entityResponse) {
-    return mapIngestionSource(entityResponse);
+    return mapIngestionSource(context, entityResponse);
   }
 
   /**
@@ -59,9 +61,12 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
    * @param ingestionSource The entity response to map.
    * @return The mapped {@link IngestionSource}.
    */
-  private IngestionSource mapIngestionSource(final EntityResponse ingestionSource) {
+  private IngestionSource mapIngestionSource(
+      @Nullable QueryContext context, final EntityResponse ingestionSource) {
     final Urn entityUrn = ingestionSource.getUrn();
     final EnvelopedAspectMap aspects = ingestionSource.getAspects();
+    final IngestionSource result = new IngestionSource();
+    result.setUrn(entityUrn.toString());
 
     // There should ALWAYS be an info aspect
     // (excepting a case when the source with urn was deleted)
@@ -71,31 +76,29 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
       return null;
     }
 
-    // Bind into a strongly typed object.
-    final DataHubIngestionSourceInfo ingestionSourceInfo =
-        new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
+    mapIngestionSourceInfo(result, envelopedInfo);
+    mapOwnership(result, context, entityUrn, aspects);
 
-    return mapIngestionSourceInfo(entityUrn, ingestionSourceInfo);
+    return result;
   }
 
   /**
-   * Maps {@link DataHubIngestionSourceInfo} to {@link IngestionSource}.
+   * Maps {@link EnvelopedAspect} to {@link IngestionSource}.
    *
-   * @param urn the urn of the ingestion source
-   * @param info the {@link DataHubIngestionSourceInfo}
-   * @return the mapped {@link IngestionSource}
+   * @param result the {@link IngestionSource}
+   * @param envelopedInfo the {@link EnvelopedAspect}
    */
-  private IngestionSource mapIngestionSourceInfo(
-      final Urn urn, final DataHubIngestionSourceInfo info) {
-    final IngestionSource result = new IngestionSource();
-    result.setUrn(urn.toString());
+  private void mapIngestionSourceInfo(
+      final IngestionSource result, final EnvelopedAspect envelopedInfo) {
+
+    final DataHubIngestionSourceInfo info =
+        new DataHubIngestionSourceInfo(envelopedInfo.getValue().data());
     result.setName(info.getName());
     result.setType(info.getType());
     result.setConfig(mapIngestionSourceConfig(info.getConfig()));
     if (info.hasSchedule()) {
       result.setSchedule(mapIngestionSourceSchedule(info.getSchedule()));
     }
-    return result;
   }
 
   /**
@@ -132,5 +135,17 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
     result.setInterval(schedule.getInterval());
     result.setTimezone(schedule.getTimezone());
     return result;
+  }
+
+  private void mapOwnership(
+      final IngestionSource result,
+      @Nullable QueryContext context,
+      final Urn urn,
+      final EnvelopedAspectMap aspects) {
+    final EnvelopedAspect envelopedOwnership = aspects.get(Constants.OWNERSHIP_ASPECT_NAME);
+    if (envelopedOwnership != null) {
+      result.setOwnership(
+          OwnershipMapper.map(context, new Ownership(envelopedOwnership.getValue().data()), urn));
+    }
   }
 }

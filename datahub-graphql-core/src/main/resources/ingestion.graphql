@@ -493,6 +493,11 @@ type IngestionSource {
   Previous requests to execute the ingestion source
   """
   executions(start: Int, count: Int): IngestionSourceExecutionRequests
+
+  """
+  Ownership metadata of the ingestion source
+  """
+  ownership: Ownership
 }
 
 """

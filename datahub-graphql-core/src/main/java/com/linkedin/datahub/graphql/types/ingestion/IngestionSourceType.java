@@ -31,7 +31,8 @@ public class IngestionSourceType
       ImmutableSet.of(
           Constants.INGESTION_SOURCE_ENTITY_NAME,
           Constants.INGESTION_INFO_ASPECT_NAME,
-          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME);
+          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME,
+          Constants.OWNERSHIP_ASPECT_NAME);
 
   /**
    * Returns the class of the object that this type loads.

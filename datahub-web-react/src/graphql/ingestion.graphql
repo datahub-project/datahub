@@ -46,6 +46,9 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                     }
                 }
             }
+            ownership {
+                ...ownershipFields
+            }
         }
     }
 }
@@ -96,6 +99,9 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                     }
                 }
             }
+        }
+        ownership {
+            ...ownershipFields
         }
     }
 }
