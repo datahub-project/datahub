@@ -373,7 +373,8 @@ spring:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
 
 # Useful to debug low-level Spring errors such as class version mismatches
-#server:
+server:
+  server-header: false
 #  error:
 #    include-message: always
 #    include-binding-errors: always
