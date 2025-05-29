@@ -4,7 +4,6 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 
 import dataclasses
 import logging
-import time
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 from unittest.mock import patch
@@ -26,11 +25,9 @@ from databricks.sdk.service.sql import (
     QueryInfo,
     QueryStatementType,
     QueryStatus,
-    StatementResponse,
-    StatementState,
-    StatementStatus,
 )
 from databricks.sdk.service.workspace import ObjectType
+from databricks.sql import connect
 
 from datahub._version import nice_version_name
 from datahub.emitter.mce_builder import parse_ts_millis
@@ -114,6 +111,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.warehouse_id = warehouse_id or ""
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
+        self._sql_connection_params = {
+            "server_hostname": self._workspace_client.config.host.replace(
+                "https://", ""
+            ),
+            "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
+            "access_token": self._workspace_client.config.token,
+        }
 
     def check_basic_connectivity(self) -> bool:
         return bool(self._workspace_client.catalogs.list(include_browse=True))
@@ -499,140 +503,59 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_name=info.executed_as_user_name,
         )
 
-    def run_statement(self, statement: str) -> Optional[StatementResponse]:
-        response = self._workspace_client.statement_execution.execute_statement(
-            statement=statement,
-            wait_timeout="0s",  # Fetch result asynchronously
-            warehouse_id=self.warehouse_id,
-        )
-        self._raise_if_error(response, "query-execute")
+    def _execute_sql_query(self, query: str) -> List[List[str]]:
+        """Execute SQL query using databricks-sql connector for better performance"""
+        try:
+            with connect(
+                **self._sql_connection_params
+            ) as connection, connection.cursor() as cursor:
+                cursor.execute(query)
+                return cursor.fetchall()
 
-        if not response.statement_id or not response.status:
-            return None
-        statement_id: str = response.statement_id
-        status: StatementStatus = response.status
+        except Exception as e:
+            logger.warning(f"Failed to execute SQL query: {e}")
+            return []
 
-        backoff_sec = 1
-        total_wait_time = 0
-        max_wait_secs = 60  # Set a maximum wait time for the statement to completes
-        while (
-            total_wait_time < max_wait_secs and status.state != StatementState.SUCCEEDED
-        ):
-            time.sleep(min(backoff_sec, max_wait_secs - total_wait_time))
-            total_wait_time += backoff_sec
-            backoff_sec *= 2
+    @cached(cachetools.FIFOCache(maxsize=100))
+    def get_table_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching table tags for catalog: {catalog}")
 
-            response = self._workspace_client.statement_execution.get_statement(
-                statement_id
-            )
-            self._raise_if_error(response, "get-statement")
+        query = f"SELECT * FROM {catalog}.information_schema.table_tags"
+        rows = self._execute_sql_query(query)
 
-        return response
-
-    def parse_table_tags_statement_response_to_dict(
-        self, statement_response: StatementResponse
-    ) -> Dict[str, List[Tuple[str, str]]]:
-        """
-        Parse Databricks StatementResponse to a dictionary with table keys and tag tuples as values.
-
-        Args:
-            statement_response: The StatementResponse object from Databricks API
-
-        Returns:
-            dict: Keys are "{catalog}.{schema}.{table}", values are lists of (tag_key, tag_value) tuples
-        """
         result_dict: Dict[str, List[Tuple[str, str]]] = {}
 
-        if not statement_response.result or not statement_response.result.data_array:
-            return {}
-
-        # Extract the data array from the statement response
-        data_array = statement_response.result.data_array
-
-        # Process each row in the data array
-        for row in data_array:
+        for row in rows:
             catalog_name, schema_name, table_name, tag_name, tag_value = row
-
-            # Create the table key in the format "catalog.schema.table"
             table_key = f"{catalog_name}.{schema_name}.{table_name}"
 
-            # Initialize the list if this table hasn't been seen before
             if table_key not in result_dict:
                 result_dict[table_key] = []
 
-            # Append the tag tuple to the list
             result_dict[table_key].append((tag_name, tag_value))
 
         return result_dict
 
-    def parse_column_tags_statement_response_to_dict(
-        self, statement_response: StatementResponse
-    ) -> Dict[str, List[Tuple[str, str]]]:
-        """
-        Parse Databricks StatementResponse to a dictionary with table keys and tag tuples as values.
+    @cached(cachetools.FIFOCache(maxsize=100))
+    def get_column_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching column tags for catalog: {catalog}")
 
-        Args:
-            statement_response: The StatementResponse object from Databricks API
+        query = f"SELECT * FROM {catalog}.information_schema.column_tags"
+        rows = self._execute_sql_query(query)
 
-        Returns:
-            dict: Keys are "{catalog}.{schema}.{table}", values are lists of (tag_key, tag_value) tuples
-        """
         result_dict: Dict[str, List[Tuple[str, str]]] = {}
 
-        if not statement_response.result or not statement_response.result.data_array:
-            return {}
-
-        # Extract the data array from the statement response
-        data_array = statement_response.result.data_array
-
-        # Process each row in the data array
-        for row in data_array:
+        for row in rows:
             catalog_name, schema_name, table_name, column_name, tag_name, tag_value = (
                 row
             )
-
-            # Create the table key in the format "catalog.schema.table"
             column_key = f"{catalog_name}.{schema_name}.{table_name}.{column_name}"
 
-            # Initialize the list if this table hasn't been seen before
             if column_key not in result_dict:
                 result_dict[column_key] = []
 
-            # Append the tag tuple to the list
             result_dict[column_key].append((tag_name, tag_value))
 
         return result_dict
-
-    @cached(cachetools.FIFOCache(maxsize=100))
-    def get_table_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
-        logger.info(f"Fetching table tags for catalog: {catalog}")
-        statement = f"SELECT * from {catalog}.information_schema.table_tags"
-        response = self.run_statement(statement)
-        if (
-            response is None
-            or not response.status
-            or not response.status.state
-            or response.status.state != StatementState.SUCCEEDED
-        ):
-            logger.warning(
-                f"Failed to run statement for table tags in catalog {catalog}."
-            )
-            return {}
-        return self.parse_table_tags_statement_response_to_dict(response)
-
-    @cached(cachetools.FIFOCache(maxsize=100))
-    def get_column_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
-        logger.info(f"Fetching column tags for catalog: {catalog}")
-        statement = f"SELECT * from {catalog}.information_schema.column_tags"
-        response = self.run_statement(statement)
-        if (
-            response is None
-            or not response.result
-            or not response.status
-            or response.status.state != StatementState.SUCCEEDED
-        ):
-            logger.warning(
-                f"Failed to run statement for table tags in catalog {catalog}."
-            )
-            return {}
-        return self.parse_column_tags_statement_response_to_dict(response)

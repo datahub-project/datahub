@@ -1055,7 +1055,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             if tags is not None:
-                logger.info(f"Column tags are: {tags}")
+                logger.debug(f"Column tags are: {tags}")
                 attribution = MetadataAttribution(
                     source="urn:li:dataPlatform:unity-catalog",
                     actor="urn:li:corpuser:datahub",
