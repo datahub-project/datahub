@@ -25,7 +25,7 @@ const ProgressStyle = styled(Progress)`
 
     .ant-progress-bg {
         border-radius: 12px;
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        background-color: ${(props) => props.theme.styles['primary-color']};
         height: 4px !important;
     }
 `;

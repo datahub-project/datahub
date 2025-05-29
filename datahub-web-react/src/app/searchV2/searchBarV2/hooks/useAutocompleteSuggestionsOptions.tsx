@@ -24,7 +24,7 @@ export default function useSearchResultsOptions(
         if (!isInitialized || !hasResults)
             return [
                 {
-                    label: <Loader size="sm" />,
+                    label: <Loader size="sm" padding={16} />,
                     value: 'loader',
                     disabled: true,
                 },
