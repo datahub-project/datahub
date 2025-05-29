@@ -299,152 +299,13 @@ class BigqueryProfiler(GenericProfiler):
 
         # Handle partitioning
         try:
-            custom_sql = None
-            partition = None
-            temp_table_name = None
-
-            # First, see if we have partitioning
+            # Apply partition handling if available
             if hasattr(bq_table, "partition_info") and bq_table.partition_info:
-                logger.info(
-                    f"Table {bq_table.name} has partition information, determining optimal filters"
+                self._apply_partition_filters(
+                    bq_table, db_name, schema_name, batch_kwargs
                 )
 
-                # Use our partition_manager to get the right partition filters
-                # This leverages all of our specialized partition handling logic
-                partition_filters = (
-                    self.partition_manager.get_required_partition_filters(
-                        bq_table, db_name, schema_name
-                    )
-                )
-
-                if partition_filters is None:
-                    logger.warning(
-                        f"Could not determine partition filters for {bq_table.name}, skipping profiling"
-                    )
-                    self.report.report_warning(
-                        title="Profile skipped for partitioned table",
-                        message="Profile skipped as partitioned table requires partition filters but none could be determined",
-                        context=f"{db_name}.{schema_name}.{bq_table.name}",
-                    )
-                    return {}
-
-                # If we have partition filters, create a temporary table or view with the partition filters
-                if partition_filters:
-                    logger.info(
-                        f"Using partition filters for {bq_table.name}: {partition_filters}"
-                    )
-                    where_clause = " AND ".join(partition_filters)
-
-                    # Store the partition ID for reference - use first filter as representative
-                    partition = partition_filters[0] if partition_filters else None
-
-                    # For BigQuery, we need to create a temporary table or view to ensure ALL queries use the partition filter
-                    # This is critical - without this, the GE profiler will query the original table without filters
-                    temp_table_name = f"temp_{bq_table.name}_{int(time.time())}"
-
-                    # Use different approaches for external vs regular tables
-                    if bq_table.external:
-                        # For external tables, use a temporary view (more efficient, no data copy)
-                        logger.info(
-                            f"Creating temporary VIEW for external table {bq_table.name}"
-                        )
-                        create_temp_sql = f"""
-                        CREATE OR REPLACE TEMPORARY VIEW `{temp_table_name}` AS
-                        SELECT * 
-                        FROM `{db_name}.{schema_name}.{bq_table.name}`
-                        WHERE {where_clause}
-                        """
-                    else:
-                        # For regular tables, use a temporary table
-                        logger.info(
-                            f"Creating temporary TABLE for regular table {bq_table.name}"
-                        )
-                        create_temp_sql = f"""
-                        CREATE OR REPLACE TEMPORARY TABLE `{temp_table_name}` AS
-                        SELECT * 
-                        FROM `{db_name}.{schema_name}.{bq_table.name}`
-                        WHERE {where_clause}
-                        """
-
-                    try:
-                        # Execute the query to create the temporary table or view
-                        logger.info(
-                            f"Creating temporary {'view' if bq_table.external else 'table'} {temp_table_name} with partition filters"
-                        )
-                        self.execute_query(create_temp_sql, timeout=120)
-
-                        # Update batch_kwargs to use the temporary table/view instead of the original
-                        batch_kwargs["table"] = temp_table_name
-                        # Remove schema since temp tables/views don't have a schema
-                        del batch_kwargs["schema"]
-                        # Add a flag to indicate we're using a temp table - use string "true"
-                        # to ensure consistent types with other batch_kwargs values
-                        batch_kwargs["is_temp_table"] = "true"
-                        # Store the partition for reference - only if it's not None
-                        if partition:
-                            batch_kwargs["partition"] = partition
-                    except Exception as e:
-                        logger.warning(f"Failed to create temporary table: {str(e)}")
-                        # Fall back to using custom SQL instead
-                        custom_sql = f"""
-                        SELECT * 
-                        FROM `{db_name}.{schema_name}.{bq_table.name}`
-                        WHERE {where_clause}
-                        """
-
-                else:
-                    # No filters needed, but table is partitioned
-                    logger.info(
-                        f"Table {bq_table.name} is partitioned but no filters are required"
-                    )
-
-                    # Try the original approach as fallback if we couldn't get better filters
-                    # but we know the table is partitioned
-                    if not partition and bq_table.max_partition_id:
-                        old_partition, old_custom_sql = (
-                            self.generate_partition_profiler_query(
-                                db_name,
-                                schema_name,
-                                bq_table,
-                                getattr(
-                                    self.config.profiling, "partition_datetime", None
-                                ),
-                            )
-                        )
-
-                        if old_partition and old_custom_sql:
-                            logger.info(
-                                f"Using fallback partition approach for {bq_table.name}"
-                            )
-                            partition = old_partition
-                            custom_sql = old_custom_sql
-
-            # Skip profiling if partitioning is disabled
-            if partition is not None and not getattr(
-                self.config.profiling, "partition_profiling_enabled", True
-            ):
-                logger.debug(
-                    f"{db_name}.{schema_name}.{bq_table.name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
-                )
-                self.report.profiling_skipped_partition_profiling_disabled.append(
-                    f"{db_name}.{schema_name}.{bq_table.name}"
-                )
-                return {}
-
-            # For BigQuery, if we have custom SQL but no temp table, use it for profiling
-            if custom_sql and not temp_table_name:
-                logger.info(
-                    f"Using custom SQL with partition filters for {bq_table.name}"
-                )
-                # Replace the schema/table with custom SQL to ensure partitioning is applied
-                batch_kwargs["query"] = custom_sql
-                # Remove schema and table when using custom SQL
-                if "schema" in batch_kwargs:
-                    del batch_kwargs["schema"]
-                if "table" in batch_kwargs:
-                    del batch_kwargs["table"]
-
-            # Add a strategy tag so the GE profiler knows what type of profiling to use
+            # Add strategy tag for the profile type
             profile_strategy = self._select_profile_strategy(
                 bq_table, db_name, schema_name
             )
@@ -456,6 +317,163 @@ class BigqueryProfiler(GenericProfiler):
             )
 
         return batch_kwargs
+
+    def _apply_partition_filters(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        batch_kwargs: Dict[str, Any],
+    ) -> None:
+        """
+        Apply partition filters to batch_kwargs.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+            batch_kwargs: Dictionary to update with partition information
+        """
+        logger.info(
+            f"Table {table.name} has partition information, determining optimal filters"
+        )
+
+        # Get partition filters from partition_manager which handles multi-column requirements
+        partition_filters = None
+        if hasattr(self, "partition_manager") and self.partition_manager:
+            partition_filters = self.partition_manager.get_required_partition_filters(
+                table, project, schema
+            )
+            logger.info(f"Got filters from partition manager: {partition_filters}")
+
+        # If partition_manager didn't get filters, try custom approach
+        if not partition_filters:
+            self._apply_custom_partition_approach(table, project, schema, batch_kwargs)
+            return
+
+        # If we have partition filters, create a temporary table or view
+        self._create_temp_table_with_filters(
+            table, project, schema, partition_filters, batch_kwargs
+        )
+
+    def _apply_custom_partition_approach(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        batch_kwargs: Dict[str, Any],
+    ) -> None:
+        """
+        Apply custom partition approach when partition_manager doesn't provide filters.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+            batch_kwargs: Dictionary to update with partition information
+        """
+        logger.info("Partition manager didn't provide filters, trying custom approach")
+        partition, custom_sql = self.generate_partition_profiler_query(
+            project,
+            schema,
+            table,
+            getattr(self.config.profiling, "partition_datetime", None),
+        )
+
+        if custom_sql:
+            logger.info("Got custom SQL from generate_partition_profiler_query")
+            # Use the custom SQL directly
+            batch_kwargs["query"] = custom_sql
+            # Remove schema and table when using custom SQL
+            if "schema" in batch_kwargs:
+                del batch_kwargs["schema"]
+            if "table" in batch_kwargs:
+                del batch_kwargs["table"]
+
+        # Skip profiling if partitioning is disabled
+        elif partition is not None and not getattr(
+            self.config.profiling, "partition_profiling_enabled", True
+        ):
+            logger.debug(
+                f"{project}.{schema}.{table.name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
+            )
+            self.report.profiling_skipped_partition_profiling_disabled.append(
+                f"{project}.{schema}.{table.name}"
+            )
+            batch_kwargs.clear()  # Clear to indicate skipping
+
+    def _create_temp_table_with_filters(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_filters: List[str],
+        batch_kwargs: Dict[str, Any],
+    ) -> None:
+        """
+        Create a temporary table or view with partition filters.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+            partition_filters: List of filter expressions
+            batch_kwargs: Dictionary to update with temp table information
+        """
+        logger.info(f"Using partition filters for {table.name}: {partition_filters}")
+        where_clause = " AND ".join(partition_filters)
+
+        # For BigQuery, create a temporary table or view to ensure ALL queries use the partition filter
+        temp_table_name = f"temp_{table.name}_{int(time.time())}"
+
+        # Use different approaches for external vs regular tables
+        if table.external:
+            # For external tables, use a temporary view (more efficient, no data copy)
+            logger.info(f"Creating temporary VIEW for external table {table.name}")
+            create_temp_sql = f"""
+            CREATE OR REPLACE TEMPORARY VIEW `{temp_table_name}` AS
+            SELECT * 
+            FROM `{project}.{schema}.{table.name}`
+            WHERE {where_clause}
+            """
+        else:
+            # For regular tables, use a temporary table
+            logger.info(f"Creating temporary TABLE for regular table {table.name}")
+            create_temp_sql = f"""
+            CREATE OR REPLACE TEMPORARY TABLE `{temp_table_name}` AS
+            SELECT * 
+            FROM `{project}.{schema}.{table.name}`
+            WHERE {where_clause}
+            """
+
+        try:
+            # Execute the query to create the temporary table or view
+            logger.info(
+                f"Creating temporary {'view' if table.external else 'table'} {temp_table_name} with partition filters"
+            )
+            self.execute_query(create_temp_sql, timeout=120)
+
+            # Update batch_kwargs to use the temporary table/view instead of the original
+            batch_kwargs["table"] = temp_table_name
+            # Remove schema since temp tables/views don't have a schema
+            del batch_kwargs["schema"]
+            # Add a flag to indicate we're using a temp table - use string "true"
+            # to ensure consistent types with other batch_kwargs values
+            batch_kwargs["is_temp_table"] = "true"
+        except Exception as e:
+            logger.warning(f"Failed to create temporary table: {str(e)}")
+            # Fall back to using custom SQL instead - build it from the partition filters
+            custom_sql = f"""
+            SELECT * 
+            FROM `{project}.{schema}.{table.name}`
+            WHERE {where_clause}
+            """
+            batch_kwargs["query"] = custom_sql
+            # Remove schema and table when using custom SQL
+            if "schema" in batch_kwargs:
+                del batch_kwargs["schema"]
+            if "table" in batch_kwargs:
+                del batch_kwargs["table"]
 
     def _select_profile_strategy(
         self, table: BigqueryTable, project: str, schema: str
@@ -1005,7 +1023,9 @@ WHERE
 
         required_cols = partition_info["required_columns"].split(",")
         # For now, just add a simple filter for the current date/time if these are time-related columns
-        filters = self._create_filters_for_columns(required_cols)
+        filters = self._create_filters_for_columns(
+            required_cols, project, schema, table
+        )
 
         if not filters:
             return None, None
@@ -1021,7 +1041,9 @@ WHERE
         """
         return (f"error_extracted_{int(time.time())}", custom_sql)
 
-    def _create_filters_for_columns(self, columns: List[str]) -> List[str]:
+    def _create_filters_for_columns(
+        self, columns: List[str], project: str, schema: str, table: BigqueryTable
+    ) -> List[str]:
         """Create filters for the given columns based on their names."""
         filters = []
         now = datetime.now()
@@ -1035,8 +1057,53 @@ WHERE
             elif col.lower() == "day":
                 filters.append(f"`{col}` = {now.day}")
             else:
-                # For other columns, just add a simple IS NOT NULL check
-                filters.append(f"`{col}` IS NOT NULL")
+                # For all other columns, try to get a valid value to use in the filter
+                try:
+                    # Get column type
+                    col_type_query = f"""
+                    SELECT data_type 
+                    FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+                    WHERE table_name = '{table.name}' 
+                    AND column_name = '{col}'
+                    """
+                    type_result = self.execute_query(col_type_query, timeout=15)
+
+                    if type_result and len(type_result) > 0:
+                        col_type = type_result[0].data_type.upper()
+
+                        # For string columns, try to find an actual value
+                        if col_type in ["STRING", "VARCHAR"]:
+                            # Sample to find a valid value
+                            value_query = f"""
+                            SELECT DISTINCT `{col}` as col_value
+                            FROM `{project}.{schema}.{table.name}` 
+                            WHERE `{col}` IS NOT NULL 
+                            LIMIT 1
+                            """
+                            value_result = self.execute_query(value_query, timeout=15)
+
+                            if value_result and hasattr(value_result[0], "col_value"):
+                                value = value_result[0].col_value
+                                filters.append(f"`{col}` = '{value}'")
+                            else:
+                                filters.append(f"`{col}` IS NOT NULL")
+                        # For numeric columns, use a simple comparison
+                        elif col_type in ["INT64", "INTEGER", "NUMERIC", "FLOAT"]:
+                            filters.append(f"`{col}` >= 0")
+                        # For date/time columns, use recent dates
+                        elif col_type in ["DATE", "DATETIME", "TIMESTAMP"]:
+                            filters.append(
+                                f"`{col}` >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)"
+                            )
+                        # For anything else, use IS NOT NULL
+                        else:
+                            filters.append(f"`{col}` IS NOT NULL")
+                    else:
+                        # If we can't determine type, use IS NOT NULL
+                        filters.append(f"`{col}` IS NOT NULL")
+                except Exception as e:
+                    logger.warning(f"Error getting value for column {col}: {e}")
+                    filters.append(f"`{col}` IS NOT NULL")
 
         return filters
 
