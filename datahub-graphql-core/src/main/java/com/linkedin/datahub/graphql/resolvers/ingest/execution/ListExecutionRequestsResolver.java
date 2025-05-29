@@ -3,12 +3,14 @@ package com.linkedin.datahub.graphql.resolvers.ingest.execution;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.buildFilter;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.IngestionSourceExecutionRequests;
 import com.linkedin.datahub.graphql.generated.ListExecutionRequestsInput;
 import com.linkedin.entity.client.EntityClient;
@@ -36,6 +38,11 @@ public class ListExecutionRequestsResolver
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
 
+  private static final String EXECUTION_REQUEST_INGESTION_SOURCE_FIELD = "ingestionSource";
+  private static final String INGESTION_SOURCE_SOURCE_TYPE_FIELD = "sourceType";
+  private static final String INGESTION_SOURCE_SOURCE_TYPE_SYSTEM = "SYSTEM";
+  private static final Integer NUMBER_OF_SYSTEM_INGESTION_SOURCES_TO_FETCH = 1000;
+
   private final EntityClient _entityClient;
 
   @Override
@@ -46,10 +53,11 @@ public class ListExecutionRequestsResolver
 
     final ListExecutionRequestsInput input =
         bindArgument(environment.getArgument("input"), ListExecutionRequestsInput.class);
+
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
-    final List<FacetFilterInput> filters =
+    List<FacetFilterInput> filters =
         input.getFilters() == null ? Collections.emptyList() : input.getFilters();
 
     // construct sort criteria, defaulting to systemCreated
@@ -69,6 +77,8 @@ public class ListExecutionRequestsResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            // Add additional filters to show only or hide all system ingestion sources
+            addSystemIngestionSourceFilter(filters, input.getSystemSources(), context);
             // First, get all execution request Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
@@ -110,5 +120,43 @@ public class ListExecutionRequestsResolver
       results.add(executionRequest);
     }
     return results;
+  }
+
+  private void addSystemIngestionSourceFilter(
+      List<FacetFilterInput> filters, final Boolean systemSources, final QueryContext context)
+      throws Exception {
+    if (systemSources != null) {
+      List<Urn> urns = getUrnsOfSystemIngestionSources(context);
+
+      filters.add(
+          new FacetFilterInput(
+              EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
+              null,
+              urns.stream().map(Urn::toString).toList(),
+              !systemSources,
+              FilterOperator.EQUAL));
+    }
+  }
+
+  private List<Urn> getUrnsOfSystemIngestionSources(final QueryContext context) throws Exception {
+    List<FacetFilterInput> filters =
+        List.of(
+            new FacetFilterInput(
+                INGESTION_SOURCE_SOURCE_TYPE_FIELD,
+                null,
+                ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
+                false,
+                FilterOperator.EQUAL));
+    final SearchResult gmsResult =
+        _entityClient.search(
+            context.getOperationContext(),
+            Constants.INGESTION_SOURCE_ENTITY_NAME,
+            DEFAULT_QUERY,
+            buildFilter(filters, Collections.emptyList()),
+            null,
+            0,
+            NUMBER_OF_SYSTEM_INGESTION_SOURCES_TO_FETCH);
+
+    return gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
   }
 }

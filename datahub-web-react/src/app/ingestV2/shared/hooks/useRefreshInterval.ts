@@ -1,18 +1,20 @@
 import { useEffect, useState } from 'react';
 
-export default function useRefreshIngestionData(refresh: () => void, hasActiveExecution: () => boolean) {
+const REFRESH_INTERVAL_MS = 3000;
+
+export default function useRefreshInterval(refresh: () => void, shouldRefreshFn: () => boolean) {
     const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        const shouldRefresh = hasActiveExecution();
+        const shouldRefresh = shouldRefreshFn();
         if (shouldRefresh) {
             if (!refreshInterval) {
-                const interval = setInterval(refresh, 3000);
+                const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
                 setRefreshInterval(interval);
             }
         } else if (refreshInterval) {
             clearInterval(refreshInterval);
             setRefreshInterval(null);
         }
-    }, [refreshInterval, refresh, hasActiveExecution]);
+    }, [refreshInterval, refresh, shouldRefreshFn]);
 }
