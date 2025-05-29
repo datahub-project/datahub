@@ -91,7 +91,8 @@ public class SearchUtils {
           EntityType.DATA_PRODUCT,
           EntityType.NOTEBOOK,
           EntityType.BUSINESS_ATTRIBUTE,
-          EntityType.SCHEMA_FIELD);
+          EntityType.SCHEMA_FIELD,
+          EntityType.APPLICATION);
 
   /** Entities that are part of autocomplete by default in Auto Complete Across Entities */
   public static final List<EntityType> AUTO_COMPLETE_ENTITY_TYPES =
@@ -112,7 +113,8 @@ public class SearchUtils {
           EntityType.NOTEBOOK,
           EntityType.DATA_PRODUCT,
           EntityType.DOMAIN,
-          EntityType.BUSINESS_ATTRIBUTE);
+          EntityType.BUSINESS_ATTRIBUTE,
+          EntityType.APPLICATION);
 
   /** Entities that are part of browse by default */
   public static final List<EntityType> BROWSE_ENTITY_TYPES =

@@ -1,16 +1,16 @@
-namespace com.linkedin.dataproduct
+namespace com.linkedin.application
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 
 /**
- * The main properties of a Data Product
+ * The main properties of an Application
  */
 @Aspect = {
-  "name": "dataProductProperties"
+  "name": "applicationProperties"
 }
-record DataProductProperties includes CustomProperties, ExternalReference  {
+record ApplicationProperties includes CustomProperties, ExternalReference  {
   /**
-   * Display name of the Data Product
+   * Display name of the Application
    */
   @Searchable = {
     "fieldType": "WORD_GRAM",
@@ -21,7 +21,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   name: optional string
 
   /**
-   * Documentation of the data product
+   * Documentation of the application
    */
   @Searchable = {
     "fieldType": "TEXT",
@@ -30,13 +30,13 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   description: optional string
 
   /**
-   * A list of assets that are part of this Data Product
+   * A list of assets that are part of this Application
    */
   @Relationship = {
     "/*/destinationUrn": {
-      "name": "DataProductContains",
+      "name": "ApplicationContains",
       "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey" ],
     }
   }
-  assets: optional array[DataProductAssociation]
+  assets: optional array[ApplicationAssociation]
 }
