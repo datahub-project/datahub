@@ -22,6 +22,7 @@ concurrency:
 env:
   DOCKER_REGISTRY: "795586375822.dkr.ecr.us-west-2.amazonaws.com"
   ACRYLIO_DOCKER_REGISTRY: "acrylio"
+  CLOUDSMITH_REGISTRY: "docker.cloudsmith.io/datahub/enterprise"
 
   DATAHUB_INGESTION_BASE_IMAGE: "795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion-base"
 
@@ -48,8 +49,10 @@ jobs:
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       docker-login: ${{ steps.docker-login.outputs.docker-login }}
+      cloudsmith-login: ${{ steps.cloudsmith-login.outputs.cloudsmith-login }}
       publish: ${{ steps.publish.outputs.publish }}
       acrylio_publish: ${{ steps.acrylio-publish.outputs.acrylio-publish }} # publish to private dockerhub
+      cloudsmith_publish: ${{ steps.cloudsmith-publish.outputs.cloudsmith-publish }} # publish to cloudsmith
       pr-publish: ${{ steps.pr-publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
@@ -93,7 +96,7 @@ jobs:
             echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
             echo "repository_name=${GITHUB_REPOSITORY#*/}"
           } >> "$GITHUB_OUTPUT"
-      - name: Check whether docker login is possible
+      - name: Check whether Docker login is possible
         id: docker-login
         env:
           ENABLE_DOCKER_LOGIN: ${{ secrets.ACRYL_DOCKER_PASSWORD != '' || secrets.AWS_ECR_SECRET_ACCESS_KEY != '' }}
@@ -111,6 +114,24 @@ jobs:
         run: |
           echo "Enable acrylio publish: ${{ env.ENABLE_ACRYLIO_PUBLISH }}"
           echo "acrylio-publish=${{ env.ENABLE_ACRYLIO_PUBLISH }}" >> "$GITHUB_OUTPUT"
+      - name: Check whether Cloudsmith login is possible
+        id: cloudsmith-login
+        env:
+          ENABLE_CLOUDSMITH_LOGIN: ${{ secrets.CLOUDSMITH_PASSWORD != '' || secrets.AWS_ECR_SECRET_ACCESS_KEY != '' }}
+        run: |
+          echo "Enable Cloudsmith Login: ${{ env.ENABLE_CLOUDSMITH_LOGIN }}"
+          echo "cloudsmith-login=${{ env.ENABLE_CLOUDSMITH_LOGIN }}" >> "$GITHUB_OUTPUT"
+      - name: Check whether Cloudsmith enabled
+        id: cloudsmith-publish
+        env:
+          ENABLE_CLOUDSMITH_PUBLISH: >-
+            ${{
+               github.event_name == 'release'
+               && ( secrets.CLOUDSMITH_USERNAME != '' && secrets.CLOUDSMITH_PASSWORD != '' )
+            }}
+        run: |
+          echo "Enable Cloudsmith publish: ${{ env.ENABLE_CLOUDSMITH_PUBLISH }}"
+          echo "cloudsmith-publish=${{ env.ENABLE_CLOUDSMITH_PUBLISH }}" >> "$GITHUB_OUTPUT"
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -226,7 +247,7 @@ jobs:
           cache: "pip"
 
       - name: Build all Images (For Smoke tests)
-        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.acrylio_publish != 'true' }}
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.acrylio_publish != 'true' && needs.setup.outputs.cloudsmith_publish != 'true'}}
         # If not publishing, just a subset of images required for smoke tests is sufficient.
         run: |
           ./gradlew :docker:buildImagesQuickStartDebugConsumers  -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
@@ -260,10 +281,23 @@ jobs:
           username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
 
+      - name: Login to Cloudsmith
+        uses: docker/login-action@v3
+        if: ${{ needs.setup.outputs.cloudsmith-login == 'true' }}
+        with:
+          registry: "docker.cloudsmith.io"
+          username: ${{ secrets.CLOUDSMITH_USERNAME }}
+          password: ${{ secrets.CLOUDSMITH_PASSWORD }}
+
       - name: Build Saas Images (Publish - ACRYLIO)
         if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
         run: |
           ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.ACRYLIO_DOCKER_REGISTRY }} -PdockerPush=true
+
+      - name: Build Saas Images (Publish - Cloudsmith)
+        if: ${{ needs.setup.outputs.cloudsmith_publish == 'true' }}
+        run: |
+          ./gradlew :docker:buildImagesSaas -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.CLOUDSMITH_REGISTRY }} -PdockerPush=true
 
       - uses: actions/cache/save@v4
         if: ${{ github.ref == 'refs/heads/acryl-main' }}
