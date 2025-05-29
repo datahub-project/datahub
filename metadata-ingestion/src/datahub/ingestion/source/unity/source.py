@@ -541,7 +541,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     tags = GlobalTags(
                         tags=[
                             TagAssociation(
-                                tag=TagUrn(name=f"{tag[0]}:{tag[1]}").urn(),
+                                tag=TagUrn(
+                                    name=f"{tag[0]}:{tag[1]}" if tag[1] else tag[0]
+                                ).urn(),
                                 attribution=attribution,
                             )
                             for tag in table_tags
@@ -1003,7 +1005,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 logger.info(f"Created platform resource {platform_resource_id}")
 
                 unity_catalog_tag = UnityCatalogTag.get_from_datahub(
-                    platform_resource_id, self.platform_resource_repository, True
+                    platform_resource_id, self.platform_resource_repository, False
                 )
                 if (
                     tag_urn.urn()
@@ -1026,7 +1028,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 column_tags = self._get_column_tags(
                     table.ref.catalog, table.ref.schema, table.ref.table, column.name
                 )
-                tag_urns = [TagUrn(name=f"{tag[0]}:{tag[1]}") for tag in column_tags]
+                tag_urns = [
+                    TagUrn(name=f"{tag[0]}:{tag[1]}" if tag[1] else tag[0])
+                    for tag in column_tags
+                ]
             schema_fields.extend(self._create_schema_field(column, tag_urns))
 
         return SchemaMetadataClass(
@@ -1052,7 +1057,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if tags is not None:
                 logger.info(f"Column tags are: {tags}")
                 attribution = MetadataAttribution(
-                    # source="unity-catalog",
+                    source="urn:li:dataPlatform:unity-catalog",
                     actor="urn:li:corpuser:datahub",
                     time=int(time.time() * 1000),
                 )
