@@ -7,7 +7,7 @@ on:
   push:
     branches:
       - master
-    paths: &quickstart-test-paths
+    paths:
       - "metadata-ingestion/src/datahub/cli/docker_cli.py"
       - "metadata-ingestion/src/datahub/cli/docker_check.py"
       - ".github/workflows/quickstart-test.yml"
@@ -15,7 +15,11 @@ on:
   pull_request:
     branches:
       - master
-    paths: <<:*quickstart-test-paths
+    paths:
+      - "metadata-ingestion/src/datahub/cli/docker_cli.py"
+      - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - ".github/workflows/quickstart-test.yml"
+      - "docker/quickstart/docker-compose.quickstart-profile.yml"
 
 jobs:
   test-quickstart-pr:
@@ -34,9 +38,24 @@ jobs:
       - name: Install dependencies
         run: |
           ./gradlew :metadata-ingestion:install
-          source metadata-ingestion/venv/bin/activate
 
-      - name: Run quickstart test
+      - name: Run quickstart
         run: |
-          datahub docker quickstart
-          # TODO: Add actual test steps here
+          source metadata-ingestion/venv/bin/activate
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+
+          docker images
+
+      - name: Smoke test
+        env:
+          RUN_QUICKSTART: false
+          DATAHUB_VERSION: head
+          CLEANUP_DATA: "false"
+          TEST_STRATEGY: cypress
+          BATCH_COUNT: 25
+          BATCH_NUMBER: 2
+        run: |
+          echo "$DATAHUB_VERSION"
+          ./gradlew --stop
+          ./smoke-test/smoke.sh
