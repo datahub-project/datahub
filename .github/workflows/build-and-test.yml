@@ -138,7 +138,7 @@ jobs:
       - name: Upload backend coverage to Codecov
         if: ${{  (matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' && github.event_name != 'release') }}
         uses: codecov/codecov-action@v5
-        with: &codecov-backend-params
+        with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
           disable_search: true
@@ -151,13 +151,20 @@ jobs:
         if: ${{  (matrix.command == 'except_metadata_ingestion' && github.event_name == 'release' ) }}
         uses: codecov/codecov-action@v5
         with:
-          <<: *codecov-backend-params
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.BACKEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: backend
+          name: ${{ matrix.command }}
+          verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - name: Upload frontend coverage to Codecov
         if: ${{  (matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' && github.event_name != 'release') }}
         uses: codecov/codecov-action@v5
-        with: &codecov-frontend-params
+        with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.FRONTEND_FILES }}
           disable_search: true
@@ -171,7 +178,14 @@ jobs:
         if: ${{  (matrix.command == 'frontend' &&  github.event_name == 'release') }}
         uses: codecov/codecov-action@v5
         with:
-          <<: *codecov-frontend-params
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.FRONTEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: frontend
+          name: ${{ matrix.command }}
+          verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && github.event_name != 'release'  }}
