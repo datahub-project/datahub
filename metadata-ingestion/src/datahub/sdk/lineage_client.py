@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import difflib
 import logging
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
-    Any,
     Dict,
     List,
     Literal,
     Optional,
     Set,
     Union,
+    cast,
     overload,
 )
 
@@ -19,19 +20,23 @@ from typing_extensions import assert_never
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-<<<<<<< HEAD
 from datahub.metadata.urns import (
     DataJobUrn,
     DatasetUrn,
     QueryUrn,
+    SchemaFieldUrn,
     Urn,
 )
-=======
-from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn, Urn, DataPlatformUrn, SchemaFieldUrn
->>>>>>> 1c775e9e1109 ([wip] draft get_lineage)
 from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
+from datahub.sdk.search_client import compile_filters
+from datahub.sdk.search_filters import (
+    Filter,
+    FilterDsl,
+    _EntityTypeFilter,
+    _PlatformFilter,
+)
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.fingerprint_utils import generate_hash
@@ -49,6 +54,24 @@ _empty_audit_stamp = models.AuditStampClass(
 
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LineagePath:
+    urn: str
+    name: str
+
+
+@dataclass
+class LineageResult:
+    urn: str
+    type: str
+    hops: int
+    direction: Literal["upstream", "downstream"]
+    platform: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    paths: Optional[List[LineagePath]] = None
 
 
 class LineageClient:
@@ -665,15 +688,17 @@ class LineageClient:
         self,
         *,
         source_urn: Union[str, Urn],
+        source_column: Optional[str] = None,
         direction: Literal["upstream", "downstream"] = "upstream",
-        max_hops: Optional[int] = 1,
-        filters: Optional[Dict[str, List[str]]] = {},
-    ) -> List[Dict[str, Any]]:
+        max_hops: int = 1,
+        filters: Optional[Union[Dict[str, List[str]], Filter]] = None,
+    ) -> List[LineageResult]:
         """
         Retrieve lineage entities connected to a source entity.
 
         Args:
             source_urn: The URN of the source entity to analyze lineage from.
+            source_column: The column name to trace lineage for.
             direction: Direction of lineage traversal. Defaults to "upstream".
             hops: Number of lineage hops to traverse. None means unlimited depth. Defaults to 1.
             filters: Optional filters for lineage results.
@@ -685,42 +710,57 @@ class LineageClient:
             List of lineage entities with their metadata.
         """
         # Validate and convert input URN
-        source_urn = Urn.from_string(source_urn) if isinstance(source_urn, str) else source_urn
+        source_urn = (
+            Urn.from_string(source_urn) if isinstance(source_urn, str) else source_urn
+        )
+        # Convert dictionary filters to Filter object using FilterDsl
+        if isinstance(filters, dict):
+            filter_list: List[Union[_EntityTypeFilter, _PlatformFilter]] = []
 
-        # Validate max_hops
-        if max_hops >= 3:
-            raise SdkUsageError("Max hops must be less than 3")
-        
-        max_hop_values = [str(hop) for hop in range(1, max_hops + 1)]
+            # Add entity type filter if present
+            if "entity_type" in filters:
+                # Ensure entity types are valid EntityTypeName literal
+                for entity_type in filters["entity_type"]:
+                    if entity_type in models.ENTITY_TYPE_NAMES:
+                        # convert str to literal
+                        entity_type_literal = cast(models.EntityTypeName, entity_type)
+                        filter_list.append(FilterDsl.entity_type(entity_type_literal))
+                    else:
+                        raise SdkUsageError(
+                            f"Invalid entity type: {entity_type}. Valid entity types are: {models.ENTITY_TYPE_NAMES}"
+                        )
 
-        # Prepare filters
-        input_filters = []
+            # Add platform filter if present
+            if "platform" in filters:
+                filter_list.append(FilterDsl.platform(filters["platform"]))
 
-        # Always add degree filter
-        input_filters.append({
-            "and": [
-                {
-                    "field": "degree",
-                    "condition": "EQUAL",
-                    "values": max_hop_values,
-                    "negated": "false",
-                }
-            ]
-        })
+            # Combine filters with AND if multiple filters exist
+            filters = (
+                FilterDsl.and_(*filter_list)
+                if len(filter_list) > 1
+                else (filter_list[0] if filter_list else None)
+            )
 
-        # Add platform filter if provided
-        if "platform" in filters.keys():
-            platforms = [str(DataPlatformUrn(platform)) for platform in filters["platform"]]
-            input_filters.append({
+        types, compiled_filters = compile_filters(filters)
+
+        if max_hops <= 2:
+            max_hop_values = [str(hop) for hop in range(1, max_hops + 1)]
+        else:
+            max_hop_values = ["1", "2", "3+"]
+
+        # add degree filter
+        compiled_filters.append(
+            {
                 "and": [
                     {
-                        "field": "platform",
+                        "field": "degree",
                         "condition": "EQUAL",
-                        "values": platforms,
+                        "values": max_hop_values,
                         "negated": "false",
                     }
                 ]
-            })
+            }
+        )
 
         # Prepare GraphQL query variables
         variables = {
@@ -728,238 +768,70 @@ class LineageClient:
                 "urn": str(source_urn),
                 "direction": direction.upper(),
                 "count": 1000,  # Reasonable default, can be made configurable
-                "types": filters.get("entity_type", []),
-                "orFilters": input_filters,
+                "types": types,
+                "orFilters": compiled_filters,
             }
         }
 
-        # GraphQL query for lineage traversal
-        # TODO: add other entity types to the query
-        graphql_query = """ 
-        query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
-            scrollAcrossLineage(input: $input) {
-                nextScrollId
-                searchResults {
-                    degree
-                    entity {
-                        urn
-                        type
-                            ... on Dataset {
-                                name
-                                platform {
-                                    name
-                                }
-                                properties {
-                                    description
-                                }
-                                }
-                                ... on DataJob {
-                                jobId
-                                dataPlatformInstance {
-                                    platform { name }
-                                }
-                                properties {
-                                    name
-                                    description
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        """
-
-        # Track seen entities and their hop levels
-        seen_entities: Dict[str, int] = {str(source_urn): 0}
-        results: List[Dict[str, Any]] = []
-
-        # Pagination handling
-        first_iter = True
-        scroll_id: Optional[str] = None
-
-        while first_iter or scroll_id:
-            first_iter = False
-
-            # Update scroll ID if applicable
-            if scroll_id:
-                variables["input"]["scrollId"] = scroll_id
-
-            # Execute GraphQL query
-            response = self._graph.execute_graphql(graphql_query, variables=variables)
-
-            # Process lineage results
-            data = response["scrollAcrossLineage"]
-            scroll_id = data.get("nextScrollId")
-
-            for entry in data["searchResults"]:
-                entity = entry["entity"]
-                urn = entity["urn"]
-
-                # Skip if already seen or beyond hop limit
-                if urn in seen_entities:
-                    continue
-
-                # Extract entity details
-                result = {
-                    "urn": urn,
-                    "type": entity["type"],
-                    "hops": entry["degree"],
-                    "direction": direction,
-                }
-
-                # Add platform information
-                platform = (
-                    entity.get("platform", {}).get("name") or
-                    entity.get("dataPlatformInstance", {}).get("platform", {}).get("name")
-                )
-                if platform:
-                    result["platform"] = platform
-
-                # Add properties
-                properties = entity.get("properties", {})
-                if properties:
-                    result["name"] = properties.get("name")
-                    result["description"] = properties.get("description")
-
-                results.append(result)
-
-        return results
-    
-
-    def get_column_lineage(
-        self, 
-        *, 
-        source_urn: DatasetUrnOrStr, 
-        source_column: str, 
-        direction: Literal["upstream", "downstream"] = "upstream",
-        max_hops: Optional[int] = 1, 
-        filters: Optional[Dict[str, List[str]]] = {}  # e.g., {"entity_type": ["DATASET"], "platform": ["snowflake"]}
-    ) -> List[Dict[str, Any]]:
-        """
-        Retrieves column-level lineage for a specific column in a dataset.
-
-        Args:
-            source_urn (DatasetUrnOrStr): The URN of the dataset that contains the source column.
-            source_column (str): The column name to trace lineage for.
-            direction (Literal["upstream", "downstream"], optional): 
-                Direction of lineage traversal. Defaults to "upstream".
-            hops (Optional[int], optional): 
-                Number of lineage hops to follow. Defaults to 1.
-            filters (Optional[Dict[str, List[str]]], optional): 
-                Optional filters to narrow results. Keys can include:
-                - `"entity_type"`: e.g., ["DATASET", "DATA_JOB"]
-                - `"platform"`: e.g., ["snowflake", "airflow"]
-
-        Returns:
-            List[Dict[str, Any]]: A list of lineage entities at column level. Each dict includes:
-                - `urn` (str): Dataset URN
-                - `name` (str): Dataset name
-                - `type` (str): "DATASET"
-                - `platform` (str): Platform name
-                - `description` (str): Optional dataset description
-                - `columns` (List[str]): List of matching schema field URNs (FIELD_SET)
-                - `hops` (int): Hop level from the original column
-        """
-        source_urn = Urn.from_string(source_urn) if isinstance(source_urn, str) else source_urn
-
-        # Validate max_hops
-        if max_hops >= 3:
-            raise SdkUsageError("Max hops must be less than 3")
-        
-        max_hop_values = [str(hop) for hop in range(1, max_hops + 1)]
-
-        # Prepare filters
-        input_filters = []
-
-        # Always add degree filter
-        input_filters.append({
-            "and": [
-                {
-                    "field": "degree",
-                    "condition": "EQUAL",
-                    "values": max_hop_values,
-                    "negated": "false",
-                }
-            ]
-        })
-
-        # Add platform filter if provided
-        if "platform" in filters.keys():
-            platforms = [str(DataPlatformUrn(platform)) for platform in filters["platform"]]
-            input_filters.append({
-                "and": [
-                    {
-                        "field": "platform",
-                        "condition": "EQUAL",
-                        "values": platforms,
-                        "negated": "false",
-                    }
-                ]
-            })
-
-        # Prepare GraphQL query variables
-        field_path = SchemaFieldUrn(source_urn, source_column)
-        variables = {
-            "input": {
-                "urn": str(field_path),
-                "direction": direction.upper(),
-                "count": 1000,  # Reasonable default, can be made configurable
-                "types": filters.get("entity_type", []),
-                "orFilters": input_filters,
-                "searchFlags": {
-                    "groupingSpec": {"groupingCriteria": {
+        path_query = ""
+        if source_column:
+            field_path = SchemaFieldUrn(source_urn, source_column)
+            variables["input"]["urn"] = str(field_path)
+            variables["input"]["searchFlags"] = {
+                "groupingSpec": {
+                    "groupingCriteria": {
                         "baseEntityType": "SCHEMA_FIELD",
-                        "groupingEntityType": "SCHEMA_FIELD"
-                        }
+                        "groupingEntityType": "SCHEMA_FIELD",
                     }
                 }
             }
-        }
-
-        # GraphQL query for column level lineage traversal
-        graphql_query = """ 
-        query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
-            scrollAcrossLineage(input: $input) {
-                nextScrollId
-                searchResults {
-                degree
-                entity {
-                    urn
-                    type
-                    ... on Dataset {
-                    name
-                    platform {
-                        name
-                    }
-                    properties {
-                        description
-                    }
-                    }
-                    ... on DataJob {
-                    jobId
-                    dataPlatformInstance {
-                        platform { name }
-                    }
-                    properties {
-                        name
-                        description
-                    }
-                }
-                }
+            path_query = """
                 paths {
                     path {
                     urn
                     type
                     }
                 }
-                }
-            }
-        }
+                """
+
+        graphql_query = f""" 
+        query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {{ 
+            scrollAcrossLineage(input: $input) {{
+                nextScrollId
+                searchResults {{
+                    degree
+                    entity {{
+                        urn
+                        type
+                        ... on Dataset {{
+                            name
+                            platform {{
+                                name
+                            }}
+                            properties {{
+                                description
+                            }}
+                        }}
+                        ... on DataJob {{
+                            jobId
+                            dataPlatformInstance {{
+                                platform {{ name }}
+                            }}
+                            properties {{
+                                name
+                                description
+                            }}
+                        }}
+                    }}
+                    {path_query}
+                }}
+            }}  
+        }}
         """
 
         # Track seen entities and their hop levels
         seen_entities: Dict[str, int] = {str(source_urn): 0}
-        results: List[Dict[str, Any]] = []
+        results: List[LineageResult] = []
 
         # Pagination handling
         first_iter = True
@@ -988,39 +860,45 @@ class LineageClient:
                     continue
 
                 # Extract entity details
-                result = {
-                    "urn": urn,
-                    "type": entity["type"],
-                    "hops": entry["degree"],
-                    "direction": direction,
-                }
+                result = LineageResult(
+                    urn=urn,
+                    type=entity["type"],
+                    hops=entry["degree"],
+                    direction=direction,
+                )
 
                 # Add platform information
-                platform = (
-                    entity.get("platform", {}).get("name") or
-                    entity.get("dataPlatformInstance", {}).get("platform", {}).get("name")
-                )
-                if platform:
-                    result["platform"] = platform
+                if entity.get("platform"):
+                    platform = entity.get("platform", {}).get("name")
+                elif entity.get("dataPlatformInstance"):
+                    platform = (
+                        entity.get("dataPlatformInstance", {})
+                        .get("platform", {})
+                        .get("name")
+                    )
+                else:
+                    platform = None
 
+                result.platform = platform
                 # Add properties
                 properties = entity.get("properties", {})
                 if properties:
-                    result["name"] = properties.get("name")
-                    result["description"] = properties.get("description")
+                    result.name = properties.get("name")
+                    result.description = properties.get("description")
 
-                paths = [path["path"] for path in entry["paths"]]
-                schema_field_paths = []
-                for path in paths:
-                    schema_field_path = [path["urn"] for path in path]
-                    schema_field_paths.append(schema_field_path)
-
-
-
-                result["paths"] = schema_field_paths
-                result["direction"] = direction
+                if source_column:
+                    paths = [path["path"] for path in entry["paths"]]
+                    schema_field_paths = []
+                    for path in paths:
+                        for path_entry in path:
+                            if path_entry["type"] == "SCHEMA_FIELD":
+                                urn = SchemaFieldUrn.from_string(path_entry["urn"])
+                                path_name = urn.field_path
+                                schema_field_paths.append(
+                                    LineagePath(urn=path_entry["urn"], name=path_name)
+                                )
+                    result.paths = schema_field_paths
 
                 results.append(result)
 
         return results
-    

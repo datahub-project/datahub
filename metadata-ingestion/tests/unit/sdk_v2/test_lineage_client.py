@@ -854,14 +854,14 @@ def test_get_lineage_basic(client: DataHubClient) -> None:
     # Validate results
     assert len(results) == 1
     assert (
-        results[0]["urn"]
+        results[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
     )
-    assert results[0]["type"] == "DATASET"
-    assert results[0]["name"] == "upstream_table"
-    assert results[0]["platform"] == "snowflake"
-    assert results[0]["direction"] == "upstream"
-    assert results[0]["hops"] == 1
+    assert results[0].type == "DATASET"
+    assert results[0].name == "upstream_table"
+    assert results[0].platform == "snowflake"
+    assert results[0].direction == "upstream"
+    assert results[0].hops == 1
 
 
 def test_get_lineage_with_entity_type_filters(client: DataHubClient) -> None:
@@ -883,7 +883,7 @@ def test_get_lineage_with_entity_type_filters(client: DataHubClient) -> None:
                             "description": "Upstream source table",
                         },
                     },
-                    "degree":1,
+                    "degree": 1,
                 },
             ],
         }
@@ -894,14 +894,14 @@ def test_get_lineage_with_entity_type_filters(client: DataHubClient) -> None:
         results = client.lineage.get_lineage(
             source_urn=source_urn,
             filters={
-                "entity_type": ["DATASET"],
+                "entity_type": ["dataset"],
             },
         )
 
     # Validate results
     assert len(results) == 1
-    assert {r["type"] for r in results} == {"DATASET"}
-    assert {r["platform"] for r in results} == {"snowflake"}
+    assert {r.type for r in results} == {"DATASET"}
+    assert {r.platform for r in results} == {"snowflake"}
 
 
 def test_get_lineage_downstream(client: DataHubClient) -> None:
@@ -938,10 +938,10 @@ def test_get_lineage_downstream(client: DataHubClient) -> None:
     # Validate results
     assert len(results) == 1
     assert (
-        results[0]["urn"]
+        results[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
     )
-    assert results[0]["direction"] == "downstream"
+    assert results[0].direction == "downstream"
 
 
 def test_get_lineage_multiple_hops(client: DataHubClient) -> None:
@@ -987,10 +987,10 @@ def test_get_lineage_multiple_hops(client: DataHubClient) -> None:
 
     # Validate results
     assert len(results) == 2
-    assert results[0]["hops"] == 1
-    assert results[0]["type"] == "DATASET"
-    assert results[1]["hops"] == 2
-    assert results[1]["type"] == "DATASET"
+    assert results[0].hops == 1
+    assert results[0].type == "DATASET"
+    assert results[1].hops == 2
+    assert results[1].type == "DATASET"
 
 
 def test_get_lineage_no_results(client: DataHubClient) -> None:
@@ -1060,7 +1060,7 @@ def test_get_lineage_pagination(client: DataHubClient) -> None:
 
     # Validate results
     assert len(results) == 2
-    assert {result["name"] for result in results} == {
+    assert {result.name for result in results} == {
         "upstream_table1",
         "upstream_table2",
     }
