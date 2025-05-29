@@ -137,6 +137,7 @@ jobs:
           echo "INTEGRATION_SERVICE_FILES=`find ./build/coverage-reports/ -type f | grep 'datahub-integrations-service' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
           echo "EXECUTOR_FILES=`find ./build/coverage-reports/ -type f | grep 'datahub-executor' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
       - name: Generate tz artifact name
+        if: always()
         run: echo "NAME_TZ=$(echo ${{ matrix.timezone }} | tr '/' '-')" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v4
         if: always()
