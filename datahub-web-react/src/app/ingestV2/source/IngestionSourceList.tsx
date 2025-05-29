@@ -1,14 +1,11 @@
-import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
-import { Button, Modal, Pagination, Select, message } from 'antd';
-import { debounce } from 'lodash';
+import { Button, Pagination, SearchBar, SimpleSelect } from '@components';
+import { Modal, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
-import { ONE_SECOND_IN_MS } from '@app/entity/shared/tabs/Dataset/Queries/utils/constants';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
@@ -22,14 +19,10 @@ import {
     addToListIngestionSourcesCache,
     removeFromListIngestionSourcesCache,
 } from '@app/ingestV2/source/utils';
-import {
-    INGESTION_CREATE_SOURCE_ID,
-    INGESTION_REFRESH_SOURCES_ID,
-} from '@app/onboarding/config/IngestionOnboardingConfig';
-import { SearchBar } from '@app/search/SearchBar';
+import { OnboardingTour } from '@app/onboarding/OnboardingTour';
+import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {
     useCreateIngestionExecutionRequestMutation,
@@ -38,24 +31,60 @@ import {
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '@types';
+import { IngestionSource, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
-const SourceContainer = styled.div``;
+const SourceContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: auto;
+`;
 
-const SourcePaginationContainer = styled.div`
+const HeaderContainer = styled.div`
+    flex-shrink: 0;
+`;
+
+const StyledTabToolbar = styled.div`
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px 16px 0;
+    height: auto;
+    z-index: unset;
+    box-shadow: none;
+    flex-shrink: 0;
+`;
+
+const SearchContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const FilterButtonsContainer = styled.div`
+    display: flex;
+    gap: 8px;
+`;
+
+const StyledSearchBar = styled(SearchBar)`
+    width: 400px;
+`;
+
+const StyledSimpleSelect = styled(SimpleSelect)`
+    display: flex;
+    align-self: start;
+`;
+
+const TableContainer = styled.div`
+    flex: 1;
+    overflow: auto;
+`;
+
+const PaginationContainer = styled.div`
     display: flex;
     justify-content: center;
-`;
-
-const StyledSelect = styled(Select)`
-    margin-right: 15px;
-    min-width: 75px;
-`;
-
-const FilterWrapper = styled.div`
-    display: flex;
+    flex-shrink: 0;
 `;
 
 const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
@@ -80,8 +109,13 @@ const removeExecutionsFromIngestionSource = (source) => {
     return undefined;
 };
 
-export const IngestionSourceList = () => {
-    const entityRegistry = useEntityRegistry();
+interface Props {
+    showCreateModal?: boolean;
+    setShowCreateModal?: (show: boolean) => void;
+}
+
+export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Props) => {
+    // const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -104,12 +138,20 @@ export const IngestionSourceList = () => {
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const [lastRefresh, setLastRefresh] = useState(0);
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
-    const [sort, setSort] = useState<SortCriterion>();
     const [hideSystemSources, setHideSystemSources] = useState(true);
+
+    // Add a useEffect to handle the showCreateModal prop
+    useEffect(() => {
+        if (showCreateModal && setShowCreateModal) {
+            setIsBuildingSource(true);
+            setShowCreateModal(false);
+        }
+    }, [showCreateModal, setShowCreateModal]);
 
     // When source filter changes, reset page to 1
     useEffect(() => {
@@ -141,7 +183,6 @@ export const IngestionSourceList = () => {
                 count: pageSize,
                 query: query?.length ? query : undefined,
                 filters: filters.length ? filters : undefined,
-                sort,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
@@ -164,10 +205,6 @@ export const IngestionSourceList = () => {
         // Used to force a re-render of the child execution request list.
         setLastRefresh(new Date().getTime());
     }, [refetch]);
-
-    const debouncedSetQuery = debounce((newQuery: string | undefined) => {
-        setQuery(newQuery);
-    }, ONE_SECOND_IN_MS);
 
     function hasActiveExecution() {
         return !!filteredSources.find((source) =>
@@ -394,15 +431,9 @@ export const IngestionSourceList = () => {
         setFocusSourceUrn(undefined);
     };
 
-    const onChangeSort = (field, order) => {
-        setSort(
-            order
-                ? {
-                      sortOrder: order === 'ascend' ? SortOrder.Ascending : SortOrder.Descending,
-                      field,
-                  }
-                : undefined,
-        );
+    const handleSearch = (value: string) => {
+        setPage(1);
+        setQuery(value);
     };
 
     return (
@@ -412,75 +443,61 @@ export const IngestionSourceList = () => {
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}
             <SourceContainer>
-                <TabToolbar>
-                    <div>
-                        <Button
-                            id={INGESTION_CREATE_SOURCE_ID}
-                            type="text"
-                            onClick={() => setIsBuildingSource(true)}
-                            data-testid="create-ingestion-source-button"
-                        >
-                            <PlusOutlined /> Create new source
-                        </Button>
-                        <Button id={INGESTION_REFRESH_SOURCES_ID} type="text" onClick={onRefresh}>
-                            <RedoOutlined /> Refresh
-                        </Button>
-                    </div>
-                    <FilterWrapper>
-                        <StyledSelect
-                            value={sourceFilter}
-                            onChange={(selection) => setSourceFilter(selection as IngestionSourceType)}
-                        >
-                            <Select.Option value={IngestionSourceType.ALL}>All</Select.Option>
-                            <Select.Option value={IngestionSourceType.UI}>UI</Select.Option>
-                            <Select.Option value={IngestionSourceType.CLI}>CLI</Select.Option>
-                        </StyledSelect>
+                <OnboardingTour stepIds={[INGESTION_REFRESH_SOURCES_ID]} />
+                <HeaderContainer>
+                    <StyledTabToolbar>
+                        <SearchContainer>
+                            <StyledSearchBar
+                                placeholder="Search..."
+                                value={query || ''}
+                                onChange={(value) => handleSearch(value)}
+                            />
+                        </SearchContainer>
+                        <FilterButtonsContainer>
+                            <StyledSimpleSelect
+                                options={[
+                                    { label: 'All', value: '0' },
+                                    { label: 'UI', value: '1' },
+                                    { label: 'CLI', value: '2' },
+                                ]}
+                                values={[sourceFilter.toString()]}
+                                onUpdate={(values) => setSourceFilter(Number(values[0]))}
+                                showClear={false}
+                                width="fit-content"
+                            />
+                            <Button
+                                id={INGESTION_REFRESH_SOURCES_ID}
+                                variant="text"
+                                onClick={onRefresh}
+                                icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
+                            >
+                                Refresh
+                            </Button>
+                        </FilterButtonsContainer>
+                    </StyledTabToolbar>
+                </HeaderContainer>
 
-                        <SearchBar
-                            searchInputRef={searchInputRef}
-                            initialQuery={query || ''}
-                            placeholderText="Search sources..."
-                            suggestions={[]}
-                            style={{
-                                maxWidth: 220,
-                                padding: 0,
-                            }}
-                            inputStyle={{
-                                height: 32,
-                                fontSize: 12,
-                            }}
-                            onSearch={() => null}
-                            onQueryChange={(q) => {
-                                setPage(1);
-                                debouncedSetQuery(q);
-                            }}
-                            entityRegistry={entityRegistry}
-                            hideRecommendations
-                        />
-                    </FilterWrapper>
-                </TabToolbar>
-                <IngestionSourceTable
-                    lastRefresh={lastRefresh}
-                    sources={filteredSources || []}
-                    setFocusExecutionUrn={setFocusExecutionUrn}
-                    onExecute={onExecute}
-                    onEdit={onEdit}
-                    onView={onView}
-                    onDelete={onDelete}
-                    onRefresh={onRefresh}
-                    onChangeSort={onChangeSort}
-                />
-                <SourcePaginationContainer>
-                    <Pagination
-                        style={{ margin: 15 }}
-                        current={page}
-                        pageSize={pageSize}
-                        total={totalSources}
-                        showLessItems
-                        onChange={onChangePage}
-                        showSizeChanger={false}
+                <TableContainer>
+                    <IngestionSourceTable
+                        sources={filteredSources || []}
+                        setFocusExecutionUrn={setFocusExecutionUrn}
+                        onExecute={onExecute}
+                        onEdit={onEdit}
+                        onView={onView}
+                        onDelete={onDelete}
                     />
-                </SourcePaginationContainer>
+                </TableContainer>
+                <PaginationContainer>
+                    <Pagination
+                        currentPage={page}
+                        itemsPerPage={pageSize}
+                        totalPages={totalSources}
+                        showLessItems
+                        onPageChange={onChangePage}
+                        showSizeChanger={false}
+                        hideOnSinglePage
+                    />
+                </PaginationContainer>
             </SourceContainer>
             <IngestionSourceBuilderModal
                 initialState={removeExecutionsFromIngestionSource(focusSource)}

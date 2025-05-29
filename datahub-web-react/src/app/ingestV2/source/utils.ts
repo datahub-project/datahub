@@ -1,15 +1,6 @@
-import {
-    CheckCircleOutlined,
-    ClockCircleOutlined,
-    CloseCircleOutlined,
-    LoadingOutlined,
-    StopOutlined,
-    WarningOutlined,
-} from '@ant-design/icons';
 import YAML from 'yamljs';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entity/shared/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingestV2/source/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
@@ -62,25 +53,25 @@ export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
 
 export const getExecutionRequestStatusIcon = (status: string) => {
     return (
-        (status === RUNNING && LoadingOutlined) ||
-        (status === SUCCESS && CheckCircleOutlined) ||
-        (status === SUCCEEDED_WITH_WARNINGS && CheckCircleOutlined) ||
-        (status === FAILURE && CloseCircleOutlined) ||
-        (status === CANCELLED && StopOutlined) ||
-        (status === UP_FOR_RETRY && ClockCircleOutlined) ||
-        (status === ROLLED_BACK && WarningOutlined) ||
-        (status === ROLLING_BACK && LoadingOutlined) ||
-        (status === ROLLBACK_FAILED && CloseCircleOutlined) ||
-        (status === ABORTED && CloseCircleOutlined) ||
-        ClockCircleOutlined
+        (status === RUNNING && 'CircleNotch') ||
+        (status === SUCCESS && 'Check') ||
+        (status === SUCCEEDED_WITH_WARNINGS && 'ExclamationMark') ||
+        (status === FAILURE && 'X') ||
+        (status === CANCELLED && 'Prohibit') ||
+        (status === UP_FOR_RETRY && 'CircleNotch') ||
+        (status === ROLLED_BACK && 'Warning') ||
+        (status === ROLLING_BACK && 'CircleNotch') ||
+        (status === ROLLBACK_FAILED && 'X') ||
+        (status === ABORTED && 'X') ||
+        'CircleNotch'
     );
 };
 
 export const getExecutionRequestStatusDisplayText = (status: string) => {
     return (
         (status === RUNNING && 'Running') ||
-        (status === SUCCESS && 'Succeeded') ||
-        (status === SUCCEEDED_WITH_WARNINGS && 'Succeeded With Warnings') ||
+        (status === SUCCESS && 'Success') ||
+        (status === SUCCEEDED_WITH_WARNINGS && 'Success') ||
         (status === FAILURE && 'Failed') ||
         (status === CANCELLED && 'Cancelled') ||
         (status === UP_FOR_RETRY && 'Up for Retry') ||
@@ -119,17 +110,17 @@ export const getExecutionRequestSummaryText = (status: string) => {
 
 export const getExecutionRequestStatusDisplayColor = (status: string) => {
     return (
-        (status === RUNNING && REDESIGN_COLORS.BLUE) ||
+        (status === RUNNING && 'blue') ||
         (status === SUCCESS && 'green') ||
-        (status === SUCCEEDED_WITH_WARNINGS && '#b88806') ||
+        (status === SUCCEEDED_WITH_WARNINGS && 'yellow') ||
         (status === FAILURE && 'red') ||
-        (status === UP_FOR_RETRY && 'orange') ||
-        (status === CANCELLED && ANTD_GRAY[9]) ||
-        (status === ROLLED_BACK && 'orange') ||
-        (status === ROLLING_BACK && 'orange') ||
+        (status === UP_FOR_RETRY && 'yellow') ||
+        (status === CANCELLED && 'gray') ||
+        (status === ROLLED_BACK && 'yellow') ||
+        (status === ROLLING_BACK && 'yellow') ||
         (status === ROLLBACK_FAILED && 'red') ||
-        (status === ABORTED && 'red') ||
-        ANTD_GRAY[7]
+        (status === ABORTED && 'gray') ||
+        'gray'
     );
 };
 
