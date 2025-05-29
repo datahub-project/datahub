@@ -9,8 +9,6 @@ upstream_dataset = Dataset(
     schema=[
         ("id", "number"),
         ("name", "string"),
-        ("age", "number"),
-        ("customer_id", "number"),
     ],
 )
 
@@ -20,8 +18,6 @@ downstream_dataset = Dataset(
     schema=[
         ("id", "number"),
         ("name", "string"),
-        ("age", "number"),
-        ("customer_id", "number"),
     ],
 )
 
@@ -31,8 +27,6 @@ downstream2_dataset = Dataset(
     schema=[
         ("id", "number"),
         ("name", "string"),
-        ("age", "number"),
-        ("customer_id", "number"),
     ],
 )
 
@@ -53,13 +47,7 @@ downstream_column_lineage = client.lineage.get_lineage(
     source_urn=upstream_dataset.urn,
     source_column="id",
     direction="downstream",
-    max_hops=1,
+    max_hops=2,
 )
 
-downstream_column_lineage2 = client.lineage.get_lineage(
-    source_urn=upstream_dataset.urn,
-    source_column="id",
-    direction="downstream",
-    max_hops=2,
-    filters={"platform": ["snowflake"]},
-)
+print(downstream_column_lineage)

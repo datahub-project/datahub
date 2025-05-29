@@ -34,13 +34,7 @@ downstream_lineage = client.lineage.get_lineage(
     source_urn=upstream_dataset.urn,
     direction="downstream",
     max_hops=2,
+    filters={"platform": ["airflow"], "entity_type": ["dataJob"]},
 )
 
-
-upstream_lineage = client.lineage.get_lineage(
-    source_urn=downstream2_dataset.urn,
-    direction="upstream",
-    filters={"platform": ["snowflake"], "entity_type": ["DATASET"]},
-)
-
-print(upstream_lineage)
+print(downstream_lineage)
