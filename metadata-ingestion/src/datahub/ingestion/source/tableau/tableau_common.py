@@ -1089,13 +1089,13 @@ def create_vc_schema_field_v2(
 ) -> SchemaField:
     """Create a SchemaField for Virtual Connection using v2 specification."""
     # Clean table and column names
-    clean_table = clean_table_name(table_name)
-    clean_column = clean_table_name(column_name)
 
     TypeClass = FIELD_TYPE_MAPPING.get(column_type, NullTypeClass)
 
     # Create v2 field path with cleaned names
-    field_path = f"[version=2.0].[type=struct].[type=struct].{clean_table}.[type={column_type.lower() if column_type else 'unknown'}].{clean_column}"
+    field_path = (
+        f"[type={column_type.lower() if column_type else 'unknown'}].{column_name}"
+    )
 
     schema_field = SchemaField(
         fieldPath=field_path,
@@ -1105,28 +1105,6 @@ def create_vc_schema_field_v2(
         globalTags=(
             get_tags_from_params([column_type or "UNKNOWN"]) if ingest_tags else None
         ),
-    )
-
-    return schema_field
-
-
-def create_vc_table_schema_field_v2(
-    table_name: str, description: Optional[str] = None
-) -> SchemaField:
-    """
-    Create a table-level SchemaField for Virtual Connection using v2 specification.
-    Format: [version=2.0].[type=struct].[type=struct].table_name
-    """
-
-    field_path = f"[version=2.0].[type=struct].[type=struct].{table_name}"
-
-    schema_field = SchemaField(
-        fieldPath=field_path,
-        type=SchemaFieldDataType(
-            type=NullTypeClass()
-        ),  # Table itself has no primitive type
-        description=description or f"Table: {table_name}",
-        nativeDataType="TABLE",
     )
 
     return schema_field
