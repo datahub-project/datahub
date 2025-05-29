@@ -188,7 +188,7 @@ class BigqueryProfiler(GenericProfiler):
                     error_msg = str(e)
                     logger.warning(f"Query execution error: {error_msg}")
                     # Store the error message for partition extraction
-                    if hasattr(self.partition_manager, "_last_error_message"):
+                    if hasattr(self, "partition_manager") and self.partition_manager:
                         self.partition_manager._last_error_message = error_msg
                     return []
 
@@ -778,95 +778,267 @@ class BigqueryProfiler(GenericProfiler):
         logger.debug(
             f"generate partition profiler query for project: {project} schema: {schema} and table {table.name}, partition_datetime: {partition_datetime}"
         )
-        partition = table.max_partition_id
-        if table.partition_info and partition:
-            partition_where_clause: str
 
-            if (
-                hasattr(table.partition_info, "type")
-                and table.partition_info.type == "RANGE"
-            ):
-                if (
-                    hasattr(table.partition_info, "column")
-                    and table.partition_info.column
-                ):
-                    partition_where_clause = (
-                        f"{table.partition_info.column.name} >= {partition}"
-                    )
-                else:
-                    logger.warning(
-                        f"Partitioned table {table.name} without partition column"
-                    )
-                    if hasattr(self.report, "profiling_skipped_invalid_partition_ids"):
-                        self.report.profiling_skipped_invalid_partition_ids[
-                            f"{project}.{schema}.{table.name}"
-                        ] = partition
-                    return None, None
-            else:
-                logger.debug(
-                    f"{table.name} is partitioned and partition column is {partition}"
+        # Try different partition handling strategies in order of preference
+
+        # 1. Try multi-column partitioning using partition manager
+        result = self._try_multi_column_partitioning(project, schema, table)
+        if result:
+            return result
+
+        # 2. Try single-column partitioning (original approach)
+        result = self._try_single_column_partitioning(
+            project, schema, table, partition_datetime
+        )
+        if result:
+            return result
+
+        # 3. Try sharded table handling
+        result = self._try_sharded_table_handling(table)
+        if result:
+            return result
+
+        # 4. Try error-based partition extraction as last resort
+        result = self._try_error_based_partition_extraction(project, schema, table)
+        if result:
+            return result
+
+        # If all strategies fail, return None, None
+        return None, None
+
+    def _try_multi_column_partitioning(
+        self, project: str, schema: str, table: BigqueryTable
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Try to handle multi-column partitioning using the partition manager."""
+        if hasattr(self, "partition_manager") and self.partition_manager:
+            # Try to get required partition filters from the partition manager
+            required_partition_filters = (
+                self.partition_manager.get_required_partition_filters(
+                    table, project, schema
                 )
-                try:
-                    (
-                        partition_datetime,
-                        upper_bound_partition_datetime,
-                    ) = self.get_partition_range_from_partition_id(
-                        partition, partition_datetime
-                    )
-                except ValueError as e:
-                    logger.error(
-                        f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
-                    )
-                    if hasattr(self.report, "profiling_skipped_invalid_partition_ids"):
-                        self.report.profiling_skipped_invalid_partition_ids[
-                            f"{project}.{schema}.{table.name}"
-                        ] = partition
-                    return None, None
+            )
 
-                partition_data_type: str = "TIMESTAMP"
-                # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
-                # See more about this at
-                # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
-                partition_column_name = "_PARTITIONTIME"
-                if (
-                    hasattr(table.partition_info, "column")
-                    and table.partition_info.column
-                ):
-                    partition_column_name = table.partition_info.column.name
-                    partition_data_type = table.partition_info.column.data_type
-                if hasattr(
-                    table.partition_info, "type"
-                ) and table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
-                else:
-                    logger.warning(
-                        f"Not supported partition type {table.partition_info.type}"
-                    )
-                    if hasattr(self.report, "profiling_skipped_invalid_partition_type"):
-                        self.report.profiling_skipped_invalid_partition_type[
-                            f"{project}.{schema}.{table.name}"
-                        ] = table.partition_info.type
-                    return None, None
-            custom_sql = """
+            # If we have required partition filters, use them to create the custom SQL
+            if required_partition_filters and len(required_partition_filters) > 0:
+                where_clause = " AND ".join(required_partition_filters)
+                custom_sql = f"""
 SELECT
     *
 FROM
-    `{table_catalog}.{table_schema}.{table_name}`
+    `{project}.{schema}.{table.name}`
 WHERE
-    {partition_where_clause}
-            """.format(
-                table_catalog=project,
-                table_schema=schema,
-                table_name=table.name,
-                partition_where_clause=partition_where_clause,
+    {where_clause}
+                """
+                # Return a unique identifier for this partition and the custom SQL
+                partition_id = f"multi_partition_{int(time.time())}"
+                return (partition_id, custom_sql)
+
+        return None, None
+
+    def _try_single_column_partitioning(
+        self,
+        project: str,
+        schema: str,
+        table: BigqueryTable,
+        partition_datetime: Optional[datetime],
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Try to handle single-column partitioning (original approach)."""
+        partition = table.max_partition_id
+        if not (table.partition_info and partition):
+            return None, None
+
+        if (
+            hasattr(table.partition_info, "type")
+            and table.partition_info.type == "RANGE"
+        ):
+            result = self._handle_range_partition(project, schema, table, partition)
+            if result:
+                return result
+        else:
+            result = self._handle_time_partition(
+                project, schema, table, partition, partition_datetime
+            )
+            if result:
+                return result
+
+        return None, None
+
+    def _handle_range_partition(
+        self, project: str, schema: str, table: BigqueryTable, partition: str
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Handle RANGE type partitioning."""
+        # Check that partition_info is not None before accessing .column
+        if not table.partition_info:
+            return None, None
+
+        # Now we're sure partition_info is not None, check for column
+        if hasattr(table.partition_info, "column") and table.partition_info.column:
+            partition_where_clause = (
+                f"{table.partition_info.column.name} >= {partition}"
+            )
+
+            custom_sql = self._create_partition_sql(
+                project, schema, table.name, partition_where_clause
             )
 
             return (partition, custom_sql)
-        elif hasattr(table, "max_shard_id") and table.max_shard_id:
+        else:
+            logger.warning(f"Partitioned table {table.name} without partition column")
+            if hasattr(self.report, "profiling_skipped_invalid_partition_ids"):
+                self.report.profiling_skipped_invalid_partition_ids[
+                    f"{project}.{schema}.{table.name}"
+                ] = partition
+            return None, None
+
+    def _handle_time_partition(
+        self,
+        project: str,
+        schema: str,
+        table: BigqueryTable,
+        partition: str,
+        partition_datetime: Optional[datetime],
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Handle time-based partitioning."""
+        # Check that partition_info is not None
+        if not table.partition_info:
+            return None, None
+
+        logger.debug(f"{table.name} is partitioned and partition column is {partition}")
+        try:
+            (
+                partition_datetime,
+                upper_bound_partition_datetime,
+            ) = self.get_partition_range_from_partition_id(
+                partition, partition_datetime
+            )
+        except ValueError as e:
+            logger.error(
+                f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
+            )
+            if hasattr(self.report, "profiling_skipped_invalid_partition_ids"):
+                self.report.profiling_skipped_invalid_partition_ids[
+                    f"{project}.{schema}.{table.name}"
+                ] = partition
+            return None, None
+
+        partition_data_type, partition_column_name = self._get_partition_column_info(
+            table
+        )
+
+        # Here we've already checked table.partition_info is not None above
+        if hasattr(table.partition_info, "type") and table.partition_info.type in (
+            "HOUR",
+            "DAY",
+            "MONTH",
+            "YEAR",
+        ):
+            partition_where_clause = f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
+
+            custom_sql = self._create_partition_sql(
+                project, schema, table.name, partition_where_clause
+            )
+
+            return (partition, custom_sql)
+        else:
+            logger.warning(f"Not supported partition type {table.partition_info.type}")
+            if hasattr(self.report, "profiling_skipped_invalid_partition_type"):
+                self.report.profiling_skipped_invalid_partition_type[
+                    f"{project}.{schema}.{table.name}"
+                ] = table.partition_info.type
+            return None, None
+
+    def _get_partition_column_info(self, table: BigqueryTable) -> Tuple[str, str]:
+        """Get partition column data type and name."""
+        partition_data_type: str = "TIMESTAMP"
+        # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
+        # See more about this at
+        # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
+        partition_column_name = "_PARTITIONTIME"
+
+        # Check that partition_info is not None
+        if table.partition_info is not None:
+            if hasattr(table.partition_info, "column") and table.partition_info.column:
+                partition_column_name = table.partition_info.column.name
+                partition_data_type = table.partition_info.column.data_type
+
+        return partition_data_type, partition_column_name
+
+    def _create_partition_sql(
+        self, project: str, schema: str, table_name: str, where_clause: str
+    ) -> str:
+        """Create SQL with partition filtering."""
+        return f"""
+SELECT
+    *
+FROM
+    `{project}.{schema}.{table_name}`
+WHERE
+    {where_clause}
+        """
+
+    def _try_sharded_table_handling(
+        self, table: BigqueryTable
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Try to handle sharded tables."""
+        if hasattr(table, "max_shard_id") and table.max_shard_id:
             # For sharded table we want to get the partition id but not needed to generate custom query
             return table.max_shard_id, None
 
         return None, None
+
+    def _try_error_based_partition_extraction(
+        self, project: str, schema: str, table: BigqueryTable
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Try to extract partition information from error messages."""
+        if not (hasattr(self.partition_manager, "_extract_partition_info_from_error")):
+            return None, None
+
+        last_error = getattr(self.partition_manager, "_last_error_message", None)
+        if not last_error:
+            return None, None
+
+        partition_info = self.partition_manager._extract_partition_info_from_error(
+            last_error
+        )
+        if not (partition_info and "required_columns" in partition_info):
+            return None, None
+
+        required_cols = partition_info["required_columns"].split(",")
+        # For now, just add a simple filter for the current date/time if these are time-related columns
+        filters = self._create_filters_for_columns(required_cols)
+
+        if not filters:
+            return None, None
+
+        where_clause = " AND ".join(filters)
+        custom_sql = f"""
+SELECT
+    *
+FROM
+    `{project}.{schema}.{table.name}`
+WHERE
+    {where_clause}
+        """
+        return (f"error_extracted_{int(time.time())}", custom_sql)
+
+    def _create_filters_for_columns(self, columns: List[str]) -> List[str]:
+        """Create filters for the given columns based on their names."""
+        filters = []
+        now = datetime.now()
+
+        for col in columns:
+            col = col.strip()
+            if col.lower() == "year":
+                filters.append(f"`{col}` = {now.year}")
+            elif col.lower() == "month":
+                filters.append(f"`{col}` = {now.month}")
+            elif col.lower() == "day":
+                filters.append(f"`{col}` = {now.day}")
+            else:
+                # For other columns, just add a simple IS NOT NULL check
+                filters.append(f"`{col}` IS NOT NULL")
+
+        return filters
 
     def get_profile_args(self) -> Dict[str, Any]:
         """
