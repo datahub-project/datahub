@@ -67,6 +67,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
@@ -80,6 +81,7 @@ import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONArray;
 import org.json.JSONException;
+import org.json.JSONObject;
 
 @Slf4j
 public class OpenLineageToDataHub {
@@ -605,12 +607,23 @@ public class OpenLineageToDataHub {
             forEachValue(airflowProperties, customProperties);
           }
           break;
+        case "spark.logicalPlan":
+          {
+            if (flowProperties) {
+              JSONObject jsonObject = new JSONObject(entry.getValue().getAdditionalProperties());
+              customProperties.put("spark.logicalPlan", jsonObject.toString());
+            }
+          }
+          break;
         case "unknownSourceAttribute":
           {
             if (!flowProperties) {
               List<Map<String, Object>> unknownItems =
                   (List<Map<String, Object>>)
-                      entry.getValue().getAdditionalProperties().get("unknownItems");
+                      entry
+                          .getValue()
+                          .getAdditionalProperties()
+                          .getOrDefault("unknownItems", Collections.emptyList());
               for (Map<String, Object> item : unknownItems) {
                 forEachValue(item, customProperties);
               }

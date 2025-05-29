@@ -36,6 +36,7 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 import org.apache.spark.SparkConf;
@@ -67,6 +68,7 @@ public class DatahubSparkListener extends SparkListener {
   private static ContextFactory contextFactory;
   private static CircuitBreaker circuitBreaker = new NoOpCircuitBreaker();
   private static final String sparkVersion = package$.MODULE$.SPARK_VERSION();
+  private final SparkConf conf;
 
   private final Function0<Option<SparkContext>> activeSparkContext =
       ScalaConversionUtils.toScalaFn(SparkContext$.MODULE$::getActive);
@@ -74,8 +76,10 @@ public class DatahubSparkListener extends SparkListener {
   private static MeterRegistry meterRegistry;
   private boolean isDisabled;
 
-  public DatahubSparkListener() throws URISyntaxException {
-    listener = new OpenLineageSparkListener();
+  public DatahubSparkListener(SparkConf conf) throws URISyntaxException {
+    this.conf = ((SparkConf) Objects.requireNonNull(conf)).clone();
+
+    listener = new OpenLineageSparkListener(conf);
   }
 
   private static SparkAppContext getSparkAppContext(
@@ -255,7 +259,10 @@ public class DatahubSparkListener extends SparkListener {
     SparkEnv sparkEnv = SparkEnv$.MODULE$.get();
     if (sparkEnv != null) {
       log.info("sparkEnv: {}", sparkEnv.conf().toDebugString());
-      sparkEnv.conf().set("spark.openlineage.facets.disabled", "[spark_unknown;spark.logicalPlan]");
+      if (datahubConf.hasPath("capture_spark_plan")
+          && datahubConf.getBoolean("capture_spark_plan")) {
+        sparkEnv.conf().set("spark.openlineage.facets.spark.logicalPlan.disabled", "false");
+      }
     }
 
     if (properties != null) {
