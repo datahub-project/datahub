@@ -7,6 +7,7 @@ from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
 from datahub.errors import SdkUsageError
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import (
+    AssertionUrn,
     DatasetUrn,
     MonitorUrn,
 )
@@ -150,6 +151,24 @@ def test_monitor_basic_other_ids() -> None:
         info=_any_monitor_info,
     )
     assert monitor.urn == _any_monitor_urn
+    assert (
+        monitor.urn.urn()
+        == "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD),my_monitor_id)"
+    )
+
+    # Tuple[DatasetUrn, AssertionUrn]
+    monitor = Monitor(
+        id=(
+            DatasetUrn.from_string(_any_dataset_urn),
+            AssertionUrn.from_string(f"urn:li:assertion:{_any_monitor_id}"),
+        ),
+        info=_any_monitor_info,
+    )
+    assert monitor.urn == _any_monitor_urn
+    assert (
+        monitor.urn.urn()
+        == "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD),my_monitor_id)"
+    )
 
     # models.MonitorKeyClass
     monitor = Monitor(
@@ -160,6 +179,10 @@ def test_monitor_basic_other_ids() -> None:
         info=_any_monitor_info,
     )
     assert monitor.urn == _any_monitor_urn
+    assert (
+        monitor.urn.urn()
+        == "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD),my_monitor_id)"
+    )
 
     with pytest.raises(SdkUsageError):
         # models.MonitorKeyClass with no valid dataset urn

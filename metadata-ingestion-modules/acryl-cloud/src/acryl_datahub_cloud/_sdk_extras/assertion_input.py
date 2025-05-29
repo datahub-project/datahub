@@ -648,7 +648,7 @@ class _AssertionInput(ABC):
         """
         source_type, field = self._convert_assertion_source_type_and_field()
         return Monitor(
-            id=self._create_monitor_key(assertion_urn),
+            id=(self.dataset_urn, assertion_urn),
             info=self._create_monitor_info(
                 assertion_urn=assertion_urn,
                 status=self._convert_monitor_status(),
@@ -658,20 +658,6 @@ class _AssertionInput(ABC):
                 sensitivity=self._convert_sensitivity(),
                 exclusion_windows=self._convert_exclusion_windows(),
             ),
-        )
-
-    def _create_monitor_key(
-        self, assertion_urn: AssertionUrn
-    ) -> models.MonitorKeyClass:
-        """
-        Create a MonitorKeyClass for this assertion.
-
-        Returns:
-            A MonitorKeyClass with the dataset URN and assertion URN.
-        """
-        return models.MonitorKeyClass(
-            entity=str(self.dataset_urn),
-            id=str(assertion_urn),
         )
 
     def _convert_monitor_status(self) -> models.MonitorStatusClass:

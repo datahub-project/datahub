@@ -16,6 +16,7 @@ from datahub.emitter.enum_helpers import get_enum_options
 from datahub.errors import SdkUsageError
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import (
+    AssertionUrn,
     DatasetUrn,
     MonitorUrn,
     Urn,
@@ -26,12 +27,9 @@ MonitorIdentityInputType: TypeAlias = Union[
     Tuple[DatasetUrn, str],  # (dataset urn, monitor id)
     models.MonitorKeyClass,
     MonitorUrn,
-    # TBC: other options that may be considered
-    # monitor_key.entity from dataset and monitor_key.id would be auto-generated
-    # DatasetUrn,
-    # we could fetch assertion info from datahub and then set monitor_key.entity from assertion and monitor_key.id from assertion id
-    # this would require to fetch assertion info from datahub
-    # AssertionUrn,
+    Tuple[
+        DatasetUrn, AssertionUrn
+    ],  # (dataset urn, assertion urn - monitor id is got from assertion id)
 ]
 
 MonitorInfoInputType: TypeAlias = Union[
@@ -99,11 +97,23 @@ class Monitor(Entity):
         id: MonitorIdentityInputType,
     ) -> MonitorUrn:
         if isinstance(id, tuple):
-            if len(id) != 2:
+            if (
+                len(id) != 2
+                or not isinstance(id[0], DatasetUrn)
+                or not isinstance(id[1], (str, AssertionUrn))
+            ):
                 raise SdkUsageError(
                     f"Invalid monitor identity input tuple: {id}. Expected a tuple of (dataset/entity urn, monitor id)."
                 )
-            return MonitorUrn(entity=id[0], id=id[1])
+            if isinstance(id[1], str):
+                # If the second element is a string, we treat it as the monitor id.
+                # This allows for flexibility in how monitor ids are specified.
+                return MonitorUrn(entity=id[0], id=id[1])
+            elif isinstance(id[1], AssertionUrn):
+                # If the second element is an AssertionUrn, we use its id as the monitor id so they both are linked.
+                return MonitorUrn(entity=id[0], id=id[1].assertion_id)
+            else:
+                assert_never(id[1])
         elif isinstance(id, models.MonitorKeyClass):
             # This validation may look redundant but it is not.
             # While MonitorKey PDL model ensures entity is a DatasetUrn,
