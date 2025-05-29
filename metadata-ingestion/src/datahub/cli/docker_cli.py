@@ -344,6 +344,8 @@ DATAHUB_MAE_CONSUMER_PORT=9091
     return result.returncode
 
 
+# TODO: Do we really need this? If someone wants to use  a different arg, they can still pass the standard docker env var DOCKER_DEFAULT_PLATFORM
+# We dont really need to select a different image unlike earlier (mysql vs mariadb) since we do publish both archs for all images (or are available for external images).
 def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     running_on_apple_silicon = is_apple_silicon()
     if running_on_apple_silicon:
