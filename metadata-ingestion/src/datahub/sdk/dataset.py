@@ -106,7 +106,6 @@ def parse_cll_mapping(
                 downstreams=[SchemaFieldUrn(downstream, downstream_column).urn()],
             )
         )
-    print(cll)
     return cll
 
 
