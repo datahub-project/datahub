@@ -38,30 +38,11 @@ from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=os.environ.get("PYTHONLOGLEVEL", "INFO").upper())
+
 _ClickPositiveInt = click.IntRange(min=1)
 
-NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose.quickstart.yml"
-)
-ELASTIC_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose-without-neo4j.quickstart.yml"
-)
-NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose-m1.quickstart.yml"
-)
-ELASTIC_M1_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml"
-)
-CONSUMERS_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose.consumers.quickstart.yml"
-)
-ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose.consumers-without-neo4j.quickstart.yml"
-)
-KAFKA_SETUP_QUICKSTART_COMPOSE_FILE = (
-    "docker/quickstart/docker-compose.kafka-setup.quickstart.yml"
-)
-
+QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose.quickstart-profile.yml"
 
 _QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
 _QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
@@ -108,8 +89,8 @@ def check() -> None:
         raise status.to_exception("The following issues were detected:")
 
 
-def is_m1() -> bool:
-    """Check whether we are running on an M1 machine"""
+def is_apple_silicon() -> bool:
+    """Check whether we are running on an Apple Silicon machine"""
     try:
         return (
             platform.uname().machine == "arm64" and platform.uname().system == "Darwin"
@@ -119,52 +100,11 @@ def is_m1() -> bool:
         return False
 
 
-def is_arch_m1(arch: Architectures) -> bool:
-    return arch in [Architectures.arm64, Architectures.m1, Architectures.m2]
-
-
-def should_use_neo4j_for_graph_service(graph_service_override: Optional[str]) -> bool:
-    if graph_service_override is not None:
-        if graph_service_override == "elasticsearch":
-            click.echo("Starting with elasticsearch due to graph-service-impl param\n")
-            return False
-        if graph_service_override == "neo4j":
-            click.echo("Starting with neo4j due to graph-service-impl param\n")
-            return True
-        else:
-            click.secho(
-                graph_service_override
-                + " is not a valid graph service option. Choose either `neo4j` or "
-                "`elasticsearch`\n",
-                fg="red",
-            )
-            raise ValueError(f"invalid graph service option: {graph_service_override}")
-    with get_docker_client() as client:
-        if len(client.volumes.list(filters={"name": "datahub_neo4jdata"})) > 0:
-            click.echo(
-                "Datahub Neo4j volume found, starting with neo4j as graph service.\n"
-                "If you want to run using elastic, run `datahub docker nuke` and re-ingest your data.\n"
-            )
-            return True
-
-        logger.debug(
-            "No Datahub Neo4j volume found, starting with elasticsearch as graph service.\n"
-            "To use neo4j as a graph backend, run \n"
-            "`datahub docker quickstart --graph-service-impl neo4j`"
-            "\nfrom the root of the datahub repo\n"
-        )
-        return False
-
-
 def _set_environment_variables(
     version: Optional[str],
-    mysql_version: Optional[str],
     mysql_port: Optional[int],
-    zk_port: Optional[int],
     kafka_broker_port: Optional[int],
-    schema_registry_port: Optional[int],
     elastic_port: Optional[int],
-    kafka_setup: Optional[bool],
 ) -> None:
     if version is not None:
         if not version.startswith("v") and "." in version:
@@ -173,24 +113,14 @@ def _set_environment_variables(
             )
             version = f"v{version}"
         os.environ["DATAHUB_VERSION"] = version
-    if mysql_version is not None:
-        os.environ["DATAHUB_MYSQL_VERSION"] = mysql_version
     if mysql_port is not None:
         os.environ["DATAHUB_MAPPED_MYSQL_PORT"] = str(mysql_port)
-
-    if zk_port is not None:
-        os.environ["DATAHUB_MAPPED_ZK_PORT"] = str(zk_port)
 
     if kafka_broker_port is not None:
         os.environ["DATAHUB_MAPPED_KAFKA_BROKER_PORT"] = str(kafka_broker_port)
 
-    if schema_registry_port is not None:
-        os.environ["DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT"] = str(schema_registry_port)
-
     if elastic_port is not None:
         os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
-    if kafka_setup:
-        os.environ["DATAHUB_PRECREATE_TOPICS"] = "true"
 
 
 def _get_default_quickstart_compose_file() -> Optional[str]:
@@ -250,6 +180,8 @@ def _attempt_stop(quickstart_compose_file: List[pathlib.Path]) -> None:
         compose = _docker_compose_v2()
         base_command: List[str] = [
             *compose,
+            "--profile",
+            "quickstart",
             *itertools.chain.from_iterable(
                 ("-f", f"{path}") for path in compose_files_for_stopping
             ),
@@ -413,11 +345,13 @@ DATAHUB_MAE_CONSUMER_PORT=9091
 
 
 def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
-    running_on_m1 = is_m1()
-    if running_on_m1:
-        click.secho("Detected M1 machine", fg="yellow")
+    running_on_apple_silicon = is_apple_silicon(arch)
+    if running_on_apple_silicon:
+        click.secho("Detected Apple Silicon", fg="yellow")
 
-    quickstart_arch = Architectures.x86 if not running_on_m1 else Architectures.arm64
+    quickstart_arch = (
+        Architectures.x86 if not running_on_apple_silicon else Architectures.arm64
+    )
     if arch:
         matched_arch = [a for a in Architectures if arch.lower() == a.value]
         if not matched_arch:
@@ -436,13 +370,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     type=str,
     default="default",
     help="Datahub version to be deployed. If not set, deploy using the defaults from the quickstart compose. Use 'stable' to start the latest stable version.",
-)
-@click.option(
-    "--build-locally",
-    type=bool,
-    is_flag=True,
-    default=False,
-    help="Attempt to build the containers locally before starting",
 )
 @click.option(
     "--pull-images/--no-pull-images",
@@ -467,13 +394,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="If true, the docker-compose logs will be printed to console if something fails",
 )
 @click.option(
-    "--graph-service-impl",
-    type=str,
-    is_flag=False,
-    default=None,
-    help="If set, forces docker-compose to use that graph service implementation",
-)
-@click.option(
     "--mysql-port",
     type=_ClickPositiveInt,
     is_flag=False,
@@ -481,25 +401,11 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="If there is an existing mysql instance running on port 3306, set this to a free port to avoid port conflicts on startup",
 )
 @click.option(
-    "--zk-port",
-    type=_ClickPositiveInt,
-    is_flag=False,
-    default=None,
-    help="If there is an existing zookeeper instance running on port 2181, set this to a free port to avoid port conflicts on startup",
-)
-@click.option(
     "--kafka-broker-port",
     type=_ClickPositiveInt,
     is_flag=False,
     default=None,
     help="If there is an existing Kafka broker running on port 9092, set this to a free port to avoid port conflicts on startup",
-)
-@click.option(
-    "--schema-registry-port",
-    type=_ClickPositiveInt,
-    is_flag=False,
-    default=None,
-    help="If there is an existing process running on port 8081, set this to a free port to avoid port conflicts with Kafka schema registry on startup",
 )
 @click.option(
     "--elastic-port",
@@ -559,20 +465,6 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
     help="Disables the restoration of indices of a running quickstart instance when used in conjunction with --restore.",
 )
 @click.option(
-    "--standalone_consumers",
-    required=False,
-    is_flag=True,
-    default=False,
-    help="Launches MAE & MCE consumers as stand alone docker containers",
-)
-@click.option(
-    "--kafka-setup",
-    required=False,
-    is_flag=True,
-    default=False,
-    help="Launches Kafka setup job as part of the compose deployment",
-)
-@click.option(
     "--arch",
     required=False,
     help="Specify the architecture for the quickstart images to use. Options are x86, arm64, m1 etc.",
@@ -581,28 +473,21 @@ def detect_quickstart_arch(arch: Optional[str]) -> Architectures:
 @telemetry.with_telemetry(
     capture_kwargs=[
         "version",
-        "build_locally",
         "pull_images",
         "stop",
         "backup",
         "restore",
         "restore_indices",
-        "standalone_consumers",
-        "kafka_setup",
         "arch",
     ]
 )
 def quickstart(
     version: Optional[str],
-    build_locally: bool,
     pull_images: bool,
     quickstart_compose_file: List[pathlib.Path],
     dump_logs_on_failure: bool,
-    graph_service_impl: Optional[str],
     mysql_port: Optional[int],
-    zk_port: Optional[int],
     kafka_broker_port: Optional[int],
-    schema_registry_port: Optional[int],
     elastic_port: Optional[int],
     stop: bool,
     backup: bool,
@@ -611,8 +496,6 @@ def quickstart(
     restore_file: str,
     restore_indices: bool,
     no_restore_indices: bool,
-    standalone_consumers: bool,
-    kafka_setup: bool,
     arch: Optional[str],
 ) -> None:
     """Start an instance of DataHub locally using docker-compose.
@@ -641,7 +524,6 @@ def quickstart(
         )
         return
 
-    quickstart_arch = detect_quickstart_arch(arch)
     quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
     quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(
         version
@@ -668,34 +550,30 @@ def quickstart(
         download_compose_files(
             quickstart_compose_file_name,
             quickstart_compose_file,
-            graph_service_impl,
-            kafka_setup,
-            quickstart_arch,
-            standalone_consumers,
             quickstart_execution_plan.composefile_git_ref,
         )
 
     # set version
     _set_environment_variables(
         version=quickstart_execution_plan.docker_tag,
-        mysql_version=quickstart_execution_plan.mysql_tag,
         mysql_port=mysql_port,
-        zk_port=zk_port,
         kafka_broker_port=kafka_broker_port,
-        schema_registry_port=schema_registry_port,
         elastic_port=elastic_port,
-        kafka_setup=kafka_setup,
     )
 
     compose = _docker_compose_v2()
     base_command: List[str] = [
         *compose,
+        "--profile",
+        "quickstart",
         *itertools.chain.from_iterable(
             ("-f", f"{path}") for path in quickstart_compose_file
         ),
         "-p",
         DOCKER_COMPOSE_PROJECT_NAME,
     ]
+
+    click.echo(f"base_command: {base_command}")
 
     # Pull and possibly build the latest containers.
     try:
@@ -736,15 +614,6 @@ def quickstart(
             "been built locally",
             fg="red",
         )
-
-    if build_locally:
-        logger.info("Building docker images locally...")
-        subprocess.run(
-            base_command + ["build", "--pull", "-q"],
-            check=True,
-            env=_docker_subprocess_env(),
-        )
-        logger.info("Finished building docker images!")
 
     # Start it up! (with retries)
     click.echo("\nStarting up DataHub...")
@@ -836,36 +705,19 @@ def get_docker_compose_base_url(version_tag: str) -> str:
     return f"https://raw.githubusercontent.com/datahub-project/datahub/{version_tag}"
 
 
-def get_github_file_url(neo4j: bool, is_m1: bool, release_version_tag: str) -> str:
+def get_github_file_url(release_version_tag: str) -> str:
     base_url = get_docker_compose_base_url(release_version_tag)
-    if neo4j:
-        github_file = (
-            f"{base_url}/{NEO4J_AND_ELASTIC_QUICKSTART_COMPOSE_FILE}"
-            if not is_m1
-            else f"{base_url}/{NEO4J_AND_ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-        )
-    else:
-        github_file = (
-            f"{base_url}/{ELASTIC_QUICKSTART_COMPOSE_FILE}"
-            if not is_m1
-            else f"{base_url}/{ELASTIC_M1_QUICKSTART_COMPOSE_FILE}"
-        )
+    github_file = f"{base_url}/{QUICKSTART_COMPOSE_FILE}"
     return github_file
 
 
 def download_compose_files(
     quickstart_compose_file_name,
     quickstart_compose_file_list,
-    graph_service_impl,
-    kafka_setup,
-    quickstart_arch,
-    standalone_consumers,
     compose_git_ref,
 ):
     # download appropriate quickstart file
-    should_use_neo4j = should_use_neo4j_for_graph_service(graph_service_impl)
-    is_m1 = is_arch_m1(quickstart_arch)
-    github_file = get_github_file_url(should_use_neo4j, is_m1, compose_git_ref)
+    github_file = get_github_file_url(compose_git_ref)
     # also allow local files
     request_session = requests.Session()
     request_session.mount("file://", FileAdapter())
@@ -882,54 +734,6 @@ def download_compose_files(
         quickstart_download_response.raise_for_status()
         tmp_file.write(quickstart_download_response.content)
         logger.debug(f"Copied to {path}")
-    if standalone_consumers:
-        base_url = get_docker_compose_base_url(compose_git_ref)
-        consumer_github_file = (
-            f"{base_url}/{CONSUMERS_QUICKSTART_COMPOSE_FILE}"
-            if should_use_neo4j
-            else f"{base_url}/{ELASTIC_CONSUMERS_QUICKSTART_COMPOSE_FILE}"
-        )
-
-        default_consumer_compose_file = (
-            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.consumers.yml"
-        )
-        with (
-            open(default_consumer_compose_file, "wb")
-            if default_consumer_compose_file
-            else tempfile.NamedTemporaryFile(suffix=".yml", delete=False)
-        ) as tmp_file:
-            path = pathlib.Path(tmp_file.name)
-            quickstart_compose_file_list.append(path)
-            click.echo(
-                f"Fetching consumer docker-compose file {consumer_github_file} from GitHub"
-            )
-            # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = request_session.get(consumer_github_file)
-            quickstart_download_response.raise_for_status()
-            tmp_file.write(quickstart_download_response.content)
-            logger.debug(f"Copied to {path}")
-    if kafka_setup:
-        base_url = get_docker_compose_base_url(compose_git_ref)
-        kafka_setup_github_file = f"{base_url}/{KAFKA_SETUP_QUICKSTART_COMPOSE_FILE}"
-
-        default_kafka_compose_file = (
-            Path(DATAHUB_ROOT_FOLDER) / "quickstart/docker-compose.kafka-setup.yml"
-        )
-        with (
-            open(default_kafka_compose_file, "wb")
-            if default_kafka_compose_file
-            else tempfile.NamedTemporaryFile(suffix=".yml", delete=False)
-        ) as tmp_file:
-            path = pathlib.Path(tmp_file.name)
-            quickstart_compose_file_list.append(path)
-            click.echo(
-                f"Fetching consumer docker-compose file {kafka_setup_github_file} from GitHub"
-            )
-            # Download the quickstart docker-compose file from GitHub.
-            quickstart_download_response = request_session.get(kafka_setup_github_file)
-            quickstart_download_response.raise_for_status()
-            tmp_file.write(quickstart_download_response.content)
-            logger.debug(f"Copied to {path}")
 
 
 def valid_restore_options(
