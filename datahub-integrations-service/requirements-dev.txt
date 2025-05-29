@@ -46,6 +46,8 @@ anyio==4.9.0
     #   reactpy
     #   starlette
     #   watchfiles
+appnope==0.1.4 ; sys_platform == 'darwin'
+    # via ipykernel
 asgiref==3.8.1
     # via
     #   -r requirements.txt
@@ -54,6 +56,8 @@ asn1crypto==1.5.1
     # via
     #   -r requirements.txt
     #   snowflake-connector-python
+asttokens==3.0.0
+    # via stack-data
 asyncer==0.0.8
     # via
     #   -r requirements.txt
@@ -96,13 +100,13 @@ blinker==1.9.0
     # via
     #   flask
     #   streamlit
-boto3==1.38.1
+boto3==1.38.23
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
     #   aws-msk-iam-sasl-signer-python
-botocore==1.38.1
+botocore==1.38.23
     # via
     #   -r requirements.txt
     #   aws-msk-iam-sasl-signer-python
@@ -182,6 +186,7 @@ colorama==0.4.6 ; os_name == 'nt' or sys_platform == 'win32'
     #   build
     #   click
     #   colorlog
+    #   ipython
     #   loguru
     #   pytest
     #   tqdm
@@ -190,6 +195,8 @@ colorlog==6.8.2
     # via
     #   -r requirements.txt
     #   reactpy
+comm==0.2.2
+    # via ipykernel
 confluent-kafka==2.3.0
     # via
     #   -r requirements.txt
@@ -214,6 +221,10 @@ databricks-sdk==0.50.0
     # via
     #   -r requirements.txt
     #   mlflow-skinny
+debugpy==1.8.14
+    # via ipykernel
+decorator==5.2.1
+    # via ipython
 deepdiff==8.4.2
     # via acryl-datahub
 deprecated==1.2.14
@@ -242,6 +253,8 @@ entrypoints==0.4
     #   altair
     #   jupyter-client
     #   papermill
+executing==2.2.0
+    # via stack-data
 expandvars==0.12.0
     # via
     #   -r requirements.txt
@@ -439,8 +452,16 @@ inflect==7.2.1
     #   acryl-datahub-integrations
 iniconfig==2.0.0
     # via pytest
+ipykernel==6.29.5
+    # via acryl-datahub-integrations (pyproject.toml)
+ipython==9.2.0
+    # via ipykernel
+ipython-pygments-lexers==1.1.1
+    # via ipython
 itsdangerous==2.2.0
     # via flask
+jedi==0.19.2
+    # via ipython
 jinja2==3.1.3
     # via
     #   -r requirements.txt
@@ -482,9 +503,12 @@ jsonschema-specifications==2023.12.1
     #   -r requirements.txt
     #   jsonschema
 jupyter-client==7.4.9
-    # via nbclient
+    # via
+    #   ipykernel
+    #   nbclient
 jupyter-core==4.12.0
     # via
+    #   ipykernel
     #   jupyter-client
     #   nbformat
 kiwisolver==1.4.8
@@ -518,6 +542,10 @@ matplotlib==3.10.1
     #   acryl-datahub-integrations (pyproject.toml)
     #   mlflow
     #   seaborn
+matplotlib-inline==0.1.7
+    # via
+    #   ipykernel
+    #   ipython
 mixpanel==4.10.1
     # via
     #   -r requirements.txt
@@ -554,7 +582,7 @@ multidict==6.0.5
     #   yarl
 mypy==1.15.0
     # via acryl-datahub-integrations (pyproject.toml)
-mypy-boto3-bedrock-runtime==1.34.149
+mypy-boto3-bedrock-runtime==1.38.4
     # via acryl-datahub-integrations (pyproject.toml)
 mypy-extensions==1.0.0
     # via
@@ -571,6 +599,7 @@ nbformat==5.10.4
     #   papermill
 nest-asyncio==1.6.0
     # via
+    #   ipykernel
     #   jupyter-client
     #   nbclient
 numpy==1.26.4
@@ -613,6 +642,7 @@ packaging==24.0
     #   docker
     #   google-cloud-bigquery
     #   gunicorn
+    #   ipykernel
     #   matplotlib
     #   mlflow-skinny
     #   pytest
@@ -635,10 +665,14 @@ parse==1.20.2
     # via
     #   -r requirements.txt
     #   acryl-datahub
+parso==0.8.4
+    # via jedi
 patchy==2.8.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
+    # via ipython
 pillow==11.1.0
     # via
     #   matplotlib
@@ -658,6 +692,8 @@ prometheus-client==0.20.0
     # via
     #   -r requirements.txt
     #   acryl-datahub-actions
+prompt-toolkit==3.0.51
+    # via ipython
 proto-plus==1.24.0
     # via
     #   -r requirements.txt
@@ -685,6 +721,11 @@ psutil==7.0.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   ipykernel
+ptyprocess==0.7.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
+    # via pexpect
+pure-eval==0.2.3
+    # via stack-data
 py==1.11.0 ; implementation_name == 'pypy'
     # via pyzmq
 pyarrow==16.0.0
@@ -732,6 +773,10 @@ pygitops==0.16.1
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+pygments==2.19.1
+    # via
+    #   ipython
+    #   ipython-pygments-lexers
 pyjwt==2.8.0
     # via
     #   -r requirements.txt
@@ -816,7 +861,9 @@ pyyaml==6.0.1
     #   papermill
     #   uvicorn
 pyzmq==24.0.1
-    # via jupyter-client
+    # via
+    #   ipykernel
+    #   jupyter-client
 ratelimit==2.2.1
     # via
     #   -r requirements.txt
@@ -874,7 +921,7 @@ ruamel-yaml==0.17.17
     #   acryl-datahub
 ruff==0.11.4
     # via acryl-datahub-integrations (pyproject.toml)
-s3transfer==0.12.0
+s3transfer==0.13.0
     # via
     #   -r requirements.txt
     #   boto3
@@ -958,6 +1005,8 @@ sqlparse==0.5.0
     # via
     #   -r requirements.txt
     #   mlflow-skinny
+stack-data==0.6.3
+    # via ipython
 stackprinter==0.2.12
     # via
     #   -r requirements.txt
@@ -1002,14 +1051,19 @@ toolz==0.12.1
     # via altair
 tornado==6.4
     # via
+    #   ipykernel
     #   jupyter-client
     #   streamlit
 tqdm==4.66.2
     # via papermill
-traitlets==5.2.1.post0
+traitlets==5.14.3
     # via
+    #   comm
+    #   ipykernel
+    #   ipython
     #   jupyter-client
     #   jupyter-core
+    #   matplotlib-inline
     #   nbclient
     #   nbformat
 typeguard==4.2.1
@@ -1039,6 +1093,7 @@ typing-extensions==4.13.2
     #   fastapi
     #   graphene
     #   inflect
+    #   ipython
     #   mlflow-skinny
     #   mypy
     #   mypy-boto3-bedrock-runtime
@@ -1098,6 +1153,8 @@ wcmatch==10.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
+wcwidth==0.2.13
+    # via prompt-toolkit
 websockets==12.0
     # via
     #   -r requirements.txt

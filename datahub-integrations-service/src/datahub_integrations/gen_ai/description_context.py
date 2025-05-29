@@ -695,3 +695,24 @@ def parse_llm_output(
     else:
         logger.info("No dictionary found in the text.")
         raise DescriptionParsingError("No dictionary found in the text.")
+
+
+def parse_columns_llm_output(
+    text: str,
+) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
+    match = re.search(r"\{[^}]*\}", text, re.DOTALL)
+    if match:
+        dict_str = match.group(0)
+        # dict_str_cleaned = dict_str.replace("\n", " ").strip()
+        dict_str_cleaned = dict_str.strip()
+        dict_str_cleaned = re.sub("(?<=[a-z])'(?=[a-z])", "\\'", dict_str_cleaned)
+        try:
+            extracted_dict: dict = ast.literal_eval(dict_str_cleaned)
+            return extracted_dict, None
+
+        except (SyntaxError, ValueError) as e:
+            logger.info(f"Error evaluating dictionary: {e}. Text: {text}")
+            return None, str(e)
+    else:
+        logger.info("No dictionary found in the text.")
+        return None, "No dictionary found in the text."

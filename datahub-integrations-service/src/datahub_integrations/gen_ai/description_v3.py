@@ -15,7 +15,7 @@ from loguru import logger
 
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
-    call_bedrock_llm_with_retry,
+    call_bedrock_llm,
     get_bedrock_model_env_variable,
 )
 from datahub_integrations.gen_ai.description_context import (
@@ -26,6 +26,7 @@ from datahub_integrations.gen_ai.description_context import (
     TableInfo,
     TooManyColumnsError,
     extract_metadata_for_urn,
+    parse_columns_llm_output,
     parse_llm_output,
     transform_table_info_for_llm,
 )
@@ -233,7 +234,7 @@ def generate_table_description(
         },
     )
 
-    entity_descriptions = call_bedrock_llm_with_retry(
+    entity_descriptions = call_bedrock_llm(
         formatted_prompt,
         max_tokens=4096,
         model=CURRENT_MODEL,
@@ -294,6 +295,7 @@ async def generate_column_descriptions(
     )
 
 
+@mlflow.trace(name="generate_column_batch_descriptions", span_type="function")
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(_MAX_ATTEMPTS),
     retry=tenacity.retry_if_result(lambda x: x[1] is None),
@@ -301,7 +303,6 @@ async def generate_column_descriptions(
         f"Retry column batch description generation attempt {retry_state.attempt_number} of {_MAX_ATTEMPTS - 1}"
     ),
 )
-@mlflow.trace(name="generate_column_batch_descriptions", span_type="function")
 def generate_column_batch_descriptions(
     table_info: TableInfo,
     column_infos: Dict[str, ColumnMetadataInfo],
@@ -318,13 +319,13 @@ def generate_column_batch_descriptions(
         column_batch_instructions=column_batch_instructions,
     )
     try:
-        column_descriptions_raw = call_bedrock_llm_with_retry(
+        column_descriptions_raw = call_bedrock_llm(
             formatted_prompt,
             max_tokens=5000,
             model=CURRENT_MODEL,
         )
 
-        batch_column_descriptions, batch_failure_reason = parse_column_descriptions(
+        batch_column_descriptions, batch_failure_reason = parse_columns_llm_output(
             column_descriptions_raw
         )
     except Exception as e:
@@ -335,12 +336,3 @@ def generate_column_batch_descriptions(
         batch_column_descriptions = None
 
     return batch_failure_reason, batch_column_descriptions
-
-
-def parse_column_descriptions(
-    column_descriptions_raw: str,
-) -> Tuple[Optional[Dict[str, str]], Optional[str]]:
-    try:
-        return json.loads(column_descriptions_raw), None
-    except json.JSONDecodeError as e:
-        raise DescriptionParsingError(f"Error parsing column descriptions: {e}") from e

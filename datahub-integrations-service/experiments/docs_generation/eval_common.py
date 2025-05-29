@@ -131,6 +131,9 @@ METRIC_NAMES = [metric.name for metric in METRICS_CONFIG]
 
 AIJudgeVerdict = create_model(
     "AIJudgeVerdict",
+    __config__=ConfigDict(
+        populate_by_name=True,
+    ),
     **{
         metric.name: (
             Optional[JudgedMetricValue],
@@ -145,9 +148,7 @@ AIJudgeVerdict = create_model(
         )
         for metric in METRICS_CONFIG
     },
-    __config__=ConfigDict(
-        populate_by_name=True,
-    ),
+    
 )
 
 HumanJudgeVerdict = create_model(
@@ -222,7 +223,9 @@ def get_deployment_details() -> List[Dict[str, str]]:
     return json.load(open("eval_config/deployment_details.json"))
 
 
-def execute_notebook(notebook_path: pathlib.Path, output_dir: pathlib.Path) -> str:
+def execute_notebook_save_as_html(
+    notebook_path: pathlib.Path, output_dir: pathlib.Path, params: Dict[str, str]
+) -> str:
     """
     Executes a Jupyter Notebook and saves the executed version as HTML.
 
@@ -241,6 +244,10 @@ def execute_notebook(notebook_path: pathlib.Path, output_dir: pathlib.Path) -> s
     notebook_filename = os.path.basename(notebook_path)
     notebook_name_without_ext, _ = os.path.splitext(notebook_filename)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    executed_notebook_filename = (
+        f"{notebook_name_without_ext}_executed_{timestamp}.ipynb"
+    )
+    executed_notebook_path = os.path.join(output_dir, executed_notebook_filename)
     executed_notebook_filename_html = (
         f"{notebook_name_without_ext}_executed_{timestamp}.html"
     )
@@ -251,16 +258,30 @@ def execute_notebook(notebook_path: pathlib.Path, output_dir: pathlib.Path) -> s
     os.makedirs(output_dir, exist_ok=True)
 
     print(f"Executing notebook: {notebook_path}")
-    command = [
+
+    param_options = []
+    for k, v in params.items():
+        param_options.append("-p")
+        param_options.append(k)
+        param_options.append(v)
+    papermill_command = [
+        # Execute the notebook with Papermill and then convert the result to HTML
+        "papermill",
+        str(notebook_path),
+        str(executed_notebook_path),
+        *param_options,
+    ]
+    jupyter_command = [
         "jupyter",
         "nbconvert",
         "--to",
         "html",
-        "--execute",
-        str(notebook_path),
+        "--no-input",
+        str(executed_notebook_path),
         "--output",
         str(executed_notebook_path_html),
     ]
-    subprocess.run(command, check=True)
+    subprocess.run(papermill_command, check=True)
+    subprocess.run(jupyter_command, check=True)
     print(f"Executed notebook saved to: {executed_notebook_path_html}")
     return executed_notebook_path_html

@@ -14,11 +14,12 @@ import mlflow.metrics
 import pandas as pd
 import typer
 from datahub.utilities.perf_timer import PerfTimer
+from eval_common import execute_notebook_save_as_html
 from loguru import logger
 from mlflow.metrics import MetricValue
 
-from datahub_integrations.gen_ai.description_context import transform_table_info_for_llm
 import datahub_integrations.gen_ai as gen_ai_module
+from datahub_integrations.gen_ai.description_context import transform_table_info_for_llm
 from datahub_integrations.gen_ai.description_v3 import (
     CURRENT_MODEL,
     EntityDescriptionResult,
@@ -149,10 +150,6 @@ def log_artifacts(
         json.dump(column_descriptions, f)
     mlflow.log_artifact(str(column_description_artifact_path))
 
-    # log current file as artifact or model
-    mlflow.log_artifact("./run_prompt_experiment.py")
-    mlflow.log_artifact(gen_ai_module.__file__)
-
 
 async def process_files(
     files: List[pathlib.Path],
@@ -222,6 +219,9 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) ->
         mlflow.start_run(description=run_description),
         tempfile.TemporaryDirectory() as tempdir,
     ):
+        # log current file as artifact or model
+        mlflow.log_artifact("./run_prompt_experiment.py")
+        mlflow.log_artifact(str(pathlib.Path(gen_ai_module.__file__).parent))
         artifact_temp_path = setup_artifact_directory(tempdir)
         table_descriptions, column_descriptions = asyncer.syncify(
             process_files, raise_sync_error=False
@@ -270,6 +270,17 @@ def run_experiment(files: List[pathlib.Path], run_description: Optional[str]) ->
 
         # Log generation time metrics
         log_generation_time_metrics(table_descriptions_df)
+        active_run = mlflow.active_run()
+        assert active_run is not None
+        try:
+            html_path = execute_notebook_save_as_html(
+                pathlib.Path("analyze_experiment_run.ipynb"),
+                pathlib.Path(tempdir),
+                {"RUN_NAME": active_run.info.run_name},
+            )
+            mlflow.log_artifact(html_path)
+        except Exception as e:
+            logger.error(f"Error executing notebook: {e}")
 
 
 def calculate_column_metrics(column_df: pd.DataFrame) -> Dict[str, float]:

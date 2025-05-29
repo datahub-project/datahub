@@ -4,7 +4,6 @@ from typing import Optional
 
 import dotenv
 import mlflow
-from mlflow.entities import Run
 import pandas as pd
 from eval_common import (
     METRIC_NAMES,
@@ -12,15 +11,14 @@ from eval_common import (
     get_human_annotation_run_name,
 )
 from loguru import logger
+from mlflow.entities import Run
 
 dotenv.load_dotenv()
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME", "docs_generation")
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 
-def get_run_or_fail(
-    run_name: str, additional_filter_string: str = ""
-) -> Run:
+def get_run_or_fail(run_name: str, additional_filter_string: str = "") -> Run:
     runs = mlflow.search_runs(
         experiment_names=[EXPERIMENT_NAME],
         filter_string=f"attributes.run_name='{run_name}' {additional_filter_string}",

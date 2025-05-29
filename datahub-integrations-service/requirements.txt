@@ -53,11 +53,11 @@ azure-identity==1.21.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
-boto3==1.38.1
+boto3==1.38.23
     # via
     #   acryl-datahub-integrations
     #   aws-msk-iam-sasl-signer-python
-botocore==1.38.1
+botocore==1.38.23
     # via
     #   aws-msk-iam-sasl-signer-python
     #   boto3
@@ -468,7 +468,7 @@ rsa==4.9
     # via google-auth
 ruamel-yaml==0.17.17
     # via acryl-datahub
-s3transfer==0.12.0
+s3transfer==0.13.0
     # via boto3
 sendgrid==6.11.0
     # via acryl-datahub-integrations

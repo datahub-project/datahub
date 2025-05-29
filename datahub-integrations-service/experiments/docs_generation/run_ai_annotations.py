@@ -10,7 +10,6 @@ import dotenv
 import mlflow
 import mlflow.bedrock
 import mlflow.metrics
-from mlflow.entities import Run
 import numpy as np
 import pandas as pd
 import tenacity
@@ -25,13 +24,14 @@ from eval_common import (
     get_overall_score,
 )
 from loguru import logger
+from mlflow.entities import Run
 from mlflow.metrics import MetricValue
 from mlflow_common import get_run_or_fail
 from pydantic import BaseModel
 
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
-    call_bedrock_llm_with_retry,
+    call_bedrock_llm,
 )
 from datahub_integrations.gen_ai.description_context import (
     ColumnMetadataInfo,
@@ -176,10 +176,8 @@ def try_fix_text_for_error(text: str, e: Exception) -> str:
             Error:
             {e}
             Output:
-            """.format(
-        text=text, e=e
-    )
-    fixed_text = call_bedrock_llm_with_retry(
+            """.format(text=text, e=e)
+    fixed_text = call_bedrock_llm(
         prompt=fix_prompt, model=AI_JUDGE_MODEL, max_tokens=2048
     )
     if not fixed_text.startswith("{"):
@@ -257,7 +255,7 @@ Table Level Guidelines:
             table_level_guidelines=table_level_guidelines,
         )
 
-        judge_verdict = call_bedrock_llm_with_retry(
+        judge_verdict = call_bedrock_llm(
             prompt=judge_prompt, model=AI_JUDGE_MODEL, max_tokens=2048
         )
         metrics = parse_llm_judge_output(judge_verdict)
@@ -453,6 +451,9 @@ def run_ai_annotations_experiment(
         run_name=ai_annotation_run_name,
         description=run_description,
     ):
+        # log current file as artifact
+        mlflow.log_artifact("./run_ai_annotations.py")
+        mlflow.log_artifact("./eval_config/eval_set_guidelines.yaml")
         mlflow.set_tag("evaluation_type", "ai_judge")
         mlflow.log_params(
             {
@@ -476,9 +477,6 @@ def run_ai_annotations_experiment(
             traceback.print_exc()
             logger.error(f"Error evaluating metrics: {e}")
             breakpoint()
-        # log current file as artifact
-        mlflow.log_artifact("./run_ai_annotations.py")
-        mlflow.log_artifact("./eval_config/eval_set_guidelines.yaml")
 
 
 if __name__ == "__main__":

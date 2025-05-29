@@ -229,7 +229,7 @@ def test_generate_entity_descriptions_for_urn(
     mock_client = mock_graph_client
 
     with patch(
-        "datahub_integrations.gen_ai.description_v3.call_bedrock_llm_with_retry"
+        "datahub_integrations.gen_ai.description_v3.call_bedrock_llm"
     ) as mock_call_bedrock_llm:
         # Set up the mock for call_bedrock_llm
         mock_call_bedrock_llm.side_effect = mock_bedrock_responses

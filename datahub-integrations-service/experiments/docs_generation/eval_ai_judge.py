@@ -285,6 +285,9 @@ def run_eval_ai_judge_experiment(run_name: str, existing_run: bool = True) -> No
         experiment_id=human_annotation_run.info.experiment_id,
         run_name=get_ai_judge_eval_run_name(run_name),
     ):
+        # Log the eval_ai_judge.py script
+        mlflow.log_artifact("./eval_ai_judge.py")
+
         mlflow.set_tag("evaluation_type", "ai_judge_eval")
         mlflow.log_params(
             {
@@ -293,9 +296,6 @@ def run_eval_ai_judge_experiment(run_name: str, existing_run: bool = True) -> No
                 **ai_run.data.params,
             }
         )
-
-        # Log the eval_ai_judge.py script
-        mlflow.log_artifact("./eval_ai_judge.py")
 
         # Run evaluation
         evaluation_output = eval_ai_judge_accuracy(ai_eval_results, human_eval_results)

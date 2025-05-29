@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Optional
 import boto3
 import botocore.config
 import pydantic
-import tenacity
 from datahub.cli.env_utils import get_boolean_env_variable
 from loguru import logger
 
@@ -23,11 +22,16 @@ if TYPE_CHECKING:
 assert MLFLOW_INITIALIZED
 _LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
 
-
 # e.g. "us" or "eu"
 _ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX = os.getenv(
     "ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX", "us"
 )
+
+_ENABLE_BEDROCK_OPTIMIZED_LATENCY = get_boolean_env_variable(
+    "ENABLE_BEDROCK_OPTIMIZED_LATENCY", False
+)
+
+_MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "4"))
 
 
 class BedrockModel(enum.Enum):
@@ -61,6 +65,8 @@ class BedrockResponseBody(pydantic.BaseModel):
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
 
+    retry_attempts: Optional[int] = None
+
 
 @serialized
 @functools.cache
@@ -69,7 +75,9 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
     # and the serialized decorator ensures that it is only initialized once
     # even if called from multiple threads.
     # Increase the read and connect timeouts, since Bedrock can be slow.
-    config = botocore.config.Config(read_timeout=300, connect_timeout=60)
+    config = botocore.config.Config(
+        read_timeout=300, connect_timeout=60, retries={"max_attempts": _MAX_ATTEMPTS}
+    )
 
     if "BEDROCK_AWS_ROLE" in os.environ:
         logger.warning(
@@ -133,6 +141,9 @@ def call_bedrock_llm_inner(
         modelId=modelId,
         accept=accept,
         contentType=contentType,
+        performanceConfigLatency="optimized"
+        if _ENABLE_BEDROCK_OPTIMIZED_LATENCY
+        else "standard",
     )
     response_body = json.loads(response["body"].read())
     if _LLM_TRACE:
@@ -151,47 +162,8 @@ def call_bedrock_llm_inner(
         stop_reason=stop_reason,
         input_tokens=response_body["usage"]["input_tokens"],
         output_tokens=response_body["usage"]["output_tokens"],
+        retry_attempts=response["ResponseMetadata"]["RetryAttempts"],
     )
-
-
-# TODO: As an alternative to tenacity retry, we could use the AWS SDK's built-in retry logic
-# by setting the `max_attempts` parameter in the bedrock client config.
-# Default retry mode is legacy and retries 4 times, but we can override it.
-# https://docs.aws.amazon.com/sdkref/latest/guide/feature-retry-behavior.html
-def call_bedrock_llm_with_retry(
-    prompt: str, max_tokens: int, model: BedrockModel | str, temperature: float = 0.3
-) -> str:
-    """
-    Wrapper around call_bedrock_llm_inner that handles retries for throttling exceptions.
-
-    Raises:
-        Exception: If all retries are exhausted or a non-throttling error occurs
-    """
-    boto3_bedrock = get_bedrock_client()
-
-    _MAX_ATTEMPTS = 3  # Original attempt + 2 retries
-
-    @tenacity.retry(
-        stop=tenacity.stop_after_attempt(_MAX_ATTEMPTS),
-        wait=tenacity.wait_random_exponential(multiplier=1, max=10),
-        retry=tenacity.retry_if_exception_type(
-            boto3_bedrock.exceptions.ThrottlingException
-        ),
-        before_sleep=lambda retry_state: logger.info(
-            f"Bedrock throttling occurred. Retry attempt {retry_state.attempt_number} of {_MAX_ATTEMPTS - 1}"
-        ),
-    )
-    def _call_with_retry() -> BedrockResponseBody:
-        return call_bedrock_llm_inner(
-            boto3_bedrock, prompt, max_tokens, model, temperature
-        )
-
-    try:
-        response = _call_with_retry()
-        return response.text
-    except tenacity.RetryError as e:
-        logger.error(f"All retries exhausted for Bedrock call: {str(e)}")
-        raise
 
 
 if __name__ == "__main__":
