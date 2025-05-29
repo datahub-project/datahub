@@ -708,6 +708,7 @@ public class GmsGraphQLEngine {
     configureGlossaryRelationshipResolvers(builder);
     configureIngestionSourceResolvers(builder);
     configureExecutionRequestResolvers(builder);
+    configureExecutionRequestInputResolvers(builder);
     configureAnalyticsResolvers(builder);
     configureContainerResolvers(builder);
     configureDataPlatformInstanceResolvers(builder);
@@ -3242,6 +3243,20 @@ public class GmsGraphQLEngine {
                               .map(ExecutionRequest::getUrn)
                               .collect(Collectors.toList());
                         })));
+  }
+
+  private void configureExecutionRequestInputResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "ExecutionRequestInput",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "actor",
+                new LoadableTypeResolver<>(
+                    corpUserType,
+                    (env) -> {
+                      final ExecutionRequestInput executionRequestInput = env.getSource();
+                      return executionRequestInput.getActorUrn();
+                    })));
   }
 
   private void configureIncidentResolvers(final RuntimeWiring.Builder builder) {

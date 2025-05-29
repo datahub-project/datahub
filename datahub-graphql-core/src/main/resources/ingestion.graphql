@@ -142,7 +142,12 @@ type ExecutionRequestInput {
   """
   Urn of the actor who created this execution request
   """
-  actorUrn: String
+  actorUrn: String @deprecated(reason: "Use actor instead")
+
+  """
+  The actor who created this execution request
+  """
+  actor: CorpUser
 
   """
   The specific executor to route the request to. If none is provided, a "default" executor is used.

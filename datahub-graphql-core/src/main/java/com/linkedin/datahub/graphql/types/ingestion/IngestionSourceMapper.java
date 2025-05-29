@@ -63,12 +63,12 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
     final Urn entityUrn = ingestionSource.getUrn();
     final EnvelopedAspectMap aspects = ingestionSource.getAspects();
 
-    // There should ALWAYS be an info aspect.
+    // There should ALWAYS be an info aspect
+    // (excepting a case when the source with urn was deleted)
     final EnvelopedAspect envelopedInfo = aspects.get(Constants.INGESTION_INFO_ASPECT_NAME);
-
     if (envelopedInfo == null) {
-      throw new IllegalStateException(
-          "No ingestion source info aspect exists for urn: " + entityUrn);
+      log.warn("No ingestion source info aspect exists for urn: {}", entityUrn);
+      return null;
     }
 
     // Bind into a strongly typed object.

@@ -17,11 +17,13 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * IngestionSourceType provides a way to load {@link IngestionSource} objects from their URNs. It
  * leverages the {@link EntityClient} to retrieve the entities from the GMS.
  */
+@Slf4j
 @RequiredArgsConstructor
 public class IngestionSourceType
     implements com.linkedin.datahub.graphql.types.LoadableType<IngestionSource, String> {
