@@ -320,13 +320,50 @@ class BigqueryProfiler(GenericProfiler):
 
         # Handle partitioning
         try:
-            # Apply partition handling if available
+            # For external tables, we need to try creating filters even if partition_info is not available
+            is_external = getattr(bq_table, "external", False)
             if (
                 hasattr(bq_table, "partition_info") and bq_table.partition_info
-            ) or getattr(bq_table, "external", False):
+            ) or is_external:
                 self._apply_partition_filters(
                     bq_table, db_name, schema_name, batch_kwargs
                 )
+
+            # If we're still dealing with an external table with no filters yet, try direct SQL approach
+            if is_external and "query" not in batch_kwargs:
+                # Try to get required columns for external tables from common patterns
+                common_partition_columns = ["day", "month", "year", "feedhandler"]
+
+                # Create a simple query with current date partitions
+                now = datetime.now()
+                filters = []
+                for col in common_partition_columns:
+                    if col.lower() == "year":
+                        filters.append(f"`{col}` = {now.year}")
+                    elif col.lower() == "month":
+                        filters.append(f"`{col}` = {now.month}")
+                    elif col.lower() == "day":
+                        filters.append(f"`{col}` = {now.day}")
+                    elif col.lower() == "feedhandler":
+                        filters.append(f"`{col}` IS NOT NULL")
+
+                if filters:
+                    where_clause = " AND ".join(filters)
+                    custom_sql = f"""
+                    SELECT * 
+                    FROM `{db_name}.{schema_name}.{bq_table.name}`
+                    WHERE {where_clause}
+                    """
+                    # Use the custom SQL directly
+                    batch_kwargs["query"] = custom_sql
+                    # Remove schema and table when using custom SQL
+                    if "schema" in batch_kwargs:
+                        del batch_kwargs["schema"]
+                    if "table" in batch_kwargs:
+                        del batch_kwargs["table"]
+                    logger.info(
+                        f"Created emergency partition filter for external table: {where_clause}"
+                    )
 
             # Add strategy tag for the profile type
             profile_strategy = self._select_profile_strategy(

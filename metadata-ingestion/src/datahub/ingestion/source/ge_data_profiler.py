@@ -4,6 +4,7 @@ import collections
 import concurrent.futures
 import contextlib
 import dataclasses
+import datetime
 import functools
 import importlib.metadata
 import json
@@ -1517,20 +1518,114 @@ def create_bigquery_temp_table(
 
     try:
         cursor: "BigQueryCursor" = cast("BigQueryCursor", raw_connection.cursor())
+
+        # Extract the table name from the SQL if this is a simple SELECT
+        table_name = None
+        partition_filter = None
+
+        # Check if this is a simple SELECT query without filters that might need partition handling
+        if "SELECT * FROM" in bq_sql and "WHERE" not in bq_sql:
+            # Extract the table name from the query for potential partition filtering
+            match = re.search(r"FROM\s+`([^`]+)`", bq_sql)
+            if match:
+                table_name = match.group(1)
+
+                # For external tables or tables that might need partition filtering,
+                # check if we need to add partition filters
+                if (
+                    "." in table_name and table_name.count(".") == 2
+                ):  # project.dataset.table format
+                    # Add common partition filters for date-partitioned tables
+                    now = datetime.datetime.now()
+                    partition_filter = f"WHERE `year` = {now.year} AND `month` = {now.month} AND `day` = {now.day}"
+
+                    # Update the SQL to include the partition filter
+                    bq_sql = f"{bq_sql} {partition_filter}"
+                    logger.info(f"Added partition filter to query: {partition_filter}")
+
         try:
             logger.debug(f"Creating temporary table for {table_pretty_name}: {bq_sql}")
             cursor.execute(bq_sql)
         except Exception as e:
-            if not instance.config.catch_exceptions:
+            # If we get a partition error, try to add partition filters and retry
+            if (
+                "partition elimination" in str(e)
+                and not partition_filter
+                and table_name
+            ):
+                # Extract required columns from error message
+                error_msg = str(e)
+                partition_cols_match = re.search(
+                    r"column\(s\) '([^']+)'(?:, '([^']+)')?(?:, '([^']+)')?(?:, '([^']+)')?",
+                    error_msg,
+                )
+
+                if partition_cols_match:
+                    # Extract columns that need filtering
+                    cols = []
+                    for i in range(1, 5):
+                        if partition_cols_match.group(i):
+                            cols.append(partition_cols_match.group(i))
+
+                    # Create partition filters
+                    now = datetime.datetime.now()
+                    filters = []
+                    for col in cols:
+                        if col.lower() == "year":
+                            filters.append(f"`{col}` = {now.year}")
+                        elif col.lower() == "month":
+                            filters.append(f"`{col}` = {now.month}")
+                        elif col.lower() == "day":
+                            filters.append(f"`{col}` = {now.day}")
+                        else:
+                            filters.append(f"`{col}` IS NOT NULL")
+
+                    # Update SQL with partition filters
+                    if filters:
+                        where_clause = " AND ".join(filters)
+                        if "WHERE" in bq_sql:
+                            bq_sql = f"{bq_sql} AND {where_clause}"
+                        else:
+                            bq_sql = f"{bq_sql} WHERE {where_clause}"
+
+                        logger.info(f"Retrying with partition filters: {where_clause}")
+                        # Try executing with the new filters
+                        cursor.execute(bq_sql)
+                    else:
+                        # If we couldn't create filters, propagate the original error
+                        if not instance.config.catch_exceptions:
+                            raise e
+                        logger.exception(
+                            f"Couldn't create partition filters for {table_pretty_name}"
+                        )
+                        instance.report.report_warning(
+                            table_pretty_name,
+                            f"Profiling exception {e} when running sql {bq_sql}",
+                        )
+                        return None
+                else:
+                    # If we couldn't extract partition columns, propagate the error
+                    if not instance.config.catch_exceptions:
+                        raise e
+                    logger.exception(
+                        f"Couldn't extract partition columns from error: {error_msg}"
+                    )
+                    instance.report.report_warning(
+                        table_pretty_name,
+                        f"Profiling exception {e} when running sql {bq_sql}",
+                    )
+                    return None
+            elif not instance.config.catch_exceptions:
                 raise e
-            logger.exception(
-                f"Encountered exception while profiling {table_pretty_name}"
-            )
-            instance.report.report_warning(
-                table_pretty_name,
-                f"Profiling exception {e} when running custom sql {bq_sql}",
-            )
-            return None
+            else:
+                logger.exception(
+                    f"Encountered exception while profiling {table_pretty_name}"
+                )
+                instance.report.report_warning(
+                    table_pretty_name,
+                    f"Profiling exception {e} when running sql {bq_sql}",
+                )
+                return None
 
         # Great Expectations batch v2 API, which is the one we're using, requires
         # a concrete table name against which profiling is executed. Normally, GE
