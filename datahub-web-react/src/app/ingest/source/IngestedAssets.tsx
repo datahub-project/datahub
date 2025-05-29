@@ -80,8 +80,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     const { data, loading, error } = useGetSearchResultsForMultipleQuery({
         skip:
             typeof totalEntitiesIngested === 'number' &&
-            Array.isArray(entitiesIngestedByTypeFromReport) &&
-            entitiesIngestedByTypeFromReport.length > 0,
+            entitiesIngestedByTypeFromReport?.length,
         variables: {
             input: {
                 query: '*',
