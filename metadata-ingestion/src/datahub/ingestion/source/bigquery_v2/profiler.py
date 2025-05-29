@@ -1,4 +1,6 @@
+import json
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime, timedelta
@@ -325,6 +327,13 @@ class BigqueryProfiler(GenericProfiler):
             if (
                 hasattr(bq_table, "partition_info") and bq_table.partition_info
             ) or is_external:
+                # Get the partition ID first, similar to the original implementation
+                partition_id = getattr(bq_table, "max_partition_id", None)
+                if partition_id:
+                    # Add the partition ID to batch_kwargs so it appears in profile metadata
+                    batch_kwargs["partition"] = partition_id
+
+                # Now apply filters - this may update batch_kwargs with custom_sql or other settings
                 self._apply_partition_filters(
                     bq_table, db_name, schema_name, batch_kwargs
                 )
@@ -337,15 +346,21 @@ class BigqueryProfiler(GenericProfiler):
                 # Create a simple query with current date partitions
                 now = datetime.now()
                 filters = []
+                partition_values: Dict[str, Any] = {}
+
                 for col in common_partition_columns:
                     if col.lower() == "year":
                         filters.append(f"`{col}` = {now.year}")
+                        partition_values[col] = now.year
                     elif col.lower() == "month":
                         filters.append(f"`{col}` = {now.month}")
+                        partition_values[col] = now.month
                     elif col.lower() == "day":
                         filters.append(f"`{col}` = {now.day}")
+                        partition_values[col] = now.day
                     elif col.lower() == "feedhandler":
                         filters.append(f"`{col}` IS NOT NULL")
+                        partition_values[col] = "NOT_NULL"
 
                 if filters:
                     where_clause = " AND ".join(filters)
@@ -356,6 +371,12 @@ class BigqueryProfiler(GenericProfiler):
                     """
                     # Use the custom SQL directly
                     batch_kwargs["query"] = custom_sql
+                    # Create a synthetic partition name for identification
+                    if "partition" not in batch_kwargs:
+                        batch_kwargs["partition"] = f"emergency_{int(time.time())}"
+                    # Store structured partition information
+                    if partition_values:
+                        batch_kwargs["partition_values"] = json.dumps(partition_values)
                     # Remove schema and table when using custom SQL
                     if "schema" in batch_kwargs:
                         del batch_kwargs["schema"]
@@ -413,6 +434,7 @@ class BigqueryProfiler(GenericProfiler):
 
         # Get partition filters from partition_manager which handles multi-column requirements
         partition_filters = None
+        partition_values = None
         if hasattr(self, "partition_manager") and self.partition_manager:
             try:
                 logger.info(f"Attempting to get partition filters for {table.name}")
@@ -424,6 +446,10 @@ class BigqueryProfiler(GenericProfiler):
                 if partition_filters:
                     logger.info(
                         f"Got filters from partition manager: {partition_filters}"
+                    )
+                    # Extract partition values from filters
+                    partition_values = self._extract_partition_values_from_filters(
+                        partition_filters
                     )
                 else:
                     logger.info(
@@ -464,6 +490,10 @@ class BigqueryProfiler(GenericProfiler):
                         logger.info(
                             f"Got filters from error-based approach: {partition_filters}"
                         )
+                        # Extract partition values from filters
+                        partition_values = self._extract_partition_values_from_filters(
+                            partition_filters
+                        )
             except Exception as e:
                 logger.warning(f"Error in error-based approach: {str(e)}")
 
@@ -475,55 +505,53 @@ class BigqueryProfiler(GenericProfiler):
 
         # If we have partition filters, create a temporary table or view
         logger.info(f"Creating temp table with filters for {table.name}")
+
+        # Add partition values to batch_kwargs if available
+        if partition_values:
+            batch_kwargs["partition_values"] = json.dumps(partition_values)
+
         self._create_temp_table_with_filters(
             table, project, schema, partition_filters, batch_kwargs
         )
 
-    def _apply_custom_partition_approach(
-        self,
-        table: BigqueryTable,
-        project: str,
-        schema: str,
-        batch_kwargs: Dict[str, Any],
-    ) -> None:
+    def _extract_partition_values_from_filters(
+        self, filters: List[str]
+    ) -> Dict[str, Any]:
         """
-        Apply custom partition approach when partition_manager doesn't provide filters.
+        Extract partition values from filter expressions.
 
         Args:
-            table: BigqueryTable instance
-            project: Project ID
-            schema: Dataset name
-            batch_kwargs: Dictionary to update with partition information
+            filters: List of filter expressions
+
+        Returns:
+            Dictionary of partition column names and their values
         """
-        logger.info("Partition manager didn't provide filters, trying custom approach")
-        partition, custom_sql = self.generate_partition_profiler_query(
-            project,
-            schema,
-            table,
-            getattr(self.config.profiling, "partition_datetime", None),
-        )
-
-        if custom_sql:
-            logger.info("Got custom SQL from generate_partition_profiler_query")
-            # Use the custom SQL directly
-            batch_kwargs["query"] = custom_sql
-            # Remove schema and table when using custom SQL
-            if "schema" in batch_kwargs:
-                del batch_kwargs["schema"]
-            if "table" in batch_kwargs:
-                del batch_kwargs["table"]
-
-        # Skip profiling if partitioning is disabled
-        elif partition is not None and not getattr(
-            self.config.profiling, "partition_profiling_enabled", True
-        ):
-            logger.debug(
-                f"{project}.{schema}.{table.name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
+        partition_values: Dict[str, Any] = {}
+        for filter_expr in filters:
+            # Try to extract column name and value from filter expression
+            # Handle various formats: `column` = value, column = value, etc.
+            match = re.search(
+                r'`?([^`]+)`?\s*=\s*([^\'"\s]+|\'[^\']*\'|"[^"]*")', filter_expr
             )
-            self.report.profiling_skipped_partition_profiling_disabled.append(
-                f"{project}.{schema}.{table.name}"
-            )
-            batch_kwargs.clear()  # Clear to indicate skipping
+            if match:
+                col_name = match.group(1).strip()
+                value = match.group(2).strip()
+                # Remove quotes if present
+                if (value.startswith("'") and value.endswith("'")) or (
+                    value.startswith('"') and value.endswith('"')
+                ):
+                    value = value[1:-1]
+                # Try to convert to appropriate type (int, float)
+                try:
+                    if value.isdigit():
+                        value = int(value)
+                    elif re.match(r"^-?\d+\.\d+$", value):
+                        value = float(value)
+                except (ValueError, TypeError):
+                    pass
+                partition_values[col_name] = value
+
+        return partition_values
 
     def _create_temp_table_with_filters(
         self,
@@ -576,6 +604,10 @@ class BigqueryProfiler(GenericProfiler):
             )
             self.execute_query(create_temp_sql, timeout=120)
 
+            # Save the original partition value if it exists, so we don't lose it
+            original_partition = batch_kwargs.get("partition")
+            original_partition_values = batch_kwargs.get("partition_values")
+
             # Update batch_kwargs to use the temporary table/view instead of the original
             batch_kwargs["table"] = temp_table_name
             # Remove schema since temp tables/views don't have a schema
@@ -583,6 +615,12 @@ class BigqueryProfiler(GenericProfiler):
             # Add a flag to indicate we're using a temp table - use string "true"
             # to ensure consistent types with other batch_kwargs values
             batch_kwargs["is_temp_table"] = "true"
+
+            # Preserve partition information in the batch_kwargs if it existed
+            if original_partition:
+                batch_kwargs["partition"] = original_partition
+            if original_partition_values:
+                batch_kwargs["partition_values"] = original_partition_values
         except Exception as e:
             logger.warning(f"Failed to create temporary table: {str(e)}")
             # Fall back to using custom SQL instead - build it from the partition filters
@@ -591,12 +629,131 @@ class BigqueryProfiler(GenericProfiler):
             FROM `{project}.{schema}.{table.name}`
             WHERE {where_clause}
             """
+            # Save the original partition value if it exists
+            original_partition = batch_kwargs.get("partition")
+            original_partition_values = batch_kwargs.get("partition_values")
+
             batch_kwargs["query"] = custom_sql
             # Remove schema and table when using custom SQL
             if "schema" in batch_kwargs:
                 del batch_kwargs["schema"]
             if "table" in batch_kwargs:
                 del batch_kwargs["table"]
+
+            # Preserve partition information in the batch_kwargs if it existed
+            if original_partition:
+                batch_kwargs["partition"] = original_partition
+            if original_partition_values:
+                batch_kwargs["partition_values"] = original_partition_values
+
+    def _apply_custom_partition_approach(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        batch_kwargs: Dict[str, Any],
+    ) -> None:
+        """
+        Apply custom partition approach when partition_manager doesn't provide filters.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+            batch_kwargs: Dictionary to update with partition information
+        """
+        logger.info("Partition manager didn't provide filters, trying custom approach")
+        partition, custom_sql = self.generate_partition_profiler_query(
+            project,
+            schema,
+            table,
+            getattr(self.config.profiling, "partition_datetime", None),
+        )
+
+        if custom_sql:
+            logger.info("Got custom SQL from generate_partition_profiler_query")
+            # Add partition ID to batch_kwargs if available
+            if partition and "partition" not in batch_kwargs:
+                batch_kwargs["partition"] = partition
+
+            # Try to extract partition values from the custom SQL
+            partition_values = self._extract_partition_values_from_sql(custom_sql)
+            if partition_values:
+                batch_kwargs["partition_values"] = json.dumps(partition_values)
+
+            # Use the custom SQL directly
+            batch_kwargs["query"] = custom_sql
+            # Remove schema and table when using custom SQL
+            if "schema" in batch_kwargs:
+                del batch_kwargs["schema"]
+            if "table" in batch_kwargs:
+                del batch_kwargs["table"]
+
+        # Skip profiling if partitioning is disabled
+        elif partition is not None and not getattr(
+            self.config.profiling, "partition_profiling_enabled", True
+        ):
+            logger.debug(
+                f"{project}.{schema}.{table.name} and partition {partition} is skipped because profiling.partition_profiling_enabled property is disabled"
+            )
+            self.report.profiling_skipped_partition_profiling_disabled.append(
+                f"{project}.{schema}.{table.name}"
+            )
+            batch_kwargs.clear()  # Clear to indicate skipping
+
+    def _extract_partition_values_from_sql(self, sql: str) -> Dict[str, Any]:
+        """
+        Extract partition values from a SQL query.
+
+        Args:
+            sql: SQL query with WHERE clause containing partition filters
+
+        Returns:
+            Dictionary of partition column names and their values
+        """
+        partition_values: Dict[str, Any] = {}
+
+        # Extract the WHERE clause from the SQL
+        where_match = re.search(
+            r"WHERE\s+(.+?)(?:ORDER BY|GROUP BY|LIMIT|$)",
+            sql,
+            re.DOTALL | re.IGNORECASE,
+        )
+        if not where_match:
+            return partition_values
+
+        where_clause = where_match.group(1).strip()
+
+        # Split the WHERE clause by AND to get individual conditions
+        conditions = [cond.strip() for cond in where_clause.split("AND")]
+
+        for condition in conditions:
+            # Check for equality conditions: column = value
+            match = re.search(
+                r'`?([^`]+)`?\s*=\s*([^\'"\s]+|\'[^\']*\'|"[^"]*")', condition
+            )
+            if match:
+                col_name = match.group(1).strip()
+                value = match.group(2).strip()
+
+                # Remove quotes if present
+                if (value.startswith("'") and value.endswith("'")) or (
+                    value.startswith('"') and value.endswith('"')
+                ):
+                    value = value[1:-1]
+
+                # Try to convert to appropriate type (int, float)
+                try:
+                    if value.isdigit():
+                        value = int(value)
+                    elif re.match(r"^-?\d+\.\d+$", value):
+                        value = float(value)
+                except (ValueError, TypeError):
+                    pass
+
+                partition_values[col_name] = value
+
+        return partition_values
 
     def _select_profile_strategy(
         self, table: BigqueryTable, project: str, schema: str
@@ -776,6 +933,7 @@ class BigqueryProfiler(GenericProfiler):
     ) -> MetadataWorkUnit:
         """
         Wrapper method to create a profile workunit from profile data.
+        Enhanced to include partition values in the profile metadata.
 
         Args:
             dataset_urn: Dataset URN
@@ -786,6 +944,25 @@ class BigqueryProfiler(GenericProfiler):
         """
         from datahub.emitter.mcp import MetadataChangeProposalWrapper
         from datahub.metadata.schema_classes import DatasetProfileClass
+
+        # If the profile has a partitionSpec, check if we have partition_values to enhance it
+        if "partition_values" in profile and "partitionSpec" in profile:
+            try:
+                # Extract partition values
+                partition_values = json.loads(profile.pop("partition_values"))
+
+                # Create a descriptive partition string that shows all partition columns
+                partition_desc = ", ".join(
+                    [f"{k}={v}" for k, v in partition_values.items()]
+                )
+
+                # Update the partition description
+                if profile["partitionSpec"].get("partition"):
+                    profile["partitionSpec"]["partition"] += f" ({partition_desc})"
+                else:
+                    profile["partitionSpec"]["partition"] = partition_desc
+            except Exception as e:
+                logger.warning(f"Failed to process partition values: {e}")
 
         # Convert to DatasetProfileClass
         dataset_profile = DatasetProfileClass(**profile)
@@ -1129,29 +1306,34 @@ WHERE
 
     def _try_error_based_partition_extraction(
         self, project: str, schema: str, table: BigqueryTable
-    ) -> Tuple[Optional[str], Optional[str]]:
-        """Try to extract partition information from error messages."""
+    ) -> Tuple[Optional[str], Optional[str], Optional[Dict[str, Any]]]:
+        """
+        Try to extract partition information from error messages.
+
+        Returns:
+            Tuple of (partition_id, custom_sql, partition_values_dict)
+        """
         if not (hasattr(self.partition_manager, "_extract_partition_info_from_error")):
-            return None, None
+            return None, None, None
 
         last_error = getattr(self.partition_manager, "_last_error_message", None)
         if not last_error:
-            return None, None
+            return None, None, None
 
         partition_info = self.partition_manager._extract_partition_info_from_error(
             last_error
         )
         if not (partition_info and "required_columns" in partition_info):
-            return None, None
+            return None, None, None
 
         required_cols = partition_info["required_columns"].split(",")
         # For now, just add a simple filter for the current date/time if these are time-related columns
-        filters = self._create_filters_for_columns(
+        filters, partition_values = self._create_filters_for_columns(
             required_cols, project, schema, table
         )
 
         if not filters:
-            return None, None
+            return None, None, None
 
         where_clause = " AND ".join(filters)
         custom_sql = f"""
@@ -1162,23 +1344,37 @@ FROM
 WHERE
     {where_clause}
         """
-        return (f"error_extracted_{int(time.time())}", custom_sql)
+        # Generate a partition ID that includes information about the partition structure
+        partition_id = f"error_extracted_{int(time.time())}"
+
+        return partition_id, custom_sql, partition_values
 
     def _create_filters_for_columns(
         self, columns: List[str], project: str, schema: str, table: BigqueryTable
-    ) -> List[str]:
-        """Create filters for the given columns based on their names."""
+    ) -> Tuple[List[str], Dict[str, Any]]:
+        """
+        Create filters for the given columns based on their names.
+
+        Returns:
+            Tuple of (filter_expressions, partition_values_dict)
+        """
         filters = []
         now = datetime.now()
+
+        # Create a dictionary to store partition values for metadata
+        partition_values: Dict[str, Any] = {}
 
         for col in columns:
             col = col.strip()
             if col.lower() == "year":
                 filters.append(f"`{col}` = {now.year}")
+                partition_values[col] = now.year
             elif col.lower() == "month":
                 filters.append(f"`{col}` = {now.month}")
+                partition_values[col] = now.month
             elif col.lower() == "day":
                 filters.append(f"`{col}` = {now.day}")
+                partition_values[col] = now.day
             else:
                 # For all other columns, try to get a valid value to use in the filter
                 try:
@@ -1208,27 +1404,34 @@ WHERE
                             if value_result and hasattr(value_result[0], "col_value"):
                                 value = value_result[0].col_value
                                 filters.append(f"`{col}` = '{value}'")
+                                partition_values[col] = value
                             else:
                                 filters.append(f"`{col}` IS NOT NULL")
+                                partition_values[col] = "NOT_NULL"
                         # For numeric columns, use a simple comparison
                         elif col_type in ["INT64", "INTEGER", "NUMERIC", "FLOAT"]:
                             filters.append(f"`{col}` >= 0")
+                            partition_values[col] = ">=0"
                         # For date/time columns, use recent dates
                         elif col_type in ["DATE", "DATETIME", "TIMESTAMP"]:
                             filters.append(
                                 f"`{col}` >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)"
                             )
+                            partition_values[col] = "LAST_30_DAYS"
                         # For anything else, use IS NOT NULL
                         else:
                             filters.append(f"`{col}` IS NOT NULL")
+                            partition_values[col] = "NOT_NULL"
                     else:
                         # If we can't determine type, use IS NOT NULL
                         filters.append(f"`{col}` IS NOT NULL")
+                        partition_values[col] = "NOT_NULL"
                 except Exception as e:
                     logger.warning(f"Error getting value for column {col}: {e}")
                     filters.append(f"`{col}` IS NOT NULL")
+                    partition_values[col] = "NOT_NULL"
 
-        return filters
+        return filters, partition_values
 
     def get_profile_args(self) -> Dict[str, Any]:
         """
