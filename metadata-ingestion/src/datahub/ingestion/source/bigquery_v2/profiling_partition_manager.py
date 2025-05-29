@@ -634,8 +634,9 @@ class BigQueryPartitionManager:
             f"Attempting to extract partition info from error: {error_message}"
         )
 
-        # Handle multi-column partition requirements
+        # First handle the most common error format with single quotes around column names
         # Example: "Cannot query over table 'project.dataset.table' without a filter over column(s) 'day', 'feedhandler', 'month', 'year' that can be used for partition elimination"
+        # The regex below handles both single columns and multiple columns with comma separation
         multi_column_pattern = r"Cannot query over table '[^']+' without a filter over column\(s\) '([^']+)'(?:, '([^']+)')?(?:, '([^']+)')?(?:, '([^']+)')?(?:, '([^']+)')?(?: that can be used for partition elimination)?"
         multi_match = re.search(multi_column_pattern, error_message)
         if multi_match:
@@ -650,7 +651,21 @@ class BigQueryPartitionManager:
                     "required_columns": ", ".join(columns),
                 }
 
-        # Handle comma-separated column list format
+        # Handle comma-separated column list format with single quotes
+        # Alternative pattern that captures all columns at once
+        quoted_cols_pattern = r"Cannot query over table '[^']+' without a filter over column\(s\) '([^']+(?:',\s*'[^']+)*)' that can be used for partition elimination"
+        quoted_cols_match = re.search(quoted_cols_pattern, error_message)
+        if quoted_cols_match:
+            quoted_cols_str = quoted_cols_match.group(1)
+            # Split by "', '" pattern to get individual column names
+            columns = [col.strip("' ") for col in re.split(r"',\s*'", quoted_cols_str)]
+            if columns:
+                return {
+                    "type": "multi_column_partition",
+                    "required_columns": ", ".join(columns),
+                }
+
+        # Handle comma-separated column list format without quotes around each column
         # Example: "Cannot query over table 'project.dataset.table' without a filter over column(s) day, feedhandler, month, year that can be used for partition elimination"
         comma_pattern = r"Cannot query over table '[^']+' without a filter over column\(s\) ([a-zA-Z0-9_,\s]+) that can be used for partition elimination"
         comma_match = re.search(comma_pattern, error_message)
@@ -810,26 +825,69 @@ class BigQueryPartitionManager:
     def _try_error_based_partitioning(
         self, table: BigqueryTable, project: str, schema: str, metadata: Dict[str, Any]
     ) -> Optional[List[str]]:
-        """Try partitioning based on error message analysis."""
-        if not self._last_error_message:
+        """
+        Try partitioning based on error message analysis.
+        This method is particularly important for external tables that require
+        specific partition filters but don't expose that information in metadata.
+        """
+        # Get error message from available sources
+        error_message = self._get_error_message_from_sources()
+        if not error_message:
             return None
 
-        partition_info = self._extract_partition_info_from_error(
-            self._last_error_message
-        )
+        logger.info(f"Analyzing error message for partition info: {error_message}")
+        partition_info = self._extract_partition_info_from_error(error_message)
 
-        if not (
-            partition_info and partition_info.get("type") == "multi_column_partition"
-        ):
+        if not partition_info:
+            logger.warning("Failed to extract partition info from error message")
             return None
 
+        # Handle multi-column partition requirement
+        if partition_info.get("type") == "multi_column_partition":
+            return self._handle_multi_column_partition(
+                table, project, schema, partition_info
+            )
+        # Handle single column partitioning
+        elif partition_info.get("type") in ["range_partition", "partition"]:
+            return self._handle_single_column_partition(
+                table, project, schema, partition_info
+            )
+
+        return None
+
+    def _get_error_message_from_sources(self) -> Optional[str]:
+        """Get error message from available sources."""
+        error_message = getattr(self, "_last_error_message", None)
+        if not error_message:
+            # Try to get the error from the profiler if available
+            from datahub.ingestion.source.bigquery_v2.profiler import BigqueryProfiler
+
+            if hasattr(self, "_execute_query") and hasattr(
+                self._execute_query, "__self__"
+            ):
+                profiler = self._execute_query.__self__
+                if isinstance(profiler, BigqueryProfiler) and hasattr(
+                    profiler, "_last_partition_error"
+                ):
+                    error_message = profiler._last_partition_error
+
+        return error_message
+
+    def _handle_multi_column_partition(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_info: Dict[str, str],
+    ) -> Optional[List[str]]:
+        """Handle multi-column partition requirements."""
         required_cols = partition_info.get("required_columns", "").split(",")
         required_cols = [col.strip() for col in required_cols if col.strip()]
 
         if not required_cols:
             return None
 
-        logger.debug(f"Found multi-column partition requirement: {required_cols}")
+        logger.info(f"Found multi-column partition requirement: {required_cols}")
 
         # Generate appropriate filters for required columns
         filters = self._generate_filters_for_required_columns(
@@ -837,20 +895,105 @@ class BigQueryPartitionManager:
         )
 
         if not filters:
+            logger.warning("Failed to generate filters for required columns")
             return None
 
-        # Verify the filters work
+        logger.info(f"Generated filters: {filters}")
+
+        # For external tables, we should be more permissive in accepting filters
+        # even without verification, since verification might fail for various reasons
+        if table.external:
+            logger.info(
+                f"Using filters for external table without verification: {filters}"
+            )
+            return filters
+
+        # For regular tables, verify the filters work
+        return self._verify_and_return_filters(table, project, schema, filters)
+
+    def _handle_single_column_partition(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        partition_info: Dict[str, str],
+    ) -> Optional[List[str]]:
+        """Handle single-column partition requirements."""
+        column = partition_info.get("column")
+        if not column:
+            return None
+
+        logger.info(f"Found single-column partition requirement: {column}")
+
+        # Get column type
+        column_types = self._get_column_types(table, project, schema, [column])
+        col_type = column_types.get(column, "STRING").upper()
+
+        # Generate filter based on column type
+        filter_str = self._generate_filter_for_column(
+            table, project, schema, column, col_type
+        )
+        logger.info(f"Generated single-column filter: {filter_str}")
+
+        # For external tables, use the filter without verification
+        if table.external:
+            return [filter_str]
+
+        # For regular tables, verify the filter works
+        return self._verify_and_return_filters(table, project, schema, [filter_str])
+
+    def _generate_filter_for_column(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+        column: str,
+        col_type: str,
+    ) -> str:
+        """Generate filter for a single column based on its type."""
+        now = datetime.now()
+
+        if col_type in ["DATE", "DATETIME", "TIMESTAMP"]:
+            if col_type == "DATE":
+                return f"`{column}` = DATE '{now.strftime('%Y-%m-%d')}'"
+            else:
+                return f"`{column}` = TIMESTAMP '{now.strftime('%Y-%m-%d %H:%M:%S')}'"
+        elif col_type.startswith("INT") or col_type in ["NUMERIC", "FLOAT"]:
+            # For numeric types, try recent year if column name suggests a date component
+            if "year" in column.lower():
+                return f"`{column}` = {now.year}"
+            elif "month" in column.lower():
+                return f"`{column}` = {now.month}"
+            elif "day" in column.lower():
+                return f"`{column}` = {now.day}"
+            else:
+                # Default numeric filter
+                return f"`{column}` >= 0"
+        else:
+            # For string columns, try to find a valid value
+            value = self._find_valid_string_value(table, project, schema, column)
+            if value:
+                return f"`{column}` = '{value}'"
+            else:
+                return f"`{column}` IS NOT NULL"
+
+    def _verify_and_return_filters(
+        self, table: BigqueryTable, project: str, schema: str, filters: List[str]
+    ) -> Optional[List[str]]:
+        """Verify filters work and return them or handle external tables."""
         if self._filter_builder.verify_partition_has_data(
             table, project, schema, filters, timeout=30
         ):
-            logger.debug(
-                f"Verified multi-column partition filters for {project}.{schema}.{table.name}: {filters}"
+            logger.info(
+                f"Verified partition filters for {project}.{schema}.{table.name}: {filters}"
             )
             return filters
         else:
-            logger.warning(
-                f"Multi-column partition filters don't return data: {filters}"
-            )
+            logger.warning(f"Partition filters don't return data: {filters}")
+            # Still use it for external tables
+            if table.external:
+                logger.info("Using filters anyway for external table")
+                return filters
             return None
 
     def _generate_filters_for_required_columns(

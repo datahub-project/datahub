@@ -69,6 +69,7 @@ class BigqueryProfiler(GenericProfiler):
     _table_strategies: Dict[str, str]
     _successful_filters_cache: Dict[str, List[str]]
     _queried_tables: Set[str]
+    _last_partition_error: Optional[str]
 
     def __init__(
         self,
@@ -107,6 +108,9 @@ class BigqueryProfiler(GenericProfiler):
         # For compatibility with tests
         self._successful_filters_cache: Dict[str, List[str]] = {}
         self._queried_tables: Set[str] = set()
+
+        # For error handling
+        self._last_partition_error: Optional[str] = None
 
     def _create_profiler_config(self) -> BigQueryProfilerConfig:
         """Convert BigQueryV2Config to BigQueryProfilerConfig"""
@@ -187,9 +191,26 @@ class BigqueryProfiler(GenericProfiler):
                 except Exception as e:
                     error_msg = str(e)
                     logger.warning(f"Query execution error: {error_msg}")
+
                     # Store the error message for partition extraction
-                    if hasattr(self, "partition_manager") and self.partition_manager:
-                        self.partition_manager._last_error_message = error_msg
+                    # Check if it's a partition-related error before storing
+                    if (
+                        "partition elimination" in error_msg
+                        or "partition column" in error_msg
+                        or "filter by range" in error_msg
+                        or "Cannot query over table" in error_msg
+                    ):
+                        logger.info(
+                            "Detected partition-related error, storing for extraction"
+                        )
+                        # Store the error both on the partition manager and locally
+                        if (
+                            hasattr(self, "partition_manager")
+                            and self.partition_manager
+                        ):
+                            self.partition_manager._last_error_message = error_msg
+                        # Also store it in a class variable for failsafe access
+                        self._last_partition_error = error_msg
                     return []
 
             # Execute the query with retries
@@ -300,7 +321,9 @@ class BigqueryProfiler(GenericProfiler):
         # Handle partitioning
         try:
             # Apply partition handling if available
-            if hasattr(bq_table, "partition_info") and bq_table.partition_info:
+            if (
+                hasattr(bq_table, "partition_info") and bq_table.partition_info
+            ) or getattr(bq_table, "external", False):
                 self._apply_partition_filters(
                     bq_table, db_name, schema_name, batch_kwargs
                 )
@@ -315,6 +338,12 @@ class BigqueryProfiler(GenericProfiler):
             logger.warning(
                 f"Error generating partition info for {db_name}.{schema_name}.{bq_table.name}: {str(e)}"
             )
+            # Store the error for potential partition extraction
+            error_msg = str(e)
+            if "partition elimination" in error_msg:
+                self._last_partition_error = error_msg
+                if hasattr(self.partition_manager, "_last_error_message"):
+                    self.partition_manager._last_error_message = error_msg
 
         return batch_kwargs
 
@@ -338,20 +367,77 @@ class BigqueryProfiler(GenericProfiler):
             f"Table {table.name} has partition information, determining optimal filters"
         )
 
+        # Special handling for external tables
+        is_external = getattr(table, "external", False)
+        if is_external:
+            logger.info(
+                f"Table {table.name} is an external table, using special handling"
+            )
+
         # Get partition filters from partition_manager which handles multi-column requirements
         partition_filters = None
         if hasattr(self, "partition_manager") and self.partition_manager:
-            partition_filters = self.partition_manager.get_required_partition_filters(
-                table, project, schema
+            try:
+                logger.info(f"Attempting to get partition filters for {table.name}")
+                partition_filters = (
+                    self.partition_manager.get_required_partition_filters(
+                        table, project, schema
+                    )
+                )
+                if partition_filters:
+                    logger.info(
+                        f"Got filters from partition manager: {partition_filters}"
+                    )
+                else:
+                    logger.info(
+                        f"Partition manager couldn't find filters for {table.name}"
+                    )
+            except Exception as e:
+                logger.warning(f"Error getting partition filters: {str(e)}")
+
+                # Store error for potential later analysis
+                error_msg = str(e)
+                if "partition elimination" in error_msg:
+                    self._last_partition_error = error_msg
+                    if hasattr(self.partition_manager, "_last_error_message"):
+                        self.partition_manager._last_error_message = error_msg
+
+        # If partition_manager didn't get filters, try again with error-based approach for external tables
+        if (
+            not partition_filters
+            and is_external
+            and hasattr(self, "_last_partition_error")
+            and self._last_partition_error
+        ):
+            logger.info(
+                f"Retrying with error-based approach for external table {table.name}"
             )
-            logger.info(f"Got filters from partition manager: {partition_filters}")
+            try:
+                # Force error-based approach directly
+                if hasattr(self.partition_manager, "_try_error_based_partitioning"):
+                    metadata = self.partition_manager._get_table_metadata(
+                        table, project, schema
+                    )
+                    partition_filters = (
+                        self.partition_manager._try_error_based_partitioning(
+                            table, project, schema, metadata or {}
+                        )
+                    )
+                    if partition_filters:
+                        logger.info(
+                            f"Got filters from error-based approach: {partition_filters}"
+                        )
+            except Exception as e:
+                logger.warning(f"Error in error-based approach: {str(e)}")
 
         # If partition_manager didn't get filters, try custom approach
         if not partition_filters:
+            logger.info(f"Trying custom partition approach for {table.name}")
             self._apply_custom_partition_approach(table, project, schema, batch_kwargs)
             return
 
         # If we have partition filters, create a temporary table or view
+        logger.info(f"Creating temp table with filters for {table.name}")
         self._create_temp_table_with_filters(
             table, project, schema, partition_filters, batch_kwargs
         )
