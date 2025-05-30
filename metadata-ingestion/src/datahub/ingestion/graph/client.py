@@ -34,14 +34,11 @@ from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
 from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import (
-    DEFAULT_REST_EMITTER_ENDPOINT,
-    DEFAULT_REST_TRACE_MODE,
     DatahubRestEmitter,
-    RestSinkEndpoint,
-    RestTraceMode,
 )
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import (
+    ClientMode,
     DatahubClientConfig as DatahubClientConfig,
 )
 from datahub.ingestion.graph.connections import (
@@ -55,6 +52,7 @@ from datahub.ingestion.graph.filters import (
     RemovedStatusFilter,
     generate_filter,
 )
+from datahub.ingestion.graph.links import make_url_for_urn
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -158,13 +156,11 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
-            openapi_ingestion=self.config.openapi_ingestion
-            if self.config.openapi_ingestion is not None
-            else (DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI),
-            default_trace_mode=DEFAULT_REST_TRACE_MODE == RestTraceMode.ENABLED,
+            openapi_ingestion=self.config.openapi_ingestion,
+            client_mode=config.client_mode,
+            datahub_component=config.datahub_component,
         )
-
-        self.server_id = _MISSING_SERVER_ID
+        self.server_id: str = _MISSING_SERVER_ID
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -189,20 +185,36 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         """Get the public-facing base url of the frontend
 
         This url can be used to construct links to the frontend. The url will not include a trailing slash.
+
         Note: Only supported with DataHub Cloud.
         """
 
         if not self.server_config:
             self.test_connection()
 
-        base_url = self.server_config.get("baseUrl")
+        base_url = self.server_config.raw_config.get("baseUrl")
         if not base_url:
             raise ValueError("baseUrl not found in server config")
         return base_url
 
+    def url_for(self, entity_urn: Union[str, Urn]) -> str:
+        """Get the UI url for an entity.
+
+        Note: Only supported with DataHub Cloud.
+
+        Args:
+            entity_urn: The urn of the entity to get the url for.
+
+        Returns:
+            The public-facing url for the entity.
+        """
+
+        return make_url_for_urn(self.frontend_base_url, str(entity_urn))
+
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
         session_config = emitter._session_config
+
         if isinstance(session_config.timeout, tuple):
             # TODO: This is slightly lossy. Eventually, we want to modify the emitter
             # to accept a tuple for timeout_sec, and then we'll be able to remove this.
@@ -220,6 +232,8 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 disable_ssl_verification=session_config.disable_ssl_verification,
                 ca_certificate_path=session_config.ca_certificate_path,
                 client_certificate_path=session_config.client_certificate_path,
+                client_mode=session_config.client_mode,
+                datahub_component=session_config.datahub_component,
             )
         )
 
@@ -360,7 +374,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         )
 
     def get_config(self) -> Dict[str, Any]:
-        return self._get_generic(f"{self.config.server}/config")
+        return self.server_config.raw_config
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)
@@ -460,7 +474,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         filter_criteria_map: Dict[str, str],
     ) -> Optional[Aspect]:
         filter_criteria = [
-            {"field": k, "value": v, "condition": "EQUAL"}
+            {"field": k, "values": [v], "condition": "EQUAL"}
             for k, v in filter_criteria_map.items()
         ]
         filter = {"or": [{"and": filter_criteria}]}
@@ -655,7 +669,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         filter_criteria = [
             {
                 "field": "name",
-                "value": domain_name,
+                "values": [domain_name],
                 "condition": "EQUAL",
             }
         ]
@@ -775,7 +789,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             filter_criteria.append(
                 {
                     "field": "customProperties",
-                    "value": f"instance={env}",
+                    "values": [f"instance={env}"],
                     "condition": "EQUAL",
                 }
             )
@@ -783,7 +797,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             filter_criteria.append(
                 {
                     "field": "typeNames",
-                    "value": container_subtype,
+                    "values": [container_subtype],
                     "condition": "EQUAL",
                 }
             )
@@ -1954,8 +1968,14 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         super().close()
 
 
-def get_default_graph() -> DataHubGraph:
+@functools.lru_cache(maxsize=None)
+def get_default_graph(
+    client_mode: Optional[ClientMode] = None,
+    datahub_component: Optional[str] = None,
+) -> DataHubGraph:
     graph_config = config_utils.load_client_config()
+    graph_config.client_mode = client_mode
+    graph_config.datahub_component = datahub_component
     graph = DataHubGraph(graph_config)
     graph.test_connection()
     telemetry_instance.set_context(server=graph)

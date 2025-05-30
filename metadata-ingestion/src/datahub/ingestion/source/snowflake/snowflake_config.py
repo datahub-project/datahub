@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
 import pydantic
-from pydantic import Field, SecretStr, root_validator, validator
+from pydantic import Field, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
@@ -22,6 +22,7 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -326,6 +327,18 @@ class SnowflakeV2Config(
         " Map of share name -> details of share.",
     )
 
+    known_snowflake_edition: Optional[SnowflakeEdition] = Field(
+        default=None,
+        description="Explicitly specify the Snowflake edition (STANDARD or ENTERPRISE). If unset, the edition will be inferred automatically using 'SHOW TAGS'.",
+    )
+
+    # Allows empty containers to be ingested before datasets are added, avoiding permission errors
+    warn_no_datasets: bool = Field(
+        hidden_from_docs=True,
+        default=False,
+        description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
+    )
+
     include_assertion_results: bool = Field(
         default=False,
         description="Whether to ingest assertion run results for assertions created using Datahub"
@@ -384,17 +397,6 @@ class SnowflakeV2Config(
             )
 
         return values
-
-    def get_sql_alchemy_url(
-        self,
-        database: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[SecretStr] = None,
-        role: Optional[str] = None,
-    ) -> str:
-        return SnowflakeConnectionConfig.get_sql_alchemy_url(
-            self, database=database, username=username, password=password, role=role
-        )
 
     @validator("shares")
     def validate_shares(

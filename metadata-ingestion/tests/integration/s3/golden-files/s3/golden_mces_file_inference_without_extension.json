@@ -12,7 +12,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -28,6 +28,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "172"
             },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/no_extension/small",
             "name": "small",
             "description": "",
             "tags": []
@@ -35,7 +36,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -129,7 +130,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -146,12 +147,12 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586848010000
+            "lastUpdatedTimestamp": 1586847850000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -174,7 +175,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -190,7 +191,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -207,7 +208,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -225,7 +226,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -246,7 +247,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -269,7 +286,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -285,7 +302,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -302,7 +319,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -320,23 +337,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c8d940d2010edd365619411b385b11e4",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:647eefb4dfda8695baf1aa0775d78689"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -361,7 +362,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c8d940d2010edd365619411b385b11e4"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -384,7 +401,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -400,7 +417,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -417,7 +434,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -435,23 +452,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:b0037296cdd497e3137aa0628b8687bc",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:c8d940d2010edd365619411b385b11e4"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -480,7 +481,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -503,7 +520,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -519,7 +536,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -536,7 +553,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -554,23 +571,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:b0037296cdd497e3137aa0628b8687bc"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -603,7 +604,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -626,7 +643,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -642,7 +659,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -659,7 +676,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -677,23 +694,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9b4624d58669059c9e62afb3d7341944",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:de5780654849d6a18b66df2f9cb8e8d9"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -730,7 +731,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -746,7 +747,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -762,7 +763,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -803,7 +804,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "file_without_extension.json",
+        "runId": "file_inference_without_extension.json",
         "lastRunId": "no-run-id-provided"
     }
 },

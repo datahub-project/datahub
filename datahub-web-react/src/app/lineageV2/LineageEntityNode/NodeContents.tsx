@@ -54,8 +54,8 @@ const NodeWrapper = styled.div<{
             if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
             return LINEAGE_COLORS.NODE_BORDER;
         }};
-    box-shadow: ${({ isSearchedEntity }) =>
-        isSearchedEntity ? `0 0 4px 4px ${REDESIGN_COLORS.TITLE_PURPLE}95` : 'none'};
+    box-shadow: ${({ isSearchedEntity, theme }) =>
+        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
     outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
     border-left: none;
     border-radius: 6px;

@@ -63,7 +63,7 @@ DataHub Cloud offers comprehensive features designed to tackle the challenges of
 </p>
 
 
-- **[Business Glossary](https://datahubproject.io/docs/glossary/business-glossary):** A centralized repository for all metrics definitions, ensuring consistency across the organization.
+- **[Business Glossary](https://docs.datahub.com/docs/glossary/business-glossary):** A centralized repository for all metrics definitions, ensuring consistency across the organization.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/glossary-terms/approval-workflow.png"/>
@@ -71,7 +71,7 @@ DataHub Cloud offers comprehensive features designed to tackle the challenges of
   <i style={{color:"grey"}}>Approval Flows</i>
 </p>
 
-- **[Approval Flows](https://datahubproject.io/docs/managed-datahub/approval-workflows):** Structured workflows for approving changes to metric definitions, maintaining accuracy and reliability.
+- **[Approval Flows](https://docs.datahub.com/docs/managed-datahub/approval-workflows):** Structured workflows for approving changes to metric definitions, maintaining accuracy and reliability.
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/blogs/data-freshness/lineage.png"/>
@@ -79,7 +79,7 @@ DataHub Cloud offers comprehensive features designed to tackle the challenges of
   <i style={{color:"grey"}}>Lineage Tracking</i>
 </p>
 
-- **[Lineage Tracking](https://datahubproject.io/docs/generated/lineage/lineage-feature-guide):** Tools to track the origin and transformations of metrics, ensuring they align with standardized definitions.
+- **[Lineage Tracking](https://docs.datahub.com/docs/generated/lineage/lineage-feature-guide):** Tools to track the origin and transformations of metrics, ensuring they align with standardized definitions.
 
 By implementing these solutions, you can ensure that your business metrics are consistently defined and accurately used across all teams, supporting reliable analysis and decision-making.
 

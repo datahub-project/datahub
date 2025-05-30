@@ -30,6 +30,7 @@ dependencies {
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   compileOnly externalDependency.swaggerAnnotations
+  compileOnly platform(externalDependency.jacksonBom)
   compileOnly externalDependency.jacksonCore
   compileOnly externalDependency.jacksonDataBind
 

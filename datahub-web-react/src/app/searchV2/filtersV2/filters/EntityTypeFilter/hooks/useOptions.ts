@@ -12,7 +12,7 @@ export default function useOptions(facetState: FeildFacetState | undefined, valu
     const entityRegistry = useEntityRegistryV2();
 
     const valuesFromAggregations = useMemo(
-        () => facetState?.facet?.aggregations.map((aggregation) => aggregation.value) ?? [],
+        () => facetState?.facet?.aggregations?.map((aggregation) => aggregation.value) ?? [],
         [facetState],
     );
 

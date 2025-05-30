@@ -98,7 +98,7 @@ const PsuedoCheckBox = styled.div<{ checked?: boolean }>`
     ${(props) =>
         props.checked &&
         `
-        background: #533fd1;
+        background: ${props.theme.styles['primary-color']};
         border: none;
     `}
 
