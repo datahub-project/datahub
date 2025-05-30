@@ -694,6 +694,18 @@ class LineageClient:
     ) -> List[LineageResult]:
         """
         Retrieve lineage entities connected to a source entity.
+        Args:
+            source_urn: Source URN for the lineage search
+            source_column: Source column for the lineage search
+            direction: Direction of lineage traversal
+            max_hops: Maximum number of hops to traverse
+            filter: Filters to apply to the lineage search
+
+        Returns:
+            List of lineage results
+
+        Raises:
+            SdkUsageError for invalid filter values
         """
         # Validate and convert input URN
         source_urn = (
@@ -719,8 +731,9 @@ class LineageClient:
         Process filters and prepare GraphQL query variables for lineage search.
 
         Args:
-            filters: Optional filters to apply
             source_urn: Source URN for the lineage search
+            source_column: Source column for the lineage search
+            filters: Optional filters to apply
             direction: Direction of lineage traversal
             max_hops: Maximum number of hops to traverse
 
@@ -730,7 +743,6 @@ class LineageClient:
         Raises:
             SdkUsageError for invalid filter values
         """
-        # Validate and compile filters
 
         # Determine hop values
         max_hop_values = (
