@@ -3,7 +3,7 @@ import { message } from 'antd';
 import React, { useState } from 'react';
 
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import OwnersSection, { PendingOwner } from '@app/tags/CreateNewTagModal/OwnersSection';
+import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import TagDetailsSection from '@app/tags/CreateNewTagModal/TagDetailsSection';
 import { ModalButton } from '@app/tags/CreateNewTagModal/types';
 
@@ -25,8 +25,8 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     const [tagColor, setTagColor] = useState('#1890ff');
 
     // Owners state
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
     const [pendingOwners, setPendingOwners] = useState<PendingOwner[]>([]);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
 
     // Loading state
     const [isLoading, setIsLoading] = useState(false);
@@ -35,6 +35,10 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
     const [createTagMutation] = useCreateTagMutation();
     const [setTagColorMutation] = useSetTagColorMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+
+    const onChangeOwners = (newOwners: PendingOwner[]) => {
+        setPendingOwners(newOwners);
+    };
 
     /**
      * Handler for creating the tag and applying it to entities
@@ -94,8 +98,8 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             setTagName('');
             setTagDescription('');
             setTagColor('#1890ff');
-            setSelectedOwnerUrns([]);
             setPendingOwners([]);
+            setSelectedOwnerUrns([]);
         } catch (e: any) {
             message.destroy();
             message.error('Failed to create tag. An unexpected error occurred');
@@ -144,8 +148,8 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open }) 
             <OwnersSection
                 selectedOwnerUrns={selectedOwnerUrns}
                 setSelectedOwnerUrns={setSelectedOwnerUrns}
-                pendingOwners={pendingOwners}
-                setPendingOwners={setPendingOwners}
+                existingOwners={[]}
+                onChange={onChangeOwners}
             />
         </Modal>
     );
