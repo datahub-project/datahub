@@ -1,0 +1,58 @@
+from datahub.sdk.dataset import Dataset
+from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.search_filters import FilterDsl
+
+client = DataHubClient.from_env()
+
+upstream_dataset = Dataset(
+    platform="snowflake",
+    name="upstream_table",
+    schema=[
+        ("id", "number"),
+        ("name", "string"),
+    ],
+)
+
+downstream_dataset = Dataset(
+    platform="snowflake",
+    name="downstream_table",
+    schema=[
+        ("id", "number"),
+        ("name", "string"),
+    ],
+)
+
+downstream2_dataset = Dataset(
+    platform="snowflake",
+    name="downstream2_table",
+    schema=[
+        ("id", "number"),
+        ("name", "string"),
+    ],
+)
+
+client.entities.upsert(upstream_dataset)
+client.entities.upsert(downstream_dataset)
+client.entities.upsert(downstream2_dataset)
+
+client.lineage.add_lineage(
+    upstream=upstream_dataset.urn, downstream=downstream_dataset.urn
+)
+
+client.lineage.add_lineage(
+    upstream=downstream_dataset.urn, downstream=downstream2_dataset.urn
+)
+
+# Get column lineage for the entire flow
+downstream_column_lineage = client.lineage.get_lineage(
+    source_urn=upstream_dataset.urn,
+    source_column="id",
+    direction="downstream",
+    max_hops=1,
+    filter=FilterDsl.and_(
+        FilterDsl.platform("snowflake"),
+        FilterDsl.entity_type("dataset"),
+    ),
+)
+
+print(downstream_column_lineage)
