@@ -741,7 +741,7 @@ fingerprinted_queries as (
         ) as direct_objects_accessed,
         -- TODO: Drop the columns.baseSources subfield.
         FILTER(objects_modified, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}) as objects_modified,
-        case when object_modified_by_ddl:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER} then object_modified_by_ddl else null end as object_modified_by_ddl
+        case when object_modified_by_ddl:objectDomain IN {SnowflakeQuery.DOWNSTREAM_TABLE_DOMAINS_FILTER} then object_modified_by_ddl else null end as object_modified_by_ddl
     FROM raw_access_history
     WHERE ( array_size(direct_objects_accessed) > 0 or array_size(objects_modified) > 0 or object_modified_by_ddl is not null )
 )
