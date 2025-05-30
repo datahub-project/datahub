@@ -54,6 +54,9 @@ dependencies {
     implementation('dnsjava:dnsjava:3.6.1') {
       because("CVE-2024-25638")
     }
+    implementation('commons-beanutils:commons-beanutils:1.11.0') {
+      because("CVE-2025-48734")
+    }
   }
 
 
@@ -84,6 +87,9 @@ dependencies {
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
+
+  implementation platform(externalDependency.jacksonBom)
+  implementation externalDependency.jacksonJsr310
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli
