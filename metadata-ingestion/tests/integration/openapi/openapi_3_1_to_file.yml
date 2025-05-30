@@ -9,4 +9,4 @@ source:
 sink:
   type: file
   config:
-    filename: "/tmp/openapi_mces.json"
+    filename: "/tmp/openapi_3_1_mces.json"
