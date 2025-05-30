@@ -24,7 +24,7 @@ public class ListExecutionRequestsResolverTest {
   private static final String TEST_EXECUTION_REQUEST_URN = "urn:li:executionRequest:test-execution";
 
   private static final ListExecutionRequestsInput TEST_INPUT =
-      new ListExecutionRequestsInput(0, 20, null, null, null);
+      new ListExecutionRequestsInput(0, 20, null, null, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -97,7 +97,7 @@ public class ListExecutionRequestsResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     ListExecutionRequestsInput customInput =
-        new ListExecutionRequestsInput(0, 20, "custom-query", null, null);
+        new ListExecutionRequestsInput(0, 20, "custom-query", null, null, null);
 
     // Verify custom query is passed to search
     Mockito.when(

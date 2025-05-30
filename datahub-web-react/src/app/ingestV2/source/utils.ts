@@ -3,12 +3,21 @@ import YAML from 'yamljs';
 import { SortingState } from '@components/components/Table/types';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
+import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
+import {
+    StructuredReport,
+    StructuredReportItemLevel,
+    StructuredReportLogEntry,
+} from '@app/ingestV2/executions/components/reporting/types';
+import {
+    EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
+    EXECUTION_REQUEST_STATUS_SUCCESS,
+} from '@app/ingestV2/executions/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
-import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingestV2/source/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
 import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
-import { EntityType, ExecutionRequestResult, FacetMetadata, SortCriterion, SortOrder } from '@types';
+import { EntityType, ExecutionRequestResult, FacetFilterInput, FacetMetadata, SortCriterion, SortOrder } from '@types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -35,96 +44,9 @@ export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: st
     return selectedSource?.recipe || '';
 }
 
-export const RUNNING = 'RUNNING';
-export const SUCCESS = 'SUCCESS';
-export const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
-export const WARNING = 'WARNING';
-export const FAILURE = 'FAILURE';
-export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
-export const CANCELLED = 'CANCELLED';
-export const ABORTED = 'ABORTED';
-export const UP_FOR_RETRY = 'UP_FOR_RETRY';
-export const ROLLING_BACK = 'ROLLING_BACK';
-export const ROLLED_BACK = 'ROLLED_BACK';
-export const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
-
-export const CLI_EXECUTOR_ID = '__datahub_cli_';
 export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
 export const SCHEDULED_INGESTION_SOURCE = 'SCHEDULED_INGESTION_SOURCE';
 export const CLI_INGESTION_SOURCE = 'CLI_INGESTION_SOURCE';
-
-export const getExecutionRequestStatusIcon = (status: string) => {
-    return (
-        (status === RUNNING && 'CircleNotch') ||
-        (status === SUCCESS && 'Check') ||
-        (status === SUCCEEDED_WITH_WARNINGS && 'ExclamationMark') ||
-        (status === FAILURE && 'X') ||
-        (status === CANCELLED && 'Prohibit') ||
-        (status === UP_FOR_RETRY && 'CircleNotch') ||
-        (status === ROLLED_BACK && 'Warning') ||
-        (status === ROLLING_BACK && 'CircleNotch') ||
-        (status === ROLLBACK_FAILED && 'X') ||
-        (status === ABORTED && 'X') ||
-        'CircleNotch'
-    );
-};
-
-export const getExecutionRequestStatusDisplayText = (status: string) => {
-    return (
-        (status === RUNNING && 'Running') ||
-        (status === SUCCESS && 'Success') ||
-        (status === SUCCEEDED_WITH_WARNINGS && 'Success') ||
-        (status === FAILURE && 'Failed') ||
-        (status === CANCELLED && 'Cancelled') ||
-        (status === UP_FOR_RETRY && 'Up for Retry') ||
-        (status === ROLLED_BACK && 'Rolled Back') ||
-        (status === ROLLING_BACK && 'Rolling Back') ||
-        (status === ROLLBACK_FAILED && 'Rollback Failed') ||
-        (status === ABORTED && 'Aborted') ||
-        status
-    );
-};
-
-export const getExecutionRequestSummaryText = (status: string) => {
-    switch (status) {
-        case RUNNING:
-            return 'Ingestion is running...';
-        case SUCCESS:
-            return 'Ingestion completed with no errors or warnings.';
-        case SUCCEEDED_WITH_WARNINGS:
-            return 'Ingestion completed with some warnings.';
-        case FAILURE:
-            return 'Ingestion failed to complete, or completed with errors.';
-        case CANCELLED:
-            return 'Ingestion was cancelled.';
-        case ROLLED_BACK:
-            return 'Ingestion was rolled back.';
-        case ROLLING_BACK:
-            return 'Ingestion is in the process of rolling back.';
-        case ROLLBACK_FAILED:
-            return 'Ingestion rollback failed.';
-        case ABORTED:
-            return 'Ingestion job got aborted due to worker restart.';
-        default:
-            return 'Ingestion status not recognized.';
-    }
-};
-
-export const getExecutionRequestStatusDisplayColor = (status: string) => {
-    return (
-        (status === RUNNING && 'blue') ||
-        (status === SUCCESS && 'green') ||
-        (status === SUCCEEDED_WITH_WARNINGS && 'yellow') ||
-        (status === FAILURE && 'red') ||
-        (status === UP_FOR_RETRY && 'yellow') ||
-        (status === CANCELLED && 'gray') ||
-        (status === ROLLED_BACK && 'yellow') ||
-        (status === ROLLING_BACK && 'yellow') ||
-        (status === ROLLBACK_FAILED && 'red') ||
-        (status === ABORTED && 'gray') ||
-        'gray'
-    );
-};
 
 export const validateURL = (fieldName: string) => {
     return {
@@ -372,8 +294,8 @@ export const getIngestionSourceStatus = (result?: Partial<ExecutionRequestResult
      *
      * This is somewhat of a hack - ideally the ingestion source should report this status back to us.
      */
-    if (status === SUCCESS && (structuredReport?.warnCount || 0) > 0) {
-        return SUCCEEDED_WITH_WARNINGS;
+    if (status === EXECUTION_REQUEST_STATUS_SUCCESS && (structuredReport?.warnCount || 0) > 0) {
+        return EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS;
     }
     // Else return the raw status.
     return status;
@@ -527,3 +449,9 @@ export function getSortInput(field: string, order: SortingState): SortCriterion 
         field,
     };
 }
+
+export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): FacetFilterInput => {
+    return hideSystemSources
+        ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }
+        : { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] };
+};

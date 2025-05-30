@@ -428,6 +428,11 @@ input ListExecutionRequestsInput {
   Optional sort order. Defaults to use systemCreated.
   """
   sort: SortCriterion
+
+  """
+  When defined it adds filter to show executions with only system/non system sources
+  """
+  systemSources: Boolean
 }
 
 """
