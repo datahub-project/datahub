@@ -29,6 +29,7 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
@@ -96,6 +97,7 @@ public class GmsGraphQLEngineArgs {
   ConnectionService connectionService;
   AssertionService assertionService;
   EntityVersioningService entityVersioningService;
+  ApplicationService applicationService;
 
   // any fork specific args should go below this line
 }
