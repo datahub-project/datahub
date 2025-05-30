@@ -230,7 +230,7 @@ class SupersetConfig(
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
     
-    ssl_verify⁣: bool = Field(default=True, description="SSL Verification.")
+    ssl_verify: Optional[bool] = Field(default=True, description="SSL Verification.")
 
     class Config:
         # This is required to allow preset configs to get parsed
