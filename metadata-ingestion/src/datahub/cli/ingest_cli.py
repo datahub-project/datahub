@@ -388,7 +388,10 @@ def mcps(path: str) -> None:
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
 def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) -> None:
-    """List ingestion source runs with their details, optionally filtered by URN or source."""
+    """
+    List ingestion source runs with their details, optionally filtered by URN or source.
+    Required the Manage Metadata Ingestion permission.
+    """
 
     query = """
     query listIngestionRuns($input: ListIngestionSourcesInput!) {
@@ -445,6 +448,11 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
 
     if not data:
         click.echo("No response received from the server.")
+        return
+    if "errors" in data:
+        click.echo("Errors in response:")
+        for error in data["errors"]:
+            click.echo(f"- {error.get('message', 'Unknown error')}")
         return
 
     # a lot of responses can be null if there's errors in the run
