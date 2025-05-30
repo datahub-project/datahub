@@ -63,19 +63,7 @@ public class ListIngestionSourcesResolver
         input.getFilters() == null ? Collections.emptyList() : input.getFilters();
 
     // construct sort criteria, defaulting to systemCreated
-    final SortCriterion sortCriterion;
-
-    // if query is expecting to sort by something, use that
-    final com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput = input.getSort();
-    if (sortCriterionInput != null) {
-      sortCriterion =
-          new SortCriterion()
-              .setField(sortCriterionInput.getField())
-              .setOrder(SortOrder.valueOf(sortCriterionInput.getSortOrder().name()));
-    } else {
-      // TODO: default to last executed
-      sortCriterion = null;
-    }
+    List<SortCriterion> sortCriteria = buildSortCriteria(input.getSort());
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
@@ -87,7 +75,7 @@ public class ListIngestionSourcesResolver
                     Constants.INGESTION_SOURCE_ENTITY_NAME,
                     query,
                     buildFilter(filters, Collections.emptyList()),
-                    sortCriterion != null ? List.of(sortCriterion) : null,
+                    sortCriteria,
                     start,
                     count);
 
@@ -120,5 +108,24 @@ public class ListIngestionSourcesResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  List<SortCriterion> buildSortCriteria(
+      com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput) {
+    if (sortCriterionInput == null) {
+      // TODO: default to last executed
+      return null;
+    }
+
+    SortOrder order = SortOrder.valueOf(sortCriterionInput.getSortOrder().name());
+
+    // For name field, sort by type first and then by name
+    if ("name".equals(sortCriterionInput.getField())) {
+      return List.of(
+          new SortCriterion().setField("type").setOrder(order),
+          new SortCriterion().setField("name").setOrder(order));
+    } else {
+      return List.of(new SortCriterion().setField(sortCriterionInput.getField()).setOrder(order));
+    }
   }
 }
