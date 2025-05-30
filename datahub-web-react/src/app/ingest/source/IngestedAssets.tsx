@@ -78,7 +78,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
     // First thing to do is to search for all assets with the id as the run id!
     // Execute search
     const { data, loading, error } = useGetSearchResultsForMultipleQuery({
-        skip: typeof totalEntitiesIngested === 'number' && entitiesIngestedByTypeFromReport?.length,
+        skip: typeof totalEntitiesIngested === 'number' && !!entitiesIngestedByTypeFromReport?.length,
         variables: {
             input: {
                 query: '*',

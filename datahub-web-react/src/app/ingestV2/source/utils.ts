@@ -343,6 +343,10 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
             entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
         });
 
+        if (Object.keys(entitiesIngestedByType).length === 0) {
+            return null;
+        }
+
         return Object.entries(entitiesIngestedByType).map(([entityName, count]) => ({
             count,
             displayName: entityName,
