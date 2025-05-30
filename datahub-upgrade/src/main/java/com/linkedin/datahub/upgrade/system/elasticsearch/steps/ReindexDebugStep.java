@@ -28,7 +28,7 @@ public class ReindexDebugStep implements UpgradeStep {
   private final List<ElasticSearchIndexed> services;
   private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
   @Getter public ReindexDebugArgs args;
-  // ours
+  // ours, entity
   private ElasticSearchIndexed service;
   private ReindexConfig config;
 
@@ -69,11 +69,6 @@ public class ReindexDebugStep implements UpgradeStep {
   @Override
   public String id() {
     return "ReindexDebugStep";
-  }
-
-  @Override
-  public int retryCount() {
-    return 0;
   }
 
   @Override

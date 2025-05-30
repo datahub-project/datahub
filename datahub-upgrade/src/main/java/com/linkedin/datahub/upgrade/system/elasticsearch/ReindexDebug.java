@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch;
 
-import static com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices.getActiveStructuredPropertiesDefinitions;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
@@ -8,7 +7,6 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPostStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPreStep;
-import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.ReindexDebugStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -27,6 +25,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+//  This is useful for debugging or special situations to reindex, the index to reindex is given in
+// -u index= argument
+//  For now will only work with entity, v2 indices
+//  see runReindexDebug gradle task
 public class ReindexDebug implements Upgrade {
   private final List<UpgradeStep> _steps;
 
@@ -63,9 +65,7 @@ public class ReindexDebug implements Upgrade {
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
       final AspectDao aspectDao) {
-
     final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties = new HashSet<>();
-
     final List<UpgradeStep> steps = new ArrayList<>();
     // Disable ES write mode/change refresh rate and clone indices
     steps.add(
@@ -74,37 +74,7 @@ public class ReindexDebug implements Upgrade {
             indexedServices,
             configurationProvider,
             structuredProperties));
-    // Configure graphService, entitySearchService, systemMetadataService, timeseriesAspectService
-    //    steps.add(new BuildIndicesStep(indexedServices, structuredProperties));
     steps.add(new ReindexDebugStep(indexedServices, structuredProperties));
-    // Reset configuration (and delete clones? Or just do this regularly? Or delete clone in
-    // pre-configure step if it already exists?
-    steps.add(
-        new BuildIndicesPostStep(
-            baseElasticSearchComponents, indexedServices, structuredProperties));
-    return steps;
-  }
-
-  private List<UpgradeStep> buildStepsOrig(
-      final List<ElasticSearchIndexed> indexedServices,
-      final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
-          baseElasticSearchComponents,
-      final ConfigurationProvider configurationProvider,
-      final AspectDao aspectDao) {
-    final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties =
-        getActiveStructuredPropertiesDefinitions(aspectDao);
-    final List<UpgradeStep> steps = new ArrayList<>();
-    // Disable ES write mode/change refresh rate and clone indices
-    steps.add(
-        new BuildIndicesPreStep(
-            baseElasticSearchComponents,
-            indexedServices,
-            configurationProvider,
-            structuredProperties));
-    // Configure graphService, entitySearchService, systemMetadataService, timeseriesAspectService
-    steps.add(new BuildIndicesStep(indexedServices, structuredProperties));
-    // Reset configuration (and delete clones? Or just do this regularly? Or delete clone in
-    // pre-configure step if it already exists?
     steps.add(
         new BuildIndicesPostStep(
             baseElasticSearchComponents, indexedServices, structuredProperties));
