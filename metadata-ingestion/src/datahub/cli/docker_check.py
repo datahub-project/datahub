@@ -13,6 +13,7 @@ from datahub.configuration.common import ExceptionWithProps
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB
+MIN_DISK_SPACE_NEEDED = 12  # GB
 
 DOCKER_COMPOSE_PROJECT_NAME = os.getenv("DATAHUB_COMPOSE_PROJECT_NAME", "datahub")
 DATAHUB_COMPOSE_PROJECT_FILTER = {
@@ -100,6 +101,24 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
         raise DockerLowMemoryError(
             f"Total Docker memory configured {memory_in_gb(total_mem_configured):.2f}GB is below the minimum threshold {MIN_MEMORY_NEEDED}GB. "
             "You can increase the memory allocated to Docker in the Docker settings."
+        )
+
+    result = client.containers.run(
+        "alpine:latest",
+        "sh -c \"df -B1 / | tail -1 | awk '{print $2, $4}'\"",  # total, available
+        remove=True,
+        stdout=True,
+        stderr=True,
+    )
+
+    output = result.decode("utf-8").strip()
+    total_bytes, available_bytes = map(int, output.split())
+
+    available_gb = available_bytes / (1024**3)
+    if available_gb < MIN_DISK_SPACE_NEEDED:
+        raise DockerLowMemoryError(
+            f"Total Docker disk space available {available_gb:.2f}GB is below the minimum threshold {MIN_DISK_SPACE_NEEDED}GB. "
+            "You can increase the disk space allocated to Docker in the Docker settings or free up disk space`"
         )
 
 

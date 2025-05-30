@@ -71,6 +71,8 @@ x-datahub-system-update-service: &datahub-system-update-service
     ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+  labels:
+    datahub_setup_job: true
 
 x-datahub-system-update-service-dev: &datahub-system-update-service-dev
   <<: *datahub-system-update-service
@@ -221,6 +223,10 @@ services:
         condition: service_completed_successfully
       kafka-setup:
         condition: service_completed_successfully
+      opensearch:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
   system-update-quickstart-cassandra:
     <<: *datahub-system-update-service
     profiles:

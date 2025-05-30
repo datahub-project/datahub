@@ -1,0 +1,61 @@
+name: Quickstart Test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "1 0 * * *" # Run at 1am every day
+  push:
+    branches:
+      - master
+    paths:
+      - "metadata-ingestion/src/datahub/cli/docker_cli.py"
+      - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - ".github/workflows/quickstart-test.yml"
+      - "docker/quickstart/docker-compose.quickstart-profile.yml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "metadata-ingestion/src/datahub/cli/docker_cli.py"
+      - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - ".github/workflows/quickstart-test.yml"
+      - "docker/quickstart/docker-compose.quickstart-profile.yml"
+
+jobs:
+  test-quickstart-pr:
+    name: Test Quickstart on PR
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          ./gradlew :metadata-ingestion:install
+
+      - name: Run quickstart
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+
+          docker images
+
+      - name: Smoke test
+        env:
+          RUN_QUICKSTART: false
+          DATAHUB_VERSION: head
+          CLEANUP_DATA: "false"
+          TEST_STRATEGY: cypress
+          BATCH_COUNT: 25
+          BATCH_NUMBER: 2
+        run: |
+          echo "$DATAHUB_VERSION"
+          ./gradlew --stop
+          ./smoke-test/smoke.sh
