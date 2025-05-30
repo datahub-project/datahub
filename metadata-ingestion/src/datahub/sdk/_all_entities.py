@@ -1,6 +1,8 @@
 from typing import Dict, List, Type
 
+from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
+from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
@@ -16,6 +18,8 @@ ENTITY_CLASSES_LIST: List[Type[Entity]] = [
     MLModelGroup,
     DataFlow,
     DataJob,
+    Dashboard,
+    Chart,
 ]
 
 ENTITY_CLASSES: Dict[str, Type[Entity]] = {
