@@ -1,5 +1,6 @@
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.search_filters import FilterDsl
 
 client = DataHubClient.from_env()
 
@@ -47,7 +48,11 @@ downstream_column_lineage = client.lineage.get_lineage(
     source_urn=upstream_dataset.urn,
     source_column="id",
     direction="downstream",
-    max_hops=2,
+    max_hops=1,
+    filter=FilterDsl.and_(
+        FilterDsl.platform("snowflake"),
+        FilterDsl.entity_type("dataset"),
+    ),
 )
 
 print(downstream_column_lineage)

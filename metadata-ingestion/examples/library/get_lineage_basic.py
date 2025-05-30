@@ -1,5 +1,6 @@
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.main_client import DataHubClient
+from datahub.sdk.search_filters import FilterDsl
 
 client = DataHubClient.from_env()
 
@@ -34,7 +35,10 @@ downstream_lineage = client.lineage.get_lineage(
     source_urn=upstream_dataset.urn,
     direction="downstream",
     max_hops=2,
-    filters={"platform": ["airflow"], "entity_type": ["dataJob"]},
+    filter=FilterDsl.and_(
+        FilterDsl.platform("airflow"),
+        FilterDsl.entity_type("dataJob"),
+    ),
 )
 
 print(downstream_lineage)

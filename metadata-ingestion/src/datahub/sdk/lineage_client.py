@@ -12,7 +12,6 @@ from typing import (
     Optional,
     Set,
     Union,
-    cast,
     overload,
 )
 
@@ -21,6 +20,7 @@ from typing_extensions import assert_never
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
+from datahub.ingestion.graph.filters import generate_filter
 from datahub.metadata.urns import (
     DataJobUrn,
     DatasetUrn,
@@ -33,9 +33,7 @@ from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import (
-    FilterDsl,
-    _EntityTypeFilter,
-    _PlatformFilter,
+    Filter,
 )
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -692,7 +690,7 @@ class LineageClient:
         source_column: Optional[str] = None,
         direction: Literal["upstream", "downstream"] = "upstream",
         max_hops: int = 1,
-        filters: Optional[Dict[str, List[str]]] = None,
+        filter: Optional[Filter] = None,
     ) -> List[LineageResult]:
         """
         Retrieve lineage entities connected to a source entity.
@@ -701,12 +699,9 @@ class LineageClient:
         source_urn = (
             Urn.from_string(source_urn) if isinstance(source_urn, str) else source_urn
         )
-
-        # Process filters with a dedicated method
-
         # Prepare GraphQL query variables with a separate method
         variables = self._process_input_variables(
-            source_urn, source_column, filters, direction, max_hops
+            source_urn, source_column, filter, direction, max_hops
         )
 
         # Execute the lineage query
@@ -716,7 +711,7 @@ class LineageClient:
         self,
         source_urn: Urn,
         source_column: Optional[str] = None,
-        filters: Optional[Dict[str, List[str]]] = None,
+        filters: Optional[Filter] = None,
         direction: Optional[Literal["upstream", "downstream"]] = None,
         max_hops: int = 1,
     ) -> Dict[str, Any]:
@@ -736,42 +731,6 @@ class LineageClient:
             SdkUsageError for invalid filter values
         """
         # Validate and compile filters
-        filter_list: List[Union[_EntityTypeFilter, _PlatformFilter]] = []
-
-        # Process filters if provided
-        if filters:
-            # Validate filter keys
-            valid_keys = {"entity_type", "platform"}
-            invalid_keys = set(filters.keys()) - valid_keys
-            if invalid_keys:
-                raise SdkUsageError(
-                    f"Invalid filter keys: {invalid_keys}. Valid keys are: {valid_keys}"
-                )
-
-            # Process entity type filter
-            if "entity_type" in filters:
-                for entity_type in filters["entity_type"]:
-                    # Validate entity type
-                    if entity_type not in models.ENTITY_TYPE_NAMES:
-                        raise SdkUsageError(
-                            f"Invalid entity type: {entity_type}. "
-                            f"Valid entity types are: {models.ENTITY_TYPE_NAMES}"
-                        )
-
-                    # Convert to literal and create filter
-                    entity_type_literal = cast(models.EntityTypeName, entity_type)
-                    filter_list.append(FilterDsl.entity_type(entity_type_literal))
-
-            # Process platform filter
-            if "platform" in filters:
-                filter_list.append(FilterDsl.platform(filters["platform"]))
-
-        # Determine compiled filter
-        compiled_filter = (
-            FilterDsl.and_(*filter_list)
-            if len(filter_list) > 1
-            else (filter_list[0] if filter_list else None)
-        )
 
         # Determine hop values
         max_hop_values = (
@@ -780,9 +739,19 @@ class LineageClient:
             else ["1", "2", "3+"]
         )
 
+        types, compiled_filters = compile_filters(filters)
+        extra_or_filters = generate_filter(
+            platform=None,
+            platform_instance=None,
+            env=None,
+            container=None,
+            status=None,
+            extra_filters=None,
+            extra_or_filters=compiled_filters,
+        )
+
         # Compile filters and add degree filter
-        types, compiled_filters = compile_filters(compiled_filter)
-        compiled_filters.append(
+        extra_or_filters.append(
             {
                 "and": [
                     {
@@ -802,7 +771,7 @@ class LineageClient:
                 "direction": (direction or "upstream").upper(),
                 "count": 1000,  # Reasonable default
                 "types": types,
-                "orFilters": compiled_filters,
+                "orFilters": extra_or_filters,
             }
         }
 
