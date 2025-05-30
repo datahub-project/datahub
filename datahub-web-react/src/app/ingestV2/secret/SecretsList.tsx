@@ -295,6 +295,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                     </TextContainer>
                 );
             },
+            width: '75%',
         },
         {
             title: '',
