@@ -9,6 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -551,11 +552,15 @@ class SnowflakeV2Source(
             and len(discovered_views) == 0
             and len(discovered_streams) == 0
         ):
-            self.structured_reporter.failure(
-                GENERIC_PERMISSION_ERROR_KEY,
-                "No tables/views/streams found. Please check permissions.",
-            )
-            return
+            if self.config.warn_no_datasets:
+                self.structured_reporter.warning(
+                    "No tables/views/streams found. Verify dataset permissions if Snowflake source is not empty.",
+                )
+            else:
+                self.structured_reporter.failure(
+                    GENERIC_PERMISSION_ERROR_KEY,
+                    "No tables/views/streams found. Verify dataset permissions in Snowflake.",
+                )
 
         self.discovered_datasets = (
             discovered_tables + discovered_views + discovered_streams
@@ -571,7 +576,11 @@ class SnowflakeV2Source(
                 queries_extractor = SnowflakeQueriesExtractor(
                     connection=self.connection,
                     config=SnowflakeQueriesExtractorConfig(
-                        window=self.config,
+                        window=BaseTimeWindowConfig(
+                            start_time=self.config.start_time,
+                            end_time=self.config.end_time,
+                            bucket_duration=self.config.bucket_duration,
+                        ),
                         temporary_tables_pattern=self.config.temporary_tables_pattern,
                         include_lineage=self.config.include_table_lineage,
                         include_usage_statistics=self.config.include_usage_stats,
@@ -732,6 +741,8 @@ class SnowflakeV2Source(
             return None
 
     def is_standard_edition(self) -> bool:
+        if self.config.known_snowflake_edition is not None:
+            return self.config.known_snowflake_edition == SnowflakeEdition.STANDARD
         try:
             self.connection.query(SnowflakeQuery.show_tags())
             return False
