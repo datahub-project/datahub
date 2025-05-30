@@ -60,7 +60,6 @@ dependencies {
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.13:3.7.2"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
