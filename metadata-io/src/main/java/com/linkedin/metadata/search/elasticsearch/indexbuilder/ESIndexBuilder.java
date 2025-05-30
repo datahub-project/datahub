@@ -38,6 +38,7 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.http.client.config.RequestConfig;
 import org.opensearch.OpenSearchException;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterGetSettingsRequest;
 import org.opensearch.action.admin.cluster.settings.ClusterGetSettingsResponse;
@@ -75,7 +76,8 @@ import org.opensearch.tasks.TaskInfo;
 @Slf4j
 public class ESIndexBuilder {
 
-  //  this setting is not allowed to change as of now in AOS
+  //  this setting is not allowed to change as of now in AOS:
+  // https://docs.aws.amazon.com/opensearch-service/latest/developerguide/supported-operations.html
   //  public static final String INDICES_MEMORY_INDEX_BUFFER_SIZE =
   // "indices.memory.index_buffer_size";
   public static final String INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE =
@@ -215,6 +217,11 @@ public class ESIndexBuilder {
             .maxAttempts(deleteMaxAttempts) // Maximum number of attempts
             .waitDuration(Duration.ofSeconds(initialSecondsDelete))
             .retryExceptions(IOException.class) // Retry on IOException
+            .retryExceptions(OpenSearchStatusException.class) // this is thrown if read only
+            .retryExceptions(
+                Exception
+                    .class) // not sure what is thrown when snapshots are being taken...be aggresive
+            // here, we won't try deleting for ever anyway
             .retryOnException(
                 createElasticsearchRetryPredicate()) // Custom predicate for other exceptions
             .failAfterMaxAttempts(true) // Throw exception after max attempts
