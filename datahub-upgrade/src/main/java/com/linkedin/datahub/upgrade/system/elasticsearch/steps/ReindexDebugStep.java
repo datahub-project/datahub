@@ -32,7 +32,7 @@ public class ReindexDebugStep implements UpgradeStep {
   private ElasticSearchIndexed service;
   private ReindexConfig config;
 
-  private String getIndex(final Map<String, Optional<String>> parsedArgs) {
+  String getIndex(final Map<String, Optional<String>> parsedArgs) {
     String index = null;
     if (containsKey(parsedArgs, "index")) {
       index = parsedArgs.get("index").get();
@@ -90,7 +90,7 @@ public class ReindexDebugStep implements UpgradeStep {
     };
   }
 
-  private void setConfig(String targetIndex) throws IOException, IllegalAccessException {
+  void setConfig(String targetIndex) throws IOException, IllegalAccessException {
     // datahubpolicyindex_v2 has some docs upon starting quickdebug...
     //  String targetIndex = "datahubpolicyindex_v2";
     List<ReindexConfig> configs = service.buildReindexConfigs(structuredProperties);
