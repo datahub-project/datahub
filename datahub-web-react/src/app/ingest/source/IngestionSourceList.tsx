@@ -310,6 +310,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         },
                         platform: null,
                         executions: null,
+                        ownership: null,
                     };
                     addToListIngestionSourcesCache(client, newSource, pageSize, query);
                     setTimeout(() => {

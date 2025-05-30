@@ -2,30 +2,27 @@ package com.linkedin.datahub.graphql.resolvers.ingest.source;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesResult;
 import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
-import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
 
@@ -79,35 +76,33 @@ public class ListIngestionSourcesResolver
                     start,
                     count);
 
-            final List<Urn> entitiesUrnList =
-                gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
-            // Then, resolve all ingestion sources
-            final Map<Urn, EntityResponse> entities =
-                _entityClient.batchGetV2(
-                    context.getOperationContext(),
-                    Constants.INGESTION_SOURCE_ENTITY_NAME,
-                    new HashSet<>(entitiesUrnList),
-                    ImmutableSet.of(
-                        Constants.INGESTION_INFO_ASPECT_NAME,
-                        Constants.INGESTION_SOURCE_KEY_ASPECT_NAME));
-
-            final List<EntityResponse> entitiesOrdered =
-                entitiesUrnList.stream().map(entities::get).filter(Objects::nonNull).toList();
-
             // Now that we have entities we can bind this to a result.
             final ListIngestionSourcesResult result = new ListIngestionSourcesResult();
             result.setStart(gmsResult.getFrom());
             result.setCount(gmsResult.getPageSize());
             result.setTotal(gmsResult.getNumEntities());
-            result.setIngestionSources(IngestionResolverUtils.mapIngestionSources(entitiesOrdered));
+            result.setIngestionSources(mapUnresolvedIngestionSources(gmsResult.getEntities()));
             return result;
-
           } catch (Exception e) {
             throw new RuntimeException("Failed to list ingestion sources", e);
           }
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  // This method maps urns returned from the list endpoint into Partial Ingestion source objects
+  // which will be
+  // resolved be a separate Batch resolver.
+  private List<IngestionSource> mapUnresolvedIngestionSources(final SearchEntityArray entityArray) {
+    final List<IngestionSource> results = new ArrayList<>();
+    for (final SearchEntity entity : entityArray) {
+      final Urn urn = entity.getEntity();
+      final IngestionSource unresolvedTest = new IngestionSource();
+      unresolvedTest.setUrn(urn.toString());
+      results.add(unresolvedTest);
+    }
+    return results;
   }
 
   List<SortCriterion> buildSortCriteria(

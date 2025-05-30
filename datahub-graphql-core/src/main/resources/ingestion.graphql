@@ -142,7 +142,12 @@ type ExecutionRequestInput {
   """
   Urn of the actor who created this execution request
   """
-  actorUrn: String
+  actorUrn: String @deprecated(reason: "Use actor instead")
+
+  """
+  The actor who created this execution request
+  """
+  actor: CorpUser
 
   """
   The specific executor to route the request to. If none is provided, a "default" executor is used.
@@ -201,11 +206,16 @@ type StructuredReport {
 """
 Retrieve an ingestion execution request
 """
-type ExecutionRequest {
+type ExecutionRequest implements Entity {
   """
   Urn of the execution request
   """
   urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
 
   """
   Unique id for the execution request
@@ -221,6 +231,16 @@ type ExecutionRequest {
   Result of the execution request
   """
   result: ExecutionRequestResult
+
+  """
+  The ingestion source of this execution request
+  """
+  source: IngestionSource
+
+  """
+  Unused for execution requests
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
@@ -473,6 +493,11 @@ type IngestionSource {
   Previous requests to execute the ingestion source
   """
   executions(start: Int, count: Int): IngestionSourceExecutionRequests
+
+  """
+  Ownership metadata of the ingestion source
+  """
+  ownership: Ownership
 }
 
 """
