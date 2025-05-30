@@ -1,10 +1,11 @@
 import { Button, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
+import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
 const ControlsContainer = styled.div`
@@ -17,11 +18,22 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
+export const NameSourceStep = ({ state, updateState, prev, submit, sourceRefetch, isEditing }: StepProps) => {
+    const [existingOwners] = useState<any[]>(state.owners || []);
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
             ...state,
             name: stagedName,
+        };
+        updateState(newState);
+    };
+
+    const setOwners = (newOwners: PendingOwner[]) => {
+        const newState: SourceBuilderState = {
+            ...state,
+            owners: newOwners,
         };
         updateState(newState);
     };
@@ -146,6 +158,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
     const onClickCreate = (shouldRun?: boolean) => {
         if (state.name !== undefined && state.name.length > 0) {
             submit(shouldRun);
+            setSelectedOwnerUrns([]);
         }
     };
 
@@ -176,6 +189,15 @@ export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) 
                         onBlur={(event) => handleBlur(event, setName)}
                     />
                 </Form.Item>
+                <OwnersSection
+                    selectedOwnerUrns={selectedOwnerUrns}
+                    setSelectedOwnerUrns={setSelectedOwnerUrns}
+                    existingOwners={existingOwners}
+                    onChange={setOwners}
+                    sourceRefetch={sourceRefetch}
+                    isEditForm={isEditing}
+                />
+
                 <Collapse ghost>
                     <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
                         {/* NOTE: Executor ID is OSS-only, used by actions pod */}

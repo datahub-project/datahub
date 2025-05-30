@@ -1,4 +1,5 @@
 import { IngestionSourceBuilderStep } from '@app/ingestV2/source/builder/steps';
+import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 
 /**
  * The size of the builder modal
@@ -34,6 +35,7 @@ export type StepProps = {
     cancel: () => void;
     ingestionSources: SourceConfig[];
     isEditing: boolean;
+    sourceRefetch?: () => Promise<any>;
 };
 
 export type StringMapEntryInput = {
@@ -111,4 +113,6 @@ export interface SourceBuilderState {
          */
         extraArgs?: StringMapEntryInput[] | null;
     };
+
+    owners?: PendingOwner[];
 }

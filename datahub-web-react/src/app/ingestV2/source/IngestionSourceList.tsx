@@ -25,14 +25,17 @@ import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 
 import {
     useCreateIngestionExecutionRequestMutation,
     useCreateIngestionSourceMutation,
     useDeleteIngestionSourceMutation,
+    useGetIngestionSourceQuery,
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
+import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
 import { IngestionSource, SortCriterion, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
@@ -106,6 +109,7 @@ const removeExecutionsFromIngestionSource = (source) => {
             type: source.type,
             schedule: source.schedule,
             config: source.config,
+            owners: source.owners,
         };
     }
     return undefined;
@@ -117,7 +121,6 @@ interface Props {
 }
 
 export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Props) => {
-    // const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -197,12 +200,25 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     // Execution Request queries
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
+    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
     const filteredSources = sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
-    const focusSource =
-        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
+    const [focusSource, setFocusSource] = useState(
+        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined,
+    );
+
+    const { data: focusSourceData, refetch: focusSourceRefetch } = useGetIngestionSourceQuery({
+        variables: {
+            urn: focusSourceUrn || '',
+        },
+        skip: !focusSourceUrn,
+    });
+
+    useEffect(() => {
+        setFocusSource(focusSourceData?.ingestionSource as IngestionSource);
+    }, [focusSourceData?.ingestionSource]);
 
     const onRefresh = useCallback(() => {
         refetch();
@@ -261,11 +277,23 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         input: UpdateIngestionSourceInput,
         resetState: () => void,
         shouldRun?: boolean,
+        owners?: PendingOwner[],
     ) => {
         if (focusSourceUrn) {
             // Update:
             updateIngestionSource({ variables: { urn: focusSourceUrn as string, input } })
                 .then(() => {
+                    if (owners && owners.length > 0) {
+                        batchAddOwnersMutation({
+                            variables: {
+                                input: {
+                                    owners: owners || [],
+                                    resources: [{ resourceUrn: focusSourceUrn }],
+                                },
+                            },
+                        });
+                    }
+
                     analytics.event({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
@@ -304,6 +332,18 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         executions: null,
                         ownership: null,
                     };
+
+                    if (owners && owners.length > 0) {
+                        batchAddOwnersMutation({
+                            variables: {
+                                input: {
+                                    owners,
+                                    resources: [{ resourceUrn: newSource.urn }],
+                                },
+                            },
+                        });
+                    }
+
                     addToListIngestionSourcesCache(client, newSource, pageSize, query);
                     setTimeout(() => {
                         refetch();
@@ -388,6 +428,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             },
             resetState,
             shouldRun,
+            recipeBuilderState.owners,
         );
     };
 
@@ -519,6 +560,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
+                sourceRefetch={focusSourceRefetch}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
