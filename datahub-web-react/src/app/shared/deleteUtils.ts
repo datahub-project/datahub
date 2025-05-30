@@ -1,7 +1,7 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PageRoutes } from '@conf/Global';
-import { useDeleteApplicationMutation } from '@graphql/application.generated';
 
+import { useDeleteApplicationMutation } from '@graphql/application.generated';
 import { useDeleteAssertionMutation } from '@graphql/assertion.generated';
 import { useDeleteBusinessAttributeMutation } from '@graphql/businessAttribute.generated';
 import { useDeleteDataProductMutation } from '@graphql/dataProduct.generated';
