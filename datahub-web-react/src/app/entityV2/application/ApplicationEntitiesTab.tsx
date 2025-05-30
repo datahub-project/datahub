@@ -1,11 +1,10 @@
 import React from 'react';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
+import generateUseListApplicationAssets from '@app/entityV2/application/generateUseListApplicationAssets';
+import { generateUseListApplicationAssetsCount } from '@app/entityV2/application/generateUseListApplicationAssetsCount';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
-
-import generateUseListApplicationAssets from './generateUseListApplicationAssets';
-import { generateUseListApplicationAssetsCount } from './generateUseListApplicationAssetsCount';
 
 export function ApplicationEntitiesTab() {
     const { urn } = useEntityData();

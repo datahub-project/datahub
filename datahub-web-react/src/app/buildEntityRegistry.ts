@@ -27,7 +27,6 @@ import { SchemaFieldPropertiesEntity } from '@app/entity/schemaField/SchemaField
 import { StructuredPropertyEntity } from '@app/entity/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entity/tag/Tag';
 import { UserEntity } from '@app/entity/user/User';
-import { ApplicationEntity } from './entityV2/application/ApplicationEntity';
 
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
