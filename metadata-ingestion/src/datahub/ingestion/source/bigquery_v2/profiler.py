@@ -14,6 +14,12 @@ from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Repor
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
 )
+from datahub.ingestion.source.bigquery_v2.profiling_partition_manager import (
+    PartitionDiscoveryManager,
+)
+from datahub.ingestion.source.bigquery_v2.profiling_strategy import (
+    PartitionFilterStrategy,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -1107,6 +1113,120 @@ FROM PartitionStats"""
             table, project, schema, partition_cols_with_types, timeout
         )
 
+    def _process_fallback_partition_values(
+        self,
+        table: BigqueryTable,
+        project: str,
+        schema: str,
+    ) -> Optional[List[str]]:
+        """
+        Process fallback partition values from configuration.
+
+        Args:
+            table: BigqueryTable instance
+            project: Project ID
+            schema: Dataset name
+
+        Returns:
+            List of partition filter strings based on fallback values
+        """
+        if not self.config.fallback_partition_values:
+            logger.debug("No fallback partition values configured")
+            return None
+
+        fallback_filters = []
+        current_time = datetime.now(timezone.utc)
+
+        # Get column data types for proper filter formatting
+        column_data_types = {}
+        try:
+            query = f"""SELECT column_name, data_type
+FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
+WHERE table_name = '{table.name}'"""
+            query_job = self.config.get_bigquery_client().query(query)
+            query_results = list(query_job.result())
+            column_data_types = {
+                row.column_name: row.data_type for row in query_results
+            }
+        except Exception as e:
+            logger.warning(f"Error fetching column data types for fallback values: {e}")
+
+        logger.info(
+            f"Using fallback partition values for {table.name}: {self.config.fallback_partition_values}"
+        )
+
+        for col_name, fallback_value in self.config.fallback_partition_values.items():
+            # Check if this column actually exists in the table
+            if col_name not in column_data_types:
+                continue
+
+            data_type = column_data_types.get(col_name, "STRING").upper()
+
+            # Process date-related columns with relative offset
+            if data_type in ("DATE", "DATETIME", "TIMESTAMP") and isinstance(
+                fallback_value, int
+            ):
+                # Calculate the date based on offset (days ago)
+                target_date = current_time - timedelta(days=fallback_value)
+
+                if data_type == "DATE":
+                    filter_value = f"DATE '{target_date.strftime('%Y-%m-%d')}'"
+                else:  # TIMESTAMP or DATETIME
+                    filter_value = (
+                        f"TIMESTAMP '{target_date.strftime('%Y-%m-%d %H:%M:%S')}'"
+                    )
+
+                fallback_filters.append(f"`{col_name}` = {filter_value}")
+
+            # Special handling for common date component columns
+            elif col_name.lower() in ("year", "month", "day") and isinstance(
+                fallback_value, int
+            ):
+                target_date = current_time - timedelta(days=fallback_value)
+
+                if col_name.lower() == "year":
+                    value = target_date.year
+                elif col_name.lower() == "month":
+                    value = target_date.month
+                elif col_name.lower() == "day":
+                    value = target_date.day
+                else:
+                    continue
+
+                fallback_filters.append(f"`{col_name}` = {value}")
+
+            # Handle regular string values
+            elif data_type in ("STRING", "VARCHAR"):
+                fallback_filters.append(f"`{col_name}` = '{fallback_value}'")
+
+            # Handle numeric values
+            elif data_type in (
+                "INTEGER",
+                "INT64",
+                "FLOAT",
+                "FLOAT64",
+                "NUMERIC",
+                "BIGNUMERIC",
+            ):
+                fallback_filters.append(f"`{col_name}` = {fallback_value}")
+
+            # Handle boolean values
+            elif data_type == "BOOLEAN":
+                bool_value = str(fallback_value).lower()
+                fallback_filters.append(f"`{col_name}` = {bool_value}")
+
+            # Handle any other types as strings
+            else:
+                fallback_filters.append(f"`{col_name}` = '{fallback_value}'")
+
+        if fallback_filters:
+            logger.info(
+                f"Created fallback filters for {table.name}: {fallback_filters}"
+            )
+            return fallback_filters
+
+        return None
+
     def _get_required_partition_filters(
         self,
         table: BigqueryTable,
@@ -1125,148 +1245,18 @@ FROM PartitionStats"""
             Empty list if no partitions found
             None if partition filters could not be determined
         """
-        current_time = datetime.now(timezone.utc)
-        partition_filters = []
+        # Use the PartitionDiscoveryManager to handle the complex partition filter logic
 
-        # First try sampling approach as it's most efficient
-        sample_filters = self._get_partitions_with_sampling(table, project, schema)
-        if sample_filters:
-            return sample_filters
+        # Initialize the partition manager if not already done
+        if not hasattr(self, "_partition_discovery_manager"):
+            self._partition_discovery_manager = PartitionDiscoveryManager(
+                self.config.get_bigquery_client(), self.config
+            )
 
-        # Get required partition columns from table info
-        required_partition_columns = set()
-
-        # Get from explicit partition_info if available
-        if table.partition_info:
-            if isinstance(table.partition_info.fields, list):
-                required_partition_columns.update(table.partition_info.fields)
-
-            if (
-                hasattr(table.partition_info, "columns")
-                and table.partition_info.columns is not None
-            ):
-                # Safe iteration over columns when not None
-                cols = table.partition_info.columns
-                required_partition_columns.update(
-                    col.name for col in cols if col is not None
-                )
-
-        # If no partition columns found from partition_info, query INFORMATION_SCHEMA
-        if not required_partition_columns:
-            try:
-                query = f"""SELECT column_name
-    FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-    WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
-                query_job = self.config.get_bigquery_client().query(query)
-                query_results_13: List[Any] = list(query_job.result())
-                required_partition_columns = {
-                    row.column_name for row in query_results_13
-                }
-                logger.debug(
-                    f"Found partition columns from schema: {required_partition_columns}"
-                )
-            except Exception as e:
-                logger.error(f"Error querying partition columns: {e}")
-
-        # If still no partition columns found, check for external table partitioning
-        if not required_partition_columns:
-            logger.debug(f"No partition columns found for table {table.name}")
-            if table.external:
-                return self._get_external_table_partition_filters(
-                    table, project, schema, current_time
-                )
-            else:
-                return None
-
-        logger.debug(f"Required partition columns: {required_partition_columns}")
-
-        # Get column data types for the partition columns
-        column_data_types = {}
-        try:
-            query = f"""SELECT column_name, data_type
-    FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
-    WHERE table_name = '{table.name}'"""
-            query_job = self.config.get_bigquery_client().query(query)
-            query_results_14: List[Any] = list(query_job.result())
-            column_data_types = {
-                row.column_name: row.data_type for row in query_results_14
-            }
-        except Exception as e:
-            logger.error(f"Error fetching column data types: {e}")
-
-        # Handle standard time-based columns without querying
-        standard_time_columns = {"year", "month", "day", "hour"}
-        time_based_columns = {
-            col
-            for col in required_partition_columns
-            if col.lower() in standard_time_columns
-        }
-        other_columns = required_partition_columns - time_based_columns
-
-        for col_name in time_based_columns:
-            col_name_lower = col_name.lower()
-            col_data_type = column_data_types.get(col_name, "STRING")
-
-            if col_name_lower == "year":
-                value = current_time.year
-            elif col_name_lower == "month":
-                value = current_time.month
-            elif col_name_lower == "day":
-                value = current_time.day
-            elif col_name_lower == "hour":
-                value = current_time.hour
-            else:
-                continue
-
-            # Handle casting based on column type
-            if col_data_type.upper() in {"STRING"}:
-                partition_filters.append(f"`{col_name}` = '{value}'")
-            else:
-                partition_filters.append(f"`{col_name}` = {value}")
-
-        # Fetch latest value for non-time-based partitions
-        for col_name in other_columns:
-            try:
-                # Query to get latest non-empty partition
-                query = f"""WITH PartitionStats AS (
-    SELECT {col_name} as val,
-           COUNT(*) as record_count
-    FROM `{project}.{schema}.{table.name}`
-    WHERE {col_name} IS NOT NULL
-    GROUP BY {col_name}
-    HAVING record_count > 0
-    ORDER BY {col_name} DESC
-    LIMIT 1
-    )
-    SELECT val, record_count
-    FROM PartitionStats"""
-                logger.debug(f"Executing query for partition value: {query}")
-
-                query_job = self.config.get_bigquery_client().query(query)
-                query_results_15: List[Any] = list(query_job.result())
-
-                if not query_results_15 or query_results_15[0].val is None:
-                    logger.warning(
-                        f"No non-empty partition values found for column {col_name}"
-                    )
-                    continue
-
-                val = query_results_15[0].val
-                record_count = query_results_15[0].record_count
-                logger.info(
-                    f"Selected partition {col_name}={val} with {record_count} records"
-                )
-
-                if isinstance(val, (int, float)):
-                    partition_filters.append(f"`{col_name}` = {val}")
-                else:
-                    partition_filters.append(f"`{col_name}` = '{val}'")
-
-            except Exception as e:
-                logger.error(f"Error getting partition value for {col_name}: {e}")
-
-        logger.debug(f"Final partition filters: {partition_filters}")
-        return partition_filters if partition_filters else None
+        # Delegate to the partition manager
+        return self._partition_discovery_manager.get_required_partition_filters(
+            table, project, schema
+        )
 
     def get_batch_kwargs(
         self, table: BaseTable, schema_name: str, db_name: str
@@ -2021,6 +2011,14 @@ WHERE {partition_where}"""
             f"Table {table.name} has partition information, determining optimal filters"
         )
 
+        # Use the PartitionFilterStrategy to handle the complex filter application logic
+
+        # Initialize the strategy if not already done
+        if not hasattr(self, "_partition_filter_strategy"):
+            self._partition_filter_strategy = PartitionFilterStrategy(
+                self.config.get_bigquery_client(), self.config
+            )
+
         # Special handling for external tables
         is_external = getattr(table, "external", False)
         if is_external:
@@ -2033,10 +2031,10 @@ WHERE {partition_where}"""
         partition_values = None
         has_data = False
 
-        # Approach 1: Try simple date filters
         try:
-            date_filters, date_values, date_has_data = self._try_date_filters(
-                project, schema, table
+            # Approach 1: Try simple date filters
+            date_filters, date_values, date_has_data = (
+                self._partition_filter_strategy.try_date_filters(project, schema, table)
             )
 
             if date_has_data:
@@ -2053,7 +2051,9 @@ WHERE {partition_where}"""
                     self.execute_query(test_query, timeout=5)
                 except Exception as e:
                     error_filters, error_values, error_has_data = (
-                        self._try_error_based_filters(e, project, schema, table)
+                        self._partition_filter_strategy.try_error_based_filters(
+                            e, project, schema, table
+                        )
                     )
 
                     if error_has_data:
@@ -2061,78 +2061,116 @@ WHERE {partition_where}"""
                         partition_values = error_values
                         has_data = True
 
-                # Approach 3: If we still don't have filters with data, try to find a partition with data
-                if not has_data:
-                    required_columns = self._get_required_columns(
-                        table, project, schema
+            # Approach 3: If we still don't have filters with data, try to find a partition with data
+            if not has_data:
+                required_columns = self._partition_filter_strategy.get_required_columns(
+                    table, project, schema
+                )
+
+                if required_columns:
+                    logger.info(
+                        f"Searching for a partition with data using columns: {required_columns}"
+                    )
+                    data_filters = (
+                        self._partition_filter_strategy.find_partition_with_data(
+                            project, schema, table, required_columns
+                        )
+                    )
+
+                    if data_filters:
+                        partition_filters = data_filters
+                        partition_values = self._partition_filter_strategy.extract_partition_values_from_filters(
+                            partition_filters
+                        )
+                        has_data = True
+
+            # Approach 4: If we still don't have filters, try sampling approach
+            if (
+                not has_data
+                and hasattr(table, "partition_info")
+                and table.partition_info
+            ):
+                try:
+                    required_columns = (
+                        self._partition_filter_strategy.get_required_columns(
+                            table, project, schema
+                        )
                     )
 
                     if required_columns:
-                        logger.info(
-                            f"Searching for a partition with data using columns: {required_columns}"
-                        )
-                        data_filters = self._find_partition_with_data(
-                            project, schema, table, required_columns
-                        )
-
-                        if data_filters:
-                            partition_filters = data_filters
-                            partition_values = (
-                                self._extract_partition_values_from_filters(
-                                    partition_filters
-                                )
+                        sampling_filters, sampling_values, sampling_has_data = (
+                            self._partition_filter_strategy.try_sampling_approach(
+                                project, schema, table, required_columns
                             )
-                            has_data = True
-        except Exception as e:
-            logger.warning(f"Error in primary partition approaches: {str(e)}")
-
-        # Approach 4: If we still don't have filters, try sampling approach
-        if not has_data and hasattr(table, "partition_info") and table.partition_info:
-            try:
-                required_columns = self._get_required_columns(table, project, schema)
-
-                if required_columns:
-                    sampling_filters, sampling_values, sampling_has_data = (
-                        self._try_sampling_approach(
-                            project, schema, table, required_columns
                         )
+
+                        if sampling_has_data:
+                            partition_filters = sampling_filters
+                            partition_values = sampling_values
+                            has_data = True
+                except Exception as e:
+                    logger.warning(
+                        f"Error getting partition filters with sampling: {e}"
                     )
+                    # Last resort - try to extract from error
+                    try:
+                        error_filters, error_values, error_has_data = (
+                            self._partition_filter_strategy.try_error_based_filters(
+                                e, project, schema, table
+                            )
+                        )
 
-                    if sampling_has_data:
-                        partition_filters = sampling_filters
-                        partition_values = sampling_values
-                        has_data = True
-            except Exception as e:
-                logger.warning(f"Error getting partition filters with sampling: {e}")
-                # Last resort - try to extract from error
-                try:
-                    error_filters, error_values, error_has_data = (
-                        self._try_error_based_filters(e, project, schema, table)
-                    )
+                        if error_has_data:
+                            partition_filters = error_filters
+                            partition_values = error_values
+                            has_data = True
+                    except Exception:
+                        pass
 
-                    if error_has_data:
-                        partition_filters = error_filters
-                        partition_values = error_values
-                        has_data = True
-                except Exception:
-                    pass
+        except Exception as e:
+            logger.error(f"Error applying partition filters: {e}")
 
-        # If we still don't have filters with data, try custom approach
-        if not partition_filters or not has_data:
-            logger.info(f"Trying custom partition approach for {table.name}")
-            self._apply_custom_partition_approach(table, project, schema, batch_kwargs)
-            return
+        # If we couldn't find filters with data, try fallback values
+        if not partition_filters and not has_data:
+            logger.info(f"Using fallback partition values for {table.name}")
+            fallback_filters = (
+                self._partition_filter_strategy.process_fallback_partition_values(
+                    table, project, schema
+                )
+            )
+
+            if fallback_filters:
+                partition_filters = fallback_filters
+                partition_values = self._partition_filter_strategy.extract_partition_values_from_filters(
+                    fallback_filters
+                )
+                has_data = True
+                logger.info(f"Using fallback filters: {partition_filters}")
+            else:
+                # If we still don't have filters, try custom approach
+                logger.info(f"Trying custom partition approach for {table.name}")
+                self._apply_custom_partition_approach(
+                    table, project, schema, batch_kwargs
+                )
+                return
 
         # If we have partition filters with data, create a temporary table or view
-        logger.debug(f"Creating temp table with filters for {table.name}")
+        if partition_filters:
+            logger.debug(f"Creating temp table with filters for {table.name}")
 
-        # Add partition values to batch_kwargs if available
-        if partition_values:
-            batch_kwargs["partition_values"] = json.dumps(partition_values)
+            # Add partition values to batch_kwargs if available
+            if partition_values:
+                batch_kwargs["partition_values"] = json.dumps(partition_values)
 
-        self._create_temp_table_with_filters(
-            table, project, schema, partition_filters, batch_kwargs
-        )
+            self._create_temp_table_with_filters(
+                table, project, schema, partition_filters, batch_kwargs
+            )
+        else:
+            # If all approaches failed, try the custom approach
+            logger.info(
+                f"All partition filter approaches failed for {table.name}, using custom approach"
+            )
+            self._apply_custom_partition_approach(table, project, schema, batch_kwargs)
 
     def execute_query(self, query: str, timeout: int = 300) -> List[Any]:
         """
@@ -2144,18 +2182,32 @@ WHERE {partition_where}"""
 
         Returns:
             List of row results
+
+        Raises:
+            Exception: If query execution fails or times out
         """
         try:
             logger.debug(f"Executing query with {timeout}s timeout: {query}")
+
+            # Use configured timeout if it's shorter than the provided one
+            if hasattr(self.config, "partition_discovery_timeout"):
+                timeout = min(timeout, self.config.partition_discovery_timeout)
+
             job_config = QueryJobConfig(timeout_ms=timeout * 1000)
             query_job = self.config.get_bigquery_client().query(
                 query, job_config=job_config
             )
+
             # Convert to list to ensure consistent return type
             return list(query_job.result())
         except Exception as e:
-            logger.warning(f"Query execution error: {e}")
-            raise
+            error_message = str(e)
+            if "timeout" in error_message.lower():
+                logger.warning(f"Query execution timed out after {timeout}s: {query}")
+                raise TimeoutError(f"Query execution timed out: {error_message}") from e
+            else:
+                logger.warning(f"Query execution error: {e}")
+                raise
 
     def _extract_partition_values_from_filters(
         self, filters: List[str]
