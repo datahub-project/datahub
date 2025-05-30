@@ -47,7 +47,7 @@ buildscript {
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
-  ext.jacksonVersion = '2.15.3'
+  ext.jacksonVersion = '2.18.4'
   ext.jettyVersion = '12.0.16'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
@@ -171,11 +171,15 @@ project.ext.externalDependency = [
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-    'jacksonJDK8': "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion",
-    'jacksonDataPropertyFormat': "com.fasterxml.jackson.dataformat:jackson-dataformat-properties:$jacksonVersion",
-    'jacksonCore': "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
-    'jacksonDataBind': "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
-    'jacksonDataFormatYaml': "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion",
+     // The jacksonBom controls the version of other jackson modules, pin the version once
+     // implementation platform(externalDependency.jacksonBom)
+    'jacksonBom': "com.fasterxml.jackson:jackson-bom:$jacksonVersion",
+    'jacksonJDK8': 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8',
+    'jacksonDataPropertyFormat': 'com.fasterxml.jackson.dataformat:jackson-dataformat-properties',
+    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core',
+    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind',
+    'jacksonJsr310': 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310',
+    'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml',
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
