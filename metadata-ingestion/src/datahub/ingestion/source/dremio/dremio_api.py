@@ -21,6 +21,7 @@ from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
 )
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -233,47 +234,69 @@ class DremioAPIOperations:
 
     def get(self, url: str) -> Dict:
         """execute a get request on dremio"""
-        response = self.session.get(
-            url=(self.base_url + url),
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        return response.json()
+        logger.debug(f"GET request to {self.base_url + url}")
+        self.report.api_calls_total += 1
+        self.report.api_calls_by_method_and_path["GET " + url] += 1
+
+        with PerfTimer() as timer:
+            response = self.session.get(
+                url=(self.base_url + url),
+                verify=self._verify,
+                timeout=self._timeout,
+            )
+            self.report.api_call_secs_by_method_and_path["GET " + url] += (
+                timer.elapsed_seconds()
+            )
+            return response.json()
 
     def post(self, url: str, data: str) -> Dict:
         """execute a get request on dremio"""
-        response = self.session.post(
-            url=(self.base_url + url),
-            data=data,
-            verify=self._verify,
-            timeout=self._timeout,
-        )
-        return response.json()
+        logger.debug(f"POST request to {self.base_url + url}")
+        self.report.api_calls_total += 1
+        self.report.api_calls_by_method_and_path["POST " + url] += 1
+
+        with PerfTimer() as timer:
+            response = self.session.post(
+                url=(self.base_url + url),
+                data=data,
+                verify=self._verify,
+                timeout=self._timeout,
+            )
+            self.report.api_call_secs_by_method_and_path["POST " + url] += (
+                timer.elapsed_seconds()
+            )
+            return response.json()
 
     def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
         """Execute SQL query with timeout and error handling"""
         try:
-            response = self.post(url="/sql", data=json.dumps({"sql": query}))
+            with PerfTimer() as timer:
+                logger.info(f"Executing query: {query}")
+                response = self.post(url="/sql", data=json.dumps({"sql": query}))
 
-            if "errorMessage" in response:
-                self.report.failure(
-                    message="SQL Error", context=f"{response['errorMessage']}"
-                )
-                raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
+                if "errorMessage" in response:
+                    self.report.failure(
+                        message="SQL Error", context=f"{response['errorMessage']}"
+                    )
+                    raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
 
-            job_id = response["id"]
+                job_id = response["id"]
 
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-                future = executor.submit(self.fetch_results, job_id)
-                try:
-                    return future.result(timeout=timeout)
-                except concurrent.futures.TimeoutError:
-                    self.cancel_query(job_id)
-                    raise DremioAPIException(
-                        f"Query execution timed out after {timeout} seconds"
-                    ) from None
-                except RuntimeError as e:
-                    raise DremioAPIException() from e
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(self.fetch_results, job_id)
+                    try:
+                        result = future.result(timeout=timeout)
+                        logger.info(
+                            f"Query executed in {timer.elapsed_seconds()} seconds with {len(result)} results"
+                        )
+                        return result
+                    except concurrent.futures.TimeoutError:
+                        self.cancel_query(job_id)
+                        raise DremioAPIException(
+                            f"Query execution timed out after {timeout} seconds"
+                        ) from None
+                    except RuntimeError as e:
+                        raise DremioAPIException() from e
 
         except requests.RequestException as e:
             raise DremioAPIException("Error executing query") from e
