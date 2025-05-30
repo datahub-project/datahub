@@ -139,9 +139,17 @@ def get_endpoints(sw_dict: dict) -> dict:
     for p_k, p_o in sw_dict["paths"].items():
         for method, method_spec in p_o.items():
             # skip non-method keys like "parameters"
-            if method.lower() not in ["get","post","put","delete","patch","options","head"]:
+            if method.lower() not in [
+                "get",
+                "post",
+                "put",
+                "delete",
+                "patch",
+                "options",
+                "head",
+            ]:
                 continue
-        
+
             responses = method_spec.get("responses", {})
             base_res = responses.get("200") or responses.get(200)
             if not base_res:
@@ -151,15 +159,15 @@ def get_endpoints(sw_dict: dict) -> dict:
             # if the description is not present, we will use the summary
             # if both are not present, we will use an empty string
             desc = method_spec.get("description") or method_spec.get("summary", "")
-            
+
             # if the tags are not present, we will use an empty list
             tags = method_spec.get("tags", [])
 
             url_details[p_k] = {
-                "description": desc, 
-                "tags": tags, 
-                "method": method.upper()
-                }
+                "description": desc,
+                "tags": tags,
+                "method": method.upper(),
+            }
 
             example_data = check_for_api_example_data(base_res, p_k)
             if example_data:
