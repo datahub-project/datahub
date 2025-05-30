@@ -1166,8 +1166,16 @@
                 },
                 {
                     "fieldPath": "tags",
+                    "uniqueCount": 1,
+                    "uniqueProportion": 0.5,
                     "nullCount": 1,
                     "nullProportion": 0.3333333333333333,
+                    "distinctValueFrequencies": [
+                        {
+                            "value": "{\"bisac_code\":\"OCC037000\"}",
+                            "frequency": 2
+                        }
+                    ],
                     "sampleValues": [
                         "{\"bisac_code\":\"OCC037000\"}",
                         "{\"bisac_code\":\"OCC037000\"}"

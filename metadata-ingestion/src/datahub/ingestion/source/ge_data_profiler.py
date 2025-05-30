@@ -205,6 +205,17 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
             )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
+    elif (
+        self.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+        or self.engine.dialect.name.lower() == GXSqlDialect.TRINO
+    ):
+        return convert_to_json_serializable(
+            self.engine.execute(
+                sa.select(sa.func.approx_distinct(sa.column(column))).select_from(
+                    self._table
+                )
+            ).scalar()
+        )
     return convert_to_json_serializable(
         self.engine.execute(
             sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
