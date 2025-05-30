@@ -66,7 +66,15 @@ def mock_graph_client() -> DataHubGraph:
                 models.UpstreamClass(
                     dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table,PROD)",
                     type=models.DatasetLineageTypeClass.TRANSFORMED,
-                )
+                ),
+                models.UpstreamClass(
+                    dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table_2,PROD)",
+                    type=models.DatasetLineageTypeClass.TRANSFORMED,
+                ),
+                models.UpstreamClass(
+                    dataset="urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.source_table_3,PROD)",
+                    type=models.DatasetLineageTypeClass.TRANSFORMED,
+                ),
             ],
             fineGrainedLineages=[
                 models.FineGrainedLineageClass(
@@ -142,6 +150,25 @@ def mock_graph_client() -> DataHubGraph:
                     name="downstream_table", description="A downstream table"
                 )
             }
+        elif "source_table_2" in urn:
+            return {
+                "datasetKey": models.DatasetKeyClass(
+                    name="source_table_2",
+                    platform="snowflake",
+                    origin="PROD",
+                )
+            }
+        elif "source_table_3" in urn:
+            return {
+                "datasetKey": models.DatasetKeyClass(
+                    name="source_table_3",
+                    platform="snowflake",
+                    origin="PROD",
+                ),
+                "status": models.StatusClass(
+                    removed=True,
+                ),
+            }
         elif "source_table" in urn:
             return {
                 "datasetProperties": models.DatasetPropertiesClass(
@@ -168,6 +195,13 @@ def mock_graph_client() -> DataHubGraph:
         return {}
 
     mock_client.get_entity_semityped.side_effect = mock_get_entity_semityped
+
+    def mock_exists(urn: str) -> bool:
+        if "source_table_2" in urn:
+            return False
+        return True
+
+    mock_client.exists.side_effect = mock_exists
 
     # Mock get_downstream_urns_for_table
     mock_client.execute_graphql.return_value = {
@@ -213,7 +247,7 @@ def mock_bedrock_responses() -> List[str]:
         "table_description": "This is a test table description",
     }
     """,
-        """
+        """Here are column descriptions
     {
         "id": "Primary key for the table",
         "name": "Name of the entity",

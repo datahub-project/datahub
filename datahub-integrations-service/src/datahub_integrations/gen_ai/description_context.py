@@ -203,15 +203,34 @@ def get_column_upstream_metadata(
     return upstreams_metadata
 
 
+def is_shell_or_soft_deleted_entity(
+    graph_client: DataHubGraph, urn: str, entity: AspectBag
+) -> bool:
+    """Check if the entity is a ghost entity /shell entity or soft deleted entity."""
+    if not graph_client.exists(urn):
+        return True
+
+    if entity.get("status") is not None:
+        status_aspect = entity["status"]
+        if status_aspect.removed:
+            return True
+    return False
+
+
 def get_table_upstream_lineage_info(
     upstreams: List[models.UpstreamClass], graph_client: DataHubGraph
 ) -> List[TableUpstreamLineageInfo]:
     table_upstream_lineage_info: List[TableUpstreamLineageInfo] = []
-    for upstream_idx, upstream in enumerate(upstreams):
-        if upstream_idx == _MAX_UPSTREAM_TABLES:
+    for upstream in upstreams:
+        if len(table_upstream_lineage_info) >= _MAX_UPSTREAM_TABLES:
             break
         dataset_urn = upstream.dataset
         entity = graph_client.get_entity_semityped(dataset_urn)
+        if is_shell_or_soft_deleted_entity(
+            graph_client=graph_client, urn=dataset_urn, entity=entity
+        ):
+            logger.debug(f"Skipping shell or soft deleted entity: {dataset_urn}")
+            continue
         (
             upstream_table_name,
             upstream_table_description,
@@ -284,10 +303,15 @@ def get_table_downstream_lineage_info(
     downstream_dataset_urns = [
         urn for urn in downstream_urns if urn.startswith("urn:li:dataset:(")
     ]
-    for downstream_idx, downstream_urn in enumerate(downstream_dataset_urns):
-        if downstream_idx >= _MAX_DOWNSTREAM_TABLES:
+    for downstream_urn in downstream_dataset_urns:
+        if len(table_downstream_lineage_info) >= _MAX_DOWNSTREAM_TABLES:
             break
         entity = graph_client.get_entity_semityped(downstream_urn)
+        if is_shell_or_soft_deleted_entity(
+            graph_client=graph_client, urn=downstream_urn, entity=entity
+        ):
+            logger.debug(f"Skipping shell or soft deleted entity: {downstream_urn}")
+            continue
         (
             downstream_table_name,
             downstream_table_description,
