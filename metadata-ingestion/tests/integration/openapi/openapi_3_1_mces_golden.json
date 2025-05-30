@@ -1,0 +1,212 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Retrieves the current state of the board and the winner.",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807694,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Gameplay"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807694,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/board",
+                    "description": "Link to call for the dataset.",
+                    "createStamp": {
+                        "time": 1748599807,
+                        "actor": "urn:li:corpuser:etl"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807695,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "API Endpoint"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807695,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "description": "Places a mark on the board and retrieves the whole board and the winner (if any).",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807696,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Gameplay"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807697,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://raw.githubusercontent.com/OAI/learn.openapis.org/refs/heads/main/examples/board/{row}/{column}",
+                    "description": "Link to call for the dataset.",
+                    "createStamp": {
+                        "time": 1748599807,
+                        "actor": "urn:li:corpuser:etl"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807697,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "API Endpoint"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807698,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807699,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:OpenApi,test_openapi.board.{row}.{column},PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807699,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:Gameplay",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "Gameplay"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1748599807699,
+        "runId": "openapi-2020_04_14-07_00_00-9t0kon",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
