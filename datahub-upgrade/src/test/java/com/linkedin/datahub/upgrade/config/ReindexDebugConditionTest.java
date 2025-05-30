@@ -8,7 +8,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -20,6 +19,7 @@ import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.type.AnnotatedTypeMetadata;
+import org.testng.annotations.Test;
 
 public class ReindexDebugConditionTest {
 
@@ -34,7 +34,7 @@ public class ReindexDebugConditionTest {
   private ReindexDebugCondition reindexDebugCondition;
 
   @BeforeEach
-  void setUp() {
+  public void setUp() {
     MockitoAnnotations.openMocks(this);
     reindexDebugCondition = new ReindexDebugCondition();
 
@@ -45,13 +45,13 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testConstant() {
+  public void testConstant() {
     // Verify the constant is correctly defined
     assertEquals("ReindexDebug", ReindexDebugCondition.DEBUG_REINDEX);
   }
 
   @Test
-  void testMatches_WithExactMatch() {
+  public void testMatches_WithExactMatch() {
     // Arrange
     List<String> nonOptionArgs = Arrays.asList("ReindexDebug", "otherArg");
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -76,7 +76,7 @@ public class ReindexDebugConditionTest {
         "REINDEXdebug",
         "ReInDeXdEbUg"
       })
-  void testMatches_WithCaseInsensitiveMatch(String argument) {
+  public void testMatches_WithCaseInsensitiveMatch(String argument) {
     // Arrange
     List<String> nonOptionArgs = Arrays.asList(argument, "otherArg");
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -89,7 +89,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithNoMatch() {
+  public void testMatches_WithNoMatch() {
     // Arrange
     List<String> nonOptionArgs = Arrays.asList("someOtherArg", "anotherArg");
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -102,7 +102,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithEmptyArguments() {
+  public void testMatches_WithEmptyArguments() {
     // Arrange
     List<String> nonOptionArgs = Collections.emptyList();
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -115,7 +115,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithNullArguments() {
+  public void testMatches_WithNullArguments() {
     // Arrange - ApplicationArguments returns null list
     when(applicationArguments.getNonOptionArgs()).thenReturn(null);
 
@@ -126,7 +126,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithNullElementsInList() {
+  public void testMatches_WithNullElementsInList() {
     // Arrange
     List<String> nonOptionArgs = Arrays.asList("validArg", null, "ReindexDebug", null);
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -139,7 +139,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithOnlyNullElements() {
+  public void testMatches_WithOnlyNullElements() {
     // Arrange
     List<String> nonOptionArgs = Arrays.asList(null, null, null);
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -153,7 +153,8 @@ public class ReindexDebugConditionTest {
 
   @ParameterizedTest
   @MethodSource("provideArgumentListsWithMatches")
-  void testMatches_WithVariousArgumentCombinations(List<String> arguments, boolean expectedResult) {
+  public void testMatches_WithVariousArgumentCombinations(
+      List<String> arguments, boolean expectedResult) {
     // Arrange
     when(applicationArguments.getNonOptionArgs()).thenReturn(arguments);
 
@@ -185,7 +186,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithSingleMatchingArgument() {
+  public void testMatches_WithSingleMatchingArgument() {
     // Arrange
     List<String> nonOptionArgs = Collections.singletonList("REINDEXDEBUG");
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -198,7 +199,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithMultipleMatchingArguments() {
+  public void testMatches_WithMultipleMatchingArguments() {
     // Arrange - Multiple matches should still return true
     List<String> nonOptionArgs = Arrays.asList("ReindexDebug", "reindexdebug", "REINDEXDEBUG");
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -211,7 +212,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithSimilarButNotExactArguments() {
+  public void testMatches_WithSimilarButNotExactArguments() {
     // Arrange
     List<String> nonOptionArgs =
         Arrays.asList(
@@ -230,7 +231,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_BeanFactoryThrowsException() {
+  public void testMatches_BeanFactoryThrowsException() {
     // Arrange
     when(conditionContext.getBeanFactory()).thenThrow(new RuntimeException("Bean factory error"));
 
@@ -241,7 +242,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_GetBeanThrowsException() {
+  public void testMatches_GetBeanThrowsException() {
     // Arrange
     when(beanFactory.getBean(ApplicationArguments.class))
         .thenThrow(new RuntimeException("Bean not found"));
@@ -253,7 +254,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_VerifyMethodCallOrder() {
+  public void testMatches_VerifyMethodCallOrder() {
     // Arrange
     List<String> nonOptionArgs = Arrays.asList("ReindexDebug");
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
@@ -275,7 +276,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithLargeArgumentList() {
+  public void testMatches_WithLargeArgumentList() {
     // Arrange - Test performance with many arguments
     List<String> nonOptionArgs =
         Arrays.asList(
@@ -315,7 +316,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_WithSpecialCharactersInArguments() {
+  public void testMatches_WithSpecialCharactersInArguments() {
     // Arrange
     List<String> nonOptionArgs =
         Arrays.asList(
@@ -335,13 +336,13 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testImplementsConditionInterface() {
+  public void testImplementsConditionInterface() {
     // Verify that the class properly implements the Condition interface
     assertTrue(reindexDebugCondition instanceof org.springframework.context.annotation.Condition);
   }
 
   @Test
-  void testConstantAccessibility() {
+  public void testConstantAccessibility() {
     // Verify the constant can be accessed statically
     String debugConstant = ReindexDebugCondition.DEBUG_REINDEX;
     assertNotNull(debugConstant);
@@ -350,7 +351,7 @@ public class ReindexDebugConditionTest {
   }
 
   @Test
-  void testMatches_MetadataParameterNotUsed() {
+  public void testMatches_MetadataParameterNotUsed() {
     // Arrange
     List<String> nonOptionArgs = Arrays.asList("ReindexDebug");
     when(applicationArguments.getNonOptionArgs()).thenReturn(nonOptionArgs);
