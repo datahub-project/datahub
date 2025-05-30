@@ -16,12 +16,15 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.DataHubIngestionSourceKey;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashSet;
+import java.util.List;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -138,5 +141,43 @@ public class ListIngestionSourceResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
+  }
+
+  @Test
+  void testBuildSortCriteriaForNameField() {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+
+    com.linkedin.datahub.graphql.generated.SortCriterion input =
+        new com.linkedin.datahub.graphql.generated.SortCriterion();
+    input.setField("name");
+    input.setSortOrder(com.linkedin.datahub.graphql.generated.SortOrder.ASCENDING);
+
+    List<SortCriterion> result = resolver.buildSortCriteria(input);
+
+    assertEquals(2, result.size());
+    assertEquals("type", result.get(0).getField());
+    assertEquals(SortOrder.ASCENDING, result.get(0).getOrder());
+    assertEquals("name", result.get(1).getField());
+    assertEquals(SortOrder.ASCENDING, result.get(1).getOrder());
+  }
+
+  @Test
+  void testBuildSortCriteriaForNonNameField() {
+    // Create resolver
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ListIngestionSourcesResolver resolver = new ListIngestionSourcesResolver(mockClient);
+
+    com.linkedin.datahub.graphql.generated.SortCriterion input =
+        new com.linkedin.datahub.graphql.generated.SortCriterion();
+    input.setField("createdAt");
+    input.setSortOrder(com.linkedin.datahub.graphql.generated.SortOrder.DESCENDING);
+
+    List<SortCriterion> result = resolver.buildSortCriteria(input);
+
+    assertEquals(1, result.size());
+    assertEquals("createdAt", result.get(0).getField());
+    assertEquals(SortOrder.DESCENDING, result.get(0).getOrder());
   }
 }

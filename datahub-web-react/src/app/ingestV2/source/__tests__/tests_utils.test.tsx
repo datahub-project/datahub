@@ -1,8 +1,10 @@
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { getEntitiesIngestedByType } from '@app/ingestV2/source/utils';
+import { SortingState } from '@components/components/Table/types';
 
-import { ExecutionRequestResult } from '@types';
+import { getEntitiesIngestedByType, getSortInput } from '@app/ingestV2/source/utils';
+
+import { ExecutionRequestResult, SortOrder } from '@types';
 
 // Mock the structuredReport property of ExecutionRequestResult
 const mockExecutionRequestResult = (structuredReportData: any): Partial<ExecutionRequestResult> => {
@@ -115,5 +117,25 @@ describe('getEntitiesIngestedByType', () => {
                 displayName: 'container',
             },
         ]);
+    });
+});
+
+describe('getSortInput', () => {
+    it('returns undefined for original sorting', () => {
+        expect(getSortInput('name', SortingState.ORIGINAL)).toBeUndefined();
+    });
+
+    it('returns ascending sort input', () => {
+        expect(getSortInput('name', SortingState.ASCENDING)).toEqual({
+            sortOrder: SortOrder.Ascending,
+            field: 'name',
+        });
+    });
+
+    it('returns descending sort input', () => {
+        expect(getSortInput('name', SortingState.DESCENDING)).toEqual({
+            sortOrder: SortOrder.Descending,
+            field: 'name',
+        });
     });
 });

@@ -17,6 +17,7 @@ import { useCommandS } from '@app/ingestV2/source/hooks';
 import {
     CLI_EXECUTOR_ID,
     addToListIngestionSourcesCache,
+    getSortInput,
     removeFromListIngestionSourcesCache,
 } from '@app/ingestV2/source/utils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -31,7 +32,7 @@ import {
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { IngestionSource, UpdateIngestionSourceInput } from '@types';
+import { IngestionSource, SortCriterion, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -144,6 +145,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
     const [hideSystemSources, setHideSystemSources] = useState(true);
+    const [sort, setSort] = useState<SortCriterion>();
 
     // Add a useEffect to handle the showCreateModal prop
     useEffect(() => {
@@ -183,6 +185,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 count: pageSize,
                 query: query?.length ? query : undefined,
                 filters: filters.length ? filters : undefined,
+                sort,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
@@ -431,6 +434,10 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         setFocusSourceUrn(undefined);
     };
 
+    const onChangeSort = (field, order) => {
+        setSort(getSortInput(field, order));
+    };
+
     const handleSearch = (value: string) => {
         setPage(1);
         setQuery(value);
@@ -485,6 +492,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         onEdit={onEdit}
                         onView={onView}
                         onDelete={onDelete}
+                        onChangeSort={onChangeSort}
                     />
                 </TableContainer>
                 <PaginationContainer>

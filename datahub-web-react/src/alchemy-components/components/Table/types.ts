@@ -10,7 +10,7 @@ export interface Column<T> {
     width?: string;
     minWidth?: string;
     maxWidth?: string;
-    sorter?: (a: T, b: T) => number;
+    sorter?: ((a: T, b: T) => number) | boolean;
     alignment?: AlignmentOptions;
     tooltipTitle?: string;
 }
