@@ -14,13 +14,13 @@ export const TextContainer = styled.div`
 
 interface Props {
     sourceType?: string;
-    isEmptySearch?: boolean;
+    isEmptySearchResult?: boolean;
 }
 
-const EmptySources = ({ sourceType, isEmptySearch }: Props) => {
+const EmptySources = ({ sourceType, isEmptySearchResult }: Props) => {
     return (
         <EmptyContainer>
-            {isEmptySearch ? (
+            {isEmptySearchResult ? (
                 <TextContainer>
                     <Text size="lg" color="gray" weight="bold">
                         No search results!

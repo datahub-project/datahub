@@ -484,7 +484,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                     </StyledTabToolbar>
                 </HeaderContainer>
                 {!loading && totalSources === 0 ? (
-                    <EmptySources sourceType="sources" isEmptySearch={!!query} />
+                    <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
                 ) : (
                     <>
                         <TableContainer>
