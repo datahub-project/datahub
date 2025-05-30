@@ -1,4 +1,5 @@
-import { Modal, Steps, Typography } from 'antd';
+import { Modal } from '@components';
+import { Steps } from 'antd';
 import { isEqual } from 'lodash';
 import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -9,20 +10,6 @@ import { NameSourceStep } from '@app/ingestV2/source/builder/NameSourceStep';
 import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateStep';
 import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
-
-const StyledModal = styled(Modal)`
-    && .ant-modal-content {
-        border-radius: 16px;
-        overflow: hidden;
-        min-width: 400px;
-    }
-`;
-
-const TitleContainer = styled.div`
-    display: flex;
-    justify-content: space-between;
-    border-radius: 12px;
-`;
 
 const StepsContainer = styled.div`
     margin-right: 20px;
@@ -66,10 +53,11 @@ type Props = {
     initialState?: SourceBuilderState;
     open: boolean;
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
-    onCancel?: () => void;
+    onCancel: () => void;
+    sourceRefetch?: () => Promise<any>;
 };
 
-export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel }: Props) => {
+export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel, sourceRefetch }: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -130,18 +118,15 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
     const StepComponent: React.FC<StepProps> = IngestionSourceBuilderStepComponent[currentStep];
 
     return (
-        <StyledModal
+        <Modal
             width="64%"
             footer={null}
-            title={
-                <TitleContainer>
-                    <Typography.Text>{titleText}</Typography.Text>
-                </TitleContainer>
-            }
+            title={titleText}
             style={{ top: 40 }}
             bodyStyle={modalBodyStyle}
             open={open}
             onCancel={onCancel}
+            buttons={[]}
         >
             {currentStepIndex > 0 ? (
                 <StepsContainer>
@@ -161,7 +146,8 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
                 submit={submit}
                 cancel={cancel}
                 ingestionSources={ingestionSources}
+                sourceRefetch={sourceRefetch}
             />
-        </StyledModal>
+        </Modal>
     );
 };
