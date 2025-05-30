@@ -59,17 +59,21 @@ def request_call(
     username: Optional[str] = None,
     password: Optional[str] = None,
     proxies: Optional[dict] = None,
+    verify_ssl: bool = True,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
     if username is not None and password is not None:
         return requests.get(
-            url, headers=headers, auth=HTTPBasicAuth(username, password)
+            url,
+            headers=headers,
+            auth=HTTPBasicAuth(username, password),
+            verify=verify_ssl,
         )
     elif token is not None:
         headers["Authorization"] = f"{token}"
-        return requests.get(url, proxies=proxies, headers=headers)
+        return requests.get(url, proxies=proxies, headers=headers, verify=verify_ssl)
     else:
-        return requests.get(url, headers=headers)
+        return requests.get(url, headers=headers, verify=verify_ssl)
 
 
 def get_swag_json(
@@ -79,10 +83,16 @@ def get_swag_json(
     password: Optional[str] = None,
     swagger_file: str = "",
     proxies: Optional[dict] = None,
+    verify_ssl: bool = True,
 ) -> Dict:
     tot_url = url + swagger_file
     response = request_call(
-        url=tot_url, token=token, username=username, password=password, proxies=proxies
+        url=tot_url,
+        token=token,
+        username=username,
+        password=password,
+        proxies=proxies,
+        verify_ssl=verify_ssl,
     )
 
     if response.status_code != 200:
@@ -358,6 +368,7 @@ def get_tok(
     tok_url: str = "",
     method: str = "post",
     proxies: Optional[dict] = None,
+    verify_ssl: bool = True,
 ) -> str:
     """
     Trying to post username/password to get auth.
@@ -368,7 +379,7 @@ def get_tok(
         # this will make a POST call with username and password
         data = {"username": username, "password": password, "maxDuration": True}
         # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, proxies=proxies, json=data)
+        response = requests.post(url4req, proxies=proxies, json=data, verify=verify_ssl)
         if response.status_code == 200:
             cont = json.loads(response.content)
             if "token" in cont:  # other authentication scheme
@@ -377,7 +388,7 @@ def get_tok(
                 token = f"Bearer {cont['tokens']['access']}"
     elif method == "get":
         # this will make a GET call with username and password
-        response = requests.get(url4req)
+        response = requests.get(url4req, verify=verify_ssl)
         if response.status_code == 200:
             cont = json.loads(response.content)
             token = cont["token"]

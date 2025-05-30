@@ -132,6 +132,7 @@
         ]
     },
     "devDependencies": {
+        "@codecov/vite-plugin": "^1.9.0",
         "@graphql-codegen/cli": "^5.0.0",
         "@graphql-codegen/near-operation-file-preset": "^1.17.13",
         "@graphql-codegen/typescript-operations": "1.17.13",
@@ -171,7 +172,7 @@
         "prettier": "^3.5.3",
         "source-map-explorer": "^2.5.2",
         "storybook": "^8.1.11",
-        "vite": "^4.5.11",
+        "vite": "^4.5.14",
         "vite-plugin-babel-macros": "^1.0.6",
         "vite-plugin-static-copy": "^0.17.0",
         "vite-plugin-svgr": "^4.1.0",

@@ -1,0 +1,106 @@
+import { Table } from '@components';
+import React from 'react';
+import styled from 'styled-components/macro';
+
+import {
+    ActionsColumn,
+    LastExecutionColumn,
+    NameColumn,
+    ScheduleColumn,
+    StatusColumn,
+} from '@app/ingestV2/source/IngestionSourceTableColumns';
+import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+
+import { IngestionSource } from '@types';
+
+const StyledTable = styled(Table)`
+    table-layout: fixed;
+`;
+
+interface Props {
+    sources: IngestionSource[];
+    setFocusExecutionUrn: (urn: string) => void;
+    onExecute: (urn: string) => void;
+    onEdit: (urn: string) => void;
+    onView: (urn: string) => void;
+    onDelete: (urn: string) => void;
+}
+
+function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit, onView, onDelete }: Props) {
+    const tableData = sources.map((source) => ({
+        urn: source.urn,
+        type: source.type,
+        name: source.name,
+        platformUrn: source.platform?.urn,
+        schedule: source.schedule?.interval,
+        timezone: source.schedule?.timezone,
+        execCount: source.executions?.total || 0,
+        lastExecUrn: source.executions?.executionRequests?.[0]?.urn,
+        lastExecTime: source.executions?.executionRequests?.[0]?.result?.startTimeMs,
+        lastExecStatus:
+            source.executions?.executionRequests?.[0]?.result &&
+            getIngestionSourceStatus(source.executions.executionRequests[0].result),
+        cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
+    }));
+
+    const tableColumns = [
+        {
+            title: 'Name',
+            key: 'name',
+            render: (record) => {
+                return <NameColumn type={record.type} record={record} />;
+            },
+            width: '30%',
+        },
+        {
+            title: 'Schedule',
+            key: 'schedule',
+            render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
+            width: '15%',
+        },
+        {
+            title: 'Last Run',
+            key: 'lastRun',
+            render: (record) => <LastExecutionColumn time={record.lastExecTime ?? 0} />,
+            width: '15%',
+        },
+        {
+            title: 'Status',
+            key: 'status',
+            render: (record) => (
+                <StatusColumn
+                    status={record.lastExecStatus}
+                    record={record}
+                    setFocusExecutionUrn={setFocusExecutionUrn}
+                />
+            ),
+            width: '15%',
+        },
+        {
+            title: 'Owner',
+            key: 'owner',
+            render: () => <></>,
+            width: '15%',
+        },
+
+        {
+            title: '',
+            key: 'actions',
+            render: (record) => (
+                <ActionsColumn
+                    record={record}
+                    setFocusExecutionUrn={setFocusExecutionUrn}
+                    onExecute={onExecute}
+                    onDelete={onDelete}
+                    onView={onView}
+                    onEdit={onEdit}
+                />
+            ),
+            width: '100px',
+        },
+    ];
+
+    return <StyledTable columns={tableColumns} data={tableData} isScrollable />;
+}
+
+export default IngestionSourceTable;

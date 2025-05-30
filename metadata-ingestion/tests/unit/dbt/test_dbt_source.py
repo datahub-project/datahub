@@ -61,7 +61,7 @@ def create_mocked_dbt_source() -> DBTCoreSource:
         ["non_dbt_existing", "dbt:existing"]
     )
     ctx.graph = graph
-    return DBTCoreSource(DBTCoreConfig(**create_base_dbt_config()), ctx, "dbt")
+    return DBTCoreSource(DBTCoreConfig(**create_base_dbt_config()), ctx)
 
 
 def create_base_dbt_config() -> Dict:
@@ -268,7 +268,7 @@ def test_dbt_prefer_sql_parser_lineage_no_self_reference():
             "prefer_sql_parser_lineage": True,
         }
     )
-    source: DBTCoreSource = DBTCoreSource(config, ctx, "dbt")
+    source: DBTCoreSource = DBTCoreSource(config, ctx)
     all_nodes_map = {
         "model1": DBTNode(
             name="model1",
@@ -277,7 +277,7 @@ def test_dbt_prefer_sql_parser_lineage_no_self_reference():
             alias=None,
             comment="",
             description="",
-            language=None,
+            language="sql",
             raw_code=None,
             dbt_adapter="postgres",
             dbt_name="model1",
@@ -298,6 +298,39 @@ def test_dbt_prefer_sql_parser_lineage_no_self_reference():
     )
     assert upstream_lineage is not None
     assert len(upstream_lineage.upstreams) == 1
+
+
+def test_dbt_cll_skip_python_model() -> None:
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.parse_obj(create_base_dbt_config())
+    source: DBTCoreSource = DBTCoreSource(config, ctx)
+    all_nodes_map = {
+        "model1": DBTNode(
+            name="model1",
+            database=None,
+            schema=None,
+            alias=None,
+            comment="",
+            description="",
+            language="python",
+            raw_code=None,
+            dbt_adapter="postgres",
+            dbt_name="model1",
+            dbt_file_path=None,
+            dbt_package_name=None,
+            node_type="model",
+            materialization="table",
+            max_loaded_at=None,
+            catalog_type=None,
+            missing_from_catalog=False,
+            owner=None,
+            compiled_code="import pandas as pd\n# Other processing here...",
+        ),
+    }
+    source._infer_schemas_and_update_cll(all_nodes_map)
+    assert len(source.report.sql_parser_skipped_non_sql_model) == 1
+
+    # TODO: Also test that table-level lineage is still created.
 
 
 def test_dbt_s3_config():
@@ -526,8 +559,8 @@ def test_extract_dbt_entities():
         catalog_path="tests/unit/dbt/artifacts/catalog.json",
         target_platform="dummy",
     )
-    source = DBTCoreSource(config, ctx, "dbt")
+    source = DBTCoreSource(config, ctx)
     assert all(node.database is not None for node in source.loadManifestAndCatalog()[0])
     config.include_database_name = False
-    source = DBTCoreSource(config, ctx, "dbt")
+    source = DBTCoreSource(config, ctx)
     assert all(node.database is None for node in source.loadManifestAndCatalog()[0])

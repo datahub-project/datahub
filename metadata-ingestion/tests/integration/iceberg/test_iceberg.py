@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 from freezegun import freeze_time
 
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 from tests.test_helpers.state_helpers import (

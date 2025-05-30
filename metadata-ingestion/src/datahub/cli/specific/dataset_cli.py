@@ -12,6 +12,7 @@ from click_default_group import DefaultGroup
 from datahub.api.entities.dataset.dataset import Dataset, DatasetRetrievalConfig
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
+from datahub.ingestion.graph.config import ClientMode
 from datahub.metadata.com.linkedin.pegasus2avro.common import Siblings
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -54,7 +55,7 @@ def get(urn: str, to_file: str) -> None:
     if not urn.startswith("urn:li:dataset:"):
         urn = f"urn:li:dataset:{urn}"
 
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         if graph.exists(urn):
             dataset: Dataset = Dataset.from_datahub(graph=graph, urn=urn)
             click.secho(
@@ -82,7 +83,7 @@ def add_sibling(urn: str, sibling_urns: Tuple[str]) -> None:
     all_urns.add(urn)
     for sibling_urn in sibling_urns:
         all_urns.add(sibling_urn)
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         for _urn in all_urns:
             _emit_sibling(graph, urn, _urn, all_urns)
 
@@ -181,7 +182,7 @@ def sync(file: str, to_datahub: bool, dry_run: bool) -> None:
     dry_run_prefix = "[dry-run]: " if dry_run else ""  # prefix to use in messages
 
     failures: List[str] = []
-    with get_default_graph() as graph:
+    with get_default_graph(ClientMode.CLI) as graph:
         datasets = Dataset.from_yaml(file)
         for dataset in datasets:
             assert (

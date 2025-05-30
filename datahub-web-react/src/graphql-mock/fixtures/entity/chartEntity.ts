@@ -47,8 +47,7 @@ export const chartEntity = (tool): Chart => {
         info: {
             name,
             description,
-            externalUrl:
-                'https://superset.demo.datahubproject.io/superset/explore/?form_data=%7B%22slice_id%22%3A%202%7D',
+            externalUrl: 'https://superset.demo.datahub.com/superset/explore/?form_data=%7B%22slice_id%22%3A%202%7D',
             type: ChartType.Pie,
             access: null,
             lastModified: { time: 1619137330, __typename: 'AuditStamp' },

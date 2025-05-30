@@ -4,7 +4,6 @@ import styled from 'styled-components';
 
 const Container = styled.div`
     display: flex;
-    align-items: center;
 `;
 
 const CardSkeleton = styled(Skeleton.Input)`
@@ -15,13 +14,16 @@ const CardSkeleton = styled(Skeleton.Input)`
     }
 `;
 
-export default function SearchFiltersLoadingSection() {
+interface Props {
+    noOfLoadingSkeletons?: number;
+}
+
+export default function SearchFiltersLoadingSection({ noOfLoadingSkeletons = 4 }: Props) {
     return (
         <Container>
-            <CardSkeleton active size="default" />
-            <CardSkeleton active size="default" />
-            <CardSkeleton active size="default" />
-            <CardSkeleton active size="default" />
+            {Array.from({ length: noOfLoadingSkeletons }).map(() => (
+                <CardSkeleton active size="default" />
+            ))}
         </Container>
     );
 }

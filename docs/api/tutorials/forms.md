@@ -27,7 +27,7 @@ For detailed information, please refer to [Datahub Quickstart Guide](/docs/quick
 <TabItem value="CLI" label="CLI">
 
 Install the relevant CLI version. Forms are available as of CLI version `0.13.1`. The corresponding DataHub Cloud release version is `v0.2.16.5`
-Connect to your instance via [init](https://datahubproject.io/docs/cli/#init):
+Connect to your instance via [init](https://docs.datahub.com/docs/cli/#init):
 
 1. Run `datahub init` to update the instance you want to load into
 2. Set the server to your sandbox instance, `https://{your-instance-address}/gms`

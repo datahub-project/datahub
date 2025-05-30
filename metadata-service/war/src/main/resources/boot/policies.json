@@ -193,7 +193,9 @@
         "MANAGE_STRUCTURED_PROPERTIES",
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_DOCUMENTATION_FORMS",
-        "MANAGE_FEATURES"
+        "MANAGE_FEATURES",
+        "MANAGE_SYSTEM_OPERATIONS",
+        "GET_PLATFORM_EVENTS"
       ],
       "displayName": "Admins - Platform Policy",
       "description": "Admins have all platform privileges.",
@@ -249,7 +251,6 @@
         "GET_TIMELINE_PRIVILEGE",
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
-        "CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "EDIT_ENTITY_PROPERTIES"
@@ -336,7 +337,8 @@
         "PRODUCE_PLATFORM_EVENT_PRIVILEGE",
         "MANAGE_DATA_PRODUCTS",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "EDIT_ENTITY_PROPERTIES"
+        "EDIT_ENTITY_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE"
       ],
       "displayName": "Editors - Metadata Policy",
       "description": "Editors have all metadata privileges.",
