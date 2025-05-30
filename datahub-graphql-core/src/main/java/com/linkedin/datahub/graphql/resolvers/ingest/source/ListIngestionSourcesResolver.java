@@ -54,71 +54,83 @@ public class ListIngestionSourcesResolver
       throw new AuthorizationException(
           "You are not authorized to list ingestion sources. Please contact your DataHub administrator.");
     }
-    final ListIngestionSourcesInput input =
-        bindArgument(environment.getArgument("input"), ListIngestionSourcesInput.class);
-    final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
-    final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
-    final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
-    final List<FacetFilterInput> filters =
-        input.getFilters() == null ? Collections.emptyList() : input.getFilters();
+          if (IngestionAuthUtils.canManageIngestion(context)) {
+      final ListIngestionSourcesInput input =
+          bindArgument(environment.getArgument("input"), ListIngestionSourcesInput.class);
+      final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();
+      final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
+      final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
+      final List<FacetFilterInput> filters =
+          input.getFilters() == null ? Collections.emptyList() : input.getFilters();
 
-    // construct sort criteria, defaulting to systemCreated
-    final SortCriterion sortCriterion;
+      // construct sort criteria, defaulting to systemCreated
+      List<SortCriterion> sortCriteria = buildSortCriteria(input.getSort());
 
-    // if query is expecting to sort by something, use that
-    final com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput = input.getSort();
-    if (sortCriterionInput != null) {
-      sortCriterion =
-          new SortCriterion()
-              .setField(sortCriterionInput.getField())
-              .setOrder(SortOrder.valueOf(sortCriterionInput.getSortOrder().name()));
-    } else {
+      return GraphQLConcurrencyUtils.supplyAsync(
+          () -> {
+            try {
+              // First, get all ingestion sources Urns.
+              final SearchResult gmsResult =
+                  _entityClient.search(
+                      context
+                          .getOperationContext()
+                          .withSearchFlags(flags -> flags.setFulltext(true)),
+                      Constants.INGESTION_SOURCE_ENTITY_NAME,
+                      query,
+                      buildFilter(filters, Collections.emptyList()),
+                      sortCriteria,
+                      start,
+                      count);
+
+              final List<Urn> entitiesUrnList =
+                  gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
+              // Then, resolve all ingestion sources
+              final Map<Urn, EntityResponse> entities =
+                  _entityClient.batchGetV2(
+                      context.getOperationContext(),
+                      Constants.INGESTION_SOURCE_ENTITY_NAME,
+                      new HashSet<>(entitiesUrnList),
+                      ImmutableSet.of(
+                          Constants.INGESTION_INFO_ASPECT_NAME,
+                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME));
+
+              final List<EntityResponse> entitiesOrdered =
+                  entitiesUrnList.stream().map(entities::get).filter(Objects::nonNull).toList();
+
+              // Now that we have entities we can bind this to a result.
+              final ListIngestionSourcesResult result = new ListIngestionSourcesResult();
+              result.setStart(gmsResult.getFrom());
+              result.setCount(gmsResult.getPageSize());
+              result.setTotal(gmsResult.getNumEntities());
+              result.setIngestionSources(
+                  IngestionResolverUtils.mapIngestionSources(entitiesOrdered));
+              return result;
+
+            } catch (Exception e) {
+              throw new RuntimeException("Failed to list ingestion sources", e);
+            }
+          },
+          this.getClass().getSimpleName(),
+          "get");
+    }
+  }
+
+  List<SortCriterion> buildSortCriteria(
+      com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput) {
+    if (sortCriterionInput == null) {
       // TODO: default to last executed
-      sortCriterion = null;
+      return null;
     }
 
-    return GraphQLConcurrencyUtils.supplyAsync(
-        () -> {
-          try {
-            // First, get all ingestion sources Urns.
-            final SearchResult gmsResult =
-                _entityClient.search(
-                    context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
-                    Constants.INGESTION_SOURCE_ENTITY_NAME,
-                    query,
-                    buildFilter(filters, Collections.emptyList()),
-                    sortCriterion != null ? List.of(sortCriterion) : null,
-                    start,
-                    count);
+    SortOrder order = SortOrder.valueOf(sortCriterionInput.getSortOrder().name());
 
-            final List<Urn> entitiesUrnList =
-                gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
-            // Then, resolve all ingestion sources
-            final Map<Urn, EntityResponse> entities =
-                _entityClient.batchGetV2(
-                    context.getOperationContext(),
-                    Constants.INGESTION_SOURCE_ENTITY_NAME,
-                    new HashSet<>(entitiesUrnList),
-                    ImmutableSet.of(
-                        Constants.INGESTION_INFO_ASPECT_NAME,
-                        Constants.INGESTION_SOURCE_KEY_ASPECT_NAME));
-
-            final List<EntityResponse> entitiesOrdered =
-                entitiesUrnList.stream().map(entities::get).filter(Objects::nonNull).toList();
-
-            // Now that we have entities we can bind this to a result.
-            final ListIngestionSourcesResult result = new ListIngestionSourcesResult();
-            result.setStart(gmsResult.getFrom());
-            result.setCount(gmsResult.getPageSize());
-            result.setTotal(gmsResult.getNumEntities());
-            result.setIngestionSources(IngestionResolverUtils.mapIngestionSources(entitiesOrdered));
-            return result;
-
-          } catch (Exception e) {
-            throw new RuntimeException("Failed to list ingestion sources", e);
-          }
-        },
-        this.getClass().getSimpleName(),
-        "get");
+    // For name field, sort by type first and then by name
+    if ("name".equals(sortCriterionInput.getField())) {
+      return List.of(
+          new SortCriterion().setField("type").setOrder(order),
+          new SortCriterion().setField("name").setOrder(order));
+    } else {
+      return List.of(new SortCriterion().setField(sortCriterionInput.getField()).setOrder(order));
+    }
   }
 }

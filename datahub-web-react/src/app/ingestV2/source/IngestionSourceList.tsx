@@ -5,8 +5,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { SortingState } from '@components/components/Table/types';
-
 import analytics, { EventType } from '@app/analytics';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
@@ -19,6 +17,7 @@ import { useCommandS } from '@app/ingestV2/source/hooks';
 import {
     CLI_EXECUTOR_ID,
     addToListIngestionSourcesCache,
+    getSortInput,
     removeFromListIngestionSourcesCache,
 } from '@app/ingestV2/source/utils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -33,7 +32,7 @@ import {
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '@types';
+import { IngestionSource, SortCriterion, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -436,14 +435,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     };
 
     const onChangeSort = (field, order) => {
-        setSort(
-            order !== SortingState.ORIGINAL
-                ? {
-                      sortOrder: order === SortingState.ASCENDING ? SortOrder.Ascending : SortOrder.Descending,
-                      field,
-                  }
-                : undefined,
-        );
+        setSort(getSortInput(field, order));
     };
 
     const handleSearch = (value: string) => {
