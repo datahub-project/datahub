@@ -137,37 +137,45 @@ def get_endpoints(sw_dict: dict) -> dict:
     check_sw_version(sw_dict)
 
     for p_k, p_o in sw_dict["paths"].items():
-        method = list(p_o)[0]
-        if "200" in p_o[method]["responses"]:
-            base_res = p_o[method]["responses"]["200"]
-        elif 200 in p_o[method]["responses"]:
-            # if you read a plain yml file the 200 will be an integer
-            base_res = p_o[method]["responses"][200]
-        else:
-            # the endpoint does not have a 200 response
-            continue
+        for method, method_spec in p_o.items():
+            # skip non-method keys like "parameters"
+            if method.lower() not in [
+                "get",
+                "post",
+                "put",
+                "delete",
+                "patch",
+                "options",
+                "head",
+            ]:
+                continue
 
-        if "description" in p_o[method]:
-            desc = p_o[method]["description"]
-        elif "summary" in p_o[method]:
-            desc = p_o[method]["summary"]
-        else:  # still testing
-            desc = ""
+            responses = method_spec.get("responses", {})
+            base_res = responses.get("200") or responses.get(200)
+            if not base_res:
+                # if there is no 200 response, we skip this method
+                continue
 
-        try:
-            tags = p_o[method]["tags"]
-        except KeyError:
-            tags = []
+            # if the description is not present, we will use the summary
+            # if both are not present, we will use an empty string
+            desc = method_spec.get("description") or method_spec.get("summary", "")
 
-        url_details[p_k] = {"description": desc, "tags": tags, "method": method}
+            # if the tags are not present, we will use an empty list
+            tags = method_spec.get("tags", [])
 
-        example_data = check_for_api_example_data(base_res, p_k)
-        if example_data:
-            url_details[p_k]["data"] = example_data
+            url_details[p_k] = {
+                "description": desc,
+                "tags": tags,
+                "method": method.upper(),
+            }
 
-        # checking whether there are defined parameters to execute the call...
-        if "parameters" in p_o[method]:
-            url_details[p_k]["parameters"] = p_o[method]["parameters"]
+            example_data = check_for_api_example_data(base_res, p_k)
+            if example_data:
+                url_details[p_k]["data"] = example_data
+
+            # checking whether there are defined parameters to execute the call...
+            if "parameters" in p_o[method]:
+                url_details[p_k]["parameters"] = p_o[method]["parameters"]
 
     return dict(sorted(url_details.items()))
 
