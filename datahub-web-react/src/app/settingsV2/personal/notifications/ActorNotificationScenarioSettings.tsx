@@ -20,7 +20,8 @@ import {
     buildNotificationSettingsMap,
     updateNotificationTypeParams,
 } from '@app/settingsV2/notifications/utils';
-import { GROUP_NOTIFICATION_GROUPS, USER_NOTIFICATION_GROUPS } from '@app/settingsV2/personal/notifications/types';
+import useGroupNotificationGroups from '@app/settingsV2/personal/notifications/hooks/useGroupNotificationGroups';
+import useUserNotificationGroups from '@app/settingsV2/personal/notifications/hooks/useUserNotificationGroups';
 import { isSinkEnabled } from '@app/settingsV2/personal/notifications/utils';
 import { Message } from '@app/shared/Message';
 import { useAppConfig } from '@app/useAppConfig';
@@ -75,6 +76,9 @@ export const ActorNotificationScenarioSettings = ({
 
     const [updateUserNotificationSettings] = useUpdateUserNotificationSettingsMutation();
     const [updateGroupNotificationSettings] = useUpdateGroupNotificationSettingsMutation();
+
+    const userNotificationGroups = useUserNotificationGroups(config);
+    const groupNotificationGroups = useGroupNotificationGroups(config);
 
     // Extract the notification settings and format them for easier access.
     const formattedNotificationSettings = useMemo(
@@ -166,9 +170,7 @@ export const ActorNotificationScenarioSettings = ({
                 </ScenarioSettingsHeader>
                 <ThinDivider />
                 <NotificationSettingsGroup
-                    notifications={
-                        actorType === EntityType.CorpUser ? USER_NOTIFICATION_GROUPS : GROUP_NOTIFICATION_GROUPS
-                    }
+                    notifications={actorType === EntityType.CorpUser ? userNotificationGroups : groupNotificationGroups}
                     formattedNotificationSettings={formattedNotificationSettings}
                     originalSettings={actorNotificationSettings?.settings || []}
                     updateNotficationSettings={updateActorNotificationSettings}

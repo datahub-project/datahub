@@ -944,6 +944,11 @@ enum NotificationScenarioType {
   Notification when an assertion's status changes.
   """
   ASSERTION_STATUS_CHANGE
+
+  """
+  Notification when a compliance form is published.
+  """
+  COMPLIANCE_FORM_PUBLISH
 }
 
 """

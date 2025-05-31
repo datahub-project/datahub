@@ -34,16 +34,24 @@ const USER_PROPOSAL_NOTIFICATIONS = [
     },
 ];
 
-export const USER_NOTIFICATION_GROUPS = [
+const USER_COMPLIANCE_FORMS_NOTIFICATIONS = [
     {
-        title: 'Proposals',
-        notifications: USER_PROPOSAL_NOTIFICATIONS,
+        type: NotificationScenarioType.ComplianceFormPublish,
+        description: 'A form to which you are assigned is published',
     },
 ];
 
-export const GROUP_NOTIFICATION_GROUPS = [
-    {
-        title: 'Proposals',
-        notifications: GROUP_PROPOSAL_NOTIFICATIONS,
-    },
-];
+export const USER_PROPOSAL_NOTIFICATIONS_GROUP = {
+    title: 'Proposals',
+    notifications: USER_PROPOSAL_NOTIFICATIONS,
+};
+
+export const USER_COMPLIANCE_FORMS_NOTIFICATIONS_GROUP = {
+    title: 'Compliance Forms',
+    notifications: USER_COMPLIANCE_FORMS_NOTIFICATIONS,
+};
+
+export const GROUP_PROPOSAL_NOTIFICATIONS_GROUP = {
+    title: 'Proposals',
+    notifications: GROUP_PROPOSAL_NOTIFICATIONS,
+};
