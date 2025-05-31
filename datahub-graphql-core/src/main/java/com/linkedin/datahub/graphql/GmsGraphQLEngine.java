@@ -730,6 +730,7 @@ public class GmsGraphQLEngine {
     configureMLFeatureTableResolvers(builder);
     configureGlossaryRelationshipResolvers(builder);
     configureIngestionSourceResolvers(builder);
+    configureExecutionRequestInputResolvers(builder);
     configureAnalyticsResolvers(builder);
     configureContainerResolvers(builder);
     configureDataPlatformInstanceResolvers(builder);
@@ -3403,6 +3404,20 @@ public class GmsGraphQLEngine {
                               ? ingestionSource.getPlatform().getUrn()
                               : null;
                         })));
+  }
+
+  private void configureExecutionRequestInputResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "ExecutionRequestInput",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "actor",
+                new LoadableTypeResolver<>(
+                    corpUserType,
+                    (env) -> {
+                      final ExecutionRequestInput executionRequestInput = env.getSource();
+                      return executionRequestInput.getActorUrn();
+                    })));
   }
 
   private void configureIncidentResolvers(final RuntimeWiring.Builder builder) {

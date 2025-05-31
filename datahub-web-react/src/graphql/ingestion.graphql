@@ -91,9 +91,23 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                 input {
                     executorId
                     requestedAt
-                    actorUrn
                     source {
                         type
+                    }
+                    actor {
+                        urn
+                        type
+                        username
+                        properties {
+                            displayName
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableProperties {
+                            displayName
+                            pictureLink
+                        }
                     }
                 }
                 result {

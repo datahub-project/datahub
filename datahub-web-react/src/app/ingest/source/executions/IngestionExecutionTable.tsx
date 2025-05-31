@@ -11,10 +11,9 @@ import {
 } from '@app/ingest/source/executions/IngestionExecutionTableColumns';
 import { SUCCESS, getIngestionSourceStatus } from '@app/ingest/source/utils';
 import { formatDuration } from '@app/shared/formatDuration';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';
 
-import { EntityType, ExecutionRequest } from '@types';
+import { ExecutionRequest } from '@types';
 
 const PaginationInfoContainer = styled.span`
     padding: 8px;
@@ -62,7 +61,6 @@ export default function IngestionExecutionTable({
     lastResultIndex,
     page,
 }: Props) {
-    const entityRegistry = useEntityRegistry();
     const tableColumns = [
         {
             title: 'Requested At',
@@ -94,16 +92,7 @@ export default function IngestionExecutionTable({
             title: 'Source',
             dataIndex: 'source',
             key: 'source',
-            render: (_, record: any) => (
-                <SourceColumn
-                    source={record.source}
-                    actor={{
-                        actorUrn: record.actorUrn,
-                        displayName: record?.actorUrn?.split(':')?.slice(-1)?.[0] || '',
-                        displayUrl: entityRegistry.getEntityUrl(EntityType.CorpUser, record.actorUrn),
-                    }}
-                />
-            ),
+            render: (_, record: any) => <SourceColumn source={record.source} actor={record.actor} />,
         },
         {
             title: '',
@@ -125,7 +114,7 @@ export default function IngestionExecutionTable({
 
     const tableData = executionRequests.map((execution) => ({
         urn: execution.urn,
-        actorUrn: execution.input.actorUrn,
+        actor: execution.input.actor,
         id: execution.id,
         source: execution.input.source.type,
         requestedAt: execution.input?.requestedAt,

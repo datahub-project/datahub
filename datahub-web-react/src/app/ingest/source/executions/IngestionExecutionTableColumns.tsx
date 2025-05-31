@@ -1,10 +1,10 @@
 import { CopyOutlined } from '@ant-design/icons';
-import { Text, Tooltip } from '@components';
+import { Tooltip } from '@components';
 import { Button, Typography } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import UserWithAvatar from '@app/entity/shared/components/styled/UserWithAvatar';
 import {
     CLI_INGESTION_SOURCE,
     MANUAL_INGESTION_SOURCE,
@@ -15,14 +15,8 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
 } from '@app/ingest/source/utils';
-import { CreatedByContainer } from '@src/app/govern/structuredProperties/styledComponents';
-import CustomAvatar from '@src/app/shared/avatar/CustomAvatar';
 
-type Actor = {
-    actorUrn: string;
-    displayName: string;
-    displayUrl: string;
-};
+import { CorpUser } from '@types';
 
 const UserContainer = styled.div`
     display: flex;
@@ -70,30 +64,19 @@ export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusCol
     );
 }
 
-// TODO: This will be soon exported into a component
-const UserPill = ({ actor }: { actor: Actor }) => (
-    <Link to={actor?.displayUrl}>
-        <CreatedByContainer>
-            <CustomAvatar size={16} name={actor?.displayName} hideTooltip />
-            <Text type="div" color="gray" size="sm" weight="semiBold">
-                {actor?.displayName}
-            </Text>
-        </CreatedByContainer>
-    </Link>
-);
-
 interface SourceColumnProps {
     source: string;
-    actor?: Actor;
+    actor?: CorpUser;
 }
 
 export function SourceColumn({ source, actor }: SourceColumnProps) {
     switch (source) {
         case MANUAL_INGESTION_SOURCE:
             if (!actor) return <>Manual Execution</>;
+
             return (
                 <UserContainer>
-                    Manual Execution by <UserPill actor={actor} />
+                    Manual Execution by <UserWithAvatar user={actor} />
                 </UserContainer>
             );
 
