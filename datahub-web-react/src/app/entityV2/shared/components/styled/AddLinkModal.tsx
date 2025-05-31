@@ -116,7 +116,6 @@ export const AddLinkModal = ({ buttonProps, refetch, buttonType }: AddLinkProps)
                             },
                             {
                                 type: 'url',
-                                warningOnly: true,
                                 message: 'This field must be a valid url.',
                             },
                         ]}
