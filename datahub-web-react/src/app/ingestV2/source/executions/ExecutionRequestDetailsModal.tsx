@@ -1,5 +1,6 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Modal, Typography, message } from 'antd';
+import { Icon, Modal, Pill } from '@components';
+import { Button, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import YAML from 'yamljs';
@@ -24,11 +25,6 @@ import { Message } from '@app/shared/Message';
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 import { ExecutionRequestResult } from '@types';
 
-const StyledTitle = styled(Typography.Title)`
-    padding: 0px;
-    margin: 0px;
-`;
-
 const Section = styled.div`
     display: flex;
     flex-direction: column;
@@ -52,8 +48,6 @@ const SectionSubHeader = styled.div`
 const SubHeaderParagraph = styled(Typography.Paragraph)`
     margin-bottom: 0px;
 `;
-
-const HeaderSection = styled.div``;
 
 const StatusSection = styled.div`
     border-bottom: 1px solid ${ANTD_GRAY[4]};
@@ -144,11 +138,17 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     });
 
     const ResultIcon = status && getExecutionRequestStatusIcon(status);
-    const resultColor = status && getExecutionRequestStatusDisplayColor(status);
+    const resultColor = status ? getExecutionRequestStatusDisplayColor(status) : 'gray';
     const resultText = status && (
         <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
-            {ResultIcon && <ResultIcon style={{ marginRight: 4 }} />}
-            {getExecutionRequestStatusDisplayText(status)}
+            {ResultIcon && (
+                <Pill
+                    customIconRenderer={() => <Icon icon={ResultIcon} source="phosphor" size="lg" />}
+                    label={getExecutionRequestStatusDisplayText(status)}
+                    color={resultColor}
+                    size="md"
+                />
+            )}
         </Typography.Text>
     );
 
@@ -173,19 +173,15 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     return (
         <Modal
             width={800}
-            footer={<Button onClick={onClose}>Close</Button>}
             style={modalStyle}
             bodyStyle={modalBodyStyle}
-            title={
-                <HeaderSection>
-                    <StyledTitle level={4}>Sync Details</StyledTitle>
-                </HeaderSection>
-            }
+            title="Execution Run Details"
             open={open}
             onCancel={onClose}
+            buttons={[{ text: 'Close', variant: 'outline', onClick: onClose }]}
         >
-            {!data && loading && <Message type="loading" content="Loading sync details..." />}
-            {error && message.error('Failed to load sync details :(')}
+            {!data && loading && <Message type="loading" content="Loading execution run details..." />}
+            {error && message.error('Failed to load execution run details :(')}
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>
