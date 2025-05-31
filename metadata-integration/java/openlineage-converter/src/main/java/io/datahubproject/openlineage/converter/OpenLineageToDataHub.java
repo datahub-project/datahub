@@ -91,6 +91,8 @@ public class OpenLineageToDataHub {
   public static final String URN_LI_CORPUSER = "urn:li:corpuser:";
   public static final String URN_LI_CORPUSER_DATAHUB = URN_LI_CORPUSER + "datahub";
   public static final String URN_LI_DATA_PROCESS_INSTANCE = "urn:li:dataProcessInstance:";
+  public static final String MERGE_INTO_COMMAND = "execute_merge_into";
+  public static final String MERGE_INTO_COMMAND_EDGE = MERGE_INTO_COMMAND + "_command_edge";
 
   public static final Map<String, String> PLATFORM_MAP =
       Stream.of(
@@ -645,118 +647,33 @@ public class OpenLineageToDataHub {
     DataJobInfo dji = new DataJobInfo();
 
     log.debug("Datahub Config: {}", datahubConf);
-    
+
     // Check if we have a MERGE INTO command
-    boolean isMergeIntoCommand = job.getName().contains("execute_merge_into_command_edge");
+    boolean isMergeIntoCommand = job.getName().contains(MERGE_INTO_COMMAND_EDGE);
     String tableName = null;
-    
-    // If this is a MERGE INTO command and enhanced extraction is enabled, try to extract the target table name
+
+    // If this is a MERGE INTO command and enhanced extraction is enabled, try to extract the target
+    // table name
     if (isMergeIntoCommand && datahubConf.isEnhancedMergeIntoExtraction()) {
       log.info("Detected MERGE INTO command in job: {} - using enhanced extraction", job.getName());
-      
-      // Method 1: Check for table name in the SQL facet (most reliable)
-      if (job.getFacets() != null && job.getFacets().getSql() != null) {
-        String sqlQuery = job.getFacets().getSql().getQuery();
-        if (sqlQuery != null && sqlQuery.toUpperCase().contains("MERGE INTO")) {
-          // Extract table name from the MERGE INTO SQL statement
-          String[] lines = sqlQuery.split("\n");
-          for (String line : lines) {
-            line = line.trim();
-            if (line.toUpperCase().startsWith("MERGE INTO")) {
-              // Format: MERGE INTO schema.table target
-              String[] parts = line.split("\\s+");
-              if (parts.length >= 3) {
-                tableName = parts[2].replace("`", "").trim();
-                // If there's an alias (target/t/etc.), remove it
-                int spaceIndex = tableName.indexOf(' ');
-                if (spaceIndex > 0) {
-                  tableName = tableName.substring(0, spaceIndex);
-                }
-                log.info("Extracted table name from SQL: {}", tableName);
-                break;
-              }
-            }
-          }
-        }
-      }
-      
-      // Method 2: Look for direct table names in the outputs
-      if (tableName == null && event.getOutputs() != null) {
-        for (OpenLineage.OutputDataset output : event.getOutputs()) {
-          // First check if the name itself is a table name (e.g., "delta_demo.customers")
-          String name = output.getName();
-          if (name != null && name.contains(".") && !name.startsWith("/")) {
-            tableName = name;
-            log.info("Using table name directly from output dataset name: {}", tableName);
-            break;
-          }
-        }
-      }
-      
-      // Method 3: Check for table identifiers in symlinks
-      if (tableName == null && event.getOutputs() != null) {
-        for (OpenLineage.OutputDataset output : event.getOutputs()) {
-          if (output.getFacets() != null && output.getFacets().getSymlinks() != null) {
-            for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink : 
-                 output.getFacets().getSymlinks().getIdentifiers()) {
-              if ("TABLE".equals(symlink.getType())) {
-                String name = symlink.getName();
-                if (name != null) {
-                  // Handle table/name format
-                  if (name.startsWith("table/")) {
-                    name = name.replaceFirst("table/", "").replace("/", ".");
-                  }
-                  tableName = name;
-                  log.info("Extracted table name from symlink: {}", tableName);
-                  break;
-                }
-              }
-            }
-            if (tableName != null) break;
-          }
-        }
-      }
-      
-      // Method 4: Extract table name from warehouse paths (as a last resort)
-      if (tableName == null && event.getOutputs() != null) {
-        for (OpenLineage.OutputDataset output : event.getOutputs()) {
-          String path = output.getName();
-          if (path != null && path.contains("/warehouse/")) {
-            // Extract table name from warehouse path pattern /warehouse/db.name/ or similar
-            if (path.contains(".db/")) {
-              int dbIndex = path.lastIndexOf(".db/");
-              String tablePart = path.substring(dbIndex + 4);
-              // Remove trailing slashes
-              tablePart = tablePart.replaceAll("/+$", "");
-              // Construct the full table name including db
-              int warehouseIndex = path.lastIndexOf("/warehouse/");
-              if (warehouseIndex >= 0) {
-                String dbPart = path.substring(warehouseIndex + 11, dbIndex);
-                tableName = dbPart + "." + tablePart;
-                log.info("Extracted table name from warehouse path: {}", tableName);
-                break;
-              }
-            }
-          }
-        }
-      }
+      tableName = extractTableNameFromMergeIntoCommand(job, event);
     }
-    
+
     // Prepare job names - one for display and one for the URN
     String jobNameForDisplay = job.getName();
     String jobNameForUrn = job.getName();
-    
+
     // If this is a merge command with an identified table, include the table name
     if (isMergeIntoCommand && tableName != null && datahubConf.isEnhancedMergeIntoExtraction()) {
       // Create modified job names that include the table name
       String tablePart = tableName.replace(".", "_").replace(" ", "_").toLowerCase();
-      String enhancedJobName = job.getName() + "." + tablePart;
-      
+      String enhancedJobName = MERGE_INTO_COMMAND + "_" + tablePart;
+
       log.info("Modified job name for MERGE INTO: {} -> {}", job.getName(), enhancedJobName);
-      
+
       // Use the enhanced name for URN
       jobNameForUrn = enhancedJobName;
-      
+
       // For display name, first add the table part, then remove everything before first dot
       jobNameForDisplay = enhancedJobName;
       if (jobNameForDisplay.contains(".")) {
@@ -766,7 +683,7 @@ public class OpenLineageToDataHub {
       // Normal case - use part after the dot for display only
       jobNameForDisplay = job.getName().substring(job.getName().indexOf(".") + 1);
     }
-    
+
     // Set the display name
     dji.setName(jobNameForDisplay);
 
@@ -1132,5 +1049,106 @@ public class OpenLineageToDataHub {
 
     schemaMetadata.setFields(schemaFieldArray);
     return schemaMetadata;
+  }
+
+  /**
+   * Extracts the target table name from a MERGE INTO command using multiple methods.
+   *
+   * @param job The OpenLineage job object
+   * @param event The OpenLineage run event
+   * @return The extracted table name or null if not found
+   */
+  private static String extractTableNameFromMergeIntoCommand(
+      OpenLineage.Job job, OpenLineage.RunEvent event) {
+    String tableName = null;
+
+    // Method 1: Check for table name in the SQL facet (most reliable)
+    if (job.getFacets() != null && job.getFacets().getSql() != null) {
+      String sqlQuery = job.getFacets().getSql().getQuery();
+      if (sqlQuery != null && sqlQuery.toUpperCase().contains("MERGE INTO")) {
+        // Extract table name from the MERGE INTO SQL statement
+        String[] lines = sqlQuery.split("\n");
+        for (String line : lines) {
+          line = line.trim();
+          if (line.toUpperCase().startsWith("MERGE INTO")) {
+            // Format: MERGE INTO schema.table target
+            String[] parts = line.split("\\s+");
+            if (parts.length >= 3) {
+              tableName = parts[2].replace("`", "").trim();
+              // If there's an alias (target/t/etc.), remove it
+              int spaceIndex = tableName.indexOf(' ');
+              if (spaceIndex > 0) {
+                tableName = tableName.substring(0, spaceIndex);
+              }
+              log.info("Extracted table name from SQL: {}", tableName);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    // Method 2: Look for direct table names in the outputs
+    if (tableName == null && event.getOutputs() != null) {
+      for (OpenLineage.OutputDataset output : event.getOutputs()) {
+        // First check if the name itself is a table name (e.g., "delta_demo.customers")
+        String name = output.getName();
+        if (name != null && name.contains(".") && !name.startsWith("/")) {
+          tableName = name;
+          log.info("Using table name directly from output dataset name: {}", tableName);
+          break;
+        }
+      }
+    }
+
+    // Method 3: Check for table identifiers in symlinks
+    if (tableName == null && event.getOutputs() != null) {
+      for (OpenLineage.OutputDataset output : event.getOutputs()) {
+        if (output.getFacets() != null && output.getFacets().getSymlinks() != null) {
+          for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
+              output.getFacets().getSymlinks().getIdentifiers()) {
+            if ("TABLE".equals(symlink.getType())) {
+              String name = symlink.getName();
+              if (name != null) {
+                // Handle table/name format
+                if (name.startsWith("table/")) {
+                  name = name.replaceFirst("table/", "").replace("/", ".");
+                }
+                tableName = name;
+                log.info("Extracted table name from symlink: {}", tableName);
+                break;
+              }
+            }
+          }
+          if (tableName != null) break;
+        }
+      }
+    }
+
+    // Method 4: Extract table name from warehouse paths (as a last resort)
+    if (tableName == null && event.getOutputs() != null) {
+      for (OpenLineage.OutputDataset output : event.getOutputs()) {
+        String path = output.getName();
+        if (path != null && path.contains("/warehouse/")) {
+          // Extract table name from warehouse path pattern /warehouse/db.name/ or similar
+          if (path.contains(".db/")) {
+            int dbIndex = path.lastIndexOf(".db/");
+            String tablePart = path.substring(dbIndex + 4);
+            // Remove trailing slashes
+            tablePart = tablePart.replaceAll("/+$", "");
+            // Construct the full table name including db
+            int warehouseIndex = path.lastIndexOf("/warehouse/");
+            if (warehouseIndex >= 0) {
+              String dbPart = path.substring(warehouseIndex + 11, dbIndex);
+              tableName = dbPart + "." + tablePart;
+              log.info("Extracted table name from warehouse path: {}", tableName);
+              break;
+            }
+          }
+        }
+      }
+    }
+
+    return tableName;
   }
 }

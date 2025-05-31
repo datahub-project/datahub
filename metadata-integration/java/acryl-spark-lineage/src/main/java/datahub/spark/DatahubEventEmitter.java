@@ -170,10 +170,6 @@ public class DatahubEventEmitter extends EventEmitter {
       job.get().setFlowDomains(domains);
     }
 
-    if (isStreaming()) {
-      log.info("Streaming mode is enabled. Skipping lineage emission.");
-      return;
-    }
     if (!datahubConf.isCoalesceEnabled()) {
       log.info("Emitting lineage");
       try {

@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.scheduler.SparkListenerEvent;
+import org.apache.spark.sql.catalyst.catalog.CatalogTable;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 
 /**
@@ -127,14 +128,22 @@ public class DeltaMergeIntoCommandBuilder
         Method getCatalogTable = relation.getClass().getMethod("catalogTable");
         Object catalogTable = getCatalogTable.invoke(relation);
         if (catalogTable != null) {
-          try {
-            Method getIdentifier = catalogTable.getClass().getMethod("identifier");
-            Object identifier = getIdentifier.invoke(catalogTable);
-            if (identifier != null) {
-              return identifier.toString();
+          if (catalogTable instanceof CatalogTable) {
+            CatalogTable table = (CatalogTable) catalogTable;
+            if (table.identifier() != null) {
+              return table.identifier().toString();
             }
-          } catch (NoSuchMethodException e) {
-            // Skip if method doesn't exist
+          } else {
+            // Fallback to reflection if not the expected type
+            try {
+              Method getIdentifier = catalogTable.getClass().getMethod("identifier");
+              Object identifier = getIdentifier.invoke(catalogTable);
+              if (identifier != null) {
+                return identifier.toString();
+              }
+            } catch (NoSuchMethodException e) {
+              // Skip if method doesn't exist
+            }
           }
         }
       } catch (NoSuchMethodException e) {
