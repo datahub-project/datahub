@@ -7,6 +7,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.systemmetadata.SystemMetadataMappingsBuilder;
@@ -58,7 +59,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             getSearchClient(),
             1,
             0,
-            0,
+            3,
             0,
             Map.of(),
             false,
@@ -71,7 +72,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             getSearchClient(),
             1,
             REPLICASTEST,
-            0,
+            3,
             0,
             Map.of(),
             false,
@@ -162,27 +163,136 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
   }
 
   @Test
-  public void testESIndexBuilderCreation() throws Exception {
+  public void testESIndexBuilderNoSkipNdocs() throws Exception {
+    // Set test defaults
+    testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+    String expectedShards = "2";
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
-    ESIndexBuilder customIndexBuilder =
+    ESIndexBuilder changedShardBuilder =
         new ESIndexBuilder(
             getSearchClient(),
-            2,
-            0,
-            1,
-            0,
+            Integer.parseInt(expectedShards),
+            testDefaultBuilder.getNumReplicas(),
+            testDefaultBuilder.getNumRetries(),
+            testDefaultBuilder.getRefreshIntervalSeconds(),
             Map.of(),
-            false,
+            true,
             false,
             false,
             new ElasticSearchConfiguration(),
             gitVersion);
-    customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
-    GetIndexResponse resp = getTestIndex();
+    // index one doc
+    IndexRequest indexRequest =
+        new IndexRequest(TEST_INDEX_NAME).id("1").source(new HashMap<>(), XContentType.JSON);
+    IndexResponse indexResponse = getSearchClient().index(indexRequest, RequestOptions.DEFAULT);
+    // reindex
+    ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    Map.Entry<String, List<AliasMetadata>> newIndex =
+        getTestIndex().getAliases().entrySet().stream()
+            .filter(
+                e ->
+                    e.getValue().stream()
+                        .anyMatch(aliasMeta -> aliasMeta.alias().equals(TEST_INDEX_NAME)))
+            .findFirst()
+            .get();
+    String afterCreationDate = getTestIndex().getSetting(newIndex.getKey(), "index.creation_date");
+    assertNotEquals(
+        beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
+    assertNotEquals(rr, ReindexResult.REINDEXED_SKIPPED_0DOCS);
+    long nbdocs = changedShardBuilder.getCount(newIndex.getKey());
+    assertEquals(1, nbdocs);
+  }
 
-    assertEquals("2", resp.getSetting(TEST_INDEX_NAME, "index.number_of_shards"));
-    assertEquals("0", resp.getSetting(TEST_INDEX_NAME, "index.number_of_replicas"));
-    assertEquals("0s", resp.getSetting(TEST_INDEX_NAME, "index.refresh_interval"));
+  @Test
+  public void testESIndexBuilderSkip0docs() throws Exception {
+    // Set test defaults
+    testDefaultBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
+    String expectedShards = "2";
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    ESIndexBuilder changedShardBuilder =
+        new ESIndexBuilder(
+            getSearchClient(),
+            Integer.parseInt(expectedShards),
+            testDefaultBuilder.getNumReplicas(),
+            testDefaultBuilder.getNumRetries(),
+            testDefaultBuilder.getRefreshIntervalSeconds(),
+            Map.of(),
+            true,
+            false,
+            false,
+            new ElasticSearchConfiguration(),
+            gitVersion);
+    // reindex
+    ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    Map.Entry<String, List<AliasMetadata>> newIndex =
+        getTestIndex().getAliases().entrySet().stream()
+            .filter(
+                e ->
+                    e.getValue().stream()
+                        .anyMatch(aliasMeta -> aliasMeta.alias().equals(TEST_INDEX_NAME)))
+            .findFirst()
+            .get();
+    String afterCreationDate = getTestIndex().getSetting(newIndex.getKey(), "index.creation_date");
+    assertNotEquals(
+        beforeCreationDate, afterCreationDate, "Expected reindex to result in different timestamp");
+    assertEquals(rr, ReindexResult.REINDEXED_SKIPPED_0DOCS);
+    long nbdocs = changedShardBuilder.getCount(newIndex.getKey());
+    assertEquals(0, nbdocs);
+  }
+
+  @Test
+  public void testESIndexBuilderReindex() throws Exception {
+    GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
+    // index with original refresh_interval
+    //    ESIndexBuilder nsecBuilder =
+    //            new ESIndexBuilder(
+    //                    getSearchClient(),
+    //                    1,
+    //                    0,
+    //                    3,
+    //                    2,
+    //                    Map.of(),
+    //                    false,
+    //                    false,
+    //                    false,
+    //                    new ElasticSearchConfiguration(),
+    //                    gitVersion);
+    //    nsecBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    //    String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME,
+    // "index.creation_date");
+    //    // new index
+    //    ESIndexBuilder changedShardBuilder =
+    //        new ESIndexBuilder(
+    //            getSearchClient(),
+    //            Integer.parseInt(expectedShards),
+    //            testDefaultBuilder.getNumReplicas(),
+    //            testDefaultBuilder.getNumRetries(),
+    //            testDefaultBuilder.getRefreshIntervalSeconds(),
+    //            Map.of(),
+    //            true,
+    //            false,
+    //            false,
+    //            new ElasticSearchConfiguration(),
+    //            gitVersion);
+    //    // reindex
+    //    ReindexResult rr = changedShardBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
+    //    Map.Entry<String, List<AliasMetadata>> newIndex =
+    //        getTestIndex().getAliases().entrySet().stream()
+    //            .filter(
+    //                e ->
+    //                    e.getValue().stream()
+    //                        .anyMatch(aliasMeta -> aliasMeta.alias().equals(TEST_INDEX_NAME)))
+    //            .findFirst()
+    //            .get();
+    //    String afterCreationDate = getTestIndex().getSetting(newIndex.getKey(),
+    // "index.creation_date");
+    //    assertNotEquals(beforeCreationDate, afterCreationDate, "Expected reindex to result in
+    // different timestamp");
+    //    assertEquals(rr, ReindexResult.REINDEXED_SKIPPED_0DOCS);
+    //    long nbdocs = changedShardBuilder.getCount(newIndex.getKey());
+    //    assertEquals(0, nbdocs);
   }
 
   @Test

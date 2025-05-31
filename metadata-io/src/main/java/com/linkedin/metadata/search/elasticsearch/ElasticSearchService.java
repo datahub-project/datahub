@@ -40,7 +40,7 @@ import org.opensearch.action.search.SearchResponse;
 public class ElasticSearchService implements EntitySearchService, ElasticSearchIndexed {
   private final ESIndexBuilder indexBuilder;
   private final EntityRegistry entityRegistry;
-  @Getter private final IndexConvention indexConvention;
+  private final IndexConvention indexConvention;
   private final SettingsBuilder settingsBuilder;
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =

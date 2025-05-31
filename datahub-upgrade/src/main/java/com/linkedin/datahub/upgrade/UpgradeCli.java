@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.cron.SystemUpdateCron;
+import com.linkedin.datahub.upgrade.system.elasticsearch.ReindexDebug;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -16,11 +17,13 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
 
 @Slf4j
 @Component
+@DependsOn("reindexDebug")
 public class UpgradeCli implements CommandLineRunner {
 
   private static final class Args {
@@ -65,6 +68,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("systemUpdateCron")
   private SystemUpdateCron systemUpdateCron;
 
+  @Inject
+  @Named("reindexDebug")
+  private ReindexDebug reindexDebug;
+
   @Override
   public void run(String... cmdLineArgs) {
     _upgradeManager.register(restoreIndices);
@@ -81,6 +88,9 @@ public class UpgradeCli implements CommandLineRunner {
     }
     if (systemUpdateCron != null) {
       _upgradeManager.register(systemUpdateCron);
+    }
+    if (reindexDebug != null) {
+      _upgradeManager.register(reindexDebug);
     }
 
     final Args args = new Args();
