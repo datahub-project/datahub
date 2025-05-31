@@ -101,8 +101,6 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
 
     // Configure client to return empty response
     when(mockClient.search(any(SearchRequest.class), eq(RequestOptions.DEFAULT)))
-        .thenReturn(firstPageResponse)
-        .thenReturn(secondPageResponse)
         .thenReturn(emptyResponse);
 
     // Configure LineageRegistry mock
@@ -573,7 +571,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
         new GraphQueryConfiguration()
             .setTimeoutSeconds(10)
             .setBatchSize(25)
-            .setEnableMultiPathSearch(true); // Enable multiple paths
+            .setEnableMultiPathSearch(true) // Enable multiple paths
+            .setQueryOptimization(true);
 
     ElasticSearchConfiguration testESConfig =
         TEST_SEARCH_CONFIG.toBuilder()

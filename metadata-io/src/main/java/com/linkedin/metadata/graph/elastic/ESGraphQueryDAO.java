@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.elastic;
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.*;
 import static com.linkedin.metadata.search.utils.ESUtils.applyResultLimit;
+import static com.linkedin.metadata.search.utils.ESUtils.queryOptimize;
 
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.annotations.VisibleForTesting;
@@ -174,7 +175,7 @@ public class ESGraphQueryDAO {
     BoolQueryBuilder subFilter = QueryBuilders.boolQuery();
     TermQueryBuilder relationshipTypeTerm =
         QueryBuilders.termQuery(RELATIONSHIP_TYPE, pair.getValue().getType()).caseInsensitive(true);
-    subFilter.must(relationshipTypeTerm);
+    subFilter.filter(relationshipTypeTerm);
 
     String sourceType;
     String destinationType;
@@ -188,10 +189,10 @@ public class ESGraphQueryDAO {
 
     TermQueryBuilder sourceTypeTerm =
         QueryBuilders.termQuery(SOURCE_TYPE, sourceType).caseInsensitive(true);
-    subFilter.must(sourceTypeTerm);
+    subFilter.filter(sourceTypeTerm);
     TermQueryBuilder destinationTypeTerm =
         QueryBuilders.termQuery(DESTINATION_TYPE, destinationType).caseInsensitive(true);
-    subFilter.must(destinationTypeTerm);
+    subFilter.filter(destinationTypeTerm);
     return subFilter;
   }
 
@@ -257,6 +258,7 @@ public class ESGraphQueryDAO {
                   relationshipQuery.should(
                       QueryBuilders.termQuery(RELATIONSHIP_TYPE, relationshipType)));
       relationshipQuery.minimumShouldMatch(1);
+
       finalQuery.filter(relationshipQuery);
     }
 
@@ -1135,6 +1137,10 @@ public class ESGraphQueryDAO {
 
     Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
 
+    if (config.getSearch().getGraph().isQueryOptimization()) {
+      queryOptimize(baseQuery, false);
+    }
+
     // Get search responses as a stream with pagination
     Stream<SearchResponse> responseStream =
         executeGroupByLineageSearchQuery(
@@ -1162,16 +1168,16 @@ public class ESGraphQueryDAO {
   private static BoolQueryBuilder getOutGoingEdgeQuery(
       @Nonnull Set<Urn> urns, @Nonnull Set<EdgeInfo> outgoingEdges) {
     BoolQueryBuilder outgoingEdgeQuery = QueryBuilders.boolQuery();
-    outgoingEdgeQuery.must(buildUrnFilters(urns, SOURCE));
-    outgoingEdgeQuery.must(buildEdgeFilters(outgoingEdges));
+    outgoingEdgeQuery.filter(buildUrnFilters(urns, SOURCE));
+    outgoingEdgeQuery.filter(buildEdgeFilters(outgoingEdges));
     return outgoingEdgeQuery;
   }
 
   private static BoolQueryBuilder getIncomingEdgeQuery(
       @Nonnull Set<Urn> urns, Set<EdgeInfo> incomingEdges) {
     BoolQueryBuilder incomingEdgeQuery = QueryBuilders.boolQuery();
-    incomingEdgeQuery.must(buildUrnFilters(urns, DESTINATION));
-    incomingEdgeQuery.must(buildEdgeFilters(incomingEdges));
+    incomingEdgeQuery.filter(buildUrnFilters(urns, DESTINATION));
+    incomingEdgeQuery.filter(buildEdgeFilters(incomingEdges));
     return incomingEdgeQuery;
   }
 

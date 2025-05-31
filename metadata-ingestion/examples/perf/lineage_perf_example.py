@@ -406,7 +406,7 @@ if __name__ == "__main__":
         scenario_skip_complex,
     ]
     # Very long load time
-    # scenario_generators.add(scenario_perf)
+    # scenario_generators.append(scenario_perf)
 
     # Chain all generators into a single generator
     chained_generator = itertools.chain.from_iterable(

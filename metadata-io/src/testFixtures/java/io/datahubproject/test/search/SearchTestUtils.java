@@ -56,6 +56,8 @@ public class SearchTestUtils {
                           setBoostViaNodes(true);
                           setImpactMaxHops(1000);
                           setLineageMaxHops(20);
+                          setMaxThreads(1);
+                          setQueryOptimization(true);
                         }
                       });
                   setLimit(

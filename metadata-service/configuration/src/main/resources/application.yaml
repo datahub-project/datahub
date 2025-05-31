@@ -286,6 +286,8 @@ elasticsearch:
       graphStatusEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED:false} # enable soft delete tracking of the urns on edges
       lineageMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS:20} # the maximum hops to traverse lineage graph visualization
       impactMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
+      maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:32} # maximum parallel lineage graph queries
+      queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
 
 # TODO: Kafka topic convention
 kafka:

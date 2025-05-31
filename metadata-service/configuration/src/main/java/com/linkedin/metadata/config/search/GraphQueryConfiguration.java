@@ -33,4 +33,10 @@ public class GraphQueryConfiguration {
 
   /** Maximum impact analysis max hops */
   private int impactMaxHops;
+
+  /** Maximum threads used in lineage queries * */
+  private int maxThreads;
+
+  /** reduce query nesting * */
+  private boolean queryOptimization;
 }
