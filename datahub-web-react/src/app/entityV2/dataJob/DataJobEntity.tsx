@@ -26,7 +26,6 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
 import { DataJobFlowTab } from '@app/entityV2/shared/tabs/Entity/DataJobFlowTab';
-import TabNameWithCount from '@app/entityV2/shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '@app/entityV2/shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
@@ -141,9 +140,8 @@ export class DataJobEntity implements Entity<DataJob> {
                     name: 'Incidents',
                     icon: WarningCircle,
                     component: IncidentTab,
-                    getDynamicName: (_, dataJob, loading) => {
-                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents?.total;
-                        return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
+                    getCount: (_, dataJob) => {
+                        return dataJob?.dataJob?.activeIncidents?.total;
                     },
                 },
             ]}

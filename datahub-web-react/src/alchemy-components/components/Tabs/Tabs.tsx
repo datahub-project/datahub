@@ -7,7 +7,7 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { colors } from '@src/alchemy-components/theme';
 
-const StyledTabs = styled(AntTabs)`
+const StyledTabs = styled(AntTabs)<{ $removePaddingLeft?: boolean; $hideTabsHeader: boolean }>`
     flex: 1;
     overflow: hidden;
 
@@ -17,9 +17,26 @@ const StyledTabs = styled(AntTabs)`
         color: ${colors.gray[600]};
     }
 
-    .ant-tabs-tab + .ant-tabs-tab {
-        margin-left: 16px;
-    }
+    ${({ $removePaddingLeft }) =>
+        $removePaddingLeft
+            ? `
+            .ant-tabs-tab + .ant-tabs-tab {
+                margin-left: 16px;
+            }
+            `
+            : `
+            .ant-tabs-tab {
+                margin-left: 16px;
+            }
+        `}
+
+    ${({ $hideTabsHeader }) =>
+        $hideTabsHeader &&
+        `
+            .ant-tabs-nav {
+                display: none;
+            }
+        `}
 
     .ant-tabs-tab-active .ant-tabs-tab-btn {
         color: ${(props) => props.theme.styles['primary-color']};
@@ -43,16 +60,17 @@ const StyledTabs = styled(AntTabs)`
     }
 `;
 
-const TabViewWrapper = styled.div`
+const TabViewWrapper = styled.div<{ $disabled?: boolean }>`
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
+    ${({ $disabled }) => $disabled && `color: ${colors.gray[1800]};`}
 `;
 
 function TabView({ tab }: { tab: Tab }) {
     return (
         <Tooltip title={tab.tooltip}>
-            <TabViewWrapper id={tab.id}>
+            <TabViewWrapper id={tab.id} $disabled={tab.disabled} data-testid={tab.dataTestId}>
                 {tab.name}
                 {!!tab.count && <Pill label={`${tab.count}`} size="xs" color="violet" />}
             </TabViewWrapper>
@@ -68,15 +86,19 @@ export interface Tab {
     onSelectTab?: () => void;
     tooltip?: string;
     id?: string;
+    dataTestId?: string;
+    disabled?: boolean;
 }
 
 export interface Props {
     tabs: Tab[];
     selectedTab?: string;
     onChange?: (selectedTabKey: string) => void;
+    removePaddingLeft?: boolean;
+    hideTabsHeader?: boolean;
 }
 
-export function Tabs({ tabs, selectedTab, onChange }: Props) {
+export function Tabs({ tabs, selectedTab, onChange, removePaddingLeft, hideTabsHeader }: Props) {
     const { TabPane } = AntTabs;
 
     function handleTabClick(key: string) {
@@ -86,10 +108,15 @@ export function Tabs({ tabs, selectedTab, onChange }: Props) {
     }
 
     return (
-        <StyledTabs activeKey={selectedTab} onChange={handleTabClick}>
+        <StyledTabs
+            activeKey={selectedTab}
+            onChange={handleTabClick}
+            $removePaddingLeft={removePaddingLeft}
+            $hideTabsHeader={!!hideTabsHeader}
+        >
             {tabs.map((tab) => {
                 return (
-                    <TabPane tab={<TabView tab={tab} />} key={tab.key}>
+                    <TabPane tab={<TabView tab={tab} />} key={tab.key} disabled={tab.disabled}>
                         {tab.component}
                     </TabPane>
                 );
