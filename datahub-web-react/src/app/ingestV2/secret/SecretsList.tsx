@@ -1,11 +1,12 @@
 import { Icon, Pagination, SearchBar, Table, colors } from '@components';
-import { Empty, Modal, Typography, message } from 'antd';
+import { Typography, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import EmptySources from '@app/ingestV2/EmptySources';
 import { SecretBuilderModal } from '@app/ingestV2/secret/SecretBuilderModal';
 import {
     addSecretToListSecretsCache,
@@ -13,8 +14,8 @@ import {
     updateSecretInListSecretsCache,
 } from '@app/ingestV2/secret/cacheUtils';
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
-import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import {
     useCreateSecretMutation,
@@ -79,12 +80,6 @@ const TextContainer = styled(Typography.Text)`
     color: ${colors.gray[1700]};
 `;
 
-const EmptyState = () => (
-    <div style={{ padding: '20px', textAlign: 'center' }}>
-        <Empty description="No Secrets found!" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-    </div>
-);
-
 type TableDataType = {
     urn: string;
     name: string;
@@ -111,6 +106,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
     const start = (page - 1) * pageSize;
 
     const [editSecret, setEditSecret] = useState<SecretBuilderState | undefined>(undefined);
+    const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
 
     const [deleteSecretMutation] = useDeleteSecretMutation();
     const [createSecretMutation] = useCreateSecretMutation();
@@ -143,6 +139,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                     message.error({ content: `Failed to remove secret: \n ${e.message || ''}`, duration: 3 });
                 }
             });
+        setShowConfirmDelete(false);
+        refetch();
     };
 
     const onChangePage = (newPage: number) => {
@@ -232,18 +230,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             });
     };
 
-    const onDeleteSecret = (urn: string) => {
-        Modal.confirm({
-            title: `Confirm Secret Removal`,
-            content: `Are you sure you want to remove this secret? Sources that use it may no longer work as expected.`,
-            onOk() {
-                deleteSecret(urn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+    const handleDeleteClose = () => {
+        setShowConfirmDelete(false);
     };
 
     const onEditSecret = (urnData: any) => {
@@ -301,21 +289,30 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
             title: '',
             key: 'actions',
             render: (record: TableDataType) => (
-                <ButtonsContainer>
-                    <button type="button" onClick={() => onEditSecret(record)} aria-label="Edit secret">
-                        <Icon icon="PencilSimpleLine" source="phosphor" />
-                    </button>
-                    <button
-                        type="button"
-                        className="delete-action"
-                        onClick={() => onDeleteSecret(record.urn)}
-                        aria-label="Delete secret"
-                        data-test-id="delete-secret-action"
-                        data-icon="delete"
-                    >
-                        <Icon icon="Trash" source="phosphor" color="red" />
-                    </button>
-                </ButtonsContainer>
+                <>
+                    <ButtonsContainer>
+                        <button type="button" onClick={() => onEditSecret(record)} aria-label="Edit secret">
+                            <Icon icon="PencilSimpleLine" source="phosphor" />
+                        </button>
+                        <button
+                            type="button"
+                            className="delete-action"
+                            onClick={() => setShowConfirmDelete(true)}
+                            aria-label="Delete secret"
+                            data-test-id="delete-secret-action"
+                            data-icon="delete"
+                        >
+                            <Icon icon="Trash" source="phosphor" color="red" />
+                        </button>
+                    </ButtonsContainer>
+                    <ConfirmationModal
+                        isOpen={showConfirmDelete}
+                        modalTitle="Confirm Secret Removal"
+                        modalText="Are you sure you want to remove this secret? Sources that use it may no longer work as expected."
+                        handleConfirm={() => deleteSecret(record.urn)}
+                        handleClose={handleDeleteClose}
+                    />
+                </>
             ),
             width: '100px',
         },
@@ -330,7 +327,6 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading secrets..." />}
             {error && message.error({ content: `Failed to load secrets! \n ${error.message || ''}`, duration: 3 })}
             <SecretsContainer>
                 <StyledTabToolbar>
@@ -342,8 +338,8 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                         />
                     </SearchContainer>
                 </StyledTabToolbar>
-                {tableData.length === 0 ? (
-                    <EmptyState />
+                {!loading && totalSecrets === 0 ? (
+                    <EmptySources sourceType="secrets" isEmptySearchResult={!!query} />
                 ) : (
                     <>
                         <TableContainer>
@@ -353,6 +349,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                                 rowKey="urn"
                                 isScrollable
                                 style={{ tableLayout: 'fixed' }}
+                                isLoading={loading}
                             />
                         </TableContainer>
                         <Pagination
