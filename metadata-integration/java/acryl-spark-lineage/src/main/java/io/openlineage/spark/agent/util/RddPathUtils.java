@@ -1,5 +1,5 @@
 /*
-/* Copyright 2018-2024 contributors to the OpenLineage project
+/* Copyright 2018-2025 contributors to the OpenLineage project
 /* SPDX-License-Identifier: Apache-2.0
 */
 
@@ -23,6 +23,7 @@ import org.apache.spark.sql.execution.datasources.FilePartition;
 import org.apache.spark.sql.execution.datasources.FileScanRDD;
 import scala.Tuple2;
 import scala.collection.immutable.Seq;
+import scala.collection.mutable.ArrayBuffer;
 
 /** Utility class to extract paths from RDD nodes. */
 @Slf4j
@@ -65,6 +66,11 @@ public class RddPathUtils {
     public Stream<Path> extract(HadoopRDD rdd) {
       org.apache.hadoop.fs.Path[] inputPaths = FileInputFormat.getInputPaths(rdd.getJobConf());
       Configuration hadoopConf = rdd.getConf();
+      if (log.isDebugEnabled()) {
+        log.debug("Hadoop RDD class {}", rdd.getClass());
+        log.debug("Hadoop RDD input paths {}", Arrays.toString(inputPaths));
+        log.debug("Hadoop RDD job conf {}", rdd.getJobConf());
+      }
       return Arrays.stream(inputPaths).map(p -> PlanUtils.getDirectoryPath(p, hadoopConf));
     }
   }
@@ -78,6 +84,9 @@ public class RddPathUtils {
 
     @Override
     public Stream<Path> extract(MapPartitionsRDD rdd) {
+      if (log.isDebugEnabled()) {
+        log.debug("Parent RDD: {}", rdd.prev());
+      }
       return findRDDPaths(rdd.prev());
     }
   }
@@ -122,7 +131,9 @@ public class RddPathUtils {
       try {
         Object data = FieldUtils.readField(rdd, "data", true);
         log.debug("ParallelCollectionRDD data: {}", data);
-        if ((data instanceof Seq) && ((Seq) data).head() instanceof Tuple2) {
+        if ((data instanceof Seq)
+            && (!((Seq<?>) data).isEmpty())
+            && ((Seq) data).head() instanceof Tuple2) {
           // exit if the first element is invalid
           Seq data_slice = (Seq) ((Seq) data).slice(0, SEQ_LIMIT);
           return ScalaConversionUtils.fromSeq(data_slice).stream()
@@ -140,6 +151,11 @@ public class RddPathUtils {
                     return path;
                   })
               .filter(Objects::nonNull);
+        } else if ((data instanceof ArrayBuffer) && !((ArrayBuffer<?>) data).isEmpty()) {
+          ArrayBuffer<?> dataBuffer = (ArrayBuffer<?>) data;
+          return ScalaConversionUtils.fromSeq(dataBuffer.toSeq()).stream()
+              .map(o -> parentOf(o.toString()))
+              .filter(Objects::nonNull);
         } else {
           // Changed to debug to silence error
           log.debug("Cannot extract path from ParallelCollectionRDD {}", data);
@@ -156,6 +172,9 @@ public class RddPathUtils {
     try {
       return new Path(path).getParent();
     } catch (Exception e) {
+      if (log.isDebugEnabled()) {
+        log.debug("Cannot get parent of path {}", path, e);
+      }
       return null;
     }
   }
