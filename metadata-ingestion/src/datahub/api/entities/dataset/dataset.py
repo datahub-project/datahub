@@ -786,6 +786,7 @@ class Dataset(StrictModel):
         if schema_metadata:
             # If the schema is built off of an avro schema, we only extract the fields if they have structured properties
             # Otherwise, we extract all fields
+            schema_fields = []
             if (
                 schema_metadata.platformSchema
                 and isinstance(schema_metadata.platformSchema, models.OtherSchemaClass)
