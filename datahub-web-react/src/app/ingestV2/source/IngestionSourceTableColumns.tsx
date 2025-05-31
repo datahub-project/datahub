@@ -53,7 +53,7 @@ export const MenuItem = styled.div`
 export const ActionIcons = styled.div`
     display: flex;
     justify-content: end;
-    gap: 12px;
+    gap: 8px;
 
     div {
         border: 1px solid ${colors.gray[100]};
@@ -254,13 +254,9 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
-    items.push({
-        key: '2',
-        label: <MenuItem onClick={() => {}}>Edit Ownership</MenuItem>,
-    });
     if (navigator.clipboard)
         items.push({
-            key: '3',
+            key: '2',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -273,7 +269,7 @@ export function ActionsColumn({
         });
     if (record.lastExecStatus === RUNNING)
         items.push({
-            key: '4',
+            key: '3',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -285,7 +281,7 @@ export function ActionsColumn({
             ),
         });
     items.push({
-        key: '5',
+        key: '4',
         label: (
             <MenuItem
                 onClick={() => {

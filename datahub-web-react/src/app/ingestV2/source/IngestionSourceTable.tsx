@@ -1,4 +1,5 @@
 import { Table } from '@components';
+import { SorterResult } from 'antd/lib/table/interface';
 import React from 'react';
 import styled from 'styled-components/macro';
 
@@ -24,9 +25,20 @@ interface Props {
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
+    onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
+    isLoading?: boolean;
 }
 
-function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit, onView, onDelete }: Props) {
+function IngestionSourceTable({
+    sources,
+    setFocusExecutionUrn,
+    onExecute,
+    onEdit,
+    onView,
+    onDelete,
+    onChangeSort,
+    isLoading,
+}: Props) {
     const tableData = sources.map((source) => ({
         urn: source.urn,
         type: source.type,
@@ -51,6 +63,7 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
                 return <NameColumn type={record.type} record={record} />;
             },
             width: '30%',
+            sorter: true,
         },
         {
             title: 'Schedule',
@@ -100,7 +113,19 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
         },
     ];
 
-    return <StyledTable columns={tableColumns} data={tableData} isScrollable />;
+    const handleSortColumnChange = ({ sortColumn, sortOrder }) => {
+        onChangeSort(sortColumn, sortOrder);
+    };
+
+    return (
+        <StyledTable
+            columns={tableColumns}
+            data={tableData}
+            isScrollable
+            handleSortColumnChange={handleSortColumnChange}
+            isLoading={isLoading}
+        />
+    );
 }
 
 export default IngestionSourceTable;

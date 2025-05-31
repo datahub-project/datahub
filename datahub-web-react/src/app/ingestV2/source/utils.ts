@@ -1,12 +1,14 @@
 import YAML from 'yamljs';
 
+import { SortingState } from '@components/components/Table/types';
+
 import EntityRegistry from '@app/entity/EntityRegistry';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { StructuredReport, StructuredReportItemLevel, StructuredReportLogEntry } from '@app/ingestV2/source/types';
 import { capitalizeFirstLetterOnly, pluralize } from '@app/shared/textUtil';
 
 import { ListIngestionSourcesDocument, ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
-import { EntityType, ExecutionRequestResult, FacetMetadata } from '@types';
+import { EntityType, ExecutionRequestResult, FacetMetadata, SortCriterion, SortOrder } from '@types';
 
 export const getSourceConfigs = (ingestionSources: SourceConfig[], sourceType: string) => {
     const sourceConfigs = ingestionSources.find((source) => source.name === sourceType);
@@ -343,6 +345,10 @@ export const getEntitiesIngestedByType = (result: Partial<ExecutionRequestResult
             entitiesIngestedByType[entityName] = Math.max(...(Object.values(aspects as object) as number[]));
         });
 
+        if (Object.keys(entitiesIngestedByType).length === 0) {
+            return null;
+        }
+
         return Object.entries(entitiesIngestedByType).map(([entityName, count]) => ({
             count,
             displayName: entityName,
@@ -512,3 +518,12 @@ export const removeFromListIngestionSourcesCache = (client, urn, page, pageSize,
         },
     });
 };
+
+export function getSortInput(field: string, order: SortingState): SortCriterion | undefined {
+    if (order === SortingState.ORIGINAL) return undefined;
+
+    return {
+        sortOrder: order === SortingState.ASCENDING ? SortOrder.Ascending : SortOrder.Descending,
+        field,
+    };
+}
