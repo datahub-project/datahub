@@ -10,6 +10,7 @@ import com.github.fge.processing.ProcessingUtil;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.avro.SchemaTranslator;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -174,7 +175,8 @@ public class OpenAPIV3Generator {
               parameterName + MODEL_VERSION, buildParameterSchema(e, definitionNames));
         });
 
-    addExtraParameters(components);
+    addExtraParameters(
+        configurationProvider.getElasticSearch().getSearch().getLimit().getResults(), components);
 
     // Path
     final Paths paths = new Paths();
@@ -670,7 +672,8 @@ public class OpenAPIV3Generator {
     return result;
   }
 
-  private static void addExtraParameters(final Components components) {
+  private static void addExtraParameters(
+      SearchConfiguration.SearchResultsLimit searchResultsLimit, final Components components) {
     components.addParameters(
         "ScrollId" + MODEL_VERSION,
         new Parameter()
@@ -707,7 +710,12 @@ public class OpenAPIV3Generator {
             .name("count")
             .description("Number of items per page.")
             .example(10)
-            .schema(new Schema().type(TYPE_INTEGER)._default(10).minimum(new BigDecimal(1))));
+            .schema(
+                new Schema()
+                    .type(TYPE_INTEGER)
+                    ._default(10)
+                    .maximum(BigDecimal.valueOf(searchResultsLimit.getMax()))
+                    .minimum(new BigDecimal(1))));
     components.addParameters(
         "ScrollQuery" + MODEL_VERSION,
         new Parameter()

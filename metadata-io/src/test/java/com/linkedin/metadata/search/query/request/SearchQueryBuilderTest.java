@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.AUTO_COM
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.TEXT_SEARCH_ANALYZER;
 import static com.linkedin.metadata.search.elasticsearch.indexbuilder.SettingsBuilder.URN_SEARCH_ANALYZER;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -68,7 +69,7 @@ public class SearchQueryBuilderTest extends AbstractTestNGSpringContextTests {
   public static SearchConfiguration testQueryConfig;
 
   static {
-    testQueryConfig = new SearchConfiguration();
+    testQueryConfig = TEST_SEARCH_CONFIG.getSearch();
     testQueryConfig.setMaxTermBucketSize(20);
 
     ExactMatchConfiguration exactMatchConfiguration = new ExactMatchConfiguration();

@@ -21,7 +21,8 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.EntitySpec;
-
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -183,6 +184,9 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   @Inject
   @Named("restrictedService")
   private RestrictedService restrictedService;
+
+  @Inject
+  private ElasticSearchConfiguration searchConfiguration;
 
   /** Retrieves the value for an entity that is made up of latest versions of specified aspects. */
   @RestMethod.Get
@@ -848,7 +852,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   finalRegistryVersion.toString(),
                   false,
                   0,
-                  ESUtils.MAX_RESULT_SIZE);
+                   searchConfiguration.getSearch().getLimit().getResults().getMax());
           log.info("found {} rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
           response.setAspectsAffected(aspectRowsToDelete.size());
           Set<String> urns =

@@ -1,7 +1,11 @@
+import itertools
 from typing import Iterable
 
 from datahub.emitter.mce_builder import make_data_job_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import (
+    EmitMode,
+)
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
@@ -390,13 +394,40 @@ def scenario_perf():
 
 if __name__ == "__main__":
     graph = get_default_graph()
-    for mcp in [
-        *scenario_truncate_basic(),
-        *scenario_truncate_intermediate(),
-        *scenario_truncate_complex(),
-        *scenario_skip_basic(),
-        *scenario_skip_intermediate(),
-        *scenario_skip_complex(),
-        # *scenario_perf(),
-    ]:
-        graph.emit_mcp(mcp)
+    graph._openapi_ingestion = True
+
+    # List of scenario generators
+    scenario_generators = [
+        scenario_truncate_basic,
+        scenario_truncate_intermediate,
+        scenario_truncate_complex,
+        scenario_skip_basic,
+        scenario_skip_intermediate,
+        scenario_skip_complex,
+    ]
+    # Very long load time
+    # scenario_generators.append(scenario_perf)
+
+    # Chain all generators into a single generator
+    chained_generator = itertools.chain.from_iterable(
+        gen() for gen in scenario_generators
+    )
+
+    # Collect and emit MCPs in batches of 200
+    while True:
+        # Collect 200 MCPs (or fewer if generator is exhausted)
+        mcps_batch = list(itertools.islice(chained_generator, 1000))
+
+        # Break if no more MCPs
+        if not mcps_batch:
+            break
+
+        # Emit the batch
+        try:
+            graph.emit_mcps(mcps_batch, emit_mode=EmitMode.ASYNC_WAIT)
+        except Exception as e:
+            print(f"Error emitting MCP: {e}")
+
+        print(f"Batch of {len(mcps_batch)} MCPs emitted")
+
+    print("All MCPs emitted")

@@ -248,5 +248,20 @@
         "error": "Invalid urn!: urn:li:FOOBAR:(urn:li:dataPlatform:test,InvalidExceptions,PROD)"
       }
     }
+  },
+  {
+    "request": {
+      "url": "/openapi/v3/entity/scroll?query=*&count=10000",
+      "description": "Test count too high",
+      "json": {}
+    },
+    "response": {
+      "status_codes": [
+        400
+      ],
+      "json": {
+        "error": "Elasticsearch result count exceeds limit of 5000"
+      }
+    }
   }
 ]

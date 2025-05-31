@@ -93,7 +93,7 @@ public class DeleteEntityServiceTest {
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq((10000))))
+                eq((5000))))
         .thenReturn(mockRelatedEntities);
 
     final EntityResponse entityResponse = new EntityResponse();
@@ -210,7 +210,7 @@ public class DeleteEntityServiceTest {
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq((10000))))
+                eq((5000))))
         .thenReturn(mockRelatedEntities);
 
     final DeleteReferencesResponse response =
@@ -265,7 +265,7 @@ public class DeleteEntityServiceTest {
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq((10000))))
+                eq((5000))))
         .thenReturn(mockRelatedEntities);
 
     final DeleteReferencesResponse response =
@@ -325,7 +325,7 @@ public class DeleteEntityServiceTest {
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq((10000))))
+                eq((5000))))
         .thenReturn(mockRelatedEntities);
 
     final DeleteReferencesResponse response =
