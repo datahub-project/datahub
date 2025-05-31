@@ -8,6 +8,7 @@ import { decimalToPercentStr } from '@app/entityV2/shared/tabs/Dataset/Schema/ut
 import SampleValueTag from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/SampleValueTag';
 import { extractChartValuesFromFieldProfiles } from '@app/entityV2/shared/utils';
 import { formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { colors } from '@src/alchemy-components';
 
 import { DatasetFieldProfile, SchemaField } from '@types';
 
@@ -38,8 +39,8 @@ const StatLabel = styled.div`
     padding-top: 12px;
     padding-bottom: 12px;
     :not(:last-child) {
-        border-bottom: 1px dashed;
-        border-color: rgba(0, 0, 0, 0.3);
+        border-bottom: 1px solid ${colors.gray[100]};
+        border-style: solid;
     }
 `;
 
