@@ -21,7 +21,7 @@ dependencies {
     }
     implementation project(':metadata-service:auth-config')
     implementation project(':metadata-service:restli-client-api')
-    implementation project(':metadata-io')
+    api project(':metadata-io')
     implementation project(':ingestion-scheduler')
     implementation project(':metadata-utils')
     implementation project(":entity-registry")
@@ -29,6 +29,7 @@ dependencies {
     implementation project(':metadata-events:mxe-registration')
     implementation project(':metadata-events:mxe-utils-avro')
     implementation project(':datahub-graphql-core')
+    api project(':metadata-jobs:common')
 
     // acryl-main
     implementation project(':notifications')

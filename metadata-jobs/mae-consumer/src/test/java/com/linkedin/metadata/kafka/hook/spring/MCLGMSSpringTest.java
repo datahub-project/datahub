@@ -7,7 +7,6 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.kafka.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.kafka.hook.UpdateIndicesHook;
 import com.linkedin.metadata.kafka.hook.assertion.AssertionActionsHook;
 import com.linkedin.metadata.kafka.hook.assertion.AssertionAnalyticsRunEventHook;
@@ -22,6 +21,7 @@ import com.linkedin.metadata.kafka.hook.notification.NotificationGeneratorHook;
 import com.linkedin.metadata.kafka.hook.notification.settings.DefaultNotificationSettingsHook;
 import com.linkedin.metadata.kafka.hook.siblings.SiblingAssociationHook;
 import com.linkedin.metadata.kafka.hook.test.MetadataTestHook;
+import com.linkedin.metadata.kafka.listener.mcl.MCLKafkaListenerRegistrar;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -62,65 +62,64 @@ public class MCLGMSSpringTest extends AbstractTestNGSpringContextTests {
     MCLKafkaListenerRegistrar registrar =
         applicationContext.getBean(MCLKafkaListenerRegistrar.class);
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .noneMatch(hook -> hook instanceof IngestionSchedulerHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
-            .anyMatch(hook -> hook instanceof UpdateIndicesHook));
+        registrar.getEnabledHooks().stream().anyMatch(hook -> hook instanceof UpdateIndicesHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .anyMatch(hook -> hook instanceof SiblingAssociationHook));
     assertTrue(
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .anyMatch(hook -> hook instanceof EntityChangeEventGeneratorHook));
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof NotificationGeneratorHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof IncidentsSummaryHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof MetadataTestHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof AssertionsSummaryHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof AssertionRunSummaryHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof AssertionAnalyticsRunEventHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof AssertionActionsHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof FormAssignmentHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof DefaultNotificationSettingsHook)
             .count());
     assertEquals(
         1,
-        registrar.getMetadataChangeLogHooks().stream()
+        registrar.getEnabledHooks().stream()
             .filter(hook -> hook instanceof FormCompletionHook)
             .count());
   }

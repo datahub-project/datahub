@@ -41,7 +41,7 @@ import software.amazon.awssdk.services.sts.model.AssumeRoleRequest;
 @Slf4j
 public class AwsEventBridgeChangeEventSink implements EntityChangeEventSink {
 
-  private static final String AWS_ROLE_SESSION_NAME = "acryl-datahub-eventbridge-sink";
+  public static final String AWS_ROLE_SESSION_NAME = "acryl-datahub-eventbridge-sink";
   private static final String AWS_REGION_PARAM = "region";
   private static final String AWS_EVENT_BUS_PARAM = "eventBus";
   private static final String AWS_ACCESS_KEY_ID_PARAM = "accessKeyId";

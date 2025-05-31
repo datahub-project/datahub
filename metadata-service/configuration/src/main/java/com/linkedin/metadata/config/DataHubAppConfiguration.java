@@ -1,6 +1,7 @@
 package com.linkedin.metadata.config;
 
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.metadata.config.aws.AWSConfiguration;
 import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.events.EventSinksConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
@@ -101,4 +102,9 @@ public class DataHubAppConfiguration {
 
   /** EntityService configuration */
   private EntityServiceConfiguration entityService;
+
+  // SaaS Only Config
+
+  /** AWS Integration Configuration */
+  private AWSConfiguration aws;
 }
