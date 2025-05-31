@@ -5,9 +5,11 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
 from unittest.mock import patch
 
+import cachetools
+from cachetools import cached
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.catalog import (
     CatalogInfo,
@@ -25,6 +27,7 @@ from databricks.sdk.service.sql import (
     QueryStatus,
 )
 from databricks.sdk.service.workspace import ObjectType
+from databricks.sql import connect
 
 from datahub._version import nice_version_name
 from datahub.emitter.mce_builder import parse_ts_millis
@@ -108,6 +111,13 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.warehouse_id = warehouse_id or ""
         self.report = report
         self.hive_metastore_proxy = hive_metastore_proxy
+        self._sql_connection_params = {
+            "server_hostname": self._workspace_client.config.host.replace(
+                "https://", ""
+            ),
+            "http_path": f"/sql/1.0/warehouses/{self.warehouse_id}",
+            "access_token": self._workspace_client.config.token,
+        }
 
     def check_basic_connectivity(self) -> bool:
         return bool(self._workspace_client.catalogs.list(include_browse=True))
@@ -492,3 +502,60 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             executed_as_user_id=info.executed_as_user_id,
             executed_as_user_name=info.executed_as_user_name,
         )
+
+    def _execute_sql_query(self, query: str) -> List[List[str]]:
+        """Execute SQL query using databricks-sql connector for better performance"""
+        try:
+            with connect(
+                **self._sql_connection_params
+            ) as connection, connection.cursor() as cursor:
+                cursor.execute(query)
+                return cursor.fetchall()
+
+        except Exception as e:
+            logger.warning(f"Failed to execute SQL query: {e}")
+            return []
+
+    @cached(cachetools.FIFOCache(maxsize=100))
+    def get_table_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching table tags for catalog: {catalog}")
+
+        query = f"SELECT * FROM {catalog}.information_schema.table_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[Tuple[str, str]]] = {}
+
+        for row in rows:
+            catalog_name, schema_name, table_name, tag_name, tag_value = row
+            table_key = f"{catalog_name}.{schema_name}.{table_name}"
+
+            if table_key not in result_dict:
+                result_dict[table_key] = []
+
+            result_dict[table_key].append((tag_name, tag_value))
+
+        return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=100))
+    def get_column_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching column tags for catalog: {catalog}")
+
+        query = f"SELECT * FROM {catalog}.information_schema.column_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[Tuple[str, str]]] = {}
+
+        for row in rows:
+            catalog_name, schema_name, table_name, column_name, tag_name, tag_value = (
+                row
+            )
+            column_key = f"{catalog_name}.{schema_name}.{table_name}.{column_name}"
+
+            if column_key not in result_dict:
+                result_dict[column_key] = []
+
+            result_dict[column_key].append((tag_name, tag_value))
+
+        return result_dict
