@@ -24,9 +24,9 @@ _self_pin = (
 
 base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
-    # We require Airflow 2.3.x at minimum, since we need the new DAG listener API.
+    # We require Airflow 2.7.x at minimum, since we need the new DAG listener API.
     # We pin to 2.5.x, since we also need typing-extensions>=4.5 in acryl-datahub.
-    "apache-airflow>=2.5.0,<3",
+    "apache-airflow>=2.7.0,<3",
 }
 
 plugins: Dict[str, Set[str]] = {
