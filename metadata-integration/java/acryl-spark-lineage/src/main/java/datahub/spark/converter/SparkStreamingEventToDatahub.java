@@ -18,12 +18,15 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.datajob.DataFlowInfo;
 import com.linkedin.datajob.DataJobInfo;
 import com.linkedin.datajob.DataJobInputOutput;
+import com.linkedin.common.DataJobUrnArray;
 import com.linkedin.datajob.EditableDataFlowProperties;
 import com.linkedin.datajob.EditableDataJobProperties;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
 import com.linkedin.dataprocess.DataProcessInstanceInput;
 import com.linkedin.dataprocess.DataProcessInstanceOutput;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
+import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
+import com.linkedin.dataprocess.DataProcessRunStatus;
 import com.linkedin.dataprocess.DataProcessType;
 import datahub.event.MetadataChangeProposalWrapper;
 import datahub.spark.conf.SparkLineageConf;
@@ -433,9 +436,28 @@ public class SparkStreamingEventToDatahub {
       Matcher m = r.matcher(description);
       if (m.find()) {
         String namespace = m.group(1);
-        String platform = getDatahubPlatform(namespace);
         String path = m.group(2);
+        log.debug("Extracted namespace: {}, path: {} from streaming description", namespace, path);
+        
+        // Check if the path looks like an S3 path regardless of namespace
+        if (path.startsWith("s3://") || path.startsWith("s3a://") || path.startsWith("s3n://")) {
+          log.info("Detected S3 path: {} in namespace: {}, using HdfsPathDataset", path, namespace);
+          try {
+            // Use HdfsPathDataset to correctly detect S3 platform
+            DatasetUrn urn = HdfsPathDataset.create(new URI(path), sparkLineageConf.getOpenLineageConf()).urn();
+            log.info("Generated S3 URN: {}", urn);
+            return Optional.of(urn);
+          } catch (InstantiationException e) {
+            log.warn("InstantiationException when creating HdfsPathDataset for S3: {}", e.getMessage());
+          } catch (URISyntaxException e) {
+            log.warn("Failed to parse S3 path {}: {}", path, e.getMessage());
+          }
+        }
+        
+        // Standard platform determination
+        String platform = getDatahubPlatform(namespace);
         log.debug("Streaming description Platform: {}, Path: {}", platform, path);
+        
         if (platform.equals(KAFKA_PLATFORM)) {
           path = getKafkaTopicFromPath(m.group(2));
         } else if (platform.equals(FILE_PLATFORM) || platform.equals(DELTA_LAKE_PLATFORM)) {
@@ -451,6 +473,7 @@ public class SparkStreamingEventToDatahub {
             return Optional.empty();
           }
         }
+        
         return Optional.of(
             new DatasetUrn(
                 new DataPlatformUrn(platform),
@@ -472,6 +495,7 @@ public class SparkStreamingEventToDatahub {
       case "KafkaV2":
         return "kafka";
       case "DeltaSink":
+      case "DeltaSource":  // Add DeltaSource to the delta-lake mapping
         return "delta-lake";
       case "CloudFilesSource":
         return "dbfs";
@@ -479,6 +503,7 @@ public class SparkStreamingEventToDatahub {
       case "FileStreamSource":
         return "file";
       default:
+        log.debug("Unrecognized namespace '{}', using as platform", namespace);
         return namespace;
     }
   }
@@ -750,13 +775,77 @@ public class SparkStreamingEventToDatahub {
         flowUrn = createValidFlowUrn(conf, event, flowName);
       }
       
-      // Create job URN
-      DataJobUrn jobUrn = jobUrn(flowUrn, jobName);
+      // If we have outputs, create two separate jobs: one for query and one for sink
+      if (!outputDatasets.isEmpty()) {
+        // Create a job URN for the streaming query
+        DataJobUrn queryJobUrn = jobUrn(flowUrn, jobName);
+        
+        // Create a descriptive sink job name based on operation and target
+        String sinkJobName = operation + "_sink";
+        // Try to get a more specific name from the output dataset
+        for (DatasetUrn outputUrn : outputDatasets) {
+          String datasetName = extractDatasetName(outputUrn);
+          if (datasetName != null && !datasetName.isEmpty()) {
+            sinkJobName = operation + "_" + datasetName;
+            break;
+          }
+        }
+        
+        // Create the delta sink job URN
+        DataJobUrn sinkJobUrn = jobUrn(flowUrn, sinkJobName);
+        
+        // Create DataJobInfo for the sink job
+        DataJobInfo sinkJobInfo = new DataJobInfo();
+        sinkJobInfo.setName(sinkJobName);
+        sinkJobInfo.setType(DataJobInfo.Type.create("DELTA_SINK"));
+        sinkJobInfo.setDescription("Delta Sink Job: " + sinkJobName);
+        
+        StringMap sinkCustomProps = new StringMap();
+        sinkCustomProps.put("batchId", Long.toString(event.batchId()));
+        sinkCustomProps.put("operation", operation);
+        sinkJobInfo.setCustomProperties(sinkCustomProps);
+        
+        // Add sink job MCP
+        mcps.add(MetadataChangeProposalWrapper.create(
+            b -> b.entityType("dataJob").entityUrn(sinkJobUrn).upsert().aspect(sinkJobInfo)));
+        
+        // Create job input/output aspect for streaming query job with relationship to sink job
+        DataJobInputOutput queryJobIO = new DataJobInputOutput();
+        queryJobIO.setInputDatasets(new DatasetUrnArray(inputDatasets));
+        queryJobIO.setOutputDatasets(new DatasetUrnArray()); // Query job doesn't directly output to datasets
+        
+        // Add job-to-job lineage using inputDatajobs and outputDatajobs fields
+        DataJobUrnArray outputJobUrns = new DataJobUrnArray();
+        outputJobUrns.add(sinkJobUrn);
+        // There is no outputDatajobs field in DataJobInputOutput
+        // queryJobIO.setOutputDatajobs(outputJobUrns);
+        
+        mcps.add(MetadataChangeProposalWrapper.create(
+            b -> b.entityType("dataJob").entityUrn(queryJobUrn).upsert().aspect(queryJobIO)));
+        
+        // Create job input/output aspect for sink job with relationship to query job
+        DataJobInputOutput sinkJobIO = new DataJobInputOutput();
+        sinkJobIO.setInputDatasets(new DatasetUrnArray()); // Sink job doesn't directly input from datasets
+        sinkJobIO.setOutputDatasets(new DatasetUrnArray(outputDatasets));
+        
+        // Add job-to-job lineage using inputDatajobs and outputDatajobs fields
+        DataJobUrnArray inputJobUrns = new DataJobUrnArray();
+        inputJobUrns.add(queryJobUrn);
+        sinkJobIO.setInputDatajobs(inputJobUrns);
+        
+        mcps.add(MetadataChangeProposalWrapper.create(
+            b -> b.entityType("dataJob").entityUrn(sinkJobUrn).upsert().aspect(sinkJobIO)));
+        
+        // Generate DataProcessInstance for both jobs
+        mcps.addAll(generateDataProcessInstanceMcps(event, queryJobUrn, inputDatasets, Collections.emptySet(), operation));
+        mcps.addAll(generateDataProcessInstanceMcps(event, sinkJobUrn, Collections.emptySet(), outputDatasets, operation));
+      } else {
+        // If no outputs, just generate one job with the DataProcessInstance
+        DataJobUrn jobUrn = jobUrn(flowUrn, jobName);
+        mcps.addAll(generateDataProcessInstanceMcps(event, jobUrn, inputDatasets, outputDatasets, operation));
+      }
       
-      // Generate MCPs for the DataProcessInstance representing this microbatch
-      mcps.addAll(generateDataProcessInstanceMcps(event, jobUrn, inputDatasets, outputDatasets, operation));
-      
-      log.info("Successfully generated DataProcessInstance for Spark streaming microbatch {}", event.batchId());
+      log.info("Successfully generated DataProcessInstance and job lineage for Spark streaming microbatch {}", event.batchId());
       
       return mcps;
     } catch (Exception e) {
@@ -874,6 +963,12 @@ public class SparkStreamingEventToDatahub {
       UrnArray outputUrns = new UrnArray();
       outputDatasets.forEach(urn -> outputUrns.add(urn));
       output.setOutputs(outputUrns);
+
+      // Create the run event aspect with timestamp and status
+      DataProcessInstanceRunEvent runEvent = 
+          new DataProcessInstanceRunEvent();
+      runEvent.setTimestampMillis(System.currentTimeMillis());
+      runEvent.setStatus(DataProcessRunStatus.COMPLETE);
       
       // Add MCPs for all aspects
       mcps.add(MetadataChangeProposalWrapper.create(
@@ -887,6 +982,10 @@ public class SparkStreamingEventToDatahub {
       
       mcps.add(MetadataChangeProposalWrapper.create(
           b -> b.entityType("dataProcessInstance").entityUrn(dpiUrn).upsert().aspect(output)));
+      
+      // Add the RunEvent MCP
+      mcps.add(MetadataChangeProposalWrapper.create(
+          b -> b.entityType("dataProcessInstance").entityUrn(dpiUrn).upsert().aspect(runEvent)));
       
       return mcps;
     } catch (Exception e) {
