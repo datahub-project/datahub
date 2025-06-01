@@ -134,7 +134,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String SYSTEM_METADATA = "systemMetadata";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
-  private static final Integer ELASTIC_MAX_PAGE_SIZE = 10000;
+  private static final Integer ELASTIC_MAX_PAGE_SIZE = 5000;
   private final Clock _clock = Clock.systemUTC();
 
   @Inject
