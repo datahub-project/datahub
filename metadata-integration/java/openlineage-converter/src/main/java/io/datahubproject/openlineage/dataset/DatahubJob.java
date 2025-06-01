@@ -260,6 +260,12 @@ public class DatahubJob {
 
   private void generateDataProcessInstanceMcp(
       UrnArray inputUrnArray, UrnArray outputUrnArray, List<MetadataChangeProposal> mcps) {
+    // Skip if DataProcessInstance URN is not set or not enabled in config
+    if (dataProcessInstanceUrn == null) {
+      log.debug("Skipping DataProcessInstance generation: URN is null");
+      return;
+    }
+    
     DataProcessInstanceInput dataProcessInstanceInput = new DataProcessInstanceInput();
     dataProcessInstanceInput.setInputs(inputUrnArray);
 

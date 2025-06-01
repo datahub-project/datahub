@@ -763,15 +763,25 @@ public class OpenLineageToDataHub {
     DataProcessInstanceRelationships dataProcessInstanceRelationships =
         new DataProcessInstanceRelationships();
     dataProcessInstanceRelationships.setParentTemplate(dataJobUrn);
-    dataProcessInstanceRelationships.setUpstreamInstances(new UrnArray());
+    
+    // Initialize upstreamInstances with an empty array (required field)
+    UrnArray upstreamInstances = new UrnArray();
+    dataProcessInstanceRelationships.setUpstreamInstances(upstreamInstances);
+    
     datahubJob.setDataProcessInstanceRelationships(dataProcessInstanceRelationships);
 
-    try {
-      Urn dpiUrn =
-          Urn.createFromString(URN_LI_DATA_PROCESS_INSTANCE + event.getRun().getRunId().toString());
-      datahubJob.setDataProcessInstanceUrn(dpiUrn);
-    } catch (URISyntaxException e) {
-      throw new RuntimeException("Unable to create dataprocess instance urn:" + e);
+    // Only create and set DataProcessInstance URN if the feature is enabled
+    if (datahubConf.isEmitDataProcessInstance()) {
+      try {
+        Urn dpiUrn =
+            Urn.createFromString(URN_LI_DATA_PROCESS_INSTANCE + event.getRun().getRunId().toString());
+        datahubJob.setDataProcessInstanceUrn(dpiUrn);
+        log.info("Created DataProcessInstance URN: {}", dpiUrn);
+      } catch (URISyntaxException e) {
+        log.error("Unable to create dataprocess instance urn: {}", e.getMessage(), e);
+      }
+    } else {
+      log.debug("DataProcessInstance emission is disabled in config, skipping URN creation");
     }
   }
 

@@ -58,6 +58,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.streaming.StreamingQueryListener;
 import org.apache.spark.sql.streaming.StreamingQueryProgress;
 
 @Slf4j
@@ -71,7 +73,17 @@ public class DatahubEventEmitter extends EventEmitter {
   private final ObjectMapper objectMapper;
   private final JacksonDataTemplateCodec dataTemplateCodec;
 
+  // Add listener fields
+  public StreamingQueryListener microBatchListener;
+  public StreamingQueryListener continuousListener;
+
   private final EventFormatter eventFormatter = new EventFormatter();
+  
+  // Add streaming event correlator
+  private final StreamingEventCorrelator streamingEventCorrelator = new StreamingEventCorrelator();
+  
+  // Track the SparkSession for later use
+  private SparkSession sparkSession;
 
   public DatahubEventEmitter(SparkOpenLineageConfig config, String applicationJobName)
       throws URISyntaxException {
@@ -85,6 +97,90 @@ public class DatahubEventEmitter extends EventEmitter {
         .getFactory()
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
     dataTemplateCodec = new JacksonDataTemplateCodec(objectMapper.getFactory());
+    
+    // Get current SparkSession
+    try {
+      this.sparkSession = SparkSession.active();
+    } catch (Exception e) {
+      log.warn("Could not get active SparkSession, streaming listeners will not be registered", e);
+    }
+    
+    // Initialize listeners
+    initStreamingListeners();
+  }
+  
+  /**
+   * Initialize streaming query listeners.
+   */
+  private void initStreamingListeners() {
+    log.info("Initializing streaming listeners");
+    
+    // Create simple listeners that forward events to the emit method
+    this.microBatchListener = new StreamingQueryListener() {
+      @Override
+      public void onQueryStarted(StreamingQueryListener.QueryStartedEvent event) {
+        log.info("Micro-batch query started: {}", event.id());
+      }
+      
+      @Override
+      public void onQueryProgress(StreamingQueryListener.QueryProgressEvent event) {
+        log.info("Micro-batch query progress: {}", event.progress().id());
+        try {
+          emit(event.progress());
+        } catch (Exception e) {
+          log.error("Error emitting micro-batch progress event", e);
+        }
+      }
+      
+      @Override
+      public void onQueryTerminated(StreamingQueryListener.QueryTerminatedEvent event) {
+        log.info("Micro-batch query terminated: {}", event.id());
+      }
+    };
+    
+    this.continuousListener = new StreamingQueryListener() {
+      @Override
+      public void onQueryStarted(StreamingQueryListener.QueryStartedEvent event) {
+        log.info("Continuous query started: {}", event.id());
+      }
+      
+      @Override
+      public void onQueryProgress(StreamingQueryListener.QueryProgressEvent event) {
+        log.info("Continuous query progress: {}", event.progress().id());
+        try {
+          emit(event.progress());
+        } catch (Exception e) {
+          log.error("Error emitting continuous progress event", e);
+        }
+      }
+      
+      @Override
+      public void onQueryTerminated(StreamingQueryListener.QueryTerminatedEvent event) {
+        log.info("Continuous query terminated: {}", event.id());
+      }
+    };
+  }
+  
+  /**
+   * Register streaming query listeners with the SparkSession.
+   */
+  private void registerStreamingListeners() {
+    if (sparkSession == null) {
+      log.warn("Cannot register streaming listeners: SparkSession is null");
+      return;
+    }
+    
+    log.info("Registering streaming query listeners with SparkSession");
+    
+    try {
+      // Register listeners with Spark's streaming context
+      sparkSession.streams().addListener(microBatchListener);
+      sparkSession.streams().addListener(continuousListener);
+      
+      log.info("Successfully registered streaming query listeners");
+    } catch (Exception e) {
+      log.error("Error registering streaming query listeners", e);
+    }
   }
 
   private Optional<Emitter> getEmitter() {
@@ -185,232 +281,326 @@ public class DatahubEventEmitter extends EventEmitter {
       log.info("Emitting coalesced lineage periodically");
       emitCoalesced();
       log.debug(
-          "Collecting coalesced lineage periodically completed successfully: {}",
+          "Emitting coalesced lineage completed successfully: {}",
           OpenLineageClientUtils.toJson(event));
     }
-    long elapsedTime = System.currentTimeMillis() - startTime;
-    log.info("Collecting lineage successfully in {} ms", elapsedTime);
+    log.debug(
+        "Successfully completed emitting mcps in {} ms", System.currentTimeMillis() - startTime);
   }
 
   public void emitCoalesced() {
-    long startTime = System.currentTimeMillis();
-
-    if (isStreaming()) {
-      log.info("Streaming mode is enabled. Skipping lineage emission.");
-      return;
+    if (!_datahubJobs.isEmpty()) {
+      if (log.isDebugEnabled()) {
+        log.debug("Emitting {} jobs", _datahubJobs.size());
+      }
+      try {
+        emitMcps(generateCoalescedMcps());
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+      _datahubJobs.clear();
     }
-
-    if (datahubConf.isCoalesceEnabled()) {
-      List<MetadataChangeProposal> mcps = generateCoalescedMcps();
-      log.info("Emitting Coalesced lineage completed successfully");
-      emitMcps(mcps);
-    }
-    long elapsedTime = System.currentTimeMillis() - startTime;
-    log.info("Emitting coalesced lineage completed in {} ms", elapsedTime);
   }
 
-  public List<MetadataChangeProposal> generateCoalescedMcps() {
-    List<MetadataChangeProposal> mcps = new ArrayList<>();
+  public List<MetadataChangeProposal> generateCoalescedMcps() throws IOException {
+    Map<String, DatahubJob> datahubJobs = new HashMap<>();
+    for (DatahubJob job : _datahubJobs) {
+      DatahubJob storedDatahubJob = datahubJobs.get(job.getJobUrn().toString());
 
-    if (_datahubJobs.isEmpty()) {
-      log.warn("No lineage events to emit. Maybe the spark job finished prematurely?");
-      return mcps;
-    }
-
-    DatahubJob datahubJob = DatahubJob.builder().build();
-    AtomicLong minStartTime = new AtomicLong(Long.MAX_VALUE);
-    AtomicLong maxEndTime = new AtomicLong();
-    _datahubJobs.forEach(
-        storedDatahubJob -> {
-          log.info("Merging job stored job {} with {}", storedDatahubJob, datahubJob);
-          DataJobUrn jobUrn =
-              jobUrn(
-                  storedDatahubJob.getFlowUrn(), storedDatahubJob.getFlowUrn().getFlowIdEntity());
-          datahubJob.setJobUrn(jobUrn);
-          datahubJob.setFlowUrn(storedDatahubJob.getFlowUrn());
-          datahubJob.setFlowPlatformInstance(storedDatahubJob.getFlowPlatformInstance());
-          if ((datahubJob.getJobInfo() == null) && (storedDatahubJob.getJobInfo() != null)) {
-            datahubJob.setJobInfo(storedDatahubJob.getJobInfo());
-            datahubJob.getJobInfo().setName(storedDatahubJob.getFlowUrn().getFlowIdEntity());
-          }
-          if (storedDatahubJob.getJobInfo() != null
-              && storedDatahubJob.getJobInfo().getCustomProperties() != null) {
-            if (datahubJob.getJobInfo().getCustomProperties() == null) {
-              datahubJob
-                  .getJobInfo()
-                  .setCustomProperties(storedDatahubJob.getJobInfo().getCustomProperties());
-            } else {
-              Map<String, String> mergedProperties =
-                  Stream.of(
-                          datahubJob.getJobInfo().getCustomProperties(),
-                          storedDatahubJob.getJobInfo().getCustomProperties())
-                      .flatMap(map -> map.entrySet().stream())
-                      .collect(
-                          Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
-              datahubJob.getJobInfo().setCustomProperties(new StringMap(mergedProperties));
-            }
-          }
-          if (datahubJob.getDataFlowInfo() == null) {
-            datahubJob.setDataFlowInfo(storedDatahubJob.getDataFlowInfo());
-          }
-
-          if (storedDatahubJob.getStartTime() < minStartTime.get()) {
-            minStartTime.set(storedDatahubJob.getStartTime());
-          }
-
-          if (storedDatahubJob.getEndTime() > maxEndTime.get()) {
-            maxEndTime.set(storedDatahubJob.getEndTime());
-          }
-
-          mergeDatasets(storedDatahubJob.getOutSet(), datahubJob.getOutSet());
-
-          mergeDatasets(storedDatahubJob.getInSet(), datahubJob.getInSet());
-
-          mergeDataProcessInstance(datahubJob, storedDatahubJob);
-
-          mergeCustomProperties(datahubJob, storedDatahubJob);
-        });
-
-    datahubJob.setStartTime(minStartTime.get());
-    datahubJob.setEndTime(maxEndTime.get());
-    if (!datahubConf.getTags().isEmpty()) {
-      GlobalTags tags = OpenLineageToDataHub.generateTags(datahubConf.getTags());
-      datahubJob.setFlowGlobalTags(tags);
-    }
-
-    if (!datahubConf.getDomains().isEmpty()) {
-      Domains domains = OpenLineageToDataHub.generateDomains(datahubConf.getDomains());
-      datahubJob.setFlowDomains(domains);
-    }
-    try {
-      if (datahubConf.getOpenLineageConf().getParentJobUrn() != null) {
-        datahubJob.getParentJobs().add(datahubConf.getOpenLineageConf().getParentJobUrn());
+      if (storedDatahubJob == null) {
+        // First time we see this job, just store it
+        datahubJobs.put(job.getJobUrn().toString(), job);
+      } else {
+        // We already have this job, merge properties
+        mergeDatasets(storedDatahubJob.getInSet(), job.getInSet());
+        mergeDatasets(storedDatahubJob.getOutSet(), job.getOutSet());
+        mergeCustomProperties(job, storedDatahubJob);
+        
+        // Merge DataProcessInstance information if present
+        mergeDataProcessInstance(job, storedDatahubJob);
       }
-    } catch (ClassCastException e) {
-      log.warn(
-          datahubConf.getOpenLineageConf().getParentJobUrn()
-              + " is not a valid Datajob URN. Skipping setting up upstream job.");
     }
 
-    log.info("Generating MCPs for job: {}", datahubJob);
-    try {
-      return datahubJob.toMcps(datahubConf.getOpenLineageConf());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    List<MetadataChangeProposal> mcps = new ArrayList<>();
+    for (DatahubJob job : datahubJobs.values()) {
+      mcps.addAll(job.toMcps(datahubConf.getOpenLineageConf()));
     }
+
+    return mcps;
   }
 
   private static void mergeDatasets(
       Set<DatahubDataset> storedDatahubJob, Set<DatahubDataset> datahubJob) {
-    for (DatahubDataset dataset : storedDatahubJob) {
-      Optional<DatahubDataset> oldDataset =
-          datahubJob.stream().filter(ds -> ds.getUrn().equals(dataset.getUrn())).findFirst();
-      if (oldDataset.isPresent()) {
-        if (dataset.getSchemaMetadata() != null) {
-          oldDataset.get().setSchemaMetadata(dataset.getSchemaMetadata());
-        }
-        if (dataset.getLineage() != null) {
-          oldDataset.get().setLineage(dataset.getLineage());
-        }
-      } else {
-        datahubJob.add(dataset);
+    for (DatahubDataset dataset : datahubJob) {
+      Optional<DatahubDataset> existing =
+          storedDatahubJob.stream()
+              .filter(ds -> ds.getUrn().toString().equals(dataset.getUrn().toString()))
+              .findFirst();
+      if (!existing.isPresent()) {
+        storedDatahubJob.add(dataset);
       }
     }
   }
-
+  
+  /**
+   * Merge DataProcessInstance information from one job into another.
+   * This ensures we keep track of all the process instances across runs.
+   */
   private static void mergeDataProcessInstance(DatahubJob datahubJob, DatahubJob storedDatahubJob) {
-    // To merge multiple events into one DataProcess we should do the following steps:
-    // 1. A run is only in SUCCESS if all the process instance status are SUCCESS
-    // 2. A run is in failed state if any of the run events is in FAILED/UNKNOWN/SKIPPED state
-    //
-    // We should set as id the first event to make sure it won't change if we ingest periodically
-    // coalesced data
-    // Todo: Status can be SUCCESS only if all the process instance status are SUCCESS
-    if (datahubJob.getDataProcessInstanceUrn() == null) {
-      datahubJob.setDataProcessInstanceUrn(storedDatahubJob.getDataProcessInstanceUrn());
-    }
-
-    if (storedDatahubJob.getEventTime() > datahubJob.getEventTime()) {
-      datahubJob.setEventTime(storedDatahubJob.getEventTime());
-      datahubJob.setDataProcessInstanceProperties(
-          storedDatahubJob.getDataProcessInstanceProperties());
-      DataProcessInstanceRelationships dataProcessInstanceRelationships =
-          new DataProcessInstanceRelationships();
-      dataProcessInstanceRelationships.setParentTemplate(datahubJob.getJobUrn());
-      dataProcessInstanceRelationships.setUpstreamInstances(new UrnArray());
-      datahubJob.setDataProcessInstanceRelationships(dataProcessInstanceRelationships);
-    }
-    log.info("DataProcessInstanceRunEvent: {}", storedDatahubJob.getDataProcessInstanceRunEvent());
-    if ((storedDatahubJob.getDataProcessInstanceRunEvent() != null)
-        && (storedDatahubJob.getDataProcessInstanceRunEvent().getResult() != null)) {
-      RunResultType result =
-          storedDatahubJob.getDataProcessInstanceRunEvent().getResult().getType();
-      if (datahubJob.getDataProcessInstanceRunEvent() == null) {
-        datahubJob.setDataProcessInstanceRunEvent(
-            storedDatahubJob.getDataProcessInstanceRunEvent());
-      } else if (result == RunResultType.FAILURE) {
-        datahubJob.setDataProcessInstanceRunEvent(
-            storedDatahubJob.getDataProcessInstanceRunEvent());
+    // If both jobs have DataProcessInstance information
+    if (datahubJob.getDataProcessInstanceUrn() != null && 
+        storedDatahubJob.getDataProcessInstanceUrn() != null &&
+        datahubJob.getDataProcessInstanceRelationships() != null && 
+        storedDatahubJob.getDataProcessInstanceRelationships() != null) {
+        
+      // Get the relationships from both jobs
+      DataProcessInstanceRelationships newRelationships = datahubJob.getDataProcessInstanceRelationships();
+      DataProcessInstanceRelationships storedRelationships = storedDatahubJob.getDataProcessInstanceRelationships();
+      
+      // If both have upstream instances defined
+      if (newRelationships.hasUpstreamInstances() && storedRelationships.hasUpstreamInstances()) {
+        // Create a new merged array
+        UrnArray mergedUpstreamInstances = new UrnArray();
+        
+        // Add all URNs from the stored job
+        storedRelationships.getUpstreamInstances().forEach(mergedUpstreamInstances::add);
+        
+        // Add any new URNs that don't already exist
+        newRelationships.getUpstreamInstances().forEach(urn -> {
+          if (!mergedUpstreamInstances.contains(urn)) {
+            mergedUpstreamInstances.add(urn);
+          }
+        });
+        
+        // Update the stored relationships with the merged array
+        storedRelationships.setUpstreamInstances(mergedUpstreamInstances);
+      } else if (newRelationships.hasUpstreamInstances()) {
+        // If only the new job has upstream instances, use those
+        storedRelationships.setUpstreamInstances(newRelationships.getUpstreamInstances());
       }
+    } else if (datahubJob.getDataProcessInstanceUrn() != null && 
+               datahubJob.getDataProcessInstanceRelationships() != null) {
+      // If only the new job has process instance info, copy it to the stored job
+      storedDatahubJob.setDataProcessInstanceUrn(datahubJob.getDataProcessInstanceUrn());
+      storedDatahubJob.setDataProcessInstanceRelationships(datahubJob.getDataProcessInstanceRelationships());
+      storedDatahubJob.setDataProcessInstanceProperties(datahubJob.getDataProcessInstanceProperties());
+      storedDatahubJob.setDataProcessInstanceRunEvent(datahubJob.getDataProcessInstanceRunEvent());
     }
-    log.info("DataProcessInstanceRunEvent: {}", datahubJob.getDataProcessInstanceRunEvent());
   }
 
   private void mergeCustomProperties(DatahubJob datahubJob, DatahubJob storedDatahubJob) {
-    if (storedDatahubJob.getDataFlowInfo().getCustomProperties() != null) {
-      if (datahubJob.getDataFlowInfo().getCustomProperties() == null) {
-        datahubJob
-            .getDataFlowInfo()
-            .setCustomProperties(storedDatahubJob.getDataFlowInfo().getCustomProperties());
-      } else {
-        Map<String, String> mergedProperties =
-            Stream.of(
-                    datahubJob.getDataFlowInfo().getCustomProperties(),
-                    storedDatahubJob.getDataFlowInfo().getCustomProperties())
-                .flatMap(map -> map.entrySet().stream())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
-        mergedProperties.put("finishedAt", ZonedDateTime.now(ZoneOffset.UTC).toString());
 
-        if (datahubConf.getSparkAppContext() != null) {
-          if (datahubConf.getSparkAppContext().getStartTime() != null) {
-            mergedProperties.put(
-                "startedAt",
-                ZonedDateTime.ofInstant(
-                        Instant.ofEpochMilli(datahubConf.getSparkAppContext().getStartTime()),
-                        ZoneOffset.UTC)
-                    .toString());
-          }
-          if (datahubConf.getSparkAppContext().getAppAttemptId() != null) {
-            mergedProperties.put("attemptId", datahubConf.getSparkAppContext().getAppAttemptId());
-          }
-          if (datahubConf.getSparkAppContext().getSparkUser() != null) {
-            mergedProperties.put("sparkUser", datahubConf.getSparkAppContext().getSparkUser());
-          }
-
-          if (datahubConf.getSparkAppContext().getAppId() != null) {
-            mergedProperties.put("appId", datahubConf.getSparkAppContext().getAppId());
-          }
-
-          if (datahubConf.getSparkAppContext().getDatabricksTags() != null) {
-            mergedProperties.putAll(datahubConf.getSparkAppContext().getDatabricksTags());
-          }
-        }
-        datahubJob.getDataFlowInfo().setCustomProperties(new StringMap(mergedProperties));
+    if (datahubJob.getJobInfo() != null && storedDatahubJob.getJobInfo() != null) {
+      StringMap customProperties = storedDatahubJob.getJobInfo().getCustomProperties();
+      if (customProperties == null) {
+        customProperties = new StringMap();
       }
+      Map<String, String> mergedProperties = new HashMap<>(customProperties);
+      if (datahubJob.getJobInfo().hasCustomProperties()) {
+        mergedProperties.putAll(datahubJob.getJobInfo().getCustomProperties());
+      }
+      storedDatahubJob.getJobInfo().setCustomProperties(new StringMap(mergedProperties));
+    }
+
+    if (datahubJob.getDataFlowInfo() != null && storedDatahubJob.getDataFlowInfo() != null) {
+      StringMap customProperties = storedDatahubJob.getDataFlowInfo().getCustomProperties();
+      if (customProperties == null) {
+        customProperties = new StringMap();
+      }
+      Map<String, String> mergedProperties = new HashMap<>(customProperties);
+      if (datahubJob.getDataFlowInfo().hasCustomProperties()) {
+        mergedProperties.putAll(datahubJob.getDataFlowInfo().getCustomProperties());
+      }
+
+      if (datahubConf.getSparkAppContext() != null) {
+        if (datahubConf.getSparkAppContext().getSparkUser() != null) {
+          mergedProperties.put("sparkUser", datahubConf.getSparkAppContext().getSparkUser());
+        }
+
+        if (datahubConf.getSparkAppContext().getAppId() != null) {
+          mergedProperties.put("appId", datahubConf.getSparkAppContext().getAppId());
+        }
+
+        if (datahubConf.getSparkAppContext().getDatabricksTags() != null) {
+          mergedProperties.putAll(datahubConf.getSparkAppContext().getDatabricksTags());
+        }
+      }
+      storedDatahubJob.getDataFlowInfo().setCustomProperties(new StringMap(mergedProperties));
     }
   }
 
+  /**
+   * Process a streaming query progress event
+   */
   public void emit(StreamingQueryProgress event) throws URISyntaxException {
-    List<MetadataChangeProposal> mcps = new ArrayList<>();
-    for (MetadataChangeProposalWrapper mcpw :
-        generateMcpFromStreamingProgressEvent(event, datahubConf, schemaMap)) {
-      try {
-        mcps.add(eventFormatter.convert(mcpw));
-      } catch (IOException e) {
-        log.error("Failed to convert mcpw to mcp", e);
-      }
+    if (datahubConf == null) {
+      log.warn("DataHub configuration is not set, skipping streaming event emission");
+      return;
     }
-    emitMcps(mcps);
+    
+    try {
+      log.info("Processing streaming query progress: {}", event.id());
+      
+      // Use the StreamingEventCorrelator to handle correlation between events
+      List<MetadataChangeProposalWrapper> mcps = 
+          streamingEventCorrelator.processEvent(event, datahubConf, schemaMap);
+      
+      List<MetadataChangeProposal> formattedMcps = new ArrayList<>();
+      for (MetadataChangeProposalWrapper mcp : mcps) {
+        try {
+          formattedMcps.add(eventFormatter.convert(mcp));
+        } catch (IOException e) {
+          log.error("Failed to convert metadata change proposal: {}", e.getMessage());
+        }
+      }
+      
+      emitMcps(formattedMcps);
+      log.info("Successfully emitted streaming query progress event for {}", event.id());
+    } catch (Exception e) {
+      log.error("Error processing streaming query progress event", e);
+    }
+  }
+
+  /**
+   * Process a microbatch start event
+   */
+  public void processMicroBatchStart(String queryId, String logMessage) {
+    if (datahubConf == null) {
+      log.warn("DataHub configuration is not set, skipping microbatch event");
+      return;
+    }
+    
+    try {
+      log.info("Processing microbatch start for query ID: {}", queryId);
+      streamingEventCorrelator.recordMicroBatchStart(queryId, logMessage);
+    } catch (Exception e) {
+      log.error("Error processing microbatch start event", e);
+    }
+  }
+
+  /**
+   * Process a microbatch commit event
+   */
+  public void processMicroBatchCommit(String queryId, Map<String, String> metadata, String logMessage) {
+    if (datahubConf == null) {
+      log.warn("DataHub configuration is not set, skipping microbatch commit event");
+      return;
+    }
+    
+    try {
+      log.info("Processing microbatch commit for query ID: {}, metadata: {}", 
+               queryId, metadata);
+      streamingEventCorrelator.recordMicroBatchCommit(queryId, metadata, logMessage);
+    } catch (Exception e) {
+      log.error("Error processing microbatch commit event", e);
+    }
+  }
+
+  /**
+   * Process a delta sink write event
+   */
+  public void processDeltaSinkWrite(String queryId, Map<String, String> metadata, String logMessage) {
+    if (datahubConf == null) {
+      log.warn("DataHub configuration is not set, skipping delta sink write event");
+      return;
+    }
+    
+    try {
+      log.info("Processing delta sink write for query ID: {}, metadata: {}", 
+               queryId, metadata);
+      streamingEventCorrelator.recordDeltaSinkWrite(queryId, metadata, logMessage);
+    } catch (Exception e) {
+      log.error("Error processing delta sink write event", e);
+    }
+  }
+
+  /**
+   * Process a logical plan event
+   * 
+   * @param queryId the query ID
+   * @param metadata metadata about the logical plan
+   * @param logMessage the original log message
+   */
+  public void processMicroBatchLogicalPlan(String queryId, Map<String, String> metadata, String logMessage) {
+    if (datahubConf == null) {
+      log.warn("DataHub configuration is not set, skipping logical plan event");
+      return;
+    }
+    
+    try {
+      log.info("Processing logical plan for query ID: {}", queryId);
+      streamingEventCorrelator.recordLogicalPlan(queryId, metadata, logMessage);
+    } catch (Exception e) {
+      log.error("Error processing logical plan event", e);
+    }
+  }
+
+  /**
+   * Process a progress report event
+   * 
+   * @param queryId the query ID
+   * @param metadata metadata about the progress report
+   * @param logMessage the original log message
+   */
+  public void processMicroBatchProgress(String queryId, Map<String, String> metadata, String logMessage) {
+    if (datahubConf == null) {
+      log.warn("DataHub configuration is not set, skipping progress report event");
+      return;
+    }
+    
+    try {
+      log.info("Processing progress report for query ID: {}", queryId);
+      streamingEventCorrelator.recordProgressReport(queryId, metadata, logMessage);
+    } catch (Exception e) {
+      log.error("Error processing progress report event", e);
+    }
+  }
+
+  /**
+   * Process other interesting messages
+   * 
+   * @param queryId the query ID
+   * @param metadata metadata about the message
+   * @param logMessage the original log message
+   */
+  public void processInterestingMessage(String queryId, Map<String, String> metadata, String logMessage) {
+    if (datahubConf == null) {
+      log.warn("DataHub configuration is not set, skipping interesting message");
+      return;
+    }
+    
+    try {
+      log.info("Processing interesting message for query ID: {}", queryId);
+      streamingEventCorrelator.recordInterestingMessage(queryId, metadata, logMessage);
+    } catch (Exception e) {
+      log.error("Error processing interesting message", e);
+    }
+  }
+
+  /**
+   * Process a logical plan log message from a streaming query.
+   *
+   * @param queryId the query ID
+   * @param metadata metadata extracted from the log
+   * @param logMessage the original log message
+   */
+  public void processLogicalPlan(String queryId, Map<String, String> metadata, String logMessage) {
+    if (streamingEventCorrelator != null) {
+      streamingEventCorrelator.recordLogicalPlan(queryId, metadata, logMessage);
+    }
+  }
+
+  /**
+   * Process a progress report log message from a streaming query.
+   *
+   * @param queryId the query ID
+   * @param metadata metadata extracted from the log
+   * @param logMessage the original log message
+   */
+  public void processProgressReport(String queryId, Map<String, String> metadata, String logMessage) {
+    if (streamingEventCorrelator != null) {
+      streamingEventCorrelator.recordProgressReport(queryId, metadata, logMessage);
+    }
   }
 
   protected void emitMcps(List<MetadataChangeProposal> mcps) {
@@ -455,6 +645,17 @@ public class DatahubEventEmitter extends EventEmitter {
 
   public void setConfig(SparkLineageConf sparkConfig) {
     this.datahubConf = sparkConfig;
+    
+    // Register the streaming listeners
+    registerStreamingListeners();
+    
+    // Install the MicroBatchLogInterceptor to capture log events from streaming queries
+    boolean interceptorInstalled = MicroBatchLogInterceptor.install(this);
+    if (interceptorInstalled) {
+      log.info("Successfully installed MicroBatchLogInterceptor");
+    } else {
+      log.warn("Failed to install MicroBatchLogInterceptor - some streaming lineage features may be limited");
+    }
   }
 
   public boolean isStreaming() {
