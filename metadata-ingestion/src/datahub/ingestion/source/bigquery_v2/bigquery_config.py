@@ -63,6 +63,21 @@ class BigQueryBaseConfig(ConfigModel):
         description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
     )
 
+    fallback_partition_values: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Dictionary of fallback partition keys and values to use when timeout occurs during partition discovery. For non-date columns, provide the exact values. For date columns, these will be ignored in favor of the relative_date_offset.",
+    )
+
+    relative_date_offset: int = Field(
+        default=1,
+        description="For date/timestamp partition columns, the number of days to go back from current date. 1 means yesterday, 2 means the day before yesterday, etc.",
+    )
+
+    partition_discovery_timeout: int = Field(
+        default=30,
+        description="Timeout in seconds for partition discovery queries. If queries exceed this timeout, fallback partition values will be used.",
+    )
+
     @validator("sharded_table_pattern")
     def sharded_table_pattern_is_a_valid_regexp(cls, v):
         try:
