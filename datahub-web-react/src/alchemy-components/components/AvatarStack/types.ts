@@ -8,4 +8,6 @@ export interface AvatarItemProps {
 export type AvatarStackProps = {
     avatars: AvatarItemProps[];
     size?: AvatarSizeOptions;
+    showRemainingNumber?: boolean;
+    maxToShow?: number;
 };
