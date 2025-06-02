@@ -32,7 +32,7 @@ def test_parse_detection_mechanism_with_str_invalid_type() -> None:
     "mechanism_str",
     [
         "last_modified_column",
-        "high_water_mark_column",
+        "high_watermark_column",
     ],
 )
 def test_parse_detection_mechanism_with_str_missing_required_kwargs(
@@ -65,16 +65,16 @@ def test_parse_detection_mechanism_with_str_missing_required_kwargs(
             "last_modified_column",
         ),
         (
-            {"type": "high_water_mark_column", "column_name": "id"},
-            "high_water_mark_column",
+            {"type": "high_watermark_column", "column_name": "id"},
+            "high_watermark_column",
         ),
         (
             {
-                "type": "high_water_mark_column",
+                "type": "high_watermark_column",
                 "column_name": "id",
                 "additional_filter": "id > 1000",
             },
-            "high_water_mark_column",
+            "high_watermark_column",
         ),
     ],
 )
@@ -152,15 +152,15 @@ def test_parse_detection_mechanism_with_extra_unrecognized_kwargs_and_missing_re
             },
         ),
         (
-            DetectionMechanism.HIGH_WATER_MARK_COLUMN(column_name="id"),
-            "high_water_mark_column",
+            DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name="id"),
+            "high_watermark_column",
             {"column_name": "id"},
         ),
         (
-            DetectionMechanism.HIGH_WATER_MARK_COLUMN(
+            DetectionMechanism.HIGH_WATERMARK_COLUMN(
                 column_name="id", additional_filter="id > 1000"
             ),
-            "high_water_mark_column",
+            "high_watermark_column",
             {"column_name": "id", "additional_filter": "id > 1000"},
         ),
     ],

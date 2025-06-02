@@ -8,7 +8,7 @@ The actual Assertion Entity classes are defined in `metadata-ingestion/src/datah
 
 import logging
 from abc import ABC, abstractmethod
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
 from typing import Any, Optional, Union
 
@@ -25,6 +25,7 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
 from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
 from acryl_datahub_cloud._sdk_extras.errors import SDKNotYetSupportedError
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, DatasetUrn
 from datahub.sdk.entity import Entity
@@ -163,14 +164,8 @@ class _HasSmartFunctionality:
                     continue
                 exclusion_windows.append(
                     FixedRangeExclusionWindow(
-                        start=datetime.fromtimestamp(
-                            raw_window.fixedRange.startTimeMillis / 1000.0,
-                            tz=timezone.utc,
-                        ),
-                        end=datetime.fromtimestamp(
-                            raw_window.fixedRange.endTimeMillis / 1000.0,
-                            tz=timezone.utc,
-                        ),
+                        start=parse_ts_millis(raw_window.fixedRange.startTimeMillis),
+                        end=parse_ts_millis(raw_window.fixedRange.endTimeMillis),
                     )
                 )
             else:
@@ -324,7 +319,7 @@ class _HasSmartFunctionality:
                 column_name=column_name, additional_filter=additional_filter
             )
         elif field.kind == models.FreshnessFieldKindClass.HIGH_WATERMARK:
-            return DetectionMechanism.HIGH_WATER_MARK_COLUMN(
+            return DetectionMechanism.HIGH_WATERMARK_COLUMN(
                 column_name=column_name, additional_filter=additional_filter
             )
         else:
@@ -353,9 +348,9 @@ class _HasSmartFunctionality:
         return assertion.info.filter.sql
 
 
-class _Assertion(ABC):
+class _AssertionPublic(ABC):
     """
-    Abstract base class that represents an assertion and contains the common properties of all assertions.
+    Abstract base class that represents a public facing assertion and contains the common properties of all assertions.
     """
 
     def __init__(
@@ -372,18 +367,18 @@ class _Assertion(ABC):
         updated_at: Union[datetime, None] = None,
     ):
         """
-        Initialize the base assertion class.
+        Initialize the public facing assertion class.
 
         Args:
             urn: The urn of the assertion.
             dataset_urn: The urn of the dataset that the assertion is for.
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active, inactive).
+            tags: The tags of the assertion.
             created_by: The urn of the user that created the assertion.
             created_at: The timestamp of when the assertion was created.
             updated_by: The urn of the user that updated the assertion.
             updated_at: The timestamp of when the assertion was updated.
-            tags: The tags of the assertion.
         """
         self._urn = urn
         self._dataset_urn = dataset_urn
@@ -492,9 +487,7 @@ class _Assertion(ABC):
                     f"Assertion {assertion.urn} does not have a created by in the source"
                 )
                 return None
-            return datetime.fromtimestamp(
-                assertion.source.created.time / 1000.0, tz=timezone.utc
-            )
+            return parse_ts_millis(assertion.source.created.time)
         elif isinstance(assertion.source, models.AssertionSourceTypeClass):
             logger.warning(
                 f"Assertion {assertion.urn} has a source type with no created by"
@@ -514,9 +507,7 @@ class _Assertion(ABC):
         if assertion.last_updated is None:
             logger.warning(f"Assertion {assertion.urn} does not have a last updated")
             return None
-        return datetime.fromtimestamp(
-            assertion.last_updated.time / 1000.0, tz=timezone.utc
-        )
+        return parse_ts_millis(assertion.last_updated.time)
 
     @staticmethod
     def _get_tags(assertion: Assertion) -> list[Urn]:
@@ -543,7 +534,7 @@ class _Assertion(ABC):
         pass
 
 
-class SmartFreshnessAssertion(_HasSmartFunctionality, _Assertion):
+class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
     """
     A class that represents a smart freshness assertion.
     """
@@ -581,11 +572,11 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _Assertion):
             training_data_lookback_days: The max number of days of data to use for training the assertion.
             incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
             detection_mechanism: The detection mechanism of the assertion.
+            tags: The tags applied to the assertion.
             created_by: The urn of the user that created the assertion.
             created_at: The timestamp of when the assertion was created.
             updated_by: The urn of the user that updated the assertion.
             updated_at: The timestamp of when the assertion was updated.
-            tags: The tags of the assertion.
         """
         # Initialize the mixin first
         _HasSmartFunctionality.__init__(
@@ -597,7 +588,7 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _Assertion):
             detection_mechanism=detection_mechanism,
         )
         # Then initialize the parent class
-        _Assertion.__init__(
+        _AssertionPublic.__init__(
             self,
             urn=urn,
             dataset_urn=dataset_urn,

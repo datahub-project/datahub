@@ -26,8 +26,10 @@ from acryl_datahub_cloud._sdk_extras.errors import (
     SDKUsageError,
     SDKUsageErrorWithExamples,
 )
+from datahub.emitter.enum_helpers import get_enum_options
+from datahub.emitter.mce_builder import make_ts_millis
 from datahub.metadata import schema_classes as models
-from datahub.metadata.urns import AssertionUrn, DatasetUrn
+from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk import Dataset
 from datahub.sdk.entity_client import EntityClient
 
@@ -73,8 +75,8 @@ HIGH_WATERMARK_ALLOWED_FIELD_TYPES = [
 ]
 
 
-class _HighWaterMarkColumn(AbstractDetectionMechanism):
-    type: Literal["high_water_mark_column"] = "high_water_mark_column"
+class _HighWatermarkColumn(AbstractDetectionMechanism):
+    type: Literal["high_watermark_column"] = "high_watermark_column"
     column_name: str
     additional_filter: Union[str, None] = None
 
@@ -88,14 +90,14 @@ _DETECTION_MECHANISM_CONCRETE_TYPES = (
     _InformationSchema,
     _AuditLog,
     _LastModifiedColumn,
-    _HighWaterMarkColumn,
+    _HighWatermarkColumn,
     _DataHubOperation,
 )
 _DETECTION_MECHANISM_TYPES = Union[
     _InformationSchema,
     _AuditLog,
     _LastModifiedColumn,
-    _HighWaterMarkColumn,
+    _HighWatermarkColumn,
     _DataHubOperation,
 ]
 
@@ -106,7 +108,7 @@ class DetectionMechanism:
     INFORMATION_SCHEMA = _InformationSchema()
     AUDIT_LOG = _AuditLog()
     LAST_MODIFIED_COLUMN = _LastModifiedColumn
-    HIGH_WATER_MARK_COLUMN = _HighWaterMarkColumn
+    HIGH_WATERMARK_COLUMN = _HighWatermarkColumn
     DATAHUB_OPERATION = _DataHubOperation()
 
     _DETECTION_MECHANISM_EXAMPLES = {
@@ -120,12 +122,12 @@ class DetectionMechanism:
             "additional_filter": "last_modified > '2021-01-01'",
         },
         "Last Modified Column from DetectionMechanism": "DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified', additional_filter='last_modified > 2021-01-01')",
-        "High Water Mark Column from dict": {
-            "type": "high_water_mark_column",
+        "High Watermark Column from dict": {
+            "type": "high_watermark_column",
             "column_name": "id",
             "additional_filter": "id > 1000",
         },
-        "High Water Mark Column from DetectionMechanism": "DetectionMechanism.HIGH_WATER_MARK_COLUMN(high_water_mark_column='id', additional_filter='id > 1000')",
+        "High Watermark Column from DetectionMechanism": "DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id', additional_filter='id > 1000')",
         "DataHub Operation from string": "datahub_operation",
         "DataHub Operation from DetectionMechanism": "DetectionMechanism.DATAHUB_OPERATION",
     }
@@ -471,21 +473,32 @@ class _AssertionInput(ABC):
             AssertionIncidentBehavior, list[AssertionIncidentBehavior], None
         ] = None,
         tags: Optional[TagsInputType] = None,
+        source_type: str = models.AssertionSourceTypeClass.NATIVE,  # Verified on init to be a valid enum value
+        created_by: Union[str, CorpUserUrn],
+        created_at: datetime,
+        updated_by: Union[str, CorpUserUrn],
+        updated_at: datetime,
     ):
         """
         Create an AssertionInput object.
 
         Args:
-            urn: The urn of the assertion.
             dataset_urn: The urn of the dataset to be monitored.
-            display_name: The display name of the assertion, which will be generated randomly if not provided.
-            enabled: Whether the assertion is enabled, defaults to True.
+            entity_client: The entity client to be used for creating the assertion.
+            urn: The urn of the assertion. If not provided, a random urn will be generated.
+            display_name: The display name of the assertion. If not provided, a random display name will be generated.
+            enabled: Whether the assertion is enabled. Defaults to True.
             detection_mechanism: The detection mechanism to be used for the assertion.
             sensitivity: The sensitivity to be applied to the assertion.
-            exclusion_windows: The exclusion windows to be applied to the assertion.
+            exclusion_windows: The exclusion windows to be applied to the assertion. If not provided, no exclusion windows will be applied.
             training_data_lookback_days: The training data lookback days to be applied to the assertion.
             incident_behavior: The incident behavior to be applied to the assertion.
             tags: The tags to be applied to the assertion.
+            source_type: The source type of the assertion. Defaults to models.AssertionSourceTypeClass.NATIVE.
+            created_by: The actor that created the assertion.
+            created_at: The timestamp of the assertion creation.
+            updated_by: The actor that last updated the assertion.
+            updated_at: The timestamp of the assertion last update.
         """
         self.dataset_urn = DatasetUrn.from_string(dataset_urn)
         self.entity_client = entity_client
@@ -503,6 +516,16 @@ class _AssertionInput(ABC):
         )
         self.incident_behavior = _try_parse_incident_behavior(incident_behavior)
         self.tags = tags
+        if source_type not in get_enum_options(models.AssertionSourceTypeClass):
+            raise SDKUsageError(
+                msg=f"Invalid source type: {source_type}, valid options are {get_enum_options(models.AssertionSourceTypeClass)}",
+            )
+        self.source_type = source_type
+        self.created_by = created_by
+        self.created_at = created_at
+        self.updated_by = updated_by
+        self.updated_at = updated_at
+
         self.cached_dataset: Optional[Dataset] = None
 
     def to_assertion_and_monitor_entities(self) -> tuple[Assertion, Monitor]:
@@ -533,6 +556,8 @@ class _AssertionInput(ABC):
             on_success=on_success,
             on_failure=on_failure,
             tags=self._convert_tags(),
+            source=self._convert_source(),
+            last_updated=self._convert_last_updated(),
         )
 
     def _convert_incident_behavior(
@@ -587,7 +612,7 @@ class _AssertionInput(ABC):
             self.detection_mechanism,
             (
                 DetectionMechanism.LAST_MODIFIED_COLUMN,
-                DetectionMechanism.HIGH_WATER_MARK_COLUMN,
+                DetectionMechanism.HIGH_WATERMARK_COLUMN,
             ),
         ):
             return None
@@ -636,6 +661,26 @@ class _AssertionInput(ABC):
                 },
             )
 
+    def _convert_source(self) -> models.AssertionSourceClass:
+        """
+        Convert the source input into a models.AssertionSourceClass.
+        """
+        return models.AssertionSourceClass(
+            type=self.source_type,
+            created=models.AuditStampClass(
+                time=make_ts_millis(self.created_at),
+                actor=str(self.created_by),
+            ),
+        )
+
+    def _convert_last_updated(self) -> tuple[datetime, str]:
+        """
+        Convert the last updated input into a tuple of (datetime, str).
+
+        Validation is handled in the Assertion entity constructor.
+        """
+        return (self.updated_at, str(self.updated_by))
+
     def to_monitor_entity(self, assertion_urn: AssertionUrn) -> Monitor:
         """
         Convert the assertion input to a monitor entity.
@@ -677,7 +722,7 @@ class _AssertionInput(ABC):
         self,
     ) -> list[models.AssertionExclusionWindowClass]:
         """
-        Convert exclusion windows into AssertionExclusionWindowClass objects.
+        Convert exclusion windows into AssertionExclusionWindowClass objects including generating display names for them.
 
         Returns:
             A list of AssertionExclusionWindowClass objects.
@@ -693,12 +738,17 @@ class _AssertionInput(ABC):
                         msg=f"Invalid exclusion window type: {window}",
                         examples=FIXED_RANGE_EXCLUSION_WINDOW_EXAMPLES,
                     )
+                # To match the UI, we generate a display name for the exclusion window.
+                # See here for the UI code: https://github.com/acryldata/datahub-fork/blob/acryl-main/datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/ExclusionWindowAdjuster.tsx#L31
+                # Copied here for reference: displayName: `${dayjs(startTime).format('MMM D, h:mm A')} - ${dayjs(endTime).format('MMM D, h:mm A')}`,
+                generated_display_name = f"{window.start.strftime('%b %-d, %-I:%M %p')} - {window.end.strftime('%b %-d, %-I:%M %p')}"
                 exclusion_windows.append(
                     models.AssertionExclusionWindowClass(
                         type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,  # Currently only fixed range is supported
+                        displayName=generated_display_name,
                         fixedRange=models.AbsoluteTimeWindowClass(
-                            startTimeMillis=int(window.start.timestamp() * 1000),
-                            endTimeMillis=int(window.end.timestamp() * 1000),
+                            startTimeMillis=make_ts_millis(window.start),
+                            endTimeMillis=make_ts_millis(window.end),
                         ),
                     )
                 )
@@ -831,6 +881,10 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             AssertionIncidentBehavior, list[AssertionIncidentBehavior], None
         ] = None,
         tags: Optional[TagsInputType] = None,
+        created_by: Union[str, CorpUserUrn],
+        created_at: datetime,
+        updated_by: Union[str, CorpUserUrn],
+        updated_at: datetime,
     ):
         super().__init__(
             dataset_urn=dataset_urn,
@@ -844,6 +898,11 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             training_data_lookback_days=training_data_lookback_days,
             incident_behavior=incident_behavior,
             tags=tags,
+            source_type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
+            created_by=created_by,
+            created_at=created_at,
+            updated_by=updated_by,
+            updated_at=updated_at,
         )
 
     def _create_assertion_info(
@@ -904,13 +963,15 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
                 self.detection_mechanism.column_name,
                 LAST_MODIFIED_ALLOWED_FIELD_TYPES,
                 "last modified column",
+                models.FreshnessFieldKindClass.LAST_MODIFIED,
             )
-        elif isinstance(self.detection_mechanism, _HighWaterMarkColumn):
+        elif isinstance(self.detection_mechanism, _HighWatermarkColumn):
             source_type = models.DatasetFreshnessSourceTypeClass.FIELD_VALUE
             field = self._create_field_spec(
                 self.detection_mechanism.column_name,
                 HIGH_WATERMARK_ALLOWED_FIELD_TYPES,
                 "high watermark column",
+                models.FreshnessFieldKindClass.HIGH_WATERMARK,
             )
         elif isinstance(self.detection_mechanism, _InformationSchema):
             source_type = models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA
@@ -930,6 +991,7 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
         column_name: str,
         allowed_types: list[DictWrapper],  # TODO: Use the type from the PDL
         field_type_name: str,
+        kind: str,
     ) -> models.FreshnessFieldSpecClass:
         """
         Create a field specification for a column, validating its type.
@@ -938,6 +1000,7 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             column_name: The name of the column to create a spec for
             allowed_types: List of allowed field types
             field_type_name: Human-readable name of the field type for error messages
+            kind: The kind of field to create
 
         Returns:
             A FreshnessFieldSpecClass for the column
@@ -945,6 +1008,15 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
         Raises:
             SDKUsageError: If the column is not found or has an invalid type
         """
+        SUPPORTED_KINDS = [
+            models.FreshnessFieldKindClass.LAST_MODIFIED,
+            models.FreshnessFieldKindClass.HIGH_WATERMARK,
+        ]
+        if kind not in SUPPORTED_KINDS:
+            raise SDKUsageError(
+                msg=f"Invalid kind: {kind}. Must be one of {SUPPORTED_KINDS}",
+            )
+
         field_spec = self._get_schema_field_spec(column_name)
         allowed_type_names = [t.__class__.__name__ for t in allowed_types]
         if field_spec.type not in allowed_type_names:
@@ -956,4 +1028,5 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             path=field_spec.path,
             type=field_spec.type,
             nativeType=field_spec.nativeType,
+            kind=kind,
         )
