@@ -1,9 +1,13 @@
-import { Icon, Pill, Text, Tooltip, colors, typography } from '@components';
+import { Avatar, Icon, Pill, Text, Tooltip, colors, typography } from '@components';
 import { Button, Dropdown, Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 import {
     RUNNING,
@@ -11,7 +15,10 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
 } from '@app/ingestV2/source/utils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
+
+import { Owner } from '@types';
 
 const PreviewImage = styled(Image)`
     max-height: 20px;
@@ -201,6 +208,32 @@ export function StatusColumn({ status, record, setFocusExecutionUrn }: StatusPro
                 </StatusButton>
             </StatusContainer>
         </AllStatusWrapper>
+    );
+}
+
+export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entityRegistry: EntityRegistry }) {
+    const ownerAvatars = owners.map((owner) => {
+        return {
+            name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
+            imageUrl: owner.owner.editableProperties?.pictureLink,
+        };
+    });
+    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
+    return (
+        <>
+            {singleOwner && (
+                <HoverEntityTooltip entity={singleOwner}>
+                    <Link to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}>
+                        <Avatar
+                            name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+                            imageUrl={singleOwner.editableProperties?.pictureLink}
+                            showInPill
+                        />
+                    </Link>
+                </HoverEntityTooltip>
+            )}
+            {owners.length > 1 && <AvatarStack avatars={ownerAvatars} showRemainingNumber />}
+        </>
     );
 }
 

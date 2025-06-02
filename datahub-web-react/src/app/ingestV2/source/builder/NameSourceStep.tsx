@@ -1,4 +1,4 @@
-import { Button, Tooltip } from '@components';
+import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -12,6 +12,10 @@ const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
+`;
+
+const LabelContainer = styled.div`
+    display: flex;
 `;
 
 const ExtraEnvKey = 'extra_env_vars';
@@ -171,13 +175,13 @@ export const NameSourceStep = ({ state, updateState, prev, submit, sourceRefetch
         <>
             <RequiredFieldForm layout="vertical">
                 <Form.Item
-                    required
                     label={
-                        <Typography.Text strong style={{ marginBottom: 0 }}>
-                            Name
-                        </Typography.Text>
+                        <LabelContainer>
+                            <Text>Name</Text>
+                            <Text color="red"> *</Text>
+                        </LabelContainer>
                     }
-                    style={{ marginBottom: 8 }}
+                    style={{ marginBottom: 16 }}
                 >
                     <Typography.Paragraph>Give this data source a name</Typography.Paragraph>
                     <Input

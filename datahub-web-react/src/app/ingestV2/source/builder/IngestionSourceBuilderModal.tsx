@@ -47,8 +47,6 @@ export enum IngestionSourceBuilderStep {
     NAME_SOURCE = 'NAME_SOURCE',
 }
 
-const modalBodyStyle = { padding: '16px 24px 16px 24px', backgroundColor: '#F6F6F6' };
-
 type Props = {
     initialState?: SourceBuilderState;
     open: boolean;
@@ -118,16 +116,7 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
     const StepComponent: React.FC<StepProps> = IngestionSourceBuilderStepComponent[currentStep];
 
     return (
-        <Modal
-            width="64%"
-            footer={null}
-            title={titleText}
-            style={{ top: 40 }}
-            bodyStyle={modalBodyStyle}
-            open={open}
-            onCancel={onCancel}
-            buttons={[]}
-        >
+        <Modal width="64%" title={titleText} open={open} onCancel={onCancel} buttons={[]}>
             {currentStepIndex > 0 ? (
                 <StepsContainer>
                     <Steps current={currentStepIndex}>

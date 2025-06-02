@@ -7,10 +7,12 @@ import {
     ActionsColumn,
     LastExecutionColumn,
     NameColumn,
+    OwnerColumn,
     ScheduleColumn,
     StatusColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
 
@@ -39,6 +41,8 @@ function IngestionSourceTable({
     onChangeSort,
     isLoading,
 }: Props) {
+    const entityRegistry = useEntityRegistryV2();
+
     const tableData = sources.map((source) => ({
         urn: source.urn,
         type: source.type,
@@ -53,6 +57,7 @@ function IngestionSourceTable({
             source.executions?.executionRequests?.[0]?.result &&
             getIngestionSourceStatus(source.executions.executionRequests[0].result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
+        owners: source.ownership?.owners,
     }));
 
     const tableColumns = [
@@ -92,7 +97,7 @@ function IngestionSourceTable({
         {
             title: 'Owner',
             key: 'owner',
-            render: () => <></>,
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
             width: '15%',
         },
 

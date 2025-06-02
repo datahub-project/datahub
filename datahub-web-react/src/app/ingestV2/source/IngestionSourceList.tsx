@@ -109,7 +109,7 @@ const removeExecutionsFromIngestionSource = (source) => {
             type: source.type,
             schedule: source.schedule,
             config: source.config,
-            owners: source.owners,
+            owners: source.ownership?.owners,
         };
     }
     return undefined;
