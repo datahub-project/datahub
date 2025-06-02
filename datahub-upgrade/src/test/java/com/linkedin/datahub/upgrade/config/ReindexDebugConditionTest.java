@@ -1,24 +1,19 @@
 package com.linkedin.datahub.upgrade.config;
 
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+import static org.testng.Assert.*;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Stream;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.type.AnnotatedTypeMetadata;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class ReindexDebugConditionTest {
@@ -27,27 +22,26 @@ public class ReindexDebugConditionTest {
 
   @Mock private AnnotatedTypeMetadata annotatedTypeMetadata;
 
-  @Mock private BeanFactory beanFactory;
+  @Mock private ConfigurableListableBeanFactory beanFactory;
 
   @Mock private ApplicationArguments applicationArguments;
 
   private ReindexDebugCondition reindexDebugCondition;
 
-  @BeforeEach
+  @BeforeMethod
   public void setUp() {
     MockitoAnnotations.openMocks(this);
     reindexDebugCondition = new ReindexDebugCondition();
 
     // Setup the basic mock chain
-    when(conditionContext.getBeanFactory())
-        .thenReturn((ConfigurableListableBeanFactory) beanFactory);
+    when(conditionContext.getBeanFactory()).thenReturn(beanFactory);
     when(beanFactory.getBean(ApplicationArguments.class)).thenReturn(applicationArguments);
   }
 
   @Test
   public void testConstant() {
     // Verify the constant is correctly defined
-    assertEquals("ReindexDebug", ReindexDebugCondition.DEBUG_REINDEX);
+    assertEquals(ReindexDebugCondition.DEBUG_REINDEX, "ReindexDebug");
   }
 
   @Test
@@ -66,16 +60,19 @@ public class ReindexDebugConditionTest {
     verify(applicationArguments).getNonOptionArgs();
   }
 
-  @ParameterizedTest
-  @ValueSource(
-      strings = {
-        "reindexdebug",
-        "REINDEXDEBUG",
-        "ReindexDebug",
-        "reindexDebug",
-        "REINDEXdebug",
-        "ReInDeXdEbUg"
-      })
+  @DataProvider(name = "caseInsensitiveArguments")
+  public Object[][] provideCaseInsensitiveArguments() {
+    return new Object[][] {
+      {"reindexdebug"},
+      {"REINDEXDEBUG"},
+      {"ReindexDebug"},
+      {"reindexDebug"},
+      {"REINDEXdebug"},
+      {"ReInDeXdEbUg"}
+    };
+  }
+
+  @Test(dataProvider = "caseInsensitiveArguments")
   public void testMatches_WithCaseInsensitiveMatch(String argument) {
     // Arrange
     List<String> nonOptionArgs = Arrays.asList(argument, "otherArg");
@@ -114,15 +111,13 @@ public class ReindexDebugConditionTest {
     assertFalse(result);
   }
 
-  @Test
+  @Test(expectedExceptions = NullPointerException.class)
   public void testMatches_WithNullArguments() {
     // Arrange - ApplicationArguments returns null list
     when(applicationArguments.getNonOptionArgs()).thenReturn(null);
 
     // Act & Assert
-    assertThrows(
-        NullPointerException.class,
-        () -> reindexDebugCondition.matches(conditionContext, annotatedTypeMetadata));
+    reindexDebugCondition.matches(conditionContext, annotatedTypeMetadata);
   }
 
   @Test
@@ -151,8 +146,26 @@ public class ReindexDebugConditionTest {
     assertFalse(result, "Should return false when all elements are null");
   }
 
-  @ParameterizedTest
-  @MethodSource("provideArgumentListsWithMatches")
+  @DataProvider(name = "argumentListsWithMatches")
+  public Object[][] provideArgumentListsWithMatches() {
+    return new Object[][] {
+      {Arrays.asList("ReindexDebug"), true},
+      {Arrays.asList("reindexdebug"), true},
+      {Arrays.asList("start", "ReindexDebug", "config"), true},
+      {Arrays.asList("ReindexDebug", "start"), true},
+      {Arrays.asList("config", "reindexdebug"), true},
+      {Arrays.asList("Reindex", "Debug"), false},
+      {Arrays.asList("ReindexDebugging"), false},
+      {Arrays.asList("ReindexDebu"), false},
+      {Arrays.asList("start", "config", "run"), false},
+      {Arrays.asList(""), false},
+      {Arrays.asList(" ReindexDebug "), false}, // with spaces
+      {Collections.singletonList("ReindexDebug"), true},
+      {Collections.emptyList(), false}
+    };
+  }
+
+  @Test(dataProvider = "argumentListsWithMatches")
   public void testMatches_WithVariousArgumentCombinations(
       List<String> arguments, boolean expectedResult) {
     // Arrange
@@ -163,26 +176,9 @@ public class ReindexDebugConditionTest {
 
     // Assert
     assertEquals(
-        expectedResult,
         result,
+        expectedResult,
         "Failed for arguments: " + arguments + ", expected: " + expectedResult);
-  }
-
-  static Stream<Arguments> provideArgumentListsWithMatches() {
-    return Stream.of(
-        Arguments.of(Arrays.asList("ReindexDebug"), true),
-        Arguments.of(Arrays.asList("reindexdebug"), true),
-        Arguments.of(Arrays.asList("start", "ReindexDebug", "config"), true),
-        Arguments.of(Arrays.asList("ReindexDebug", "start"), true),
-        Arguments.of(Arrays.asList("config", "reindexdebug"), true),
-        Arguments.of(Arrays.asList("Reindex", "Debug"), false),
-        Arguments.of(Arrays.asList("ReindexDebugging"), false),
-        Arguments.of(Arrays.asList("ReindexDebu"), false),
-        Arguments.of(Arrays.asList("start", "config", "run"), false),
-        Arguments.of(Arrays.asList(""), false),
-        Arguments.of(Arrays.asList(" ReindexDebug "), false), // with spaces
-        Arguments.of(Collections.singletonList("ReindexDebug"), true),
-        Arguments.of(Collections.emptyList(), false));
   }
 
   @Test
@@ -230,27 +226,27 @@ public class ReindexDebugConditionTest {
     assertFalse(result, "Should not match similar but not exact strings");
   }
 
-  @Test
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = "Bean factory error")
   public void testMatches_BeanFactoryThrowsException() {
     // Arrange
     when(conditionContext.getBeanFactory()).thenThrow(new RuntimeException("Bean factory error"));
 
     // Act & Assert
-    assertThrows(
-        RuntimeException.class,
-        () -> reindexDebugCondition.matches(conditionContext, annotatedTypeMetadata));
+    reindexDebugCondition.matches(conditionContext, annotatedTypeMetadata);
   }
 
-  @Test
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = "Bean not found")
   public void testMatches_GetBeanThrowsException() {
     // Arrange
     when(beanFactory.getBean(ApplicationArguments.class))
         .thenThrow(new RuntimeException("Bean not found"));
 
     // Act & Assert
-    assertThrows(
-        RuntimeException.class,
-        () -> reindexDebugCondition.matches(conditionContext, annotatedTypeMetadata));
+    reindexDebugCondition.matches(conditionContext, annotatedTypeMetadata);
   }
 
   @Test
@@ -347,7 +343,7 @@ public class ReindexDebugConditionTest {
     String debugConstant = ReindexDebugCondition.DEBUG_REINDEX;
     assertNotNull(debugConstant);
     assertFalse(debugConstant.isEmpty());
-    assertEquals("ReindexDebug", debugConstant);
+    assertEquals(debugConstant, "ReindexDebug");
   }
 
   @Test
