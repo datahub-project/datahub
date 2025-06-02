@@ -17,6 +17,13 @@ try:
 except ImportError:
     AssertionsClient = None  # type: ignore
 
+try:
+    from acryl_datahub_cloud._sdk_extras import (  # type: ignore[import-not-found]
+        ResolverClient,
+    )
+except ImportError:
+    from datahub.sdk.resolver_client import ResolverClient
+
 
 class DataHubClient:
     """Main client for interacting with DataHub.
