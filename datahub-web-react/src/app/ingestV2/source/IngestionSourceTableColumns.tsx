@@ -53,7 +53,7 @@ export const MenuItem = styled.div`
 export const ActionIcons = styled.div`
     display: flex;
     justify-content: end;
-    gap: 12px;
+    gap: 8px;
 
     div {
         border: 1px solid ${colors.gray[100]};
