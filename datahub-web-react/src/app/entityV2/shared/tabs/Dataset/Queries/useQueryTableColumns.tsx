@@ -72,6 +72,7 @@ export default function useQueryTableColumns({
         title: 'Description',
         dataIndex: 'description',
         key: 'description',
+        className: 'description',
         render: (description: string) => <QueryDescription description={description} />,
     };
 
