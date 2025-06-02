@@ -1,9 +1,13 @@
 import { useEffect } from 'react';
 
-export const useCommandS = (onPress: () => void) => {
+import { checkIfMac } from '@app/utils/checkIfMac';
+
+export default function useCommandS(onPress: () => void) {
     useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.metaKey && event.key === 's') {
+            const isMac = checkIfMac();
+
+            if ((event.metaKey || (!isMac && event.ctrlKey)) && event.key === 's') {
                 event.preventDefault();
                 onPress();
             }
@@ -13,4 +17,4 @@ export const useCommandS = (onPress: () => void) => {
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [onPress]);
-};
+}

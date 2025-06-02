@@ -6,19 +6,20 @@ import styled from 'styled-components';
 import YAML from 'yamljs';
 
 import { ANTD_GRAY } from '@app/entity/shared/constants';
-import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
-import { StructuredReport } from '@app/ingestV2/source/executions/reporting/StructuredReport';
+import { StructuredReport } from '@app/ingestV2/executions/components/reporting/StructuredReport';
 import {
-    RUNNING,
-    SUCCEEDED_WITH_WARNINGS,
-    SUCCESS,
+    EXECUTION_REQUEST_STATUS_RUNNING,
+    EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS,
+    EXECUTION_REQUEST_STATUS_SUCCESS,
+} from '@app/ingestV2/executions/constants';
+import {
     getExecutionRequestStatusDisplayColor,
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
     getExecutionRequestSummaryText,
-    getIngestionSourceStatus,
-    getStructuredReport,
-} from '@app/ingestV2/source/utils';
+} from '@app/ingestV2/executions/utils';
+import IngestedAssets from '@app/ingestV2/source/IngestedAssets';
+import { getIngestionSourceStatus, getStructuredReport } from '@app/ingestV2/source/utils';
 import { downloadFile } from '@app/search/utils/csvUtils';
 import { Message } from '@app/shared/Message';
 
@@ -131,7 +132,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (status === RUNNING) refetch();
+            if (status === EXECUTION_REQUEST_STATUS_RUNNING) refetch();
         }, 2000);
 
         return () => clearInterval(interval);
@@ -189,7 +190,8 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
                     {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
-                {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (
+                {(status === EXECUTION_REQUEST_STATUS_SUCCESS ||
+                    status === EXECUTION_REQUEST_STATUS_SUCCEEDED_WITH_WARNINGS) && (
                     <IngestedAssetsSection>
                         {data?.executionRequest?.id && (
                             <IngestedAssets executionResult={result} id={data?.executionRequest?.id} />
