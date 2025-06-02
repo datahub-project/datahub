@@ -21,7 +21,7 @@ from typing import Any, Optional, Tuple, Union
 from pydantic import BaseModel
 
 from datahub.api.entities.external.restricted_text import RestrictedText
-from datahub.metadata._urns.urn_defs import TagUrn
+from datahub.metadata.urns import TagUrn
 
 
 class ExternalTag(BaseModel):
