@@ -11,7 +11,7 @@ import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
-import { useCommandS } from '@app/ingestV2/shared/hooks/useCommandS';
+import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import useRefreshInterval from '@app/ingestV2/shared/hooks/useRefreshInterval';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';

@@ -12,6 +12,7 @@ export default function useIngestionSourcesFromData(data: ListIngestionSourcesQu
                 (data?.listIngestionSources?.ingestionSources ?? []).map((ingestionSource) => ({
                     ...ingestionSource,
                     executions: undefined,
+                    ownership: undefined,
                 })),
             );
         }

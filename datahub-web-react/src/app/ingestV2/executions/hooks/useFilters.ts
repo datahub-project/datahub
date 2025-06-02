@@ -7,7 +7,11 @@ import {
     EXECUTOR_TYPE_CLI_VALUE,
 } from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
 
-import { FacetFilterInput } from '@types';
+export type FacetFilterInput = {
+    field: string;
+    negated?: boolean;
+    values?: string[];
+};
 
 interface Response {
     filters: FacetFilterInput[];

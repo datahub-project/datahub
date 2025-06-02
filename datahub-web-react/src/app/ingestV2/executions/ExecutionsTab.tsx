@@ -9,7 +9,7 @@ import Filters from '@app/ingestV2/executions/components/Filters';
 import useFilters from '@app/ingestV2/executions/hooks/useFilters';
 import useRefresh from '@app/ingestV2/executions/hooks/useRefresh';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
-import { useCommandS } from '@app/ingestV2/shared/hooks/useCommandS';
+import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import usePagination from '@app/sharedV2/pagination/usePagination';
