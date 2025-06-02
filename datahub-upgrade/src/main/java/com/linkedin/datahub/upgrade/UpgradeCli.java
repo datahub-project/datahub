@@ -17,13 +17,11 @@ import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 import picocli.CommandLine;
 
 @Slf4j
 @Component
-@DependsOn("reindexDebug")
 public class UpgradeCli implements CommandLineRunner {
 
   private static final class Args {
@@ -68,7 +66,7 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("systemUpdateCron")
   private SystemUpdateCron systemUpdateCron;
 
-  @Inject
+  @Autowired
   @Named("reindexDebug")
   private ReindexDebug reindexDebug;
 

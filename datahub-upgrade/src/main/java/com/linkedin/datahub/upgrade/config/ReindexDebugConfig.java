@@ -13,14 +13,12 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Lazy;
 
 @Slf4j
 @Configuration
 public class ReindexDebugConfig {
 
   @Bean(name = "reindexDebug")
-  @Lazy(false)
   @Nonnull
   public Upgrade createInstance(
       final SystemMetadataService systemMetadataService,

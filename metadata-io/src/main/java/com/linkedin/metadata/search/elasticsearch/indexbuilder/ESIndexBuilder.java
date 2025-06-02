@@ -663,7 +663,7 @@ public class ESIndexBuilder {
   }
 
   private ReindexResult reindex(ReindexConfig indexState) throws Throwable {
-    ReindexResult result = ReindexResult.$UNKNOWN;
+    ReindexResult result;
     final long startTime = System.currentTimeMillis();
 
     final long initialCheckIntervalMilli = 1000;

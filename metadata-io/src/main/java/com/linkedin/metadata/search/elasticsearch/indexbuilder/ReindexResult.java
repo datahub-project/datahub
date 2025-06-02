@@ -20,8 +20,5 @@ public enum ReindexResult {
   REINDEXED_SKIPPED_0DOCS,
 
   // reindex launched
-  REINDEXING,
-
-  // should not happen
-  $UNKNOWN;
+  REINDEXING;
 }
