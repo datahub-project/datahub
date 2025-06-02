@@ -2,7 +2,7 @@ import logging
 import os
 import re
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
@@ -353,56 +353,6 @@ class BigQueryV2Config(
         default=True,
         description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
     )
-
-    fallback_partition_values: Optional[Dict[str, Any]] = Field(
-        default=None,
-        description="Fallback partition values to use when partition discovery times out or fails. "
-        "This is a dictionary mapping partition column names to values. For date/timestamp columns, "
-        "values can be relative dates where 1 means yesterday, 2 means two days ago, etc. "
-        "Example: {'date': 1, 'feed': 'default'}",
-    )
-
-    partition_discovery_timeout: int = Field(
-        default=30,
-        description="Timeout in seconds for partition discovery queries. If exceeded, fallback values will be used.",
-    )
-
-    @validator("fallback_partition_values")
-    def validate_fallback_partition_values(
-        cls, v: Optional[Dict[str, Any]]
-    ) -> Optional[Dict[str, Any]]:
-        if not v:
-            return v
-
-        # Validate each key-value pair
-        for key, value in v.items():
-            # For date-related columns, ensure the value is an integer if it's meant to be a relative date
-            if key.lower() in [
-                "date",
-                "day",
-                "year",
-                "month",
-                "timestamp",
-                "datetime",
-                "dt",
-                "created_at",
-                "updated_at",
-            ]:
-                if isinstance(value, int):
-                    if value <= 0:
-                        raise ValueError(
-                            f"Relative date offset for '{key}' must be positive (days ago). Got: {value}"
-                        )
-                    # Value is a valid positive integer, representing days ago
-                    continue
-
-            # For other values, just ensure they're of a basic type
-            if not isinstance(value, (str, int, float, bool)):
-                raise ValueError(
-                    f"Fallback value for '{key}' must be a basic type (str, int, float, bool). Got: {type(value)}"
-                )
-
-        return v
 
     @property
     def have_table_data_read_permission(self) -> bool:
