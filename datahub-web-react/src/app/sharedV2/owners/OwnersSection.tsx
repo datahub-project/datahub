@@ -1,5 +1,6 @@
 import { Text } from '@components';
 import { Select } from 'antd';
+import { debounce } from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -119,22 +120,20 @@ const OwnersSection = ({
     );
 
     // Debounced search handler
-    const handleOwnerSearch = (text: string) => {
+    const handleOwnerSearch = debounce((text: string) => {
         setInputValue(text.trim());
         setIsSearching(true);
 
-        if (text && text.trim().length > 0) {
-            autoCompleteQuery({
-                variables: {
-                    input: {
-                        types: [EntityType.CorpUser, EntityType.CorpGroup],
-                        query: text.trim(),
-                        limit: 10,
-                    },
+        autoCompleteQuery({
+            variables: {
+                input: {
+                    types: [EntityType.CorpUser, EntityType.CorpGroup],
+                    query: text.trim(),
+                    limit: 10,
                 },
-            });
-        }
-    };
+            },
+        });
+    }, 300);
 
     // Renders a search result in the select dropdown
     const renderSearchResult = (entityItem: any) => {
