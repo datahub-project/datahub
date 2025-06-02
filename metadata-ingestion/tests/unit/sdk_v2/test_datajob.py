@@ -1,6 +1,6 @@
 import pathlib
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import mock
 
 import pytest
@@ -79,15 +79,8 @@ def test_datajob_complex() -> None:
         name="example_dag",
     )
 
-    created = datetime(
-        2025,
-        1,
-        2,
-        3,
-        4,
-        5,
-    )
-    updated = datetime(2025, 1, 9, 3, 4, 6)
+    created = datetime(2025, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    updated = datetime(2025, 1, 9, 3, 4, 6, tzinfo=timezone.utc)
 
     # Create a complex datajob with all attributes
     job = DataJob(
@@ -170,7 +163,7 @@ def test_client_get_datajob() -> None:
     mock_entities.get.reset_mock()
 
     # Complex job with properties
-    test_date = datetime(2023, 1, 1, 12, 0, 0)
+    test_date = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
     complex_job = DataJob(
         flow=flow,
         name="complex_task",
