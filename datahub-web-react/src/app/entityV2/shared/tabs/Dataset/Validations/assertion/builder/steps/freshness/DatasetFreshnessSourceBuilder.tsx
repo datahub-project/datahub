@@ -212,6 +212,7 @@ export const DatasetFreshnessSourceBuilder = ({
             {sourceType === DatasetFreshnessSourceType.FieldValue && (
                 <AssertionDatasetFieldBuilder
                     name="column"
+                    selectedPath={fieldPath}
                     fields={eligibleFieldSpecs}
                     onChange={updateFieldSpec}
                     width="340px"
