@@ -17,7 +17,6 @@ import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
@@ -74,6 +73,14 @@ public class DataHubAuthorizerTest {
       UrnUtils.getUrn("urn:li:corpuser:domainAccessUser");
   private static final Urn USER_WITH_CONTAINER_ACCESS =
       UrnUtils.getUrn("urn:li:corpuser:containerAccessUser");
+  private static final Urn USER_WITH_DOMAIN_AND_CONTAINER_ACCESS =
+      UrnUtils.getUrn("urn:li:corpuser:domainAndContainerAccessUser");
+
+  private static final Urn RESOURCE_WITH_DOMAIN = UrnUtils.getUrn("urn:li:dataset:testDomain");
+  private static final Urn RESOURCE_WITH_CONTAINER =
+      UrnUtils.getUrn("urn:li:dataset:testContainer");
+  private static final Urn RESOURCE_WITH_DOMAIN_AND_CONTAINER =
+      UrnUtils.getUrn("urn:li:dataset:testDomainContainer");
 
   private SystemEntityClient _entityClient;
   private DataHubAuthorizer _dataHubAuthorizer;
@@ -104,7 +111,7 @@ public class DataHubAuthorizerTest {
     final DataHubPolicyInfo parentDomainPolicy =
         createDataHubPolicyInfoFor(
             true,
-            ImmutableList.of("EDIT_ENTITY_DOCS"),
+            ImmutableList.of("PARENT_DOMAIN_PRIVILEGE"),
             PARENT_DOMAIN_URN,
             null,
             USER_WITH_DOMAIN_ACCESS);
@@ -119,7 +126,7 @@ public class DataHubAuthorizerTest {
     final DataHubPolicyInfo childDomainPolicy =
         createDataHubPolicyInfoFor(
             true,
-            ImmutableList.of("EDIT_ENTITY_STATUS"),
+            ImmutableList.of("CHILD_DOMAIN_PRIVILEGE"),
             CHILD_DOMAIN_URN,
             null,
             USER_WITH_DOMAIN_ACCESS);
@@ -132,7 +139,7 @@ public class DataHubAuthorizerTest {
     final DataHubPolicyInfo parentContainerPolicy =
         createDataHubPolicyInfoFor(
             true,
-            ImmutableList.of("DATA_MANAGE_NAMESPACES"),
+            ImmutableList.of("PARENT_CONTAINER_PRIVILEGE"),
             null,
             PARENT_CONTAINER_URN,
             USER_WITH_CONTAINER_ACCESS);
@@ -147,7 +154,7 @@ public class DataHubAuthorizerTest {
     final DataHubPolicyInfo childContainerPolicy =
         createDataHubPolicyInfoFor(
             true,
-            ImmutableList.of("DATA_MANAGE_VIEWS"),
+            ImmutableList.of("CHILD_CONTAINER_PRIVILEGE"),
             null,
             CHILD_CONTAINER_URN,
             USER_WITH_CONTAINER_ACCESS);
@@ -156,7 +163,21 @@ public class DataHubAuthorizerTest {
         DATAHUB_POLICY_INFO_ASPECT_NAME,
         new EnvelopedAspect().setValue(new Aspect(childContainerPolicy.data())));
 
-    final Urn adminPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:6");
+    final Urn domainAndContainerPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:6");
+    final DataHubPolicyInfo domainAndContainerPolicy =
+        createDataHubPolicyInfoFor(
+            true,
+            ImmutableList.of("DOMAIN_AND_CONTAINER_PRIVILEGE"),
+            CHILD_DOMAIN_URN,
+            CHILD_CONTAINER_URN,
+            USER_WITH_DOMAIN_AND_CONTAINER_ACCESS);
+
+    final EnvelopedAspectMap domainAndContainerPolicyAspectMap = new EnvelopedAspectMap();
+    domainAndContainerPolicyAspectMap.put(
+        DATAHUB_POLICY_INFO_ASPECT_NAME,
+        new EnvelopedAspect().setValue(new Aspect(domainAndContainerPolicy.data())));
+
+    final Urn adminPolicyUrn = Urn.createFromString("urn:li:dataHubPolicy:7");
     final DataHubActorFilter actorFilter = new DataHubActorFilter();
     actorFilter.setRoles(
         new UrnArray(ImmutableList.of(Urn.createFromString("urn:li:dataHubRole:Admin"))));
@@ -171,7 +192,7 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult1 =
         new ScrollResult()
             .setScrollId("1")
-            .setNumEntities(9)
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(activePolicyUrn))));
@@ -179,7 +200,7 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult2 =
         new ScrollResult()
             .setScrollId("2")
-            .setNumEntities(9)
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(inactivePolicyUrn))));
@@ -187,7 +208,7 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult3 =
         new ScrollResult()
             .setScrollId("3")
-            .setNumEntities(9)
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(parentDomainPolicyUrn))));
@@ -195,7 +216,7 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult4 =
         new ScrollResult()
             .setScrollId("4")
-            .setNumEntities(9)
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(childDomainPolicyUrn))));
@@ -203,7 +224,7 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult5 =
         new ScrollResult()
             .setScrollId("5")
-            .setNumEntities(9)
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(parentDomainPolicyCloneUrn))));
@@ -211,7 +232,7 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult6 =
         new ScrollResult()
             .setScrollId("6")
-            .setNumEntities(9)
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(parentContainerPolicyUrn))));
@@ -219,7 +240,7 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult7 =
         new ScrollResult()
             .setScrollId("7")
-            .setNumEntities(9)
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(childContainerPolicyUrn))));
@@ -227,14 +248,22 @@ public class DataHubAuthorizerTest {
     final ScrollResult policySearchResult8 =
         new ScrollResult()
             .setScrollId("8")
-            .setNumEntities(9)
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(parentContainerPolicyCloneUrn))));
 
     final ScrollResult policySearchResult9 =
         new ScrollResult()
-            .setNumEntities(9)
+            .setScrollId("9")
+            .setNumEntities(10)
+            .setEntities(
+                new SearchEntityArray(
+                    ImmutableList.of(new SearchEntity().setEntity(domainAndContainerPolicyUrn))));
+
+    final ScrollResult policySearchResult10 =
+        new ScrollResult()
+            .setNumEntities(10)
             .setEntities(
                 new SearchEntityArray(
                     ImmutableList.of(new SearchEntity().setEntity(adminPolicyUrn))));
@@ -329,6 +358,16 @@ public class DataHubAuthorizerTest {
             anyList(),
             anyInt()))
         .thenReturn(policySearchResult9);
+    when(_entityClient.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataHubPolicy")),
+            eq(""),
+            nullable(Filter.class),
+            eq("9"),
+            isNull(),
+            anyList(),
+            anyInt()))
+        .thenReturn(policySearchResult10);
 
     when(_entityClient.batchGetV2(
             any(OperationContext.class), eq(POLICY_ENTITY_NAME), any(), anySet()))
@@ -384,6 +423,12 @@ public class DataHubAuthorizerTest {
                           .setAspects(childContainerPolicyAspectMap));
                 case "urn:li:dataHubPolicy:6":
                   return Map.of(
+                      domainAndContainerPolicyUrn,
+                      new EntityResponse()
+                          .setUrn(domainAndContainerPolicyUrn)
+                          .setAspects(domainAndContainerPolicyAspectMap));
+                case "urn:li:dataHubPolicy:7":
+                  return Map.of(
                       adminPolicyUrn,
                       new EntityResponse().setUrn(adminPolicyUrn).setAspects(adminPolicyAspectMap));
                 default:
@@ -418,7 +463,7 @@ public class DataHubAuthorizerTest {
     when(_entityClient.getV2(
             any(OperationContext.class),
             any(),
-            any(),
+            argThat(Set.of(RESOURCE_WITH_DOMAIN, RESOURCE_WITH_DOMAIN_AND_CONTAINER)::contains),
             eq(Collections.singleton(DOMAINS_ASPECT_NAME))))
         .thenReturn(createDomainsResponse(CHILD_DOMAIN_URN));
 
@@ -442,7 +487,7 @@ public class DataHubAuthorizerTest {
     when(_entityClient.getV2(
             any(OperationContext.class),
             any(),
-            any(),
+            argThat(Set.of(RESOURCE_WITH_CONTAINER, RESOURCE_WITH_DOMAIN_AND_CONTAINER)::contains),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME))))
         .thenReturn(createContainerResponse(CHILD_CONTAINER_URN));
 
@@ -660,47 +705,51 @@ public class DataHubAuthorizerTest {
 
   @Test
   public void testAuthorizationOnDomainWithPrivilegeIsAllowed() throws Exception {
-    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            USER_WITH_DOMAIN_ACCESS.toString(), "EDIT_ENTITY_STATUS", Optional.of(resourceSpec));
+            USER_WITH_DOMAIN_ACCESS.toString(),
+            "CHILD_DOMAIN_PRIVILEGE",
+            Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
     verify(_entityClient, times(1))
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
-            eq(Urn.createFromString("urn:li:dataset:test")),
+            eq(RESOURCE_WITH_DOMAIN),
             eq(Collections.singleton(DOMAINS_ASPECT_NAME)));
     // not checking ancestor domain resolution calls which happen through batchGetV2
   }
 
   @Test
   public void testAuthorizationOnDomainWithParentPrivilegeIsAllowed() throws Exception {
-    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            USER_WITH_DOMAIN_ACCESS.toString(), "EDIT_ENTITY_DOCS", Optional.of(resourceSpec));
+            USER_WITH_DOMAIN_ACCESS.toString(),
+            "PARENT_DOMAIN_PRIVILEGE",
+            Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
     verify(_entityClient, times(1))
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
-            eq(Urn.createFromString("urn:li:dataset:test")),
+            eq(RESOURCE_WITH_DOMAIN),
             eq(Collections.singleton(DOMAINS_ASPECT_NAME)));
     // not checking ancestor domain resolution calls which happen through batchGetV2
   }
 
   @Test
   public void testAuthorizationOnDomainWithoutPrivilegeMatchIsDenied() throws Exception {
-    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            USER_WITH_DOMAIN_ACCESS.toString(), "EDIT_ENTITY_DOC_LINKS", Optional.of(resourceSpec));
+            USER_WITH_DOMAIN_ACCESS.toString(), "RANDOM_PRIVILEGE", Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
@@ -709,17 +758,19 @@ public class DataHubAuthorizerTest {
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
-            eq(Urn.createFromString("urn:li:dataset:test")),
+            eq(RESOURCE_WITH_DOMAIN),
             eq(Collections.singleton(DOMAINS_ASPECT_NAME)));
   }
 
   @Test
   public void testAuthorizationOnDomainWithoutUserMatchIsDenied() throws Exception {
-    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            "urn:li:corpuser:unauthorizedUser", "EDIT_ENTITY_DOCS", Optional.of(resourceSpec));
+            "urn:li:corpuser:unauthorizedUser",
+            "PARENT_DOMAIN_PRIVILEGE",
+            Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
@@ -729,17 +780,19 @@ public class DataHubAuthorizerTest {
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
-            eq(Urn.createFromString("urn:li:dataset:test")),
+            eq(RESOURCE_WITH_DOMAIN),
             eq(Collections.singleton(DOMAINS_ASPECT_NAME)));
   }
 
   @Test
   public void testAuthorizationOnContainerWithPrivilegeIsAllowed() throws Exception {
-    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_CONTAINER.toString());
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            USER_WITH_CONTAINER_ACCESS.toString(), "DATA_MANAGE_VIEWS", Optional.of(resourceSpec));
+            USER_WITH_CONTAINER_ACCESS.toString(),
+            "CHILD_CONTAINER_PRIVILEGE",
+            Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
 
@@ -748,7 +801,7 @@ public class DataHubAuthorizerTest {
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
-            eq(Urn.createFromString("urn:li:dataset:test")),
+            eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
     verify(_entityClient, times(1))
         .getV2(
@@ -766,12 +819,12 @@ public class DataHubAuthorizerTest {
 
   @Test
   public void testAuthorizationOnContainerWithParentPrivilegeIsAllowed() throws Exception {
-    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_CONTAINER.toString());
 
     AuthorizationRequest request =
         new AuthorizationRequest(
             USER_WITH_CONTAINER_ACCESS.toString(),
-            "DATA_MANAGE_NAMESPACES",
+            "PARENT_CONTAINER_PRIVILEGE",
             Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
@@ -781,7 +834,7 @@ public class DataHubAuthorizerTest {
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
-            eq(Urn.createFromString("urn:li:dataset:test")),
+            eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
     verify(_entityClient, times(1))
         .getV2(
@@ -799,13 +852,11 @@ public class DataHubAuthorizerTest {
 
   @Test
   public void testAuthorizationOnContainerWithoutPrivilegeMatchIsDenied() throws Exception {
-    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_CONTAINER.toString());
 
     AuthorizationRequest request =
         new AuthorizationRequest(
-            USER_WITH_CONTAINER_ACCESS.toString(),
-            "EDIT_ENTITY_DOC_LINKS",
-            Optional.of(resourceSpec));
+            USER_WITH_CONTAINER_ACCESS.toString(), "RANDOM_PRIVILEGE", Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
 
@@ -814,18 +865,18 @@ public class DataHubAuthorizerTest {
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
-            eq(Urn.createFromString("urn:li:dataset:test")),
+            eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
   }
 
   @Test
   public void testAuthorizationOnContainerWithoutUserMatchIsDenied() throws Exception {
-    EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_CONTAINER.toString());
 
     AuthorizationRequest request =
         new AuthorizationRequest(
             "urn:li:corpuser:unauthorizedUser",
-            "DATA_MANAGE_NAMESPACES",
+            "PARENT_CONTAINER_PRIVILEGE",
             Optional.of(resourceSpec));
 
     assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
@@ -836,7 +887,7 @@ public class DataHubAuthorizerTest {
         .getV2(
             any(OperationContext.class),
             eq("dataset"),
-            eq(Urn.createFromString("urn:li:dataset:test")),
+            eq(RESOURCE_WITH_CONTAINER),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
     verify(_entityClient, times(1))
         .getV2(
@@ -850,6 +901,74 @@ public class DataHubAuthorizerTest {
             eq("container"),
             eq(PARENT_CONTAINER_URN),
             eq(Collections.singleton(CONTAINER_ASPECT_NAME)));
+  }
+
+  @Test
+  public void testContainerOnlyPolicyAllowsResourceWithDomainAndContainer() throws Exception {
+    EntitySpec resourceSpec =
+        new EntitySpec("dataset", RESOURCE_WITH_DOMAIN_AND_CONTAINER.toString());
+
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            USER_WITH_CONTAINER_ACCESS.toString(),
+            "CHILD_CONTAINER_PRIVILEGE",
+            Optional.of(resourceSpec));
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testDomainOnlyPolicyAllowsResourceWithDomainAndContainer() throws Exception {
+    EntitySpec resourceSpec =
+        new EntitySpec("dataset", RESOURCE_WITH_DOMAIN_AND_CONTAINER.toString());
+
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            USER_WITH_DOMAIN_ACCESS.toString(),
+            "CHILD_DOMAIN_PRIVILEGE",
+            Optional.of(resourceSpec));
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testDomainAndContainerPolicyAllows() throws Exception {
+    EntitySpec resourceSpec =
+        new EntitySpec("dataset", RESOURCE_WITH_DOMAIN_AND_CONTAINER.toString());
+
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            USER_WITH_DOMAIN_AND_CONTAINER_ACCESS.toString(),
+            "DOMAIN_AND_CONTAINER_PRIVILEGE",
+            Optional.of(resourceSpec));
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+  }
+
+  @Test
+  public void testDomainAndContainerPolicyDoesNotAllowDomainResource() throws Exception {
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_DOMAIN.toString());
+
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            USER_WITH_DOMAIN_AND_CONTAINER_ACCESS.toString(),
+            "DOMAIN_AND_CONTAINER_PRIVILEGE",
+            Optional.of(resourceSpec));
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
+  }
+
+  @Test
+  public void testDomainAndContainerPolicyDoesNotAllowContainerResource() throws Exception {
+    EntitySpec resourceSpec = new EntitySpec("dataset", RESOURCE_WITH_CONTAINER.toString());
+
+    AuthorizationRequest request =
+        new AuthorizationRequest(
+            USER_WITH_DOMAIN_AND_CONTAINER_ACCESS.toString(),
+            "DOMAIN_AND_CONTAINER_PRIVILEGE",
+            Optional.of(resourceSpec));
+
+    assertEquals(_dataHubAuthorizer.authorize(request).getType(), AuthorizationResult.Type.DENY);
   }
 
   @Test
@@ -945,23 +1064,22 @@ public class DataHubAuthorizerTest {
     dataHubPolicyInfo.setActors(actorFilter);
 
     final DataHubResourceFilter resourceFilter = new DataHubResourceFilter();
-    resourceFilter.setAllResources(true);
     resourceFilter.setType("dataset");
 
+    Map<EntityFieldType, List<String>> filterParams = new HashMap<>();
+
+    if (domain == null && container == null) {
+      resourceFilter.setAllResources(true);
+    }
+
     if (domain != null) {
-      resourceFilter.setFilter(
-          FilterUtils.newFilter(
-              ImmutableMap.of(
-                  EntityFieldType.DOMAIN, Collections.singletonList(domain.toString()))));
+      filterParams.put(EntityFieldType.DOMAIN, Collections.singletonList(domain.toString()));
     }
 
     if (container != null) {
-      resourceFilter.setFilter(
-          FilterUtils.newFilter(
-              ImmutableMap.of(
-                  EntityFieldType.CONTAINER, Collections.singletonList(container.toString()))));
+      filterParams.put(EntityFieldType.CONTAINER, Collections.singletonList(container.toString()));
     }
-
+    resourceFilter.setFilter(FilterUtils.newFilter(filterParams));
     dataHubPolicyInfo.setResources(resourceFilter);
 
     return dataHubPolicyInfo;
