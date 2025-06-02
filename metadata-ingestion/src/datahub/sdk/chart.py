@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Optional, Type, Union
 
 from typing_extensions import Self
 
@@ -23,6 +23,7 @@ from datahub.sdk._shared import (
     TagsInputType,
     TermsInputType,
 )
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
 
@@ -73,7 +74,7 @@ class Chart(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
-        input_datasets: Optional[List[DatasetUrnOrStr]] = None,
+        input_datasets: Optional[List[Union[DatasetUrnOrStr, Dataset]]] = None,
         extra_aspects: ExtraAspectsType = None,
     ):
         """Initialize a new Chart instance."""
@@ -221,7 +222,7 @@ class Chart(
         props = self._get_aspect(models.ChartInfoClass)
 
         # Convert timestamp to datetime
-        if props is None or props.lastModified.lastModified.time == 0: # Todo: hack
+        if props is None or props.lastModified.lastModified.time == 0:  # Todo: hack
             return None
         return datetime.fromtimestamp(props.lastModified.lastModified.time)
 
@@ -279,16 +280,25 @@ class Chart(
         # Convert all inputs to DatasetUrn
         return [DatasetUrn.from_string(input_urn) for input_urn in (props.inputs or [])]
 
-    def set_input_datasets(self, input_datasets: List[DatasetUrnOrStr]) -> None:
+    def set_input_datasets(
+        self, input_datasets: List[Union[DatasetUrnOrStr, Dataset]]
+    ) -> None:
         """Set the input datasets of the chart."""
         # Convert all inputs to strings
-        self._ensure_chart_props().inputs = [
-            str(input_urn) for input_urn in input_datasets
-        ]
+        inputs = []
+        for input_dataset in input_datasets:
+            if isinstance(input_dataset, Dataset):
+                inputs.append(str(input_dataset.urn))
+            else:
+                inputs.append(str(input_dataset))
+        self._ensure_chart_props().inputs = inputs
 
-    def add_input_dataset(self, input_dataset_urn: DatasetUrnOrStr) -> None:
+    def add_input_dataset(self, input_dataset: Union[DatasetUrnOrStr, Dataset]) -> None:
         """Add an input to the chart."""
-        input_dataset_urn = DatasetUrn.from_string(input_dataset_urn)
+        if isinstance(input_dataset, Dataset):
+            input_dataset_urn = input_dataset.urn
+        else:
+            input_dataset_urn = DatasetUrn.from_string(input_dataset)
 
         chart_props = self._ensure_chart_props()
         inputs = chart_props.inputs or []
@@ -296,10 +306,12 @@ class Chart(
             inputs.append(str(input_dataset_urn))
         chart_props.inputs = inputs
 
-    def remove_input_dataset(self, input_dataset_urn: DatasetUrnOrStr) -> None:
+    def remove_input_dataset(
+        self, input_dataset: Union[DatasetUrnOrStr, Dataset]
+    ) -> None:
         """Remove an input from the chart."""
         chart_props = self._ensure_chart_props()
         inputs = chart_props.inputs or []
-        if input_dataset_urn in inputs:
-            inputs.remove(str(input_dataset_urn))
+        if input_dataset in inputs:
+            inputs.remove(str(input_dataset))
             chart_props.inputs = inputs

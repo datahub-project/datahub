@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Optional, Type, Union
 
 from typing_extensions import Self
 
@@ -25,6 +25,8 @@ from datahub.sdk._shared import (
     TagsInputType,
     TermsInputType,
 )
+from datahub.sdk.chart import Chart
+from datahub.sdk.dataset import Dataset
 from datahub.sdk.entity import Entity, ExtraAspectsType
 
 
@@ -66,9 +68,9 @@ class Dashboard(
         custom_properties: Optional[Dict[str, str]] = None,
         last_modified: Optional[datetime] = None,
         last_refreshed: Optional[datetime] = None,
-        input_datasets: Optional[List[DatasetUrnOrStr]] = None,
-        charts: Optional[List[ChartUrnOrStr]] = None,
-        dashboards: Optional[List[DashboardUrnOrStr]] = None,
+        input_datasets: Optional[List[Union[DatasetUrnOrStr, Dataset]]] = None,
+        charts: Optional[List[Union[ChartUrnOrStr, Chart]]] = None,
+        dashboards: Optional[List[Union[DashboardUrnOrStr, Dashboard]]] = None,
         # Standard aspects.
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
@@ -298,18 +300,27 @@ class Dashboard(
             for edge in (props.datasetEdges or [])
         ]
 
-    def set_input_datasets(self, input_datasets: List[DatasetUrnOrStr]) -> None:
+    def set_input_datasets(
+        self, input_datasets: List[Union[DatasetUrnOrStr, Dataset]]
+    ) -> None:
         """Set the input datasets of the dashboard."""
         props = self._ensure_dashboard_props()
-        props.datasetEdges = [
-            models.EdgeClass(destinationUrn=str(dataset_urn))
-            for dataset_urn in input_datasets
-        ]
+        dataset_edges = props.datasetEdges or []
+        for dataset in input_datasets:
+            if isinstance(dataset, Dataset):
+                dataset_urn = dataset.urn
+            else:
+                dataset_urn = DatasetUrn.from_string(dataset)
+            dataset_edges.append(models.EdgeClass(destinationUrn=str(dataset_urn)))
+        props.datasetEdges = dataset_edges
         self._set_aspect(props)
 
-    def add_input_dataset(self, input_dataset_urn: DatasetUrnOrStr) -> None:
+    def add_input_dataset(self, input_dataset: Union[DatasetUrnOrStr, Dataset]) -> None:
         """Add an input dataset to the dashboard."""
-        input_dataset_urn = DatasetUrn.from_string(input_dataset_urn)
+        if isinstance(input_dataset, Dataset):
+            input_dataset_urn = input_dataset.urn
+        else:
+            input_dataset_urn = DatasetUrn.from_string(input_dataset)
         props = self._ensure_dashboard_props()
         dataset_edges = props.datasetEdges or []
         existing_urns = [edge.destinationUrn for edge in dataset_edges]
@@ -320,9 +331,14 @@ class Dashboard(
         props.datasetEdges = dataset_edges
         self._set_aspect(props)
 
-    def remove_input_dataset(self, input_dataset_urn: DatasetUrnOrStr) -> None:
+    def remove_input_dataset(
+        self, input_dataset: Union[DatasetUrnOrStr, Dataset]
+    ) -> None:
         """Remove an input dataset from the dashboard."""
-        input_dataset_urn = DatasetUrn.from_string(input_dataset_urn)
+        if isinstance(input_dataset, Dataset):
+            input_dataset_urn = input_dataset.urn
+        else:
+            input_dataset_urn = DatasetUrn.from_string(input_dataset)
         props = self._ensure_dashboard_props()
         props.datasetEdges = [
             edge
@@ -339,17 +355,25 @@ class Dashboard(
             return []
         return [ChartUrn.from_string(edge.destinationUrn) for edge in chart_edges]
 
-    def set_charts(self, charts: List[ChartUrnOrStr]) -> None:
+    def set_charts(self, charts: List[Union[ChartUrnOrStr, Chart]]) -> None:
         """Set the charts of the dashboard."""
         props = self._ensure_dashboard_props()
-        props.chartEdges = [
-            models.EdgeClass(destinationUrn=str(chart_urn)) for chart_urn in charts
-        ]
+        chart_edges = props.chartEdges or []
+        for chart in charts:
+            if isinstance(chart, Chart):
+                chart_urn = chart.urn
+            else:
+                chart_urn = ChartUrn.from_string(chart)
+            chart_edges.append(models.EdgeClass(destinationUrn=str(chart_urn)))
+        props.chartEdges = chart_edges
         self._set_aspect(props)
 
-    def add_chart(self, chart_urn: ChartUrnOrStr) -> None:
+    def add_chart(self, chart: Union[ChartUrnOrStr, Chart]) -> None:
         """Add a chart to the dashboard."""
-        chart_urn = ChartUrn.from_string(chart_urn)
+        if isinstance(chart, Chart):
+            chart_urn = chart.urn
+        else:
+            chart_urn = ChartUrn.from_string(chart)
         props = self._ensure_dashboard_props()
         chart_edges = props.chartEdges or []
         existing_urns = [
@@ -362,9 +386,12 @@ class Dashboard(
         props.chartEdges = chart_edges
         self._set_aspect(props)
 
-    def remove_chart(self, chart_urn: ChartUrnOrStr) -> None:
+    def remove_chart(self, chart: Union[ChartUrnOrStr, Chart]) -> None:
         """Remove a chart from the dashboard."""
-        chart_urn = ChartUrn.from_string(chart_urn)
+        if isinstance(chart, Chart):
+            chart_urn = chart.urn
+        else:
+            chart_urn = ChartUrn.from_string(chart)
         props = self._ensure_dashboard_props()
         props.chartEdges = [
             edge
@@ -382,18 +409,25 @@ class Dashboard(
             for dashboard in (props.dashboards or [])
         ]
 
-    def set_dashboards(self, dashboards: List[DashboardUrnOrStr]) -> None:
+    def set_dashboards(
+        self, dashboards: List[Union[DashboardUrnOrStr, Dashboard]]
+    ) -> None:
         """Set the dashboards of the dashboard."""
         props = self._ensure_dashboard_props()
-        props.dashboards = [
-            models.EdgeClass(destinationUrn=str(dashboard_urn))
-            for dashboard_urn in dashboards
-        ]
+        for dashboard in dashboards:
+            if isinstance(dashboard, Dashboard):
+                dashboard_urn = dashboard.urn
+            else:
+                dashboard_urn = DashboardUrn.from_string(dashboard)
+            props.dashboards.append(models.EdgeClass(destinationUrn=str(dashboard_urn)))
         self._set_aspect(props)
 
-    def add_dashboard(self, dashboard_urn: DashboardUrnOrStr) -> None:
+    def add_dashboard(self, dashboard: Union[DashboardUrnOrStr, Dashboard]) -> None:
         """Add a dashboard to the dashboard."""
-        dashboard_urn = DashboardUrn.from_string(dashboard_urn)
+        if isinstance(dashboard, Dashboard):
+            dashboard_urn = dashboard.urn
+        else:
+            dashboard_urn = DashboardUrn.from_string(dashboard)
         props = self._ensure_dashboard_props()
         dashboards = props.dashboards or []
         existing_urns = [dashboard.destinationUrn for dashboard in dashboards]
