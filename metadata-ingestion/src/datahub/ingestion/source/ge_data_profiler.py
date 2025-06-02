@@ -734,11 +734,24 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_distinct_value_frequencies(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_distinct_value_frequencies:
+        if not self.config.include_field_distinct_value_frequencies:
+            return
+        try:
             column_profile.distinctValueFrequencies = [
                 ValueFrequencyClass(value=str(value), frequency=count)
                 for value, count in self.dataset.get_column_value_counts(column).items()
             ]
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
+            )
+
+            self.report.report_warning(
+                title="Profiling: Unable to Calculate Distinct Value Frequencies",
+                message="Distinct value frequencies for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_histogram(
