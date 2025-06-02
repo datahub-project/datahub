@@ -1486,10 +1486,16 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                     f"Using explicit fallback value for {col_name}: {fallback_value}"
                 )
 
+            # Special handling for "day" column - use the day of month as integer
+            elif col_lower == "day":
+                # Use the day as an integer, not a DATE
+                day_of_month = fallback_date.day
+                fallback_filters.append(f"`{col_name}` = {day_of_month}")
+                logger.info(f"Using day of month for 'day' column: {day_of_month}")
+
             # Handle date/time partition columns using date_partition_offset
             elif col_lower in [
                 "date",
-                "day",
                 "dt",
                 "partition_date",
                 "created_date",
@@ -1527,9 +1533,7 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                     f"Using month fallback for {col_name}: {fallback_date.month}"
                 )
 
-            elif col_lower == "day" or (
-                col_lower.endswith("day") and len(col_lower) < 8
-            ):
+            elif col_lower.endswith("day") and len(col_lower) < 8:
                 fallback_filters.append(f"`{col_name}` = {fallback_date.day}")
                 logger.info(f"Using day fallback for {col_name}: {fallback_date.day}")
 
