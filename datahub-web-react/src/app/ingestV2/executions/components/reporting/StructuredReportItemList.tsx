@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { StructuredReportItem } from '@app/ingestV2/source/executions/reporting/StructuredReportItem';
-import { StructuredReportLogEntry } from '@app/ingestV2/source/types';
+import { StructuredReportItem } from '@app/ingestV2/executions/components/reporting/StructuredReportItem';
+import { StructuredReportLogEntry } from '@app/ingestV2/executions/components/reporting/types';
 import { ShowMoreSection } from '@app/shared/ShowMoreSection';
 
 const ItemList = styled.div`

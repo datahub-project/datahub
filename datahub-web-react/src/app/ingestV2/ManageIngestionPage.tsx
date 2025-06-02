@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import { Tab } from '@components/components/Tabs/Tabs';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType } from '@app/ingestV2/types';
@@ -99,6 +100,11 @@ export const ManageIngestionPage = () => {
             ),
             key: TabType.Sources as string,
             name: TabType.Sources as string,
+        },
+        {
+            component: <ExecutionsTab />,
+            key: TabType.ExecutionLog as string,
+            name: 'Execution Log',
         },
         showSecretsTab && {
             component: (

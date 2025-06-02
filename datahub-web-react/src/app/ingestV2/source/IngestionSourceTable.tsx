@@ -3,15 +3,16 @@ import { SorterResult } from 'antd/lib/table/interface';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
+import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
     ActionsColumn,
-    LastExecutionColumn,
     NameColumn,
     OwnerColumn,
     ScheduleColumn,
-    StatusColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
-import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
@@ -79,7 +80,7 @@ function IngestionSourceTable({
         {
             title: 'Last Run',
             key: 'lastRun',
-            render: (record) => <LastExecutionColumn time={record.lastExecTime ?? 0} />,
+            render: (record) => <DateTimeColumn time={record.lastExecTime ?? 0} placeholder={<>Never run</>} />,
             width: '15%',
         },
         {
@@ -88,8 +89,8 @@ function IngestionSourceTable({
             render: (record) => (
                 <StatusColumn
                     status={record.lastExecStatus}
-                    record={record}
-                    setFocusExecutionUrn={setFocusExecutionUrn}
+                    onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
+                    dataTestId="ingestion-source-table-status"
                 />
             ),
             width: '15%',
