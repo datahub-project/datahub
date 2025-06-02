@@ -2,7 +2,7 @@ import logging
 import os
 import re
 from datetime import timedelta
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from pydantic import Field, PositiveInt, PrivateAttr, root_validator, validator
 
@@ -61,21 +61,6 @@ class BigQueryBaseConfig(ConfigModel):
         deprecated=True,
         default=_BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX,
         description="The regex pattern to match sharded tables and group as one table. This is a very low level config parameter, only change if you know what you are doing, ",
-    )
-
-    fallback_partition_values: Dict[str, str] = Field(
-        default_factory=dict,
-        description="Dictionary of fallback partition keys and values to use when timeout occurs during partition discovery. For non-date columns, provide the exact values. For date columns, these will be ignored in favor of the relative_date_offset.",
-    )
-
-    relative_date_offset: int = Field(
-        default=1,
-        description="For date/timestamp partition columns, the number of days to go back from current date. 1 means yesterday, 2 means the day before yesterday, etc.",
-    )
-
-    partition_discovery_timeout: int = Field(
-        default=30,
-        description="Timeout in seconds for partition discovery queries. If queries exceed this timeout, fallback partition values will be used.",
     )
 
     @validator("sharded_table_pattern")
@@ -487,6 +472,26 @@ class BigQueryV2Config(
         default=["region-us", "region-eu"],
         description="BigQuery regions to be scanned for bigquery jobs when using `use_queries_v2`. "
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
+    )
+
+    fallback_partition_values: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Fallback values for partition columns when timeout occurs. Keys are column names, "
+        "values are the fallback values to use. For non-date columns, the values are used directly. "
+        "Example: {'feed': 'default', 'region': 'us-east-1'}",
+    )
+
+    date_partition_offset: int = Field(
+        default=1,
+        description="For date-type partition columns (date, timestamp, datetime), specifies how many days "
+        "to go back from today. 1 means yesterday, 2 means two days ago, etc. This applies to all "
+        "date-related partition columns (year, month, day, date, etc.) when fallback is needed.",
+    )
+
+    partition_fetch_timeout: int = Field(
+        default=30,
+        description="Timeout in seconds for partition value fetch operations. If exceeded, fallback "
+        "partition values will be used.",
     )
 
     _include_view_lineage = pydantic_removed_field("include_view_lineage")
