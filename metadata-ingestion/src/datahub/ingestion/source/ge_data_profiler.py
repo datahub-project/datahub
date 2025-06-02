@@ -737,10 +737,27 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         if not self.config.include_field_distinct_value_frequencies:
             return
         try:
+            results = self.dataset.engine.execute(
+                sa.select(
+                    [
+                        sa.column(column),
+                        sa.func.count(sa.column(column)),
+                    ]
+                )
+                .select_from(self.dataset._table)
+                .where(sa.column(column).is_not(None))
+                .group_by(sa.column(column))
+            ).fetchall()
+
             column_profile.distinctValueFrequencies = [
-                ValueFrequencyClass(value=str(value), frequency=count)
-                for value, count in self.dataset.get_column_value_counts(column).items()
+                ValueFrequencyClass(value=str(value), frequency=int(count))
+                for value, count in results
             ]
+            # sort so output is deterministic. don't do it in SQL because not all column
+            # types are sortable in SQL (such as JSON data types on Athena/Trino).
+            column_profile.distinctValueFrequencies = sorted(
+                column_profile.distinctValueFrequencies, key=lambda x: x.value
+            )
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
