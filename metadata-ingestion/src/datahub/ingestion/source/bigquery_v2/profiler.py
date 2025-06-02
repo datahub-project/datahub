@@ -1486,12 +1486,14 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                     f"Using explicit fallback value for {col_name}: {fallback_value}"
                 )
 
-            # Special handling for "day" column - use the day of month as integer
+            # Special handling for "day" column - use the day of month as a STRING
             elif col_lower == "day":
-                # Use the day as an integer, not a DATE
+                # Use the day as a string, not an integer
                 day_of_month = fallback_date.day
-                fallback_filters.append(f"`{col_name}` = {day_of_month}")
-                logger.info(f"Using day of month for 'day' column: {day_of_month}")
+                fallback_filters.append(f"`{col_name}` = '{day_of_month}'")
+                logger.info(
+                    f"Using day of month as string for 'day' column: '{day_of_month}'"
+                )
 
             # Handle date/time partition columns using date_partition_offset
             elif col_lower in [
@@ -1519,23 +1521,33 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                     f"Using timestamp fallback for {col_name}: {formatted_datetime}"
                 )
 
+            # Treat year column as a string
             elif col_lower == "year" or (
                 col_lower.endswith("year") and len(col_lower) < 10
             ):
-                fallback_filters.append(f"`{col_name}` = {fallback_date.year}")
-                logger.info(f"Using year fallback for {col_name}: {fallback_date.year}")
+                year_value = fallback_date.year
+                fallback_filters.append(f"`{col_name}` = '{year_value}'")
+                logger.info(
+                    f"Using year fallback as string for {col_name}: '{year_value}'"
+                )
 
+            # Treat month column as a string
             elif col_lower == "month" or (
                 col_lower.endswith("month") and len(col_lower) < 10
             ):
-                fallback_filters.append(f"`{col_name}` = {fallback_date.month}")
+                month_value = fallback_date.month
+                fallback_filters.append(f"`{col_name}` = '{month_value}'")
                 logger.info(
-                    f"Using month fallback for {col_name}: {fallback_date.month}"
+                    f"Using month fallback as string for {col_name}: '{month_value}'"
                 )
 
+            # Treat other day-related columns as strings too
             elif col_lower.endswith("day") and len(col_lower) < 8:
-                fallback_filters.append(f"`{col_name}` = {fallback_date.day}")
-                logger.info(f"Using day fallback for {col_name}: {fallback_date.day}")
+                day_value = fallback_date.day
+                fallback_filters.append(f"`{col_name}` = '{day_value}'")
+                logger.info(
+                    f"Using day fallback as string for {col_name}: '{day_value}'"
+                )
 
             # For any other column with no fallback, use IS NOT NULL as a last resort
             else:
