@@ -1,6 +1,5 @@
 package com.linkedin.datahub.upgrade.config;
 
-import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.ReindexDebug;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
@@ -20,7 +19,7 @@ public class ReindexDebugConfig {
 
   @Bean(name = "reindexDebug")
   @Nonnull
-  public Upgrade createInstance(
+  public ReindexDebug createInstance(
       final SystemMetadataService systemMetadataService,
       final TimeseriesAspectService timeseriesAspectService,
       final EntitySearchService entitySearchService,
