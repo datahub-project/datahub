@@ -518,6 +518,51 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return []
 
     @cached(cachetools.FIFOCache(maxsize=100))
+    def get_schema_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching schema tags for catalog: {catalog}")
+
+        query = f"SELECT * FROM {catalog}.information_schema.schema_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+
+        for row in rows:
+            catalog_name, schema_name, tag_name, tag_value = row
+            schema_key = f"{catalog_name}.{schema_name}"
+
+            if schema_key not in result_dict:
+                result_dict[schema_key] = []
+
+            result_dict[schema_key].append(
+                UnityCatalogTag(key=tag_name, value=tag_value)
+            )
+
+        return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=100))
+    def get_catalog_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
+        """Optimized version using databricks-sql"""
+        logger.info(f"Fetching table tags for catalog: {catalog}")
+
+        query = f"SELECT * FROM {catalog}.information_schema.catalog_tags"
+        rows = self._execute_sql_query(query)
+
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
+
+        for row in rows:
+            catalog_name, tag_name, tag_value = row
+
+            if catalog_name not in result_dict:
+                result_dict[catalog_name] = []
+
+            result_dict[catalog_name].append(
+                UnityCatalogTag(key=tag_name, value=tag_value)
+            )
+
+        return result_dict
+
+    @cached(cachetools.FIFOCache(maxsize=100))
     def get_table_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: {catalog}")

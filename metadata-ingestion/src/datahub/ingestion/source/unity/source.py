@@ -767,6 +767,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_schema_containers(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(f"{schema.catalog.name}.{schema.name}")
+        schema_tags = self.unity_catalog_api_proxy.get_schema_tags(
+            schema.catalog.name
+        ).get(f"{schema.catalog.name}.{schema.name}", [])
+        if schema_tags:
+            logger.info(f"Schema tags for {schema.name}: {schema_tags}")
+            # Generate platform resources for schema tags
+            yield from self.gen_platform_resources(schema_tags)
 
         schema_container_key = self.gen_schema_key(schema)
         yield from gen_containers(
@@ -778,6 +785,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=schema.comment,
             owner_urn=self.get_owner_urn(schema.owner),
             external_url=f"{self.external_url_base}/{schema.catalog.name}/{schema.name}",
+            tags=[tag.to_datahub_tag_urn().urn() for tag in schema_tags]
+            if schema_tags
+            else None,
         )
 
     def gen_metastore_containers(
@@ -798,6 +808,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(catalog.name)
+        catalog_tags = self.unity_catalog_api_proxy.get_catalog_tags(catalog.name).get(
+            catalog.name, []
+        )
+        if catalog_tags:
+            logger.info(f"Schema tags for {catalog.name}: {catalog_tags}")
+            # Generate platform resources for schema tags
+            yield from self.gen_platform_resources(catalog_tags)
 
         catalog_container_key = self.gen_catalog_key(catalog)
         yield from gen_containers(
@@ -813,6 +830,9 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             description=catalog.comment,
             owner_urn=self.get_owner_urn(catalog.owner),
             external_url=f"{self.external_url_base}/{catalog.name}",
+            tags=[tag.to_datahub_tag_urn().urn() for tag in catalog_tags]
+            if catalog_tags
+            else None,
         )
 
     def gen_schema_key(self, schema: Schema) -> ContainerKey:
@@ -880,6 +900,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             container_key=schema_container_key,
             dataset_urn=dataset_urn,
         )
+
+    def _get_catalog_tags(
+        self, catalog: str, schema: str, table: str
+    ) -> List[UnityCatalogTag]:
+        all_tags = self.unity_catalog_api_proxy.get_catalog_tags(catalog)
+        return all_tags.get(f"{catalog}", [])
+
+    def _get_schema_tags(
+        self, catalog: str, schema: str, table: str
+    ) -> List[UnityCatalogTag]:
+        all_tags = self.unity_catalog_api_proxy.get_schema_tags(catalog)
+        return all_tags.get(f"{catalog}.{schema}", [])
 
     def _get_table_tags(
         self, catalog: str, schema: str, table: str
