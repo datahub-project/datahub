@@ -5,7 +5,7 @@ Manage the communication with DataBricks Server and provide equivalent dataclass
 import dataclasses
 import logging
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 from unittest.mock import patch
 
 import cachetools
@@ -30,6 +30,7 @@ from databricks.sdk.service.workspace import ObjectType
 from databricks.sql import connect
 
 from datahub._version import nice_version_name
+from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
@@ -517,14 +518,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return []
 
     @cached(cachetools.FIFOCache(maxsize=100))
-    def get_table_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
+    def get_table_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching table tags for catalog: {catalog}")
 
         query = f"SELECT * FROM {catalog}.information_schema.table_tags"
         rows = self._execute_sql_query(query)
 
-        result_dict: Dict[str, List[Tuple[str, str]]] = {}
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
 
         for row in rows:
             catalog_name, schema_name, table_name, tag_name, tag_value = row
@@ -533,19 +534,21 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if table_key not in result_dict:
                 result_dict[table_key] = []
 
-            result_dict[table_key].append((tag_name, tag_value))
+            result_dict[table_key].append(
+                UnityCatalogTag(key=tag_name, value=tag_value)
+            )
 
         return result_dict
 
     @cached(cachetools.FIFOCache(maxsize=100))
-    def get_column_tags(self, catalog: str) -> Dict[str, List[Tuple[str, str]]]:
+    def get_column_tags(self, catalog: str) -> Dict[str, List[UnityCatalogTag]]:
         """Optimized version using databricks-sql"""
         logger.info(f"Fetching column tags for catalog: {catalog}")
 
         query = f"SELECT * FROM {catalog}.information_schema.column_tags"
         rows = self._execute_sql_query(query)
 
-        result_dict: Dict[str, List[Tuple[str, str]]] = {}
+        result_dict: Dict[str, List[UnityCatalogTag]] = {}
 
         for row in rows:
             catalog_name, schema_name, table_name, column_name, tag_name, tag_value = (
@@ -556,6 +559,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             if column_key not in result_dict:
                 result_dict[column_key] = []
 
-            result_dict[column_key].append((tag_name, tag_value))
+            result_dict[column_key].append(
+                UnityCatalogTag(key=tag_name, value=tag_value)
+            )
 
         return result_dict

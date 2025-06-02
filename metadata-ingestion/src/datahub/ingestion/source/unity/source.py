@@ -6,6 +6,7 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import urljoin
 
 from datahub.api.entities.external.external_entities import PlatformResourceRepository
+from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -91,9 +92,8 @@ from datahub.ingestion.source.unity.proxy_types import (
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
-    UnityCatalogTag,
-    UnityCatalogTagId,
-    UnityCatalogTagSyncContext,
+    UnityCatalogTagPlatformResource,
+    UnityCatalogTagPlatformResourceId,
 )
 from datahub.ingestion.source.unity.usage import UnityCatalogUsageExtractor
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -541,18 +541,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     tags = GlobalTags(
                         tags=[
                             TagAssociation(
-                                tag=TagUrn(
-                                    name=f"{tag[0]}:{tag[1]}" if tag[1] else tag[0]
-                                ).urn(),
+                                tag=tag.to_datahub_tag_urn().urn(),
                                 attribution=attribution,
                             )
                             for tag in table_tags
                         ]
                     )
 
-                    yield from self.gen_platform_resources(
-                        [TagUrn.from_string(tag.tag) for tag in tags.tags]
-                    )
+                    yield from self.gen_platform_resources(table_tags)
 
             except Exception as e:
                 logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
@@ -562,12 +558,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             view_props = self._create_view_property_aspect(table)
 
         sub_type = self._create_table_sub_type_aspect(table)
-        schema_metadata = self._create_schema_metadata_aspect(table)
-        for field in schema_metadata.fields:
-            if field.globalTags:
-                yield from self.gen_platform_resources(
-                    [TagUrn.from_string(tag.tag) for tag in field.globalTags.tags]
-                )
+        schema_metadata, platform_resources = self._create_schema_metadata_aspect(table)
+        yield from platform_resources
 
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
         ownership = self._create_table_ownership_aspect(table)
@@ -891,13 +883,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_table_tags(
         self, catalog: str, schema: str, table: str
-    ) -> List[Tuple[str, str]]:
+    ) -> List[UnityCatalogTag]:
         all_tags = self.unity_catalog_api_proxy.get_table_tags(catalog)
         return all_tags.get(f"{catalog}.{schema}.{table}", [])
 
     def _get_column_tags(
         self, catalog: str, schema: str, table: str, column: str
-    ) -> List[Tuple[str, str]]:
+    ) -> List[UnityCatalogTag]:
         all_tags = self.unity_catalog_api_proxy.get_column_tags(catalog)
         return all_tags.get(f"{catalog}.{schema}.{table}.{column}", [])
 
@@ -991,27 +983,27 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
 
     def gen_platform_resources(
-        self, tag_urns: List[TagUrn]
+        self, tags: List[UnityCatalogTag]
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
-            for tag_urn in tag_urns:
-                tag_sync_context = UnityCatalogTagSyncContext()
-                platform_resource_id = UnityCatalogTagId.from_datahub_urn(
+            for tag in tags:
+                platform_resource_id = UnityCatalogTagPlatformResourceId.from_tag(
+                    platform_instance=self.platform_instance_name,
                     platform_resource_repository=self.platform_resource_repository,
-                    tag_sync_context=tag_sync_context,
-                    urn=tag_urn.urn(),
-                    graph=self.ctx.graph,
+                    tag=tag,
                 )
                 logger.info(f"Created platform resource {platform_resource_id}")
 
-                unity_catalog_tag = UnityCatalogTag.get_from_datahub(
+                unity_catalog_tag = UnityCatalogTagPlatformResource.get_from_datahub(
                     platform_resource_id, self.platform_resource_repository, False
                 )
                 if (
-                    tag_urn.urn()
+                    tag.to_datahub_tag_urn().urn()
                     not in unity_catalog_tag.datahub_linked_resources().urns
                 ):
-                    unity_catalog_tag.datahub_linked_resources().add(tag_urn.urn())
+                    unity_catalog_tag.datahub_linked_resources().add(
+                        tag.to_datahub_tag_urn().urn()
+                    )
                     platform_resource = unity_catalog_tag.as_platform_resource()
                     for mcp in platform_resource.to_mcps():
                         yield MetadataWorkUnit(
@@ -1019,28 +1011,32 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                             mcp=mcp,
                         )
 
-    def _create_schema_metadata_aspect(self, table: Table) -> SchemaMetadataClass:
+    def _create_schema_metadata_aspect(
+        self, table: Table
+    ) -> Tuple[SchemaMetadataClass, Iterable[MetadataWorkUnit]]:
         schema_fields: List[SchemaFieldClass] = []
-
+        unique_tags: Set[UnityCatalogTag] = set()
         for column in table.columns:
             tag_urns: Optional[List[TagUrn]] = None
             if self.config.include_tags:
                 column_tags = self._get_column_tags(
                     table.ref.catalog, table.ref.schema, table.ref.table, column.name
                 )
-                tag_urns = [
-                    TagUrn(name=f"{tag[0]}:{tag[1]}" if tag[1] else tag[0])
-                    for tag in column_tags
-                ]
+                unique_tags.update(column_tags)
+                tag_urns = [tag.to_datahub_tag_urn() for tag in column_tags]
             schema_fields.extend(self._create_schema_field(column, tag_urns))
 
-        return SchemaMetadataClass(
-            schemaName=table.id,
-            platform=make_data_platform_urn(self.platform),
-            fields=schema_fields,
-            hash="",
-            version=0,
-            platformSchema=MySqlDDLClass(tableSchema=""),
+        platform_resources = self.gen_platform_resources(list(unique_tags))
+        return (
+            SchemaMetadataClass(
+                schemaName=table.id,
+                platform=make_data_platform_urn(self.platform),
+                fields=schema_fields,
+                hash="",
+                version=0,
+                platformSchema=MySqlDDLClass(tableSchema=""),
+            ),
+            platform_resources,
         )
 
     @staticmethod
