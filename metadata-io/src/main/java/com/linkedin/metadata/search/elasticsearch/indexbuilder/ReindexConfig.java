@@ -147,6 +147,9 @@ public class ReindexConfig {
     }
 
     private static TreeMap<String, Object> sortMap(Map<String, Object> input) {
+      if (input == null) {
+        return new TreeMap<>();
+      }
       return input.entrySet().stream()
           .collect(
               Collectors.toMap(
@@ -367,10 +370,18 @@ public class ReindexConfig {
       Map<String, Object> indexSettings = (Map<String, Object>) super.targetSettings.get("index");
       return SETTINGS.stream()
           .allMatch(
-              settingKey ->
-                  Objects.equals(
-                      indexSettings.get(settingKey).toString(),
-                      super.currentSettings.get("index." + settingKey)));
+              settingKey -> {
+                Object targetValue = indexSettings.get(settingKey);
+                String currentValue = super.currentSettings.get("index." + settingKey);
+                // Handle null values properly
+                if (targetValue == null && currentValue == null) {
+                  return true;
+                }
+                if (targetValue == null || currentValue == null) {
+                  return false;
+                }
+                return Objects.equals(targetValue.toString(), currentValue);
+              });
     }
 
     private boolean isSettingsReindexRequired() {
@@ -381,10 +392,18 @@ public class ReindexConfig {
 
       if (SETTINGS_STATIC.stream()
           .anyMatch(
-              settingKey ->
-                  !Objects.equals(
-                      indexSettings.get(settingKey).toString(),
-                      super.currentSettings.get("index." + settingKey)))) {
+              settingKey -> {
+                Object targetValue = indexSettings.get(settingKey);
+                String currentValue = super.currentSettings.get("index." + settingKey);
+                // Handle null values properly
+                if (targetValue == null && currentValue == null) {
+                  return false;
+                }
+                if (targetValue == null || currentValue == null) {
+                  return true;
+                }
+                return !Objects.equals(targetValue.toString(), currentValue);
+              })) {
         return true;
       }
 
@@ -410,7 +429,8 @@ public class ReindexConfig {
           targetMappings.entrySet().stream()
               .filter(
                   entry ->
-                      ((Map<String, Object>) entry.getValue()).containsKey(TYPE)
+                      entry.getValue() instanceof Map
+                          && ((Map<String, Object>) entry.getValue()).containsKey(TYPE)
                           && ((Map<String, Object>) entry.getValue())
                               .get(TYPE)
                               .equals(ESUtils.OBJECT_FIELD_TYPE))
@@ -480,7 +500,16 @@ public class ReindexConfig {
           return false;
         }
       } else {
-        if (!newSettings.get(key).toString().equals(oldSettings.get(key))) {
+        String oldValue = oldSettings.get(key);
+        Object newValue = newSettings.get(key);
+        // Handle null values properly
+        if (newValue == null && oldValue == null) {
+          continue;
+        }
+        if (newValue == null || oldValue == null) {
+          return false;
+        }
+        if (!newValue.toString().equals(oldValue)) {
           return false;
         }
       }

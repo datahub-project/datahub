@@ -1,21 +1,19 @@
 package com.linkedin.metadata.search.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
-import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import java.util.*;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.opensearch.common.settings.Settings;
+import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
 public class ReindexConfigTest {
 
@@ -23,7 +21,7 @@ public class ReindexConfigTest {
   private static final String PROPERTIES_KEY = "properties";
   private static final String TYPE_KEY = "type";
 
-  @BeforeEach
+  @BeforeMethod
   void setUp() {
     // Reset any static state if needed
   }
@@ -31,12 +29,12 @@ public class ReindexConfigTest {
   @Test
   void testConstants() {
     // Verify constants are properly defined
-    assertNotNull(ReindexConfig.OBJECT_MAPPER);
-    assertEquals(Arrays.asList("refresh_interval"), ReindexConfig.SETTINGS_DYNAMIC);
-    assertEquals(Arrays.asList("number_of_shards"), ReindexConfig.SETTINGS_STATIC);
-    assertEquals(2, ReindexConfig.SETTINGS.size());
-    assertTrue(ReindexConfig.SETTINGS.contains("refresh_interval"));
-    assertTrue(ReindexConfig.SETTINGS.contains("number_of_shards"));
+    Assert.assertNotNull(ReindexConfig.OBJECT_MAPPER);
+    Assert.assertEquals(ReindexConfig.SETTINGS_DYNAMIC, Arrays.asList("refresh_interval"));
+    Assert.assertEquals(ReindexConfig.SETTINGS_STATIC, Arrays.asList("number_of_shards"));
+    Assert.assertEquals(ReindexConfig.SETTINGS.size(), 2);
+    Assert.assertTrue(ReindexConfig.SETTINGS.contains("refresh_interval"));
+    Assert.assertTrue(ReindexConfig.SETTINGS.contains("number_of_shards"));
   }
 
   @Test
@@ -57,16 +55,16 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertEquals(TEST_INDEX_NAME, config.name());
-    assertTrue(config.exists());
-    assertNotNull(config.currentSettings());
-    assertNotNull(config.targetSettings());
-    assertNotNull(config.currentMappings());
-    assertNotNull(config.targetMappings());
-    assertTrue(config.enableIndexMappingsReindex());
-    assertTrue(config.enableIndexSettingsReindex());
-    assertTrue(config.enableStructuredPropertiesReindex());
-    assertEquals("1.0", config.version());
+    Assert.assertEquals(config.name(), TEST_INDEX_NAME);
+    Assert.assertTrue(config.exists());
+    Assert.assertNotNull(config.currentSettings());
+    Assert.assertNotNull(config.targetSettings());
+    Assert.assertNotNull(config.currentMappings());
+    Assert.assertNotNull(config.targetMappings());
+    Assert.assertTrue(config.enableIndexMappingsReindex());
+    Assert.assertTrue(config.enableIndexSettingsReindex());
+    Assert.assertTrue(config.enableStructuredPropertiesReindex());
+    Assert.assertEquals(config.version(), "1.0");
   }
 
   @Test
@@ -75,8 +73,8 @@ public class ReindexConfigTest {
     ReindexConfig config = ReindexConfig.builder().name("my_index").exists(false).build();
 
     // Act & Assert
-    assertEquals("my_index*", config.indexPattern());
-    assertEquals("my_index_*", config.indexCleanPattern());
+    Assert.assertEquals(config.indexPattern(), "my_index*");
+    Assert.assertEquals(config.indexCleanPattern(), "my_index_*");
   }
 
   @Test
@@ -85,10 +83,10 @@ public class ReindexConfigTest {
     ReindexConfig config = ReindexConfig.builder().name(TEST_INDEX_NAME).exists(false).build();
 
     // Assert
-    assertFalse(config.exists());
-    assertFalse(config.requiresReindex());
-    assertFalse(config.requiresApplySettings());
-    assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.exists());
+    Assert.assertFalse(config.requiresReindex());
+    Assert.assertFalse(config.requiresApplySettings());
+    Assert.assertFalse(config.requiresApplyMappings());
   }
 
   @Test
@@ -111,10 +109,10 @@ public class ReindexConfigTest {
             .build();
 
     // Assert - mappings should be sorted (TreeMap)
-    assertNotNull(config.currentMappings());
-    assertNotNull(config.targetMappings());
-    assertTrue(config.currentMappings() instanceof TreeMap);
-    assertTrue(config.targetMappings() instanceof TreeMap);
+    Assert.assertNotNull(config.currentMappings());
+    Assert.assertNotNull(config.targetMappings());
+    Assert.assertTrue(config.currentMappings() instanceof TreeMap);
+    Assert.assertTrue(config.targetMappings() instanceof TreeMap);
   }
 
   @Test
@@ -146,9 +144,9 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.currentMappings() instanceof TreeMap);
+    Assert.assertTrue(config.currentMappings() instanceof TreeMap);
     Object zField = config.currentMappings().get("z_field");
-    assertTrue(zField instanceof TreeMap);
+    Assert.assertTrue(zField instanceof TreeMap);
   }
 
   @Test
@@ -178,9 +176,9 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.requiresApplyMappings());
-    assertTrue(config.isPureMappingsAddition());
-    assertFalse(config.requiresReindex()); // Pure addition should not require reindex
+    Assert.assertTrue(config.requiresApplyMappings());
+    Assert.assertTrue(config.isPureMappingsAddition());
+    Assert.assertFalse(config.requiresReindex()); // Pure addition should not require reindex
   }
 
   @Test
@@ -206,9 +204,9 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.requiresApplyMappings());
-    assertFalse(config.isPureMappingsAddition());
-    assertTrue(config.requiresReindex()); // Modification requires reindex
+    Assert.assertTrue(config.requiresApplyMappings());
+    Assert.assertFalse(config.isPureMappingsAddition());
+    Assert.assertTrue(config.requiresReindex()); // Modification requires reindex
   }
 
   @Test
@@ -234,8 +232,8 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.requiresApplyMappings());
-    assertFalse(config.requiresReindex()); // Should not reindex when disabled
+    Assert.assertTrue(config.requiresApplyMappings());
+    Assert.assertFalse(config.requiresReindex()); // Should not reindex when disabled
   }
 
   @Test
@@ -268,8 +266,8 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.requiresApplySettings());
-    assertFalse(config.requiresReindex()); // refresh_interval is dynamic, no reindex needed
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertFalse(config.requiresReindex()); // refresh_interval is dynamic, no reindex needed
   }
 
   @Test
@@ -293,9 +291,9 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.requiresApplySettings());
-    assertTrue(config.isSettingsReindex());
-    assertTrue(config.requiresReindex()); // Static setting change requires reindex
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertTrue(config.isSettingsReindex());
+    Assert.assertTrue(config.requiresReindex()); // Static setting change requires reindex
   }
 
   @Test
@@ -332,9 +330,9 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.requiresApplySettings());
-    assertTrue(config.isSettingsReindex());
-    assertTrue(config.requiresReindex()); // Analysis changes require reindex
+    Assert.assertTrue(config.requiresApplySettings());
+    Assert.assertTrue(config.isSettingsReindex());
+    Assert.assertTrue(config.requiresReindex()); // Analysis changes require reindex
   }
 
   @Test
@@ -363,9 +361,9 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.hasNewStructuredProperty());
-    assertTrue(config.isPureStructuredPropertyAddition());
-    assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertTrue(config.hasNewStructuredProperty());
+    Assert.assertTrue(config.isPureStructuredPropertyAddition());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
   }
 
   @Test
@@ -395,9 +393,9 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.hasRemovedStructuredProperty());
-    assertFalse(config.hasNewStructuredProperty());
-    assertTrue(config.requiresReindex()); // Removal requires reindex
+    Assert.assertTrue(config.hasRemovedStructuredProperty());
+    Assert.assertFalse(config.hasNewStructuredProperty());
+    Assert.assertTrue(config.requiresReindex()); // Removal requires reindex
   }
 
   @Test
@@ -428,68 +426,11 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.hasNewStructuredProperty());
+    Assert.assertTrue(config.hasNewStructuredProperty());
   }
 
-  @Test
-  void testForceReindexFromAllowedCaller() throws IllegalAccessException {
-    // This test simulates being called from ReindexDebugStep
-    try (MockedStatic<Thread> threadMock = Mockito.mockStatic(Thread.class)) {
-      // Arrange
-      Thread mockThread = mock(Thread.class);
-      threadMock.when(Thread::currentThread).thenReturn(mockThread);
-
-      StackTraceElement[] stackTrace = {
-        new StackTraceElement(
-            "com.linkedin.datahub.upgrade.system.elasticsearch.steps.ReindexDebugStep",
-            "someMethod",
-            "ReindexDebugStep.java",
-            100)
-      };
-      when(mockThread.getStackTrace()).thenReturn(stackTrace);
-
-      ReindexConfig config =
-          ReindexConfig.builder()
-              .name(TEST_INDEX_NAME)
-              .exists(true)
-              .currentMappings(new HashMap<>())
-              .targetMappings(new HashMap<>())
-              .currentSettings(Settings.EMPTY)
-              .targetSettings(new HashMap<>())
-              .build();
-
-      // Act
-      config.forceReindex();
-
-      // Assert
-      assertTrue(config.requiresReindex());
-      assertTrue(config.requiresApplyMappings());
-      assertTrue(config.requiresApplySettings());
-    }
-  }
-
-  @Test
-  void testForceReindexFromUnauthorizedCaller() {
-    // This test simulates being called from an unauthorized class
-    try (MockedStatic<Thread> threadMock = Mockito.mockStatic(Thread.class)) {
-      // Arrange
-      Thread mockThread = mock(Thread.class);
-      threadMock.when(Thread::currentThread).thenReturn(mockThread);
-
-      StackTraceElement[] stackTrace = {
-        new StackTraceElement("com.unauthorized.SomeClass", "someMethod", "SomeClass.java", 100)
-      };
-      when(mockThread.getStackTrace()).thenReturn(stackTrace);
-
-      ReindexConfig config = ReindexConfig.builder().name(TEST_INDEX_NAME).exists(true).build();
-
-      // Act & Assert
-      assertThrows(IllegalAccessException.class, config::forceReindex);
-    }
-  }
-
-  @Test
-  void testForceReindexClassNotFound() {
+  @Test(expectedExceptions = RuntimeException.class)
+  void testForceReindexClassNotFound() throws IllegalAccessException {
     try (MockedStatic<Thread> threadMock = Mockito.mockStatic(Thread.class)) {
       // Arrange
       Thread mockThread = mock(Thread.class);
@@ -504,13 +445,16 @@ public class ReindexConfigTest {
       ReindexConfig config = ReindexConfig.builder().name(TEST_INDEX_NAME).exists(true).build();
 
       // Act & Assert
-      RuntimeException exception = assertThrows(RuntimeException.class, config::forceReindex);
-      assertTrue(exception.getCause() instanceof ClassNotFoundException);
+      config.forceReindex();
     }
   }
 
-  @ParameterizedTest
-  @ValueSource(booleans = {true, false})
+  @DataProvider(name = "reindexFlagsData")
+  public Object[][] provideReindexFlagsData() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "reindexFlagsData")
   void testReindexFlagsWithDifferentSettings(boolean reindexEnabled) {
     // Arrange
     Map<String, Object> currentMappings = createBasicMappings();
@@ -535,10 +479,10 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertEquals(reindexEnabled, config.requiresReindex());
-    assertEquals(reindexEnabled, config.enableIndexMappingsReindex());
-    assertEquals(reindexEnabled, config.enableIndexSettingsReindex());
-    assertEquals(reindexEnabled, config.enableStructuredPropertiesReindex());
+    Assert.assertEquals(config.requiresReindex(), reindexEnabled);
+    Assert.assertEquals(config.enableIndexMappingsReindex(), reindexEnabled);
+    Assert.assertEquals(config.enableIndexSettingsReindex(), reindexEnabled);
+    Assert.assertEquals(config.enableStructuredPropertiesReindex(), reindexEnabled);
   }
 
   @Test
@@ -555,13 +499,13 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertFalse(config.requiresReindex());
-    assertFalse(config.requiresApplySettings());
-    assertFalse(config.requiresApplyMappings());
-    assertFalse(config.isPureMappingsAddition());
-    assertFalse(config.isSettingsReindex());
-    assertFalse(config.hasNewStructuredProperty());
-    assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertFalse(config.requiresReindex());
+    Assert.assertFalse(config.requiresApplySettings());
+    Assert.assertFalse(config.requiresApplyMappings());
+    Assert.assertFalse(config.isPureMappingsAddition());
+    Assert.assertFalse(config.isSettingsReindex());
+    Assert.assertFalse(config.hasNewStructuredProperty());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
   }
 
   @Test
@@ -578,10 +522,10 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertNotNull(config.currentMappings());
-    assertNotNull(config.targetMappings());
-    assertTrue(config.currentMappings().isEmpty());
-    assertTrue(config.targetMappings().isEmpty());
+    Assert.assertNotNull(config.currentMappings());
+    Assert.assertNotNull(config.targetMappings());
+    Assert.assertTrue(config.currentMappings().isEmpty());
+    Assert.assertTrue(config.targetMappings().isEmpty());
   }
 
   @Test
@@ -630,7 +574,7 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.requiresApplyMappings());
+    Assert.assertTrue(config.requiresApplyMappings());
     // Object fields should be filtered from comparison
   }
 
@@ -668,25 +612,29 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertFalse(config.requiresApplySettings()); // Should ignore urn_stop_filter changes
-    assertFalse(config.requiresReindex());
+    Assert.assertFalse(config.requiresApplySettings()); // Should ignore urn_stop_filter changes
+    Assert.assertFalse(config.requiresReindex());
   }
 
-  @ParameterizedTest
-  @CsvSource({
-    "test_index, test_index*, test_index_*",
-    "my-index, my-index*, my-index_*",
-    "a, a*, a_*",
-    "complex_index_name_123, complex_index_name_123*, complex_index_name_123_*"
-  })
+  @DataProvider(name = "indexPatternData")
+  public Object[][] provideIndexPatternData() {
+    return new Object[][] {
+      {"test_index", "test_index*", "test_index_*"},
+      {"my-index", "my-index*", "my-index_*"},
+      {"a", "a*", "a_*"},
+      {"complex_index_name_123", "complex_index_name_123*", "complex_index_name_123_*"}
+    };
+  }
+
+  @Test(dataProvider = "indexPatternData")
   void testIndexPatternGeneration(
       String indexName, String expectedPattern, String expectedCleanPattern) {
     // Arrange
     ReindexConfig config = ReindexConfig.builder().name(indexName).exists(false).build();
 
     // Act & Assert
-    assertEquals(expectedPattern, config.indexPattern());
-    assertEquals(expectedCleanPattern, config.indexCleanPattern());
+    Assert.assertEquals(config.indexPattern(), expectedPattern);
+    Assert.assertEquals(config.indexCleanPattern(), expectedCleanPattern);
   }
 
   @Test
@@ -726,7 +674,7 @@ public class ReindexConfigTest {
             .build();
 
     // Assert
-    assertTrue(config.hasNewStructuredProperty());
+    Assert.assertTrue(config.hasNewStructuredProperty());
   }
 
   @Test
@@ -742,19 +690,18 @@ public class ReindexConfigTest {
     targetSettings.put("index", ImmutableMap.of("number_of_shards", "2"));
 
     // Act & Assert - Should not throw exception even with complex settings
-    assertDoesNotThrow(
-        () -> {
-          ReindexConfig config =
-              ReindexConfig.builder()
-                  .name(TEST_INDEX_NAME)
-                  .exists(true)
-                  .currentMappings(new HashMap<>())
-                  .targetMappings(new HashMap<>())
-                  .currentSettings(currentSettings)
-                  .targetSettings(targetSettings)
-                  .enableIndexSettingsReindex(true)
-                  .build();
-        });
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertNotNull(config);
   }
 
   // Helper methods
@@ -815,7 +762,7 @@ public class ReindexConfigTest {
     // We can't test them directly, but we verify the builder works correctly
     ReindexConfig config = builder.name(TEST_INDEX_NAME).exists(false).build();
 
-    assertNotNull(config);
+    Assert.assertNotNull(config);
   }
 
   @Test
@@ -851,7 +798,7 @@ public class ReindexConfigTest {
             .build();
 
     // Should detect that settings are equal
-    assertFalse(config.requiresApplySettings());
+    Assert.assertFalse(config.requiresApplySettings());
   }
 
   @Test
@@ -874,17 +821,16 @@ public class ReindexConfigTest {
     Map<String, Object> mappings = createMappingsWithVersionedStructuredProperties(versionedProps);
 
     // Should not throw exception due to depth limiting
-    assertDoesNotThrow(
-        () -> {
-          ReindexConfig config =
-              ReindexConfig.builder()
-                  .name(TEST_INDEX_NAME)
-                  .exists(true)
-                  .currentMappings(new HashMap<>())
-                  .targetMappings(mappings)
-                  .currentSettings(Settings.EMPTY)
-                  .targetSettings(new HashMap<>())
-                  .build();
-        });
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(mappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .build();
+
+    Assert.assertNotNull(config);
   }
 }

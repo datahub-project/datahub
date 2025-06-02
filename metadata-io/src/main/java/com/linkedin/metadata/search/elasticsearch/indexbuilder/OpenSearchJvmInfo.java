@@ -359,7 +359,7 @@ public class OpenSearchJvmInfo {
      */
     public String getHeapUsageFormatted() {
       return String.format(
-          "%.2f GB / %.2f GB (%.2f%%)", bytesToGB(heapUsed), bytesToGB(heapMax), heapUsedPercent);
+          "%.2f GB / %.2f GB (%d%%)", bytesToGB(heapUsed), bytesToGB(heapMax), heapUsedPercent);
     }
 
     private double bytesToGB(long bytes) {
@@ -517,11 +517,11 @@ public class OpenSearchJvmInfo {
     }
 
     public double getMaxHeapGB() {
-      return maxHeapBytes / (1024.0 * 1024.0 * 1024.0);
+      return (float) maxHeapBytes / (float) (1024.0 * 1024.0 * 1024.0);
     }
 
     public double getUsedHeapGB() {
-      return usedHeapBytes / (1024.0 * 1024.0 * 1024.0);
+      return (float) usedHeapBytes / (float) (1024.0 * 1024.0 * 1024.0);
     }
 
     public String getUptimeFormatted() {
@@ -541,14 +541,16 @@ public class OpenSearchJvmInfo {
 
     @Override
     public String toString() {
-      return String.format(
-          "Node: %s, Heap: %.2f GB / %.2f GB (%.2f%%), JVM: %s, Uptime: %s",
-          nodeName,
-          getUsedHeapGB(),
-          getMaxHeapGB(),
-          usedHeapPercent,
-          jvmVersion,
-          getUptimeFormatted());
+      String val =
+          String.format(
+              "Node: %s, Heap: %.2f GB / %.2f GB (%d%%), JVM: %s, Uptime: %s",
+              nodeName,
+              getUsedHeapGB(),
+              getMaxHeapGB(),
+              usedHeapPercent,
+              jvmVersion,
+              getUptimeFormatted());
+      return val;
     }
   }
 

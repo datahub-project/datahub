@@ -7,16 +7,15 @@ import java.util.List;
 import java.util.Map;
 import org.apache.http.HttpEntity;
 import org.apache.http.StatusLine;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.*;
 import org.opensearch.client.Request;
 import org.opensearch.client.Response;
 import org.opensearch.client.RestClient;
 import org.opensearch.client.RestHighLevelClient;
+import org.testng.Assert;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
+import org.testng.annotations.Test;
 
 public class OpenSearchJvmInfoTest {
 
@@ -33,7 +32,7 @@ public class OpenSearchJvmInfoTest {
   private OpenSearchJvmInfo openSearchJvmInfo;
   private ObjectMapper objectMapper;
 
-  @BeforeEach
+  @BeforeMethod
   void setUp() {
     MockitoAnnotations.openMocks(this);
     Mockito.when(highLevelClient.getLowLevelClient()).thenReturn(lowLevelClient);
@@ -43,7 +42,7 @@ public class OpenSearchJvmInfoTest {
 
   @Test
   void testConstructor() {
-    Assertions.assertNotNull(openSearchJvmInfo);
+    Assert.assertNotNull(openSearchJvmInfo);
     Mockito.verify(highLevelClient).getLowLevelClient();
   }
 
@@ -57,23 +56,23 @@ public class OpenSearchJvmInfoTest {
     Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
 
     // Assert
-    Assertions.assertNotNull(result);
-    Assertions.assertEquals(2, result.size());
-    Assertions.assertTrue(result.containsKey("data-node-1"));
-    Assertions.assertTrue(result.containsKey("data-node-2"));
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.size(), 2);
+    Assert.assertTrue(result.containsKey("data-node-1"));
+    Assert.assertTrue(result.containsKey("data-node-2"));
 
     OpenSearchJvmInfo.JvmHeapInfo node1Info = result.get("data-node-1");
-    Assertions.assertEquals(2147483648L, node1Info.getHeapUsed()); // 2GB in bytes
-    Assertions.assertEquals(75, node1Info.getHeapUsedPercent());
-    Assertions.assertEquals(4294967296L, node1Info.getHeapMax()); // 4GB in bytes
-    Assertions.assertEquals("11.0.2", node1Info.getJvmVersion());
+    Assert.assertEquals(node1Info.getHeapUsed(), 2147483648L); // 2GB in bytes
+    Assert.assertEquals(node1Info.getHeapUsedPercent(), 75);
+    Assert.assertEquals(node1Info.getHeapMax(), 4294967296L); // 4GB in bytes
+    Assert.assertEquals(node1Info.getJvmVersion(), "11.0.2");
 
     // Verify the request was made correctly
     ArgumentCaptor<Request> requestCaptor = ArgumentCaptor.forClass(Request.class);
     Mockito.verify(lowLevelClient).performRequest(requestCaptor.capture());
     Request capturedRequest = requestCaptor.getValue();
-    Assertions.assertEquals("GET", capturedRequest.getMethod());
-    Assertions.assertEquals("/_nodes/stats", capturedRequest.getEndpoint());
+    Assert.assertEquals(capturedRequest.getMethod(), "GET");
+    Assert.assertEquals(capturedRequest.getEndpoint(), "/_nodes/stats");
   }
 
   @Test
@@ -86,8 +85,8 @@ public class OpenSearchJvmInfoTest {
     Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
 
     // Assert
-    Assertions.assertNotNull(result);
-    Assertions.assertTrue(result.isEmpty());
+    Assert.assertNotNull(result);
+    Assert.assertTrue(result.isEmpty());
   }
 
   @Test
@@ -100,18 +99,18 @@ public class OpenSearchJvmInfoTest {
     Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
 
     // Assert
-    Assertions.assertNotNull(result);
-    Assertions.assertTrue(result.isEmpty());
+    Assert.assertNotNull(result);
+    Assert.assertTrue(result.isEmpty());
   }
 
-  @Test
+  @Test(expectedExceptions = IOException.class)
   void testGetDataNodeJvmHeap_IOExceptionThrown() throws IOException {
     // Arrange
     Mockito.when(lowLevelClient.performRequest(ArgumentMatchers.any(Request.class)))
         .thenThrow(new IOException("Connection failed"));
 
     // Act & Assert
-    Assertions.assertThrows(IOException.class, () -> openSearchJvmInfo.getDataNodeJvmHeap());
+    openSearchJvmInfo.getDataNodeJvmHeap();
   }
 
   @Test
@@ -125,9 +124,9 @@ public class OpenSearchJvmInfoTest {
         openSearchJvmInfo.getSpecificDataNodeJvmHeap("data-node-1");
 
     // Assert
-    Assertions.assertNotNull(result);
-    Assertions.assertEquals(2147483648L, result.getHeapUsed());
-    Assertions.assertEquals(75, result.getHeapUsedPercent());
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.getHeapUsed(), 2147483648L);
+    Assert.assertEquals(result.getHeapUsedPercent(), 75);
   }
 
   @Test
@@ -141,7 +140,7 @@ public class OpenSearchJvmInfoTest {
         openSearchJvmInfo.getSpecificDataNodeJvmHeap("non-existent-node");
 
     // Assert
-    Assertions.assertNull(result);
+    Assert.assertNull(result);
   }
 
   @Test
@@ -154,7 +153,7 @@ public class OpenSearchJvmInfoTest {
     long result = openSearchJvmInfo.getTotalDataNodesHeapCapacity();
 
     // Assert
-    Assertions.assertEquals(12884901888L, result); // 4GB + 8GB = 12GB in bytes
+    Assert.assertEquals(result, 12884901888L); // 4GB + 8GB = 12GB in bytes
   }
 
   @Test
@@ -167,7 +166,7 @@ public class OpenSearchJvmInfoTest {
     long result = openSearchJvmInfo.getTotalDataNodesHeapUsed();
 
     // Assert
-    Assertions.assertEquals(6442450944L, result); // 2GB + 4GB = 6GB in bytes
+    Assert.assertEquals(result, 6442450944L); // 2GB + 4GB = 6GB in bytes
   }
 
   @Test
@@ -180,7 +179,7 @@ public class OpenSearchJvmInfoTest {
     double result = openSearchJvmInfo.getAverageDataNodesHeapUsagePercentage();
 
     // Assert
-    Assertions.assertEquals(62.5, result, 0.01); // (75 + 50) / 2 = 62.5
+    Assert.assertEquals(result, 62.5, 0.01); // (75 + 50) / 2 = 62.5
   }
 
   @Test
@@ -193,7 +192,7 @@ public class OpenSearchJvmInfoTest {
     double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSize();
 
     // Assert
-    Assertions.assertEquals(6442450944.0, result, 0.01); // (4GB + 8GB) / 2 = 6GB in bytes
+    Assert.assertEquals(result, 6442450944.0, 0.01); // (4GB + 8GB) / 2 = 6GB in bytes
   }
 
   @Test
@@ -206,7 +205,7 @@ public class OpenSearchJvmInfoTest {
     double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSizeGB();
 
     // Assert
-    Assertions.assertEquals(6.0, result, 0.01); // 6GB
+    Assert.assertEquals(result, 6.0, 0.01); // 6GB
   }
 
   @Test
@@ -219,7 +218,7 @@ public class OpenSearchJvmInfoTest {
     double result = openSearchJvmInfo.getAverageDataNodeMaxHeapSize();
 
     // Assert
-    Assertions.assertEquals(0.0, result);
+    Assert.assertEquals(result, 0.0);
   }
 
   @Test
@@ -232,12 +231,12 @@ public class OpenSearchJvmInfoTest {
     OpenSearchJvmInfo.HeapSizeStats result = openSearchJvmInfo.getDataNodeHeapSizeStats();
 
     // Assert
-    Assertions.assertNotNull(result);
-    Assertions.assertEquals(4294967296L, result.getMinHeapBytes()); // 4GB
-    Assertions.assertEquals(8589934592L, result.getMaxHeapBytes()); // 8GB
-    Assertions.assertEquals(6442450944.0, result.getAvgHeapBytes(), 0.01); // 6GB
-    Assertions.assertEquals(12884901888L, result.getTotalHeapBytes()); // 12GB
-    Assertions.assertEquals(2, result.getNodeCount());
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.getMinHeapBytes(), 4294967296L); // 4GB
+    Assert.assertEquals(result.getMaxHeapBytes(), 8589934592L); // 8GB
+    Assert.assertEquals(result.getAvgHeapBytes(), 6442450944.0, 0.01); // 6GB
+    Assert.assertEquals(result.getTotalHeapBytes(), 12884901888L); // 12GB
+    Assert.assertEquals(result.getNodeCount(), 2);
   }
 
   @Test
@@ -250,12 +249,12 @@ public class OpenSearchJvmInfoTest {
     OpenSearchJvmInfo.HeapSizeStats result = openSearchJvmInfo.getDataNodeHeapSizeStats();
 
     // Assert
-    Assertions.assertNotNull(result);
-    Assertions.assertEquals(0, result.getMinHeapBytes());
-    Assertions.assertEquals(0, result.getMaxHeapBytes());
-    Assertions.assertEquals(0.0, result.getAvgHeapBytes());
-    Assertions.assertEquals(0, result.getTotalHeapBytes());
-    Assertions.assertEquals(0, result.getNodeCount());
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.getMinHeapBytes(), 0);
+    Assert.assertEquals(result.getMaxHeapBytes(), 0);
+    Assert.assertEquals(result.getAvgHeapBytes(), 0.0);
+    Assert.assertEquals(result.getTotalHeapBytes(), 0);
+    Assert.assertEquals(result.getNodeCount(), 0);
   }
 
   @Test
@@ -268,8 +267,8 @@ public class OpenSearchJvmInfoTest {
     List<OpenSearchJvmInfo.DataNodeInfo> result = openSearchJvmInfo.listDataNodesWithHeapDetails();
 
     // Assert
-    Assertions.assertNotNull(result);
-    Assertions.assertEquals(2, result.size());
+    Assert.assertNotNull(result);
+    Assert.assertEquals(result.size(), 2);
 
     OpenSearchJvmInfo.DataNodeInfo node1 =
         result.stream()
@@ -277,12 +276,12 @@ public class OpenSearchJvmInfoTest {
             .findFirst()
             .orElse(null);
 
-    Assertions.assertNotNull(node1);
-    Assertions.assertEquals("data-node-1", node1.getNodeName());
-    Assertions.assertEquals(4294967296L, node1.getMaxHeapBytes());
-    Assertions.assertEquals(2147483648L, node1.getUsedHeapBytes());
-    Assertions.assertEquals(75, node1.getUsedHeapPercent());
-    Assertions.assertEquals("11.0.2", node1.getJvmVersion());
+    Assert.assertNotNull(node1);
+    Assert.assertEquals(node1.getNodeName(), "data-node-1");
+    Assert.assertEquals(node1.getMaxHeapBytes(), 4294967296L);
+    Assert.assertEquals(node1.getUsedHeapBytes(), 2147483648L);
+    Assert.assertEquals(node1.getUsedHeapPercent(), 75);
+    Assert.assertEquals(node1.getJvmVersion(), "11.0.2");
   }
 
   @Test
@@ -300,14 +299,14 @@ public class OpenSearchJvmInfoTest {
             "Eclipse Adoptium");
 
     // Assert
-    Assertions.assertEquals(1000000000L, heapInfo.getHeapUsed());
-    Assertions.assertEquals(50, heapInfo.getHeapUsedPercent());
-    Assertions.assertEquals(2000000000L, heapInfo.getHeapCommitted());
-    Assertions.assertEquals(4000000000L, heapInfo.getHeapMax());
-    Assertions.assertEquals(3600000L, heapInfo.getUptime());
-    Assertions.assertEquals("11.0.2", heapInfo.getJvmVersion());
-    Assertions.assertEquals("OpenJDK", heapInfo.getVmName());
-    Assertions.assertEquals("Eclipse Adoptium", heapInfo.getVmVendor());
+    Assert.assertEquals(heapInfo.getHeapUsed(), 1000000000L);
+    Assert.assertEquals(heapInfo.getHeapUsedPercent(), 50);
+    Assert.assertEquals(heapInfo.getHeapCommitted(), 2000000000L);
+    Assert.assertEquals(heapInfo.getHeapMax(), 4000000000L);
+    Assert.assertEquals(heapInfo.getUptime(), 3600000L);
+    Assert.assertEquals(heapInfo.getJvmVersion(), "11.0.2");
+    Assert.assertEquals(heapInfo.getVmName(), "OpenJDK");
+    Assert.assertEquals(heapInfo.getVmVendor(), "Eclipse Adoptium");
   }
 
   @Test
@@ -320,7 +319,7 @@ public class OpenSearchJvmInfoTest {
     String result = heapInfo.getHeapUsageFormatted();
 
     // Assert
-    Assertions.assertEquals("2.00 GB / 4.00 GB (50.00%)", result);
+    Assert.assertEquals(result, "2.00 GB / 4.00 GB (50%)");
   }
 
   @Test
@@ -334,11 +333,11 @@ public class OpenSearchJvmInfoTest {
     String result = heapInfo.toString();
 
     // Assert
-    Assertions.assertTrue(result.contains("heapUsed=1.0 GB"));
-    Assertions.assertTrue(result.contains("heapUsedPercent=25%"));
-    Assertions.assertTrue(result.contains("heapMax=4.0 GB"));
-    Assertions.assertTrue(result.contains("uptime=2 hours"));
-    Assertions.assertTrue(result.contains("jvmVersion='11.0.2'"));
+    Assert.assertTrue(result.contains("heapUsed=1.0 GB"));
+    Assert.assertTrue(result.contains("heapUsedPercent=25%"));
+    Assert.assertTrue(result.contains("heapMax=4.0 GB"));
+    Assert.assertTrue(result.contains("uptime=2 hours"));
+    Assert.assertTrue(result.contains("jvmVersion='11.0.2'"));
   }
 
   @Test
@@ -349,25 +348,33 @@ public class OpenSearchJvmInfoTest {
             2000000000L, 8000000000L, 4000000000.0, 12000000000L, 3);
 
     // Assert
-    Assertions.assertEquals(2000000000L, stats.getMinHeapBytes());
-    Assertions.assertEquals(8000000000L, stats.getMaxHeapBytes());
-    Assertions.assertEquals(4000000000.0, stats.getAvgHeapBytes());
-    Assertions.assertEquals(12000000000L, stats.getTotalHeapBytes());
-    Assertions.assertEquals(3, stats.getNodeCount());
+    Assert.assertEquals(stats.getMinHeapBytes(), 2000000000L);
+    Assert.assertEquals(stats.getMaxHeapBytes(), 8000000000L);
+    Assert.assertEquals(stats.getAvgHeapBytes(), 4000000000.0);
+    Assert.assertEquals(stats.getTotalHeapBytes(), 12000000000L);
+    Assert.assertEquals(stats.getNodeCount(), 3);
   }
 
-  @ParameterizedTest
-  @CsvSource({"1073741824, 1.0", "2147483648, 2.0", "4294967296, 4.0"})
+  @DataProvider(name = "heapSizeData")
+  public Object[][] provideHeapSizeData() {
+    return new Object[][] {
+      {1073741824L, 1.0},
+      {2147483648L, 2.0},
+      {4294967296L, 4.0}
+    };
+  }
+
+  @Test(dataProvider = "heapSizeData")
   void testHeapSizeStats_GetHeapGB(long bytes, double expectedGB) {
     // Arrange
     OpenSearchJvmInfo.HeapSizeStats stats =
         new OpenSearchJvmInfo.HeapSizeStats(bytes, bytes, bytes, bytes, 1);
 
     // Act & Assert
-    Assertions.assertEquals(expectedGB, stats.getMinHeapGB(), 0.01);
-    Assertions.assertEquals(expectedGB, stats.getMaxHeapGB(), 0.01);
-    Assertions.assertEquals(expectedGB, stats.getAvgHeapGB(), 0.01);
-    Assertions.assertEquals(expectedGB, stats.getTotalHeapGB(), 0.01);
+    Assert.assertEquals(stats.getMinHeapGB(), expectedGB, 0.01);
+    Assert.assertEquals(stats.getMaxHeapGB(), expectedGB, 0.01);
+    Assert.assertEquals(stats.getAvgHeapGB(), expectedGB, 0.01);
+    Assert.assertEquals(stats.getTotalHeapGB(), expectedGB, 0.01);
   }
 
   @Test
@@ -381,11 +388,11 @@ public class OpenSearchJvmInfoTest {
     String result = stats.toString();
 
     // Assert
-    Assertions.assertTrue(result.contains("Heap Stats across 3 data nodes"));
-    Assertions.assertTrue(result.contains("Min: 2.00 GB"));
-    Assertions.assertTrue(result.contains("Max: 8.00 GB"));
-    Assertions.assertTrue(result.contains("Avg: 4.00 GB"));
-    Assertions.assertTrue(result.contains("Total: 12.00 GB"));
+    Assert.assertTrue(result.contains("Heap Stats across 3 data nodes"));
+    Assert.assertTrue(result.contains("Min: 2.00 GB"));
+    Assert.assertTrue(result.contains("Max: 8.00 GB"));
+    Assert.assertTrue(result.contains("Avg: 4.00 GB"));
+    Assert.assertTrue(result.contains("Total: 12.00 GB"));
   }
 
   @Test
@@ -396,21 +403,25 @@ public class OpenSearchJvmInfoTest {
             "test-node", 4294967296L, 2147483648L, 50, "11.0.2", 3661000L);
 
     // Assert
-    Assertions.assertEquals("test-node", nodeInfo.getNodeName());
-    Assertions.assertEquals(4294967296L, nodeInfo.getMaxHeapBytes());
-    Assertions.assertEquals(2147483648L, nodeInfo.getUsedHeapBytes());
-    Assertions.assertEquals(50, nodeInfo.getUsedHeapPercent());
-    Assertions.assertEquals("11.0.2", nodeInfo.getJvmVersion());
-    Assertions.assertEquals(3661000L, nodeInfo.getUptimeMillis());
+    Assert.assertEquals(nodeInfo.getNodeName(), "test-node");
+    Assert.assertEquals(nodeInfo.getMaxHeapBytes(), 4294967296L);
+    Assert.assertEquals(nodeInfo.getUsedHeapBytes(), 2147483648L);
+    Assert.assertEquals(nodeInfo.getUsedHeapPercent(), 50);
+    Assert.assertEquals(nodeInfo.getJvmVersion(), "11.0.2");
+    Assert.assertEquals(nodeInfo.getUptimeMillis(), 3661000L);
   }
 
-  @ParameterizedTest
-  @CsvSource({
-    "3600000, '1 hours, 0 minutes'",
-    "86400000, '1 days, 0 hours'",
-    "90061000, '1 days, 1 hours'",
-    "1800000, '30 minutes'"
-  })
+  @DataProvider(name = "uptimeData")
+  public Object[][] provideUptimeData() {
+    return new Object[][] {
+      {3600000L, "1 hours, 0 minutes"},
+      {86400000L, "1 days, 0 hours"},
+      {90061000L, "1 days, 1 hours"},
+      {1800000L, "30 minutes"}
+    };
+  }
+
+  @Test(dataProvider = "uptimeData")
   void testDataNodeInfo_GetUptimeFormatted(long uptimeMillis, String expectedFormat) {
     // Arrange
     OpenSearchJvmInfo.DataNodeInfo nodeInfo =
@@ -420,7 +431,7 @@ public class OpenSearchJvmInfoTest {
     String result = nodeInfo.getUptimeFormatted();
 
     // Assert
-    Assertions.assertEquals(expectedFormat, result);
+    Assert.assertEquals(result, expectedFormat);
   }
 
   @Test
@@ -430,8 +441,8 @@ public class OpenSearchJvmInfoTest {
         new OpenSearchJvmInfo.DataNodeInfo("test", 4294967296L, 2147483648L, 50, "", 0L);
 
     // Act & Assert
-    Assertions.assertEquals(4.0, nodeInfo.getMaxHeapGB(), 0.01);
-    Assertions.assertEquals(2.0, nodeInfo.getUsedHeapGB(), 0.01);
+    Assert.assertEquals(nodeInfo.getMaxHeapGB(), 4.0, 0.01);
+    Assert.assertEquals(nodeInfo.getUsedHeapGB(), 2.0, 0.01);
   }
 
   @Test
@@ -445,10 +456,10 @@ public class OpenSearchJvmInfoTest {
     String result = nodeInfo.toString();
 
     // Assert
-    Assertions.assertTrue(result.contains("Node: test-node"));
-    Assertions.assertTrue(result.contains("Heap: 2.00 GB / 4.00 GB (50%)"));
-    Assertions.assertTrue(result.contains("JVM: 11.0.2"));
-    Assertions.assertTrue(result.contains("Uptime: 1 hours, 0 minutes"));
+    Assert.assertTrue(result.contains("Node: test-node"));
+    Assert.assertTrue(result.contains("Heap: 2.00 GB / 4.00 GB (50%)"));
+    Assert.assertTrue(result.contains("JVM: 11.0.2"));
+    Assert.assertTrue(result.contains("Uptime: 1 hours, 0 minutes"));
   }
 
   @Test
@@ -461,9 +472,9 @@ public class OpenSearchJvmInfoTest {
     Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
 
     // Assert
-    Assertions.assertEquals(1, result.size());
-    Assertions.assertTrue(result.containsKey("data-node-1"));
-    Assertions.assertFalse(result.containsKey("master-node-1"));
+    Assert.assertEquals(result.size(), 1);
+    Assert.assertTrue(result.containsKey("data-node-1"));
+    Assert.assertFalse(result.containsKey("master-node-1"));
   }
 
   @Test
@@ -476,8 +487,8 @@ public class OpenSearchJvmInfoTest {
     Map<String, OpenSearchJvmInfo.JvmHeapInfo> result = openSearchJvmInfo.getDataNodeJvmHeap();
 
     // Assert
-    Assertions.assertEquals(1, result.size()); // Only the node with JVM info should be included
-    Assertions.assertTrue(result.containsKey("data-node-1"));
+    Assert.assertEquals(result.size(), 1); // Only the node with JVM info should be included
+    Assert.assertTrue(result.containsKey("data-node-1"));
   }
 
   private void setupMockResponse(String responseBody) throws IOException {
