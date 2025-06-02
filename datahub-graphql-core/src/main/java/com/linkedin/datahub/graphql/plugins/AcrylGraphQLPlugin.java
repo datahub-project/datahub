@@ -105,6 +105,7 @@ import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorReso
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateAnomalyResolver;
+import com.linkedin.datahub.graphql.resolvers.monitor.UpdateAssertionMonitorSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
@@ -780,6 +781,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "updateSystemMonitors",
                     new UpdateSystemMonitorsResolver(this.monitorService, this.entityClient))
+                .dataFetcher(
+                    "updateAssertionMonitorSettings",
+                    new UpdateAssertionMonitorSettingsResolver(
+                        this.monitorService, this.entityClient))
                 .dataFetcher(
                     "updateMonitorStatus",
                     new UpdateMonitorStatusResolver(this.monitorService, this.entityClient)));

@@ -24,6 +24,13 @@ extend type Mutation {
   createAssertionMonitor(input: CreateAssertionMonitorInput!): Monitor!
 
   """
+  Update the settings of a monitor that evaluates assertions
+  """
+  updateAssertionMonitorSettings(
+    input: UpdateAssertionMonitorSettingsInput!
+  ): Monitor!
+
+  """
   Removes a monitor
   """
   deleteMonitor(urn: String!): Boolean
@@ -104,6 +111,21 @@ input UpdateSystemMonitorsInput {
   in the set has a different SystemMonitorType.
   """
   monitors: [UpdateSystemMonitorInput!]!
+}
+
+"""
+Input required to update the settings for a monitor that evaluates assertions
+"""
+input UpdateAssertionMonitorSettingsInput {
+  """
+  The urn of the monitor to update.
+  """
+  urn: String!
+
+  """
+  The assertion adjustment settings to update for the monitor.
+  """
+  adjustmentSettings: AssertionAdjustmentSettingsInput!
 }
 
 """
