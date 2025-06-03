@@ -269,104 +269,16 @@ class LineageClient:
             downstream_urn = DatasetUrn.from_string(downstream)
 
             # Determine column lineage
-            cll = None
-            if column_lineage is not None:
-                # Auto column lineage generation
-                if column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
-                    upstream_schema = self._get_fields_from_dataset_urn(upstream_urn)
-                    downstream_schema = self._get_fields_from_dataset_urn(
-                        downstream_urn
-                    )
-
-                    # Choose matching strategy
-                    mapping = (
-                        self._get_fuzzy_column_lineage(
-                            upstream_schema, downstream_schema
-                        )
-                        if column_lineage == "auto_fuzzy"
-                        else self._get_strict_column_lineage(
-                            upstream_schema, downstream_schema
-                        )
-                    )
-                    cll = parse_cll_mapping(
-                        upstream=upstream_urn,
-                        downstream=downstream_urn,
-                        cll_mapping=mapping,
-                    )
-                # Explicit column lineage
-                elif isinstance(column_lineage, dict):
-                    cll = parse_cll_mapping(
-                        upstream=upstream_urn,
-                        downstream=downstream_urn,
-                        cll_mapping=column_lineage,
-                    )
-                else:
-                    assert_never(column_lineage)
+            cll = self._process_column_lineage(
+                column_lineage, upstream_urn, downstream_urn
+            )
 
             # Prepare for lineage based on query or copy
             if transformation_text:
                 # Transform lineage with query
-                fields_involved = OrderedSet([str(upstream_urn), str(downstream_urn)])
-                if cll is not None:
-                    for c in cll:
-                        for field in c.upstreams or []:
-                            fields_involved.add(field)
-                        for field in c.downstreams or []:
-                            fields_involved.add(field)
-
-                # Create query URN and entity
-                query_urn = QueryUrn(generate_hash(transformation_text)).urn()
-                from datahub.sql_parsing.sql_parsing_aggregator import (
-                    make_query_subjects,
+                self._process_transformation_lineage(
+                    transformation_text, upstream_urn, downstream_urn, cll
                 )
-
-                query_entity = MetadataChangeProposalWrapper.construct_many(
-                    query_urn,
-                    aspects=[
-                        models.QueryPropertiesClass(
-                            statement=models.QueryStatementClass(
-                                value=transformation_text,
-                                language=models.QueryLanguageClass.SQL,
-                            ),
-                            source=models.QuerySourceClass.SYSTEM,
-                            created=_empty_audit_stamp,
-                            lastModified=_empty_audit_stamp,
-                        ),
-                        make_query_subjects(list(fields_involved)),
-                    ],
-                )
-
-                # Build dataset update
-                updater = DatasetPatchBuilder(str(downstream_urn))
-                updater.add_upstream_lineage(
-                    models.UpstreamClass(
-                        dataset=str(upstream_urn),
-                        type=models.DatasetLineageTypeClass.TRANSFORMED,
-                        query=query_urn,
-                    )
-                )
-
-                # Add fine-grained lineage
-                for cl in cll or []:
-                    cl.query = query_urn
-                    updater.add_fine_grained_upstream_lineage(cl)
-
-                # Check dataset existence
-                if not self._client._graph.exists(updater.urn):
-                    raise SdkUsageError(
-                        f"Dataset {updater.urn} does not exist, and hence cannot be updated."
-                    )
-
-                # Emit metadata change proposals
-                mcps: List[
-                    Union[
-                        MetadataChangeProposalWrapper,
-                        models.MetadataChangeProposalClass,
-                    ]
-                ] = list(updater.build())
-                if query_entity:
-                    mcps.extend(query_entity)
-                self._client._graph.emit_mcps(mcps)
             else:
                 # Copy lineage without query
                 updater = DatasetPatchBuilder(str(downstream_urn))
@@ -407,77 +319,42 @@ class LineageClient:
                 f"Unsupported entity type combination: {upstream_entity_type} -> {downstream_entity_type}"
             )
 
-    def add_dataset_copy_lineage(
-        self,
-        *,
-        upstream: DatasetUrnOrStr,
-        downstream: DatasetUrnOrStr,
-        column_lineage: Union[
-            None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
-        ] = "auto_fuzzy",
-    ) -> None:
-        upstream = DatasetUrn.from_string(upstream)
-        downstream = DatasetUrn.from_string(downstream)
-
-        if column_lineage is None:
-            cll = None
-        elif column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
-            upstream_schema = self._get_fields_from_dataset_urn(upstream)
-            downstream_schema = self._get_fields_from_dataset_urn(downstream)
-            if column_lineage == "auto_fuzzy":
-                mapping = self._get_fuzzy_column_lineage(
-                    upstream_schema, downstream_schema
-                )
-            else:
-                mapping = self._get_strict_column_lineage(
-                    upstream_schema, downstream_schema
-                )
-            cll = parse_cll_mapping(
-                upstream=upstream,
-                downstream=downstream,
-                cll_mapping=mapping,
-            )
-        elif isinstance(column_lineage, dict):
-            cll = parse_cll_mapping(
-                upstream=upstream,
-                downstream=downstream,
-                cll_mapping=column_lineage,
-            )
-        else:
-            assert_never(column_lineage)
-
-        updater = DatasetPatchBuilder(str(downstream))
-        updater.add_upstream_lineage(
-            models.UpstreamClass(
-                dataset=str(upstream),
-                type=models.DatasetLineageTypeClass.COPY,
-            )
-        )
-        for cl in cll or []:
-            updater.add_fine_grained_upstream_lineage(cl)
-
-        self._client.entities.update(updater)
-
-    def add_dataset_transform_lineage(
-        self,
-        *,
-        upstream: DatasetUrnOrStr,
-        downstream: DatasetUrnOrStr,
-        column_lineage: Optional[ColumnLineageMapping] = None,
-        transformation_text: Optional[str] = None,
-    ) -> None:
-        upstream = DatasetUrn.from_string(upstream)
-        downstream = DatasetUrn.from_string(downstream)
-
+    def _process_column_lineage(self, column_lineage, upstream_urn, downstream_urn):
         cll = None
         if column_lineage is not None:
-            cll = parse_cll_mapping(
-                upstream=upstream,
-                downstream=downstream,
-                cll_mapping=column_lineage,
-            )
+            # Auto column lineage generation
+            if column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
+                upstream_schema = self._get_fields_from_dataset_urn(upstream_urn)
+                downstream_schema = self._get_fields_from_dataset_urn(downstream_urn)
 
-        fields_involved = OrderedSet([str(upstream), str(downstream)])
+                # Choose matching strategy
+                mapping = (
+                    self._get_fuzzy_column_lineage(upstream_schema, downstream_schema)
+                    if column_lineage == "auto_fuzzy"
+                    else self._get_strict_column_lineage(
+                        upstream_schema, downstream_schema
+                    )
+                )
+                cll = parse_cll_mapping(
+                    upstream=upstream_urn,
+                    downstream=downstream_urn,
+                    cll_mapping=mapping,
+                )
+                # Explicit column lineage
+            elif isinstance(column_lineage, dict):
+                cll = parse_cll_mapping(
+                    upstream=upstream_urn,
+                    downstream=downstream_urn,
+                    cll_mapping=column_lineage,
+                )
+            else:
+                assert_never(column_lineage)
+        return cll
+
+    def _process_transformation_lineage(
+        self, transformation_text, upstream_urn, downstream_urn, cll
+    ):
+        fields_involved = OrderedSet([str(upstream_urn), str(downstream_urn)])
         if cll is not None:
             for c in cll:
                 for field in c.upstreams or []:
@@ -485,53 +362,55 @@ class LineageClient:
                 for field in c.downstreams or []:
                     fields_involved.add(field)
 
-        query_urn = None
-        query_entity = None
-        if transformation_text:
-            # Eventually we might want to use our regex-based fingerprinting instead.
-            fingerprint = generate_hash(transformation_text)
-            query_urn = QueryUrn(fingerprint).urn()
+                # Create query URN and entity
+        query_urn = QueryUrn(generate_hash(transformation_text)).urn()
+        from datahub.sql_parsing.sql_parsing_aggregator import (
+            make_query_subjects,
+        )
 
-            from datahub.sql_parsing.sql_parsing_aggregator import make_query_subjects
-
-            query_entity = MetadataChangeProposalWrapper.construct_many(
-                query_urn,
-                aspects=[
-                    models.QueryPropertiesClass(
-                        statement=models.QueryStatementClass(
-                            value=transformation_text,
-                            language=models.QueryLanguageClass.SQL,
-                        ),
-                        source=models.QuerySourceClass.SYSTEM,
-                        created=_empty_audit_stamp,
-                        lastModified=_empty_audit_stamp,
+        query_entity = MetadataChangeProposalWrapper.construct_many(
+            query_urn,
+            aspects=[
+                models.QueryPropertiesClass(
+                    statement=models.QueryStatementClass(
+                        value=transformation_text,
+                        language=models.QueryLanguageClass.SQL,
                     ),
-                    make_query_subjects(list(fields_involved)),
-                ],
-            )
+                    source=models.QuerySourceClass.SYSTEM,
+                    created=_empty_audit_stamp,
+                    lastModified=_empty_audit_stamp,
+                ),
+                make_query_subjects(list(fields_involved)),
+            ],
+        )
 
-        updater = DatasetPatchBuilder(str(downstream))
+        # Build dataset update
+        updater = DatasetPatchBuilder(str(downstream_urn))
         updater.add_upstream_lineage(
             models.UpstreamClass(
-                dataset=str(upstream),
+                dataset=str(upstream_urn),
                 type=models.DatasetLineageTypeClass.TRANSFORMED,
                 query=query_urn,
             )
         )
+
+        # Add fine-grained lineage
         for cl in cll or []:
             cl.query = query_urn
             updater.add_fine_grained_upstream_lineage(cl)
 
-        # Throw if the dataset does not exist.
-        # We need to manually call .build() instead of reusing client.update()
-        # so that we make just one emit_mcps call.
+            # Check dataset existence
         if not self._client._graph.exists(updater.urn):
             raise SdkUsageError(
                 f"Dataset {updater.urn} does not exist, and hence cannot be updated."
             )
 
+            # Emit metadata change proposals
         mcps: List[
-            Union[MetadataChangeProposalWrapper, models.MetadataChangeProposalClass]
+            Union[
+                MetadataChangeProposalWrapper,
+                models.MetadataChangeProposalClass,
+            ]
         ] = list(updater.build())
         if query_entity:
             mcps.extend(query_entity)
@@ -611,6 +490,139 @@ class LineageClient:
                 transformation_text=query_text,
             )
 
+    # TODO: deprecate this method
+    def add_dataset_copy_lineage(
+        self,
+        *,
+        upstream: DatasetUrnOrStr,
+        downstream: DatasetUrnOrStr,
+        column_lineage: Union[
+            None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
+        ] = "auto_fuzzy",
+    ) -> None:
+        upstream = DatasetUrn.from_string(upstream)
+        downstream = DatasetUrn.from_string(downstream)
+
+        if column_lineage is None:
+            cll = None
+        elif column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
+            upstream_schema = self._get_fields_from_dataset_urn(upstream)
+            downstream_schema = self._get_fields_from_dataset_urn(downstream)
+            if column_lineage == "auto_fuzzy":
+                mapping = self._get_fuzzy_column_lineage(
+                    upstream_schema, downstream_schema
+                )
+            else:
+                mapping = self._get_strict_column_lineage(
+                    upstream_schema, downstream_schema
+                )
+            cll = parse_cll_mapping(
+                upstream=upstream,
+                downstream=downstream,
+                cll_mapping=mapping,
+            )
+        elif isinstance(column_lineage, dict):
+            cll = parse_cll_mapping(
+                upstream=upstream,
+                downstream=downstream,
+                cll_mapping=column_lineage,
+            )
+        else:
+            assert_never(column_lineage)
+
+        updater = DatasetPatchBuilder(str(downstream))
+        updater.add_upstream_lineage(
+            models.UpstreamClass(
+                dataset=str(upstream),
+                type=models.DatasetLineageTypeClass.COPY,
+            )
+        )
+        for cl in cll or []:
+            updater.add_fine_grained_upstream_lineage(cl)
+
+        self._client.entities.update(updater)
+
+    # TODO: deprecate this method
+    def add_dataset_transform_lineage(
+        self,
+        *,
+        upstream: DatasetUrnOrStr,
+        downstream: DatasetUrnOrStr,
+        column_lineage: Optional[ColumnLineageMapping] = None,
+        transformation_text: Optional[str] = None,
+    ) -> None:
+        upstream = DatasetUrn.from_string(upstream)
+        downstream = DatasetUrn.from_string(downstream)
+
+        cll = None
+        if column_lineage is not None:
+            cll = parse_cll_mapping(
+                upstream=upstream,
+                downstream=downstream,
+                cll_mapping=column_lineage,
+            )
+
+        fields_involved = OrderedSet([str(upstream), str(downstream)])
+        if cll is not None:
+            for c in cll:
+                for field in c.upstreams or []:
+                    fields_involved.add(field)
+                for field in c.downstreams or []:
+                    fields_involved.add(field)
+
+        query_urn = None
+        query_entity = None
+        if transformation_text:
+            # Eventually we might want to use our regex-based fingerprinting instead.
+            fingerprint = generate_hash(transformation_text)
+            query_urn = QueryUrn(fingerprint).urn()
+
+            from datahub.sql_parsing.sql_parsing_aggregator import make_query_subjects
+
+            query_entity = MetadataChangeProposalWrapper.construct_many(
+                query_urn,
+                aspects=[
+                    models.QueryPropertiesClass(
+                        statement=models.QueryStatementClass(
+                            value=transformation_text,
+                            language=models.QueryLanguageClass.SQL,
+                        ),
+                        source=models.QuerySourceClass.SYSTEM,
+                        created=_empty_audit_stamp,
+                        lastModified=_empty_audit_stamp,
+                    ),
+                    make_query_subjects(list(fields_involved)),
+                ],
+            )
+
+        updater = DatasetPatchBuilder(str(downstream))
+        updater.add_upstream_lineage(
+            models.UpstreamClass(
+                dataset=str(upstream),
+                type=models.DatasetLineageTypeClass.TRANSFORMED,
+                query=query_urn,
+            )
+        )
+        for cl in cll or []:
+            cl.query = query_urn
+            updater.add_fine_grained_upstream_lineage(cl)
+
+        # Throw if the dataset does not exist.
+        # We need to manually call .build() instead of reusing client.update()
+        # so that we make just one emit_mcps call.
+        if not self._client._graph.exists(updater.urn):
+            raise SdkUsageError(
+                f"Dataset {updater.urn} does not exist, and hence cannot be updated."
+            )
+
+        mcps: List[
+            Union[MetadataChangeProposalWrapper, models.MetadataChangeProposalClass]
+        ] = list(updater.build())
+        if query_entity:
+            mcps.extend(query_entity)
+        self._client._graph.emit_mcps(mcps)
+
+    # TODO: deprecate this method
     def add_datajob_lineage(
         self,
         *,
