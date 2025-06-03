@@ -300,8 +300,10 @@ class Chart(
         """Add an input to the chart."""
         if isinstance(input_dataset, Dataset):
             input_dataset_urn = input_dataset.urn
-        else:
+        elif isinstance(input_dataset, str):
             input_dataset_urn = DatasetUrn.from_string(input_dataset)
+        else:  # isinstance(input_dataset, DatasetUrn)
+            input_dataset_urn = input_dataset
 
         chart_props = self._ensure_chart_props()
         inputs = chart_props.inputs or []
