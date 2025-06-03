@@ -1,18 +1,17 @@
+import { colors } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import BrowsePaths from '@app/previewV2/BrowsePaths';
 import { isDefaultBrowsePath } from '@app/previewV2/utils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { BrowsePathEntry, BrowsePathV2, Entity, EntityType } from '@types';
+import { BrowsePathV2, Entity, EntityType } from '@types';
 
 const PlatformContentWrapper = styled.div`
     display: flex;
@@ -21,147 +20,107 @@ const PlatformContentWrapper = styled.div`
     max-width: 100%;
     line-height: 22px;
     overflow: hidden;
+    color: ${colors.gray[1700]};
 `;
 
 export const PlatformText = styled.div<{
     $maxWidth?: number;
-    $previewType?: Maybe<PreviewType>;
     $isCompactView?: boolean;
-    $color?: string;
 }>`
-    color: ${(props) => props.$color ?? REDESIGN_COLORS.TEXT_GREY};
     white-space: nowrap;
-    font-family: Mulish;
-    font-style: normal;
-    font-weight: 500;
     text-overflow: ellipsis;
     overflow: hidden;
     display: flex;
     align-items: center;
-    ${(props) => (props.$isCompactView ? '12px' : '13px')}
     ${(props) => props.$maxWidth && `max-width: ${props.$maxWidth}px;`}
+    flex-shrink: 0;
 `;
 
-const PlatformDivider = styled.div`
-    padding-left: 6px;
-    margin-right: 6px;
-    font-size: 16px;
-    margin-top: -3px;
-    color: ${ANTD_GRAY[6]};
+const PlatformDivider = styled.hr`
+    color: ${colors.gray[200]};
+    align-self: stretch;
+    height: auto;
+    margin: 4px 6px;
+    border: 0.5px solid;
+    vertical-align: text-top;
 `;
-
-export function getParentBrowsePathNames(browsePaths?: Maybe<BrowsePathEntry>[] | null) {
-    let parentNames = '';
-    if (browsePaths) {
-        [...browsePaths].reverse().forEach((path, index) => {
-            if (path?.name) {
-                if (index !== 0) {
-                    parentNames += ' > ';
-                }
-                parentNames += path.name;
-            }
-        });
-    }
-    return parentNames;
-}
 
 const TypeIconWrapper = styled.span`
     margin-right: 4px;
     display: flex;
-    svg {
-        font-size: 16px;
-    }
 `;
 
-const PlatFormTitle = styled.span<{ $color?: string }>`
+const PlatFormTitle = styled.span`
     display: inline-block;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${(props) => props.$color ?? REDESIGN_COLORS.TEXT_GREY};
+    color: ${colors.gray[1700]};
 `;
 
 interface Props {
-    // eslint-disable-next-line react/no-unused-prop-types
-    entityLogoComponent?: JSX.Element;
-    // eslint-disable-next-line react/no-unused-prop-types
-    instanceId?: string;
-    // eslint-disable-next-line react/no-unused-prop-types
-    typeIcon?: JSX.Element;
-    type?: string;
     entityType: EntityType;
+    displayedEntityType?: string;
     parentEntities?: Entity[] | null;
     entityTitleWidth?: number;
-    previewType?: Maybe<PreviewType>;
     isCompactView?: boolean;
     browsePaths?: Maybe<BrowsePathV2> | undefined;
-    contentRef: React.RefObject<HTMLDivElement>;
-    isContentTruncated?: boolean;
+    hideTypeIcons?: boolean;
     linksDisabled?: boolean;
     showPlatformText?: boolean;
-    color?: string;
+    numVisible?: number;
 }
 
-function ContextPath(props: Props) {
+export default function ContextPath(props: Props) {
     const {
-        type,
         entityType,
+        displayedEntityType,
         parentEntities,
         browsePaths,
         entityTitleWidth = 200,
-        previewType,
         isCompactView,
-        contentRef,
-        isContentTruncated = false,
+        hideTypeIcons,
         linksDisabled,
         showPlatformText = true,
-        color,
+        numVisible,
     } = props;
 
     const entityRegistry = useEntityRegistryV2();
     const entityTypeIcon =
-        getSubTypeIcon(type) || entityRegistry.getIcon(entityType, 16, IconStyleType.ACCENT, '#8d95b1');
-
-    const divider = <PlatformDivider>|</PlatformDivider>;
+        getSubTypeIcon(displayedEntityType) || entityRegistry.getIcon(entityType, 16, IconStyleType.ACCENT, '#8d95b1');
 
     const hasBrowsePath = !!browsePaths?.path?.length && !isDefaultBrowsePath(browsePaths);
     const hasParentEntities = !!parentEntities?.length;
-
     const showEntityTypeDivider = hasBrowsePath || hasParentEntities;
+
+    if (!showPlatformText && !hasBrowsePath && !hasParentEntities) {
+        return null;
+    }
 
     return (
         <PlatformContentWrapper>
             {showPlatformText && (
-                <PlatformText
-                    $color={color}
-                    $maxWidth={entityTitleWidth}
-                    $isCompactView={isCompactView}
-                    title={capitalizeFirstLetterOnly(type)}
-                >
-                    {entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
-                    <PlatFormTitle $color={color}>{capitalizeFirstLetterOnly(type)}</PlatFormTitle>
-                    {showEntityTypeDivider && divider}
+                <PlatformText $maxWidth={entityTitleWidth} $isCompactView={isCompactView}>
+                    {!hideTypeIcons && entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
+                    <PlatFormTitle>{capitalizeFirstLetterOnly(displayedEntityType)}</PlatFormTitle>
+                    {showEntityTypeDivider && <PlatformDivider />}
                 </PlatformText>
             )}
             {hasBrowsePath ? (
                 <BrowsePaths
-                    browsePaths={browsePaths}
-                    previewType={previewType}
-                    contentRef={contentRef}
-                    isContentTruncated={isContentTruncated}
+                    entries={browsePaths?.path || []}
+                    numVisible={numVisible}
+                    hideIcons={hideTypeIcons}
                     linksDisabled={linksDisabled}
-                    color={color}
                 />
             ) : (
                 <ParentEntities
                     parentEntities={parentEntities || []}
-                    numVisible={3}
+                    numVisible={numVisible}
+                    hideIcons={hideTypeIcons}
                     linksDisabled={linksDisabled}
-                    color={color}
                 />
             )}
         </PlatformContentWrapper>
     );
 }
-
-export default ContextPath;

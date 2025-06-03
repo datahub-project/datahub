@@ -1,22 +1,24 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import { debounce } from 'lodash';
+import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { colors } from '@src/alchemy-components';
 
 import { Entity } from '@types';
 
-const Path = styled.div`
-    white-space: nowrap;
-    font-size: 13px;
+const Path = styled.div<{ isLast: boolean }>`
+    flex: ${({ isLast }) => (isLast ? '1 0 1' : '1 1 0')};
+    max-width: max-content;
+    min-width: 16px;
+    overflow: hidden;
+
     font-style: normal;
     font-weight: 500;
-    text-overflow: ellipsis;
-    overflow: hidden;
     display: flex;
     align-items: center;
 `;
@@ -26,45 +28,63 @@ const ContainerText = styled.span`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 150px; // TODO: Remove in favor of smart truncation
 `;
 
-const StyledLink = styled(Link)<{ $disabled?: boolean; $color: string }>`
-    white-space: nowrap;
+const StyledLink = styled(Link)<{ $disabled?: boolean }>`
     border-radius: 4px;
     overflow: hidden;
-    text-overflow: ellipsis;
     display: flex;
     gap: 4px;
     align-items: center;
     line-height: 22px;
-    color: ${(props) => props.$color};
+    color: ${colors.gray[1700]};
 
     && svg {
-        color: ${(props) => props.$color};
+        color: ${colors.gray[1700]};
     }
 
     :hover {
-        color: ${({ $disabled, $color, theme }) => ($disabled ? $color : theme.styles['primary-color'])};
+        color: ${({ $disabled }) => ($disabled ? colors.gray[1700] : colors.violet[500])};
         cursor: ${({ $disabled }) => ($disabled ? 'default' : 'pointer')};
 
         && svg {
-            color: ${({ $disabled, $color, theme }) => ($disabled ? $color : theme.styles['primary-color'])};
+            color: ${({ $disabled }) => ($disabled ? colors.gray[1700] : colors.violet[500])};
         }
     }
 `;
 
 interface Props {
     entity: Maybe<Entity>;
+    isLast: boolean;
+    hideIcon?: boolean;
     linkDisabled?: boolean;
-    style?: React.CSSProperties;
-    color?: string;
+    setIsTruncated: (v: boolean) => void;
+    className?: string;
 }
 
 function ContextPathEntityLink(props: Props) {
-    const { entity, linkDisabled, style, color } = props;
+    const { entity, isLast, hideIcon, linkDisabled, setIsTruncated, className } = props;
     const entityRegistry = useEntityRegistry();
     const linkProps = useEmbeddedProfileLinkProps();
+
+    const handleResize: ResizeObserverCallback = useCallback(
+        (entries) => {
+            if (!entries || entries.length === 0) return;
+            const node = entries[0].target;
+            setIsTruncated(node.scrollWidth > node.clientWidth);
+        },
+        [setIsTruncated],
+    );
+
+    const measuredRef = useCallback(
+        (node: HTMLDivElement | null) => {
+            if (node !== null) {
+                const resizeObserver = new ResizeObserver(debounce(handleResize, 100));
+                resizeObserver.observe(node);
+            }
+        },
+        [handleResize],
+    );
 
     if (!entity) return null;
 
@@ -72,16 +92,15 @@ function ContextPathEntityLink(props: Props) {
     const containerName = entityRegistry.getDisplayName(entity.type, entity);
 
     return (
-        <Path style={style}>
+        <Path isLast={isLast} className={className}>
             <StyledLink
                 to={linkDisabled ? null : containerUrl}
                 data-testid="container"
                 $disabled={linkDisabled}
-                $color={color ?? REDESIGN_COLORS.LINK_GREY}
                 {...linkProps}
             >
-                <ContextPathEntityIcon entity={entity} />
-                <ContainerText title={containerName}>{containerName}</ContainerText>
+                {!hideIcon && <ContextPathEntityIcon entity={entity} />}
+                <ContainerText ref={measuredRef}>{containerName}</ContainerText>
             </StyledLink>
         </Path>
     );
