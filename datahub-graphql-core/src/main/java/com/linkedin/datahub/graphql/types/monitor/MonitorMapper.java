@@ -481,8 +481,6 @@ public class MonitorMapper {
     }
     event.setSource(mapAnomalySource(gmsEvent.getSource()));
     event.setTimestampMillis(gmsEvent.getTimestampMillis());
-    event.setCreated(gmsEvent.getCreated().getTime());
-    event.setLastUpdated(gmsEvent.getLastUpdated().getTime());
     return event;
   }
 
@@ -493,6 +491,10 @@ public class MonitorMapper {
 
     if (gmsAnomalySource.hasSourceUrn()) {
       anomalySource.setSourceUrn(gmsAnomalySource.getSourceUrn().toString());
+    }
+
+    if (gmsAnomalySource.hasSourceEventTimestampMillis()) {
+      anomalySource.setSourceEventTimestampMillis(gmsAnomalySource.getSourceEventTimestampMillis());
     }
 
     if (gmsAnomalySource.hasProperties()) {

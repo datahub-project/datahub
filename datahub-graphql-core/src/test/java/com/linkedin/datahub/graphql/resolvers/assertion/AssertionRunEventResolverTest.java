@@ -55,10 +55,13 @@ public class AssertionRunEventResolverTest {
 
     final MonitorAnomalyEvent gmsAnomalyEvent =
         new MonitorAnomalyEvent()
-            .setTimestampMillis(12L)
+            .setTimestampMillis(5L)
             .setLastUpdated(new TimeStamp().setTime(0L))
             .setCreated(new TimeStamp().setTime(0L))
-            .setSource(new AnomalySource().setType(AnomalySourceType.USER_FEEDBACK));
+            .setSource(
+                new AnomalySource()
+                    .setSourceEventTimestampMillis(12L)
+                    .setType(AnomalySourceType.USER_FEEDBACK));
 
     Mockito.when(
             mockClient.getTimeseriesAspectValues(
@@ -86,10 +89,10 @@ public class AssertionRunEventResolverTest {
                 Mockito.eq(monitorUrn.toString()),
                 Mockito.eq(Constants.MONITOR_ENTITY_NAME),
                 Mockito.eq(Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME),
-                Mockito.eq(0L),
-                Mockito.eq(10L),
-                Mockito.eq(5),
-                Mockito.isNull()))
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.isNull(),
+                Mockito.eq(AssertionRunEventResolver.buildAnomalyFeedbackEventsFilter(0L, 10L))))
         .thenReturn(
             ImmutableList.of(
                 new EnvelopedAspect()
@@ -141,10 +144,10 @@ public class AssertionRunEventResolverTest {
             Mockito.eq(monitorUrn.toString()),
             Mockito.eq(Constants.MONITOR_ENTITY_NAME),
             Mockito.eq(Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME),
-            Mockito.eq(0L),
-            Mockito.eq(10L),
-            Mockito.eq(5),
-            Mockito.isNull());
+            Mockito.isNull(),
+            Mockito.isNull(),
+            Mockito.isNull(),
+            Mockito.eq(AssertionRunEventResolver.buildAnomalyFeedbackEventsFilter(0L, 10L)));
 
     // Assert that GraphQL assertion run event matches expectations
     assertEquals(result.getTotal(), 1);

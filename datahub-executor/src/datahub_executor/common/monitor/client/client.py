@@ -31,7 +31,7 @@ from datahub_executor.common.types import Anomaly, AssertionEvaluationSpec, Cron
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_ANOMALY_LIMIT = 200
+_DEFAULT_ANOMALY_LIMIT = 2000
 
 
 class MonitorClient:
@@ -82,34 +82,37 @@ class MonitorClient:
         """
         logger.info("Fetching historical anomalies for monitor %s", monitor_urn)
 
+        # Fetch all anomaly events, including rejected ones
         monitor_event_aspects = self.graph.get_timeseries_values(
             entity_urn=monitor_urn,
             aspect_type=MonitorAnomalyEventClass,
             filter={
                 "or": [
                     {
-                        "and": self._build_timeseries_filter(start_time, end_time)
-                        + [
-                            {
-                                "field": "state",
-                                "condition": "EQUAL",
-                                "value": "REJECTED",
-                                "negated": True,
-                            }
-                        ],
+                        "and": self._build_anomaly_events_timeseries_filter(
+                            start_time, end_time
+                        ),
                     }
                 ]
             },
             limit=limit,
         )
 
-        return [
-            Anomaly(
-                timestamp_ms=monitor_event.timestampMillis,
-                metric=self._get_monitor_anomaly_event_metric(monitor_event),
-            )
-            for monitor_event in monitor_event_aspects or []
-        ]
+        # Get the latest anomaly report for each run event
+        latest_anomaly_events = self._get_latest_anomaly_events(monitor_event_aspects)
+
+        # Filter out rejected anomalies, and return the rest
+        anomalies = []
+        for anomaly in latest_anomaly_events:
+            if anomaly.state != "REJECTED":
+                anomalies.append(
+                    Anomaly(
+                        timestamp_ms=anomaly.source.sourceEventTimestampMillis,
+                        metric=self._get_monitor_anomaly_event_metric(anomaly),
+                    )
+                )
+
+        return anomalies
 
     def update_assertion_info(
         self,
@@ -450,18 +453,18 @@ class MonitorClient:
         )
 
     @classmethod
-    def _build_timeseries_filter(
+    def _build_anomaly_events_timeseries_filter(
         cls, start_time: datetime, end_time: datetime
     ) -> list[dict]:
         # TODO: Migrate this to use the new Search SDK filters dsl once that's available in acryl-main.
         return [
             {
-                "field": "timestampMillis",
+                "field": "sourceEventTimestampMillis",
                 "condition": "GREATER_THAN_OR_EQUAL_TO",
                 "value": str(int(start_time.timestamp() * 1000)),
             },
             {
-                "field": "timestampMillis",
+                "field": "sourceEventTimestampMillis",
                 "condition": "LESS_THAN_OR_EQUAL_TO",
                 "value": str(int(end_time.timestamp() * 1000)),
             },
@@ -481,3 +484,36 @@ class MonitorClient:
             )
             return Metric(value=value, timestamp_ms=timestamp_ms)
         return None
+
+    def _get_latest_anomaly_events(
+        self,
+        monitor_event_aspects: List[MonitorAnomalyEventClass],
+    ) -> List[MonitorAnomalyEventClass]:
+        """
+        Get the latest anomaly event for each run event
+        """
+        run_event_ts_to_anomaly: dict[int, MonitorAnomalyEventClass] = {}
+        for monitor_event in monitor_event_aspects:
+            # Only consider the latest anomaly event for each run event
+            run_event_timestamp = self._get_run_event_timestamp(monitor_event)
+            if run_event_timestamp is None:
+                continue
+
+            existing_anomaly = run_event_ts_to_anomaly.get(run_event_timestamp)
+            if (
+                existing_anomaly is None
+                or monitor_event.timestampMillis > existing_anomaly.timestampMillis
+            ):
+                run_event_ts_to_anomaly[run_event_timestamp] = monitor_event
+
+        return list(run_event_ts_to_anomaly.values())
+
+    def _get_run_event_timestamp(
+        self, monitor_event: MonitorAnomalyEventClass
+    ) -> Optional[int]:
+        """Get the run event timestamp from the anomaly event"""
+        return (
+            monitor_event.source.sourceEventTimestampMillis
+            if monitor_event.source
+            else None
+        )

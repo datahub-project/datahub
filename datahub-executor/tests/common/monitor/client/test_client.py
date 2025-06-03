@@ -492,8 +492,9 @@ class TestMonitorClient:
         """Test fetching metric values with lookback."""
         # Setup mock response
         mock_anomaly_events = [
-            self._create_monitor_anomaly_event(anomaly) for anomaly in sample_anomalies
-        ]
+            self._create_monitor_anomaly_event(anomaly, "CONFIRMED")
+            for anomaly in sample_anomalies
+        ] + [self._create_monitor_anomaly_event(sample_anomalies[1], "REJECTED")]
         mock_graph.get_timeseries_values.return_value = mock_anomaly_events
 
         # Test
@@ -509,13 +510,18 @@ class TestMonitorClient:
             )
 
         # Verify the result
-        assert len(result) == len(sample_anomalies)
+        assert len(result) == len(sample_anomalies) - 1
         for i, anomaly in enumerate(result):
-            assert anomaly.timestamp_ms == sample_anomalies[i].timestamp_ms
-            assert anomaly.metric.value == sample_anomalies[i].metric.value  # type: ignore
+            index = (
+                0 if i == 0 else i + 1
+            )  # the second anomaly is rejected, so we need to offset the index
+            assert anomaly.timestamp_ms == sample_anomalies[index].timestamp_ms
+            assert anomaly.metric.value == sample_anomalies[index].metric.value  # type: ignore
             assert (
-                anomaly.metric.timestamp_ms == sample_anomalies[i].metric.timestamp_ms  # type: ignore
-            )  # type: ignore
+                anomaly.metric is not None
+                and anomaly.metric.timestamp_ms
+                == sample_anomalies[index].metric.timestamp_ms  # type: ignore
+            )
 
         # Verify that get_timeseries_values was called with correct params
         mock_graph.get_timeseries_values.assert_called_once()
@@ -534,8 +540,9 @@ class TestMonitorClient:
         """Test fetching anomalies by specific time range."""
         # Setup mock response
         mock_anomaly_events = [
-            self._create_monitor_anomaly_event(anomaly) for anomaly in sample_anomalies
-        ]
+            self._create_monitor_anomaly_event(anomaly, "CONFIRMED")
+            for anomaly in sample_anomalies
+        ] + [self._create_monitor_anomaly_event(sample_anomalies[1], "REJECTED")]
         mock_graph.get_timeseries_values.return_value = mock_anomaly_events
 
         # Test with specific time range
@@ -546,13 +553,18 @@ class TestMonitorClient:
         )
 
         # Verify the result
-        assert len(result) == len(sample_anomalies)
+        assert len(result) == len(sample_anomalies) - 1
         for i, anomaly in enumerate(result):
-            assert anomaly.timestamp_ms == sample_anomalies[i].timestamp_ms
-            assert anomaly.metric.value == sample_anomalies[i].metric.value  # type: ignore
+            index = (
+                0 if i == 0 else i + 1
+            )  # the second anomaly is rejected, so we need to offset the index
+            assert anomaly.timestamp_ms == sample_anomalies[index].timestamp_ms
+            assert anomaly.metric.value == sample_anomalies[index].metric.value  # type: ignore
             assert (
-                anomaly.metric.timestamp_ms == sample_anomalies[i].metric.timestamp_ms  # type: ignore
-            )  # type: ignore
+                anomaly.metric is not None
+                and anomaly.metric.timestamp_ms
+                == sample_anomalies[index].metric.timestamp_ms  # type: ignore
+            )
 
         # Verify that get_timeseries_values was called with correct params
         mock_graph.get_timeseries_values.assert_called_once()
@@ -563,20 +575,21 @@ class TestMonitorClient:
 
         # Verify time filter
         time_filter = call_args["filter"]["or"][0]["and"]
-        assert time_filter[0]["field"] == "timestampMillis"
+        assert time_filter[0]["field"] == "sourceEventTimestampMillis"
         assert time_filter[0]["condition"] == "GREATER_THAN_OR_EQUAL_TO"
         assert time_filter[0]["value"] == str(int(start_time.timestamp() * 1000))
-        assert time_filter[1]["field"] == "timestampMillis"
+        assert time_filter[1]["field"] == "sourceEventTimestampMillis"
         assert time_filter[1]["condition"] == "LESS_THAN_OR_EQUAL_TO"
         assert time_filter[1]["value"] == str(int(end_time.timestamp() * 1000))
 
     def _create_monitor_anomaly_event(
-        self, anomaly: Anomaly
+        self, anomaly: Anomaly, state: str
     ) -> MonitorAnomalyEventClass:
         return MonitorAnomalyEventClass(
-            timestampMillis=anomaly.timestamp_ms,
+            timestampMillis=0 if state == "CONFIRMED" else 1,
             source=AnomalySourceClass(
                 type="INFERRED_ASSERTION_FAILURE",
+                sourceEventTimestampMillis=anomaly.timestamp_ms,
                 properties=AnomalySourcePropertiesClass(
                     assertionMetric=AssertionMetricClass(
                         timestampMs=anomaly.metric.timestamp_ms,  # type: ignore
@@ -584,7 +597,7 @@ class TestMonitorClient:
                     )
                 ),
             ),
-            state="CONFIRMED",
+            state=state,
             # TODO: Determine whether we really need these audit fields.
             created=TimeStampClass(time=0),
             lastUpdated=TimeStampClass(time=0),

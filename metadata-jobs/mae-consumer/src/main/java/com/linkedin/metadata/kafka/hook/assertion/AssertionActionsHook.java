@@ -47,6 +47,7 @@ import com.linkedin.mxe.MetadataChangeLog;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.util.*;
+import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -109,12 +110,31 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
   private final EntityClient entityClient;
   private final AssertionService assertionService;
   private final IncidentService incidentService;
+  private final LongSupplier timeProvider; // Used for testing purposes to control time.
   private OperationContext systemOpContext;
   private final boolean isEnabled;
   @Getter private final String consumerGroupSuffix;
 
   private static final EnumSet<AssertionType> EXTERNAL_ASSERTIONS =
       EnumSet.of(AssertionType.DATASET, AssertionType.CUSTOM);
+
+  public AssertionActionsHook(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final GraphClient graphClient,
+      @Nonnull @Value("${assertionActions.hook.enabled:true}") Boolean isEnabled,
+      @Nonnull final OpenApiClient openApiClient,
+      final ObjectMapper objectMapper,
+      @Nonnull final LongSupplier timeProvider,
+      @Nonnull @Value("${assertionActions.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
+
+    entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
+    assertionService =
+        new AssertionService(systemEntityClient, graphClient, openApiClient, objectMapper);
+    incidentService = new IncidentService(systemEntityClient, openApiClient, objectMapper);
+    this.isEnabled = isEnabled;
+    this.consumerGroupSuffix = consumerGroupSuffix;
+    this.timeProvider = timeProvider;
+  }
 
   @Autowired
   public AssertionActionsHook(
@@ -124,12 +144,14 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final OpenApiClient openApiClient,
       final ObjectMapper objectMapper,
       @Nonnull @Value("${assertionActions.hook.consumerGroupSuffix}") String consumerGroupSuffix) {
-    entityClient = Objects.requireNonNull(systemEntityClient, "entityClient is required");
-    assertionService =
-        new AssertionService(systemEntityClient, graphClient, openApiClient, objectMapper);
-    incidentService = new IncidentService(systemEntityClient, openApiClient, objectMapper);
-    this.isEnabled = isEnabled;
-    this.consumerGroupSuffix = consumerGroupSuffix;
+    this(
+        systemEntityClient,
+        graphClient,
+        isEnabled,
+        openApiClient,
+        objectMapper,
+        () -> System.currentTimeMillis(),
+        consumerGroupSuffix);
   }
 
   @VisibleForTesting
@@ -140,6 +162,17 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final OpenApiClient openApiClient,
       final ObjectMapper objectMapper) {
     this(systemEntityClient, graphClient, isEnabled, openApiClient, objectMapper, "");
+  }
+
+  @VisibleForTesting
+  public AssertionActionsHook(
+      @Nonnull final SystemEntityClient systemEntityClient,
+      @Nonnull final GraphClient graphClient,
+      @Nonnull Boolean isEnabled,
+      @Nonnull final OpenApiClient openApiClient,
+      final ObjectMapper objectMapper,
+      @Nonnull final LongSupplier timeProvider) {
+    this(systemEntityClient, graphClient, isEnabled, openApiClient, objectMapper, timeProvider, "");
   }
 
   @Override
@@ -449,9 +482,12 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final AssertionRunEvent runEvent) {
     try {
       MonitorAnomalyEvent event = new MonitorAnomalyEvent();
-      event.setTimestampMillis(runEvent.getTimestampMillis());
+      event.setTimestampMillis(timeProvider.getAsLong());
+
+      // NOTE: these are deprecated
       event.setCreated(new TimeStamp().setTime(runEvent.getTimestampMillis()));
       event.setLastUpdated(new TimeStamp().setTime(runEvent.getTimestampMillis()));
+
       event.setSource(buildMonitorAnomalySource(assertionUrn, runEvent));
       this.entityClient.ingestProposal(
           systemOpContext,
@@ -471,6 +507,7 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
       @Nonnull final Urn assertionUrn, @Nonnull final AssertionRunEvent runEvent) {
     AnomalySource source = new AnomalySource();
     source.setSourceUrn(assertionUrn);
+    source.setSourceEventTimestampMillis(runEvent.getTimestampMillis());
     source.setType(AnomalySourceType.INFERRED_ASSERTION_FAILURE);
     if (runEvent.hasResult() && runEvent.getResult().hasMetric()) {
       source.setProperties(

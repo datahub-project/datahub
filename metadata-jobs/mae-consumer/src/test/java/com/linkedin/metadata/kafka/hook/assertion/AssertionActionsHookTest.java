@@ -1023,18 +1023,23 @@ public class AssertionActionsHookTest {
             anyString()))
         .thenReturn(relationships);
 
-    // Create an instance of the hook with our mocked GraphClient
-    final AssertionActionsHook hook =
-        new AssertionActionsHook(
-                entityClient, mockGraphClient, true, mock(OpenApiClient.class), objectMapper)
-            .init(mockOperationContext());
-
     // Create a failure event for the inferred assertion with a metric value
     AssertionRunEvent testEvent =
         buildAssertionRunEvent(
             TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.FAILURE);
     AssertionMetric assertionMetric = new AssertionMetric().setValue(1.0f).setTimestampMs(1);
     testEvent.getResult().setMetric(assertionMetric); // Set a metric value to test its propagation
+
+    // Create an instance of the hook with our mocked GraphClient
+    final AssertionActionsHook hook =
+        new AssertionActionsHook(
+                entityClient,
+                mockGraphClient,
+                true,
+                mock(OpenApiClient.class),
+                objectMapper,
+                testEvent::getTimestampMillis)
+            .init(mockOperationContext());
 
     MetadataChangeLog event =
         buildMetadataChangeLog(

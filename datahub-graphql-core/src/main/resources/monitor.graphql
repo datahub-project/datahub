@@ -46,14 +46,11 @@ extend type Mutation {
   updateMonitorStatus(input: UpdateMonitorStatusInput!): Monitor!
 
   """
-  Reports a user feedback anomaly for a monitor.
+  Gives feedback on an anomaly raised by a monitor.
   """
-  reportAnomaly(input: ReportAnomalyInput!): MonitorAnomalyEvent!
-
-  """
-  Confirms or rejects an anomaly raised by a monitor.
-  """
-  updateAnomaly(input: UpdateAnomalyInput!): MonitorAnomalyEvent!
+  reportAnomalyFeedback(
+    input: ReportAnomalyFeedbackInput!
+  ): MonitorAnomalyEvent!
 }
 
 """
@@ -1004,7 +1001,7 @@ extend type AssertionRunEvent {
   anomalyEvent: MonitorAnomalyEvent
 }
 
-input ReportAnomalyInput {
+input ReportAnomalyFeedbackInput {
   """
   The urn of the monitor that we're reporting an anomaly for.
   """
@@ -1019,21 +1016,9 @@ input ReportAnomalyInput {
   The timestamp of the run event that we're reporting an anomaly for.
   """
   runEventTimestampMillis: Long!
-}
-
-input UpdateAnomalyInput {
-  """
-  The urn of the monitor that we're updating the anomaly for.
-  """
-  monitorUrn: String!
 
   """
-  The timestamp of the anomaly that we're updating.
-  """
-  anomalyTimestampMillis: Long!
-
-  """
-  The new state of the anomaly.
+  The state of the anomaly.
   """
   state: AnomalyReviewState!
 }
@@ -1051,7 +1036,7 @@ enum AnomalyReviewState {
 }
 
 """
-An anomlay raised against a monitor's run event.
+An anomaly feedback event raised against a monitor's run event.
 """
 type MonitorAnomalyEvent {
   """
@@ -1065,32 +1050,28 @@ type MonitorAnomalyEvent {
   source: AnomalySource!
 
   """
-  The timestamp of the anomaly.
-  This should match the timestampMillis of the assertionRunEvent that corresponds to the anomaly.
+  The timestamp that the latest state of the anomaly was set.
   """
   timestampMillis: Long!
-
-  """
-  The time at which the anomaly was initially created
-  """
-  created: Long!
-
-  """
-  The time at which the anomaly was last updated
-  """
-  lastUpdated: Long!
 }
 
 type AnomalySource {
   """
-  The type of the anomaly source.
+  The type of the anomaly feedback source.
   """
   type: AnomalySourceType!
 
   """
   The source of the anomaly.
+  For assertion monitors, this will contain the urn of the source Assertion.
   """
   sourceUrn: String
+
+  """
+  The timestamp of the event that triggered the anomaly.
+  For assertion monitors, this will be the timestamp of the assertion run event.
+  """
+  sourceEventTimestampMillis: Long!
 
   """
   The properties of the anomaly source.
