@@ -1,4 +1,4 @@
-import { Button, Pagination, SearchBar, SimpleSelect } from '@components';
+import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { Modal, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -6,17 +6,21 @@ import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import EmptySources from '@app/ingestV2/EmptySources';
+import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
+import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
+import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
+import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
+import useRefreshInterval from '@app/ingestV2/shared/hooks/useRefreshInterval';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
-import { ExecutionDetailsModal } from '@app/ingestV2/source/executions/ExecutionRequestDetailsModal';
-import { isExecutionRequestActive } from '@app/ingestV2/source/executions/IngestionSourceExecutionList';
-import useRefreshIngestionData from '@app/ingestV2/source/executions/useRefreshIngestionData';
-import { useCommandS } from '@app/ingestV2/source/hooks';
 import {
-    CLI_EXECUTOR_ID,
     addToListIngestionSourcesCache,
+    getIngestionSourceSystemFilter,
+    getSortInput,
     removeFromListIngestionSourcesCache,
 } from '@app/ingestV2/source/utils';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
@@ -31,7 +35,7 @@ import {
     useListIngestionSourcesQuery,
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
-import { IngestionSource, UpdateIngestionSourceInput } from '@types';
+import { IngestionSource, SortCriterion, UpdateIngestionSourceInput } from '@types';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -86,8 +90,6 @@ const PaginationContainer = styled.div`
     justify-content: center;
     flex-shrink: 0;
 `;
-
-const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
 
 export enum IngestionSourceType {
     ALL,
@@ -144,6 +146,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
     const [hideSystemSources, setHideSystemSources] = useState(true);
+    const [sort, setSort] = useState<SortCriterion>();
 
     // Add a useEffect to handle the showCreateModal prop
     useEffect(() => {
@@ -164,9 +167,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     useCommandS(() => setHideSystemSources(!hideSystemSources));
 
     // Ingestion Source Default Filters
-    const filters = hideSystemSources
-        ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
-        : [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] }];
+    const filters = [getIngestionSourceSystemFilter(hideSystemSources)];
     if (sourceFilter !== IngestionSourceType.ALL) {
         filters.push({
             field: 'sourceExecutorId',
@@ -183,6 +184,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 count: pageSize,
                 query: query?.length ? query : undefined,
                 filters: filters.length ? filters : undefined,
+                sort,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
@@ -211,7 +213,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
         );
     }
-    useRefreshIngestionData(onRefresh, hasActiveExecution);
+    useRefreshInterval(onRefresh, hasActiveExecution);
 
     const executeIngestionSource = (urn: string) => {
         createExecutionRequestMutation({
@@ -298,6 +300,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                         },
                         platform: null,
                         executions: null,
+                        ownership: null,
                     };
                     addToListIngestionSourcesCache(client, newSource, pageSize, query);
                     setTimeout(() => {
@@ -431,6 +434,10 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         setFocusSourceUrn(undefined);
     };
 
+    const onChangeSort = (field, order) => {
+        setSort(getSortInput(field, order));
+    };
+
     const handleSearch = (value: string) => {
         setPage(1);
         setQuery(value);
@@ -438,7 +445,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
 
     return (
         <>
-            {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
             {error && (
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}
@@ -465,39 +471,39 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                                 showClear={false}
                                 width="fit-content"
                             />
-                            <Button
-                                id={INGESTION_REFRESH_SOURCES_ID}
-                                variant="text"
-                                onClick={onRefresh}
-                                icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
-                            >
-                                Refresh
-                            </Button>
+                            <RefreshButton onClick={onRefresh} id={INGESTION_REFRESH_SOURCES_ID} />
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
-
-                <TableContainer>
-                    <IngestionSourceTable
-                        sources={filteredSources || []}
-                        setFocusExecutionUrn={setFocusExecutionUrn}
-                        onExecute={onExecute}
-                        onEdit={onEdit}
-                        onView={onView}
-                        onDelete={onDelete}
-                    />
-                </TableContainer>
-                <PaginationContainer>
-                    <Pagination
-                        currentPage={page}
-                        itemsPerPage={pageSize}
-                        totalPages={totalSources}
-                        showLessItems
-                        onPageChange={onChangePage}
-                        showSizeChanger={false}
-                        hideOnSinglePage
-                    />
-                </PaginationContainer>
+                {!loading && totalSources === 0 ? (
+                    <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
+                ) : (
+                    <>
+                        <TableContainer>
+                            <IngestionSourceTable
+                                sources={filteredSources || []}
+                                setFocusExecutionUrn={setFocusExecutionUrn}
+                                onExecute={onExecute}
+                                onEdit={onEdit}
+                                onView={onView}
+                                onDelete={onDelete}
+                                onChangeSort={onChangeSort}
+                                isLoading={loading}
+                            />
+                        </TableContainer>
+                        <PaginationContainer>
+                            <Pagination
+                                currentPage={page}
+                                itemsPerPage={pageSize}
+                                totalPages={totalSources}
+                                showLessItems
+                                onPageChange={onChangePage}
+                                showSizeChanger={false}
+                                hideOnSinglePage
+                            />
+                        </PaginationContainer>
+                    </>
+                )}
             </SourceContainer>
             <IngestionSourceBuilderModal
                 initialState={removeExecutionsFromIngestionSource(focusSource)}
