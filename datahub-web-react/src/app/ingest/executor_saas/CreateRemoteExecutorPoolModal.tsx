@@ -192,7 +192,7 @@ export default function CreateRemoteExecutorPoolModal({ visible, onCancel, onSuc
                             message: 'Help users understand what the pool is for.',
                         },
                         { whitespace: true },
-                        { min: 1, max: 50 },
+                        { min: 1, max: 200 },
                     ]}
                 >
                     <div>
