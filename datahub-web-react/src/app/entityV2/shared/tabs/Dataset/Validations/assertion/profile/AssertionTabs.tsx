@@ -58,11 +58,12 @@ export const AssertionTabs = ({ defaultSelectedTab, tabs }: Props) => {
             <Tabs>
                 {tabs.map((tab) => (
                     <Tooltip title={tab.tooltip} placement="bottom" showArrow={false}>
-                        {tabs.length > 1 && (<TabButton
-                            selected={selectedTab === tab.key}
-                            disabled={tab.disabled}
-                            key={tab.key}
-                            onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
+                        {tabs.length > 1 && (
+                            <TabButton
+                                selected={selectedTab === tab.key}
+                                disabled={tab.disabled}
+                                key={tab.key}
+                                onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
                             >
                                 {tab.label}
                             </TabButton>
