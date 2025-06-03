@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka;
 
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.SIMPLE_EVENT_CONSUMER_NAME;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.linkedin.events.metadata.ChangeType;
@@ -53,7 +55,7 @@ public class DataHubUsageEventsProcessor {
   @KafkaListener(
       id = "${DATAHUB_USAGE_EVENT_KAFKA_CONSUMER_GROUP_ID:datahub-usage-event-consumer-job-client}",
       topics = "${DATAHUB_USAGE_EVENT_NAME:" + Topics.DATAHUB_USAGE_EVENT + "}",
-      containerFactory = "simpleKafkaConsumer",
+      containerFactory = SIMPLE_EVENT_CONSUMER_NAME,
       autoStartup = "false")
   public void consume(final ConsumerRecord<String, String> consumerRecord) {
     systemOperationContext.withSpan(
@@ -63,7 +65,7 @@ public class DataHubUsageEventsProcessor {
           final String record = consumerRecord.value();
 
           log.info(
-              "Got DHUE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
+              "Got DUE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
               consumerRecord.key(),
               consumerRecord.topic(),
               consumerRecord.partition(),

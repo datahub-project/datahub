@@ -18,6 +18,7 @@ import GlossaryRoutes from '@app/glossary/GlossaryRoutes';
 import GlossaryRoutesV2 from '@app/glossaryV2/GlossaryRoutes';
 import StructuredProperties from '@app/govern/structuredProperties/StructuredProperties';
 import { ManageIngestionPage } from '@app/ingest/ManageIngestionPage';
+import { ManageIngestionPage as ManageIngestionPageV2 } from '@app/ingestV2/ManageIngestionPage';
 import { SearchPage } from '@app/search/SearchPage';
 import { SearchablePage } from '@app/search/SearchablePage';
 import { SearchPage as SearchPageV2 } from '@app/searchV2/SearchPage';
@@ -46,7 +47,7 @@ export const SearchRoutes = (): JSX.Element => {
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
-    const { config } = useAppConfig();
+    const { config, loaded } = useAppConfig();
     const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
 
@@ -60,7 +61,9 @@ export const SearchRoutes = (): JSX.Element => {
     const showTags =
         config?.featureFlags?.showManageTags &&
         (me.platformPrivileges?.manageTags || me.platformPrivileges?.viewManageTags);
-
+    
+    const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
+  
     if (me.platformPrivileges === undefined) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -112,7 +115,9 @@ export const SearchRoutes = (): JSX.Element => {
                     />
                 )}
 
-                <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
+                {!showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />}
+                {showIngestV2 && <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPageV2 />} />}
+
                 <Route path={PageRoutes.SETTINGS} render={() => (isThemeV2 ? <SettingsPageV2 /> : <SettingsPage />)} />
                 <Route
                     path={`${PageRoutes.GLOSSARY}*`}
@@ -133,7 +138,7 @@ export const SearchRoutes = (): JSX.Element => {
                         return <NoPageFound />;
                     }}
                 />
-                <Route component={NoPageFound} />
+                {me.loaded && loaded && <Route component={NoPageFound} />}
             </Switch>
         </FinalSearchablePage>
     );

@@ -1,3 +1,4 @@
+import { isEqual } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
@@ -7,6 +8,7 @@ import useSelectedView from '@app/searchV2/searchBarV2/hooks/useSelectedView';
 import { EntityWithMatchedFields } from '@app/searchV2/utils/combineSiblingsInEntitiesWithMatchedFields';
 import { MIN_CHARACTER_COUNT_FOR_SEARCH, UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
+import usePrevious from '@app/shared/usePrevious';
 import { useAppConfig } from '@app/useAppConfig';
 import {
     useGetAutoCompleteMultipleResultsLazyQuery,
@@ -145,13 +147,19 @@ export const useSearchBarData = (
     const entitiesWithMatchedFields = useMemo(() => api.entitiesWithMatchedFields, [api.entitiesWithMatchedFields]);
     const facets = useMemo(() => api.facets, [api.facets]);
     const loading = useMemo(() => api.loading, [api.loading]);
+    const convertedFilters = convertFiltersMapToFilters(appliedFilters);
+    const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
 
+    const inputs = useMemo(
+        () => ({ debouncedQuery, orFilters, selectedView }),
+        [debouncedQuery, orFilters, selectedView],
+    );
+    const previousInputs = usePrevious(inputs);
     useEffect(() => {
-        const convertedFilters = convertFiltersMapToFilters(appliedFilters);
-        const orFilters = generateOrFilters(UnionType.AND, convertedFilters);
-
-        updateData(debouncedQuery, orFilters, selectedView);
-    }, [updateData, debouncedQuery, appliedFilters, selectedView]);
+        if (!isEqual(inputs, previousInputs)) {
+            updateData(debouncedQuery, orFilters, selectedView);
+        }
+    }, [updateData, debouncedQuery, orFilters, selectedView, inputs, previousInputs]);
 
     return { entitiesWithMatchedFields, facets, loading, searchAPIVariant };
 };

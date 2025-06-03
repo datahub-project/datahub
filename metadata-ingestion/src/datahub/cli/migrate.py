@@ -25,6 +25,7 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import (
+    ClientMode,
     DataHubGraph,
     RelatedEntity,
     get_default_graph,
@@ -147,7 +148,7 @@ def dataplatform2instance_func(
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
 
-    graph = get_default_graph()
+    graph = get_default_graph(ClientMode.CLI)
 
     urns_to_migrate: List[str] = []
 
@@ -386,7 +387,7 @@ def migrate_containers(
 
 
 def get_containers_for_migration(env: str) -> List[Any]:
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     containers_to_migrate = list(
         client.get_urns_by_filter(entity_types=["container"], env=env)
     )
@@ -445,7 +446,7 @@ def process_container_relationships(
     relationships: Iterable[RelatedEntity] = migration_utils.get_incoming_relationships(
         urn=src_urn
     )
-    client = get_default_graph()
+    client = get_default_graph(ClientMode.CLI)
     for relationship in relationships:
         log.debug(f"Incoming Relationship: {relationship}")
         target_urn: str = relationship.urn

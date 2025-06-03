@@ -39,15 +39,15 @@ buildscript {
   ext.mavenVersion = '3.6.3'
   ext.versionGradle = '8.11.1'
   ext.springVersion = '6.2.5'
-  ext.springBootVersion = '3.4.4'
-  ext.springKafkaVersion = '3.3.4'
+  ext.springBootVersion = '3.4.5'
+  ext.springKafkaVersion = '3.3.6'
   ext.openTelemetryVersion = '1.49.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jTestVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
-  ext.jacksonVersion = '2.15.3'
+  ext.jacksonVersion = '2.18.4'
   ext.jettyVersion = '12.0.16'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
@@ -57,7 +57,7 @@ buildscript {
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.5.18'
   ext.hadoop3Version = '3.3.6'
-  ext.kafkaVersion = '5.5.15'
+  ext.kafkaVersion = '7.9.1'
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
@@ -130,6 +130,8 @@ project.ext.externalDependency = [
     'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.15',
     'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:2.5.4',
     'awsRds':"software.amazon.awssdk:rds:$awsSdk2Version",
+    'azureIdentityExtensions': 'com.azure:azure-identity-extensions:1.2.2',
+    'azureIdentity': 'com.azure:azure-identity:1.15.4',
     'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
     'commonsIo': 'commons-io:commons-io:2.17.0',
@@ -170,11 +172,15 @@ project.ext.externalDependency = [
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
     'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-    'jacksonJDK8': "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion",
-    'jacksonDataPropertyFormat': "com.fasterxml.jackson.dataformat:jackson-dataformat-properties:$jacksonVersion",
-    'jacksonCore': "com.fasterxml.jackson.core:jackson-core:$jacksonVersion",
-    'jacksonDataBind': "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
-    'jacksonDataFormatYaml': "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:$jacksonVersion",
+     // The jacksonBom controls the version of other jackson modules, pin the version once
+     // implementation platform(externalDependency.jacksonBom)
+    'jacksonBom': "com.fasterxml.jackson:jackson-bom:$jacksonVersion",
+    'jacksonJDK8': 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8',
+    'jacksonDataPropertyFormat': 'com.fasterxml.jackson.dataformat:jackson-dataformat-properties',
+    'jacksonCore': 'com.fasterxml.jackson.core:jackson-core',
+    'jacksonDataBind': 'com.fasterxml.jackson.core:jackson-databind',
+    'jacksonJsr310': 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310',
+    'jacksonDataFormatYaml': 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml',
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
@@ -234,7 +240,7 @@ project.ext.externalDependency = [
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.15.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    'parquet': 'org.apache.parquet:parquet-avro:1.15.1',
+    'parquet': 'org.apache.parquet:parquet-avro:1.15.2',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
