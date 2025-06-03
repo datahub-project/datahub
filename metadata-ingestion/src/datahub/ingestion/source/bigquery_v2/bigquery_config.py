@@ -20,6 +20,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -41,6 +42,35 @@ DEFAULT_BQ_SCHEMA_PARALLELISM = int(
 _BIGQUERY_DEFAULT_SHARDED_TABLE_REGEX: str = (
     "((.+\\D)[_$]?)?(\\d\\d\\d\\d(?:0[1-9]|1[0-2])(?:0[1-9]|[12][0-9]|3[01]))$"
 )
+
+
+class BigQueryProfilingConfig(GEProfilingConfig):
+    fallback_partition_values: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Fallback values for partition columns when timeout occurs. Keys are column names, "
+        "values are the fallback values to use. For non-date columns, the values are used directly. "
+        "Example: {'batch': 'default', 'region': 'us-east-1'}",
+    )
+
+    date_partition_offset: int = Field(
+        default=1,
+        description="For date-type partition columns (date, timestamp, datetime), specifies how many days "
+        "to go back from today. 1 means yesterday, 2 means two days ago, etc. This applies to all "
+        "date-related partition columns (year, month, day, date, etc.) when fallback is needed.",
+    )
+
+    partition_fetch_timeout: int = Field(
+        default=30,
+        description="Timeout in seconds for partition value fetch operations. If exceeded, fallback "
+        "partition values will be used.",
+    )
+
+    profiling_row_limit: int = Field(
+        default=1000000,
+        description="The number of rows to sample for profiling. This is a low level config property which "
+        "should be touched with care. This restriction is needed because excessively wide tables can "
+        "result in failure to ingest the schema.",
+    )
 
 
 class BigQueryBaseConfig(ConfigModel):
@@ -474,24 +504,9 @@ class BigQueryV2Config(
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
-    fallback_partition_values: Dict[str, Any] = Field(
-        default_factory=dict,
-        description="Fallback values for partition columns when timeout occurs. Keys are column names, "
-        "values are the fallback values to use. For non-date columns, the values are used directly. "
-        "Example: {'feed': 'default', 'region': 'us-east-1'}",
-    )
-
-    date_partition_offset: int = Field(
-        default=1,
-        description="For date-type partition columns (date, timestamp, datetime), specifies how many days "
-        "to go back from today. 1 means yesterday, 2 means two days ago, etc. This applies to all "
-        "date-related partition columns (year, month, day, date, etc.) when fallback is needed.",
-    )
-
-    partition_fetch_timeout: int = Field(
-        default=30,
-        description="Timeout in seconds for partition value fetch operations. If exceeded, fallback "
-        "partition values will be used.",
+    profiling: BigQueryProfilingConfig = Field(
+        default=BigQueryProfilingConfig(),
+        description="Profiling related configs",
     )
 
     _include_view_lineage = pydantic_removed_field("include_view_lineage")

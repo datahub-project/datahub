@@ -1189,7 +1189,7 @@ FROM `{project}.{schema}.INFORMATION_SCHEMA.COLUMNS`
 WHERE table_name = '{table.name}'"""
             query_job = self.config.get_bigquery_client().query(query)
             query_results = list(
-                query_job.result(timeout=self.config.partition_fetch_timeout)
+                query_job.result(timeout=self.config.profiling.partition_fetch_timeout)
             )
             column_data_types = {
                 row.column_name: row.data_type for row in query_results
@@ -1294,7 +1294,7 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
             # Use the configured timeout for partition operations
             query_job = self.config.get_bigquery_client().query(query)
             query_results = list(
-                query_job.result(timeout=self.config.partition_fetch_timeout)
+                query_job.result(timeout=self.config.profiling.partition_fetch_timeout)
             )
             required_partition_columns = {row.column_name for row in query_results}
             logger.debug(
@@ -1402,7 +1402,9 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
 
                 query_job = self.config.get_bigquery_client().query(query)
                 query_results = list(
-                    query_job.result(timeout=self.config.partition_fetch_timeout)
+                    query_job.result(
+                        timeout=self.config.profiling.partition_fetch_timeout
+                    )
                 )
 
                 if not query_results or query_results[0].val is None:
@@ -1458,7 +1460,7 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
 
             # Use a short timeout for this operation
             query_job = self.config.get_bigquery_client().query(query)
-            query_job.result(timeout=self.config.partition_fetch_timeout)
+            query_job.result(timeout=self.config.profiling.partition_fetch_timeout)
             column_data_types = {row.column_name: row.data_type for row in query_job}
             logger.debug(
                 f"Retrieved column data types for {len(column_data_types)} columns"
@@ -1469,13 +1471,15 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
 
         # Calculate the date for date-based fallbacks
         today = datetime.now(timezone.utc)
-        fallback_date = today - timedelta(days=self.config.date_partition_offset)
+        fallback_date = today - timedelta(
+            days=self.config.profiling.date_partition_offset
+        )
         logger.info(
-            f"Using fallback date {fallback_date.strftime('%Y-%m-%d')} (offset: {self.config.date_partition_offset} days)"
+            f"Using fallback date {fallback_date.strftime('%Y-%m-%d')} (offset: {self.config.profiling.date_partition_offset} days)"
         )
 
         logger.info(
-            f"Configured fallback values: {self.config.fallback_partition_values}"
+            f"Configured fallback values: {self.config.profiling.fallback_partition_values}"
         )
 
         for col_name in required_columns:
@@ -1485,8 +1489,10 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
             )
 
             # Check if the column has a direct fallback value in config
-            if col_name in self.config.fallback_partition_values:
-                fallback_value = self.config.fallback_partition_values[col_name]
+            if col_name in self.config.profiling.fallback_partition_values:
+                fallback_value = self.config.profiling.fallback_partition_values[
+                    col_name
+                ]
 
                 # Format the filter based on the value type
                 if isinstance(fallback_value, str):
@@ -1608,7 +1614,13 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
         partition_where = " AND ".join(partition_filters)
         logger.debug(f"Using partition filters: {partition_where}")
 
-        custom_sql = f"""SELECT * 
+        if self.config.profiling.profiling_row_limit > 0:
+            custom_sql = f"""SELECT * 
+FROM `{db_name}.{schema_name}.{table.name}`
+WHERE {partition_where}
+LIMIT {self.config.profiling.profiling_row_limit}"""
+        else:
+            custom_sql = f"""SELECT * 
 FROM `{db_name}.{schema_name}.{table.name}`
 WHERE {partition_where}"""
 
@@ -1943,8 +1955,8 @@ WHERE {partition_where}"""
         now = datetime.now()
 
         # Use the configured date_partition_offset as the starting point
-        if self.config.date_partition_offset > 0:
-            start_offset = self.config.date_partition_offset
+        if self.config.profiling.date_partition_offset > 0:
+            start_offset = self.config.profiling.date_partition_offset
         else:
             start_offset = 0
 
@@ -2021,9 +2033,14 @@ WHERE {partition_where}"""
                                     date_filters.append(f"`{col}` IS NOT NULL")
                             else:
                                 # Check if we have a fallback value in config
-                                if col in self.config.fallback_partition_values:
+                                if (
+                                    col
+                                    in self.config.profiling.fallback_partition_values
+                                ):
                                     fallback_value = (
-                                        self.config.fallback_partition_values[col]
+                                        self.config.profiling.fallback_partition_values[
+                                            col
+                                        ]
                                     )
                                     if isinstance(fallback_value, str):
                                         date_filters.append(
@@ -2038,10 +2055,10 @@ WHERE {partition_where}"""
                         except Exception as e:
                             logger.warning(f"Error finding value for column {col}: {e}")
                             # Check for fallback value in config
-                            if col in self.config.fallback_partition_values:
-                                fallback_value = self.config.fallback_partition_values[
-                                    col
-                                ]
+                            if col in self.config.profiling.fallback_partition_values:
+                                fallback_value = (
+                                    self.config.profiling.fallback_partition_values[col]
+                                )
                                 if isinstance(fallback_value, str):
                                     date_filters.append(f"`{col}` = '{fallback_value}'")
                                 else:
@@ -2088,8 +2105,8 @@ WHERE {partition_where}"""
         now = datetime.now()
 
         # If date_partition_offset is set, adjust the date
-        if self.config.date_partition_offset > 0:
-            now = now - timedelta(days=self.config.date_partition_offset)
+        if self.config.profiling.date_partition_offset > 0:
+            now = now - timedelta(days=self.config.profiling.date_partition_offset)
 
         date_filters = [
             f"`year` = {now.year}",
@@ -2226,7 +2243,9 @@ WHERE {partition_where}"""
             col_name: Name of the column
             partition_filters: List to append the filter to
         """
-        now = datetime.now() - timedelta(days=self.config.date_partition_offset)
+        now = datetime.now() - timedelta(
+            days=self.config.profiling.date_partition_offset
+        )
         if col_name.lower() == "year":
             partition_filters.append(f"`{col_name}` = '{now.year}'")
         elif col_name.lower() == "month":
@@ -2247,8 +2266,8 @@ WHERE {partition_where}"""
         Returns:
             True if fallback was applied, False otherwise
         """
-        if col_name in self.config.fallback_partition_values:
-            fallback_value = self.config.fallback_partition_values[col_name]
+        if col_name in self.config.profiling.fallback_partition_values:
+            fallback_value = self.config.profiling.fallback_partition_values[col_name]
             if isinstance(fallback_value, str):
                 partition_filters.append(f"`{col_name}` = '{fallback_value}'")
             else:
@@ -2267,7 +2286,9 @@ WHERE {partition_where}"""
             List of date filter strings
         """
         date_filters = []
-        now = datetime.now() - timedelta(days=self.config.date_partition_offset)
+        now = datetime.now() - timedelta(
+            days=self.config.profiling.date_partition_offset
+        )
         for date_col, date_val, format_with_zero in [
             ("year", now.year, False),
             ("month", now.month, True),
@@ -2322,7 +2343,7 @@ WHERE {partition_where}"""
             # Execute the query
             result = self.execute_query(
                 sample_query,
-                timeout=self.config.partition_fetch_timeout,
+                timeout=self.config.profiling.partition_fetch_timeout,
             )
 
             if result and len(result) > 0:
