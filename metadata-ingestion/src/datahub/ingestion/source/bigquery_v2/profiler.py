@@ -1339,10 +1339,22 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                 value = current_time.year
             elif col_name_lower == "month":
                 value = current_time.month
+                # Format month with leading zero if used as string
+                if col_data_type.upper() in {"STRING"}:
+                    partition_filters.append(f"`{col_name}` = '{value:02d}'")
+                    continue
             elif col_name_lower == "day":
                 value = current_time.day
+                # Format day with leading zero if used as string
+                if col_data_type.upper() in {"STRING"}:
+                    partition_filters.append(f"`{col_name}` = '{value:02d}'")
+                    continue
             elif col_name_lower == "hour":
                 value = current_time.hour
+                # Format hour with leading zero if used as string
+                if col_data_type.upper() in {"STRING"}:
+                    partition_filters.append(f"`{col_name}` = '{value:02d}'")
+                    continue
             else:
                 continue
 
@@ -1488,11 +1500,11 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
 
             # Special handling for "day" column - use the day of month as a STRING
             elif col_lower == "day":
-                # Use the day as a string, not an integer
+                # Use the day as a string with leading zero, not an integer
                 day_of_month = fallback_date.day
-                fallback_filters.append(f"`{col_name}` = '{day_of_month}'")
+                fallback_filters.append(f"`{col_name}` = '{day_of_month:02d}'")
                 logger.info(
-                    f"Using day of month as string for 'day' column: '{day_of_month}'"
+                    f"Using day of month as string for 'day' column: '{day_of_month:02d}'"
                 )
 
             # Handle date/time partition columns using date_partition_offset
@@ -1536,17 +1548,17 @@ WHERE table_name = '{table.name}' AND is_partitioning_column = 'YES'"""
                 col_lower.endswith("month") and len(col_lower) < 10
             ):
                 month_value = fallback_date.month
-                fallback_filters.append(f"`{col_name}` = '{month_value}'")
+                fallback_filters.append(f"`{col_name}` = '{month_value:02d}'")
                 logger.info(
-                    f"Using month fallback as string for {col_name}: '{month_value}'"
+                    f"Using month fallback as string for {col_name}: '{month_value:02d}'"
                 )
 
             # Treat other day-related columns as strings too
             elif col_lower.endswith("day") and len(col_lower) < 8:
                 day_value = fallback_date.day
-                fallback_filters.append(f"`{col_name}` = '{day_value}'")
+                fallback_filters.append(f"`{col_name}` = '{day_value:02d}'")
                 logger.info(
-                    f"Using day fallback as string for {col_name}: '{day_value}'"
+                    f"Using day fallback as string for {col_name}: '{day_value:02d}'"
                 )
 
             # For any other column with no fallback, use IS NOT NULL as a last resort
@@ -2081,8 +2093,8 @@ WHERE {partition_where}"""
 
         date_filters = [
             f"`year` = {now.year}",
-            f"`month` = {now.month}",
-            f"`day` = {now.day}",
+            f"`month` = '{now.month:02d}'",
+            f"`day` = '{now.day:02d}'",
         ]
 
         logger.debug(f"Trying simple date filters: {date_filters}")
@@ -2256,13 +2268,16 @@ WHERE {partition_where}"""
         """
         date_filters = []
         now = datetime.now() - timedelta(days=self.config.date_partition_offset)
-        for date_col, date_val in [
-            ("year", now.year),
-            ("month", now.month),
-            ("day", now.day),
+        for date_col, date_val, format_with_zero in [
+            ("year", now.year, False),
+            ("month", now.month, True),
+            ("day", now.day, True),
         ]:
             if date_col in required_columns:
-                date_filters.append(f"`{date_col}` = '{date_val}'")
+                if format_with_zero:
+                    date_filters.append(f"`{date_col}` = '{date_val:02d}'")
+                else:
+                    date_filters.append(f"`{date_col}` = '{date_val}'")
         return date_filters
 
     def _sample_column_value(
