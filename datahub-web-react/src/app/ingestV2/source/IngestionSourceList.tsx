@@ -194,11 +194,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     });
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
+    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
     // Execution Request queries
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
-    const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
 
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
@@ -213,6 +213,10 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         },
         skip: !focusSourceUrn,
     });
+
+    const combinedRefetch = async () => {
+        await Promise.all([focusSourceRefetch(), refetch()]);
+    };
 
     useEffect(() => {
         setFocusSource(focusSourceData?.ingestionSource as IngestionSource);
@@ -551,7 +555,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                 open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
-                sourceRefetch={focusSourceRefetch}
+                sourceRefetch={combinedRefetch}
+                selectedSource={focusSource}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (

@@ -11,6 +11,8 @@ import { SelectTemplateStep } from '@app/ingestV2/source/builder/SelectTemplateS
 import sourcesJson from '@app/ingestV2/source/builder/sources.json';
 import { SourceBuilderState, StepProps } from '@app/ingestV2/source/builder/types';
 
+import { IngestionSource } from '@types';
+
 const StepsContainer = styled.div`
     margin-right: 20px;
     margin-left: 20px;
@@ -53,9 +55,17 @@ type Props = {
     onSubmit?: (input: SourceBuilderState, resetState: () => void, shouldRun?: boolean) => void;
     onCancel: () => void;
     sourceRefetch?: () => Promise<any>;
+    selectedSource?: IngestionSource;
 };
 
-export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCancel, sourceRefetch }: Props) => {
+export const IngestionSourceBuilderModal = ({
+    initialState,
+    open,
+    onSubmit,
+    onCancel,
+    sourceRefetch,
+    selectedSource,
+}: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Data Source' : 'Connect Data Source';
     const initialStep = isEditing
@@ -136,6 +146,7 @@ export const IngestionSourceBuilderModal = ({ initialState, open, onSubmit, onCa
                 cancel={cancel}
                 ingestionSources={ingestionSources}
                 sourceRefetch={sourceRefetch}
+                selectedSource={selectedSource}
             />
         </Modal>
     );

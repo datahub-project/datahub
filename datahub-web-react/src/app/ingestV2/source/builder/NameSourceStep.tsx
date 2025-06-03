@@ -1,6 +1,6 @@
 import { Button, Text, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
@@ -22,9 +22,21 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-export const NameSourceStep = ({ state, updateState, prev, submit, sourceRefetch, isEditing }: StepProps) => {
-    const [existingOwners] = useState<any[]>(state.owners || []);
+export const NameSourceStep = ({
+    state,
+    updateState,
+    prev,
+    submit,
+    sourceRefetch,
+    isEditing,
+    selectedSource,
+}: StepProps) => {
+    const [existingOwners, setExistingOwners] = useState<any[]>(selectedSource?.ownership?.owners || []);
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+
+    useEffect(() => {
+        setExistingOwners(selectedSource?.ownership?.owners || []);
+    }, [selectedSource?.ownership?.owners]);
 
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
