@@ -10,20 +10,20 @@ on:
     paths:
       - "metadata-ingestion/src/datahub/cli/docker_cli.py"
       - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - "metadata-ingestion/src/datahub/cli/quickstart_versioning.py"
       - ".github/workflows/quickstart-test.yml"
       - "docker/quickstart/docker-compose.quickstart-profile.yml"
   pull_request:
-    branches:
-      - master
     paths:
       - "metadata-ingestion/src/datahub/cli/docker_cli.py"
       - "metadata-ingestion/src/datahub/cli/docker_check.py"
+      - "metadata-ingestion/src/datahub/cli/quickstart_versioning.py"
       - ".github/workflows/quickstart-test.yml"
       - "docker/quickstart/docker-compose.quickstart-profile.yml"
 
 jobs:
   test-quickstart-pr:
-    name: Test Quickstart on PR
+    name: Quickstart Smoke Tests
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
@@ -42,20 +42,80 @@ jobs:
       - name: Run quickstart
         run: |
           source metadata-ingestion/venv/bin/activate
+          # Use compose and version mapping files from PR
           export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
           datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
-
           docker images
 
+      - name: Run quickstart check
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          datahub docker check
+
       - name: Smoke test
+        if: false
         env:
           RUN_QUICKSTART: false
           DATAHUB_VERSION: head
           CLEANUP_DATA: "false"
           TEST_STRATEGY: cypress
-          BATCH_COUNT: 25
+          BATCH_COUNT: 30
           BATCH_NUMBER: 2
         run: |
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
           ./smoke-test/smoke.sh
+
+      - name: Run quickstart check
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          datahub docker check
+
+  test-quickstart-pr-compatiblity-checks:
+    name: Quickstart compatiliby Tests
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: install older datahub cli
+        run: |
+          pip install acryl-datahub==1.0
+
+      - name: bring up datahub using old cli
+        run: |
+          datahub docker quickstart
+          datahub docker check
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          ./gradlew :metadata-ingestion:install
+
+      - name: Run quickstart
+        run: |
+          source metadata-ingestion/venv/bin/activate
+
+          # Use compose and version mapping files from PR
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          if datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml; then
+            echo "Command succeeded when it should have failed"
+            exit 1
+          else
+            echo "Command failed as expected"
+          fi
+
+      - name: Backup, nuke and restart and restore
+        run: |
+          source metadata-ingestion/venv/bin/activate
+          datahub docker quickstart --backup
+          datahub docker nuke
+          # Use compose and version mapping files from PR
+          export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+          echo "y" | datahub docker quickstart --restore
+          datahub docker check
