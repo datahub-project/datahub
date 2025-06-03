@@ -55,23 +55,25 @@ export const AssertionTabs = ({ defaultSelectedTab, tabs }: Props) => {
     const [selectedTab, setSelectedTab] = useState<string>(defaultSelectedTab);
     return (
         <>
-            <Tabs>
-                {tabs.map((tab) => (
-                    <Tooltip title={tab.tooltip} placement="bottom" showArrow={false}>
-                        {tabs.length > 1 && (
-                            <TabButton
-                                selected={selectedTab === tab.key}
-                                disabled={tab.disabled}
-                                key={tab.key}
-                                onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
-                            >
-                                {tab.label}
-                            </TabButton>
-                        )}
-                    </Tooltip>
-                ))}
-            </Tabs>
-            <StyledDivider />
+            {tabs.length > 1 && (
+                <>
+                    <Tabs>
+                        {tabs.map((tab) => (
+                            <Tooltip title={tab.tooltip} placement="bottom" showArrow={false}>
+                                <TabButton
+                                    selected={selectedTab === tab.key}
+                                    disabled={tab.disabled}
+                                    key={tab.key}
+                                    onClick={() => (!tab.disabled ? setSelectedTab(tab.key) : null)}
+                                >
+                                    {tab.label}
+                                </TabButton>
+                            </Tooltip>
+                        ))}
+                    </Tabs>
+                    <StyledDivider />
+                </>
+            )}
             <TabContent>{tabs.find((tab) => tab.key === selectedTab)?.content}</TabContent>
         </>
     );
