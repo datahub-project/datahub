@@ -15,6 +15,7 @@ from datahub_executor.common.constants import (
 from datahub_executor.common.monitoring.base import METRIC
 from datahub_executor.common.types import (
     AssertionEvaluationContext,
+    AssertionEvaluationSpec,
     AssertionSourceType,
     CronSchedule,
     ExecutionRequestSchedule,
@@ -120,7 +121,10 @@ def generate_assertion_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]
     )
     dry_run = is_dry_run_mode(monitor)
 
-    for assertion_spec in assertion_specs:
+    for assertion_spec_raw in assertion_specs:
+        assertion_spec = _truncate_assertion_spec_for_execution_request(
+            assertion_spec_raw.copy(deep=True)
+        )
         context = AssertionEvaluationContext(
             dry_run=dry_run,
             online_smart_assertions=ONLINE_SMART_ASSERTIONS_ENABLED,
@@ -149,11 +153,20 @@ def generate_assertion_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]
     return execution_requests
 
 
-def generate_training_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]:
+def generate_training_tasks(raw_monitor: Monitor) -> List[ExecutionRequestSchedule]:
     """
     Generates monitor training tasks for inferred assertions.
     Returns a list of ExecutionRequestSchedule objects.
     """
+
+    # Truncate the monitor's embedded assertions to avoid sending too much data in the execution request
+    monitor = raw_monitor.copy(deep=True)
+    if monitor.assertion_monitor:
+        for i, assertion_spec in enumerate(monitor.assertion_monitor.assertions):
+            monitor.assertion_monitor.assertions[i] = (
+                _truncate_assertion_spec_for_execution_request(assertion_spec)
+            )
+
     execution_requests = []
     assertion_specs = (
         monitor.assertion_monitor.assertions if monitor.assertion_monitor else []
@@ -200,3 +213,16 @@ def generate_training_tasks(monitor: Monitor) -> List[ExecutionRequestSchedule]:
             )
 
     return execution_requests
+
+
+def _truncate_assertion_spec_for_execution_request(
+    assertion_spec: AssertionEvaluationSpec,
+) -> AssertionEvaluationSpec:
+    """
+    Truncate the assertion spec for the execution request.
+    """
+    if assertion_spec.context is not None:
+        assertion_spec.context.embedded_assertions = None
+    if assertion_spec.assertion is not None:
+        assertion_spec.assertion.monitor = None
+    return assertion_spec
