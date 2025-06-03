@@ -48,7 +48,7 @@ buildscript {
   ext.testContainersVersion = '1.17.4'
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.18.4'
-  ext.jettyVersion = '12.0.16'
+  ext.jettyVersion = '12.0.21'
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
