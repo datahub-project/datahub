@@ -14,6 +14,7 @@ import {
     AssertionType,
     FieldAssertionInfo,
     FieldAssertionType,
+    Monitor,
 } from '@types';
 
 /**
@@ -120,12 +121,14 @@ function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): strin
 /**
  * Gets all the data necessary to plot assertion and its run events on viz charts
  * @param assertion
+ * @param monitor
  * @param completedRuns
  * @returns {AssertionResultChartData}
  */
 export const getAssertionResultChartData = (
     assertion: Assertion,
     completedRuns: AssertionRunEvent[],
+    monitor?: Monitor,
 ): AssertionResultChartData => {
     const timelineDataPoints: AssertionDataPoint[] = getAssertionDataPointsFromRunEvents(
         completedRuns,
@@ -137,6 +140,7 @@ export const getAssertionResultChartData = (
         yAxisLabel: maybeYAxisLabel,
         context: {
             assertion,
+            monitor,
         },
     };
 };

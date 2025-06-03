@@ -16,8 +16,11 @@ import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 import { useIngestionSourceForEntityQuery } from '@graphql/ingestion.generated';
 import { GetDatasetAssertionsWithMonitorsQuery, MonitorDetailsFragment } from '@graphql/monitor.generated';
 import {
+    AnomalyReviewState,
     Assertion,
     AssertionResultType,
+    AssertionRunEvent,
+    AssertionSourceType,
     AssertionType,
     CronSchedule,
     DatasetFreshnessSourceType,
@@ -465,4 +468,68 @@ export const getSiblingWithUrn = (entityData: GenericEntityProperties, urn: stri
 export const getSiblings = (entityData: GenericEntityProperties | null): GenericEntityProperties[] => {
     if (!entityData) return [];
     return entityData?.siblingsSearch?.searchResults?.map((result) => result.entity) || [];
+};
+
+/**
+ * Returns the anomaly feedback options for a given assertion and run
+ */
+export const getAnomalyFeedbackContext = (assertion: Assertion, run?: AssertionRunEvent) => {
+    // Should never happen
+    if (!run) {
+        return {
+            isMissedAlarm: false,
+            isFalseAlarm: false,
+            isAnomaly: false,
+            isFeedbackEnabled: false,
+            anomalyFeedbackCta: {
+                message: '',
+            },
+        };
+    }
+
+    const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
+    const isAnomaly = !!run?.anomalyEvent && run.anomalyEvent.state !== AnomalyReviewState.Rejected;
+    const isFailing = run.result?.type === AssertionResultType.Failure;
+    const isPassing = run.result?.type === AssertionResultType.Success;
+
+    const isFeedbackEnabled =
+        isSmartAssertion &&
+        run.result?.type !== AssertionResultType.Error &&
+        run.result?.type !== AssertionResultType.Init;
+    const isMissedAlarm = isSmartAssertion && isPassing && isAnomaly;
+    const isFalseAlarm = isSmartAssertion && isFailing && !isAnomaly;
+
+    const result = run?.result ? run.result! : undefined;
+    let anomalyFeedbackCta: {
+        message: string;
+        details?: string;
+        isInfo?: boolean;
+    };
+    if (assertion.info?.type === AssertionType.Freshness) {
+        // If the freshness assertion is passing, there's no way to mark it as an anomaly
+        // The user's best bet is to tune or retrain the assertion
+        // TODO: @Jay implement some tips here to handle this scenario
+        anomalyFeedbackCta =
+            result?.type === AssertionResultType.Success
+                ? {
+                      message: 'Incorrect prediction?',
+                      details: 'Try tuning the assertion in the Settings tab to improve predictions.',
+                      isInfo: true,
+                  }
+                : {
+                      message: 'Not an Anomaly',
+                  };
+    } else {
+        anomalyFeedbackCta = {
+            message: result?.type === AssertionResultType.Success ? 'Mark as Anomaly' : 'Not an Anomaly',
+        };
+    }
+
+    return {
+        isMissedAlarm,
+        isFalseAlarm,
+        isAnomaly,
+        isFeedbackEnabled,
+        anomalyFeedbackCta,
+    };
 };

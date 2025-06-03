@@ -63,7 +63,6 @@ import com.linkedin.datahub.graphql.resolvers.assertion.CreateFreshnessAssertion
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateSqlAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.CreateVolumeAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
-import com.linkedin.datahub.graphql.resolvers.assertion.ReportAnomalyFeedbackResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.ReportAssertionResultResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.RunAssertionsForAssetResolver;
@@ -103,6 +102,7 @@ import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
+import com.linkedin.datahub.graphql.resolvers.monitor.ReportAnomalyFeedbackResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateAssertionMonitorSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolver;

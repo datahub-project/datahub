@@ -16,7 +16,7 @@ const Pill = styled.div<{ color: string; highlightColor: string }>`
     justify-content: center;
     align-items: center;
     border-radius: 20px;
-    padding: 4px 12px;
+    padding: 2px 8px;
     background-color: ${(props) => props.highlightColor || ANTD_GRAY[3]};
     color: ${(props) => props.color || ANTD_GRAY[3]};
     :hover {

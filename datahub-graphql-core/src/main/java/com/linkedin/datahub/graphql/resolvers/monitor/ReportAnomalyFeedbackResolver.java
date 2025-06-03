@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.resolvers.assertion;
+package com.linkedin.datahub.graphql.resolvers.monitor;
 
 import com.linkedin.anomaly.AnomalyReviewState;
 import com.linkedin.anomaly.AnomalySource;
@@ -27,7 +27,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.LongSupplier;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class ReportAnomalyFeedbackResolver
     implements DataFetcher<CompletableFuture<MonitorAnomalyEvent>> {
 
@@ -97,7 +99,7 @@ public class ReportAnomalyFeedbackResolver
           final com.linkedin.anomaly.MonitorAnomalyEvent anomalyEvent =
               new com.linkedin.anomaly.MonitorAnomalyEvent();
           anomalyEvent.setTimestampMillis(_timeProvider.getAsLong());
-          anomalyEvent.setState(AnomalyReviewState.CONFIRMED);
+          anomalyEvent.setState(AnomalyReviewState.valueOf(input.getState().name()));
           anomalyEvent.setSource(anomalySource);
           anomalyEvent.setCreated(now);
           anomalyEvent.setLastUpdated(now);
@@ -110,7 +112,7 @@ public class ReportAnomalyFeedbackResolver
                     monitorUrn, Constants.MONITOR_ANOMALY_EVENT_ASPECT_NAME, anomalyEvent),
                 false);
             // best attempt to trigger retraining of the monitor
-            this._monitorService.retrainAssertionMonitor(monitorUrn);
+            tryTriggerMonitorRetraining(monitorUrn);
             return MonitorMapper.mapMonitorAnomalyEvent(anomalyEvent);
           } catch (RemoteInvocationException exception) {
             throw new DataHubGraphQLException(
@@ -122,5 +124,16 @@ public class ReportAnomalyFeedbackResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  private void tryTriggerMonitorRetraining(@Nonnull final Urn monitorUrn) {
+    try {
+      this._monitorService.retrainAssertionMonitor(monitorUrn);
+    } catch (Exception e) {
+      log.warn(
+          "Failed to trigger retraining for monitor {} after reporting anomaly feedback. Error: {}",
+          monitorUrn,
+          e.getMessage());
+    }
   }
 }

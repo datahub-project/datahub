@@ -31,7 +31,9 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */
-    const [getAssertionRuns, { data, loading, error }] = useGetAssertionRunsLazyQuery({ fetchPolicy: 'cache-first' });
+    const [getAssertionRuns, { data, loading, error, refetch }] = useGetAssertionRunsLazyQuery({
+        fetchPolicy: 'cache-first',
+    });
 
     /**
      * Set default window for fetching assertion history.
@@ -106,9 +108,11 @@ export const AssertionResultsTimeline = ({ assertion, monitor }: Props) => {
                         height: vizHeight,
                     }}
                     assertion={assertion}
+                    monitor={monitor}
                     timeRange={selectedWindowTimeRange}
                     isInitializing={isInitializing}
                     results={results as any}
+                    refreshData={refetch}
                 />
             )}
             <TimeSelect timeWindow={selectedTimeWindow} setTimeWindow={setSelectedTimeWindow} />

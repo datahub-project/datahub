@@ -1,8 +1,9 @@
-import { Tooltip } from '@components';
+import { Pill, Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getAnomalyFeedbackContext } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
 import { getFormattedTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import {
@@ -14,7 +15,7 @@ import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/as
 import { applyOpacityToHexColor } from '@app/shared/styleUtils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 
-import { Assertion, AssertionRunEvent, AssertionSourceType } from '@types';
+import { Assertion, AssertionRunEvent, AssertionSourceType, Monitor } from '@types';
 
 const Container = styled.div<{ highlightColor?: string }>`
     display: flex;
@@ -54,12 +55,16 @@ const HeaderText = styled.div`
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
     run: AssertionRunEvent;
+    refetchResults: () => Promise<unknown>;
 };
 
-export const AssertionResultsTableItem = ({ assertion, run }: Props) => {
+export const AssertionResultsTableItem = ({ assertion, monitor, run, refetchResults }: Props) => {
     const assertionRunTime = run.timestampMillis;
     const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
+
+    const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(assertion, run);
 
     const absoluteRunTime = getFormattedTimeString(assertionRunTime);
     const resultText = getFormattedResultText(run.result?.type, isSmartAssertion);
@@ -78,13 +83,20 @@ export const AssertionResultsTableItem = ({ assertion, run }: Props) => {
             </Tooltip>
             <AssertionResultPopover
                 assertion={assertion}
+                monitor={monitor}
                 run={run}
                 showProfileButton={false}
-                resultStatusType={ResultStatusType.LATEST}
+                resultStatusType={ResultStatusType.HISTORICAL}
                 placement="bottom"
+                refetchResults={refetchResults}
             >
                 <ResultColumn>
-                    <PreHeaderText color={resultTextColor}>{resultText}</PreHeaderText>
+                    <PreHeaderText color={resultTextColor}>
+                        {resultText}
+                        &nbsp;&nbsp;&nbsp;
+                        {isMissedAlarm && <Pill size="xs" variant="filled" color="gray" label="Anomaly" />}
+                        {isFalseAlarm && <Pill size="xs" variant="filled" color="gray" label="Not an Anomaly" />}
+                    </PreHeaderText>
                     <HeaderText>{reasonText}</HeaderText>
                 </ResultColumn>
             </AssertionResultPopover>

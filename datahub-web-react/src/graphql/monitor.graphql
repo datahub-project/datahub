@@ -66,6 +66,18 @@ mutation updateMonitorStatus($input: UpdateMonitorStatusInput!) {
     }
 }
 
+mutation updateAssertionMonitorSettings($input: UpdateAssertionMonitorSettingsInput!) {
+    updateAssertionMonitorSettings(input: $input) {
+        ...monitorDetails
+    }
+}
+
+mutation reportAnomalyFeedback($input: ReportAnomalyFeedbackInput!) {
+    reportAnomalyFeedback(input: $input) {
+        ...monitorAnomalyEventDetails
+    }
+}
+
 fragment assertionDetailsWithMonitors on Assertion {
     ...assertionDetailsWithRunEvents
     monitor: relationships(input: { types: ["Evaluates"], direction: INCOMING, start: 0, count: 1 }) {

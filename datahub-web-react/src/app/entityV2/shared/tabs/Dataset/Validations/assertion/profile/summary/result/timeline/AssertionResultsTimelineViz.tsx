@@ -15,7 +15,7 @@ import { getBestChartTypeForAssertion } from '@app/entityV2/shared/tabs/Dataset/
 import { getAssertionResultChartData } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/transformers';
 import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 
-import { Assertion, AssertionRunEventsResult, AssertionRunStatus } from '@types';
+import { Assertion, AssertionRunEventsResult, AssertionRunStatus, Monitor } from '@types';
 
 const VIZ_CONTAINER_TITLE_HEIGHT = 36;
 
@@ -45,24 +45,32 @@ const VizHeaderTitle = styled(Typography.Text)`
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
     timeRange: TimeRange;
     results?: AssertionRunEventsResult | null;
     isInitializing: boolean;
     parentDimensions: { width: number; height: number };
+    refreshData?: () => Promise<unknown>;
 };
 
 export const AssertionResultsTimelineViz = ({
     assertion,
+    monitor,
     results,
     timeRange,
     parentDimensions,
     isInitializing,
+    refreshData,
 }: Props) => {
     // Run event data
     const completedRuns =
         results?.runEvents?.filter((runEvent) => runEvent.status === AssertionRunStatus.Complete) || [];
 
-    const assertionResultChartData: AssertionResultChartData = getAssertionResultChartData(assertion, completedRuns);
+    const assertionResultChartData: AssertionResultChartData = getAssertionResultChartData(
+        assertion,
+        completedRuns,
+        monitor,
+    );
 
     // render
     const chartDimensions = {
@@ -85,6 +93,7 @@ export const AssertionResultsTimelineViz = ({
                         data={assertionResultChartData}
                         timeRange={timeRange}
                         renderHeader={renderChartTitle}
+                        refreshData={refreshData}
                     />
                 );
             case AssertionChartType.Freshness:
@@ -94,6 +103,7 @@ export const AssertionResultsTimelineViz = ({
                         data={assertionResultChartData}
                         timeRange={timeRange}
                         renderHeader={renderChartTitle}
+                        refreshData={refreshData}
                     />
                 );
             default:

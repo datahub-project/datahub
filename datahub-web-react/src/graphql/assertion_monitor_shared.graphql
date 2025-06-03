@@ -275,3 +275,18 @@ fragment assertionExclusionWindow on AssertionExclusionWindow {
         timezone
     }
 }
+
+fragment monitorAnomalyEventDetails on MonitorAnomalyEvent {
+    state
+    timestampMillis
+    source {
+        type
+        sourceUrn
+        properties {
+            assertionMetric {
+                timestampMillis
+                value
+            }
+        }
+    }
+}

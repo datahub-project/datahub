@@ -11,6 +11,7 @@ import React, { useMemo, useState } from 'react';
 import { CandleStick } from '@app/dataviz/candle/CandleStick';
 import { calculateOverlapBetweenTwoMarkers } from '@app/dataviz/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getAnomalyFeedbackContext } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
 import {
     AssertionDataPoint,
@@ -37,6 +38,7 @@ type Props = {
         height: number;
     };
     renderHeader?: (title?: string) => JSX.Element;
+    refreshData?: () => Promise<unknown>;
 };
 
 const CHART_HORIZ_MARGIN = 36;
@@ -48,7 +50,7 @@ const PRIMARY_CANDLE_STICK_BAR_WIDTH = 5;
 /**
  * Specifically for freshness assertions.
  */
-export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
+export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderHeader, refreshData }: Props) => {
     const { dataPoints } = data;
 
     // ----------------- States and data calculations ----------------- //
@@ -195,8 +197,15 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         const opacity = xOffset - tsMarkerX <= PRIMARY_CANDLE_STICK_BAR_WIDTH ? 0.4 : 1;
 
                         const fillColor = getFillColor(dataPoint.result.type);
+
+                        const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(
+                            data.context.assertion,
+                            dataPoint.relatedRunEvent,
+                        );
+
                         return (
                             <CandleStick
+                                showWarningOverlay={isFalseAlarm || isMissedAlarm}
                                 candleHeight={chartInnerHeight - yOffset}
                                 parentChartHeight={chartInnerHeight}
                                 barWidth={PRIMARY_CANDLE_STICK_BAR_WIDTH}
@@ -221,7 +230,9 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                                             content={
                                                 <AssertionResultPopoverContent
                                                     assertion={data.context.assertion}
+                                                    monitor={data.context.monitor}
                                                     run={dataPoint.relatedRunEvent}
+                                                    refetchResults={refreshData}
                                                 />
                                             }
                                             showArrow={false}

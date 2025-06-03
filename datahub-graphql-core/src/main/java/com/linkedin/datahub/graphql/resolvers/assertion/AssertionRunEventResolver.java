@@ -43,8 +43,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /** GraphQL Resolver used for fetching AssertionRunEvents. */
+@Slf4j
 public class AssertionRunEventResolver
     implements DataFetcher<CompletableFuture<AssertionRunEventsResult>> {
 
@@ -239,6 +241,9 @@ public class AssertionRunEventResolver
     final Map<Long, MonitorAnomalyEvent> anomalyEventMap = new HashMap<>();
 
     for (MonitorAnomalyEvent anomalyEvent : anomalyEvents) {
+      if (anomalyEvent.getSource().getSourceEventTimestampMillis() == null) {
+        continue;
+      }
       final MonitorAnomalyEvent maybeExistingEvent =
           anomalyEventMap.get(anomalyEvent.getSource().getSourceEventTimestampMillis());
       // If an anomaly event already exists for this timestamp, skip if the new one is NOT more

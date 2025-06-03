@@ -39,7 +39,7 @@ const INITIAL_VISIBLE_COUNT = 3;
 
 export const AssertionResultsTable = ({ assertion, monitor }: Props) => {
     const [count, setCount] = useState(INITIAL_VISIBLE_COUNT);
-    const { data, loading } = useGetAssertionRunsQuery({
+    const { data, loading, refetch } = useGetAssertionRunsQuery({
         variables: {
             assertionUrn: assertion.urn,
             limit: count,
@@ -60,7 +60,14 @@ export const AssertionResultsTable = ({ assertion, monitor }: Props) => {
                 </div>
             ),
             color: getResultColor(run.result?.type as AssertionResultType),
-            children: <AssertionResultsTableItem assertion={assertion} run={run as AssertionRunEvent} />,
+            children: (
+                <AssertionResultsTableItem
+                    assertion={assertion}
+                    monitor={monitor}
+                    run={run as AssertionRunEvent}
+                    refetchResults={refetch}
+                />
+            ),
             key: run.timestampMillis,
         };
     });

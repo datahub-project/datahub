@@ -10,7 +10,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ReportAnomalyFeedbackInput;
-import com.linkedin.datahub.graphql.resolvers.assertion.ReportAnomalyFeedbackResolver;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.service.AssertionService;

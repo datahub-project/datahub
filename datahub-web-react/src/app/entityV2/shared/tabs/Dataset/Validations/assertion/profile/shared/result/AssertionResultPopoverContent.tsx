@@ -1,6 +1,7 @@
 import { ClockCircleOutlined } from '@ant-design/icons';
-import { Text } from '@components';
+import { Button, Text } from '@components';
 import { Divider, Typography } from 'antd';
+import { Info } from 'phosphor-react';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -8,9 +9,13 @@ import { Tooltip } from '@components/components/Tooltip';
 import colors from '@components/theme/foundations/colors';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getAnomalyFeedbackContext } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { PrimaryButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
-import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
+import {
+    toReadableLocalDateTimeString,
+    useAssertionFeedbackActions,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
 import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
 import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
 import {
@@ -21,7 +26,14 @@ import {
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 
-import { Assertion, AssertionResultType, AssertionRunEvent, AssertionSourceType, VolumeAssertionType } from '@types';
+import {
+    Assertion,
+    AssertionResultType,
+    AssertionRunEvent,
+    AssertionSourceType,
+    Monitor,
+    VolumeAssertionType,
+} from '@types';
 
 const HeaderRow = styled.div`
     display: flex;
@@ -103,13 +115,18 @@ const ThinDivider = styled(Divider)`
     padding: 0px;
 `;
 
+const RESULT_TYPE_TO_COLOR = {
+    Fail: colors.red[1000],
+    Pass: colors.green[1000],
+};
+
 const ColoredActual = styled.span<{ status?: AssertionResultType }>`
     color: ${(props) => {
         switch (props.status) {
             case AssertionResultType.Failure:
-                return colors.red[1000];
+                return RESULT_TYPE_TO_COLOR.Fail;
             case AssertionResultType.Success:
-                return colors.green[1000];
+                return RESULT_TYPE_TO_COLOR.Pass;
             default:
                 return 'inherit';
         }
@@ -127,10 +144,12 @@ const VerticalDivider = styled.span`
 
 type Props = {
     assertion: Assertion;
+    monitor?: Monitor;
     run?: AssertionRunEvent;
     showProfileButton?: boolean;
     onClickProfileButton?: () => void;
     resultStatusType?: ResultStatusType;
+    refetchResults?: () => Promise<unknown>;
 };
 
 const RawValueTooltipTitle = ({ value }: { value?: string }) => {
@@ -141,10 +160,12 @@ const RawValueTooltipTitle = ({ value }: { value?: string }) => {
 // TODO: Add this in the assertion list, as hover on the timeline as well.
 export const AssertionResultPopoverContent = ({
     assertion,
+    monitor,
     run,
     showProfileButton,
     resultStatusType,
     onClickProfileButton,
+    refetchResults,
 }: Props) => {
     const runResultType = run?.result?.type;
 
@@ -179,7 +200,22 @@ export const AssertionResultPopoverContent = ({
     const isExternal = isExternalAssertion(assertion);
     const hasPlatform = !!assertion.platform;
 
+    // Smart assertion
     const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
+    const { isFeedbackEnabled, isAnomaly, isMissedAlarm, isFalseAlarm, anomalyFeedbackCta } = getAnomalyFeedbackContext(
+        assertion,
+        run,
+    );
+    const showAnomalyFeedback = isFeedbackEnabled && resultStatusType !== ResultStatusType.LATEST;
+    const showUndoFeedbackAction = isMissedAlarm || isFalseAlarm;
+
+    const { isActionProcessing, onToggleAnomaly, onRetrainAsNewNormal, retrainModal } = useAssertionFeedbackActions({
+        assertion,
+        monitor,
+        run,
+        isAnomaly,
+        refetchResults,
+    });
 
     return (
         <>
@@ -341,6 +377,43 @@ export const AssertionResultPopoverContent = ({
                     )}
                 </>
             ) : null}
+
+            {showAnomalyFeedback && (
+                <>
+                    <ThinDivider />
+                    {showUndoFeedbackAction && (
+                        <ContextRow>
+                            <Typography.Paragraph style={{ color: RESULT_TYPE_TO_COLOR.Fail }}>
+                                {result?.type === AssertionResultType.Success
+                                    ? 'Marked as Anomaly.'
+                                    : 'Marked as Normal.'}
+                            </Typography.Paragraph>
+                        </ContextRow>
+                    )}
+                    <ContextRow style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        {!anomalyFeedbackCta.isInfo ? (
+                            <Button
+                                isLoading={isActionProcessing}
+                                onClick={onToggleAnomaly}
+                                variant={showUndoFeedbackAction ? 'outline' : 'filled'}
+                                color={showUndoFeedbackAction ? 'red' : 'primary'}
+                            >
+                                {showUndoFeedbackAction ? 'Undo' : anomalyFeedbackCta.message}
+                            </Button>
+                        ) : (
+                            <Tooltip title={anomalyFeedbackCta.details}>
+                                <Typography.Text type="secondary">
+                                    <Info size={16} /> {anomalyFeedbackCta.message}
+                                </Typography.Text>
+                            </Tooltip>
+                        )}
+                        <Button variant="secondary" color="primary" onClick={onRetrainAsNewNormal}>
+                            Train as New Normal
+                        </Button>
+                    </ContextRow>
+                </>
+            )}
+            {retrainModal}
         </>
     );
 };

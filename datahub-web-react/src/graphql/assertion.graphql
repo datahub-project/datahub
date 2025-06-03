@@ -89,6 +89,9 @@ fragment assertionRunEventDetails on AssertionRunEvent {
     result {
         ...assertionResultDetails
     }
+    anomalyEvent {
+        ...monitorAnomalyEventDetails
+    }
 }
 
 query getAssertionRuns($assertionUrn: String!, $startTime: Long, $endTime: Long, $limit: Int) {

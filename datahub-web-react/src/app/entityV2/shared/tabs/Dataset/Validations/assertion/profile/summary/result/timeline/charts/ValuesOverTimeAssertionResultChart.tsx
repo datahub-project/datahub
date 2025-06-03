@@ -15,6 +15,7 @@ import {
     truncateNumberForDisplay,
 } from '@app/dataviz/utils';
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getAnomalyFeedbackContext } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';
 import {
     AssertionDataPoint,
@@ -44,6 +45,7 @@ type Props = {
         height: number;
     };
     renderHeader?: (title?: string) => JSX.Element;
+    refreshData?: () => Promise<unknown>;
 };
 
 const CHART_AXIS_LEFT_WIDTH = 32;
@@ -62,7 +64,13 @@ const formatYAxisValue = (value: number, skipRounding: boolean) => {
     return Math.round((value + Number.EPSILON) * 100) / 100;
 };
 
-export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimensions, renderHeader }: Props) => {
+export const ValuesOverTimeAssertionResultChart = ({
+    data,
+    timeRange,
+    chartDimensions,
+    renderHeader,
+    refreshData,
+}: Props) => {
     const rawDataPoints = data.dataPoints;
 
     const chartInnerWidth = chartDimensions.width - CHART_AXIS_LEFT_WIDTH - CHART_RIGHT_MARGIN;
@@ -273,6 +281,12 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                         }
 
                         const fillColor = getFillColor(dataPoint.result.type);
+
+                        const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(
+                            data.context.assertion,
+                            dataPoint.relatedRunEvent,
+                        );
+
                         return (
                             <LinkWrapper key={dataPoint.time} to={dataPoint.result.resultUrl} target="_blank">
                                 <Popover
@@ -285,23 +299,42 @@ export const ValuesOverTimeAssertionResultChart = ({ data, timeRange, chartDimen
                                     content={
                                         <AssertionResultPopoverContent
                                             assertion={data.context.assertion}
+                                            monitor={data.context.monitor}
                                             run={dataPoint.relatedRunEvent}
+                                            refetchResults={refreshData}
                                         />
                                     }
                                     showArrow={false}
                                 >
-                                    {/* TODO(jayacryl) make dots appear/animate when user hovers over */}
-                                    <GlyphCircle
-                                        left={xOffset}
-                                        top={yOffset}
-                                        fill={fillColor}
-                                        stroke="white"
-                                        strokeWidth={1}
-                                        size={PRIMARY_DATA_POINT_SIZE * 20}
-                                        filter={
-                                            markerOverlapPx ? undefined : 'drop-shadow(0px 1px 2px rgb(0 0 0 / 0.2))'
-                                        }
-                                    />
+                                    <Group>
+                                        <GlyphCircle
+                                            left={xOffset}
+                                            top={yOffset}
+                                            fill={fillColor}
+                                            stroke="white"
+                                            strokeWidth={1}
+                                            size={PRIMARY_DATA_POINT_SIZE * 20}
+                                            filter={
+                                                markerOverlapPx
+                                                    ? undefined
+                                                    : 'drop-shadow(0px 1px 2px rgb(0 0 0 / 0.2))'
+                                            }
+                                        />
+                                        {/* For Smart Assertions: '!' icon overlaps if this has been marked as a false positive or false negative */}
+                                        {isFalseAlarm || isMissedAlarm ? (
+                                            // // Downloaded from phosphor icons
+                                            <svg
+                                                x={xOffset - PRIMARY_DATA_POINT_SIZE * 1}
+                                                y={yOffset - PRIMARY_DATA_POINT_SIZE * 1}
+                                                width={PRIMARY_DATA_POINT_SIZE * 2}
+                                                height={PRIMARY_DATA_POINT_SIZE * 2}
+                                                fill="white"
+                                                viewBox="0 0 256 256"
+                                            >
+                                                <path d="M144,200a16,16,0,1,1-16-16A16,16,0,0,1,144,200Zm-16-40a8,8,0,0,0,8-8V48a8,8,0,0,0-16,0V152A8,8,0,0,0,128,160Z" />
+                                            </svg>
+                                        ) : null}
+                                    </Group>
                                 </Popover>
                             </LinkWrapper>
                         );
