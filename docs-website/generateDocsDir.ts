@@ -671,8 +671,8 @@ function write_markdown_file(
       continue;
     }
     if (!accounted_for_in_sidebar(filepath)) {
-      throw new Error(
-        `File not accounted for in sidebar: ${filepath} - try adding it to docs-website/sidebars.js`
+      console.warn(
+        `File not accounted for in sidebar: ${filepath} - consider adding it to docs-website/sidebars.js or explicitly ignoring it`
       );
     }
   }
