@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import { Tabs } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
@@ -7,13 +7,15 @@ import { EntitySidebarTab } from '@app/entityV2/shared/types';
 
 export const TABS_WIDTH = 64;
 
-const UnborderedTabs = styled(Tabs)`
+const UnborderedTabs = styled(Tabs).attrs({ className: 'schema-field-drawer-tabs' })`
     height: 100%;
     width: ${TABS_WIDTH}px;
     box-sizing: border-box;
     user-select: none;
     overflow: visible;
-    &&& .ant-tabs-nav {
+    background-color: #ffffff;
+
+    .ant-tabs-nav {
         margin: 0;
         width: ${TABS_WIDTH}px;
         display: flex;
@@ -21,10 +23,12 @@ const UnborderedTabs = styled(Tabs)`
         box-sizing: border-box;
         overflow: visible;
     }
-    &&& .ant-tabs-nav-operations {
+
+    .ant-tabs-nav-operations {
         display: none;
     }
-    &&& .ant-tabs-nav-wrap {
+
+    .ant-tabs-nav-wrap {
         margin: 0;
         padding: 0;
         display: flex;
@@ -33,7 +37,8 @@ const UnborderedTabs = styled(Tabs)`
         box-sizing: border-box;
         overflow: visible;
     }
-    &&& .ant-tabs-nav-list {
+
+    .ant-tabs-nav-list {
         margin: 0;
         gap: 4px;
         width: ${TABS_WIDTH}px;
@@ -43,70 +48,79 @@ const UnborderedTabs = styled(Tabs)`
         box-sizing: border-box;
         overflow: visible;
     }
-    &&& .ant-tabs-ink-bar {
+
+    .ant-tabs-ink-bar {
         display: none;
     }
-    &&& .ant-tabs-tab {
+
+    .ant-tabs-tab {
         padding: 0;
-        margin: 0 0 4px 0 !important;
+        margin: 0 0 4px 0;
         border-radius: 8px;
         display: flex;
         align-items: center;
         justify-content: center;
         width: 52px;
         height: 52px;
-        transition: none !important;
+        transition: none;
         overflow: visible;
+
         .anticon {
             margin-right: 0;
         }
+
         .ant-tabs-tab-btn {
-            color: inherit !important;
-            transition: none !important;
+            color: inherit;
+            transition: none;
             display: flex;
             justify-content: center;
             align-items: center;
             width: 100%;
             height: 100%;
         }
+
         &:hover {
             background: linear-gradient(
                 180deg,
                 rgba(243, 244, 246, 0.5) -3.99%,
                 rgba(235, 236, 240, 0.5) 53.04%,
                 rgba(235, 236, 240, 0.5) 100%
-            ) !important;
+            );
             box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
         }
+
         &:last-child {
-            margin-bottom: 0 !important;
+            margin-bottom: 0;
         }
     }
-    &&& .ant-tabs-tab-active {
+
+    .ant-tabs-tab-active {
         background: linear-gradient(
             180deg,
             rgba(83, 63, 209, 0.04) -3.99%,
             rgba(112, 94, 228, 0.04) 53.04%,
             rgba(112, 94, 228, 0.04) 100%
-        ) !important;
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08) !important;
+        );
+        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+
         .ant-tabs-tab-btn {
-            color: inherit !important;
+            color: inherit;
         }
+
         &:hover {
             background: linear-gradient(
                 180deg,
                 rgba(83, 63, 209, 0.04) -3.99%,
                 rgba(112, 94, 228, 0.04) 53.04%,
                 rgba(112, 94, 228, 0.04) 100%
-            ) !important;
+            );
             box-shadow: 0px 0px 0px 1px rgba(139, 135, 157, 0.08);
         }
     }
-    &&& .ant-tabs-content-holder {
+
+    .ant-tabs-content-holder {
         display: none;
     }
-    background-color: #ffffff;
 `;
 
 const Tab = styled(Tabs.TabPane)`
@@ -121,8 +135,8 @@ const TabIconContainer = styled.div<{ $isSelected?: boolean }>`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    transition: none !important;
-    color: #8088a3;
+    transition: none;
+    color: ${colors.gray[1800]};
     width: 48px;
     height: 48px;
     padding: 0;
@@ -135,21 +149,23 @@ const TabText = styled.span<{ $isSelected?: boolean }>`
     font-size: 10px;
     font-weight: ${(props) => (props.$isSelected ? '500' : '400')};
     text-align: center;
-    transition: none !important;
+    transition: none;
     user-select: none;
     display: block;
     width: 48px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: ${(props) => (props.$isSelected ? 'transparent !important' : '#8088a3 !important')};
+    color: ${colors.gray[1800]};
+
     ${(props) =>
         props.$isSelected &&
         `
-        background: linear-gradient(#7565d6 20%, #5340cc 80%) !important;
-        background-clip: text !important;
-        -webkit-background-clip: text !important;
-        -webkit-text-fill-color: transparent !important;
+        color: transparent;
+        background: linear-gradient(#7565d6 20%, #5340cc 80%);
+        background-clip: text;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
         `}
 `;
 
@@ -157,46 +173,46 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: none !important;
+    transition: none;
     width: 20px;
     height: 18px;
     position: relative;
 
     /* For Phosphor icons */
-    && svg {
+    svg {
         ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
-        width: 20px !important;
-        height: 20px !important;
-        min-width: 20px !important;
-        min-height: 20px !important;
-        max-width: 20px !important;
-        max-height: 20px !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        transition: none !important;
+        width: 20px;
+        height: 20px;
+        min-width: 20px;
+        min-height: 20px;
+        max-width: 20px;
+        max-height: 20px;
+        padding: 0;
+        margin: 0;
+        transition: none;
     }
 
     /* For Ant Design icons */
-    && span {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
+    span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         ${(props) => (props.$isSelected ? 'color: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
-        width: 20px !important;
-        height: 20px !important;
+        width: 20px;
+        height: 20px;
 
         svg {
-            width: 20px !important;
-            height: 20px !important;
-            min-width: 20px !important;
-            min-height: 20px !important;
-            max-width: 20px !important;
-            max-height: 20px !important;
+            width: 20px;
+            height: 20px;
+            min-width: 20px;
+            min-height: 20px;
+            max-width: 20px;
+            max-height: 20px;
         }
     }
 
     /* Ensure Phosphor icon weights are correctly applied */
-    & .ph-fill {
+    .ph-fill {
         fill: ${(props) => (props.$isSelected ? 'url(#menu-item-selected-gradient) #533fd1' : '#8088a3')};
     }
 `;

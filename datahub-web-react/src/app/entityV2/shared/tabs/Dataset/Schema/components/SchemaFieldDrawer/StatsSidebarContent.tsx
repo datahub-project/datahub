@@ -40,7 +40,6 @@ const StatLabel = styled.div`
     padding-bottom: 12px;
     :not(:last-child) {
         border-bottom: 1px solid ${colors.gray[100]};
-        border-style: solid;
     }
 `;
 
