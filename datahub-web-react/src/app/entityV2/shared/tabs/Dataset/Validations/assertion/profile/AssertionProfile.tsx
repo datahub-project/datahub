@@ -57,7 +57,7 @@ export const AssertionProfile = ({ urn, contract, close, refetch }: Props) => {
                     close={close}
                 />
             )}
-            <AssertionTabs defaultSelectedTab={TabType.Summary} tabs={tabs} />
+            {tabs.length > 1 && <AssertionTabs defaultSelectedTab={TabType.Summary} tabs={tabs} />}
             <AssertionProfileFooter />
         </>
     );
