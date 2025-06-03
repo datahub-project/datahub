@@ -82,18 +82,29 @@ ext {
             'quickstartSlim': [
                     profile: 'quickstart-backend',
                     modules: backend_profile_modules + [
-                        ':docker:datahub-ingestion',
+                        ':datahub-actions',
+                    ]
+            ],
+            'quickstartSpark': [
+                    profile: 'quickstart-backend',
+                    modules: backend_profile_modules + [
+                            ':datahub-actions',
                     ],
                     additionalEnv: [
-                            'DATAHUB_ACTIONS_IMAGE': 'acryldata/datahub-ingestion',
-                            'ACTIONS_EXTRA_PACKAGES': 'acryl-datahub-actions[executor] acryl-datahub-actions',
-                            'ACTIONS_CONFIG': 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml',
                             'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env"
                     ]
             ],
             'quickstartStorage': [
                     profile: 'quickstart-storage',
                     preserveVolumes: true
+            ],
+            'quickstartBackendDebug': [
+                profile: 'debug-backend-aws',
+                modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                isDebug: true,
+                additionalEnv: [
+                        DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                ]
             ],
             'allImages': [ //This is a special task just to include all images as dependencies - and is useful when CI needs to publish all images
                     profile: 'quickstart-consumers',
@@ -165,6 +176,7 @@ dockerCompose {
             buildBeforePull = false
             stopContainers = false
             removeVolumes = false
+            retainContainersOnStartupFailure = config.isDebug ? true: false //forcing nulls to bool
 
             // Apply common configuration
             common_config.each { key, value ->

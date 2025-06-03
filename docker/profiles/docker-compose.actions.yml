@@ -60,6 +60,7 @@ services:
     profiles:
       - debug
       - debug-backend
+      - debug-backend-aws
     depends_on:
       datahub-gms-debug:
         condition: service_healthy

@@ -409,6 +409,7 @@ fragment nonRecursiveDatasetFields on Dataset {
     platformNativeType
     properties {
         name
+        qualifiedName
         description
         customProperties {
             key
@@ -1819,6 +1820,82 @@ fragment dataTransformLogicFields on DataTransformLogic {
         queryStatement {
             value
             language
+        }
+    }
+}
+
+fragment customPropertiesFields on CustomPropertiesEntry {
+    key
+    value
+    associatedUrn
+}
+
+fragment ingestionSourceFields on IngestionSource {
+    urn
+    name
+    type
+    config {
+        recipe
+        version
+        executorId
+        debugMode
+        extraArgs {
+            key
+            value
+        }
+    }
+    schedule {
+        interval
+        timezone
+    }
+    platform {
+        urn
+        type
+        name
+    }
+}
+
+fragment ingestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    type
+    input {
+        requestedAt
+        source {
+            type
+        }
+        arguments {
+            key
+            value
+        }
+        actor {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+                active
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+        task
+        executorId
+    }
+    result {
+        status
+        startTimeMs
+        durationMs
+        report
+        structuredReport {
+            type
+            serializedValue
+            contentType
         }
     }
 }

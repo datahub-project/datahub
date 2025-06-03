@@ -29,7 +29,7 @@ public class MockSystemUpdateSerializer extends KafkaAvroSerializer {
   private static final Map<String, AvroSchema> AVRO_SCHEMA_MAP =
       Map.of(
           DUHE_SCHEMA_REGISTRY_TOPIC_KEY,
-          new AvroSchema(EventUtils.ORIGINAL_DUHE_AVRO_SCHEMA),
+          new AvroSchema(EventUtils.RENAMED_DUHE_AVRO_SCHEMA),
           MCL_VERSIONED_SCHEMA_REGISTRY_TOPIC_KEY,
           new AvroSchema(EventUtils.RENAMED_MCL_AVRO_SCHEMA),
           MCP_SCHEMA_REGISTRY_TOPIC_KEY,
