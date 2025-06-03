@@ -52,9 +52,20 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import Dataset
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 from datahub.metadata.schema_classes import (
+    ArrayTypeClass,
+    BooleanTypeClass,
+    BytesTypeClass,
     ChangeTypeClass,
     DatasetPropertiesClass,
+    DateTypeClass,
+    MapTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
     SubTypesClass,
+    TimeTypeClass,
+    UnionTypeClass,
     ViewPropertiesClass,
 )
 from datahub.utilities.groupby import groupby_unsorted
@@ -139,7 +150,12 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 
     simplify_nested_field_paths: bool = Field(
         default=False,
-        description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2",
+        description="Simplify v2 field paths to v1 by default. If the schema has Union or Array types, still falls back to v2. Note: This is ignored when use_schema_field_v2 is True.",
+    )
+
+    use_schema_field_v2: bool = Field(
+        default=False,
+        description="Use Schema Field v2 format for all fields. This provides better support for nested structures, unions, and complex types. When enabled, simplify_nested_field_paths is ignored.",
     )
 
     def get_sql_alchemy_url(
@@ -890,15 +906,619 @@ class HiveMetastoreSource(SQLAlchemySource):
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
     ) -> List[SchemaField]:
-        return get_schema_fields_for_hive_column(
-            column["col_name"],
-            column["col_type"],
-            # column is actually an sqlalchemy.engine.row.LegacyRow, not a Dict and we cannot make column.get("col_description", "")
-            description=(
-                column["col_description"] if "col_description" in column else ""  # noqa: SIM401
-            ),
-            default_nullable=True,
+        """
+        Generate schema fields with optional v2 support for better nested structure handling
+        """
+
+        # Handle SQLAlchemy Row objects and dictionary access
+        def safe_get_column_value(
+            col_obj: Dict[Any, Any], key: str, default: str = ""
+        ) -> str:
+            """Safely get column value from SQLAlchemy Row or dict."""
+            try:
+                if hasattr(col_obj, "_mapping"):
+                    # SQLAlchemy Row object
+                    return col_obj._mapping.get(key, default)
+                elif hasattr(col_obj, "get"):
+                    # Dictionary-like object
+                    return col_obj.get(key, default)
+                else:
+                    # Try direct attribute access or indexing
+                    try:
+                        return col_obj.get(key, default)
+                    except (KeyError, TypeError):
+                        return getattr(col_obj, key, default)
+            except Exception:
+                return default
+
+        col_name = safe_get_column_value(column, "col_name")
+        col_type = safe_get_column_value(column, "col_type")
+        description = safe_get_column_value(column, "col_description", "")
+
+        # Clean column name - remove any array notation that might come from Hive
+        if col_name and isinstance(col_name, str):
+            col_name = col_name.rstrip("[]")
+
+        # Check if we should use Schema Field v2
+        if self.config.use_schema_field_v2:
+            try:
+                return self._generate_schema_fields_v2(
+                    field_name=col_name,
+                    field_type=col_type,
+                    description=description,
+                    dataset_name=dataset_name,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to parse type {col_type} for {dataset_name} with v2, falling back to v1: {e}"
+                )
+                # Fallback to v1 if v2 parsing completely fails
+                return get_schema_fields_for_hive_column(
+                    col_name,
+                    col_type,
+                    description=description,
+                    default_nullable=True,
+                )
+        else:
+            # Use original v1 implementation
+            return get_schema_fields_for_hive_column(
+                col_name,
+                col_type,
+                description=description,
+                default_nullable=True,
+            )
+
+    def _generate_schema_fields_v2(
+        self,
+        field_name: str,
+        field_type: str,
+        description: str,
+        dataset_name: str,
+    ) -> List[SchemaField]:
+        """
+        Generate v2 schema fields following the official DataHub v2 specification
+        """
+        all_fields = []
+        clean_field_name = field_name.rstrip("[]") if field_name else ""
+
+        # Generate fields based on the DataHub v2 specification patterns
+        field_type_clean = field_type.strip().lower()
+
+        if field_type_clean.startswith("struct<"):
+            all_fields.extend(
+                self._generate_struct_fields_v2(
+                    clean_field_name, field_type, description
+                )
+            )
+        elif field_type_clean.startswith("array<"):
+            all_fields.extend(
+                self._generate_array_fields_v2(
+                    clean_field_name, field_type, description
+                )
+            )
+        elif field_type_clean.startswith("map<"):
+            all_fields.extend(
+                self._generate_map_fields_v2(clean_field_name, field_type, description)
+            )
+        elif field_type_clean.startswith("uniontype<"):
+            all_fields.extend(
+                self._generate_union_fields_v2(
+                    clean_field_name, field_type, description
+                )
+            )
+        else:
+            # Simple primitive field
+            primitive_type = self._get_v2_type_name(field_type)
+            field_path = f"[version=2.0].[type={primitive_type}].{clean_field_name}"
+            datahub_type = self._map_hive_type_to_datahub_type(field_type)
+
+            field = SchemaField(
+                fieldPath=field_path,
+                type=datahub_type,
+                nativeDataType=field_type,
+                description=description,
+                nullable=True,
+                recursive=False,
+            )
+            all_fields.append(field)
+
+        return all_fields
+
+    def _generate_struct_fields_v2(
+        self, field_name: str, field_type: str, description: str
+    ) -> List[SchemaField]:
+        """Generate struct fields according to v2 spec"""
+        fields = []
+
+        # Main struct field: [version=2.0].[type=struct].field_name
+        struct_path = f"[version=2.0].[type=struct].{field_name}"
+        struct_field = SchemaField(
+            fieldPath=struct_path,
+            type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+            nativeDataType=field_type,
+            description=description,
+            nullable=True,
+            recursive=False,
         )
+        fields.append(struct_field)
+
+        # Parse struct contents and generate nested fields
+        struct_content = field_type[7:-1]  # Remove 'struct<' and '>'
+        struct_fields_parsed = self._parse_struct_fields(struct_content)
+
+        for sub_field_name, sub_field_type in struct_fields_parsed:
+            nested_fields = self._generate_nested_struct_fields_v2(
+                sub_field_name,
+                sub_field_type,
+                f"[version=2.0].[type=struct].{field_name}",
+            )
+            fields.extend(nested_fields)
+
+        return fields
+
+    def _generate_array_fields_v2(
+        self, field_name: str, field_type: str, description: str
+    ) -> List[SchemaField]:
+        """Generate array fields according to v2 spec"""
+        fields = []
+
+        # Parse array element type
+        element_type = field_type[6:-1]  # Remove 'array<' and '>'
+        element_type_name = self._get_v2_type_name(element_type)
+
+        # Main array field: [version=2.0].[type=array].[type=element_type].field_name
+        array_path = (
+            f"[version=2.0].[type=array].[type={element_type_name}].{field_name}"
+        )
+        array_field = SchemaField(
+            fieldPath=array_path,
+            type=SchemaFieldDataTypeClass(type=ArrayTypeClass()),
+            nativeDataType=field_type,
+            description=description,
+            nullable=True,
+            recursive=False,
+        )
+        fields.append(array_field)
+
+        # If element type is complex, generate nested fields
+        if element_type.lower().strip().startswith(("struct<", "uniontype<", "map<")):
+            nested_fields = self._generate_nested_struct_fields_v2(
+                field_name,
+                element_type,
+                f"[version=2.0].[type=array].[type={element_type_name}]",
+            )
+            fields.extend(nested_fields)
+
+        return fields
+
+    def _generate_map_fields_v2(
+        self, field_name: str, field_type: str, description: str
+    ) -> List[SchemaField]:
+        """Generate map fields according to v2 spec"""
+        fields = []
+
+        # Parse map types
+        map_content = field_type[4:-1]  # Remove 'map<' and '>'
+        key_type, value_type = self._parse_map_types(map_content)
+        value_type_name = self._get_v2_type_name(value_type)
+
+        # Main map field: [version=2.0].[type=map].[type=value_type].field_name
+        map_path = f"[version=2.0].[type=map].[type={value_type_name}].{field_name}"
+        map_field = SchemaField(
+            fieldPath=map_path,
+            type=SchemaFieldDataTypeClass(type=MapTypeClass()),
+            nativeDataType=field_type,
+            description=description,
+            nullable=True,
+            recursive=False,
+        )
+        fields.append(map_field)
+
+        # If value type is complex, generate nested fields
+        if value_type.lower().strip().startswith(("struct<", "uniontype<", "array<")):
+            nested_fields = self._generate_nested_struct_fields_v2(
+                field_name,
+                value_type,
+                f"[version=2.0].[type=map].[type={value_type_name}]",
+            )
+            fields.extend(nested_fields)
+
+        return fields
+
+    def _generate_union_fields_v2(
+        self, field_name: str, field_type: str, description: str
+    ) -> List[SchemaField]:
+        """Generate union fields according to v2 spec"""
+        fields = []
+
+        # Main union field: [version=2.0].[type=union].field_name
+        union_path = f"[version=2.0].[type=union].{field_name}"
+        union_field = SchemaField(
+            fieldPath=union_path,
+            type=SchemaFieldDataTypeClass(type=UnionTypeClass()),
+            nativeDataType=field_type,
+            description=description,
+            nullable=True,
+            recursive=False,
+        )
+        fields.append(union_field)
+
+        # Parse union types and generate member fields
+        union_content = field_type[10:-1]  # Remove 'uniontype<' and '>'
+        union_types = self._parse_union_types(union_content)
+
+        for member_type in union_types:
+            member_type_name = self._get_v2_type_name(member_type)
+            base_path = f"[version=2.0].[type=union].[type={member_type_name}]"
+
+            if member_type.lower().strip().startswith(("struct<", "array<", "map<")):
+                # Complex member type - generate the member field and its nested fields
+                if member_type.lower().strip().startswith("struct<"):
+                    member_field_path = f"{base_path}.{field_name}"
+                    member_field = SchemaField(
+                        fieldPath=member_field_path,
+                        type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                        nativeDataType=member_type,
+                        description="",
+                        nullable=True,
+                        recursive=False,
+                    )
+                    fields.append(member_field)
+
+                    # Generate nested fields for struct members
+                    struct_content = member_type[7:-1]  # Remove 'struct<' and '>'
+                    struct_fields_parsed = self._parse_struct_fields(struct_content)
+
+                    for sub_field_name, sub_field_type in struct_fields_parsed:
+                        nested_fields = self._generate_nested_struct_fields_v2(
+                            sub_field_name, sub_field_type, member_field_path
+                        )
+                        fields.extend(nested_fields)
+
+                elif member_type.lower().strip().startswith("array<"):
+                    element_type = member_type[6:-1]
+                    element_type_name = self._get_v2_type_name(element_type)
+                    member_field_path = (
+                        f"{base_path}.[type={element_type_name}].{field_name}"
+                    )
+                    member_field = SchemaField(
+                        fieldPath=member_field_path,
+                        type=SchemaFieldDataTypeClass(type=ArrayTypeClass()),
+                        nativeDataType=member_type,
+                        description="",
+                        nullable=True,
+                        recursive=False,
+                    )
+                    fields.append(member_field)
+
+                elif member_type.lower().strip().startswith("map<"):
+                    map_content = member_type[4:-1]
+                    key_type, value_type = self._parse_map_types(map_content)
+                    value_type_name = self._get_v2_type_name(value_type)
+                    member_field_path = (
+                        f"{base_path}.[type={value_type_name}].{field_name}"
+                    )
+                    member_field = SchemaField(
+                        fieldPath=member_field_path,
+                        type=SchemaFieldDataTypeClass(type=MapTypeClass()),
+                        nativeDataType=member_type,
+                        description="",
+                        nullable=True,
+                        recursive=False,
+                    )
+                    fields.append(member_field)
+            else:
+                # Simple member type: [version=2.0].[type=union].[type=member_type].field_name
+                member_field_path = f"{base_path}.{field_name}"
+                member_datahub_type = self._map_hive_type_to_datahub_type(member_type)
+                member_field = SchemaField(
+                    fieldPath=member_field_path,
+                    type=member_datahub_type,
+                    nativeDataType=member_type,
+                    description="",
+                    nullable=True,
+                    recursive=False,
+                )
+                fields.append(member_field)
+
+        return fields
+
+    def _generate_nested_struct_fields_v2(
+        self, field_name: str, field_type: str, parent_path: str
+    ) -> List[SchemaField]:
+        """Generate nested fields for struct members"""
+        fields = []
+        field_type_clean = field_type.strip().lower()
+
+        if field_type_clean.startswith("struct<"):
+            # Nested struct field
+            field_path = f"{parent_path}.[type=struct].{field_name}"
+            struct_field = SchemaField(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType=field_type,
+                description="",
+                nullable=True,
+                recursive=False,
+            )
+            fields.append(struct_field)
+
+            # Parse and generate fields for struct members
+            struct_content = field_type[7:-1]
+            struct_fields_parsed = self._parse_struct_fields(struct_content)
+
+            for sub_field_name, sub_field_type in struct_fields_parsed:
+                nested_fields = self._generate_nested_struct_fields_v2(
+                    sub_field_name, sub_field_type, field_path
+                )
+                fields.extend(nested_fields)
+
+        elif field_type_clean.startswith("array<"):
+            # Nested array field
+            element_type = field_type[6:-1]
+            element_type_name = self._get_v2_type_name(element_type)
+            field_path = (
+                f"{parent_path}.[type=array].[type={element_type_name}].{field_name}"
+            )
+
+            array_field = SchemaField(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=ArrayTypeClass()),
+                nativeDataType=field_type,
+                description="",
+                nullable=True,
+                recursive=False,
+            )
+            fields.append(array_field)
+
+            # If array element is complex, generate nested fields
+            if element_type.lower().strip().startswith(("struct<", "map<")):
+                nested_fields = self._generate_nested_struct_fields_v2(
+                    field_name,
+                    element_type,
+                    f"{parent_path}.[type=array].[type={element_type_name}]",
+                )
+                fields.extend(nested_fields)
+
+        elif field_type_clean.startswith("map<"):
+            # Nested map field
+            map_content = field_type[4:-1]
+            key_type, value_type = self._parse_map_types(map_content)
+            value_type_name = self._get_v2_type_name(value_type)
+            field_path = (
+                f"{parent_path}.[type=map].[type={value_type_name}].{field_name}"
+            )
+
+            map_field = SchemaField(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=MapTypeClass()),
+                nativeDataType=field_type,
+                description="",
+                nullable=True,
+                recursive=False,
+            )
+            fields.append(map_field)
+
+            # If map value is complex, generate nested fields
+            if value_type.lower().strip().startswith(("struct<", "array<")):
+                nested_fields = self._generate_nested_struct_fields_v2(
+                    field_name,
+                    value_type,
+                    f"{parent_path}.[type=map].[type={value_type_name}]",
+                )
+                fields.extend(nested_fields)
+        else:
+            # Simple field
+            primitive_type = self._get_v2_type_name(field_type)
+            field_path = f"{parent_path}.[type={primitive_type}].{field_name}"
+            datahub_type = self._map_hive_type_to_datahub_type(field_type)
+
+            simple_field = SchemaField(
+                fieldPath=field_path,
+                type=datahub_type,
+                nativeDataType=field_type,
+                description="",
+                nullable=True,
+                recursive=False,
+            )
+            fields.append(simple_field)
+
+        return fields
+
+    def _get_v2_type_name(self, hive_type: str) -> str:
+        """Map Hive types to v2 type names used in field paths"""
+        hive_type_lower = hive_type.lower().strip()
+
+        # Handle complex types
+        if hive_type_lower.startswith("struct<"):
+            return "struct"
+        elif hive_type_lower.startswith("array<"):
+            return "array"
+        elif hive_type_lower.startswith("map<"):
+            return "map"
+        elif hive_type_lower.startswith("uniontype<"):
+            return "union"
+
+        # Handle parameterized primitive types
+        if hive_type_lower.startswith("varchar") or hive_type_lower.startswith("char"):
+            return "string"
+        elif hive_type_lower.startswith("decimal"):
+            return "double"
+
+        # Handle standard primitive types
+        type_mapping = {
+            "string": "string",
+            "int": "int",
+            "integer": "int",
+            "bigint": "long",
+            "smallint": "int",
+            "tinyint": "int",
+            "double": "double",
+            "float": "float",
+            "boolean": "boolean",
+            "date": "date",
+            "timestamp": "timestamp",
+            "binary": "bytes",
+        }
+
+        return type_mapping.get(hive_type_lower, "string")
+
+    def _map_hive_type_to_datahub_type(
+        self, hive_type: str
+    ) -> SchemaFieldDataTypeClass:
+        """Map Hive types to DataHub schema field types"""
+        hive_type_lower = hive_type.lower()
+
+        if (
+            hive_type_lower in ["string", "varchar", "char"]
+            or hive_type_lower.startswith("varchar")
+            or hive_type_lower.startswith("char")
+        ):
+            return SchemaFieldDataTypeClass(type=StringTypeClass())
+        elif (
+            hive_type_lower in ["int", "integer", "smallint", "tinyint"]
+            or hive_type_lower == "bigint"
+            or hive_type_lower == "double"
+            or hive_type_lower.startswith("decimal")
+            or hive_type_lower == "float"
+        ):
+            return SchemaFieldDataTypeClass(type=NumberTypeClass())
+        elif hive_type_lower == "boolean":
+            return SchemaFieldDataTypeClass(type=BooleanTypeClass())
+        elif hive_type_lower == "date":
+            return SchemaFieldDataTypeClass(type=DateTypeClass())
+        elif hive_type_lower == "timestamp":
+            return SchemaFieldDataTypeClass(type=TimeTypeClass())
+        elif hive_type_lower == "binary":
+            return SchemaFieldDataTypeClass(type=BytesTypeClass())
+        else:
+            return SchemaFieldDataTypeClass(type=StringTypeClass())
+
+    def _parse_struct_fields(self, struct_content: str) -> List[Tuple[str, str]]:
+        """Parse struct field definitions with better handling of nested types"""
+        if not struct_content.strip():
+            return []
+
+        fields = []
+        current_field = ""
+        bracket_count = 0
+        angle_count = 0
+
+        i = 0
+        while i < len(struct_content):
+            char = struct_content[i]
+
+            if char == "<":
+                angle_count += 1
+                current_field += char
+            elif char == ">":
+                angle_count -= 1
+                current_field += char
+            elif char in "([":
+                bracket_count += 1
+                current_field += char
+            elif char in ")]":
+                bracket_count -= 1
+                current_field += char
+            elif char == "," and bracket_count == 0 and angle_count == 0:
+                # Process the current field
+                if current_field.strip():
+                    field_parts = current_field.split(":", 1)
+                    if len(field_parts) == 2:
+                        field_name = field_parts[0].strip()
+                        field_type = field_parts[1].strip()
+                        fields.append((field_name, field_type))
+                    else:
+                        logger.warning(f"Could not parse struct field: {current_field}")
+                current_field = ""
+            else:
+                current_field += char
+
+            i += 1
+
+        # Handle the last field
+        if current_field.strip():
+            field_parts = current_field.split(":", 1)
+            if len(field_parts) == 2:
+                field_name = field_parts[0].strip()
+                field_type = field_parts[1].strip()
+                fields.append((field_name, field_type))
+            else:
+                logger.warning(f"Could not parse struct field: {current_field}")
+
+        return fields
+
+    def _parse_map_types(self, map_content: str) -> Tuple[str, str]:
+        """Parse map key and value types with better nested type handling"""
+        if not map_content.strip():
+            return "string", "string"
+
+        bracket_count = 0
+        angle_count = 0
+        comma_positions = []
+
+        # Find all comma positions that are at the top level (not inside nested types)
+        for i, char in enumerate(map_content):
+            if char == "<":
+                angle_count += 1
+            elif char == ">":
+                angle_count -= 1
+            elif char in "([":
+                bracket_count += 1
+            elif char in ")]":
+                bracket_count -= 1
+            elif char == "," and bracket_count == 0 and angle_count == 0:
+                comma_positions.append(i)
+
+        # For maps, we expect exactly one top-level comma separating key and value
+        if len(comma_positions) == 1:
+            split_pos = comma_positions[0]
+            key_type = map_content[:split_pos].strip()
+            value_type = map_content[split_pos + 1 :].strip()
+            return key_type, value_type
+        elif len(comma_positions) == 0:
+            # No comma found, might be malformed - try simple split as fallback
+            parts = map_content.split(",", 1)
+            if len(parts) == 2:
+                return parts[0].strip(), parts[1].strip()
+
+        # Fallback for malformed or complex cases
+        logger.warning(
+            f"Could not parse map type: map<{map_content}>. Using string defaults."
+        )
+        return "string", "string"
+
+    def _parse_union_types(self, union_content: str) -> List[str]:
+        """Parse union member types with better nested type handling"""
+        if not union_content.strip():
+            return []
+
+        types = []
+        current_type = ""
+        bracket_count = 0
+        angle_count = 0
+
+        for char in union_content + ",":
+            if char == "<":
+                angle_count += 1
+                current_type += char
+            elif char == ">":
+                angle_count -= 1
+                current_type += char
+            elif char in "([":
+                bracket_count += 1
+                current_type += char
+            elif char in ")]":
+                bracket_count -= 1
+                current_type += char
+            elif char == "," and bracket_count == 0 and angle_count == 0:
+                if current_type.strip():
+                    types.append(current_type.strip())
+                current_type = ""
+            else:
+                current_type += char
+
+        return types
 
     def _set_partition_key(self, columns, schema_fields):
         if len(columns) > 0:
