@@ -1855,6 +1855,19 @@ fragment ingestionSourceFields on IngestionSource {
     }
 }
 
+fragment minimalIngestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    type
+    input {
+        requestedAt
+        source {
+            type
+        }
+        task
+    }
+}
+
 fragment ingestionExecutionRequestFields on ExecutionRequest {
     urn
     id
