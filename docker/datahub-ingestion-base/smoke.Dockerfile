@@ -23,7 +23,7 @@ RUN cd /datahub-src && \
     pip install --upgrade uv && \
     uv venv venv --python 3.11 && \
     . venv/bin/activate && \
-    uv pip install --upgrade pip wheel setuptools 'pytest-sentry==0.3.2'
+    uv pip install --upgrade pip wheel setuptools 'pytest-sentry==0.3.2' 'pytest-rerunfailures==15.1'
 
 RUN cd /datahub-src/metadata-ingestion && \
     ../gradlew :metadata-ingestion:codegen && \
