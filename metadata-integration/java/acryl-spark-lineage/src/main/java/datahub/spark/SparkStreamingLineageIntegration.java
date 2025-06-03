@@ -4,6 +4,8 @@ import datahub.spark.conf.SparkLineageConf;
 import io.openlineage.spark.agent.ArgumentParser;
 import io.openlineage.spark.api.SparkOpenLineageConfig;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.SparkContext;
 import org.apache.spark.sql.SparkSession;
@@ -61,16 +63,63 @@ public class SparkStreamingLineageIntegration {
   /** Register the streaming query listeners with Spark. */
   private static void registerStreamingQueryListeners(
       SparkSession spark, DatahubEventEmitter emitter) {
-    // Register the MicroBatchExecutionListener
-    if (emitter.microBatchListener != null) {
-      spark.streams().addListener(new ForwardingStreamingQueryListener(emitter.microBatchListener));
-      log.info("Registered MicroBatchExecutionListener with Spark");
-    }
+    try {
+      // Check if listeners are already registered to avoid duplicates
+      AtomicBoolean listenersAlreadyRegistered = new AtomicBoolean(false);
 
-    // Register the ContinuousExecutionListener
-    if (emitter.continuousListener != null) {
-      spark.streams().addListener(new ForwardingStreamingQueryListener(emitter.continuousListener));
-      log.info("Registered ContinuousExecutionListener with Spark");
+      try {
+        // Use reflection to access the internal listener list
+        Field listenersField = spark.streams().getClass().getDeclaredField("listeners");
+        listenersField.setAccessible(true);
+        Object listeners = listenersField.get(spark.streams());
+
+        if (listeners != null) {
+          Method sizeMethod = listeners.getClass().getMethod("size");
+          int size = (int) sizeMethod.invoke(listeners);
+          log.info("Current streaming listeners count: {}", size);
+
+          // If we already have more than the expected number of listeners, don't add more
+          if (size > 0) {
+            log.warn("Streaming listeners already exist, checking for duplicates");
+
+            // We'll look for our ForwardingStreamingQueryListener to avoid duplicates
+            Method getMethod = listeners.getClass().getMethod("get", int.class);
+            for (int i = 0; i < size; i++) {
+              Object listener = getMethod.invoke(listeners, i);
+              if (listener instanceof ForwardingStreamingQueryListener) {
+                listenersAlreadyRegistered.set(true);
+                log.info(
+                    "ForwardingStreamingQueryListener already registered, skipping registration");
+                break;
+              }
+            }
+          }
+        }
+      } catch (Exception e) {
+        log.debug("Could not check existing listeners: {}", e.getMessage());
+      }
+
+      if (!listenersAlreadyRegistered.get()) {
+        // Register the MicroBatchExecutionListener
+        if (emitter.microBatchListener != null) {
+          spark
+              .streams()
+              .addListener(new ForwardingStreamingQueryListener(emitter.microBatchListener));
+          log.info("Registered MicroBatchExecutionListener with Spark");
+        }
+
+        // Register the ContinuousExecutionListener
+        if (emitter.continuousListener != null) {
+          spark
+              .streams()
+              .addListener(new ForwardingStreamingQueryListener(emitter.continuousListener));
+          log.info("Registered ContinuousExecutionListener with Spark");
+        }
+      } else {
+        log.info("Skipping listener registration to avoid duplicates");
+      }
+    } catch (Exception e) {
+      log.error("Error checking for existing listeners", e);
     }
   }
 

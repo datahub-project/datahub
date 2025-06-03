@@ -21,11 +21,21 @@ public class MicroBatchLogInterceptor {
   private static DatahubEventEmitter emitter;
   private static final Pattern CATALOG_TABLE_PATTERN =
       Pattern.compile(
-          ".*MicroBatchExecution.*\\[queryId = ([^\\]]+)\\].*CatalogTable\\(\\s*"
-              + "Catalog: ([^\\n]+)\\s*"
-              + "Database: ([^\\n]+)\\s*"
-              + "Table: ([^\\n]+)\\s*"
-              + "(?:.*Location: ([^\\n]+)\\s*)?");
+          ".*MicroBatchExecution.*\\[queryId = ([^\\]]+)\\].*CatalogTable\\(\\s*\n"
+              + "Catalog: ([^\\n]+)\\s*\n"
+              + "Database: ([^\\n]+)\\s*\n"
+              + "Table: ([^\\n]+)\\s*\n"
+              + "(?:Created Time:[^\\n]*\\s*\n)?"
+              + "(?:Last Access:[^\\n]*\\s*\n)?"
+              + "(?:Created By:[^\\n]*\\s*\n)?"
+              + "(?:Type:[^\\n]*\\s*\n)?"
+              + "(?:Provider: ([^\\n]+)\\s*\n)?"
+              + "(?:.*\\s*\n)*?"
+              + "(?:Location: ([^\\n]+)\\s*\n)?"
+              + "(?:.*\\s*\n)*?"
+              + "(?:Partition Columns: \\[([^\\]]+)\\]\\s*\n)?"
+              + "(?:Schema: (root[\\s\\S]*?)(?:\\.[\\s]*)?)",
+          Pattern.DOTALL);
   private static final Pattern PROGRESS_REPORTER_PATTERN =
       Pattern.compile(
           ".*ProgressReporter.*\\[queryId = ([^\\]]+)\\].*Streaming query made progress.*");
@@ -496,7 +506,7 @@ public class MicroBatchLogInterceptor {
       }
 
       // Check if the message contains CatalogTable information
-      if (message.contains("CatalogTable(") && message.contains("Schema: root")) {
+      if (message.contains("CatalogTable(")) {
         try {
           // Log the full message to help with debugging
           log.debug("Processing CatalogTable message: {}", message);
@@ -504,20 +514,21 @@ public class MicroBatchLogInterceptor {
           // Extract catalog, database and table
           Matcher matcher = CATALOG_TABLE_PATTERN.matcher(message);
           if (matcher.find()) {
-            String catalog = matcher.group(2);
-            String database = matcher.group(3);
-            String table = matcher.group(4);
+            String queryIdFromPattern = matcher.group(1);
+            String catalog = matcher.group(2).trim();
+            String database = matcher.group(3).trim();
+            String table = matcher.group(4).trim();
 
             log.info(
-                "Found catalog table reference - Catalog: {}, Database: {}, Table: {}",
+                "Found catalog table reference - Query: {}, Catalog: {}, Database: {}, Table: {}",
+                queryIdFromPattern,
                 catalog,
                 database,
                 table);
 
-            // Extract location - this is now optional
-            String location = null;
-            if (matcher.groupCount() >= 5) {
-              location = matcher.group(5);
+            // If we didn't get a query ID from the main extraction, use the one from the pattern
+            if (queryId == null || queryId.isEmpty()) {
+              queryId = queryIdFromPattern;
             }
 
             // Create metadata map
@@ -526,9 +537,44 @@ public class MicroBatchLogInterceptor {
             metadata.put("catalogName", catalog);
             metadata.put("databaseName", database);
             metadata.put("tableName", table);
-            if (location != null) {
+
+            // Extract provider (e.g., delta)
+            if (matcher.groupCount() >= 5 && matcher.group(5) != null) {
+              String provider = matcher.group(5).trim();
+              metadata.put("provider", provider);
+              log.debug("Table provider: {}", provider);
+            }
+
+            // Extract location
+            if (matcher.groupCount() >= 6 && matcher.group(6) != null) {
+              String location = matcher.group(6).trim();
               metadata.put("location", location);
               log.debug("Table location: {}", location);
+            }
+
+            // Extract partition columns
+            if (matcher.groupCount() >= 7 && matcher.group(7) != null) {
+              String partitionColumns = matcher.group(7).trim();
+              metadata.put("partitionColumns", partitionColumns);
+              log.debug("Partition columns: {}", partitionColumns);
+            }
+
+            // Extract schema
+            if (matcher.groupCount() >= 8 && matcher.group(8) != null) {
+              String schema = matcher.group(8).trim();
+              metadata.put("schema", schema);
+              log.debug("Schema details captured");
+            }
+
+            // Look for source information in the same message
+            if (message.contains("Using Source")) {
+              Pattern sourcePattern = Pattern.compile("Using Source \\[([^\\]]+)\\]");
+              Matcher sourceMatcher = sourcePattern.matcher(message);
+              if (sourceMatcher.find()) {
+                String source = sourceMatcher.group(1).trim();
+                metadata.put("source", source);
+                log.debug("Source information: {}", source);
+              }
             }
 
             // Pass to StreamingEventCorrelator via emitter

@@ -36,6 +36,8 @@ import io.openlineage.client.OpenLineageClientUtils;
 import io.openlineage.spark.agent.EventEmitter;
 import io.openlineage.spark.api.SparkOpenLineageConfig;
 import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -49,6 +51,8 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.spark.sql.SparkSession;
@@ -73,7 +77,7 @@ public class DatahubEventEmitter extends EventEmitter {
   private final EventFormatter eventFormatter = new EventFormatter();
 
   // Add streaming event correlator
-  private final StreamingEventCorrelator streamingEventCorrelator = new StreamingEventCorrelator();
+  private final StreamingEventCorrelator streamingCorrelator = new StreamingEventCorrelator();
 
   // Track the SparkSession for later use
   private SparkSession sparkSession;
@@ -164,11 +168,37 @@ public class DatahubEventEmitter extends EventEmitter {
     log.info("Registering streaming query listeners with SparkSession");
 
     try {
-      // Register listeners with Spark's streaming context
-      sparkSession.streams().addListener(microBatchListener);
-      sparkSession.streams().addListener(continuousListener);
+      // Check if listeners are already registered
+      AtomicBoolean alreadyRegistered = new AtomicBoolean(false);
+      try {
+        // Use reflection to access the internal listener list
+        Field listenersField = sparkSession.streams().getClass().getDeclaredField("listeners");
+        listenersField.setAccessible(true);
+        Object listeners = listenersField.get(sparkSession.streams());
 
-      log.info("Successfully registered streaming query listeners");
+        if (listeners != null) {
+          Method sizeMethod = listeners.getClass().getMethod("size");
+          int size = (int) sizeMethod.invoke(listeners);
+          log.info("Current streaming listeners count: {}", size);
+
+          // If we already have listeners, we might be re-registering
+          if (size > 0) {
+            log.warn("Streaming listeners already exist, checking for duplicates");
+            alreadyRegistered.set(true);
+          }
+        }
+      } catch (Exception e) {
+        log.debug("Could not check existing listeners: {}", e.getMessage());
+      }
+
+      if (!alreadyRegistered.get()) {
+        // Register listeners with Spark's streaming context
+        sparkSession.streams().addListener(microBatchListener);
+        sparkSession.streams().addListener(continuousListener);
+        log.info("Successfully registered streaming query listeners");
+      } else {
+        log.info("Skipping listener registration to avoid duplicates");
+      }
     } catch (Exception e) {
       log.error("Error registering streaming query listeners", e);
     }
@@ -439,7 +469,7 @@ public class DatahubEventEmitter extends EventEmitter {
 
       // Use the StreamingEventCorrelator to handle correlation between events
       List<MetadataChangeProposalWrapper> mcps =
-          streamingEventCorrelator.processEvent(event, datahubConf, schemaMap);
+          streamingCorrelator.processEvent(event, datahubConf, schemaMap);
 
       List<MetadataChangeProposal> formattedMcps = new ArrayList<>();
       for (MetadataChangeProposalWrapper mcp : mcps) {
@@ -466,7 +496,7 @@ public class DatahubEventEmitter extends EventEmitter {
 
     try {
       log.info("Processing microbatch start for query ID: {}", queryId);
-      streamingEventCorrelator.recordMicroBatchStart(queryId, logMessage);
+      streamingCorrelator.recordMicroBatchStart(queryId, logMessage);
     } catch (Exception e) {
       log.error("Error processing microbatch start event", e);
     }
@@ -482,7 +512,7 @@ public class DatahubEventEmitter extends EventEmitter {
 
     try {
       log.info("Processing microbatch commit for query ID: {}, metadata: {}", queryId, metadata);
-      streamingEventCorrelator.recordMicroBatchCommit(queryId, metadata, logMessage);
+      streamingCorrelator.recordMicroBatchCommit(queryId, metadata, logMessage);
     } catch (Exception e) {
       log.error("Error processing microbatch commit event", e);
     }
@@ -498,7 +528,7 @@ public class DatahubEventEmitter extends EventEmitter {
 
     try {
       log.info("Processing delta sink write for query ID: {}, metadata: {}", queryId, metadata);
-      streamingEventCorrelator.recordDeltaSinkWrite(queryId, metadata, logMessage);
+      streamingCorrelator.recordDeltaSinkWrite(queryId, metadata, logMessage);
     } catch (Exception e) {
       log.error("Error processing delta sink write event", e);
     }
@@ -520,7 +550,7 @@ public class DatahubEventEmitter extends EventEmitter {
 
     try {
       log.info("Processing logical plan for query ID: {}", queryId);
-      streamingEventCorrelator.recordLogicalPlan(queryId, metadata, logMessage);
+      streamingCorrelator.recordLogicalPlan(queryId, metadata, logMessage);
     } catch (Exception e) {
       log.error("Error processing logical plan event", e);
     }
@@ -542,7 +572,7 @@ public class DatahubEventEmitter extends EventEmitter {
 
     try {
       log.info("Processing progress report for query ID: {}", queryId);
-      streamingEventCorrelator.recordProgressReport(queryId, metadata, logMessage);
+      streamingCorrelator.recordProgressReport(queryId, metadata, logMessage);
     } catch (Exception e) {
       log.error("Error processing progress report event", e);
     }
@@ -564,7 +594,7 @@ public class DatahubEventEmitter extends EventEmitter {
 
     try {
       log.info("Processing interesting message for query ID: {}", queryId);
-      streamingEventCorrelator.recordInterestingMessage(queryId, metadata, logMessage);
+      streamingCorrelator.recordInterestingMessage(queryId, metadata, logMessage);
     } catch (Exception e) {
       log.error("Error processing interesting message", e);
     }
@@ -603,14 +633,14 @@ public class DatahubEventEmitter extends EventEmitter {
             tableName,
             location);
 
-        streamingEventCorrelator.recordCatalogTable(queryId, metadata);
+        streamingCorrelator.recordCatalogTable(queryId, metadata);
       } else if ("foreachBatchSink".equals(type)) {
         // Handle foreachBatchSink information from ProgressReporter logs
         // This is where we link the streaming query to an output table
         String progressReport = metadata.get("progressReport");
 
         log.info("Found ForeachBatchSink with progress report for query {}", queryId);
-        streamingEventCorrelator.recordForeachBatchSink(queryId, progressReport);
+        streamingCorrelator.recordForeachBatchSink(queryId, progressReport);
       }
     } catch (Exception e) {
       log.error("Error processing output table: {}", e.getMessage(), e);
@@ -625,8 +655,8 @@ public class DatahubEventEmitter extends EventEmitter {
    * @param logMessage the original log message
    */
   public void processLogicalPlan(String queryId, Map<String, String> metadata, String logMessage) {
-    if (streamingEventCorrelator != null) {
-      streamingEventCorrelator.recordLogicalPlan(queryId, metadata, logMessage);
+    if (streamingCorrelator != null) {
+      streamingCorrelator.recordLogicalPlan(queryId, metadata, logMessage);
     }
   }
 
@@ -639,8 +669,158 @@ public class DatahubEventEmitter extends EventEmitter {
    */
   public void processProgressReport(
       String queryId, Map<String, String> metadata, String logMessage) {
-    if (streamingEventCorrelator != null) {
-      streamingEventCorrelator.recordProgressReport(queryId, metadata, logMessage);
+    if (streamingCorrelator != null) {
+      streamingCorrelator.recordProgressReport(queryId, metadata, logMessage);
+    }
+  }
+
+  /**
+   * Process sink information captured from StreamingQueryListener. This information is used to
+   * better associate streaming jobs with Hive tables.
+   *
+   * @param queryId the streaming query ID
+   * @param metadata sink metadata containing sink description and other details
+   */
+  public void processSinkInformation(String queryId, Map<String, String> metadata) {
+    try {
+      log.info("Processing sink information for query ID: {}", queryId);
+
+      if (metadata != null && metadata.containsKey("sinkDescription")) {
+        String sinkDescription = metadata.get("sinkDescription");
+        log.debug("Sink description: {}", sinkDescription);
+
+        // Try multiple patterns to extract table information from various sink formats
+
+        // Pattern 1: Full catalog.database.table format with brackets
+        // Example: "HiveTableSink[jonnydq.default.stream_orders]"
+        Pattern fullTablePattern = Pattern.compile(".*\\[(.*?)\\.(.*?)\\.(.*?)\\].*");
+        Matcher matcher = fullTablePattern.matcher(sinkDescription);
+
+        if (matcher.find() && matcher.groupCount() >= 3) {
+          String catalog = matcher.group(1);
+          String database = matcher.group(2);
+          String table = matcher.group(3);
+
+          log.info(
+              "Extracted table info (full format) - Catalog: {}, Database: {}, Table: {}",
+              catalog,
+              database,
+              table);
+
+          // Create a metadata map with the extracted information
+          Map<String, String> tableMetadata = new HashMap<>();
+          tableMetadata.put("type", "catalogTable");
+          tableMetadata.put("catalogName", catalog);
+          tableMetadata.put("databaseName", database);
+          tableMetadata.put("tableName", table);
+
+          // Pass to the StreamingEventCorrelator
+          if (this.streamingCorrelator != null) {
+            this.streamingCorrelator.recordCatalogTable(queryId, tableMetadata);
+            log.info("Recorded catalog table for streaming query: {}", queryId);
+          } else {
+            log.warn("StreamingEventCorrelator is null, cannot record catalog table");
+          }
+          return;
+        }
+
+        // Pattern 2: Database.table format with brackets
+        // Example: "JDBCSink[default.stream_orders]"
+        Pattern dbTablePattern = Pattern.compile(".*\\[(.*?)\\.(.*?)\\].*");
+        matcher = dbTablePattern.matcher(sinkDescription);
+
+        if (matcher.find() && matcher.groupCount() >= 2) {
+          String database = matcher.group(1);
+          String table = matcher.group(2);
+
+          log.info(
+              "Extracted table info (db.table format) - Database: {}, Table: {}", database, table);
+
+          // Create a metadata map with the extracted information
+          Map<String, String> tableMetadata = new HashMap<>();
+          tableMetadata.put("type", "catalogTable");
+          tableMetadata.put("catalogName", "jonnydq"); // Use the specified catalog
+          tableMetadata.put("databaseName", database);
+          tableMetadata.put("tableName", table);
+
+          // Pass to the StreamingEventCorrelator
+          if (this.streamingCorrelator != null) {
+            this.streamingCorrelator.recordCatalogTable(queryId, tableMetadata);
+            log.info("Recorded catalog table for streaming query: {}", queryId);
+          } else {
+            log.warn("StreamingEventCorrelator is null, cannot record catalog table");
+          }
+          return;
+        }
+
+        // Pattern 3: Look for format with "database=X, table=Y" or similar
+        Pattern keyValuePattern =
+            Pattern.compile(
+                ".*(?:database|db)=\\s*['\"](.*?)['\"].*(?:table|tbl)=\\s*['\"](.*?)['\"].*",
+                Pattern.CASE_INSENSITIVE);
+        matcher = keyValuePattern.matcher(sinkDescription);
+
+        if (matcher.find() && matcher.groupCount() >= 2) {
+          String database = matcher.group(1);
+          String table = matcher.group(2);
+
+          log.info(
+              "Extracted table info (key-value format) - Database: {}, Table: {}", database, table);
+
+          // Create a metadata map with the extracted information
+          Map<String, String> tableMetadata = new HashMap<>();
+          tableMetadata.put("type", "catalogTable");
+          tableMetadata.put("catalogName", "jonnydq"); // Use the specified catalog
+          tableMetadata.put("databaseName", database);
+          tableMetadata.put("tableName", table);
+
+          // Pass to the StreamingEventCorrelator
+          if (this.streamingCorrelator != null) {
+            this.streamingCorrelator.recordCatalogTable(queryId, tableMetadata);
+            log.info("Recorded catalog table for streaming query: {}", queryId);
+          } else {
+            log.warn("StreamingEventCorrelator is null, cannot record catalog table");
+          }
+          return;
+        }
+
+        // Pattern 4: Just a table name in brackets
+        // Example: "Sink[stream_orders]"
+        Pattern singleTablePattern = Pattern.compile(".*\\[([^\\.]*)\\].*");
+        matcher = singleTablePattern.matcher(sinkDescription);
+
+        if (matcher.find() && matcher.groupCount() >= 1) {
+          String table = matcher.group(1);
+
+          // Only process if it doesn't contain special characters that would indicate it's not a
+          // table
+          if (!table.contains("/") && !table.contains("\\") && !table.contains(":")) {
+            log.info("Extracted table info (single table format) - Table: {}", table);
+
+            // Create a metadata map with the extracted information
+            Map<String, String> tableMetadata = new HashMap<>();
+            tableMetadata.put("type", "catalogTable");
+            tableMetadata.put("catalogName", "jonnydq"); // Use the specified catalog
+            tableMetadata.put("databaseName", "default"); // Assume default database
+            tableMetadata.put("tableName", table);
+
+            // Pass to the StreamingEventCorrelator
+            if (this.streamingCorrelator != null) {
+              this.streamingCorrelator.recordCatalogTable(queryId, tableMetadata);
+              log.info("Recorded catalog table for streaming query: {}", queryId);
+            } else {
+              log.warn("StreamingEventCorrelator is null, cannot record catalog table");
+            }
+            return;
+          }
+        }
+
+        log.warn("Could not extract table information from sink description: {}", sinkDescription);
+      } else {
+        log.warn("Missing sink description in metadata");
+      }
+    } catch (Exception e) {
+      log.error("Error processing sink information: {}", e.getMessage(), e);
     }
   }
 
@@ -688,8 +868,8 @@ public class DatahubEventEmitter extends EventEmitter {
     this.datahubConf = sparkConfig;
 
     // Update the streaming correlator config
-    if (streamingEventCorrelator != null) {
-      streamingEventCorrelator.setConfig(sparkConfig);
+    if (streamingCorrelator != null) {
+      streamingCorrelator.setConfig(sparkConfig);
     }
 
     // Register the streaming listeners
@@ -729,7 +909,7 @@ public class DatahubEventEmitter extends EventEmitter {
 
       // Generate lineage from accumulated data
       List<MetadataChangeProposalWrapper> mcps =
-          streamingEventCorrelator.generateLineageFromStreamingData(queryId);
+          streamingCorrelator.generateLineageFromStreamingData(queryId);
 
       if (mcps.isEmpty()) {
         log.warn("No MCPs generated for query {}", queryId);

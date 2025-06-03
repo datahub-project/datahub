@@ -243,6 +243,41 @@ public class StreamingEventCorrelator {
       // Try to correlate with microbatch events based on extracted metadata
       correlateWithMicroBatchEvents(eventData);
 
+      // Check if patching is enabled
+      boolean usePatch = isPatchingEnabled();
+      if (usePatch) {
+        log.info(
+            "Using patching mechanism for lineage generation (spark.datahub.patch.enabled=true)");
+
+        // Set the usePatch flag in the OpenLineage configuration
+        if (conf.getOpenLineageConf() != null) {
+          DatahubOpenlineageConfig patchedConfig =
+              io.datahubproject.openlineage.config.DatahubOpenlineageConfig.builder()
+                  .isSpark(conf.getOpenLineageConf().isSpark())
+                  .emitDataProcessInstance(conf.getOpenLineageConf().isEmitDataProcessInstance())
+                  .fabricType(conf.getOpenLineageConf().getFabricType())
+                  .pipelineName(conf.getOpenLineageConf().getPipelineName())
+                  .platformInstance(conf.getOpenLineageConf().getPlatformInstance())
+                  .materializeDataset(conf.getOpenLineageConf().isMaterializeDataset())
+                  .includeSchemaMetadata(conf.getOpenLineageConf().isIncludeSchemaMetadata())
+                  .usePatch(true) // Set the patching flag
+                  .build();
+
+          // Create a new SparkLineageConf with the patched OpenLineage config
+          SparkLineageConf patchedSparkLineageConf =
+              SparkLineageConf.builder()
+                  .sparkAppContext(conf.getSparkAppContext())
+                  .openLineageConf(patchedConfig)
+                  .datahubEmitterConfig(conf.getDatahubEmitterConfig())
+                  .tags(conf.getTags())
+                  .domains(conf.getDomains())
+                  .build();
+
+          // Generate MCPs using patched configuration
+          this.conf = patchedSparkLineageConf; // Update our stored configuration
+        }
+      }
+
       // Check if DataProcessInstance support is enabled in the config
       boolean emitDataProcessInstance =
           conf.getOpenLineageConf() != null
@@ -1357,6 +1392,19 @@ public class StreamingEventCorrelator {
 
           // Determine the platform using our helper method
           String platform = getHivePlatformName();
+
+          // If we have provider information, adjust the platform accordingly
+          if (metadata.containsKey("provider")) {
+            String provider = metadata.get("provider");
+            log.info("Table provider: {}", provider);
+
+            // For Delta provider, use delta platform
+            if ("delta".equalsIgnoreCase(provider)) {
+              platform = getDeltaPlatformAlias();
+              log.info("Using Delta platform: {}", platform);
+            }
+          }
+
           log.info("Using platform name: {} for catalog table", platform);
 
           // Create dataset Urn
@@ -1372,6 +1420,60 @@ public class StreamingEventCorrelator {
           if (metadata.containsKey("location")) {
             eventData.sinkPath = metadata.get("location");
             sinkPathToQueryId.put(eventData.sinkPath, queryId);
+            log.info("Recorded sink path: {}", eventData.sinkPath);
+          }
+
+          // Store schema information if available
+          if (metadata.containsKey("schema")) {
+            log.info("Schema information available for table {}", datasetName);
+
+            // Store schema information in the eventData for later use in MCP generation
+            if (eventData.jobMetadata == null) {
+              eventData.jobMetadata = new HashMap<>();
+            }
+            eventData.jobMetadata.put("schema", metadata.get("schema"));
+          }
+
+          // Store partition information if available
+          if (metadata.containsKey("partitionColumns")) {
+            log.info("Partition information available: {}", metadata.get("partitionColumns"));
+
+            if (eventData.jobMetadata == null) {
+              eventData.jobMetadata = new HashMap<>();
+            }
+            eventData.jobMetadata.put("partitionColumns", metadata.get("partitionColumns"));
+          }
+
+          // Store source information if available
+          if (metadata.containsKey("source")) {
+            String source = metadata.get("source");
+            log.info("Source information available: {}", source);
+
+            // Set source info in the event data
+            eventData.sourceInfo = source;
+
+            // Try to extract a source path from the source information
+            if (source.contains("s3://")) {
+              int s3Start = source.indexOf("s3://");
+              int s3End = source.indexOf("]", s3Start);
+              if (s3End > s3Start) {
+                String sourcePath = source.substring(s3Start, s3End);
+                eventData.sourcePath = sourcePath;
+                log.info("Extracted source path: {}", sourcePath);
+
+                // Try to create an input dataset URN for this source
+                try {
+                  // For S3 sources, use S3 platform
+                  DatasetUrn inputUrn =
+                      new DatasetUrn(new DataPlatformUrn("s3"), sourcePath, getFabricType());
+
+                  eventData.inputDatasets.add(inputUrn);
+                  log.info("Added input dataset from source: {}", inputUrn);
+                } catch (Exception e) {
+                  log.warn("Could not create input dataset URN for source: {}", sourcePath, e);
+                }
+              }
+            }
           }
         } catch (Exception e) {
           log.error(
@@ -1461,6 +1563,19 @@ public class StreamingEventCorrelator {
 
         // Determine the platform using our helper method
         String platform = getHivePlatformName();
+
+        // If we have provider information, adjust the platform accordingly
+        if (catalogMetadata.containsKey("provider")) {
+          String provider = catalogMetadata.get("provider");
+          log.info("Table provider: {}", provider);
+
+          // For Delta provider, use delta platform
+          if ("delta".equalsIgnoreCase(provider)) {
+            platform = getDeltaPlatformAlias();
+            log.info("Using Delta platform: {}", platform);
+          }
+        }
+
         log.info("Using platform name: {} for catalog table", platform);
 
         // Create the output dataset Urn
@@ -1492,12 +1607,66 @@ public class StreamingEventCorrelator {
         eventData.jobMetadata.put("catalogName", catalogName);
         eventData.operation = operation;
 
+        // Add location if available
+        if (catalogMetadata.containsKey("location")) {
+          String location = catalogMetadata.get("location");
+          eventData.sinkPath = location;
+          sinkPathToQueryId.put(location, queryId);
+          eventData.jobMetadata.put("location", location);
+          log.info("Added sink location: {}", location);
+        }
+
+        // Add schema information if available
+        if (catalogMetadata.containsKey("schema")) {
+          String schema = catalogMetadata.get("schema");
+          eventData.jobMetadata.put("schema", schema);
+          log.info("Added schema information to job metadata");
+        }
+
+        // Add partition information if available
+        if (catalogMetadata.containsKey("partitionColumns")) {
+          String partitionColumns = catalogMetadata.get("partitionColumns");
+          eventData.jobMetadata.put("partitionColumns", partitionColumns);
+          log.info("Added partition columns: {}", partitionColumns);
+        }
+
+        // Add source information if available
+        if (catalogMetadata.containsKey("source")) {
+          String source = catalogMetadata.get("source");
+          eventData.sourceInfo = source;
+          eventData.jobMetadata.put("source", source);
+          log.info("Added source information: {}", source);
+
+          // Try to extract a source path and create an input dataset
+          if (source.contains("s3://")) {
+            int s3Start = source.indexOf("s3://");
+            int s3End = source.indexOf("]", s3Start);
+            if (s3End > s3Start) {
+              String sourcePath = source.substring(s3Start, s3End);
+              eventData.sourcePath = sourcePath;
+              log.info("Extracted source path: {}", sourcePath);
+
+              // Try to create an input dataset URN for this source
+              try {
+                // For S3 sources, use S3 platform
+                DatasetUrn inputUrn =
+                    new DatasetUrn(new DataPlatformUrn("s3"), sourcePath, getFabricType());
+
+                eventData.inputDatasets.add(inputUrn);
+                log.info("Added input dataset from source: {}", inputUrn);
+              } catch (Exception e) {
+                log.warn("Could not create input dataset URN for source: {}", sourcePath, e);
+              }
+            }
+          }
+        }
+
         log.info(
             "Updated streaming event data with output table information and operation: {}",
             operation);
       }
     } catch (Exception e) {
-      log.error("Error processing streaming event with catalog table: {}", e.getMessage(), e);
+      log.error("Error processing pending streaming events: {}", e.getMessage(), e);
     }
   }
 
@@ -1555,6 +1724,35 @@ public class StreamingEventCorrelator {
     }
   }
 
+  /** Check if patching is enabled from the configuration. */
+  private boolean isPatchingEnabled() {
+    // First check if OpenLineage configuration has usePatch set
+    if (conf != null
+        && conf.getOpenLineageConf() != null
+        && conf.getOpenLineageConf().isUsePatch()) {
+      log.debug("Patching enabled from OpenLineage configuration");
+      return true;
+    }
+
+    // Then check for spark.datahub.patch.enabled flag in SparkConf
+    if (conf != null
+        && conf.getSparkAppContext() != null
+        && conf.getSparkAppContext().getConf() != null) {
+      try {
+        String patchEnabled =
+            conf.getSparkAppContext().getConf().get("spark.datahub.patch.enabled", "false");
+        if ("true".equalsIgnoreCase(patchEnabled)) {
+          log.debug("Patching enabled from spark.datahub.patch.enabled=true");
+          return true;
+        }
+      } catch (Exception e) {
+        log.warn("Error checking for patching configuration in SparkConf: {}", e.getMessage());
+      }
+    }
+
+    return false;
+  }
+
   /**
    * Generates lineage from accumulated streaming event data
    *
@@ -1593,7 +1791,54 @@ public class StreamingEventCorrelator {
 
       log.info("Generating lineage for query {} with operation {}", queryId, operation);
 
-      // If we have output datasets from catalog table information, use those
+      // Check if patching is enabled
+      boolean usePatch = isPatchingEnabled();
+      if (usePatch) {
+        log.info(
+            "Using patching mechanism for lineage generation (spark.datahub.patch.enabled=true)");
+
+        // Set the usePatch flag in the OpenLineage configuration
+        if (conf.getOpenLineageConf() != null) {
+          DatahubOpenlineageConfig patchedConfig =
+              io.datahubproject.openlineage.config.DatahubOpenlineageConfig.builder()
+                  .isSpark(conf.getOpenLineageConf().isSpark())
+                  .emitDataProcessInstance(conf.getOpenLineageConf().isEmitDataProcessInstance())
+                  .fabricType(conf.getOpenLineageConf().getFabricType())
+                  .pipelineName(conf.getOpenLineageConf().getPipelineName())
+                  .platformInstance(conf.getOpenLineageConf().getPlatformInstance())
+                  .materializeDataset(conf.getOpenLineageConf().isMaterializeDataset())
+                  .includeSchemaMetadata(conf.getOpenLineageConf().isIncludeSchemaMetadata())
+                  .usePatch(true) // Set the patching flag
+                  .build();
+
+          // Create a new SparkLineageConf with the patched OpenLineage config
+          SparkLineageConf patchedSparkLineageConf =
+              SparkLineageConf.builder()
+                  .sparkAppContext(conf.getSparkAppContext())
+                  .openLineageConf(patchedConfig)
+                  .datahubEmitterConfig(conf.getDatahubEmitterConfig())
+                  .tags(conf.getTags())
+                  .domains(conf.getDomains())
+                  .build();
+
+          // Generate MCPs using the patched configuration
+          if (eventData.outputDatasets != null && !eventData.outputDatasets.isEmpty()) {
+            log.info(
+                "Using output datasets from catalog table with patching: {}",
+                eventData.outputDatasets);
+
+            return SparkStreamingEventToDatahub.generateMcpFromStreamingProgressEvent(
+                eventData.event,
+                patchedSparkLineageConf,
+                Collections.emptyMap(), // We don't have schema info at this point
+                eventData.inputDatasets != null ? eventData.inputDatasets : Collections.emptySet(),
+                eventData.outputDatasets,
+                operation);
+          }
+        }
+      }
+
+      // If patching is not enabled or there was an issue configuring it, use the standard approach
       if (eventData.outputDatasets != null && !eventData.outputDatasets.isEmpty()) {
         log.info("Using output datasets from catalog table: {}", eventData.outputDatasets);
 
