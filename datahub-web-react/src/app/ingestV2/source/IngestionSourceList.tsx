@@ -1,4 +1,4 @@
-import { Button, Pagination, SearchBar, SimpleSelect } from '@components';
+import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { Modal, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -8,17 +8,19 @@ import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import EmptySources from '@app/ingestV2/EmptySources';
+import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
+import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
+import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
+import useCommandS from '@app/ingestV2/shared/hooks/useCommandS';
+import useRefreshInterval from '@app/ingestV2/shared/hooks/useRefreshInterval';
 import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
-import { ExecutionDetailsModal } from '@app/ingestV2/source/executions/ExecutionRequestDetailsModal';
-import { isExecutionRequestActive } from '@app/ingestV2/source/executions/IngestionSourceExecutionList';
-import useRefreshIngestionData from '@app/ingestV2/source/executions/useRefreshIngestionData';
-import { useCommandS } from '@app/ingestV2/source/hooks';
 import {
-    CLI_EXECUTOR_ID,
     addToListIngestionSourcesCache,
+    getIngestionSourceSystemFilter,
     getSortInput,
     removeFromListIngestionSourcesCache,
 } from '@app/ingestV2/source/utils';
@@ -89,8 +91,6 @@ const PaginationContainer = styled.div`
     justify-content: center;
     flex-shrink: 0;
 `;
-
-const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
 
 export enum IngestionSourceType {
     ALL,
@@ -177,9 +177,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     useCommandS(() => setHideSystemSources(!hideSystemSources));
 
     // Ingestion Source Default Filters
-    const filters = hideSystemSources
-        ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
-        : [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] }];
+    const filters = [getIngestionSourceSystemFilter(hideSystemSources)];
     if (sourceFilter !== IngestionSourceType.ALL) {
         filters.push({
             field: 'sourceExecutorId',
@@ -227,7 +225,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
             source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
         );
     }
-    useRefreshIngestionData(onRefresh, hasActiveExecution);
+    useRefreshInterval(onRefresh, hasActiveExecution);
 
     const executeIngestionSource = useCallback(
         (urn: string) => {
@@ -500,14 +498,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                                 showClear={false}
                                 width="fit-content"
                             />
-                            <Button
-                                id={INGESTION_REFRESH_SOURCES_ID}
-                                variant="text"
-                                onClick={onRefresh}
-                                icon={{ icon: 'ArrowClockwise', source: 'phosphor' }}
-                            >
-                                Refresh
-                            </Button>
+                            <RefreshButton onClick={onRefresh} id={INGESTION_REFRESH_SOURCES_ID} />
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
