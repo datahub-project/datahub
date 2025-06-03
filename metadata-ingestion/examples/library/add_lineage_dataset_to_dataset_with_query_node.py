@@ -18,7 +18,7 @@ high_value.write.saveAsTable("high_value_customers")
 client.lineage.add_lineage(
     upstream=upstream_urn,
     downstream=downstream_urn,
-    query_text=query_text,
+    transformation_text=query_text,
     column_lineage={"id": ["id", "customer_id"]},
 )
 

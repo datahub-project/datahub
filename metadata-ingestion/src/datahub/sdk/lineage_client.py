@@ -156,7 +156,7 @@ class LineageClient:
         *,
         upstream: DatasetUrnOrStr,
         downstream: DatasetUrnOrStr,
-        query_text: str,
+        transformation_text: str,
         column_lineage: Optional[ColumnLineageMapping] = None,
     ) -> None:
         """
@@ -165,7 +165,7 @@ class LineageClient:
         Args:
             upstream: URN of the upstream dataset
             downstream: URN of the downstream dataset
-            query_text: SQL query text that defines the transformation
+            transformation_text: SQL query text that defines the transformation
             column_lineage: Optional column-level lineage mapping
         """
         ...
@@ -227,7 +227,7 @@ class LineageClient:
         column_lineage: Union[
             None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
         ] = None,
-        query_text: Optional[str] = None,
+        transformation_text: Optional[str] = None,
     ) -> None:
         """
         Add lineage between two entities.
@@ -243,7 +243,7 @@ class LineageClient:
             downstream: URN of the downstream entity (dataset or datajob)
             column_lineage: Optional column-level lineage mapping or auto-generation method
                         (only applicable for dataset-to-dataset lineage)
-            query_text: Optional SQL query text that defines the transformation
+            transformation_text: Optional SQL query text that defines the transformation
                     (only applicable for dataset-to-dataset lineage)
 
         Raises:
@@ -257,7 +257,7 @@ class LineageClient:
         # Validate parameter combinations
         if (
             upstream_entity_type == "dataJob" or downstream_entity_type == "dataJob"
-        ) and (column_lineage or query_text):
+        ) and (column_lineage or transformation_text):
             raise SdkUsageError(
                 "Column lineage and query text are only applicable for dataset-to-dataset lineage"
             )
@@ -304,7 +304,7 @@ class LineageClient:
                     assert_never(column_lineage)
 
             # Prepare for lineage based on query or copy
-            if query_text:
+            if transformation_text:
                 # Transform lineage with query
                 fields_involved = OrderedSet([str(upstream_urn), str(downstream_urn)])
                 if cll is not None:
@@ -315,7 +315,7 @@ class LineageClient:
                             fields_involved.add(field)
 
                 # Create query URN and entity
-                query_urn = QueryUrn(generate_hash(query_text)).urn()
+                query_urn = QueryUrn(generate_hash(transformation_text)).urn()
                 from datahub.sql_parsing.sql_parsing_aggregator import (
                     make_query_subjects,
                 )
@@ -325,7 +325,8 @@ class LineageClient:
                     aspects=[
                         models.QueryPropertiesClass(
                             statement=models.QueryStatementClass(
-                                value=query_text, language=models.QueryLanguageClass.SQL
+                                value=transformation_text,
+                                language=models.QueryLanguageClass.SQL,
                             ),
                             source=models.QuerySourceClass.SYSTEM,
                             created=_empty_audit_stamp,
@@ -463,7 +464,7 @@ class LineageClient:
         upstream: DatasetUrnOrStr,
         downstream: DatasetUrnOrStr,
         column_lineage: Optional[ColumnLineageMapping] = None,
-        query_text: Optional[str] = None,
+        transformation_text: Optional[str] = None,
     ) -> None:
         upstream = DatasetUrn.from_string(upstream)
         downstream = DatasetUrn.from_string(downstream)
@@ -486,9 +487,9 @@ class LineageClient:
 
         query_urn = None
         query_entity = None
-        if query_text:
+        if transformation_text:
             # Eventually we might want to use our regex-based fingerprinting instead.
-            fingerprint = generate_hash(query_text)
+            fingerprint = generate_hash(transformation_text)
             query_urn = QueryUrn(fingerprint).urn()
 
             from datahub.sql_parsing.sql_parsing_aggregator import make_query_subjects
@@ -498,7 +499,8 @@ class LineageClient:
                 aspects=[
                     models.QueryPropertiesClass(
                         statement=models.QueryStatementClass(
-                            value=query_text, language=models.QueryLanguageClass.SQL
+                            value=transformation_text,
+                            language=models.QueryLanguageClass.SQL,
                         ),
                         source=models.QuerySourceClass.SYSTEM,
                         created=_empty_audit_stamp,
@@ -535,7 +537,7 @@ class LineageClient:
             mcps.extend(query_entity)
         self._client._graph.emit_mcps(mcps)
 
-    def add_dataset_lineage_from_sql(
+    def infer_lineage_from_sql(
         self,
         *,
         query_text: str,
@@ -606,7 +608,7 @@ class LineageClient:
                 upstream=upstream_table,
                 downstream=downstream_urn,
                 column_lineage=column_mapping or None,
-                query_text=query_text,
+                transformation_text=query_text,
             )
 
     def add_datajob_lineage(

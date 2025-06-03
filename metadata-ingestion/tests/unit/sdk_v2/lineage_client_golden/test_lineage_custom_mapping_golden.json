@@ -20,14 +20,14 @@
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD),Age)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD),name)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD),name)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD),name)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD),Age)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD),customer_id)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD),name)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD),full_name)",
                 "value": {
                     "confidenceScore": 1.0
                 }
