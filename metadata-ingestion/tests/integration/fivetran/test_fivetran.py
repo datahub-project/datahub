@@ -18,7 +18,7 @@ from datahub.ingestion.source.fivetran.config import (
 )
 from datahub.ingestion.source.fivetran.fivetran import FivetranSource
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
-from tests.test_helpers import mce_helpers
+from datahub.testing import mce_helpers
 
 FROZEN_TIME = "2022-06-07 17:00:00"
 

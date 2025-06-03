@@ -428,22 +428,28 @@ public class PoliciesConfig {
           "The ability to read & write the data in a dataset.");
 
   public static final Privilege DATA_MANAGE_TABLES_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_TABLES", "Manage tables", "The ability to create and drop tables.");
+      Privilege.of(
+          "DATA_MANAGE_TABLES",
+          "Manage Iceberg Tables",
+          "The ability to create and drop Iceberg tables registered in DataHub.");
 
   public static final Privilege DATA_MANAGE_VIEWS_PRIVILEGE =
-      Privilege.of("DATA_MANAGE_VIEWS", "Manage views", "The ability to create and drop views.");
+      Privilege.of(
+          "DATA_MANAGE_VIEWS",
+          "Manage Iceberg Views",
+          "The ability to create and drop views registered in DataHub.");
 
   public static final Privilege DATA_MANAGE_NAMESPACES_PRIVILEGE =
       Privilege.of(
           "DATA_MANAGE_NAMESPACES",
-          "Manage namespaces",
-          "The ability to create and drop namespaces.");
+          "Manage Iceberg Namespaces",
+          "The ability to create and drop Iceberg namespaces registered in DataHub.");
 
   public static final Privilege DATA_LIST_ENTITIES_PRIVILEGE =
       Privilege.of(
           "DATA_LIST_ENTITIES",
-          "List tables, views & namespaces",
-          "The ability to list tables, views and namespaces.");
+          "List Iceberg Tables, Views & Namespaces",
+          "The ability to list Iceberg tables, views and namespaces registered in DataHub.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
@@ -585,7 +591,8 @@ public class PoliciesConfig {
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,
                       EDIT_QUERIES_PRIVILEGE,
-                      CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE,
+                      // CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE, TODO: Remove this once confirmed
+                      // safe.
                       DATA_READ_ONLY_PRIVILEGE,
                       DATA_READ_WRITE_PRIVILEGE,
                       EDIT_DATASET_COL_BUSINESS_ATTRIBUTE_PRIVILEGE))
@@ -657,7 +664,18 @@ public class PoliciesConfig {
   // Container Privileges
   public static final ResourcePrivileges CONTAINER_PRIVILEGES =
       ResourcePrivileges.of(
-          "container", "Containers", "Containers indexed by DataHub", COMMON_ENTITY_PRIVILEGES);
+          "container",
+          "Containers",
+          "Containers indexed by DataHub",
+          Stream.of(
+                  COMMON_ENTITY_PRIVILEGES,
+                  ImmutableList.of(
+                      DATA_MANAGE_NAMESPACES_PRIVILEGE,
+                      DATA_MANAGE_TABLES_PRIVILEGE,
+                      DATA_MANAGE_VIEWS_PRIVILEGE,
+                      DATA_LIST_ENTITIES_PRIVILEGE))
+              .flatMap(Collection::stream)
+              .collect(Collectors.toList()));
 
   // Domain Privileges
   public static final Privilege MANAGE_DATA_PRODUCTS_PRIVILEGE =
@@ -818,6 +836,8 @@ public class PoliciesConfig {
           "Data Platform Instance",
           "Data Platform Instances on Datahub",
           ImmutableList.of(
+              DATA_READ_ONLY_PRIVILEGE,
+              DATA_READ_WRITE_PRIVILEGE,
               DATA_MANAGE_VIEWS_PRIVILEGE,
               DATA_MANAGE_TABLES_PRIVILEGE,
               DATA_MANAGE_NAMESPACES_PRIVILEGE,
