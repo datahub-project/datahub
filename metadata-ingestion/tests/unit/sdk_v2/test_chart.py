@@ -218,3 +218,14 @@ def test_client_get_chart() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(chart_urn)
+
+
+def test_chart_set_chart_type() -> None:
+    c = Chart(
+        platform="looker",
+        name="example_chart",
+    )
+    c.set_chart_type(models.ChartTypeClass.BAR)
+    assert c.chart_type == models.ChartTypeClass.BAR
+    with pytest.raises(AssertionError):
+        c.set_chart_type("invalid_type")

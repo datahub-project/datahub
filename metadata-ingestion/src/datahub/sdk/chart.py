@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Type, Union
 from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
+from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.urns import ChartUrn, DatasetUrn, Urn
 from datahub.sdk._shared import (
     DatasetUrnOrStr,
@@ -259,6 +260,8 @@ class Chart(
 
     def set_chart_type(self, chart_type: str) -> None:
         """Set the type of the chart."""
+        # validate chart_type
+        assert chart_type in get_enum_options(models.ChartTypeClass)
         self._ensure_chart_props().type = chart_type
 
     @property
