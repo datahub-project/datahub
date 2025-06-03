@@ -158,14 +158,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         [searchInput],
     );
 
-    // Add a useEffect to handle the showCreateModal prop
-    // useEffect(() => {
-    //     if (showCreateModal && setShowCreateModal) {
-    //         setIsBuildingSource(true);
-    //         setShowCreateModal(false);
-    //     }
-    // }, [showCreateModal, setShowCreateModal]);
-
     // When source filter changes, reset page to 1
     useEffect(() => {
         setPage(1);
