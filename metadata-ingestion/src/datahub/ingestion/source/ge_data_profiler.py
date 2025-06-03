@@ -120,7 +120,6 @@ SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
 DATABRICKS = "databricks"
-TRINO = "trino"
 
 # Type names for Databricks, to match Title Case types in sqlalchemy
 ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
@@ -1425,12 +1424,12 @@ class DatahubGEProfiler:
                     )
                 return None
             finally:
-                if batch is not None and self.base_engine.engine.name.upper() in [
-                    "TRINO",
-                    "AWSATHENA",
+                if batch is not None and self.base_engine.engine.name.lower() in [
+                    GXSqlDialect.TRINO,
+                    GXSqlDialect.AWSATHENA,
                 ]:
                     if (
-                        self.base_engine.engine.name.upper() == "TRINO"
+                        self.base_engine.engine.name.lower() == GXSqlDialect.TRINO
                         or temp_view is not None
                     ):
                         self._drop_temp_table(batch)
