@@ -265,7 +265,7 @@ public class DatahubJob {
       log.debug("Skipping DataProcessInstance generation: URN is null");
       return;
     }
-    
+
     DataProcessInstanceInput dataProcessInstanceInput = new DataProcessInstanceInput();
     dataProcessInstanceInput.setInputs(inputUrnArray);
 

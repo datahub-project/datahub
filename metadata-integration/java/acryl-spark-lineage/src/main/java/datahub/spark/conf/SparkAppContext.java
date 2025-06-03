@@ -16,6 +16,7 @@ public class SparkAppContext {
 
   /**
    * Returns the Spark configuration.
+   *
    * @return the SparkConf object
    */
   public SparkConf getConf() {
@@ -24,6 +25,7 @@ public class SparkAppContext {
 
   /**
    * Sets the Spark configuration.
+   *
    * @param sparkConf the SparkConf to set
    */
   public void setConf(SparkConf sparkConf) {

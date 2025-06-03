@@ -763,18 +763,19 @@ public class OpenLineageToDataHub {
     DataProcessInstanceRelationships dataProcessInstanceRelationships =
         new DataProcessInstanceRelationships();
     dataProcessInstanceRelationships.setParentTemplate(dataJobUrn);
-    
+
     // Initialize upstreamInstances with an empty array (required field)
     UrnArray upstreamInstances = new UrnArray();
     dataProcessInstanceRelationships.setUpstreamInstances(upstreamInstances);
-    
+
     datahubJob.setDataProcessInstanceRelationships(dataProcessInstanceRelationships);
 
     // Only create and set DataProcessInstance URN if the feature is enabled
     if (datahubConf.isEmitDataProcessInstance()) {
       try {
         Urn dpiUrn =
-            Urn.createFromString(URN_LI_DATA_PROCESS_INSTANCE + event.getRun().getRunId().toString());
+            Urn.createFromString(
+                URN_LI_DATA_PROCESS_INSTANCE + event.getRun().getRunId().toString());
         datahubJob.setDataProcessInstanceUrn(dpiUrn);
         log.info("Created DataProcessInstance URN: {}", dpiUrn);
       } catch (URISyntaxException e) {

@@ -81,7 +81,8 @@ public class SparkConfigParser {
   public static final String DATABRICKS_CLUSTER_KEY = "databricks.cluster";
   public static final String PIPELINE_KEY = "metadata.pipeline";
   public static final String PIPELINE_PLATFORM_INSTANCE_KEY = PIPELINE_KEY + ".platformInstance";
-  public static final String ENABLE_ENHANCED_MERGE_INTO_EXTRACTION = "metadata.dataset.enableEnhancedMergeIntoExtraction";
+  public static final String ENABLE_ENHANCED_MERGE_INTO_EXTRACTION =
+      "metadata.dataset.enableEnhancedMergeIntoExtraction";
 
   public static final String TAGS_KEY = "tags";
 
@@ -179,7 +180,8 @@ public class SparkConfigParser {
     builder.removeLegacyLineage(SparkConfigParser.isLegacyLineageCleanupEnabled(sparkConfig));
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
-    builder.enhancedMergeIntoExtraction(SparkConfigParser.isEnhancedMergeIntoExtractionEnabled(sparkConfig));
+    builder.enhancedMergeIntoExtraction(
+        SparkConfigParser.isEnhancedMergeIntoExtractionEnabled(sparkConfig));
     try {
       String parentJob = SparkConfigParser.getParentJobKey(sparkConfig);
       if (parentJob != null) {

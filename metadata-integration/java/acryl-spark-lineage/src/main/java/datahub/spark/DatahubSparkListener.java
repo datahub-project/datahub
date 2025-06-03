@@ -92,7 +92,7 @@ public class DatahubSparkListener extends SparkListener {
     appContext.setSparkUser(applicationStart.sparkUser());
     appContext.setStartTime(applicationStart.time());
     appContext.setAppId(applicationStart.appId().get());
-    
+
     // Set SparkConf from active SparkContext if available
     try {
       Option<SparkContext> activeContext = SparkContext$.MODULE$.getActive();
@@ -105,7 +105,7 @@ public class DatahubSparkListener extends SparkListener {
     } catch (Exception e) {
       log.warn("Failed to set SparkConf in SparkAppContext", e);
     }
-    
+
     return appContext;
   }
 
@@ -289,6 +289,43 @@ public class DatahubSparkListener extends SparkListener {
     SparkLineageConf sparkLineageConf =
         SparkLineageConf.toSparkLineageConf(datahubConf, appContext, emitterConfig.orElse(null));
 
+    // Check if we need to explicitly configure DataProcessInstance emission
+    if (datahubConf.hasPath("emit_process_instances")) {
+      boolean emitProcessInstances = datahubConf.getBoolean("emit_process_instances");
+      log.info("Configuration specifies emit_process_instances={}", emitProcessInstances);
+
+      // We cannot modify the existing config object, so we need to recreate it
+      // if the current setting doesn't match what we want
+      if (sparkLineageConf.getOpenLineageConf() != null
+          && sparkLineageConf.getOpenLineageConf().isEmitDataProcessInstance()
+              != emitProcessInstances) {
+        log.info(
+            "Applying emit_process_instances={} setting from configuration", emitProcessInstances);
+
+        // Create a new SparkLineageConf with updated settings
+        sparkLineageConf =
+            SparkLineageConf.builder()
+                .openLineageConf(
+                    io.datahubproject.openlineage.config.DatahubOpenlineageConfig.builder()
+                        .isSpark(true)
+                        .emitDataProcessInstance(emitProcessInstances)
+                        .fabricType(sparkLineageConf.getOpenLineageConf().getFabricType())
+                        .pipelineName(sparkLineageConf.getOpenLineageConf().getPipelineName())
+                        .platformInstance(
+                            sparkLineageConf.getOpenLineageConf().getPlatformInstance())
+                        .materializeDataset(
+                            sparkLineageConf.getOpenLineageConf().isMaterializeDataset())
+                        .includeSchemaMetadata(
+                            sparkLineageConf.getOpenLineageConf().isIncludeSchemaMetadata())
+                        .build())
+                .datahubEmitterConfig(emitterConfig.orElse(null))
+                .sparkAppContext(appContext)
+                .build();
+      }
+    } else {
+      log.debug("Using default emitDataProcessInstance setting (true)");
+    }
+
     long elapsedTime = System.currentTimeMillis() - startTime;
     log.debug("loadDatahubConfig completed successfully in {} ms", elapsedTime);
     return sparkLineageConf;
@@ -345,27 +382,31 @@ public class DatahubSparkListener extends SparkListener {
     long startTime = System.currentTimeMillis();
 
     log.debug("Other event called {}", event.getClass().getName());
-    
+
     // Make sure context factory and emitter are initialized before proceeding
     initializeContextFactoryIfNotInitialized();
-    
+
     // Check if emitter is still null after attempting initialization
     if (emitter == null) {
-      log.warn("Emitter is null when processing event: {}. Attempting to initialize...", event.getClass().getName());
+      log.warn(
+          "Emitter is null when processing event: {}. Attempting to initialize...",
+          event.getClass().getName());
       try {
         // Try to initialize with current context if available
-        asJavaOptional(activeSparkContext.apply()).ifPresent(context -> {
-          try {
-            SparkLineageConf datahubConfig = loadDatahubConfig(appContext, null);
-            SparkOpenLineageConfig config = ArgumentParser.parse(context.conf());
-            emitter = new DatahubEventEmitter(config, context.appName());
-            emitter.setConfig(datahubConfig);
-            log.info("Successfully initialized emitter for streaming events");
-          } catch (Exception e) {
-            log.error("Failed to initialize emitter from active context", e);
-          }
-        });
-        
+        asJavaOptional(activeSparkContext.apply())
+            .ifPresent(
+                context -> {
+                  try {
+                    SparkLineageConf datahubConfig = loadDatahubConfig(appContext, null);
+                    SparkOpenLineageConfig config = ArgumentParser.parse(context.conf());
+                    emitter = new DatahubEventEmitter(config, context.appName());
+                    emitter.setConfig(datahubConfig);
+                    log.info("Successfully initialized emitter for streaming events");
+                  } catch (Exception e) {
+                    log.error("Failed to initialize emitter from active context", e);
+                  }
+                });
+
         // If still null, we can't proceed
         if (emitter == null) {
           log.error("Cannot process event: emitter is still null after initialization attempts");
@@ -376,7 +417,7 @@ public class DatahubSparkListener extends SparkListener {
         return;
       }
     }
-    
+
     // Make sure datahubConf is initialized
     if (datahubConf == null || datahubConf == ConfigFactory.empty()) {
       log.warn("datahubConf is not initialized when processing event. Loading configuration...");
@@ -394,7 +435,7 @@ public class DatahubSparkListener extends SparkListener {
         datahubConf = ConfigFactory.empty();
       }
     }
-    
+
     // Switch to streaming mode if streaming mode is not set, but we get a progress event
     if ((event instanceof StreamingQueryListener.QueryProgressEvent)
         || (event instanceof StreamingQueryListener.QueryStartedEvent)) {
@@ -498,7 +539,7 @@ public class DatahubSparkListener extends SparkListener {
         appContext.setConf(sparkConf);
         log.info("Updated SparkConf in SparkAppContext from initializeContextFactory");
       }
-      
+
       SparkLineageConf datahubConfig = loadDatahubConfig(appContext, null);
       SparkOpenLineageConfig config = ArgumentParser.parse(sparkConf);
       // Needs to be done before initializing OpenLineageClient
