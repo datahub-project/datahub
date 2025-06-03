@@ -20,6 +20,7 @@ import requests
 from expandvars import expandvars
 from requests_file import FileAdapter
 
+from datahub._version import nice_version_name
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
@@ -28,10 +29,14 @@ from datahub.cli.docker_check import (
     DockerComposeVersionError,
     QuickstartStatus,
     check_docker_quickstart,
+    check_upgrade_supported,
     get_docker_client,
     run_quickstart_preflight_checks,
 )
-from datahub.cli.quickstart_versioning import QuickstartVersionMappingConfig
+from datahub.cli.quickstart_versioning import (
+    MINIMUM_SUPPORTED_VERSION,
+    QuickstartVersionMappingConfig,
+)
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
@@ -47,6 +52,72 @@ QUICKSTART_COMPOSE_FILE = "docker/quickstart/docker-compose.quickstart-profile.y
 _QUICKSTART_MAX_WAIT_TIME = datetime.timedelta(minutes=10)
 _QUICKSTART_UP_TIMEOUT = datetime.timedelta(seconds=100)
 _QUICKSTART_STATUS_CHECK_INTERVAL = datetime.timedelta(seconds=2)
+
+MIGRATION_REQUIRED_INSTRUCTIONS = f"""
+Your existing DataHub server was installed with an \
+older CLI and is incompatible with the current CLI (version {nice_version_name}).
+
+Required steps to upgrade:
+1. Backup your data (recommended): datahub docker quickstart --backup
+   Guide: https://docs.datahub.com/docs/quickstart#back-up-datahub
+
+2. Remove old installation: datahub docker nuke
+
+3. Start fresh installation: datahub docker quickstart
+
+⚠️  Without backup, all existing data will be lost.
+"""
+
+REPAIR_REQUIRED_INSTRUCTIONS = f"""
+Unhealthy DataHub Installation Detected
+
+Your DataHub installation has issues that cannot be fixed with the current CLI.
+
+Your options:
+
+OPTION 1 - Preserve data (if needed):
+1. Downgrade CLI to version 1.1: 
+    pip install acryl-datahub==1.1
+2. Fix the installation: 
+    datahub docker quickstart
+3. Create backup:
+    datahub docker quickstart --backup
+4. Upgrade CLI back:
+    pip install acryl-datahub=={nice_version_name()}
+5. Migrate: 
+    datahub docker nuke && datahub docker quickstart
+6. Restore data:
+    datahub docker quickstart --restore
+
+OPTION 2 - Fresh start (if data not needed):
+1. Remove installation: 
+    datahub docker nuke
+2. Start fresh: 
+    datahub docker quickstart
+
+⚠️  The current CLI cannot repair installations created by older versions.
+
+Additional information on backup and restore: https://docs.datahub.com/docs/quickstart#back-up-datahub
+Troubleshooting guide: https://docs.datahub.com/docs/troubleshooting/quickstart
+"""
+
+
+def get_minimum_supported_version_message(version: str) -> str:
+    MINIMUM_SUPPORTED_VERSION_MESSAGE = f"""
+    DataHub CLI Version Compatibility Issue
+
+    You're trying to install DataHub server version {version} which is not supported by this CLI version.
+
+    This CLI (version {MINIMUM_SUPPORTED_VERSION}) only supports installing DataHub server versions 1.2 and above.
+
+    To install older server versions:
+    1. Uninstall current CLI: pip uninstall acryl-datahub
+    2. Install older CLI: pip install acryl-datahub==1.1
+    3. Run quickstart with your desired version: datahub docker quickstart --version <version>
+
+    For more information: https://docs.datahub.com/docs/quickstart#install-datahub-server
+    """
+    return MINIMUM_SUPPORTED_VERSION_MESSAGE
 
 
 class Architectures(Enum):
@@ -70,6 +141,14 @@ def _docker_subprocess_env() -> Dict[str, str]:
     return env
 
 
+def show_migration_instructions():
+    click.secho(MIGRATION_REQUIRED_INSTRUCTIONS, fg="red")
+
+
+def show_repair_instructions():
+    click.secho(REPAIR_REQUIRED_INSTRUCTIONS, fg="red")
+
+
 @click.group()
 def docker() -> None:
     """Helper commands for setting up and interacting with a local
@@ -83,9 +162,14 @@ def docker() -> None:
 def check() -> None:
     """Check that the Docker containers are healthy"""
     status = check_docker_quickstart()
+
     if status.is_ok():
         click.secho("✔ No issues detected", fg="green")
+        if status.running_unsupported_version:
+            show_migration_instructions()
     else:
+        if status.running_unsupported_version:
+            show_repair_instructions()
         raise status.to_exception("The following issues were detected:")
 
 
@@ -121,6 +205,8 @@ def _set_environment_variables(
 
     if elastic_port is not None:
         os.environ["DATAHUB_MAPPED_ELASTIC_PORT"] = str(elastic_port)
+
+    os.environ["METADATA_SERVICE_AUTH_ENABLED"] = "false"
 
 
 def _get_default_quickstart_compose_file() -> Optional[str]:
@@ -278,12 +364,15 @@ EBEAN_DATASOURCE_HOST=mysql:${DATAHUB_MAPPED_MYSQL_PORT:-3306}
 EBEAN_DATASOURCE_URL=jdbc:mysql://mysql:${DATAHUB_MAPPED_MYSQL_PORT:-3306}/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8
 EBEAN_DATASOURCE_DRIVER=com.mysql.jdbc.Driver
 ENTITY_REGISTRY_CONFIG_PATH=/datahub/datahub-gms/resources/entity-registry.yml
-
+GRAPH_SERVICE_IMPL=elasticsearch
 KAFKA_BOOTSTRAP_SERVER=broker:29092
-KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}
+KAFKA_SCHEMAREGISTRY_URL=http://datahub-gms:8080/schema-registry/api/
+SCHEMA_REGISTRY_TYPE=INTERNAL
 
-ELASTICSEARCH_HOST=elasticsearch
+ELASTICSEARCH_HOST=search
 ELASTICSEARCH_PORT=${DATAHUB_MAPPED_ELASTIC_PORT:-9200}
+ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true
+ELASTICSEARCH_PROTOCOL=http
 
 #NEO4J_HOST=http://<your-neo-host>:7474
 #NEO4J_URI=bolt://<your-neo-host>
@@ -317,6 +406,7 @@ DATAHUB_MAE_CONSUMER_PORT=9091
                     logger.debug(f"Env file contents: {env_fp_reader.read()}")
 
             # continue to issue the restore indices command
+            # TODO Use --version if passed
             command = (
                 "docker pull acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
                 + f" && docker run --network datahub_network --env-file {env_fp.name} "
@@ -527,6 +617,7 @@ def quickstart(
         return
 
     quickstart_versioning = QuickstartVersionMappingConfig.fetch_quickstart_config()
+
     quickstart_execution_plan = quickstart_versioning.get_quickstart_execution_plan(
         version
     )
@@ -554,6 +645,10 @@ def quickstart(
             quickstart_compose_file,
             quickstart_execution_plan.composefile_git_ref,
         )
+
+    # check if running datahub can be upgraded to the latest version.
+    if not _check_upgrade_and_show_instructions(quickstart_compose_file):
+        sys.exit(1)
 
     # set version
     _set_environment_variables(
@@ -714,9 +809,7 @@ def get_github_file_url(release_version_tag: str) -> str:
 
 
 def download_compose_files(
-    quickstart_compose_file_name,
-    quickstart_compose_file_list,
-    compose_git_ref,
+    quickstart_compose_file_name, quickstart_compose_file_list, compose_git_ref
 ):
     # download appropriate quickstart file
     github_file = get_github_file_url(compose_git_ref)
@@ -837,3 +930,25 @@ def nuke(keep_data: bool) -> None:
         click.echo(f"Removing networks in the {DOCKER_COMPOSE_PROJECT_NAME} project")
         for network in client.networks.list(filters=DATAHUB_COMPOSE_PROJECT_FILTER):
             network.remove()
+
+
+def _check_upgrade_and_show_instructions(
+    quickstart_compose_file: List[pathlib.Path],
+) -> bool:
+    """Check if running datahub can be upgraded to the latest version and show appropriate instructions.
+
+    Args:
+        quickstart_compose_file: List of compose file paths
+
+    Returns:
+        bool: True if upgrade is supported, False otherwise
+    """
+    quickstart_status = check_docker_quickstart()
+
+    if not check_upgrade_supported(quickstart_compose_file, quickstart_status):
+        if quickstart_status.is_ok():
+            show_migration_instructions()
+        else:
+            show_repair_instructions()
+        return False
+    return True
