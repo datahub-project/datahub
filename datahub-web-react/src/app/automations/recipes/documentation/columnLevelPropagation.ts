@@ -1,6 +1,6 @@
 /* 
 	This file is a recipe for the Column Documentation Propagation automation.
-	It is used to propagate descriptions to downstream columns automatically.
+	It is used to propagate descriptions to upstream and downstream columns automatically.
 
 	Action: datahub-integrations-service/src/datahub_integrations/propagation/doc/doc_propagation_action.py
 */
@@ -15,7 +15,7 @@ import AcrylLogo from '@images/acryl-logo.svg';
 export const automationType = 'datahub_integrations.propagation.doc.doc_propagation_action.DocPropagationAction';
 
 const automationName = 'Column Documentation Propagation';
-const automationDescription = 'Propagate descriptions to downstream columns automatically';
+const automationDescription = 'Propagate descriptions to upstream and downstream columns automatically';
 
 // Important: This is the form state which is taken by default, when creating a new automation of this type.
 export const defaultRecipe: AutomationRecipe = {
