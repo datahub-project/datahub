@@ -6,7 +6,6 @@ import static com.linkedin.metadata.search.elasticsearch.indexbuilder.MappingsBu
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.utils.ESUtils;
-// import com.linkedin.metadata.search.utils.OpenSearchJvmInfo;
 import com.linkedin.metadata.search.utils.SizeUtils;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.version.GitVersion;
@@ -1122,7 +1121,12 @@ public class ESIndexBuilder {
         break;
       }
       try {
-        Thread.sleep(20 * 1000);
+        // in the first step wait much less, for very small indices finish in a couple of seconds
+        if (i == 0) {
+          Thread.sleep(2 * 1000);
+        } else {
+          Thread.sleep(20 * 1000);
+        }
       } catch (InterruptedException e) {
         log.warn("Sleep interrupted");
       }
