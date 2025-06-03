@@ -77,12 +77,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
-    FineGrainedLineage,
-    FineGrainedLineageDownstreamType,
-    FineGrainedLineageUpstreamType,
-    UpstreamLineage,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -109,7 +103,6 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     SubTypesClass,
     TagAssociationClass,
-    UpstreamClass,
     ViewPropertiesClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -262,33 +255,6 @@ def get_schema_metadata(
         schema_metadata.foreignKeys = foreign_keys
 
     return schema_metadata
-
-
-def simplify_field_path(field_path: str) -> str:
-    """
-    Simplifies a field path by extracting the actual field name from versioned paths.
-    For example: "[version=2.0].[type=string].employee_id" -> "employee_id"
-
-    Args:
-        field_path: The field path to simplify
-
-    Returns:
-        Simplified field path
-    """
-    if not field_path:
-        return ""
-
-    try:
-        # For versioned paths, take the last component after the final dot
-        if field_path.startswith("[version="):
-            return field_path.split(".")[-1]
-
-        # For regular paths, just clean up whitespace
-        return field_path.strip()
-
-    except Exception as e:
-        logger.warning(f"Error simplifying field path {field_path}: {str(e)}")
-        return field_path
 
 
 # config flags to emit telemetry for
@@ -778,21 +744,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
 
         if self.config.include_table_location_lineage and location_urn:
-            external_upstream_table = UpstreamClass(
-                dataset=location_urn,
-                type=DatasetLineageTypeClass.COPY,
+            self.aggregator.add_known_lineage_mapping(
+                upstream_urn=location_urn,
+                downstream_urn=dataset_snapshot.urn,
+                lineage_type=DatasetLineageTypeClass.COPY,
             )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_snapshot.urn,
-                aspect=UpstreamLineage(
-                    upstreams=[external_upstream_table],
-                    fineGrainedLineages=self.get_fine_grained_lineages(
-                        dataset_urn=dataset_snapshot.urn,
-                        upstream_dataset_urn=location_urn,
-                        schema_fields=schema_fields,
-                    ),
-                ),
-            ).as_workunit()
 
         schema_metadata = get_schema_metadata(
             self.report,
@@ -973,38 +929,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
             foreign_keys = []
         return foreign_keys
-
-    def get_fine_grained_lineages(
-        self,
-        dataset_urn: str,
-        upstream_dataset_urn: str,
-        schema_fields: List[SchemaField],
-    ) -> Optional[List[FineGrainedLineage]]:
-        fine_grained_lineages: List[FineGrainedLineage] = []
-
-        for schema_field in schema_fields:
-            try:
-                field_path_v1 = simplify_field_path(schema_field.fieldPath)
-                fine_grained_lineages.append(
-                    FineGrainedLineage(
-                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                        downstreams=[make_schema_field_urn(dataset_urn, field_path_v1)],
-                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                        upstreams=[
-                            make_schema_field_urn(
-                                upstream_dataset_urn,
-                                simplify_field_path(schema_field.fieldPath),
-                            )
-                        ],
-                    )
-                )
-            except Exception as e:
-                logger.warning(
-                    f"Error processing field path for {dataset_urn}: {str(e)}"
-                )
-                continue
-
-        return fine_grained_lineages if fine_grained_lineages else None
 
     def get_schema_fields(
         self,
