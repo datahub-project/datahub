@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from typing import Optional, overload
+import logging
+from datetime import datetime
+from typing import Optional, Union, overload
+
+import jwt
 
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
+from datahub.metadata.schema_classes import AuditStampClass
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.sdk.entity_client import EntityClient
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.resolver_client import ResolverClient
@@ -16,6 +22,11 @@ try:
     )
 except ImportError:
     AssertionsClient = None
+
+# TODO: Change __ingestion to _ingestion.
+DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion")
+
+logger = logging.getLogger(__name__)
 
 
 class DataHubClient:
@@ -118,3 +129,55 @@ class DataHubClient:
                 "AssertionsClient is not installed, please install it with `pip install acryl-datahub-cloud`"
             )
         return AssertionsClient(self)
+
+    def audit_actor(
+        self, fallback_actor: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None
+    ) -> Union[CorpUserUrn, CorpGroupUrn]:
+        """Get the actor to be used for audit purposes.
+
+        It gets the actor from the JWT token used to initialize the DataHubGraph.
+        If no token was provided or any error when processing the JWT token, it defaults to fallback_actor and, if not given, it fallbacks to DEFAULT_ACTOR_URN.
+        """
+        default_actor = fallback_actor or DEFAULT_ACTOR_URN
+
+        if self._graph.config.token is None:
+            return default_actor
+
+        jwt_token = self._graph.config.token
+        try:
+            payload = jwt.decode(jwt_token, options={"verify_signature": False})
+        except Exception as e:
+            logger.warning(
+                f"Failed to decode JWT token: {e} Falling back to default actor: {default_actor}"
+            )
+            return default_actor
+
+        if "actorId" not in payload or not payload["actorId"]:
+            logger.warning(
+                f"Missing 'actorId' in JWT token, using default actor: {default_actor}"
+            )
+            return default_actor
+
+        if "type" not in payload or payload["type"] != "PERSONAL":
+            logger.warning(
+                f"JWT token 'type' is not 'PERSONAL', using default actor: {default_actor}"
+            )
+            return default_actor
+
+        return CorpUserUrn.create_from_id(payload["actorId"])
+
+    def audit_stamp(
+        self,
+        fallback_actor: Optional[Union[CorpUserUrn, CorpGroupUrn]] = None,
+        fallback_timestamp: Optional[datetime] = None,
+    ) -> AuditStampClass:
+        """Get an AuditStampClass for auditing purposes.
+        It uses the actor obtained from the audit_actor method and the current timestamp, unless fallback_timestamp is given.
+        """
+        actor_urn = self.audit_actor(fallback_actor=fallback_actor)
+        timestamp = fallback_timestamp or datetime.now()
+
+        # Convert datetime to milliseconds timestamp as expected by AuditStampClass
+        timestamp_ms = int(timestamp.timestamp() * 1000)
+
+        return AuditStampClass(time=timestamp_ms, actor=str(actor_urn))
