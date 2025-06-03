@@ -6,6 +6,7 @@ import re
 from typing import Dict, Optional
 
 import click
+import packaging
 import requests
 import yaml
 from packaging.version import parse
@@ -16,6 +17,8 @@ logger = logging.getLogger(__name__)
 LOCAL_QUICKSTART_MAPPING_FILE = os.environ.get("FORCE_LOCAL_QUICKSTART_MAPPING", "")
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
+
+MINIMUM_SUPPORTED_VERSION = "1.2"
 
 
 class QuickstartExecutionPlan(BaseModel):
@@ -126,10 +129,15 @@ class QuickstartVersionMappingConfig(BaseModel):
                 mysql_tag=str(mysql_tag),
             ),
         )
+
+        # if not is_minimum_supported_version(version):
+        #    click.secho(get_minimum_supported_version_message(version=version), fg="red")
+        #    sys.exit(1)
+
         # new CLI version is downloading the composefile corresponding to the requested version
-        # if the version is older than v0.10.1, it doesn't contain the setup job labels and the
-        # the checks will fail, so in those cases we pick the composefile from v0.10.1 which contains
-        # the setup job labels
+        # if the version is older than <MINIMUM_SUPPORTED_VERSION>, it doesn't contain the
+        # docker compose based resolved compose file. In those cases, we pick up the composefile from
+        # MINIMUM_SUPPORTED_VERSION which contains the compose file.
         if _is_it_a_version(result.composefile_git_ref):
             if parse("v0.10.1") > parse(result.composefile_git_ref):
                 # The merge commit where the labels were added
@@ -148,3 +156,15 @@ def save_quickstart_config(
     with open(path, "w") as f:
         yaml.dump(config.dict(), f)
     logger.info(f"Saved quickstart config to {path}.")
+
+
+def is_minimum_supported_version(version: str) -> bool:
+    if not _is_it_a_version(version):
+        return True
+
+    requested_version = packaging.version.parse(version)
+    minimum_supported_version = packaging.version.parse(MINIMUM_SUPPORTED_VERSION)
+    if requested_version < minimum_supported_version:
+        return False
+
+    return True
