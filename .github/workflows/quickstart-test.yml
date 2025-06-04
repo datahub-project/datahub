@@ -112,10 +112,14 @@ jobs:
       - name: Backup, nuke and restart and restore
         run: |
           source metadata-ingestion/venv/bin/activate
+          echo "Running backup"
           datahub docker quickstart --backup
+          echo "Running nuke"
           datahub docker nuke
           # Use compose and version mapping files from PR
           export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
+          echo "Running quickstart"
           datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml
+          echo "Running restore"
           echo "y" | datahub docker quickstart --restore
           datahub docker check
