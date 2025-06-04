@@ -4,6 +4,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
@@ -12,7 +13,6 @@ import {
     OwnerColumn,
     ScheduleColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
-import TableFooter from '@app/ingestV2/source/components/TableFooter';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -133,7 +133,14 @@ function IngestionSourceTable({
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
-            footer={isLastPage ? <TableFooter colSpan={tableColumns.length} /> : null}
+            footer={
+                isLastPage ? (
+                    <TableFooter
+                        hiddenItemsMessage="Some ingestion sources may be hidden"
+                        colSpan={tableColumns.length}
+                    />
+                ) : null
+            }
         />
     );
 }

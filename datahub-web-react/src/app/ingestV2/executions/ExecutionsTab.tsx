@@ -56,7 +56,7 @@ export const ExecutionsTab = () => {
     const [executionRequestUrnToView, setExecutionRequestUrnToView] = useState<undefined | string>(undefined);
     const [hideSystemSources, setHideSystemSources] = useState(true);
 
-    const { page, setPage, start, count } = usePagination(DEFAULT_PAGE_SIZE);
+    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
     // When filters changed, reset page to 1
     useEffect(() => setPage(1), [appliedFilters, setPage]);
 
@@ -70,7 +70,7 @@ export const ExecutionsTab = () => {
         variables: {
             input: {
                 start,
-                count,
+                count: pageSize,
                 query: undefined,
                 filters,
                 systemSources: !hideSystemSources,
@@ -80,6 +80,7 @@ export const ExecutionsTab = () => {
 
     const totalExecutionRequests = data?.listExecutionRequests?.total || 0;
     const executionRequests: ExecutionRequest[] = data?.listExecutionRequests?.executionRequests || [];
+    const isLastPage = totalExecutionRequests <= pageSize * page;
 
     // refresh the data when there are some running execution requests
     useRefresh(executionRequests, refetch);
@@ -118,12 +119,13 @@ export const ExecutionsTab = () => {
                                     executionRequests={executionRequests || []}
                                     setFocusExecutionUrn={setExecutionRequestUrnToView}
                                     loading={loading}
+                                    isLastPage={isLastPage}
                                 />
                             </TableContainer>
                             <PaginationContainer>
                                 <Pagination
                                     currentPage={page}
-                                    itemsPerPage={DEFAULT_PAGE_SIZE}
+                                    itemsPerPage={pageSize}
                                     totalPages={totalExecutionRequests}
                                     showLessItems
                                     onPageChange={onPageChangeHandler}
