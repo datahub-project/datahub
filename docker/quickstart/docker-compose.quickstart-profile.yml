@@ -186,7 +186,7 @@ services:
       interval: 1s
       retries: 5
       start_period: 1m0s
-    image: confluentinc/cp-kafka:7.4.0
+    image: confluentinc/cp-kafka:7.9.1
     networks:
       default: null
     ports:
@@ -411,6 +411,7 @@ services:
       ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES: "false"
       ELASTICSEARCH_HOST: search
       ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX: "true"
+      ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: "3"
       ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX: "true"
       ELASTICSEARCH_PORT: "9200"
       ELASTICSEARCH_PROTOCOL: http
