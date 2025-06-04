@@ -797,7 +797,6 @@ class HasStructuredProperties(Entity):
             )
             properties.properties.append(new_property)
 
-        # Set the updated aspect
         self._set_aspect(properties)
 
     def remove_structured_property(
@@ -809,7 +808,6 @@ class HasStructuredProperties(Entity):
         Args:
             property_urn: URN of the structured property to remove
         """
-        # Ensure property_urn is a string
         remove_list_unique(
             self._ensure_structured_properties().properties,
             key=lambda prop: prop.propertyUrn,
