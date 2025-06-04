@@ -10,8 +10,3 @@ datajob_urn = DataJobUrn(
 )
 
 client.lineage.add_lineage(upstream=datajob_urn, downstream=dataset_urn)
-
-# you can add datajob lineage with following combinations:
-# 1. dataset -> datajob
-# 2. datajob -> dataset
-# 3. datajob -> datajob

@@ -22,7 +22,7 @@ client.lineage.add_lineage(
     column_lineage_mapping={"id": ["id", "customer_id"]},
 )
 
-# by passing the query_text, the query node will be created with the table level lineage.
-# query_text can be any transformation logic e.g. a spark job, an airflow DAG, python script, etc.
+# by passing the transformation_text, the query node will be created with the table level lineage.
+# transformation_text can be any transformation logic e.g. a spark job, an airflow DAG, python script, etc.
 # if you have a SQL query, we recommend using add_dataset_lineage_from_sql instead.
-# note that query_text itself will not create a column level lineage.
+# note that transformation_text itself will not create a column level lineage.
