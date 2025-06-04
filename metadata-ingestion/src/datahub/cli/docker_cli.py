@@ -34,7 +34,6 @@ from datahub.cli.docker_check import (
     run_quickstart_preflight_checks,
 )
 from datahub.cli.quickstart_versioning import (
-    MINIMUM_SUPPORTED_VERSION,
     QuickstartVersionMappingConfig,
 )
 from datahub.ingestion.run.pipeline import Pipeline
@@ -43,7 +42,6 @@ from datahub.upgrade import upgrade
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=os.environ.get("PYTHONLOGLEVEL", "INFO").upper())
 
 _ClickPositiveInt = click.IntRange(min=1)
 
@@ -100,24 +98,6 @@ OPTION 2 - Fresh start (if data not needed):
 Additional information on backup and restore: https://docs.datahub.com/docs/quickstart#back-up-datahub
 Troubleshooting guide: https://docs.datahub.com/docs/troubleshooting/quickstart
 """
-
-
-def get_minimum_supported_version_message(version: str) -> str:
-    MINIMUM_SUPPORTED_VERSION_MESSAGE = f"""
-    DataHub CLI Version Compatibility Issue
-
-    You're trying to install DataHub server version {version} which is not supported by this CLI version.
-
-    This CLI (version {MINIMUM_SUPPORTED_VERSION}) only supports installing DataHub server versions 1.2 and above.
-
-    To install older server versions:
-    1. Uninstall current CLI: pip uninstall acryl-datahub
-    2. Install older CLI: pip install acryl-datahub==1.1
-    3. Run quickstart with your desired version: datahub docker quickstart --version <version>
-
-    For more information: https://docs.datahub.com/docs/quickstart#install-datahub-server
-    """
-    return MINIMUM_SUPPORTED_VERSION_MESSAGE
 
 
 class Architectures(Enum):
