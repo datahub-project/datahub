@@ -15,6 +15,7 @@ import {
     ScheduleColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
+import TableFooter from '@app/ingestV2/source/components/TableFooter';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
@@ -36,6 +37,7 @@ interface Props {
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
+    isLastPage?: boolean;
 }
 
 function IngestionSourceTable({
@@ -48,6 +50,7 @@ function IngestionSourceTable({
     onChangeSort,
     isLoading,
     shouldPreserveParams,
+    isLastPage,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -157,6 +160,7 @@ function IngestionSourceTable({
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
             onRowClick={onRowClick}
+            footer={isLastPage ? <TableFooter colSpan={tableColumns.length} /> : null}
         />
     );
 }
