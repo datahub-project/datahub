@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pathlib
 import re
 from datetime import datetime, timezone
 from unittest import mock
@@ -18,7 +19,10 @@ from datahub.metadata.urns import (
     MlModelUrn,
 )
 from datahub.sdk.mlmodel import MLModel
+from datahub.testing.sdk_v2_helpers import assert_entity_golden
 from datahub.utilities.urns.error import InvalidUrnError
+
+_GOLDEN_DIR = pathlib.Path(__file__).parent / "mlmodel_golden"
 
 
 def test_mlmodel() -> None:
@@ -250,3 +254,29 @@ def test_client_get_mlmodel() -> None:
     mock_entities.get.side_effect = ItemNotFoundError(error_message)
     with pytest.raises(ItemNotFoundError, match=re.escape(error_message)):
         mock_client.entities.get(model_urn)
+
+
+def test_mlmodel_structured_properties() -> None:
+    model = MLModel(
+        id="test_model",
+        platform="mlflow",
+        name="test_model",
+        structured_properties={
+            "urn:li:structuredProperty:sp1": ["value1"],
+            "urn:li:structuredProperty:sp2": ["value2"],
+        },
+    )
+    assert model.structured_properties is not None
+    assert len(model.structured_properties) == 2
+    assert model.structured_properties[0].propertyUrn == "urn:li:structuredProperty:sp1"
+
+    model.set_structured_property("urn:li:structuredProperty:sp1", ["updated_value"])
+    assert model.structured_properties[0].values == ["updated_value"]
+
+    model.set_structured_property("urn:li:structuredProperty:sp3", ["new_value"])
+    assert len(model.structured_properties) == 3
+    assert model.structured_properties[2].propertyUrn == "urn:li:structuredProperty:sp3"
+
+    assert_entity_golden(
+        model, _GOLDEN_DIR / "test_mlmodel_structured_properties_golden.json"
+    )

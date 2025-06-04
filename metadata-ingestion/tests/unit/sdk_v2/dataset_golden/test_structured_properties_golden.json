@@ -1,0 +1,41 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.table2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.table2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "structuredProperties",
+    "aspect": {
+        "json": {
+            "properties": [
+                {
+                    "propertyUrn": "urn:li:structuredProperty:sp1",
+                    "values": [
+                        {
+                            "string": "updated_value"
+                        }
+                    ]
+                },
+                {
+                    "propertyUrn": "urn:li:structuredProperty:sp2",
+                    "values": [
+                        {
+                            "string": "value2"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
+]

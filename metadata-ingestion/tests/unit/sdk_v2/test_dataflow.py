@@ -204,3 +204,30 @@ def test_dataflow_with_container() -> None:
     )
     assert flow.parent_container == container.urn
     assert flow.browse_path == [container.urn]
+
+
+def test_dataflow_structured_properties() -> None:
+    flow = DataFlow(
+        platform="airflow",
+        name="example_dag",
+        structured_properties={
+            "urn:li:structuredProperty:sp1": ["value1"],
+            "urn:li:structuredProperty:sp2": ["value2"],
+        },
+    )
+    assert flow.structured_properties is not None
+    assert len(flow.structured_properties) == 2
+    assert flow.structured_properties[0].propertyUrn == "urn:li:structuredProperty:sp1"
+    assert flow.structured_properties[0].values == ["value1"]
+    assert flow.structured_properties[1].propertyUrn == "urn:li:structuredProperty:sp2"
+    assert flow.structured_properties[1].values == ["value2"]
+
+    flow.set_structured_property("urn:li:structuredProperty:sp1", ["updated_value"])
+    assert flow.structured_properties[0].values == ["updated_value"]
+
+    flow.set_structured_property("urn:li:structuredProperty:sp3", ["new_value"])
+    assert len(flow.structured_properties) == 3
+    assert flow.structured_properties[2].propertyUrn == "urn:li:structuredProperty:sp3"
+    assert_entity_golden(
+        flow, GOLDEN_DIR / "test_dataflow_structured_properties_golden.json"
+    )
