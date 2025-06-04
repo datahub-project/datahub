@@ -12929,9 +12929,10 @@ input CreateApplicationInput {
   properties: CreateApplicationPropertiesInput!
 
   """
-  The primary key of the Domain
+  An Optional Domain
   """
-  domainUrn: String!
+  domainUrn: String
+
   """
   An optional id for the new application
   """

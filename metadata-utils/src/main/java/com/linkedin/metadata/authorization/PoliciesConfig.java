@@ -130,6 +130,9 @@ public class PoliciesConfig {
   public static final Privilege CREATE_DOMAINS_PRIVILEGE =
       Privilege.of("CREATE_DOMAINS", "Create Domains", "Create new Domains.");
 
+  public static final Privilege CREATE_APPLICATION_PRIVILEGE =
+      Privilege.of("CREATE_APPLICATION", "Create Applications", "Create new Applications.");
+
   public static final Privilege CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE =
       Privilege.of(
           "CREATE_GLOBAL_ANNOUNCEMENTS",
@@ -286,6 +289,12 @@ public class PoliciesConfig {
       Privilege.of(
           "EDIT_DOMAINS_PRIVILEGE", "Edit Domain", "The ability to edit the Domain of an entity.");
 
+  public static final Privilege EDIT_ENTITY_APPLICATIONS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_APPLICATIONS_PRIVILEGE",
+          "Edit Applications",
+          "The ability to edit the Applications of an entity.");
+
   public static final Privilege EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE =
       Privilege.of(
           "EDIT_ENTITY_DATA_PRODUCTS",
@@ -359,6 +368,7 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
           EDIT_ENTITY_STATUS_PRIVILEGE,
           EDIT_ENTITY_DOMAINS_PRIVILEGE,
+          EDIT_ENTITY_APPLICATIONS_PRIVILEGE,
           EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE,
@@ -740,7 +750,8 @@ public class PoliciesConfig {
               EDIT_ENTITY_DOMAINS_PRIVILEGE,
               EDIT_ENTITY_PROPERTIES_PRIVILEGE,
               CREATE_ENTITY_PRIVILEGE,
-              EXISTS_ENTITY_PRIVILEGE));
+              EXISTS_ENTITY_PRIVILEGE,
+              CREATE_APPLICATION_PRIVILEGE));
 
   // Glossary Term Privileges
   public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES =

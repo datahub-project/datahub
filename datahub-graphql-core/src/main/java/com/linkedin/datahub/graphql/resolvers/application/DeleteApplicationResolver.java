@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.application;
 
-import com.datahub.authentication.Authentication;
+import static com.linkedin.metadata.Constants.APPLICATION_ENTITY_NAME;
+
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
@@ -10,7 +11,6 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
-import com.linkedin.domain.Domains;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetcher;
@@ -34,28 +34,20 @@ public class DeleteApplicationResolver implements DataFetcher<CompletableFuture<
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn applicationUrn = UrnUtils.getUrn(environment.getArgument("urn"));
-    final Authentication authentication = context.getAuthentication();
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!_applicationService.verifyEntityExists(
               context.getOperationContext(), applicationUrn)) {
-            throw new IllegalArgumentException("The Application provided dos not exist");
+            throw new IllegalArgumentException("The Application provided does not exist");
           }
 
-          Domains domains =
-              _applicationService.getApplicationDomains(
-                  context.getOperationContext(), applicationUrn);
-          if (domains != null && domains.hasDomains() && domains.getDomains().size() > 0) {
-            // get first domain since we only allow one domain right now
-            Urn domainUrn = UrnUtils.getUrn(domains.getDomains().get(0).toString());
-            final DisjunctivePrivilegeGroup orPrivilegeGroup =
-                new DisjunctivePrivilegeGroup(ImmutableList.of(ALL_PRIVILEGES_GROUP));
-            if (!AuthorizationUtils.isAuthorized(
-                context, domainUrn.getEntityType(), domainUrn.toString(), orPrivilegeGroup)) {
-              throw new AuthorizationException(
-                  "Unauthorized to perform this action. Please contact your DataHub administrator.");
-            }
+          final DisjunctivePrivilegeGroup orPrivilegeGroup =
+              new DisjunctivePrivilegeGroup(ImmutableList.of(ALL_PRIVILEGES_GROUP));
+          if (!AuthorizationUtils.isAuthorized(
+              context, APPLICATION_ENTITY_NAME, applicationUrn.toString(), orPrivilegeGroup)) {
+            throw new AuthorizationException(
+                "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
           try {

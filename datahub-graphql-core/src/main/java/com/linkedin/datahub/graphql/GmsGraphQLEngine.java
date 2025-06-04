@@ -30,7 +30,6 @@ import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationRes
 import com.linkedin.datahub.graphql.resolvers.application.CreateApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.DeleteApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.application.ListApplicationAssetsResolver;
-import com.linkedin.datahub.graphql.resolvers.application.UpdateApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
@@ -651,8 +650,8 @@ public class GmsGraphQLEngine {
                 restrictedType,
                 businessAttributeType,
                 dataProcessInstanceType,
-                executionRequestType,
-                applicationType));
+                applicationType,
+                executionRequestType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     this.loadableTypes.add(ingestionSourceType);
     // Extend loadable types with types from the plugins
@@ -1303,8 +1302,6 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "createApplication",
                   new CreateApplicationResolver(this.applicationService, this.entityService))
-              .dataFetcher(
-                  "updateApplication", new UpdateApplicationResolver(this.applicationService))
               .dataFetcher(
                   "deleteApplication", new DeleteApplicationResolver(this.applicationService))
               .dataFetcher(

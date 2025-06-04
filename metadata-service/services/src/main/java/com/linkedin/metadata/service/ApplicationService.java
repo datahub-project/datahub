@@ -99,58 +99,6 @@ public class ApplicationService {
   }
 
   /**
-   * Updates an existing Application. If a provided field is null, the previous value will be kept.
-   *
-   * <p>Note that this method does not do authorization validation. It is assumed that users of this
-   * class have already authorized the operation.
-   *
-   * @param urn the urn of the Application
-   * @param name optional name of the Application
-   * @param description optional description of the Application
-   */
-  public Urn updateApplication(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nullable String name,
-      @Nullable String description) {
-    Objects.requireNonNull(urn, "urn must not be null");
-    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
-
-    ApplicationProperties properties = getApplicationProperties(opContext, urn);
-    if (properties == null) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to update Application. Application with urn %s does not exist.", urn));
-    }
-
-    boolean changed = false;
-    if (name != null && !name.equals(properties.getName())) { // check if actually different
-      properties.setName(name);
-      changed = true;
-    }
-    if (description != null
-        && !description.equals(properties.getDescription())) { // check if actually different
-      properties.setDescription(description);
-      changed = true;
-    }
-
-    if (!changed) {
-      return urn;
-    }
-
-    try {
-      return UrnUtils.getUrn(
-          _entityClient.ingestProposal(
-              opContext,
-              AspectUtils.buildMetadataChangeProposal(
-                  urn, Constants.APPLICATION_PROPERTIES_ASPECT_NAME, properties),
-              false));
-    } catch (Exception e) {
-      throw new RuntimeException(String.format("Failed to update Application with urn %s", urn), e);
-    }
-  }
-
-  /**
    * @param applicationUrn the urn of the Application
    * @return an instance of {@link ApplicationProperties} for the Application, null if it does not
    *     exist.
@@ -185,33 +133,6 @@ public class ApplicationService {
     return null;
   }
 
-  /**
-   * @param applicationUrn the urn of the Application
-   * @return an instance of {@link ApplicationProperties} for the Application, null if it does not
-   *     exist.
-   */
-  @Nullable
-  public Domains getApplicationDomains(
-      @Nonnull OperationContext opContext, @Nonnull final Urn applicationUrn) {
-    Objects.requireNonNull(applicationUrn, "applicationUrn must not be null");
-    Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
-    try {
-      final EntityResponse response =
-          _entityClient.getV2(
-              opContext,
-              Constants.APPLICATION_ENTITY_NAME,
-              applicationUrn,
-              ImmutableSet.of(Constants.DOMAINS_ASPECT_NAME));
-      if (response != null && response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
-        return new Domains(
-            response.getAspects().get(Constants.DOMAINS_ASPECT_NAME).getValue().data());
-      }
-    } catch (Exception e) {
-      log.error(String.format("Failed to get domains for application %s", applicationUrn), e);
-    }
-    return null;
-  }
-
   @Nullable
   public EntityResponse getApplicationEntityResponse(
       @Nonnull OperationContext opContext, @Nonnull final Urn applicationUrn) {
@@ -237,20 +158,8 @@ public class ApplicationService {
     Objects.requireNonNull(domainUrn, "domainUrn must not be null");
     Objects.requireNonNull(opContext.getSessionAuthentication(), "authentication must not be null");
 
-    Domains domains = getApplicationDomains(opContext, applicationUrn);
-    if (domains == null) {
-      domains = new Domains(new DataMap());
-      domains.setDomains(new UrnArray());
-    }
-
-    UrnArray domainList = domains.getDomains();
-    if (domainList.stream().anyMatch(urn -> urn.equals(domainUrn))) {
-      log.info(
-          String.format(
-              "Domain %s already exists for Application %s. Skipping add.",
-              domainUrn, applicationUrn));
-      return;
-    }
+    Domains domains = new Domains(new DataMap());
+    domains.setDomains(new UrnArray());
     domains.getDomains().add(domainUrn);
 
     try {
@@ -303,17 +212,12 @@ public class ApplicationService {
                 applicationUrn));
       }
     } catch (Exception e) {
-      // Log the exception, as failure to query graph shouldn't necessarily block deletion if
-      // properties are clear,
-      // but it's an indication of potential inconsistency or error.
-      // Depending on strictness, this could also be a hard failure.
       log.error(
           String.format(
               "Error checking graph relationships for application %s during delete: %s",
               applicationUrn, e.getMessage()),
           e);
-      // For now, let's make it a hard failure to ensure consistency, similar to
-      // DataProductService's implicit check.
+
       throw new RuntimeException(
           String.format(
               "Failed to verify graph relationships for application %s during delete.",
@@ -354,23 +258,17 @@ public class ApplicationService {
     boolean changed = false;
 
     for (Urn resourceUrn : resourceUrns) {
-      // TODO: Revisit ApplicationAssociation structure once PDL is finalized and classes generated.
-      // Assuming ApplicationAssociation PDL will define how a resource URN is stored.
-      // For now, we'll create a new association and add it. The exact mechanism
-      // for checking existence and setting the resource URN might change based on PDL.
       boolean exists = false;
       for (ApplicationAssociation existing : currentAssets) {
-        // TODO: Replace with actual check once ApplicationAssociation.getResource() is
-        // confirmed/available
-        // if (existing.getResource().equals(resourceUrn)) {
-        //   exists = true;
-        //   break;
-        // }
+        if (existing.getDestinationUrn().equals(resourceUrn)) {
+          exists = true;
+          break;
+        }
       }
+
       if (!exists) {
         ApplicationAssociation newAssociation = new ApplicationAssociation();
-        // TODO: newAssociation.setResource(resourceUrn); // This line caused errors, dependent on
-        // PDL
+        newAssociation.setDestinationUrn(resourceUrn);
         currentAssets.add(newAssociation);
         changed = true;
       }
@@ -378,12 +276,6 @@ public class ApplicationService {
 
     if (changed) {
       properties.setAssets(currentAssets);
-      // AuditStamp handling can be added here if ApplicationProperties has an audit field
-      // Or if it's handled by the MCP interceptor automatically
-      // final AuditStamp audit = new
-      // AuditStamp().setActor(actorUrn).setTime(System.currentTimeMillis());
-      // properties.setLastModified(audit); // Example if such a field exists
-
       try {
         _entityClient.ingestProposal(
             opContext,
@@ -417,22 +309,24 @@ public class ApplicationService {
     }
 
     ApplicationAssociationArray currentAssets = properties.getAssets();
+
+    if (currentAssets == null) {
+      log.info("Application {} has no assets, nothing to remove.", applicationUrn);
+      return;
+    }
+
     List<ApplicationAssociation> associationsToRemove = new ArrayList<>();
     for (ApplicationAssociation asset : currentAssets) {
-      // TODO: Revisit ApplicationAssociation structure once PDL is finalized and classes generated.
-      // Replace with actual check once ApplicationAssociation.getResource() is confirmed/available
-      // if (resourceUrnsToRemove.contains(asset.getResource())) {
-      //  associationsToRemove.add(asset);
-      // }
+      if (resourceUrnsToRemove.contains(asset.getDestinationUrn())) {
+        associationsToRemove.add(asset);
+      }
     }
 
     if (!associationsToRemove.isEmpty()) {
       for (ApplicationAssociation toRemove : associationsToRemove) {
-        currentAssets.remove(
-            toRemove); // Relies on proper .equals() in ApplicationAssociation or object identity
+        currentAssets.remove(toRemove);
       }
       properties.setAssets(currentAssets);
-      // AuditStamp handling (similar to batchSetApplicationAssets)
 
       try {
         _entityClient.ingestProposal(
