@@ -18,7 +18,7 @@ LOCAL_QUICKSTART_MAPPING_FILE = os.environ.get("FORCE_LOCAL_QUICKSTART_MAPPING",
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
 
-MINIMUM_SUPPORTED_VERSION = "1.2"
+MINIMUM_SUPPORTED_VERSION = "v1.1.0"
 
 
 class QuickstartExecutionPlan(BaseModel):
@@ -139,10 +139,10 @@ class QuickstartVersionMappingConfig(BaseModel):
         # docker compose based resolved compose file. In those cases, we pick up the composefile from
         # MINIMUM_SUPPORTED_VERSION which contains the compose file.
         if _is_it_a_version(result.composefile_git_ref):
-            if parse("v0.10.1") > parse(result.composefile_git_ref):
+            if parse("v1.2.0") > parse(result.composefile_git_ref):
                 # The merge commit where the labels were added
                 # https://github.com/datahub-project/datahub/pull/7473
-                result.composefile_git_ref = "1d3339276129a7cb8385c07a958fcc93acda3b4e"
+                result.composefile_git_ref = "1d3339276129a7cb8385c07a958fcc93acda3b4e"  # TODO update after compose file is merged
 
         return result
 
