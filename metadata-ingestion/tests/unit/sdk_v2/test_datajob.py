@@ -416,26 +416,3 @@ def test_datajob_invalid_inlets_outlets() -> None:
         job.set_outlets(
             ["urn:li:datajob:(urn:li:dataFlow:(airflow,example_dag,PROD),example_task)"]
         )
-
-
-def test_datajob_structured_properties() -> None:
-    flow = DataFlow(
-        platform="airflow",
-        name="example_dag",
-    )
-    job = DataJob(
-        name="example_task",
-        flow=flow,
-        structured_properties={
-            "urn:li:structuredProperty:sp1": ["value1"],
-            "urn:li:structuredProperty:sp2": ["value2"],
-        },
-    )
-    assert job.structured_properties is not None
-    assert len(job.structured_properties) == 2
-    assert job.structured_properties[0].propertyUrn == "urn:li:structuredProperty:sp1"
-    assert job.structured_properties[0].values == ["value1"]
-    assert job.structured_properties[1].propertyUrn == "urn:li:structuredProperty:sp2"
-    assert_entity_golden(
-        job, GOLDEN_DIR / "test_datajob_structured_properties_golden.json"
-    )

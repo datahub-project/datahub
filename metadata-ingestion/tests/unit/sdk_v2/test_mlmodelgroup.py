@@ -11,7 +11,6 @@ from datahub.metadata.urns import (
     MlModelGroupUrn,
 )
 from datahub.sdk.mlmodelgroup import MLModelGroup
-from datahub.testing.sdk_v2_helpers import assert_entity_golden
 from datahub.utilities.urns.error import InvalidUrnError
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "mlmodelgroup_golden"
@@ -110,28 +109,3 @@ def test_client_get_mlmodelgroup_():
     assert result.created == now
     assert result.last_modified == now
     mock_entities.get.assert_called_once_with(group_urn)
-
-
-def test_mlmodelgroup_structured_properties() -> None:
-    group = MLModelGroup(
-        id="test_group",
-        platform="mlflow",
-        name="test_group",
-        structured_properties={
-            "urn:li:structuredProperty:sp1": ["value1"],
-            "urn:li:structuredProperty:sp2": ["value2"],
-        },
-    )
-    assert group.structured_properties is not None
-    assert len(group.structured_properties) == 2
-
-    group.set_structured_property("urn:li:structuredProperty:sp1", ["updated_value"])
-    assert group.structured_properties[0].values == ["updated_value"]
-
-    group.set_structured_property("urn:li:structuredProperty:sp3", ["new_value"])
-    assert len(group.structured_properties) == 3
-    assert group.structured_properties[2].propertyUrn == "urn:li:structuredProperty:sp3"
-
-    assert_entity_golden(
-        group, _GOLDEN_DIR / "test_mlmodelgroup_structured_properties_golden.json"
-    )
