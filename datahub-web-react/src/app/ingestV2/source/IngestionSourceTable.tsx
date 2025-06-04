@@ -4,6 +4,7 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
@@ -30,6 +31,7 @@ interface Props {
     onDelete: (urn: string) => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     isLoading?: boolean;
+    isLastPage?: boolean;
 }
 
 function IngestionSourceTable({
@@ -41,6 +43,7 @@ function IngestionSourceTable({
     onDelete,
     onChangeSort,
     isLoading,
+    isLastPage,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
@@ -130,6 +133,14 @@ function IngestionSourceTable({
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
+            footer={
+                isLastPage ? (
+                    <TableFooter
+                        hiddenItemsMessage="Some ingestion sources may be hidden"
+                        colSpan={tableColumns.length}
+                    />
+                ) : null
+            }
         />
     );
 }

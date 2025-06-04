@@ -7,6 +7,7 @@ import { ActionsColumn } from '@app/ingestV2/executions/components/columns/Actio
 import { ExecutedByColumn } from '@app/ingestV2/executions/components/columns/ExecutedByColumn';
 import SourceColumn from '@app/ingestV2/executions/components/columns/SourceColumn';
 import { ExecutionRequestRecord } from '@app/ingestV2/executions/types';
+import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import DurationColumn from '@app/ingestV2/shared/components/columns/DurationColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
@@ -22,9 +23,10 @@ interface Props {
     executionRequests: ExecutionRequest[];
     setFocusExecutionUrn: (urn: string) => void;
     loading?: boolean;
+    isLastPage?: boolean;
 }
 
-export default function ExecutionsTable({ executionRequests, setFocusExecutionUrn, loading }: Props) {
+export default function ExecutionsTable({ executionRequests, setFocusExecutionUrn, loading, isLastPage }: Props) {
     const tableData: ExecutionRequestRecord[] = executionRequests.map((execution) => ({
         urn: execution.urn,
         name: execution?.source?.name,
@@ -81,5 +83,17 @@ export default function ExecutionsTable({ executionRequests, setFocusExecutionUr
         },
     ];
 
-    return <StyledTable columns={tableColumns} data={tableData} isScrollable isLoading={loading} />;
+    return (
+        <StyledTable
+            columns={tableColumns}
+            data={tableData}
+            isScrollable
+            isLoading={loading}
+            footer={
+                isLastPage ? (
+                    <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />
+                ) : null
+            }
+        />
+    );
 }

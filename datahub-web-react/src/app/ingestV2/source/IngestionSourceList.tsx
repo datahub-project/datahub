@@ -28,6 +28,7 @@ import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOn
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import usePagination from '@app/sharedV2/pagination/usePagination';
 
 import {
     useCreateIngestionExecutionRequestMutation,
@@ -133,10 +134,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
         }
     }, [paramsQuery]);
 
-    const [page, setPage] = useState(1);
-
-    const pageSize = DEFAULT_PAGE_SIZE;
-    const start = (page - 1) * pageSize;
+    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
 
     const [isBuildingSource, setIsBuildingSource] = useState<boolean>(false);
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
@@ -161,7 +159,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     // When source filter changes, reset page to 1
     useEffect(() => {
         setPage(1);
-    }, [sourceFilter]);
+    }, [sourceFilter, setPage]);
 
     /**
      * Show or hide system ingestion sources using a hidden command S command.
@@ -202,6 +200,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
     const filteredSources = sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
+    const isLastPage = totalSources <= pageSize * page;
+
     const [focusSource, setFocusSource] = useState(
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined,
     );
@@ -533,6 +533,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                                 onDelete={onDelete}
                                 onChangeSort={onChangeSort}
                                 isLoading={loading}
+                                isLastPage={isLastPage}
                             />
                         </TableContainer>
                         <PaginationContainer>
