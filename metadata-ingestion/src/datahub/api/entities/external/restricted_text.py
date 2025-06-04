@@ -63,7 +63,7 @@ class RestrictedText(str):
         # Custom max length and character replacement using Field
         custom_field: RestrictedText = RestrictedText.with_config(
             max_length=10,
-            replace_chars={' ', '-', '.'},
+            forbidden_chars={' ', '-', '.'},
             replacement_char='_'
         )
 
@@ -157,7 +157,7 @@ class RestrictedText(str):
     def with_config(
         cls,
         max_length: Optional[int] = None,
-        replace_chars: Optional[Set[str]] = None,
+        forbidden_chars: Optional[Set[str]] = None,
         replacement_char: Optional[str] = None,
         truncation_suffix: Optional[str] = None,
     ) -> RestrictedTextConfig:
@@ -165,7 +165,7 @@ class RestrictedText(str):
 
         Args:
             max_length: Maximum length of the processed string
-            replace_chars: Set of characters to replace
+            forbidden_chars: Set of characters to replace
             replacement_char: Character to use as replacement
             truncation_suffix: Suffix to add when truncating
 
@@ -174,7 +174,7 @@ class RestrictedText(str):
         """
         return RestrictedTextConfig(
             max_length=max_length,
-            replace_chars=replace_chars,
+            replace_chars=forbidden_chars,
             replacement_char=replacement_char,
             truncation_suffix=truncation_suffix,
         )

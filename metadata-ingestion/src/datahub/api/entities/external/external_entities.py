@@ -63,6 +63,35 @@ class CaseSensitivity(Enum):
     LOWER = "lower"
     MIXED = "mixed"
 
+    @staticmethod
+    def detect_case_sensitivity(value: str) -> "CaseSensitivity":
+        if value.isupper():
+            return CaseSensitivity.UPPER
+        elif value.islower():
+            return CaseSensitivity.LOWER
+        return CaseSensitivity.MIXED
+
+    @staticmethod
+    def detect_for_many(values: List[str]) -> "CaseSensitivity":
+        """
+        Detects the case sensitivity for a list of strings.
+        Returns CaseSensitivity.MIXED if the case sensitivity is mixed.
+        """
+        if len(values) == 0:
+            return CaseSensitivity.MIXED
+
+        if all(
+            CaseSensitivity.detect_case_sensitivity(value) == CaseSensitivity.UPPER
+            for value in values
+        ):
+            return CaseSensitivity.UPPER
+        elif all(
+            CaseSensitivity.detect_case_sensitivity(value) == CaseSensitivity.LOWER
+            for value in values
+        ):
+            return CaseSensitivity.LOWER
+        return CaseSensitivity.MIXED
+
 
 class LinkedResourceSet(BaseModel):
     """
@@ -70,38 +99,6 @@ class LinkedResourceSet(BaseModel):
     """
 
     urns: List[str]
-
-    class Config:
-        arbitrary_types_allowed = True
-
-    @staticmethod
-    def detect_case_sensitivity(urn: Urn) -> CaseSensitivity:
-        if urn.get_entity_id_as_string().isupper():
-            return CaseSensitivity.UPPER
-        elif urn.get_entity_id_as_string().islower():
-            return CaseSensitivity.LOWER
-        return CaseSensitivity.MIXED
-
-    def _detect_case_sensitivity(self) -> Optional[CaseSensitivity]:
-        """
-        Detects the case sensitivity of the URNs in the set.
-        """
-        if len(self.urns) == 0:
-            return CaseSensitivity.MIXED
-
-        if all(
-            LinkedResourceSet.detect_case_sensitivity(Urn.from_string(urn))
-            == CaseSensitivity.UPPER
-            for urn in self.urns
-        ):
-            return CaseSensitivity.UPPER
-        elif all(
-            LinkedResourceSet.detect_case_sensitivity(Urn.from_string(urn))
-            == CaseSensitivity.LOWER
-            for urn in self.urns
-        ):
-            return CaseSensitivity.LOWER
-        return CaseSensitivity.MIXED
 
     def _has_conflict(self, urn: Urn) -> bool:
         """
@@ -117,17 +114,17 @@ class LinkedResourceSet(BaseModel):
         if urn.urn() in self.urns:
             return False
 
-        # Detect the family of the urns in the existing set
-        detected_family = None
+        # Detect the entity_type of the urns in the existing set
+        detected_entity_type = None
         for existing_urn in self.urns:
             try:
                 parsed_urn = Urn.from_string(existing_urn)
-                family = parsed_urn.entity_type
-                if detected_family is None:
-                    detected_family = family
-                elif detected_family != family:
+                entity_type = parsed_urn.entity_type
+                if detected_entity_type is None:
+                    detected_entity_type = entity_type
+                elif detected_entity_type != entity_type:
                     logger.warning(
-                        f"Detected family {detected_family} is not equals to {family}"
+                        f"Detected entity_type {detected_entity_type} is not equals to {entity_type}"
                     )
                     return True
             except ValueError:
@@ -137,27 +134,17 @@ class LinkedResourceSet(BaseModel):
         try:
             parsed_urn = urn
             if (
-                detected_family is not None
-                and parsed_urn.entity_type != detected_family
+                detected_entity_type is not None
+                and parsed_urn.entity_type != detected_entity_type
             ):
                 logger.warning(
-                    f"Detected family {detected_family} is not equals to parsed_urn's family: {parsed_urn.entity_type}"
+                    f"Detected entity_type {detected_entity_type} is not equals to parsed_urn's entity_type: {parsed_urn.entity_type}"
                 )
                 return True
         except ValueError:
             # Not a valid URN
             logger.warning(f"Invalid URN: {urn} in LinkedResourceSet")
             return True
-        detected_case_sensitivity = self._detect_case_sensitivity()
-        if (
-            LinkedResourceSet.detect_case_sensitivity(urn) != detected_case_sensitivity
-            and detected_case_sensitivity != CaseSensitivity.MIXED
-        ):
-            logger.warning(
-                f"Detected case sensitivity {detected_case_sensitivity} is not equals to {LinkedResourceSet.detect_case_sensitivity(urn)}"
-            )
-            return True
-
         return False
 
     def add(self, urn: Union[str, Urn]) -> bool:
