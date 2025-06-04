@@ -571,7 +571,9 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   // Full details
   for (const release of releases_list) {
     let body: string;
-    if (releaseNoteVersions.has(release.tag_name)) {
+    if (release.tag_name === "v1.1.0") {
+      body = `View the [release notes](${release.html_url}) for ${release.name} on GitHub.`;
+    } else if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";
       body = markdown_sanitize_and_linkify(body);
 

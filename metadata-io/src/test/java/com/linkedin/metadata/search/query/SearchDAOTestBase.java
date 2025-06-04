@@ -6,6 +6,7 @@ import static com.linkedin.metadata.search.fixtures.SampleDataFixtureTestBase.MA
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
 import static com.linkedin.metadata.utils.SearchUtil.ES_INDEX_FIELD;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
@@ -199,7 +200,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             null,
             QueryFilterRewriteChain.EMPTY);
     // Empty aggregations
@@ -290,7 +291,7 @@ public abstract class SearchDAOTestBase extends AbstractTestNGSpringContextTests
             getSearchClient(),
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             null,
             QueryFilterRewriteChain.EMPTY);
     // One nested facet

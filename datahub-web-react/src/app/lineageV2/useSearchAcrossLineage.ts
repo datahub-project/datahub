@@ -73,7 +73,7 @@ export default function useSearchAcrossLineage(
         direction,
         types: type === EntityType.SchemaField ? [EntityType.SchemaField] : undefined,
         start: 0,
-        count: 10000,
+        count: 2000,
         orFilters: [
             {
                 and: [
