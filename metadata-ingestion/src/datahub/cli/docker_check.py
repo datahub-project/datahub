@@ -1,5 +1,4 @@
 import enum
-import logging
 import os
 import pathlib
 from contextlib import contextmanager
@@ -12,10 +11,6 @@ import docker.models.containers
 import yaml
 
 from datahub.configuration.common import ExceptionWithProps
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=os.environ.get("PYTHONLOGLEVEL", "INFO").upper())
-
 
 # Docker seems to under-report memory allocated, so we also need a bit of buffer to account for it.
 MIN_MEMORY_NEEDED = 3.8  # GB
@@ -358,7 +353,6 @@ def check_upgrade_supported(
     if not quickstart_status.get_containers():  # no containers are running
         return True
 
-    logger.info(quickstart_status.get_containers())
     compose_services = set()
     compose_volumes = set()
 
@@ -374,5 +368,4 @@ def check_upgrade_supported(
     ):
         return True
     else:
-        logger.debug("existing services are not the same as the  services in compose")
         return False
