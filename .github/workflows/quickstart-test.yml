@@ -88,6 +88,8 @@ jobs:
         run: |
           datahub docker quickstart
           datahub docker check
+          datahub docker ingest-sample-data
+          datahub docker check
 
       - name: Checkout repository
         uses: actions/checkout@v4

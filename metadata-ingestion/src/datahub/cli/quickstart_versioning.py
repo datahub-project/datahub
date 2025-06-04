@@ -12,6 +12,8 @@ import yaml
 from packaging.version import parse
 from pydantic import BaseModel
 
+from datahub._version import nice_version_name
+
 logger = logging.getLogger(__name__)
 
 LOCAL_QUICKSTART_MAPPING_FILE = os.environ.get("FORCE_LOCAL_QUICKSTART_MAPPING", "")
@@ -19,6 +21,24 @@ DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.ya
 DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
 
 MINIMUM_SUPPORTED_VERSION = "v1.1.0"
+
+
+def get_minimum_supported_version_message(version: str) -> str:
+    MINIMUM_SUPPORTED_VERSION_MESSAGE = f"""
+    DataHub CLI Version Compatibility Issue
+
+    You're trying to install DataHub server version {version} which is not supported by this CLI version.
+
+    This CLI (version {nice_version_name()}) only supports installing DataHub server versions {MINIMUM_SUPPORTED_VERSION} and above.
+
+    To install older server versions:
+    1. Uninstall current CLI: pip uninstall acryl-datahub
+    2. Install older CLI: pip install acryl-datahub==1.1
+    3. Run quickstart with your desired version: datahub docker quickstart --version <version>
+
+    For more information: https://docs.datahub.com/docs/quickstart#install-datahub-server
+    """
+    return MINIMUM_SUPPORTED_VERSION_MESSAGE
 
 
 class QuickstartExecutionPlan(BaseModel):
@@ -130,9 +150,12 @@ class QuickstartVersionMappingConfig(BaseModel):
             ),
         )
 
-        # if not is_minimum_supported_version(version):
-        #    click.secho(get_minimum_supported_version_message(version=version), fg="red")
-        #    sys.exit(1)
+        if not is_minimum_supported_version(requested_version):
+            click.secho(
+                get_minimum_supported_version_message(version=requested_version),
+                fg="red",
+            )
+            raise click.ClickException("Minimum supported version not met")
 
         # new CLI version is downloading the composefile corresponding to the requested version
         # if the version is older than <MINIMUM_SUPPORTED_VERSION>, it doesn't contain the
