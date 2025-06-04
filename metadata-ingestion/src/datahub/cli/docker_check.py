@@ -44,6 +44,10 @@ class DockerLowMemoryError(Exception):
     SHOW_STACK_TRACE = False
 
 
+class DockerLowDiskSpaceError(Exception):
+    SHOW_STACK_TRACE = False
+
+
 class DockerComposeVersionError(Exception):
     SHOW_STACK_TRACE = False
 
@@ -122,7 +126,7 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
 
     available_gb = available_bytes / (1024**3)
     if available_gb < MIN_DISK_SPACE_NEEDED:
-        raise DockerLowMemoryError(
+        raise DockerLowDiskSpaceError(
             f"Total Docker disk space available {available_gb:.2f}GB is below the minimum threshold {MIN_DISK_SPACE_NEEDED}GB. "
             "You can increase the disk space allocated to Docker in the Docker settings or free up disk space`"
         )
