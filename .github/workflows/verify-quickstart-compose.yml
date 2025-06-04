@@ -23,6 +23,6 @@ jobs:
         run: |
           git diff --exit-code docker/quickstart/docker-compose.quickstart-profile.yml
           if [ $? -ne 0 ]; then
-            echo "Build file changes are detected. Run\n ./gradlew :docker:saveQuickstartComposeConfig \n and commit the generated docker/quickstart/docker-compose.quickstart-profile.yml file"
+            echo "Build file changes are detected. Run\n ./gradlew :docker:generateQuickstartComposeConfig \n and commit the generated docker/quickstart/docker-compose.quickstart-profile.yml file"
             exit 1
           fi
