@@ -10,6 +10,8 @@ dependencies {
     }
     implementation externalDependency.springActuator
     implementation externalDependency.springKafka
+    implementation externalDependency.opentelemetrySdkTrace
+    implementation externalDependency.opentelemetrySdkMetrics
     implementation externalDependency.slf4jApi
 
     implementation(externalDependency.springBootStarterJetty) {

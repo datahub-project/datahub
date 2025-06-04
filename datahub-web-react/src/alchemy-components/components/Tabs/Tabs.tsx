@@ -1,5 +1,5 @@
 import { Tabs as AntTabs } from 'antd';
-import React from 'react';
+import React, { useEffect } from 'react';
 import styled from 'styled-components';
 
 import { Pill } from '@components/components/Pills';
@@ -74,15 +74,57 @@ export interface Props {
     tabs: Tab[];
     selectedTab?: string;
     onChange?: (selectedTabKey: string) => void;
+    urlMap?: Record<string, string>;
+    onUrlChange?: (url: string) => void;
+    defaultTab?: string;
+    getCurrentUrl?: () => string;
 }
 
-export function Tabs({ tabs, selectedTab, onChange }: Props) {
+export function Tabs({
+    tabs,
+    selectedTab,
+    onChange,
+    urlMap,
+    onUrlChange = (url) => window.history.replaceState({}, '', url),
+    defaultTab,
+    getCurrentUrl = () => window.location.pathname,
+}: Props) {
     const { TabPane } = AntTabs;
+
+    // Create reverse mapping from URLs to tab keys if urlMap is provided
+    const urlToTabMap = React.useMemo(() => {
+        if (!urlMap) return {};
+        const map: Record<string, string> = {};
+        Object.entries(urlMap).forEach(([tabKey, url]) => {
+            map[url] = tabKey;
+        });
+        return map;
+    }, [urlMap]);
+
+    // Handle initial tab selection based on URL if urlMap is provided
+    useEffect(() => {
+        if (!urlMap || !onChange) return;
+
+        const currentUrl = getCurrentUrl();
+        const tabFromUrl = urlToTabMap[currentUrl];
+
+        if (tabFromUrl && tabFromUrl !== selectedTab) {
+            onChange(tabFromUrl);
+        } else if (!tabFromUrl && defaultTab && defaultTab !== selectedTab) {
+            onChange(defaultTab);
+            onUrlChange(urlMap[defaultTab]);
+        }
+    }, [getCurrentUrl, onChange, onUrlChange, selectedTab, urlMap, urlToTabMap, defaultTab]);
 
     function handleTabClick(key: string) {
         onChange?.(key);
         const newTab = tabs.find((t) => t.key === key);
         newTab?.onSelectTab?.();
+
+        // Update URL if urlMap is provided
+        if (urlMap && urlMap[key]) {
+            onUrlChange(urlMap[key]);
+        }
     }
 
     return (

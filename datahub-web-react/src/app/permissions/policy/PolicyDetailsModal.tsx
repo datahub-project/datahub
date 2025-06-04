@@ -81,6 +81,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const resourceFilterCondition =
         getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
+    const containers = getFieldValues(resources?.filter, 'CONTAINER') || [];
 
     const {
         config: { policiesConfig },
@@ -206,6 +207,19 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                     return (
                                         // eslint-disable-next-line react/no-array-index-key
                                         <PoliciesTag key={`domain-${value.value}-${key}`}>
+                                            {getEntityTag(value)}
+                                        </PoliciesTag>
+                                    );
+                                })) || <PoliciesTag>All</PoliciesTag>}
+                        </div>
+                        <div>
+                            <Typography.Title level={5}>Containers</Typography.Title>
+                            <ThinDivider />
+                            {(containers?.length &&
+                                containers.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`containers-${value.value}-${key}`}>
                                             {getEntityTag(value)}
                                         </PoliciesTag>
                                     );

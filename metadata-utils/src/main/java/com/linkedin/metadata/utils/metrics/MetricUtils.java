@@ -19,6 +19,10 @@ public class MetricUtils {
   public static final String MESSAGING_OPERATION = "messaging.operation";
   public static final String ERROR_TYPE = "error.type";
 
+  public static final String CHANGE_TYPE = "aspect.change_type";
+  public static final String ENTITY_TYPE = "aspect.entity_type";
+  public static final String ASPECT_NAME = "aspect.name";
+
   private MetricUtils() {}
 
   public static final String DELIMITER = "_";
