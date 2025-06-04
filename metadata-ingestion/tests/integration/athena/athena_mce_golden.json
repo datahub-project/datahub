@@ -152,33 +152,33 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),year)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.year)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),year)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history.year)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),company)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.company)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),company)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history.company)"
                     ],
                     "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),role)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/test_table,PROD),job_history.role)"
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),role)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:athena,test_schema.test_table,PROD),job_history.role)"
                     ],
                     "confidenceScore": 1.0
                 },
