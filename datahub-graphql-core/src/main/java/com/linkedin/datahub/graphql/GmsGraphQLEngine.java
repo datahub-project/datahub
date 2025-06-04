@@ -110,6 +110,7 @@ import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResol
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetLatestSuccessfulExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.RollbackIngestionResolver;
@@ -3194,7 +3195,11 @@ public class GmsGraphQLEngine {
                               return ingestionSource.getPlatform() != null
                                   ? ingestionSource.getPlatform().getUrn()
                                   : null;
-                            })))
+                            }))
+                    .dataFetcher(
+                        "latestSuccessfulExecution",
+                        new GetLatestSuccessfulExecutionRequestResolver(
+                            this.entityClient, this.executionRequestType)))
         .type(
             "ListIngestionSourcesResult",
             typeWiring ->
