@@ -1,10 +1,10 @@
 package com.linkedin.metadata.search.indexbuilder;
 
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexResult;
@@ -65,7 +65,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             gitVersion);
     testReplicasBuilder =
         new ESIndexBuilder(
@@ -78,7 +78,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             gitVersion);
   }
 
@@ -257,7 +257,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             gitVersion);
     nsecBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
     String beforeCreationDate = getTestIndex().getSetting(TEST_INDEX_NAME, "index.creation_date");
@@ -325,7 +325,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             true,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             gitVersion);
 
     // No mappings
@@ -398,7 +398,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             gitVersion);
 
     // add new replicas
@@ -430,7 +430,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             true,
             false,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             gitVersion);
 
     // add new shard setting
@@ -472,7 +472,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 true,
                 false,
                 false,
-                new ElasticSearchConfiguration(),
+                TEST_SEARCH_CONFIG,
                 gitVersion),
             new ESIndexBuilder(
                 getSearchClient(),
@@ -484,7 +484,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 true,
                 false,
                 false,
-                new ElasticSearchConfiguration(),
+                TEST_SEARCH_CONFIG,
                 gitVersion),
             new ESIndexBuilder(
                 getSearchClient(),
@@ -496,7 +496,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 false,
                 false,
                 false,
-                new ElasticSearchConfiguration(),
+                TEST_SEARCH_CONFIG,
                 gitVersion),
             new ESIndexBuilder(
                 getSearchClient(),
@@ -508,7 +508,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
                 false,
                 false,
                 false,
-                new ElasticSearchConfiguration(),
+                TEST_SEARCH_CONFIG,
                 gitVersion));
 
     for (ESIndexBuilder builder : noReindexBuilders) {
@@ -554,7 +554,7 @@ public abstract class IndexBuilderTestBase extends AbstractTestNGSpringContextTe
             false,
             true,
             false,
-            new ElasticSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             gitVersion);
 
     ReindexConfig reindexConfigNoIndexBefore =
