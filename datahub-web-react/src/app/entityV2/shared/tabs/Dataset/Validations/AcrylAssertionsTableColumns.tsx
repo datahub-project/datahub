@@ -106,7 +106,7 @@ export function DetailsColumn({
                             <b>This Smart Assertion may be outdated.</b>
                             <br />
                             This is likely related to insufficient training data for this asset. Training data is
-                            obtained during ingestion syncs.
+                            obtained on the schedule of the assertion.
                         </>
                     }
                 >
