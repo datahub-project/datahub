@@ -826,6 +826,11 @@ def download_compose_files(
         logger.info(f"Fetching docker-compose file {github_file} from GitHub")
         # Download the quickstart docker-compose file from GitHub.
         quickstart_download_response = request_session.get(github_file)
+        if quickstart_download_response.status_code == 404:
+            raise click.ClickException(
+                f"Could not find quickstart compose file for version {compose_git_ref}. "
+                "Please try a different version or check the version exists at https://github.com/datahub-project/datahub/releases"
+            )
         quickstart_download_response.raise_for_status()
         tmp_file.write(quickstart_download_response.content)
         logger.debug(f"Copied to {path}")
