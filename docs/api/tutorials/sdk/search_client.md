@@ -9,8 +9,6 @@ DataHub’s Python SDK makes it easy to search and discover metadata across your
 - Use AND / OR / NOT logic for advanced queries
 - Perform targeted searches using custom fields like URN
 
-
-
 ## Getting Started
 
 Install the SDK:
@@ -29,7 +27,6 @@ client = DatahubClient(gms_server="<your_server>", token="<your_token>")
 
 If authentication is enabled, you’ll need to generate a Personal Access Token from your DataHub instance. [See the guide](https://docs.datahub.com/docs/authentication/personal-access-tokens).
 
-
 ## Search Options
 
 DataHub supports two main search styles:
@@ -39,8 +36,7 @@ DataHub supports two main search styles:
 
 You can combine both for powerful and precise results.
 
-
-### Query-Based Search
+## Query-Based Search
 
 Query-based search is like using a search bar. It matches against names, descriptions, column names, and more.
 
@@ -50,7 +46,7 @@ Query-based search is like using a search bar. It matches against names, descrip
 
 The result will be a list of entity URNs.
 
-Example Output: 
+Example Output:
 
 ```python
 [
@@ -61,8 +57,7 @@ Example Output:
 
 You can also search everything using `query="*"`:
 
-
-### Filter-Based Search
+## Filter-Based Search
 
 Filters help you search by platform, environment, entity type, and more.
 
@@ -70,7 +65,7 @@ Filters help you search by platform, environment, entity type, and more.
 {{ inline /metadata-ingestion/examples/library/search_with_filter.py show_path_as_comment }}
 ```
 
-### Combining Query and Filter
+## Combining Query and Filter
 
 You can refine your results by combining a keyword search with structured filters.
 
@@ -80,10 +75,7 @@ Example: Search for anything containing "forecast" that is either a chart or a S
 {{ inline /metadata-ingestion/examples/library/search_with_query_and_filter.py show_path_as_comment }}
 ```
 
-
-## Advanced Examples
-
-### Common Filtering Examples
+## Common Filtering Examples
 
 Filters allow you to precisely scope your search results, especially when you know which kind of assets you’re looking for. Below are common use cases:
 
@@ -93,22 +85,21 @@ Filters allow you to precisely scope your search results, especially when you kn
 
 Available filters:
 
-| Filter Type | Method | Example |
-| --- | --- | --- |
-| Platform | `platform()` | "snowflake" |
-| Environment | `env()` | "PROD", "DEV" |
-| Entity Type | `entity_type()` | "dataset", "dashboard" |
-| Domain | `domain()` | ["urn:li:domain:xyz"] |
-| Subtype | `entity_subtype()` | "ML Experiment" |
-| Deletion Status | `soft_deleted()` | `NOT_SOFT_DELETED` |
+| Filter Type     | Method                  | Example                         |
+| --------------- | ----------------------- | ------------------------------- |
+| Platform        | `platform()`            | "snowflake"                     |
+| Environment     | `env()`                 | "PROD", "DEV"                   |
+| Entity Type     | `entity_type()`         | "dataset", "dashboard"          |
+| Domain          | `domain()`              | ["urn:li:domain:xyz"]           |
+| Subtype         | `entity_subtype()`      | "ML Experiment"                 |
+| Deletion Status | `soft_deleted()`        | `NOT_SOFT_DELETED`              |
 | Custom Property | `has_custom_property()` | key="department", value="sales" |
 
-
-### Filtering Operations
+## Filtering Operations
 
 You can build more complex searches using logical operations like AND, OR, and NOT.
 
-#### AND Filters
+### AND Filters
 
 Entities must match all conditions.
 
@@ -116,7 +107,7 @@ Entities must match all conditions.
 {{ inline /metadata-ingestion/examples/library/search_filter_and.py show_path_as_comment }}
 ```
 
-#### OR Filters
+### OR Filters
 
 Entities must match at least one condition.
 
@@ -124,7 +115,7 @@ Entities must match at least one condition.
 {{ inline /metadata-ingestion/examples/library/search_filter_or.py show_path_as_comment }}
 ```
 
-#### NOT Filters
+### NOT Filters
 
 Entities must not match the condition.
 
@@ -132,14 +123,13 @@ Entities must not match the condition.
 {{ inline /metadata-ingestion/examples/library/search_filter_not.py show_path_as_comment }}
 ```
 
-You can also combine these operations. 
+You can also combine these operations.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_combined_operation.py show_path_as_comment }}
 ```
 
-
-#### Custom Field Filtering
+### Custom Field Filtering
 
 Use custom field filtering when you want to search specific fields like `urn`.
 
@@ -156,7 +146,6 @@ Use custom field filtering when you want to search specific fields like `urn`.
 - `GREATER_THAN`: Numeric/date comparison
 - `LESS_THAN`: Numeric/date comparison
 
-
 ## FAQ
 
 **Q: How do I handle authentication?**
@@ -166,13 +155,3 @@ Generate a Personal Access Token from your DataHub instance settings and pass it
 **Q: Can I combine query and filters?**
 
 Yes — use `query` along with `filter` for more precise search.
-
-**Q: What if my search returns no results?**
-
-Check the following:
-
-- Your server and token are correct
-- The metadata exists and matches your query
-- Filters are not too narrow
-- Your user has permission to see the metadata
-
