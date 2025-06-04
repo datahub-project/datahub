@@ -19,7 +19,7 @@ client.lineage.add_lineage(
     upstream=upstream_urn,
     downstream=downstream_urn,
     transformation_text=query_text,
-    column_lineage={"id": ["id", "customer_id"]},
+    column_lineage_mapping={"id": ["id", "customer_id"]},
 )
 
 # by passing the query_text, the query node will be created with the table level lineage.

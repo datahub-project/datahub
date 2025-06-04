@@ -361,7 +361,6 @@ def test_infer_lineage_from_sql(client: DataHubClient) -> None:
         out_tables=[
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_summary,PROD)"
         ],
-        column_lineage=[],  # Simplified - we only care about table-level lineage for this test
         query_type=QueryType.SELECT,
         debug_info=MagicMock(error=None, table_error=None),
     )
@@ -663,7 +662,7 @@ def test_add_lineage_dataset_to_dataset_copy_custom_mapping(
 
     column_mapping = {"name": ["name", "full_name"]}
     client.lineage.add_lineage(
-        upstream=upstream, downstream=downstream, column_lineage=column_mapping
+        upstream=upstream, downstream=downstream, column_lineage_mapping=column_mapping
     )
     assert_client_golden(
         client, _GOLDEN_DIR / "test_lineage_custom_mapping_golden.json"
@@ -681,75 +680,124 @@ def test_add_lineage_dataset_to_dataset_transform(client: DataHubClient) -> None
         upstream=upstream,
         downstream=downstream,
         transformation_text=transformation_text,
-        column_lineage=column_mapping,
+        column_lineage_mapping=column_mapping,
     )
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_transform_golden.json")
 
 
-def test_add_lineage_dataset_to_datajob(client: DataHubClient) -> None:
-    """Test add_lineage method with dataset to datajob."""
-    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
-    downstream = (
+def test_add_lineage_datajob_as_downstream(client: DataHubClient) -> None:
+    """Test add_lineage method with datajob as downstream."""
+    upstream_dataset = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+    )
+    upstream_datajob = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
+    )
+    downstream_datajob = (
         "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
     )
 
-    client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+    client.lineage.add_lineage(upstream=upstream_dataset, downstream=downstream_datajob)
+    client.lineage.add_lineage(upstream=upstream_datajob, downstream=downstream_datajob)
 
     assert_client_golden(
-        client, _GOLDEN_DIR / "test_lineage_dataset_to_datajob_golden.json"
+        client, _GOLDEN_DIR / "test_lineage_datajob_as_downstream_golden.json"
     )
 
 
-def test_add_lineage_datajob_to_dataset(client: DataHubClient) -> None:
-    """Test add_lineage method with datajob to dataset."""
-    upstream = "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
-    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
+def test_add_lineage_dataset_as_downstream(client: DataHubClient) -> None:
+    """Test add_lineage method with dataset as downstream."""
+    upstream_dataset = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+    )
+    upstream_datajob = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
+    )
+    downstream_dataset = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
+    )
 
-    client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+    client.lineage.add_lineage(upstream=upstream_dataset, downstream=downstream_dataset)
+    client.lineage.add_lineage(upstream=upstream_datajob, downstream=downstream_dataset)
 
     assert_client_golden(
-        client, _GOLDEN_DIR / "test_lineage_datajob_to_dataset_golden.json"
+        client, _GOLDEN_DIR / "test_lineage_dataset_as_downstream_golden.json"
     )
 
 
-def test_add_lineage_datajob_to_datajob(client: DataHubClient) -> None:
-    """Test add_lineage method with datajob to datajob."""
-    upstream = (
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),upstream_job)"
+def test_add_lineage_dashboard_as_downstream(client: DataHubClient) -> None:
+    """Test add_lineage method with dashboard as downstream."""
+    upstream_dataset = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
     )
-    downstream = (
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),downstream_job)"
+    upstream_chart = "urn:li:chart:(urn:li:dataPlatform:snowflake,chart_id)"
+    upstream_dashboard = "urn:li:dashboard:(urn:li:dataPlatform:snowflake,dashboard_id)"
+    downstream_dashboard = (
+        "urn:li:dashboard:(urn:li:dataPlatform:snowflake,dashboard_id)"
     )
 
-    client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+    client.lineage.add_lineage(
+        upstream=upstream_dataset, downstream=downstream_dashboard
+    )
+    client.lineage.add_lineage(upstream=upstream_chart, downstream=downstream_dashboard)
+    client.lineage.add_lineage(
+        upstream=upstream_dashboard, downstream=downstream_dashboard
+    )
 
     assert_client_golden(
-        client, _GOLDEN_DIR / "test_lineage_datajob_to_datajob_golden.json"
+        client, _GOLDEN_DIR / "test_lineage_dashboard_as_downstream_golden.json"
     )
 
 
-def test_add_lineage_invalid_upstream(client: DataHubClient) -> None:
+def test_add_lineage_chart_as_downstream(client: DataHubClient) -> None:
+    """Test add_lineage method with chart as downstream."""
+    upstream_dataset = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+    )
+    downstream_chart = "urn:li:chart:(urn:li:dataPlatform:snowflake,chart_id)"
+
+    client.lineage.add_lineage(upstream=upstream_dataset, downstream=downstream_chart)
+
+    assert_client_golden(
+        client, _GOLDEN_DIR / "test_lineage_chart_as_downstream_golden.json"
+    )
+
+
+def test_add_lineage_invalid_lineage_combination(client: DataHubClient) -> None:
     """Test add_lineage method with invalid upstream URN."""
-    upstream = "urn:li:glossaryNode:something"
-    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
+    upstream_glossary_node = "urn:li:glossaryNode:something"
+    downstream_dataset = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
+    )
+    upstream_dashboard = "urn:li:dashboard:(urn:li:dataPlatform:snowflake,dashboard_id)"
+    downstream_chart = "urn:li:chart:(urn:li:dataPlatform:snowflake,chart_id)"
+    downstream_datajob = (
+        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
+    )
 
     with pytest.raises(
         SdkUsageError,
         match="Unsupported entity type combination: glossaryNode -> dataset",
     ):
-        client.lineage.add_lineage(upstream=upstream, downstream=downstream)
-
-
-def test_add_lineage_invalid_downstream(client: DataHubClient) -> None:
-    """Test add_lineage method with invalid downstream URN."""
-    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
-    downstream = "urn:li:glossaryNode:something"
+        client.lineage.add_lineage(
+            upstream=upstream_glossary_node, downstream=downstream_dataset
+        )
 
     with pytest.raises(
         SdkUsageError,
-        match="Unsupported entity type combination: dataset -> glossaryNode",
+        match="Unsupported entity type combination: dashboard -> chart",
     ):
-        client.lineage.add_lineage(upstream=upstream, downstream=downstream)
+        client.lineage.add_lineage(
+            upstream=upstream_dashboard, downstream=downstream_chart
+        )
+
+    with pytest.raises(
+        SdkUsageError,
+        match="Unsupported entity type combination: dashboard -> dataJob",
+    ):
+        client.lineage.add_lineage(
+            upstream=upstream_dashboard, downstream=downstream_datajob
+        )
 
 
 def test_add_lineage_invalid_parameter_combinations(client: DataHubClient) -> None:
@@ -762,7 +810,7 @@ def test_add_lineage_invalid_parameter_combinations(client: DataHubClient) -> No
         client.lineage.add_lineage(
             upstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
             downstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
-            column_lineage={"target_col": ["source_col"]},
+            column_lineage_mapping={"target_col": ["source_col"]},
         )
 
     # Dataset to DataJob with transformation_text (not supported)
@@ -784,5 +832,5 @@ def test_add_lineage_invalid_parameter_combinations(client: DataHubClient) -> No
         client.lineage.add_lineage(
             upstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
             downstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)",
-            column_lineage={"target_col": ["source_col"]},
+            column_lineage_mapping={"target_col": ["source_col"]},
         )

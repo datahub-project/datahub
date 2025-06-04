@@ -4,6 +4,7 @@ import difflib
 import logging
 from typing import (
     TYPE_CHECKING,
+    Callable,
     List,
     Literal,
     Optional,
@@ -23,9 +24,16 @@ from datahub.metadata.urns import (
     QueryUrn,
     Urn,
 )
-from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
+from datahub.sdk._shared import (
+    ChartUrnOrStr,
+    DashboardUrnOrStr,
+    DatajobUrnOrStr,
+    DatasetUrnOrStr,
+)
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
+from datahub.specific.chart import ChartPatchBuilder
+from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.fingerprint_utils import generate_hash
@@ -132,99 +140,81 @@ class LineageClient:
         *,
         upstream: DatasetUrnOrStr,
         downstream: DatasetUrnOrStr,
-        column_lineage: Optional[
+        is_column_lineage: bool = False,
+        column_lineage_mapping: Optional[
             Union[ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]]
         ] = None,
+        transformation_text: Optional[str] = None,
     ) -> None:
+        ...
+
         """
         Add dataset-to-dataset lineage with column-level mapping.
-
-        Args:
-            upstream: URN of the upstream dataset
-            downstream: URN of the downstream dataset
-            column_lineage: Column-level lineage mapping or auto-generation method
-                       - None: No column mapping
-                       - Dict: Explicit column mapping {downstream_col: [upstream_cols]}
-                       - "auto_fuzzy": Automatically match columns using fuzzy matching
-                       - "auto_strict": Automatically match columns with strict comparison
         """
+
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: Union[DatajobUrnOrStr],
+        downstream: DatasetUrnOrStr,
+    ) -> None:
         ...
+
+        """
+        Add dataset-to-datajob or dataset-to-mlmodel lineage.
+        """
+
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
+        downstream: DatajobUrnOrStr,
+    ) -> None:
+        ...
+
+        """
+        Add datajob-to-dataset or datajob-to-datajob lineage.
+        """
+
+    @overload
+    def add_lineage(
+        self,
+        *,
+        upstream: Union[DashboardUrnOrStr, DatasetUrnOrStr, ChartUrnOrStr],
+        downstream: DashboardUrnOrStr,
+    ) -> None:
+        ...
+
+        """
+        Add dashboard-to-dashboard or dashboard-to-dataset lineage.
+        """
 
     @overload
     def add_lineage(
         self,
         *,
         upstream: DatasetUrnOrStr,
-        downstream: DatasetUrnOrStr,
-        transformation_text: str,
-        column_lineage: Optional[ColumnLineageMapping] = None,
+        downstream: ChartUrnOrStr,
     ) -> None:
-        """
-        Add dataset-to-dataset lineage with transformation details.
-
-        Args:
-            upstream: URN of the upstream dataset
-            downstream: URN of the downstream dataset
-            transformation_text: SQL query text that defines the transformation
-            column_lineage: Optional column-level lineage mapping
-        """
         ...
-
-    @overload
-    def add_lineage(
-        self,
-        *,
-        upstream: DatasetUrnOrStr,
-        downstream: DatajobUrnOrStr,
-    ) -> None:
         """
-        Add dataset to datajob lineage (dataset as input to job).
-
-        Args:
-            upstream: URN of the upstream dataset
-            downstream: URN of the downstream datajob
+        Add dataset-to-chart lineage.
         """
-        ...
-
-    @overload
-    def add_lineage(
-        self,
-        *,
-        upstream: DatajobUrnOrStr,
-        downstream: DatasetUrnOrStr,
-    ) -> None:
-        """
-        Add datajob to dataset lineage (dataset as output of job).
-
-        Args:
-            upstream: URN of the upstream datajob
-            downstream: URN of the downstream dataset
-        """
-        ...
-
-    @overload
-    def add_lineage(
-        self,
-        *,
-        upstream: DatajobUrnOrStr,
-        downstream: DatajobUrnOrStr,
-    ) -> None:
-        """
-        Add datajob to datajob lineage (job dependency).
-
-        Args:
-            upstream: URN of the upstream datajob
-            downstream: URN of the downstream datajob
-        """
-        ...
 
     # The actual implementation that handles all overloaded cases
     def add_lineage(
         self,
         *,
-        upstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
-        downstream: Union[DatasetUrnOrStr, DatajobUrnOrStr],
-        column_lineage: Union[
+        upstream: Union[
+            DatasetUrnOrStr, DatajobUrnOrStr, DashboardUrnOrStr, ChartUrnOrStr
+        ],
+        downstream: Union[
+            DatasetUrnOrStr, DatajobUrnOrStr, DashboardUrnOrStr, ChartUrnOrStr
+        ],
+        is_column_lineage: bool = False,
+        column_lineage_mapping: Union[
             None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
         ] = None,
         transformation_text: Optional[str] = None,
@@ -233,15 +223,20 @@ class LineageClient:
         Add lineage between two entities.
 
         This flexible method handles different combinations of entity types:
-        - Dataset to Dataset lineage (with optional column mapping and query text)
-        - Dataset to DataJob lineage (dataset as input to job)
-        - DataJob to Dataset lineage (dataset as output from job)
-        - DataJob to DataJob lineage (job dependency)
+        - dataset to dataset
+        - dataset to datajob
+        - datajob to dataset
+        - datajob to datajob
+        - dashboard to dataset
+        - dashboard to chart
+        - dashboard to dashboard
+        - chart to dataset
 
         Args:
             upstream: URN of the upstream entity (dataset or datajob)
             downstream: URN of the downstream entity (dataset or datajob)
-            column_lineage: Optional column-level lineage mapping or auto-generation method
+            is_column_lineage: Optional boolean to indicate if column-level lineage should be added
+            column_lineage_mapping: Optional column-level lineage mapping or auto-generation method
                         (only applicable for dataset-to-dataset lineage)
             transformation_text: Optional SQL query text that defines the transformation
                     (only applicable for dataset-to-dataset lineage)
@@ -254,70 +249,113 @@ class LineageClient:
         upstream_entity_type = Urn.from_string(upstream).entity_type
         downstream_entity_type = Urn.from_string(downstream).entity_type
 
-        # Validate parameter combinations
-        if (
-            upstream_entity_type == "dataJob" or downstream_entity_type == "dataJob"
-        ) and (column_lineage or transformation_text):
+        key = (upstream_entity_type, downstream_entity_type)
+
+        # if it's not dataset-dataset lineage but provided with column_lineage_mapping or transformation_text, raise an error
+        if key != ("dataset", "dataset") and (
+            column_lineage_mapping or transformation_text
+        ):
             raise SdkUsageError(
                 "Column lineage and query text are only applicable for dataset-to-dataset lineage"
             )
 
-        # Handle dataset-to-dataset lineage
-        if upstream_entity_type == "dataset" and downstream_entity_type == "dataset":
-            # Ensure the URNs are DatasetUrn type
-            upstream_urn = DatasetUrn.from_string(upstream)
-            downstream_urn = DatasetUrn.from_string(downstream)
+        lineage_handlers: dict[tuple[str, str], Callable] = {
+            ("dataset", "dataset"): self._handle_dataset_lineage,
+            ("dataset", "dashboard"): self._handle_dashboard_lineage,
+            ("chart", "dashboard"): self._handle_dashboard_lineage,
+            ("dashboard", "dashboard"): self._handle_dashboard_lineage,
+            ("dataset", "dataJob"): self._handle_datajob_lineage,
+            ("dataJob", "dataJob"): self._handle_datajob_lineage,
+            ("dataJob", "dataset"): self._handle_datajob_output,
+            ("dataset", "chart"): self._handle_chart_lineage,
+        }
 
-            # Determine column lineage
-            cll = self._process_column_lineage(
-                column_lineage, upstream_urn, downstream_urn
+        try:
+            lineage_handler = lineage_handlers[key]
+            lineage_handler(
+                upstream=upstream,
+                downstream=downstream,
+                upstream_type=upstream_entity_type,
+                is_column_lineage=is_column_lineage,
+                column_lineage_mapping=column_lineage_mapping,
+                transformation_text=transformation_text,
             )
-
-            # Prepare for lineage based on query or copy
-            if transformation_text:
-                # Transform lineage with query
-                self._process_transformation_lineage(
-                    transformation_text, upstream_urn, downstream_urn, cll
-                )
-            else:
-                # Copy lineage without query
-                updater = DatasetPatchBuilder(str(downstream_urn))
-                updater.add_upstream_lineage(
-                    models.UpstreamClass(
-                        dataset=str(upstream_urn),
-                        type=models.DatasetLineageTypeClass.COPY,
-                    )
-                )
-
-                # Add fine-grained lineage
-                for cl in cll or []:
-                    updater.add_fine_grained_upstream_lineage(cl)
-
-                self._client.entities.update(updater)
-
-        # Handle dataset to datajob lineage
-        elif upstream_entity_type == "dataset" and downstream_entity_type == "dataJob":
-            patch_builder = DataJobPatchBuilder(str(downstream))
-            patch_builder.add_input_dataset(upstream)
-            self._client.entities.update(patch_builder)
-
-        # Handle datajob to dataset lineage
-        elif upstream_entity_type == "dataJob" and downstream_entity_type == "dataset":
-            patch_builder = DataJobPatchBuilder(str(upstream))
-            patch_builder.add_output_dataset(downstream)
-            self._client.entities.update(patch_builder)
-
-        # Handle datajob to datajob lineage
-        elif upstream_entity_type == "dataJob" and downstream_entity_type == "dataJob":
-            patch_builder = DataJobPatchBuilder(str(downstream))
-            patch_builder.add_input_datajob(upstream)
-            self._client.entities.update(patch_builder)
-
-        # Catch-all for unsupported entity type combinations
-        else:
+        except KeyError:
             raise SdkUsageError(
                 f"Unsupported entity type combination: {upstream_entity_type} -> {downstream_entity_type}"
+            ) from None
+
+    def _handle_dataset_lineage(
+        self,
+        *,
+        upstream,
+        downstream,
+        is_column_lineage,
+        column_lineage_mapping,
+        transformation_text,
+        **_,
+    ):
+        upstream_urn = DatasetUrn.from_string(upstream)
+        downstream_urn = DatasetUrn.from_string(downstream)
+
+        if is_column_lineage or column_lineage_mapping:
+            cll = self._process_column_lineage(
+                column_lineage_mapping or "auto_fuzzy", upstream_urn, downstream_urn
             )
+        else:
+            cll = None
+
+        if transformation_text:
+            self._process_transformation_lineage(
+                transformation_text, upstream_urn, downstream_urn, cll
+            )
+        else:
+            updater = DatasetPatchBuilder(str(downstream_urn))
+            updater.add_upstream_lineage(
+                models.UpstreamClass(
+                    dataset=str(upstream_urn),
+                    type=models.DatasetLineageTypeClass.COPY,
+                )
+            )
+            for cl in cll or []:
+                updater.add_fine_grained_upstream_lineage(cl)
+            self._client.entities.update(updater)
+
+    def _handle_dashboard_lineage(self, *, upstream, downstream, upstream_type, **_):
+        patch = DashboardPatchBuilder(str(downstream))
+        if upstream_type == "dataset":
+            patch.add_dataset_edge(upstream)
+        elif upstream_type == "chart":
+            patch.add_chart_edge(upstream)
+        elif upstream_type == "dashboard":
+            patch.add_dashboard(upstream)
+        else:
+            raise SdkUsageError(
+                f"Unsupported entity type combination: {upstream_type} -> dashboard"
+            )
+        self._client.entities.update(patch)
+
+    def _handle_datajob_lineage(self, *, upstream, downstream, upstream_type, **_):
+        patch = DataJobPatchBuilder(str(downstream))
+        if upstream_type == "dataset":
+            patch.add_input_dataset(upstream)
+        elif upstream_type == "dataJob":
+            patch.add_input_datajob(upstream)
+        else:
+            raise SdkUsageError(
+                f"Unsupported entity type combination: {upstream_type} -> dataJob"
+            )
+        self._client.entities.update(patch)
+
+    def _handle_datajob_output(self, *, upstream, downstream, **_):
+        patch = DataJobPatchBuilder(str(upstream))
+        patch.add_output_dataset(downstream)
+        self._client.entities.update(patch)
+
+    def _handle_chart_lineage(self, *, upstream, downstream, **_):
+        patch = ChartPatchBuilder(str(downstream))
+        patch.add_input_edge(upstream)
+        self._client.entities.update(patch)
 
     def _process_column_lineage(self, column_lineage, upstream_urn, downstream_urn):
         cll = None
