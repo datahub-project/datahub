@@ -11,12 +11,16 @@ const Container = styled.div`
     padding: 8px;
 `;
 
-export default function HiddenSourcesMessage() {
+interface Props {
+    message?: string;
+}
+
+export default function HiddenItemsMessage({ message }: Props) {
     return (
         <Container>
             <Icon source="phosphor" icon="Lock" size="lg" />{' '}
             <Text weight="bold" size="sm">
-                Some ingestion sources may be hidden
+                {message}
             </Text>{' '}
             <Text size="sm">Contact your admin for access</Text>
         </Container>
