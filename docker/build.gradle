@@ -212,6 +212,7 @@ task generateQuickstartComposeConfig {
         // https://github.com/avast/gradle-docker-compose-plugin/blob/main/src/main/groovy/com/avast/gradle/dockercompose/ComposeExecutor.groovy
         def composeExecutor = composeUpTask.get().getComposeExecutor().get()
         composeExecutor.parameters.environment.put("DATAHUB_VERSION", '__VERSION__')
+        composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
         
         def configOutput = composeExecutor.execute('config')
         
