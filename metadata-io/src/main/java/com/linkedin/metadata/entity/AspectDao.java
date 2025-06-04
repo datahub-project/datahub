@@ -150,12 +150,13 @@ public interface AspectDao {
       boolean isNoOp =
           Objects.equals(currentVersion0.getRecordTemplate(), newAspect.getRecordTemplate());
 
+      // update trace
+      newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
+
       if (!Objects.equals(currentVersion0.getSystemMetadata(), newAspect.getSystemMetadata())
           || !isNoOp) {
         // update no-op used for tracing
         SystemMetadataUtils.setNoOp(newAspect.getSystemMetadata(), isNoOp);
-        // add trace - overwrite if version incremented
-        newAspect.setSystemMetadata(opContext.withTraceId(newAspect.getSystemMetadata(), true));
         updated = updateAspect(txContext, newAspect);
       }
 

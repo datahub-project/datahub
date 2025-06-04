@@ -54,13 +54,15 @@ dependencies {
     implementation('dnsjava:dnsjava:3.6.1') {
       because("CVE-2024-25638")
     }
+    implementation('commons-beanutils:commons-beanutils:1.11.0') {
+      because("CVE-2025-48734")
+    }
   }
 
 
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.13:3.7.2"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -84,6 +86,9 @@ dependencies {
   implementation externalDependency.awsMskIamAuth
   implementation externalDependency.azureIdentityExtensions
   implementation externalDependency.azureIdentity
+
+  implementation platform(externalDependency.jacksonBom)
+  implementation externalDependency.jacksonJsr310
 
   annotationProcessor externalDependency.lombok
   annotationProcessor externalDependency.picocli

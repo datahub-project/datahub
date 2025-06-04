@@ -14,6 +14,7 @@ dependencies {
   implementation externalDependency.httpClient
   implementation externalDependency.servletApi
   implementation externalDependency.gson
+  implementation platform(externalDependency.jacksonBom)
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.springWebMVC
   compileOnly externalDependency.lombok
