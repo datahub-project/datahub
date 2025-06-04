@@ -16,7 +16,7 @@ jobs:
 
       - name: Generate quickstart compose file
         run: |
-          ./gradlew :docker:saveQuickstartComposeConfig
+          ./gradlew :docker:generateQuickstartComposeConfig
 
       - name: Verify generated file
         # If there are build changes, then the generated file will be different from the one in the PR
