@@ -48,6 +48,7 @@ export const Table = <T,>({
     rowRefs,
     headerRef,
     rowDataTestId,
+    footer,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -270,6 +271,7 @@ export const Table = <T,>({
                             </>
                         );
                     })}
+                    {footer}
                 </tbody>
             </BaseTable>
         </TableContainer>

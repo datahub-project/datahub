@@ -12,6 +12,7 @@ import {
     OwnerColumn,
     ScheduleColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
+import TableFooter from '@app/ingestV2/source/components/TableFooter';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
@@ -30,6 +31,7 @@ interface Props {
     onDelete: (urn: string) => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     isLoading?: boolean;
+    isLastPage?: boolean;
 }
 
 function IngestionSourceTable({
@@ -41,6 +43,7 @@ function IngestionSourceTable({
     onDelete,
     onChangeSort,
     isLoading,
+    isLastPage,
 }: Props) {
     const entityRegistry = useEntityRegistryV2();
 
@@ -130,6 +133,7 @@ function IngestionSourceTable({
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
+            footer={isLastPage ? <TableFooter colSpan={tableColumns.length} /> : null}
         />
     );
 }
