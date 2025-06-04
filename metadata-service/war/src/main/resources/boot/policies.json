@@ -99,7 +99,8 @@
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "SHARE_ENTITY",
-        "MANAGE_GROUP_NOTIFICATION_SETTINGS"
+        "MANAGE_GROUP_NOTIFICATION_SETTINGS",
+        "EXECUTE_ENTITY"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
@@ -344,7 +345,8 @@
         "MANAGE_USER_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
         "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE",
-        "SHARE_ENTITY"
+        "SHARE_ENTITY",
+        "EXECUTE_ENTITY"
       ],
       "displayName": "Admins - Metadata Policy",
       "description": "Admins have all metadata privileges.",
