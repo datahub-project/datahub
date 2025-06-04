@@ -8,10 +8,10 @@ from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    SchemaField,
-    SchemaFieldDataType,
-    StringType,
+from datahub.metadata.schema_classes import (
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    StringTypeClass,
 )
 
 
@@ -177,9 +177,9 @@ def test_fine_grained_lineages(
 ):
     source = get_test_sql_alchemy_source()
 
-    downstream_field = SchemaField(
+    downstream_field = SchemaFieldClass(
         fieldPath=downstream_field_path,
-        type=SchemaFieldDataType(type=StringType()),
+        type=SchemaFieldDataTypeClass(type=StringTypeClass()),
         nativeDataType="string",
     )
 
