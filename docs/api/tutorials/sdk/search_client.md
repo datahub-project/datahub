@@ -20,9 +20,9 @@ pip install acryl-datahub
 Then, connect to your DataHub instance:
 
 ```python
-from datahub.sdk import DatahubClient
+from datahub.sdk import DataHubClient
 
-client = DatahubClient(gms_server="<your_server>", token="<your_token>")
+client = DataHubClient(server="<your_server>", token="<your_token>")
 ```
 
 If authentication is enabled, you’ll need to generate a Personal Access Token from your DataHub instance. [See the guide](https://docs.datahub.com/docs/authentication/personal-access-tokens).
