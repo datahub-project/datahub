@@ -568,8 +568,9 @@ custom_edit_url: https://github.com/datahub-project/datahub/blob/master/docs-web
   }
   contents.content += "\n\n";
 
+  const releases_list_filtered = releases_list.filter(release => release.tag_name !== "v1.1.0");
   // Full details
-  for (const release of releases_list) {
+  for (const release of releases_list_filtered) {
     let body: string;
     if (releaseNoteVersions.has(release.tag_name)) {
       body = release.body ?? "";
