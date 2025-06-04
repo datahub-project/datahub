@@ -13,7 +13,7 @@
             "type": "FRESHNESS",
             "freshnessAssertion": {
                 "type": "DATASET_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bq_project.my_dataset,DEV)",
                 "schedule": {
                     "type": "FIXED_INTERVAL",
                     "fixedInterval": {

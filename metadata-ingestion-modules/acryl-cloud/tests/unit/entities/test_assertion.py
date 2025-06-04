@@ -1,16 +1,19 @@
 import pathlib
 from datetime import datetime
 from typing import Any, Dict
+from unittest.mock import MagicMock
 
 import pytest
 
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
+from acryl_datahub_cloud._sdk_extras.errors import SDKNotYetSupportedError
 from datahub.errors import SdkUsageError
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import (
     AssertionUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
+    DatasetUrn,
     TagUrn,
 )
 from datahub.testing.sdk_v2_helpers import assert_entity_golden
@@ -19,7 +22,7 @@ _GOLDEN_DIR = pathlib.Path(__file__).parent / "assertion_golden"
 
 _any_assertion_urn = "urn:li:assertion:1234"
 _any_dataset_urn = (
-    "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)"
+    "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bq_project.my_dataset,DEV)"
 )
 _any_dataset_assertion_info = models.DatasetAssertionInfoClass(
     dataset=_any_dataset_urn,
@@ -59,6 +62,7 @@ def test_assertion_basic() -> None:
     assert assertion.tags is None
     assert assertion.on_success == []
     assert assertion.on_failure == []
+    assert assertion.dataset == DatasetUrn.from_string(_any_dataset_urn)
 
     assert_entity_golden(assertion, _GOLDEN_DIR / "test_assertion_basic_golden.json")
 
@@ -417,6 +421,8 @@ def test_assertion_complex_dataset_assertion() -> None:
         **_any_additional_args_for_complex_assertion,
     )
 
+    assert assertion.dataset == DatasetUrn.from_string(_any_dataset_urn)
+
     assert_entity_golden(
         assertion,
         _GOLDEN_DIR / "test_assertion_complex_dataset_assertion_golden.json",
@@ -444,6 +450,8 @@ def test_assertion_complex_freshness_assertion() -> None:
         info=freshness_assertion,
         **_any_additional_args_for_complex_assertion,
     )
+
+    assert assertion.dataset == DatasetUrn.from_string(_any_dataset_urn)
 
     assert_entity_golden(
         assertion,
@@ -475,6 +483,8 @@ def test_assertion_complex_volume_assertion() -> None:
         **_any_additional_args_for_complex_assertion,
     )
 
+    assert assertion.dataset == DatasetUrn.from_string(_any_dataset_urn)
+
     assert_entity_golden(
         assertion,
         _GOLDEN_DIR / "test_assertion_complex_volume_assertion_golden.json",
@@ -500,7 +510,69 @@ def test_assertiion_complex_sql_assertion() -> None:
         **_any_additional_args_for_complex_assertion,
     )
 
+    assert assertion.dataset == DatasetUrn.from_string(_any_dataset_urn)
+
     assert_entity_golden(
         assertion,
         _GOLDEN_DIR / "test_assertion_complex_sql_assertion_golden.json",
     )
+
+
+@pytest.mark.parametrize(
+    "input_assertion,expected,expected_exception",
+    [
+        pytest.param(
+            models.AssertionInfoClass(
+                type=models.AssertionTypeClass.DATASET,
+                datasetAssertion=MagicMock(spec=models.DatasetAssertionInfoClass),
+            ),
+            models.DatasetAssertionInfoClass,
+            None,
+            id="dataset_assertion",
+        ),
+        pytest.param(
+            models.AssertionInfoClass(
+                type=models.AssertionTypeClass.FRESHNESS,
+                freshnessAssertion=MagicMock(spec=models.FreshnessAssertionInfoClass),
+            ),
+            models.FreshnessAssertionInfoClass,
+            None,
+            id="freshness_assertion",
+        ),
+        pytest.param(
+            models.AssertionInfoClass(
+                type=models.AssertionTypeClass.VOLUME,
+                volumeAssertion=MagicMock(spec=models.VolumeAssertionInfoClass),
+            ),
+            models.VolumeAssertionInfoClass,
+            None,
+            id="volume_assertion",
+        ),
+        pytest.param(
+            models.AssertionInfoClass(
+                type=models.AssertionTypeClass.SQL,
+                sqlAssertion=MagicMock(spec=models.SqlAssertionInfoClass),
+            ),
+            models.SqlAssertionInfoClass,
+            None,
+            id="sql_assertion",
+        ),
+        pytest.param(
+            models.AssertionInfoClass(type="UNSUPPORTED_TYPE"),
+            None,
+            SDKNotYetSupportedError,
+            id="unsupported_type",
+        ),
+    ],
+)
+def test_switch_assertion_info(
+    input_assertion: models.AssertionInfoClass,
+    expected: type,
+    expected_exception: type,
+) -> None:
+    if expected_exception:
+        with pytest.raises(expected_exception):
+            Assertion._switch_assertion_info(input_assertion)
+    else:
+        result = Assertion._switch_assertion_info(input_assertion)
+        assert isinstance(result, expected)

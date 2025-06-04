@@ -15,11 +15,12 @@ from typing_extensions import (
     assert_never,
 )
 
+from acryl_datahub_cloud._sdk_extras.errors import SDKNotYetSupportedError
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.errors import SdkUsageError
 from datahub.metadata import schema_classes as models
-from datahub.metadata.urns import AssertionUrn
+from datahub.metadata.urns import AssertionUrn, DatasetUrn
 from datahub.sdk._shared import (
     HasPlatformInstance,
     HasTags,
@@ -122,33 +123,7 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
         assert isinstance(urn, AssertionUrn)
         assert "assertionInfo" in current_aspects, "AssertionInfo is required"
         assertion_info = current_aspects["assertionInfo"]
-        assert assertion_info.type in get_enum_options(models.AssertionTypeClass)
-
-        info: AssertionInfoInputType
-        if assertion_info.type == models.AssertionTypeClass.DATASET:
-            assert assertion_info.datasetAssertion is not None
-            info = assertion_info.datasetAssertion
-        elif assertion_info.type == models.AssertionTypeClass.FRESHNESS:
-            assert assertion_info.freshnessAssertion is not None
-            info = assertion_info.freshnessAssertion
-        elif assertion_info.type == models.AssertionTypeClass.VOLUME:
-            assert assertion_info.volumeAssertion is not None
-            info = assertion_info.volumeAssertion
-        elif assertion_info.type == models.AssertionTypeClass.SQL:
-            assert assertion_info.sqlAssertion is not None
-            info = assertion_info.sqlAssertion
-        # elif assertion_info.type == models.AssertionTypeClass.FIELD:
-        #     assert assertion_info.fieldAssertion is not None
-        #     info = assertion_info.fieldAssertion
-        # elif assertion_info.type == models.AssertionTypeClass.SCHEMA:
-        #     assert assertion_info.schemaAssertion is not None
-        #     info = assertion_info.schemaAssertion
-        # elif assertion_info.type == models.AssertionTypeClass.CUSTOM:
-        #     assert assertion_info.customAssertion is not None
-        #     info = assertion_info.customAssertion
-        else:
-            # assert_never(assertion_info.type)
-            raise AssertionError("Unreachable code")
+        info = cls._switch_assertion_info(assertion_info)
 
         entity = cls(id=urn, info=info)
         return entity._init_from_graph(current_aspects)
@@ -225,15 +200,7 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
             The assertion info.
         """
         info = self._ensure_info()
-        if info.type == models.AssertionTypeClass.DATASET:
-            assert info.datasetAssertion is not None
-            return info.datasetAssertion
-        elif info.type == models.AssertionTypeClass.FRESHNESS:
-            assert info.freshnessAssertion is not None
-            return info.freshnessAssertion
-        else:
-            # assert_never(assertion_info.type)
-            raise AssertionError("unreachable")
+        return Assertion._switch_assertion_info(info)
 
     @property
     def external_url(self) -> Optional[str]:
@@ -411,3 +378,48 @@ class Assertion(HasPlatformInstance, HasTags, Entity):
             else models.AssertionActionClass(type=action)
             for action in on_failure
         ]
+
+    @property
+    def dataset(self) -> DatasetUrn:
+        """Get the dataset URN associated with the assertion.
+
+        Returns:
+            The dataset URN.
+        """
+        info = self._ensure_info()
+        assertion_info = Assertion._switch_assertion_info(info)
+
+        dataset_str = (
+            assertion_info.dataset
+            if isinstance(assertion_info, models.DatasetAssertionInfoClass)
+            else assertion_info.entity
+        )
+        return DatasetUrn.from_string(dataset_str)
+
+    @classmethod
+    def _switch_assertion_info(
+        cls,
+        assertion_info: models.AssertionInfoClass,
+    ) -> Union[
+        models.DatasetAssertionInfoClass,
+        models.FreshnessAssertionInfoClass,
+        models.VolumeAssertionInfoClass,
+        models.SqlAssertionInfoClass,
+    ]:
+        if assertion_info.type not in get_enum_options(models.AssertionTypeClass):
+            raise SDKNotYetSupportedError(f"Assertion type: {assertion_info.type}")
+
+        if assertion_info.type == models.AssertionTypeClass.DATASET:
+            assert assertion_info.datasetAssertion is not None
+            return assertion_info.datasetAssertion
+        elif assertion_info.type == models.AssertionTypeClass.FRESHNESS:
+            assert assertion_info.freshnessAssertion is not None
+            return assertion_info.freshnessAssertion
+        elif assertion_info.type == models.AssertionTypeClass.VOLUME:
+            assert assertion_info.volumeAssertion is not None
+            return assertion_info.volumeAssertion
+        elif assertion_info.type == models.AssertionTypeClass.SQL:
+            assert assertion_info.sqlAssertion is not None
+            return assertion_info.sqlAssertion
+        else:
+            raise AssertionError("Unreachable code, all cases should be handled above")

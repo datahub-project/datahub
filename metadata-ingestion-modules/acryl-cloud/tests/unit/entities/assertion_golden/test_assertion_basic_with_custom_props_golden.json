@@ -11,7 +11,7 @@
             },
             "type": "DATASET",
             "datasetAssertion": {
-                "dataset": "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)",
+                "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bq_project.my_dataset,DEV)",
                 "scope": "DATASET_ROWS",
                 "operator": "GREATER_THAN"
             }

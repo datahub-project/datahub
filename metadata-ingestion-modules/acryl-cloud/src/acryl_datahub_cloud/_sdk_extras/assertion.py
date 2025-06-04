@@ -427,26 +427,6 @@ class _AssertionPublic(ABC):
         return self._tags
 
     @staticmethod
-    def _get_dataset_urn(assertion: Assertion) -> DatasetUrn:
-        info = assertion.info
-        if isinstance(info, models.DatasetAssertionInfoClass):
-            return DatasetUrn.from_string(info.dataset)
-        elif isinstance(
-            info,
-            (
-                models.FreshnessAssertionInfoClass,
-                models.VolumeAssertionInfoClass,
-                models.SqlAssertionInfoClass,
-                models.FieldAssertionInfoClass,
-                models.SchemaAssertionInfoClass,
-                models.CustomAssertionInfoClass,
-            ),
-        ):
-            return DatasetUrn.from_string(info.entity)
-        else:
-            raise SDKNotYetSupportedError(f"Assertion type {info.type}")
-
-    @staticmethod
     def _get_incident_behavior(assertion: Assertion) -> list[AssertionIncidentBehavior]:
         incident_behaviors = []
         for action in assertion.on_failure + assertion.on_success:
@@ -608,7 +588,7 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
         """
         return cls(
             urn=assertion.urn,
-            dataset_urn=cls._get_dataset_urn(assertion),
+            dataset_urn=assertion.dataset,
             display_name=assertion.description or "",
             mode=cls._get_mode(monitor),
             sensitivity=cls._get_sensitivity(monitor),

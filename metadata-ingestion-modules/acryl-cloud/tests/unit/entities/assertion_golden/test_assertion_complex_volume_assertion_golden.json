@@ -13,7 +13,7 @@
             "type": "VOLUME",
             "volumeAssertion": {
                 "type": "ROW_COUNT_CHANGE",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bq_project.my_dataset,DEV)",
                 "rowCountChange": {
                     "type": "ABSOLUTE",
                     "operator": "GREATER_THAN_OR_EQUAL_TO",

@@ -13,7 +13,7 @@
             "type": "SQL",
             "sqlAssertion": {
                 "type": "METRIC",
-                "entity": "urn:li:dataset:(urn:li:dataPlatform:(bigquery, my_bq_project), my_dataset)",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,my_bq_project.my_dataset,DEV)",
                 "statement": "SELECT COUNT(*) FROM my_table",
                 "changeType": "ABSOLUTE",
                 "operator": "GREATER_THAN",

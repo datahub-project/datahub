@@ -7,9 +7,6 @@ from typing_extensions import TypeAlias
 import datahub.metadata.schema_classes as models
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
 from acryl_datahub_cloud._sdk_extras.entities.subscription import Subscription
-from acryl_datahub_cloud._sdk_extras.errors import (
-    SDKNotYetSupportedError,
-)
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.errors import SdkUsageError
@@ -356,21 +353,7 @@ class SubscriptionClient:
         assert isinstance(assertion, Assertion), (
             f"Expected Assertion entity type for assertion urn={assertion_urn}"
         )
-        if isinstance(assertion.info, models.DatasetAssertionInfoClass):
-            return (DatasetUrn.from_string(assertion.info.dataset), assertion_urn)
-        elif isinstance(
-            assertion.info,
-            (
-                models.FreshnessAssertionInfoClass,
-                models.VolumeAssertionInfoClass,
-                models.SqlAssertionInfoClass,
-            ),
-        ):
-            return (DatasetUrn.from_string(assertion.info.entity), assertion_urn)
-        else:
-            raise SDKNotYetSupportedError(
-                f"Unsupported assertion type: {assertion.info.__class__.__name__}"
-            )
+        return (assertion.dataset, assertion_urn)
 
 
 def _print_experimental_warning() -> None:
