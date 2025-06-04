@@ -3,7 +3,6 @@ package com.linkedin.metadata.structuredproperties.validation;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.structured.PropertyCardinality.*;
 
-import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;

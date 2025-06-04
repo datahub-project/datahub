@@ -2,7 +2,6 @@ package com.linkedin.metadata.forms.validation;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.datahub.authorization.AuthUtil;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.form.FormInfo;
