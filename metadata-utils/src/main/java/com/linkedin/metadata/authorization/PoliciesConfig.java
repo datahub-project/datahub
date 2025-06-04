@@ -243,8 +243,10 @@ public class PoliciesConfig {
   static final Privilege EXISTS_ENTITY_PRIVILEGE =
       Privilege.of(
           "EXISTS_ENTITY", "Entity Exists", "The ability to determine whether the entity exists.");
+  static final Privilege EXECUTE_ENTITY_PRIVILEGE =
+      Privilege.of("EXECUTE_ENTITY", "Execute Entity", "The ability to execute an Entity.");
 
-  public static final Privilege CREATE_ENTITY_PRIVILEGE =
+  static final Privilege CREATE_ENTITY_PRIVILEGE =
       Privilege.of(
           "CREATE_ENTITY", "Create Entity", "The ability to create an entity if it doesn't exist.");
 
@@ -851,6 +853,17 @@ public class PoliciesConfig {
               EDIT_ENTITY_TAGS_PRIVILEGE,
               EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE));
 
+  public static final ResourcePrivileges INGESTION_SOURCE_PRIVILEGES =
+      ResourcePrivileges.of(
+          Constants.INGESTION_SOURCE_ENTITY_NAME,
+          "Ingestion Source",
+          "Privileges for Ingestion sources",
+          ImmutableList.of(
+              VIEW_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              EXECUTE_ENTITY_PRIVILEGE));
+
   // Version Set privileges
   public static final ResourcePrivileges VERSION_SET_PRIVILEGES =
       ResourcePrivileges.of(
@@ -891,6 +904,7 @@ public class PoliciesConfig {
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
+          INGESTION_SOURCE_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
           PLATFORM_INSTANCE_PRIVILEGES,
           APPLICATION_PRIVILEGES);
@@ -937,6 +951,7 @@ public class PoliciesConfig {
                               DELETE_ENTITY_PRIVILEGE))
                       .put(ApiOperation.UPDATE, Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE))
                       .put(ApiOperation.DELETE, Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE))
+                      .put(ApiOperation.EXECUTE, Disjunctive.disjoint(EXECUTE_ENTITY_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           Disjunctive.disjoint(
@@ -1123,8 +1138,16 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.READ,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.READ))
-                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
-                      .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.UPDATE,
+                          Disjunctive.disjoint(EDIT_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.DELETE,
+                          Disjunctive.disjoint(DELETE_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
+                      .put(
+                          ApiOperation.EXECUTE,
+                          Disjunctive.disjoint(
+                              EXECUTE_ENTITY_PRIVILEGE, MANAGE_INGESTION_PRIVILEGE))
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
