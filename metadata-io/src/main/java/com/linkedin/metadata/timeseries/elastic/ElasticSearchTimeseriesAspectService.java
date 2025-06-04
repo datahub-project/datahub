@@ -96,7 +96,7 @@ public class ElasticSearchTimeseriesAspectService
         .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
   }
 
-  private static final Integer DEFAULT_LIMIT = 10000;
+  private static final Integer DEFAULT_LIMIT = 5000;
 
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;

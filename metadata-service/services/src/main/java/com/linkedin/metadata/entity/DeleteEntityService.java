@@ -97,7 +97,7 @@ public class DeleteEntityService {
             ImmutableSet.of(),
             newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
             0,
-            10000);
+            5000);
 
     final List<RelatedAspect> relatedAspects =
         relatedEntities.getEntities().stream()
@@ -135,7 +135,7 @@ public class DeleteEntityService {
                 ImmutableSet.of(),
                 newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
                 0,
-                10000);
+                5000);
       }
     }
 

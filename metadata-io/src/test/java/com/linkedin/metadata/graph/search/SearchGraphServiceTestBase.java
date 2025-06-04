@@ -2,6 +2,7 @@ package com.linkedin.metadata.graph.search;
 
 import static com.linkedin.metadata.graph.elastic.ElasticSearchGraphService.INDEX_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.testng.Assert.assertEquals;
 
 import com.linkedin.common.FabricType;
@@ -12,6 +13,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.GraphServiceTestBase;
@@ -74,7 +76,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @BeforeClass
   public void setup() {
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
-    _client = buildService(_graphQueryConfiguration.isEnableMultiPathSearch());
+    _client = buildService(TEST_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch());
     _client.reindexAll(Collections.emptySet());
   }
 
@@ -101,12 +103,22 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
     } catch (EntityRegistryException e) {
       throw new RuntimeException(e);
     }
-    _graphQueryConfiguration.setEnableMultiPathSearch(enableMultiPathSearch);
+    ElasticSearchConfiguration searchConfig =
+        TEST_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_SEARCH_CONFIG.getSearch().toBuilder()
+                    .graph(
+                        TEST_SEARCH_CONFIG.getSearch().getGraph().toBuilder()
+                            .enableMultiPathSearch(enableMultiPathSearch)
+                            .build())
+                    .build())
+            .build();
+
     ESGraphQueryDAO readDAO =
-        new ESGraphQueryDAO(
-            getSearchClient(), lineageRegistry, _indexConvention, _graphQueryConfiguration);
+        new ESGraphQueryDAO(getSearchClient(), lineageRegistry, _indexConvention, searchConfig);
     ESGraphWriteDAO writeDAO =
-        new ESGraphWriteDAO(_indexConvention, getBulkProcessor(), 1, _graphQueryConfiguration);
+        new ESGraphWriteDAO(
+            _indexConvention, getBulkProcessor(), 1, searchConfig.getSearch().getGraph());
     return new ElasticSearchGraphService(
         lineageRegistry,
         getBulkProcessor(),
@@ -120,7 +132,8 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   @Nonnull
   protected GraphService getGraphService(boolean enableMultiPathSearch) {
-    if (enableMultiPathSearch != _graphQueryConfiguration.isEnableMultiPathSearch()) {
+    if (enableMultiPathSearch
+        != TEST_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch()) {
       _client = buildService(enableMultiPathSearch);
       _client.reindexAll(Collections.emptySet());
     }
@@ -130,7 +143,7 @@ public abstract class SearchGraphServiceTestBase extends GraphServiceTestBase {
   @Override
   @Nonnull
   protected GraphService getGraphService() {
-    return getGraphService(_graphQueryConfiguration.isEnableMultiPathSearch());
+    return getGraphService(TEST_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch());
   }
 
   @Override

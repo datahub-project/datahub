@@ -49,7 +49,7 @@ import org.springframework.stereotype.Component;
 })
 public class SubscriptionSubResourceDeletionHook implements MetadataChangeLogHook {
 
-  private static final Integer MAX_SUBSCRIPTIONS_TO_PURGE_PER_ENTITY = 10000;
+  private static final Integer MAX_SUBSCRIPTIONS_TO_PURGE_PER_ENTITY = 5000;
   private static final Set<ChangeType> SUPPORTED_UPDATE_TYPES =
       ImmutableSet.of(
           ChangeType.UPDATE,

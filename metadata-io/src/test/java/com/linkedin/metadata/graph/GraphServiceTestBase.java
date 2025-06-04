@@ -1,7 +1,7 @@
 package com.linkedin.metadata.graph;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableSet;
@@ -11,7 +11,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.dgraph.DgraphGraphService;
 import com.linkedin.metadata.graph.neo4j.Neo4jGraphService;
 import com.linkedin.metadata.query.filter.Filter;
@@ -270,8 +269,6 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   /** Any source and destination type value. */
   protected static @Nullable Set<String> anyType = null;
 
-  protected static final GraphQueryConfiguration _graphQueryConfiguration =
-      getGraphQueryConfiguration();
   protected static final OperationContext operationContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
@@ -374,7 +371,8 @@ public abstract class GraphServiceTestBase extends AbstractTestNGSpringContextTe
   }
 
   protected GraphService getLineagePopulatedGraphService() throws Exception {
-    return getLineagePopulatedGraphService(_graphQueryConfiguration.isEnableMultiPathSearch());
+    return getLineagePopulatedGraphService(
+        TEST_SEARCH_CONFIG.getSearch().getGraph().isEnableMultiPathSearch());
   }
 
   protected GraphService getLineagePopulatedGraphService(boolean multiPathSearch) throws Exception {

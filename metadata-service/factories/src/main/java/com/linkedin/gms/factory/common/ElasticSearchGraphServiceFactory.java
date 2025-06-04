@@ -49,7 +49,7 @@ public class ElasticSearchGraphServiceFactory {
             components.getSearchClient(),
             lineageRegistry,
             components.getIndexConvention(),
-            configurationProvider.getElasticSearch().getSearch().getGraph()),
+            configurationProvider.getElasticSearch()),
         components.getIndexBuilder(),
         idHashAlgo);
   }

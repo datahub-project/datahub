@@ -57,7 +57,7 @@ import javax.annotation.Nullable;
 public class MonitorUtils {
 
   private static final String MONITORS_RELATIONSHIP_NAME = "Monitors";
-  private static final int MAX_MONITORS_TO_FETCH = 10000;
+  private static final int MAX_MONITORS_TO_FETCH = 5000;
 
   // Entity types that have system monitors enabled.
   public static final Set<String> ENTITY_TYPES_WITH_SYSTEM_MONITORS =

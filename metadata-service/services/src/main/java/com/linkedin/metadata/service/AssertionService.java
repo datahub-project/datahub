@@ -81,7 +81,7 @@ public class AssertionService extends BaseService {
    * Maximum number of entities to list when searching for entities with a given assertion summary.
    * This can be low since assertions are usually tied to 1 entity.
    */
-  static final int MAX_ENTITIES_TO_LIST = 10000;
+  static final int MAX_ENTITIES_TO_LIST = 5000;
 
   static final String FAILING_ASSERTIONS_INDEX_FIELD_NAME = "failingAssertions";
   static final String PASSING_ASSERTIONS_INDEX_FIELD_NAME = "passingAssertions";

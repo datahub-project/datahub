@@ -6,6 +6,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -19,7 +20,6 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -44,6 +44,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   private final EntityRegistry entityRegistry;
   @Getter private final IndexConvention indexConvention;
   private final SettingsBuilder settingsBuilder;
+  private final ElasticSearchConfiguration searchConfiguration;
 
   public static final SearchFlags DEFAULT_SERVICE_SEARCH_FLAGS =
       new SearchFlags()
@@ -496,7 +497,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public int maxResultSize() {
-    return ESUtils.MAX_RESULT_SIZE;
+    return searchConfiguration.getSearch().getLimit().getResults().getMax();
   }
 
   @Override
@@ -524,11 +525,6 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         keepAlive,
         size,
         facets);
-  }
-
-  @Override
-  public IndexConvention getIndexConvention() {
-    return indexConvention;
   }
 
   @Override

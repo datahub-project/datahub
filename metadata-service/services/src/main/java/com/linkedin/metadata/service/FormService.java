@@ -78,7 +78,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class FormService extends BaseService {
 
-  private static final int TEST_SEARCH_BATCH_SIZE = 10000;
+  private static final int TEST_SEARCH_BATCH_SIZE = 5000;
   private static final int FORMS_BATCH_SIZE = 1000;
   private static final int BATCH_FORM_ENTITY_COUNT = 500;
   private static final List<FormPromptType> FIELD_LEVEL_PROMPT_TYPES =

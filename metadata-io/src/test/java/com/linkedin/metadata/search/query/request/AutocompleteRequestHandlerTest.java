@@ -2,12 +2,14 @@ package com.linkedin.metadata.search.query.request;
 
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.TestEntitySpecBuilder;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.PartialConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
@@ -49,11 +51,12 @@ import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.fetch.subphase.highlight.HighlightBuilder;
+import org.testng.Assert;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 public class AutocompleteRequestHandlerTest {
-  private static SearchConfiguration testQueryConfig;
+  private static ElasticSearchConfiguration testQueryConfig;
   private AutocompleteRequestHandler handler;
   private OperationContext mockOpContext =
       TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
@@ -61,9 +64,6 @@ public class AutocompleteRequestHandlerTest {
       TestOperationContexts.systemContextNoSearchAuthorization();
 
   static {
-    testQueryConfig = new SearchConfiguration();
-    testQueryConfig.setMaxTermBucketSize(20);
-
     ExactMatchConfiguration exactMatchConfiguration = new ExactMatchConfiguration();
     exactMatchConfiguration.setExclusive(false);
     exactMatchConfiguration.setExactFactor(10.0f);
@@ -81,9 +81,16 @@ public class AutocompleteRequestHandlerTest {
     partialConfiguration.setFactor(0.4f);
     partialConfiguration.setUrnFactor(0.7f);
 
-    testQueryConfig.setExactMatch(exactMatchConfiguration);
-    testQueryConfig.setWordGram(wordGramConfiguration);
-    testQueryConfig.setPartial(partialConfiguration);
+    testQueryConfig =
+        TEST_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_SEARCH_CONFIG.getSearch().toBuilder()
+                    .maxTermBucketSize(20)
+                    .exactMatch(exactMatchConfiguration)
+                    .wordGram(wordGramConfiguration)
+                    .partial(partialConfiguration)
+                    .build())
+            .build();
   }
 
   @BeforeClass
@@ -638,5 +645,96 @@ public class AutocompleteRequestHandlerTest {
                     .source()
                     .query())
             .query();
+  }
+
+  @Test
+  public void testApplyResultLimitInAutocompleteRequest() {
+    // Create SearchConfiguration with specific limits
+    ElasticSearchConfiguration testLimitConfig =
+        TEST_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_SEARCH_CONFIG.getSearch().toBuilder()
+                    .limit(
+                        new SearchConfiguration.SearchLimitConfig()
+                            .setResults(
+                                new SearchConfiguration.SearchResultsLimit()
+                                    .setMax(50)
+                                    .setStrict(false)))
+                    .build())
+            .build();
+
+    // Create a handler with our test configuration
+    AutocompleteRequestHandler limitHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            testLimitConfig);
+
+    // Test with count below limit
+    int requestedCount = 30;
+    SearchRequest autocompleteRequest =
+        limitHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+    SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
+
+    // Verify the requested count was used (not limited)
+    assertEquals(sourceBuilder.size(), requestedCount);
+
+    // Test with count above limit (non-strict)
+    requestedCount = 100;
+    autocompleteRequest =
+        limitHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+    sourceBuilder = autocompleteRequest.source();
+
+    // Verify the max limit was applied
+    assertEquals(sourceBuilder.size(), 50);
+  }
+
+  @Test
+  public void testApplyResultLimitWithStrictConfiguration() {
+    // Create SearchConfiguration with strict limits
+    ElasticSearchConfiguration strictConfig =
+        TEST_SEARCH_CONFIG.toBuilder()
+            .search(
+                TEST_SEARCH_CONFIG.getSearch().toBuilder()
+                    .limit(
+                        new SearchConfiguration.SearchLimitConfig()
+                            .setResults(
+                                new SearchConfiguration.SearchResultsLimit()
+                                    .setMax(50)
+                                    .setStrict(true)))
+                    .build())
+            .build();
+
+    // Create a handler with our strict configuration
+    AutocompleteRequestHandler strictHandler =
+        AutocompleteRequestHandler.getBuilder(
+            mockOpContext,
+            TestEntitySpecBuilder.getSpec(),
+            CustomSearchConfiguration.builder().build(),
+            QueryFilterRewriteChain.EMPTY,
+            strictConfig);
+
+    // Test with count at the limit
+    int requestedCount = 50;
+    SearchRequest autocompleteRequest =
+        strictHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+    SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
+
+    // Verify exact limit was used
+    assertEquals(sourceBuilder.size(), 50);
+
+    // Test with count exceeding the limit in strict mode
+    // This should throw an IllegalArgumentException
+    try {
+      requestedCount = 100;
+      strictHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+      Assert.fail(
+          "Should throw IllegalArgumentException when count exceeds limit with strict config");
+    } catch (IllegalArgumentException e) {
+      // Expected exception
+      assertTrue(e.getMessage().contains("Elasticsearch result count exceeds limit of 50"));
+    }
   }
 }

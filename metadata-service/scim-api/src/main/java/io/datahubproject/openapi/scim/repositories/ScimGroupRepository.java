@@ -42,7 +42,7 @@ import org.springframework.stereotype.Service;
 public class ScimGroupRepository
     extends AbstractScimRepository<ScimGroup, CorpGroupUrn, CorpGroupKey> {
 
-  private static final int MAX_RELATIONSHIPS = 10000;
+  private static final int MAX_RELATIONSHIPS = 5000;
 
   @Autowired ScimUserRepository _userRepository;
 

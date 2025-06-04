@@ -5582,7 +5582,10 @@
                       }
                     },
                     "doc" : "Status of the deployment",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "deploymentStatus"
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelDeploymentProperties"

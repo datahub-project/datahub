@@ -33,7 +33,7 @@ public class RotateSecretsStep implements UpgradeStep {
   private static final String NEW_KEY_ARG = "NEW_KEY";
   private static final String MODE_ARG = "MODE";
 
-  private static final int MAX_SUPPORTED_SECRETS = 10000;
+  private static final int MAX_SUPPORTED_SECRETS = 5000;
   private static final int BATCH_SIZE = 1000;
   private static final long BATCH_DELAY = 250;
 

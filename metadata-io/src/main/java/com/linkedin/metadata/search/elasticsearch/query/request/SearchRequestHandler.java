@@ -8,6 +8,8 @@ import static com.linkedin.metadata.search.utils.ESUtils.*;
 import static com.linkedin.metadata.search.utils.ESUtils.DATE_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.OBJECT_FIELD_TYPE;
+import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
+import static com.linkedin.metadata.search.utils.ESUtils.applyResultLimit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
@@ -18,7 +20,7 @@ import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.DoubleMap;
 import com.linkedin.data.template.StringMap;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
@@ -97,7 +99,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   @Getter private final Set<String> defaultQueryFieldNames;
   @Nonnull private final HighlightBuilder highlights;
 
-  private final SearchConfiguration configs;
+  private final ElasticSearchConfiguration configs;
   private final SearchQueryBuilder searchQueryBuilder;
   private final AggregationQueryBuilder aggregationQueryBuilder;
   private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
@@ -108,7 +110,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private SearchRequestHandler(
       @Nonnull OperationContext opContext,
       @Nonnull EntitySpec entitySpec,
-      @Nonnull SearchConfiguration configs,
+      @Nonnull ElasticSearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this(
@@ -122,7 +124,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private SearchRequestHandler(
       @Nonnull OperationContext opContext,
       @Nonnull List<EntitySpec> entitySpecs,
-      @Nonnull SearchConfiguration configs,
+      @Nonnull ElasticSearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this.entitySpecs = entitySpecs;
@@ -134,8 +136,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
             .collect(Collectors.toList());
     defaultQueryFieldNames = getDefaultQueryFieldNames(annotations);
     highlights = getDefaultHighlights(opContext);
-    searchQueryBuilder = new SearchQueryBuilder(configs, customSearchConfiguration);
-    aggregationQueryBuilder = new AggregationQueryBuilder(configs, entitySearchAnnotations);
+    searchQueryBuilder = new SearchQueryBuilder(configs.getSearch(), customSearchConfiguration);
+    aggregationQueryBuilder =
+        new AggregationQueryBuilder(configs.getSearch(), entitySearchAnnotations);
     this.configs = configs;
     this.searchableFieldTypes =
         buildSearchableFieldTypes(opContext.getEntityRegistry(), entitySpecs);
@@ -158,7 +161,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   public static SearchRequestHandler getBuilder(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull EntitySpec entitySpec,
-      @Nonnull SearchConfiguration configs,
+      @Nonnull ElasticSearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
@@ -175,7 +178,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   public static SearchRequestHandler getBuilder(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull List<EntitySpec> entitySpecs,
-      @Nonnull SearchConfiguration configs,
+      @Nonnull ElasticSearchConfiguration configs,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     return REQUEST_HANDLER_BY_ENTITY_NAME.computeIfAbsent(
@@ -275,7 +278,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private SearchSourceBuilder constructSearchSourceBuilder(int from, int size) {
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.from(from);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(applyResultLimit(configs, size));
     searchSourceBuilder.fetchSource(DEFAULT_FIELDS_TO_FETCH_ON_SEARCH.toArray(new String[0]), null);
     return searchSourceBuilder;
   }
@@ -352,7 +355,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
 
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(applyResultLimit(configs, size));
 
     if (fieldFetchConfig == null) {
       fieldFetchConfig = new SearchDocFieldFetchConfig();
@@ -401,7 +404,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
-    searchSourceBuilder.from(from).size(size);
+    searchSourceBuilder.from(from).size(applyResultLimit(configs, size));
     ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs);
     searchRequest.source(searchSourceBuilder);
 

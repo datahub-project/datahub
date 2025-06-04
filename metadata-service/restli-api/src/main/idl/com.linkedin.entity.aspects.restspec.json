@@ -60,7 +60,7 @@
       }, {
         "name" : "limit",
         "type" : "int",
-        "default" : "10000"
+        "default" : "5000"
       }, {
         "name" : "latestValue",
         "type" : "boolean",
