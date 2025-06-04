@@ -32,9 +32,7 @@ from datahub.sdk._shared import DatajobUrnOrStr, DatasetUrnOrStr
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
 from datahub.sdk.search_client import compile_filters
-from datahub.sdk.search_filters import (
-    Filter,
-)
+from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.fingerprint_utils import generate_hash
@@ -708,9 +706,7 @@ class LineageClient:
             SdkUsageError for invalid filter values
         """
         # Validate and convert input URN
-        source_urn = (
-            Urn.from_string(source_urn) if isinstance(source_urn, str) else source_urn
-        )
+        source_urn = Urn.from_string(source_urn)
         # Prepare GraphQL query variables with a separate method
         variables = self._process_input_variables(
             source_urn, source_column, filter, direction, max_hops
@@ -751,7 +747,20 @@ class LineageClient:
             else ["1", "2", "3+"]
         )
 
-        types, compiled_filters = compile_filters(filters)
+        degree_filter = FilterDsl.custom_filter(
+            field="degree",
+            condition="EQUAL",
+            values=max_hop_values,
+        )
+
+        filters_with_max_hops = (
+            FilterDsl.and_(degree_filter, filters)
+            if filters is not None
+            else degree_filter
+        )
+
+        types, compiled_filters = compile_filters(filters_with_max_hops)
+
         extra_or_filters = generate_filter(
             platform=None,
             platform_instance=None,
@@ -760,20 +769,6 @@ class LineageClient:
             status=None,
             extra_filters=None,
             extra_or_filters=compiled_filters,
-        )
-
-        # Compile filters and add degree filter
-        extra_or_filters.append(
-            {
-                "and": [
-                    {
-                        "field": "degree",
-                        "condition": "EQUAL",
-                        "values": max_hop_values,
-                        "negated": "false",
-                    }
-                ]
-            }
         )
 
         # Prepare base variables
@@ -810,46 +805,47 @@ class LineageClient:
         # Construct GraphQL query with dynamic path query
         graphql_query = """ 
         query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
-            scrollAcrossLineage(input: $input) {
-                nextScrollId
-                searchResults {
-                    degree
-                    entity {
-                        urn
-                        type
-                        ... on Dataset {
-                            name
-                            platform {
-                                name
-                            }
-                            properties {
-                                description
-                            }
-                        }
-                        ... on DataJob {
-                            jobId
-                            dataPlatformInstance {
-                                platform { name }
-                            }
-                            properties {
-                                name
-                                description
-                            }
-                        }
-                    }
-                    paths {
-                        path {
-                        urn
-                        type
-                        }
+        scrollAcrossLineage(input: $input) {
+            nextScrollId
+            searchResults {
+            degree
+            entity {
+                urn
+                type
+                ... on Dataset {
+                name
+                platform {
+                    name
+                }
+                properties {
+                    description
+                }
+                }
+                ... on DataJob {
+                jobId
+                dataPlatformInstance {
+                    platform {
+                    name
                     }
                 }
+                properties {
+                    name
+                    description
+                }
+                }
             }
+            paths {
+                path {
+                urn
+                type
+                }
+            }
+            }
+        }
         }
         """
 
         # Track seen entities and results
-        seen_entities: Dict[str, int] = {str(variables["input"]["urn"]): 0}
         results: List[LineageResult] = []
 
         # Pagination handling
@@ -871,13 +867,7 @@ class LineageClient:
             # Process search results
             for entry in data["searchResults"]:
                 entity = entry["entity"]
-                urn = entity["urn"]
 
-                # Skip if already seen
-                if urn in seen_entities:
-                    continue
-
-                # Create LineageResult
                 result = self._create_lineage_result(entity, entry, direction)
                 results.append(result)
 
