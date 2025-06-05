@@ -182,7 +182,7 @@ public class DebugAccessResolver implements DataFetcher<CompletableFuture<DebugA
             buildFilterToGetPolicies(user, groups, roles),
             Collections.singletonList(sortCriterion),
             0,
-            10000)
+            5000)
         .getEntities()
         .stream()
         .map(SearchEntity::getEntity)

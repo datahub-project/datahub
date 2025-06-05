@@ -108,6 +108,7 @@ export default function SourceFilter({ defaultValues, onUpdate, hideSystemSource
             )}
             showSearch
             onSearchChange={onSearchChangeHandler}
+            size="sm"
             width="fit-content"
         />
     );

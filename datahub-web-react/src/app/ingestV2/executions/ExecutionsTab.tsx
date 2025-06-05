@@ -1,4 +1,5 @@
 import { Pagination } from '@components';
+import { message } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -14,7 +15,7 @@ import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import usePagination from '@app/sharedV2/pagination/usePagination';
 
-import { useListIngestionExecutionRequestsQuery } from '@graphql/ingestion.generated';
+import { useListIngestionExecutionRequestsQuery, useRollbackIngestionMutation } from '@graphql/ingestion.generated';
 import { ExecutionRequest } from '@types';
 
 const SourceContainer = styled.div`
@@ -78,6 +79,27 @@ export const ExecutionsTab = () => {
         },
     });
 
+    const [rollbackIngestion] = useRollbackIngestionMutation();
+
+    const handleRollbackExecution = useCallback(
+        (runId: string) => {
+            message.loading('Requesting rollback...');
+
+            rollbackIngestion({ variables: { input: { runId } } })
+                .then(() => {
+                    setTimeout(() => {
+                        message.destroy();
+                        refetch();
+                        message.success('Successfully requested ingestion rollback');
+                    }, 2000);
+                })
+                .catch(() => {
+                    message.error('Error requesting ingestion rollback');
+                });
+        },
+        [refetch, rollbackIngestion],
+    );
+
     const totalExecutionRequests = data?.listExecutionRequests?.total || 0;
     const executionRequests: ExecutionRequest[] = data?.listExecutionRequests?.executionRequests || [];
 
@@ -117,6 +139,7 @@ export const ExecutionsTab = () => {
                                 <ExecutionsTable
                                     executionRequests={executionRequests || []}
                                     setFocusExecutionUrn={setExecutionRequestUrnToView}
+                                    handleRollback={handleRollbackExecution}
                                     loading={loading}
                                 />
                             </TableContainer>
