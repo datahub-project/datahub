@@ -311,3 +311,9 @@ Under consideration
 ## Feedback / Questions / Concerns
 
 We want to hear from you! For any inquiries, including Feedback, Questions, or Concerns, reach out on Slack!
+
+[^REST]: Only active if REST_API_AUTHORIZATION_ENABLED is true
+
+[^cloud]: DataHub Cloud only
+
+[^dep]: Deprecated feature
