@@ -459,4 +459,6 @@ def test_structured_properties() -> None:
         "urn:li:structuredProperty:sp2": ["value2"],
     }
 
-    assert_entity_golden(d2, _GOLDEN_DIR / "test_structured_properties_golden.json")
+    assert_entity_golden(
+        d2, _GOLDEN_DIR / "test_structured_properties_golden.json", ["time"]
+    )
