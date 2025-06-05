@@ -211,8 +211,8 @@ class MissingExternalEntity(ExternalEntity):
     def datahub_linked_resources(self) -> LinkedResourceSet:
         return LinkedResourceSet(urns=[])
 
-    def as_platform_resource(self) -> PlatformResource:
-        return None  # type: ignore
+    def as_platform_resource(self) -> Optional[PlatformResource]:  # type: ignore[override]
+        return None
 
     def get_id(self) -> ExternalEntityId:
         return self.id
