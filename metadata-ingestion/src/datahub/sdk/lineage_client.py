@@ -13,7 +13,7 @@ from typing import (
     overload,
 )
 
-from typing_extensions import assert_never
+from typing_extensions import assert_never, deprecated
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -254,14 +254,14 @@ class LineageClient:
             )
 
         lineage_handlers: dict[tuple[str, str], Callable] = {
-            ("dataset", "dataset"): self._handle_dataset_lineage,
-            ("dataset", "dashboard"): self._handle_dashboard_lineage,
-            ("chart", "dashboard"): self._handle_dashboard_lineage,
-            ("dashboard", "dashboard"): self._handle_dashboard_lineage,
-            ("dataset", "dataJob"): self._handle_datajob_lineage,
-            ("dataJob", "dataJob"): self._handle_datajob_lineage,
-            ("dataJob", "dataset"): self._handle_datajob_output,
-            ("dataset", "chart"): self._handle_chart_lineage,
+            ("dataset", "dataset"): self._add_dataset_lineage,
+            ("dataset", "dashboard"): self._add_dashboard_lineage,
+            ("chart", "dashboard"): self._add_dashboard_lineage,
+            ("dashboard", "dashboard"): self._add_dashboard_lineage,
+            ("dataset", "dataJob"): self._add_datajob_lineage,
+            ("dataJob", "dataJob"): self._add_datajob_lineage,
+            ("dataJob", "dataset"): self._add_datajob_output,
+            ("dataset", "chart"): self._add_chart_lineage,
         }
 
         try:
@@ -278,7 +278,7 @@ class LineageClient:
                 f"Unsupported entity type combination: {upstream_entity_type} -> {downstream_entity_type}"
             ) from None
 
-    def _handle_dataset_lineage(
+    def _add_dataset_lineage(
         self,
         *,
         upstream,
@@ -316,7 +316,7 @@ class LineageClient:
                 updater.add_fine_grained_upstream_lineage(cl)
             self._client.entities.update(updater)
 
-    def _handle_dashboard_lineage(self, *, upstream, downstream, upstream_type, **_):
+    def _add_dashboard_lineage(self, *, upstream, downstream, upstream_type, **_):
         patch = DashboardPatchBuilder(str(downstream))
         if upstream_type == "dataset":
             patch.add_dataset_edge(upstream)
@@ -330,7 +330,7 @@ class LineageClient:
             )
         self._client.entities.update(patch)
 
-    def _handle_datajob_lineage(self, *, upstream, downstream, upstream_type, **_):
+    def _add_datajob_lineage(self, *, upstream, downstream, upstream_type, **_):
         patch = DataJobPatchBuilder(str(downstream))
         if upstream_type == "dataset":
             patch.add_input_dataset(upstream)
@@ -342,12 +342,12 @@ class LineageClient:
             )
         self._client.entities.update(patch)
 
-    def _handle_datajob_output(self, *, upstream, downstream, **_):
+    def _add_datajob_output(self, *, upstream, downstream, **_):
         patch = DataJobPatchBuilder(str(upstream))
         patch.add_output_dataset(downstream)
         self._client.entities.update(patch)
 
-    def _handle_chart_lineage(self, *, upstream, downstream, **_):
+    def _add_chart_lineage(self, *, upstream, downstream, **_):
         patch = ChartPatchBuilder(str(downstream))
         patch.add_input_edge(upstream)
         self._client.entities.update(patch)
@@ -516,14 +516,14 @@ class LineageClient:
                         column_mapping[col_lineage.downstream.column] = upstream_cols
 
             # Add lineage, including query text
-            self.add_dataset_transform_lineage(
+            self.add_lineage(
                 upstream=upstream_table,
                 downstream=downstream_urn,
-                column_lineage=column_mapping or None,
+                column_lineage=column_mapping,
                 transformation_text=query_text,
             )
 
-    # TODO: deprecate this method
+    @deprecated("Use add_lineage instead")
     def add_dataset_copy_lineage(
         self,
         *,
@@ -575,7 +575,7 @@ class LineageClient:
 
         self._client.entities.update(updater)
 
-    # TODO: deprecate this method
+    @deprecated("Use add_lineage instead")
     def add_dataset_transform_lineage(
         self,
         *,
@@ -655,7 +655,7 @@ class LineageClient:
             mcps.extend(query_entity)
         self._client._graph.emit_mcps(mcps)
 
-    # TODO: deprecate this method
+    @deprecated("Use add_lineage instead")
     def add_datajob_lineage(
         self,
         *,

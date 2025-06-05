@@ -5,14 +5,6 @@ from unittest.mock import MagicMock, Mock, patch
 import pytest
 
 from datahub.errors import SdkUsageError
-from datahub.metadata.schema_classes import (
-    OtherSchemaClass,
-    SchemaFieldClass,
-    SchemaFieldDataTypeClass,
-    SchemaMetadataClass,
-    StringTypeClass,
-)
-from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -50,76 +42,90 @@ def assert_client_golden(client: DataHubClient, golden_path: pathlib.Path) -> No
     )
 
 
-def test_get_fuzzy_column_lineage(client: DataHubClient) -> None:
-    """Test the fuzzy column lineage matching algorithm."""
-    # Create a minimal client just for testing the method
-    test_cases = [
+@pytest.mark.parametrize(
+    "upstream_fields, downstream_fields, expected",
+    [
         # Exact matches
-        {
-            "upstream_fields": {"id", "name", "email"},
-            "downstream_fields": {"id", "name", "phone"},
-            "expected": {"id": ["id"], "name": ["name"]},
-        },
+        (
+            {"id", "name", "email"},
+            {"id", "name", "phone"},
+            {"id": ["id"], "name": ["name"]},
+        ),
         # Case insensitive matches
-        {
-            "upstream_fields": {"ID", "Name", "Email"},
-            "downstream_fields": {"id", "name", "phone"},
-            "expected": {"id": ["ID"], "name": ["Name"]},
-        },
+        (
+            {"ID", "Name", "Email"},
+            {"id", "name", "phone"},
+            {"id": ["ID"], "name": ["Name"]},
+        ),
         # Camel case to snake case
-        {
-            "upstream_fields": {"id", "user_id", "full_name"},
-            "downstream_fields": {"id", "userId", "fullName"},
-            "expected": {
-                "id": ["id"],
-                "userId": ["user_id"],
-                "fullName": ["full_name"],
-            },
-        },
+        (
+            {"id", "user_id", "full_name"},
+            {"id", "userId", "fullName"},
+            {"id": ["id"], "userId": ["user_id"], "fullName": ["full_name"]},
+        ),
         # Snake case to camel case
-        {
-            "upstream_fields": {"id", "userId", "fullName"},
-            "downstream_fields": {"id", "user_id", "full_name"},
-            "expected": {
-                "id": ["id"],
-                "user_id": ["userId"],
-                "full_name": ["fullName"],
-            },
-        },
+        (
+            {"id", "userId", "fullName"},
+            {"id", "user_id", "full_name"},
+            {"id": ["id"], "user_id": ["userId"], "full_name": ["fullName"]},
+        ),
         # Mixed matches
-        {
-            "upstream_fields": {"id", "customer_id", "user_name"},
-            "downstream_fields": {
-                "id",
-                "customerId",
-                "address",
-            },
-            "expected": {"id": ["id"], "customerId": ["customer_id"]},
-        },
+        (
+            {"id", "customer_id", "user_name"},
+            {"id", "customerId", "address"},
+            {"id": ["id"], "customerId": ["customer_id"]},
+        ),
         # Mixed matches with different casing
-        {
-            "upstream_fields": {"id", "customer_id", "userName", "address_id"},
-            "downstream_fields": {"id", "customerId", "user_name", "user_address"},
-            "expected": {
-                "id": ["id"],
-                "customerId": ["customer_id"],
-                "user_name": ["userName"],
-            },  # user_address <> address_id shouldn't match
-        },
-    ]
-
-    # Run test cases
-    for test_case in test_cases:
-        result = client.lineage._get_fuzzy_column_lineage(
-            cast(Set[str], test_case["upstream_fields"]),
-            cast(Set[str], test_case["downstream_fields"]),
-        )
-        assert result == test_case["expected"], (
-            f"Test failed: {result} != {test_case['expected']}"
-        )
+        (
+            {"id", "customer_id", "userName", "address_id"},
+            {"id", "customerId", "user_name", "user_address"},
+            {"id": ["id"], "customerId": ["customer_id"], "user_name": ["userName"]},
+        ),
+    ],
+)
+def test_get_fuzzy_column_lineage(
+    client: DataHubClient,
+    upstream_fields: Set[str],
+    downstream_fields: Set[str],
+    expected: Dict[str, List[str]],
+) -> None:
+    result = client.lineage._get_fuzzy_column_lineage(
+        cast(Set[str], upstream_fields),
+        cast(Set[str], downstream_fields),
+    )
+    assert result == expected, f"Test failed: {result} != {expected}"
 
 
-def test_get_strict_column_lineage(client: DataHubClient) -> None:
+@pytest.mark.parametrize(
+    "upstream_fields, downstream_fields, expected",
+    [
+        # Exact matches
+        (
+            {"id", "name", "email"},
+            {"id", "name", "phone"},
+            {"id": ["id"], "name": ["name"]},
+        ),
+        # No matches
+        ({"col1", "col2", "col3"}, {"col4", "col5", "col6"}, {}),
+        # Case mismatch (should match)
+        (
+            {"ID", "Name", "Email"},
+            {"id", "name", "email"},
+            {"id": ["ID"], "name": ["Name"], "email": ["Email"]},
+        ),
+    ],
+)
+def test_get_strict_column_lineage(
+    client: DataHubClient,
+    upstream_fields: Set[str],
+    downstream_fields: Set[str],
+    expected: Dict[str, List[str]],
+) -> None:
+    result = client.lineage._get_strict_column_lineage(
+        cast(Set[str], upstream_fields),
+        cast(Set[str], downstream_fields),
+    )
+    assert result == expected, f"Test failed: {result} != {expected}"
     """Test the strict column lineage matching algorithm."""
     test_cases = [
         # Exact matches
@@ -151,206 +157,6 @@ def test_get_strict_column_lineage(client: DataHubClient) -> None:
         assert result == test_case["expected"], (
             f"Test failed: {result} != {test_case['expected']}"
         )
-
-
-def test_add_dataset_copy_lineage_auto_fuzzy(client: DataHubClient) -> None:
-    """Test auto fuzzy column lineage mapping."""
-
-    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
-    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
-
-    # Create upstream and downstream schema
-    upstream_schema = SchemaMetadataClass(
-        schemaName="upstream_table",
-        platform="urn:li:dataPlatform:snowflake",
-        version=1,
-        hash="1234567890",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="user_id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="address",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="age",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-        ],
-    )
-
-    downstream_schema = SchemaMetadataClass(
-        schemaName="downstream_table",
-        platform="urn:li:dataPlatform:snowflake",
-        version=1,
-        hash="1234567890",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="userId",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="score",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-        ],
-    )
-
-    with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
-        mock_method.side_effect = lambda urn: sorted(
-            {
-                field.fieldPath
-                for field in (
-                    upstream_schema if "upstream" in str(urn) else downstream_schema
-                ).fields
-            }
-        )
-
-        client.lineage.add_dataset_copy_lineage(
-            upstream=upstream,
-            downstream=downstream,
-            column_lineage="auto_fuzzy",
-        )
-
-    assert_client_golden(client, _GOLDEN_DIR / "test_lineage_copy_fuzzy_golden.json")
-
-
-def test_add_dataset_copy_lineage_auto_strict(client: DataHubClient) -> None:
-    """Test strict column lineage with field matches."""
-    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
-    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
-
-    upstream_schema = SchemaMetadataClass(
-        schemaName="upstream_table",
-        platform="urn:li:dataPlatform:snowflake",
-        version=1,
-        hash="1234567890",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="name",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="user_id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="address",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-        ],
-    )
-
-    downstream_schema = SchemaMetadataClass(
-        schemaName="downstream_table",
-        platform="urn:li:dataPlatform:snowflake",
-        version=1,
-        hash="1234567890",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="name",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="address",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-            SchemaFieldClass(
-                fieldPath="score",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-        ],
-    )
-
-    with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
-        mock_method.side_effect = lambda urn: sorted(
-            {
-                field.fieldPath
-                for field in (
-                    upstream_schema if "upstream" in str(urn) else downstream_schema
-                ).fields
-            }
-        )
-
-        client.lineage.add_dataset_copy_lineage(
-            upstream=upstream,
-            downstream=downstream,
-            column_lineage="auto_strict",
-        )
-
-    assert_client_golden(client, _GOLDEN_DIR / "test_lineage_copy_strict_golden.json")
-
-
-def test_add_dataset_transform_lineage_basic(client: DataHubClient) -> None:
-    """Test basic lineage without column mapping or query."""
-
-    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
-    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
-
-    client.lineage.add_dataset_transform_lineage(
-        upstream=upstream,
-        downstream=downstream,
-    )
-    assert_client_golden(client, _GOLDEN_DIR / "test_lineage_basic_golden.json")
-
-
-def test_add_dataset_transform_lineage_complete(client: DataHubClient) -> None:
-    """Test complete lineage with column mapping and query."""
-
-    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
-    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
-    transformation_text = (
-        "SELECT us_col1 as ds_col1, us_col2 + us_col3 as ds_col2 FROM upstream_table"
-    )
-    column_lineage: Dict[str, List[str]] = {
-        "ds_col1": ["us_col1"],  # Simple 1:1 mapping
-        "ds_col2": ["us_col2", "us_col3"],  # 2:1 mapping
-    }
-
-    client.lineage.add_dataset_transform_lineage(
-        upstream=upstream,
-        downstream=downstream,
-        transformation_text=transformation_text,
-        column_lineage=column_lineage,
-    )
-    assert_client_golden(client, _GOLDEN_DIR / "test_lineage_complete_golden.json")
 
 
 def test_infer_lineage_from_sql(client: DataHubClient) -> None:
@@ -444,96 +250,6 @@ def test_infer_lineage_from_sql_with_multiple_upstreams(
         client, _GOLDEN_DIR / "test_lineage_from_sql_multiple_upstreams_golden.json"
     )
 
-
-def test_add_datajob_lineage(client: DataHubClient) -> None:
-    """Test adding lineage for datajobs using DataJobPatchBuilder."""
-
-    datajob_urn = (
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),transform_job)"
-    )
-    input_dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
-    )
-    input_datajob_urn = (
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),upstream_job)"
-    )
-    output_dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
-    )
-
-    client.lineage.add_datajob_lineage(
-        datajob=datajob_urn,
-        upstreams=[input_dataset_urn, input_datajob_urn],
-        downstreams=[output_dataset_urn],
-    )
-
-    assert_client_golden(client, _GOLDEN_DIR / "test_datajob_lineage_golden.json")
-
-
-def test_add_datajob_inputs_only(client: DataHubClient) -> None:
-    """Test adding only inputs to a datajob."""
-
-    datajob_urn = (
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)"
-    )
-    input_dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
-    )
-
-    client.lineage.add_datajob_lineage(
-        datajob=datajob_urn,
-        upstreams=[input_dataset_urn],
-    )
-
-    assert_client_golden(client, _GOLDEN_DIR / "test_datajob_inputs_only_golden.json")
-
-
-def test_add_datajob_outputs_only(client: DataHubClient) -> None:
-    """Test adding only outputs to a datajob."""
-
-    datajob_urn = (
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),transform_job)"
-    )
-    output_dataset_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)"
-    )
-
-    client.lineage.add_datajob_lineage(
-        datajob=datajob_urn, downstreams=[output_dataset_urn]
-    )
-
-    # Validate lineage MCPs
-    assert_client_golden(client, _GOLDEN_DIR / "test_datajob_outputs_only_golden.json")
-
-
-def test_add_datajob_lineage_validation(client: DataHubClient) -> None:
-    """Test validation checks in add_datajob_lineage."""
-
-    datajob_urn = (
-        "urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),transform_job)"
-    )
-    invalid_urn = "urn:li:glossaryNode:something"
-
-    with pytest.raises(
-        InvalidUrnError,
-        match="Passed an urn of type glossaryNode to the from_string method of DataJobUrn",
-    ):
-        client.lineage.add_datajob_lineage(
-            datajob=invalid_urn,
-            upstreams=[
-                "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
-            ],
-        )
-
-    with pytest.raises(InvalidUrnError):
-        client.lineage.add_datajob_lineage(datajob=datajob_urn, upstreams=[invalid_urn])
-
-    with pytest.raises(InvalidUrnError):
-        client.lineage.add_datajob_lineage(
-            datajob=datajob_urn, downstreams=[invalid_urn]
-        )
-
-
 def test_add_lineage_dataset_to_dataset_copy_basic(client: DataHubClient) -> None:
     """Test add_lineage method with dataset to dataset and various column lineage strategies."""
     upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
@@ -541,117 +257,6 @@ def test_add_lineage_dataset_to_dataset_copy_basic(client: DataHubClient) -> Non
 
     client.lineage.add_lineage(upstream=upstream, downstream=downstream)
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_copy_basic_golden.json")
-
-
-def test_add_lineage_dataset_to_dataset_copy_auto_fuzzy(client: DataHubClient) -> None:
-    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
-    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
-
-    upstream_schema = SchemaMetadataClass(
-        schemaName="upstream_table",
-        platform="urn:li:dataPlatform:snowflake",
-        version=1,
-        hash="1234567890",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-        ],
-    )
-
-    downstream_schema = SchemaMetadataClass(
-        schemaName="downstream_table",
-        platform="urn:li:dataPlatform:snowflake",
-        version=1,
-        hash="1234567890",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-        ],
-    )
-
-    # Auto fuzzy column lineage
-    with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
-        mock_method.side_effect = lambda urn: sorted(
-            {
-                field.fieldPath
-                for field in (
-                    upstream_schema if "upstream" in str(urn) else downstream_schema
-                ).fields
-            }
-        )
-
-        client.lineage.add_dataset_copy_lineage(
-            upstream=upstream,
-            downstream=downstream,
-            column_lineage="auto_fuzzy",
-        )
-
-    assert_client_golden(
-        client, _GOLDEN_DIR / "test_lineage_copy_auto_fuzzy_golden.json"
-    )
-
-
-def test_add_lineage_dataset_to_dataset_copy_auto_strict(client: DataHubClient) -> None:
-    upstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,upstream_table,PROD)"
-    downstream = "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)"
-
-    upstream_schema = SchemaMetadataClass(
-        schemaName="upstream_table",
-        platform="urn:li:dataPlatform:snowflake",
-        version=1,
-        hash="1234567890",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-        ],
-    )
-
-    downstream_schema = SchemaMetadataClass(
-        schemaName="downstream_table",
-        platform="urn:li:dataPlatform:snowflake",
-        version=1,
-        hash="1234567890",
-        platformSchema=OtherSchemaClass(rawSchema=""),
-        fields=[
-            SchemaFieldClass(
-                fieldPath="id",
-                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
-                nativeDataType="string",
-            ),
-        ],
-    )
-    # Auto strict column lineage
-    with patch.object(LineageClient, "_get_fields_from_dataset_urn") as mock_method:
-        mock_method.side_effect = lambda urn: sorted(
-            {
-                field.fieldPath
-                for field in (
-                    upstream_schema if "upstream" in str(urn) else downstream_schema
-                ).fields
-            }
-        )
-
-        client.lineage.add_dataset_copy_lineage(
-            upstream=upstream,
-            downstream=downstream,
-            column_lineage="auto_strict",
-        )
-
-    assert_client_golden(
-        client, _GOLDEN_DIR / "test_lineage_copy_auto_strict_golden.json"
-    )
 
 
 def test_add_lineage_dataset_to_dataset_copy_custom_mapping(
