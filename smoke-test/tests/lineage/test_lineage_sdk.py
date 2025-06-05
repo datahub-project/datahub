@@ -56,7 +56,7 @@ def validate_lineage_results(lineage_result: LineageResult, hops=None, direction
         assert len(lineage_result.paths) == paths_len
 
 def test_table_level_lineage(test_client: DataHubClient, test_datasets: Dict[str, Dataset]):
-    table_lineage_results = list(test_client.lineage.get_lineage(source_urn=str(test_datasets["upstream"].urn), direction="downstream", max_hops=3))
+    table_lineage_results = test_client.lineage.get_lineage(source_urn=str(test_datasets["upstream"].urn), direction="downstream", max_hops=3)
 
     assert len(table_lineage_results) == 3
     urns = {r.urn for r in table_lineage_results}
@@ -69,7 +69,7 @@ def test_table_level_lineage(test_client: DataHubClient, test_datasets: Dict[str
     validate_lineage_results(table_lineage_results[2], hops=3, platform="mysql", urn=str(test_datasets["downstream3"].urn), paths_len=0)
 
 def test_column_level_lineage(test_client: DataHubClient, test_datasets: Dict[str, Dataset]):
-    column_lineage_results = list(test_client.lineage.get_lineage(source_urn=str(test_datasets["upstream"].urn), source_column="id", direction="downstream", max_hops=3))
+    column_lineage_results = test_client.lineage.get_lineage(source_urn=str(test_datasets["upstream"].urn), source_column="id", direction="downstream", max_hops=3)
 
     assert len(column_lineage_results) == 3
     column_lineage_results = sorted(column_lineage_results, key=lambda x: x.hops)
@@ -78,13 +78,13 @@ def test_column_level_lineage(test_client: DataHubClient, test_datasets: Dict[st
     validate_lineage_results(column_lineage_results[2], hops=3, urn=str(test_datasets["downstream3"].urn), paths_len=4)
 
 def test_filtered_column_level_lineage(test_client: DataHubClient, test_datasets: Dict[str, Dataset]):
-    filtered_column_lineage_results = list(test_client.lineage.get_lineage(
+    filtered_column_lineage_results = test_client.lineage.get_lineage(
         source_urn=str(test_datasets["upstream"].urn),
         source_column="id",
         direction="downstream",
         max_hops=3,
         filter=F.and_(F.platform("mysql"), F.entity_type("DATASET"))
-    ))
+    )
 
     assert len(filtered_column_lineage_results) == 1
     validate_lineage_results(filtered_column_lineage_results[0], hops=3, platform="mysql", urn=str(test_datasets["downstream3"].urn), paths_len=4)
