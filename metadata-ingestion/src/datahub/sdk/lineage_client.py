@@ -140,10 +140,9 @@ class LineageClient:
         *,
         upstream: DatasetUrnOrStr,
         downstream: DatasetUrnOrStr,
-        is_column_lineage: bool = False,
-        column_lineage_mapping: Optional[
-            Union[ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]]
-        ] = None,
+        column_lineage: Union[
+            bool, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
+        ] = False,
         transformation_text: Optional[str] = None,
     ) -> None:
         ...
@@ -213,10 +212,9 @@ class LineageClient:
         downstream: Union[
             DatasetUrnOrStr, DatajobUrnOrStr, DashboardUrnOrStr, ChartUrnOrStr
         ],
-        is_column_lineage: bool = False,
-        column_lineage_mapping: Union[
-            None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
-        ] = None,
+        column_lineage: Union[
+            bool, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
+        ] = False,
         transformation_text: Optional[str] = None,
     ) -> None:
         """
@@ -235,9 +233,7 @@ class LineageClient:
         Args:
             upstream: URN of the upstream entity (dataset or datajob)
             downstream: URN of the downstream entity (dataset or datajob)
-            is_column_lineage: Optional boolean to indicate if column-level lineage should be added
-            column_lineage_mapping: Optional column-level lineage mapping or auto-generation method
-                        (only applicable for dataset-to-dataset lineage)
+            column_lineage: Optional boolean to indicate if column-level lineage should be added or a lineage mapping type (auto_fuzzy, auto_strict, or a mapping of column-level lineage)
             transformation_text: Optional SQL query text that defines the transformation
                     (only applicable for dataset-to-dataset lineage)
 
@@ -251,10 +247,8 @@ class LineageClient:
 
         key = (upstream_entity_type, downstream_entity_type)
 
-        # if it's not dataset-dataset lineage but provided with column_lineage_mapping or transformation_text, raise an error
-        if key != ("dataset", "dataset") and (
-            column_lineage_mapping or transformation_text
-        ):
+        # if it's not dataset-dataset lineage but provided with column_lineage or transformation_text, raise an error
+        if key != ("dataset", "dataset") and (column_lineage or transformation_text):
             raise SdkUsageError(
                 "Column lineage and query text are only applicable for dataset-to-dataset lineage"
             )
@@ -276,8 +270,7 @@ class LineageClient:
                 upstream=upstream,
                 downstream=downstream,
                 upstream_type=upstream_entity_type,
-                is_column_lineage=is_column_lineage,
-                column_lineage_mapping=column_lineage_mapping,
+                column_lineage=column_lineage,
                 transformation_text=transformation_text,
             )
         except KeyError:
@@ -290,17 +283,19 @@ class LineageClient:
         *,
         upstream,
         downstream,
-        is_column_lineage,
-        column_lineage_mapping,
+        column_lineage,
         transformation_text,
         **_,
     ):
         upstream_urn = DatasetUrn.from_string(upstream)
         downstream_urn = DatasetUrn.from_string(downstream)
 
-        if is_column_lineage or column_lineage_mapping:
+        if column_lineage:
+            column_lineage = (
+                "auto_fuzzy" if column_lineage is True else column_lineage
+            )  # if column_lineage is True, set it to auto_fuzzy
             cll = self._process_column_lineage(
-                column_lineage_mapping or "auto_fuzzy", upstream_urn, downstream_urn
+                column_lineage, upstream_urn, downstream_urn
             )
         else:
             cll = None
@@ -359,7 +354,7 @@ class LineageClient:
 
     def _process_column_lineage(self, column_lineage, upstream_urn, downstream_urn):
         cll = None
-        if column_lineage is not None:
+        if column_lineage:
             # Auto column lineage generation
             if column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
                 upstream_schema = self._get_fields_from_dataset_urn(upstream_urn)

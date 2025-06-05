@@ -662,7 +662,7 @@ def test_add_lineage_dataset_to_dataset_copy_custom_mapping(
 
     column_mapping = {"name": ["name", "full_name"]}
     client.lineage.add_lineage(
-        upstream=upstream, downstream=downstream, column_lineage_mapping=column_mapping
+        upstream=upstream, downstream=downstream, column_lineage=column_mapping
     )
     assert_client_golden(
         client, _GOLDEN_DIR / "test_lineage_custom_mapping_golden.json"
@@ -680,7 +680,7 @@ def test_add_lineage_dataset_to_dataset_transform(client: DataHubClient) -> None
         upstream=upstream,
         downstream=downstream,
         transformation_text=transformation_text,
-        column_lineage_mapping=column_mapping,
+        column_lineage=column_mapping,
     )
     assert_client_golden(client, _GOLDEN_DIR / "test_lineage_transform_golden.json")
 
@@ -810,7 +810,7 @@ def test_add_lineage_invalid_parameter_combinations(client: DataHubClient) -> No
         client.lineage.add_lineage(
             upstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
             downstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
-            column_lineage_mapping={"target_col": ["source_col"]},
+            column_lineage={"target_col": ["source_col"]},
         )
 
     # Dataset to DataJob with transformation_text (not supported)
@@ -832,5 +832,5 @@ def test_add_lineage_invalid_parameter_combinations(client: DataHubClient) -> No
         client.lineage.add_lineage(
             upstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,example_dag,PROD),process_job)",
             downstream="urn:li:dataset:(urn:li:dataPlatform:snowflake,target_table,PROD)",
-            column_lineage_mapping={"target_col": ["source_col"]},
+            column_lineage={"target_col": ["source_col"]},
         )

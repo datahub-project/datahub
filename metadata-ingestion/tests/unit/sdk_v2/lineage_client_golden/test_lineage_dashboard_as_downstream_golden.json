@@ -12,11 +12,11 @@
                 "value": {
                     "destinationUrn": "urn:li:dashboard:(urn:li:dataPlatform:snowflake,dashboard_id)",
                     "created": {
-                        "time": 1749048918902,
+                        "time": 1749082122056,
                         "actor": "urn:li:corpuser:datahub"
                     },
                     "lastModified": {
-                        "time": 1749048918902,
+                        "time": 1749082122056,
                         "actor": "urn:li:corpuser:datahub"
                     }
                 }
