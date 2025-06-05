@@ -14,7 +14,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
 )
 from datahub.testing import mce_helpers
-from datahub.utilities.urns.error import InvalidUrnError
 
 _GOLDEN_DIR = pathlib.Path(__file__).parent / "lineage_client_golden"
 _GOLDEN_DIR.mkdir(exist_ok=True)
@@ -249,6 +248,7 @@ def test_infer_lineage_from_sql_with_multiple_upstreams(
     assert_client_golden(
         client, _GOLDEN_DIR / "test_lineage_from_sql_multiple_upstreams_golden.json"
     )
+
 
 def test_add_lineage_dataset_to_dataset_copy_basic(client: DataHubClient) -> None:
     """Test add_lineage method with dataset to dataset and various column lineage strategies."""
