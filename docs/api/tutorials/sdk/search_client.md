@@ -4,7 +4,7 @@ DataHub’s Python SDK makes it easy to search and discover metadata across your
 
 ## What You Can Do
 
-- Search metadata by keyword or structured filters
+- Search for data assets by keyword or using structured filters
 - Filter by environment, platform, type, or custom properties
 - Use AND / OR / NOT logic for advanced queries
 - Perform targeted searches using custom fields like URN
@@ -25,7 +25,7 @@ from datahub.sdk import DataHubClient
 client = DataHubClient(server="<your_server>", token="<your_token>")
 ```
 
-If authentication is enabled, you’ll need to generate a Personal Access Token from your DataHub instance. [See the guide](https://docs.datahub.com/docs/authentication/personal-access-tokens).
+If authentication is enabled, you’ll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
 
 ## Search Options
 
@@ -36,9 +36,9 @@ DataHub supports two main search styles:
 
 You can combine both for powerful and precise results.
 
-## Query-Based Search
+### Query-Based Search
 
-Query-based search is like using a search bar. It matches against names, descriptions, column names, and more.
+Query-based search is like using a search bar. It matches against the things you'd expect to be searchable - names, descriptions, column names, and more.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_with_query.py show_path_as_comment }}
