@@ -55,6 +55,8 @@ UrnOrStr: TypeAlias = Union[Urn, str]
 ChartUrnOrStr: TypeAlias = Union[str, ChartUrn]
 DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
+ChartUrnOrStr: TypeAlias = Union[str, ChartUrn]
+DashboardUrnOrStr: TypeAlias = Union[str, DashboardUrn]
 DataflowUrnOrStr: TypeAlias = Union[str, DataFlowUrn]
 DashboardUrnOrStr: TypeAlias = Union[str, DashboardUrn]
 
