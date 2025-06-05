@@ -14,7 +14,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.main_client import DataHubClient
-from datahub.sdk.search_filters import FilterDsl
+from datahub.sdk.search_filters import FilterDsl as F
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -908,7 +908,7 @@ def test_get_lineage_with_entity_type_filters(client: DataHubClient) -> None:
     with patch.object(client._graph, "execute_graphql", return_value=mock_response):
         results = client.lineage.get_lineage(
             source_urn=source_urn,
-            filter=FilterDsl.entity_type("dataset"),
+            filter=F.entity_type("dataset"),
         )
 
     # Validate results

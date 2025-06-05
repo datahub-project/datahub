@@ -1,43 +1,16 @@
-from datahub.sdk.dataset import Dataset
+from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.main_client import DataHubClient
-from datahub.sdk.search_filters import FilterDsl
+from datahub.sdk.search_filters import FilterDsl as F
 
 client = DataHubClient.from_env()
 
-upstream_dataset = Dataset(
-    platform="snowflake",
-    name="upstream_table",
-)
-
-downstream_dataset = Dataset(
-    platform="snowflake",
-    name="downstream_table",
-)
-
-downstream2_dataset = Dataset(
-    platform="snowflake",
-    name="downstream2_table",
-)
-
-client.entities.upsert(upstream_dataset)
-client.entities.upsert(downstream_dataset)
-client.entities.upsert(downstream2_dataset)
-
-client.lineage.add_lineage(
-    upstream=upstream_dataset.urn, downstream=downstream_dataset.urn
-)
-
-client.lineage.add_lineage(
-    upstream=downstream_dataset.urn, downstream=downstream2_dataset.urn
-)
-
 downstream_lineage = client.lineage.get_lineage(
-    source_urn=upstream_dataset.urn,
+    source_urn=DatasetUrn(platform="snowflake", name="downstream_table"),
     direction="downstream",
     max_hops=2,
-    filter=FilterDsl.and_(
-        FilterDsl.platform("airflow"),
-        FilterDsl.entity_type("dataJob"),
+    filter=F.and_(
+        F.platform("airflow"),
+        F.entity_type("dataJob"),
     ),
 )
 
