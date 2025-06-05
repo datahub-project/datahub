@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from unittest.mock import Mock, patch
 
 import cachetools
@@ -114,7 +114,7 @@ class TestPlatformResourceRepository:
 
         repository.cache[mock_platform_resource_key.id] = mock_platform_resource
 
-        result: PlatformResource | None = repository.get(mock_platform_resource_key)
+        result: Optional[PlatformResource] = repository.get(mock_platform_resource_key)
 
         assert result == mock_platform_resource
 
@@ -127,7 +127,7 @@ class TestPlatformResourceRepository:
             primary_key="test-primary-key",
         )
 
-        result: PlatformResource | None = repository.get(mock_platform_resource_key)
+        result: Optional[PlatformResource] = repository.get(mock_platform_resource_key)
 
         assert result is None
 
@@ -404,7 +404,7 @@ class TestMissingExternalEntity:
 
     def test_as_platform_resource(self, missing_entity: MissingExternalEntity) -> None:
         """Test as_platform_resource returns None."""
-        result: PlatformResource | None = missing_entity.as_platform_resource()
+        result: Optional[PlatformResource] = missing_entity.as_platform_resource()
         assert result is None
 
     def test_get_id(
@@ -460,7 +460,7 @@ class TestEdgeCases:
         assert "test-key" in repo.cache
 
         # Cache should still contain the item within TTL
-        cached_value: str | None = repo.cache.get("test-key")
+        cached_value: Optional[str] = repo.cache.get("test-key")
         assert cached_value == "test-value"
 
     def test_linked_resource_set_with_empty_urns(self) -> None:
