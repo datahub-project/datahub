@@ -7,12 +7,12 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
@@ -57,6 +57,7 @@ public class ElasticSearchSystemMetadataService
   private final ESSystemMetadataDAO _esDAO;
   private final ESIndexBuilder _indexBuilder;
   @Nonnull private final String elasticIdHashAlgo;
+  private final ElasticSearchConfiguration searchConfiguration;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
@@ -132,7 +133,11 @@ public class ElasticSearchSystemMetadataService
     // If status.removed -> false (from removed to not removed) --> get soft deleted entities.
     // If status.removed -> true (from not removed to removed) --> do not get soft deleted entities.
     final List<AspectRowSummary> aspectList =
-        findByParams(ImmutableMap.of("urn", urn), !removed, 0, ESUtils.MAX_RESULT_SIZE);
+        findByParams(
+            ImmutableMap.of("urn", urn),
+            !removed,
+            0,
+            searchConfiguration.getSearch().getLimit().getResults().getMax());
     // for each -> toDocId and set removed to true for all
     aspectList.forEach(
         aspect -> {

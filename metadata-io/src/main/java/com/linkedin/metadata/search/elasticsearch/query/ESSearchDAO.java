@@ -12,7 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -81,7 +81,7 @@ public class ESSearchDAO {
   private final RestHighLevelClient client;
   private final boolean pointInTimeCreationEnabled;
   private final String elasticSearchImplementation;
-  @Nonnull private final SearchConfiguration searchConfiguration;
+  @Nonnull private final ElasticSearchConfiguration searchConfiguration;
   @Nullable private final CustomSearchConfiguration customSearchConfiguration;
   @Nonnull private final QueryFilterRewriteChain queryFilterRewriteChain;
   private final boolean testLoggingEnabled;
@@ -90,7 +90,7 @@ public class ESSearchDAO {
       RestHighLevelClient client,
       boolean pointInTimeCreationEnabled,
       String elasticSearchImplementation,
-      @Nonnull SearchConfiguration searchConfiguration,
+      @Nonnull ElasticSearchConfiguration searchConfiguration,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     this(

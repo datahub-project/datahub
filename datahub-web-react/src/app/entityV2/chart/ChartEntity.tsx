@@ -178,6 +178,7 @@ export class ChartEntity implements Entity<Chart> {
                     properties: {
                         defaultDirection: LineageDirection.Upstream,
                     },
+                    supportsFullsize: true,
                 },
                 {
                     name: 'Properties',

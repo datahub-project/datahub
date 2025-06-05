@@ -31,6 +31,7 @@ from datahub.metadata.urns import (
     CorpGroupUrn,
     CorpUserUrn,
     DashboardUrn,
+    DataFlowUrn,
     DataJobUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
@@ -49,12 +50,12 @@ from datahub.utilities.urns.error import InvalidUrnError
 
 if TYPE_CHECKING:
     from datahub.sdk.container import Container
-
 UrnOrStr: TypeAlias = Union[Urn, str]
 DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
 ChartUrnOrStr: TypeAlias = Union[str, ChartUrn]
 DashboardUrnOrStr: TypeAlias = Union[str, DashboardUrn]
+DataflowUrnOrStr: TypeAlias = Union[str, DataFlowUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 
