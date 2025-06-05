@@ -1,5 +1,5 @@
 import pathlib
-from typing import Dict, List, Set, cast
+from typing import Dict, List, Set, cast, Sequence
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -31,13 +31,14 @@ def client(mock_graph: Mock) -> DataHubClient:
     return DataHubClient(graph=mock_graph)
 
 
-def assert_client_golden(client: DataHubClient, golden_path: pathlib.Path) -> None:
+def assert_client_golden(client: DataHubClient, golden_path: pathlib.Path, ignore_paths: Sequence[str] = ()) -> None:
     mcps = client._graph.emit_mcps.call_args[0][0]  # type: ignore
 
     mce_helpers.check_goldens_stream(
         outputs=mcps,
         golden_path=golden_path,
         ignore_order=False,
+        ignore_paths=ignore_paths,
     )
 
 
@@ -350,7 +351,7 @@ def test_add_lineage_dashboard_as_downstream(client: DataHubClient) -> None:
     )
 
     assert_client_golden(
-        client, _GOLDEN_DIR / "test_lineage_dashboard_as_downstream_golden.json"
+        client, _GOLDEN_DIR / "test_lineage_dashboard_as_downstream_golden.json", ["time"]
     )
 
 
