@@ -19,6 +19,20 @@ logger = logging.getLogger(__name__)
 SubscriberInputType: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 
 
+ASSERTION_RELATED_ENTITY_CHANGE_TYPES = {
+    models.EntityChangeTypeClass.ASSERTION_PASSED,
+    models.EntityChangeTypeClass.ASSERTION_FAILED,
+    models.EntityChangeTypeClass.ASSERTION_ERROR,
+}
+
+ALL_EXISTING_ENTITY_CHANGE_TYPES = {
+    getattr(models.EntityChangeTypeClass, attr)
+    for attr in dir(models.EntityChangeTypeClass)
+    if not attr.startswith("_")
+    and isinstance(getattr(models.EntityChangeTypeClass, attr), str)
+}
+
+
 class SubscriptionClient:
     """
     A client for managing subscriptions to entity changes in Acryl DataHub Cloud.
@@ -57,12 +71,18 @@ class SubscriptionClient:
                  For datasets: subscription applies to all assertions on the dataset.
                  For assertions: subscription applies only to that specific assertion.
             subscriber_urn: The URN of the user or group that will receive notifications.
-            entity_change_types: Specific change types to subscribe to (e.g., UPSERT, DELETE).
-                                If None, subscribes to all available change types.
-                                We validate that provided values match values in models.EntityChangeTypeClass.
+            entity_change_types: Specific change types to subscribe to. If None, defaults are:
+                                - Dataset: all existing change types
+                                - Assertion: assertion-related types (ASSERTION_PASSED,
+                                  ASSERTION_FAILED, ASSERTION_ERROR)
 
         Returns:
-            Subscription: The created subscription object.
+            None
+
+        Raises:
+            SdkUsageError: If URN format is invalid, entity not found, or empty change types list.
+            SdkUsageError: For assertion subscription - if non-assertion-related change types
+                          are provided (only ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR allowed).
         """
         _print_experimental_warning()
 
@@ -82,7 +102,10 @@ class SubscriptionClient:
         )
 
         # Get entity change types (use all if none provided)
-        entity_change_type_strs = self._get_entity_change_types(entity_change_types)
+        entity_change_type_strs = self._get_entity_change_types(
+            assertion_scope=assertion_urn is not None,
+            entity_change_types=entity_change_types,
+        )
 
         existing_subscriptions = self.client.resolve.subscription(  # type: ignore[attr-defined]
             entity_urn=dataset_urn.urn(),
@@ -183,18 +206,24 @@ class SubscriptionClient:
 
     def _get_entity_change_types(
         self,
+        assertion_scope: bool,
         entity_change_types: Optional[List[str]] = None,
     ) -> List[str]:
-        """Get entity change types. If provided, returns as-is. If None, returns all possible values.
+        """Get entity change types with validation and defaults.
 
         Args:
-            entity_change_types: Optional list of entity change types. If None,
-                                 all possible values will be returned. Raises SdkUsageError if empty list `[]`.
-                                 We also validate that provided values match values in models.EntityChangeTypeClass
-                                 and if not, SdkUsageError is raised.
+            assertion_scope: True for assertion subscriptions, False for dataset subscriptions.
+            entity_change_types: Specific change types to validate. If None, returns defaults.
 
         Returns:
-            List of entity change types.
+            List of validated entity change types. Defaults are:
+            - Dataset: all available change types
+            - Assertion: assertion-related types (ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR)
+
+        Raises:
+            SdkUsageError: If entity_change_types is an empty list.
+            SdkUsageError: If invalid change types provided or assertion scope receives
+                          non-assertion change types.
         """
         if entity_change_types is not None:
             if len(entity_change_types) == 0:
@@ -206,15 +235,28 @@ class SubscriptionClient:
                     f"Invalid entity change types provided: {entity_change_types}. "
                     f"Valid options are: {all_options}"
                 )
+
+            # For assertion scope, validate that only assertion-related change types are provided
+            if assertion_scope:
+                invalid_types = [
+                    ect
+                    for ect in entity_change_types
+                    if ect not in ASSERTION_RELATED_ENTITY_CHANGE_TYPES
+                ]
+                if invalid_types:
+                    raise SdkUsageError(
+                        f"For assertion subscriptions, only assertion-related change types are allowed. "
+                        f"Invalid types: {invalid_types}. "
+                        f"Valid types: {list(ASSERTION_RELATED_ENTITY_CHANGE_TYPES)}"
+                    )
+
             return entity_change_types
 
-        # If no specific change types are provided, return all available change types
-        return [
-            getattr(models.EntityChangeTypeClass, attr)
-            for attr in dir(models.EntityChangeTypeClass)
-            if not attr.startswith("_")
-            and isinstance(getattr(models.EntityChangeTypeClass, attr), str)
-        ]
+        # If no specific change types are provided, return defaults based on scope
+        if assertion_scope:
+            return list(ASSERTION_RELATED_ENTITY_CHANGE_TYPES)
+        else:
+            return list(ALL_EXISTING_ENTITY_CHANGE_TYPES)
 
     def _create_audit_stamp(self) -> models.AuditStampClass:
         """Create an audit stamp with current timestamp and default actor."""

@@ -8,7 +8,11 @@ from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from acryl_datahub_cloud._sdk_extras.entities.subscription import Subscription
-from acryl_datahub_cloud._sdk_extras.subscription_client import SubscriptionClient
+from acryl_datahub_cloud._sdk_extras.subscription_client import (
+    ALL_EXISTING_ENTITY_CHANGE_TYPES,
+    ASSERTION_RELATED_ENTITY_CHANGE_TYPES,
+    SubscriptionClient,
+)
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, SubscriptionUrn
@@ -19,6 +23,10 @@ FROZEN_TIME = "2024-01-15 10:30:00"
 
 NUM_DISTINCT_ENTITY_CHANGE_TYPES = (
     26  # Current number of distinct EntityChangeTypeClass values
+)
+
+NUM_ASSERTION_RELATED_ENTITY_CHANGE_TYPES = (
+    3  # ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR
 )
 
 
@@ -51,6 +59,23 @@ class MergeEntityChangeFilterTestParams:
 
     # Expected output
     expected_result: Optional[models.EntityChangeDetailsFilterClass]
+
+
+@dataclass
+class EntityChangeTypesTestParams:
+    """Test parameters for _get_entity_change_types test cases.
+
+    Contains input parameters and expected output for the _get_entity_change_types method.
+    """
+
+    # Input parameters (match method signature)
+    assertion_scope: bool
+    entity_change_types: Optional[List[str]]
+
+    # Expected output
+    expected_result: Optional[List[str]]
+    should_raise: bool
+    expected_error: Optional[str] = None
 
 
 def assert_entity_change_details_filter_equal(
@@ -124,55 +149,154 @@ def any_assertion_urn() -> AssertionUrn:
     return AssertionUrn.create_from_string("urn:li:assertion:test-assertion")
 
 
-def test_get_entity_change_types_with_provided_list(
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=False,
+                entity_change_types=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,
+                    models.EntityChangeTypeClass.ASSERTION_FAILED,
+                ],
+                expected_result=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,
+                    models.EntityChangeTypeClass.ASSERTION_FAILED,
+                ],
+                should_raise=False,
+            ),
+            id="dataset_scope_provided_list",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=True,
+                entity_change_types=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,
+                    models.EntityChangeTypeClass.ASSERTION_FAILED,
+                ],
+                expected_result=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,
+                    models.EntityChangeTypeClass.ASSERTION_FAILED,
+                ],
+                should_raise=False,
+            ),
+            id="assertion_scope_provided_valid_list",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=False,
+                entity_change_types=None,
+                expected_result=list(ALL_EXISTING_ENTITY_CHANGE_TYPES),
+                should_raise=False,
+            ),
+            id="dataset_scope_none",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=True,
+                entity_change_types=None,
+                expected_result=list(ASSERTION_RELATED_ENTITY_CHANGE_TYPES),
+                should_raise=False,
+            ),
+            id="assertion_scope_none",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=False,
+                entity_change_types=[],
+                expected_result=None,
+                should_raise=True,
+                expected_error="Entity change types cannot be an empty list",
+            ),
+            id="dataset_scope_empty_list",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=True,
+                entity_change_types=[],
+                expected_result=None,
+                should_raise=True,
+                expected_error="Entity change types cannot be an empty list",
+            ),
+            id="assertion_scope_empty_list",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=False,
+                entity_change_types=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,  # valid
+                    "INVALID_TYPE",  # invalid
+                ],
+                expected_result=None,
+                should_raise=True,
+                expected_error="Invalid entity change types provided",
+            ),
+            id="dataset_scope_invalid_types",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=True,
+                entity_change_types=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,  # valid
+                    "INVALID_TYPE",  # invalid
+                ],
+                expected_result=None,
+                should_raise=True,
+                expected_error="Invalid entity change types provided",
+            ),
+            id="assertion_scope_invalid_types",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=True,
+                entity_change_types=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,  # valid assertion type
+                    models.EntityChangeTypeClass.TAG_ADDED,  # invalid for assertion scope
+                ],
+                expected_result=None,
+                should_raise=True,
+                expected_error="For assertion subscriptions, only assertion-related change types are allowed",
+            ),
+            id="assertion_scope_non_assertion_types",
+        ),
+    ],
+)
+def test_get_entity_change_types(
     subscription_client: SubscriptionClient,
+    params: EntityChangeTypesTestParams,
 ) -> None:
-    """Test _get_entity_change_types returns provided list when not None."""
-    provided_types = [
-        models.EntityChangeTypeClass.ASSERTION_PASSED,
-        models.EntityChangeTypeClass.ASSERTION_FAILED,
-    ]
+    """Test _get_entity_change_types with various scenarios including assertion scope validation."""
+    if params.should_raise:
+        with pytest.raises(SdkUsageError) as exc_info:
+            subscription_client._get_entity_change_types(
+                params.assertion_scope, params.entity_change_types
+            )
+        assert params.expected_error is not None
+        assert params.expected_error in str(exc_info.value)
+    else:
+        result = subscription_client._get_entity_change_types(
+            params.assertion_scope, params.entity_change_types
+        )
 
-    result = subscription_client._get_entity_change_types(provided_types)
-
-    assert result == provided_types
-
-
-def test_get_entity_change_types_with_none(
-    subscription_client: SubscriptionClient,
-) -> None:
-    """Test _get_entity_change_types returns all possible values when None is provided."""
-    result = subscription_client._get_entity_change_types(None)
-
-    # Convert to set to verify uniqueness and check exact count
-    result_set = set(result)
-    assert len(result) == len(result_set)  # No duplicates
-    assert len(result) == NUM_DISTINCT_ENTITY_CHANGE_TYPES
+        assert params.expected_result is not None
+        assert set(result) == set(params.expected_result)
 
 
-def test_get_entity_change_types_with_empty_list(
-    subscription_client: SubscriptionClient,
-) -> None:
-    """Test _get_entity_change_types raises SdkUsageError when empty list `[]` is provided."""
-    provided_types: List[str] = []
-
-    with pytest.raises(SdkUsageError) as exc_info:
-        subscription_client._get_entity_change_types(provided_types)
-        assert "Empty list is not allowed" in str(exc_info.value)
+def test_all_existing_entity_change_types_constant() -> None:
+    """Test that ALL_EXISTING_ENTITY_CHANGE_TYPES constant has the expected number of unique types."""
+    # This single assertion verifies both the count and absence of duplicates
+    assert (
+        len(set(ALL_EXISTING_ENTITY_CHANGE_TYPES)) == NUM_DISTINCT_ENTITY_CHANGE_TYPES
+    )
 
 
-def test_get_entity_change_types_with_invalid(
-    subscription_client: SubscriptionClient,
-) -> None:
-    """Test _get_entity_change_types raises SdkUsageError when mixing valid and invalid values."""
-    mixed_types = [
-        models.EntityChangeTypeClass.ASSERTION_PASSED,  # valid
-        "INVALID_TYPE",  # invalid
-    ]
-
-    with pytest.raises(SdkUsageError) as exc_info:
-        subscription_client._get_entity_change_types(mixed_types)
-        assert "Invalid entity change types provided" in str(exc_info.value)
+def test_assertion_related_entity_change_types_constant() -> None:
+    """Test that ASSERTION_RELATED_ENTITY_CHANGE_TYPES constant has the expected number of unique types."""
+    # This single assertion verifies both the count and absence of duplicates
+    assert (
+        len(set(ASSERTION_RELATED_ENTITY_CHANGE_TYPES))
+        == NUM_ASSERTION_RELATED_ENTITY_CHANGE_TYPES
+    )
 
 
 @freeze_time(FROZEN_TIME)
@@ -444,12 +568,12 @@ def test_subscribe_with_assertion_updates_existing_subscription(
     existing_subscription.info.createdOn = MagicMock()  # Original creation timestamp
 
     # Set existing entity change types covering all scenarios:
-    # 1. INCIDENT_RESOLVED with the same assertion (duplicate scenario)
+    # 1. ASSERTION_ERROR with the same assertion (duplicate scenario)
     # 2. ASSERTION_FAILED with different assertion (merge scenario)
     # 3. ASSERTION_PASSED will be newly added
     existing_subscription.info.entityChangeTypes = [
         models.EntityChangeDetailsClass(
-            entityChangeType=models.EntityChangeTypeClass.INCIDENT_RESOLVED,
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_ERROR,
             filter=models.EntityChangeDetailsFilterClass(
                 includeAssertions=[any_assertion_urn.urn()]  # Same assertion
             ),
@@ -469,12 +593,12 @@ def test_subscribe_with_assertion_updates_existing_subscription(
         existing_subscription
     ]
 
-    # Execute: Subscribe to INCIDENT_RESOLVED, ASSERTION_FAILED, and ASSERTION_PASSED
+    # Execute: Subscribe to ASSERTION_ERROR, ASSERTION_FAILED, and ASSERTION_PASSED
     subscription_client.subscribe(
         urn=any_assertion_urn,
         subscriber_urn=any_user_urn,
         entity_change_types=[
-            models.EntityChangeTypeClass.INCIDENT_RESOLVED,  # Existing with same assertion
+            models.EntityChangeTypeClass.ASSERTION_ERROR,  # Existing with same assertion
             models.EntityChangeTypeClass.ASSERTION_FAILED,  # Existing with different assertion
             models.EntityChangeTypeClass.ASSERTION_PASSED,  # New change type
         ],
@@ -495,10 +619,10 @@ def test_subscribe_with_assertion_updates_existing_subscription(
         ect.entityChangeType: ect for ect in updated_entity_change_types
     }
 
-    # 1. INCIDENT_RESOLVED: Should keep same assertion (duplicate scenario)
-    incident_resolved = change_types_map[models.EntityChangeTypeClass.INCIDENT_RESOLVED]
-    assert incident_resolved.filter is not None
-    assert set(incident_resolved.filter.includeAssertions) == {any_assertion_urn.urn()}
+    # 1. ASSERTION_ERROR: Should keep same assertion (duplicate scenario)
+    assertion_error = change_types_map[models.EntityChangeTypeClass.ASSERTION_ERROR]
+    assert assertion_error.filter is not None
+    assert set(assertion_error.filter.includeAssertions) == {any_assertion_urn.urn()}
 
     # 2. ASSERTION_FAILED: Should merge assertions (merge scenario)
     assertion_failed = change_types_map[models.EntityChangeTypeClass.ASSERTION_FAILED]
