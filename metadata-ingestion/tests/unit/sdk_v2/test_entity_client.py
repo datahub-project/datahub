@@ -151,8 +151,8 @@ class EntityClientDeleteTestParams:
 
     urn: Union[str, Urn]
     check_exists: bool = True
-    on_cascade: bool = False
-    hard_delete: bool = False
+    cascade: bool = False
+    hard: bool = False
     entity_exists: bool = True
     expected_exception: Optional[Type[Exception]] = None
     expected_graph_exists_call: bool = True
@@ -166,8 +166,8 @@ class EntityClientDeleteTestParams:
             EntityClientDeleteTestParams(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
                 check_exists=True,
-                on_cascade=False,
-                hard_delete=False,
+                cascade=False,
+                hard=False,
                 entity_exists=True,
                 expected_exception=None,
                 expected_graph_exists_call=True,
@@ -182,8 +182,8 @@ class EntityClientDeleteTestParams:
             EntityClientDeleteTestParams(
                 urn=DatasetUrn(platform="snowflake", name="test.table", env="prod"),
                 check_exists=True,
-                on_cascade=False,
-                hard_delete=True,
+                cascade=False,
+                hard=True,
                 entity_exists=True,
                 expected_exception=None,
                 expected_graph_exists_call=True,
@@ -198,8 +198,8 @@ class EntityClientDeleteTestParams:
             EntityClientDeleteTestParams(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
                 check_exists=False,
-                on_cascade=False,
-                hard_delete=False,
+                cascade=False,
+                hard=False,
                 entity_exists=False,
                 expected_exception=None,
                 expected_graph_exists_call=False,
@@ -214,8 +214,8 @@ class EntityClientDeleteTestParams:
             EntityClientDeleteTestParams(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
                 check_exists=True,
-                on_cascade=False,
-                hard_delete=False,
+                cascade=False,
+                hard=False,
                 entity_exists=False,
                 expected_exception=SdkUsageError,
                 expected_graph_exists_call=True,
@@ -227,8 +227,8 @@ class EntityClientDeleteTestParams:
             EntityClientDeleteTestParams(
                 urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
                 check_exists=True,
-                on_cascade=True,
-                hard_delete=False,
+                cascade=True,
+                hard=False,
                 entity_exists=True,
                 expected_exception=SdkUsageError,
                 expected_graph_exists_call=True,
@@ -254,16 +254,16 @@ def test_delete_entity(
             client.entities.delete(
                 urn=params.urn,
                 check_exists=params.check_exists,
-                on_cascade=params.on_cascade,
-                hard_delete=params.hard_delete,
+                cascade=params.cascade,
+                hard=params.hard,
             )
     else:
         # Test successful deletion
         client.entities.delete(
             urn=params.urn,
             check_exists=params.check_exists,
-            on_cascade=params.on_cascade,
-            hard_delete=params.hard_delete,
+            cascade=params.cascade,
+            hard=params.hard,
         )
 
     # Verify graph.exists was called correctly

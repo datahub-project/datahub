@@ -158,22 +158,30 @@ class EntityClient:
         self,
         urn: UrnOrStr,
         check_exists: bool = True,
-        on_cascade: bool = False,
-        hard_delete: bool = False,
+        cascade: bool = False,
+        hard: bool = False,
     ) -> None:
         """Delete an entity by its urn.
 
         Args:
             urn: The urn of the entity to delete. Can be a string or :py:class:`Urn` object.
             check_exists: Whether to check if the entity exists before deletion. Defaults to True.
-            on_cascade: Whether to cascade delete related entities. Not yet supported.
-            hard_delete: Whether to perform a hard delete (permanent) or soft delete. Defaults to False.
+            cascade: Whether to cascade delete related entities. When True, deletes child entities
+                like datajobs within dataflows, datasets within containers, etc. Not yet supported.
+            hard: Whether to perform a hard delete (permanent) or soft delete. Defaults to False.
 
         Raises:
-            SdkUsageError: If the entity does not exist and check_exists is True, or if on_cascade is True (not supported).
+            SdkUsageError: If the entity does not exist and check_exists is True, or if cascade is True (not supported).
 
         Note:
-            When hard_delete is True, the operation is irreversible and the entity will be permanently removed.
+            When hard is True, the operation is irreversible and the entity will be permanently removed.
+
+            Impact of cascade deletion (still to be done) depends on the input entity type:
+            - Container: Recursively deletes all containers and data assets within the container.
+            - Dataflow: Recursively deletes all data jobs within the dataflow.
+            - Dashboard: TBD
+            - DataPlatformInstance: TBD
+            - ...
         """
         urn_str = str(urn) if isinstance(urn, Urn) else urn
         if check_exists and not self._graph.exists(entity_urn=urn_str):
@@ -182,7 +190,7 @@ class EntityClient:
                 "You can bypass this check by setting check_exists=False."
             )
 
-        if on_cascade:
-            raise SdkUsageError("The 'on_cascade' parameter is not yet supported.")
+        if cascade:
+            raise SdkUsageError("The 'cascade' parameter is not yet supported.")
 
-        self._graph.delete_entity(urn=urn_str, hard=hard_delete)
+        self._graph.delete_entity(urn=urn_str, hard=hard)
