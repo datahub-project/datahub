@@ -9,6 +9,8 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.urns import ChartUrn, DatasetUrn, Urn
 from datahub.sdk._shared import (
+    DataPlatformInstanceUrnOrStr,
+    DataPlatformUrnOrStr,
     DatasetUrnOrStr,
     DomainInputType,
     HasContainer,
@@ -56,9 +58,9 @@ class Chart(
         *,
         # Identity.
         name: str,
-        platform: str,
+        platform: DataPlatformUrnOrStr,
         display_name: Optional[str] = None,
-        platform_instance: Optional[str] = None,
+        platform_instance: Optional[DataPlatformInstanceUrnOrStr] = None,
         # Chart properties.
         description: Optional[str] = "",
         external_url: Optional[str] = None,
@@ -66,7 +68,7 @@ class Chart(
         custom_properties: Optional[Dict[str, str]] = None,
         last_modified: Optional[datetime] = None,
         last_refreshed: Optional[datetime] = None,
-        chart_type: Optional[str] = None,
+        chart_type: Optional[Union[str, models.ChartTypeClass]] = None,
         access: Optional[str] = None,
         # Standard aspects.
         subtype: Optional[str] = None,
@@ -80,23 +82,14 @@ class Chart(
     ):
         """Initialize a new Chart instance."""
         urn = ChartUrn.create_from_ids(
-            platform=platform,
+            platform=str(platform),
             name=name,
-            platform_instance=platform_instance,
+            platform_instance=str(platform_instance) if platform_instance else None,
         )
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
 
         self._set_platform_instance(platform, platform_instance)
-
-        # Initialize ChartInfoClass with all required arguments
-        chart_info = models.ChartInfoClass(
-            title=display_name or name,
-            description=description or "",
-            lastModified=models.ChangeAuditStampsClass(),  # TODO: this is required.
-        )
-
-        self._setdefault_aspect(chart_info)
 
         # Set additional properties
         if external_url is not None:
@@ -127,6 +120,10 @@ class Chart(
             self.set_last_modified(last_modified)
         if input_datasets is not None:
             self.set_input_datasets(input_datasets)
+        if description is not None:
+            self.set_description(description)
+        if display_name is not None:
+            self.set_display_name(display_name)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
@@ -139,20 +136,18 @@ class Chart(
 
     @property
     def urn(self) -> ChartUrn:
-        return self._urn  # type: ignore
+        assert isinstance(self._urn, ChartUrn)
+        return self._urn
 
     def _ensure_chart_props(self) -> models.ChartInfoClass:
         """Ensure chart properties exist, using a safer approach."""
-        props = self._get_aspect(models.ChartInfoClass)
-        if props is None:
-            # Use name from URN as fallback
-            props = models.ChartInfoClass(
+        return self._setdefault_aspect(
+            models.ChartInfoClass(
                 title=self.urn.chart_id,
                 description="",
                 lastModified=models.ChangeAuditStampsClass(),
             )
-            self._set_aspect(props)
-        return props
+        )
 
     @property
     def name(self) -> str:
@@ -171,8 +166,7 @@ class Chart(
     @property
     def description(self) -> Optional[str]:
         """Get the description of the chart."""
-        props = self._get_aspect(models.ChartInfoClass)
-        return props.description if props is not None else None
+        return self._ensure_chart_props().description
 
     def set_description(self, description: str) -> None:
         """Set the description of the chart."""
@@ -190,8 +184,7 @@ class Chart(
     @property
     def external_url(self) -> Optional[str]:
         """Get the external URL of the chart."""
-        props = self._get_aspect(models.ChartInfoClass)
-        return props.externalUrl if props is not None else None
+        return self._ensure_chart_props().externalUrl
 
     def set_external_url(self, external_url: str) -> None:
         """Set the external URL of the chart."""
@@ -200,8 +193,7 @@ class Chart(
     @property
     def chart_url(self) -> Optional[str]:
         """Get the chart URL."""
-        props = self._get_aspect(models.ChartInfoClass)
-        return props.chartUrl if props is not None else None
+        return self._ensure_chart_props().chartUrl
 
     def set_chart_url(self, chart_url: str) -> None:
         """Set the chart URL."""
@@ -210,8 +202,7 @@ class Chart(
     @property
     def custom_properties(self) -> Dict[str, str]:
         """Get the custom properties of the chart."""
-        props = self._get_aspect(models.ChartInfoClass)
-        return props.customProperties if props is not None else {}
+        return self._ensure_chart_props().customProperties
 
     def set_custom_properties(self, custom_properties: Dict[str, str]) -> None:
         """Set the custom properties of the chart."""
@@ -220,12 +211,10 @@ class Chart(
     @property
     def last_modified(self) -> Optional[datetime]:
         """Get the last modification timestamp of the chart."""
-        props = self._get_aspect(models.ChartInfoClass)
-
-        # Convert timestamp to datetime
-        if props is None or props.lastModified.lastModified.time == 0:  # Todo: hack
+        last_modified_time = self._ensure_chart_props().lastModified.lastModified.time
+        if not last_modified_time:
             return None
-        return datetime.fromtimestamp(props.lastModified.lastModified.time)
+        return datetime.fromtimestamp(last_modified_time)
 
     def set_last_modified(self, last_modified: datetime) -> None:
         """Set the last modification timestamp of the chart."""
@@ -240,10 +229,12 @@ class Chart(
     @property
     def last_refreshed(self) -> Optional[datetime]:
         """Get the last refresh timestamp of the chart."""
-        props = self._get_aspect(models.ChartInfoClass)
-        if props is None or props.lastRefreshed is None:
-            return None
-        return datetime.fromtimestamp(props.lastRefreshed)
+        last_refreshed_time = self._ensure_chart_props().lastRefreshed
+        return (
+            datetime.fromtimestamp(last_refreshed_time)
+            if last_refreshed_time is not None
+            else None
+        )
 
     def set_last_refreshed(self, last_refreshed: datetime) -> None:
         """Set the last refresh timestamp of the chart."""
@@ -252,28 +243,30 @@ class Chart(
 
     @property
     def chart_type(self) -> Optional[str]:
-        """Get the type of the chart."""
-        props = self._get_aspect(models.ChartInfoClass)
-        type_val = props.type if props is not None else None
-        # Convert ChartTypeClass to str if necessary
-        return str(type_val) if type_val is not None else None
+        """Get the type of the chart as a string."""
+        chart_type = self._ensure_chart_props().type
+        return str(chart_type) if chart_type is not None else None
 
-    def set_chart_type(self, chart_type: str) -> None:
+    def set_chart_type(self, chart_type: Union[str, models.ChartTypeClass]) -> None:
         """Set the type of the chart."""
-        # validate chart_type
-        assert chart_type in get_enum_options(models.ChartTypeClass)
+        if isinstance(chart_type, str):
+            assert chart_type in get_enum_options(models.ChartTypeClass), (
+                f"Invalid chart type: {chart_type}"
+            )
         self._ensure_chart_props().type = chart_type
 
     @property
     def access(self) -> Optional[str]:
-        """Get the access level of the chart."""
-        props = self._get_aspect(models.ChartInfoClass)
-        access_val = props.access if props is not None else None
-        # Convert AccessLevelClass to str if necessary
-        return str(access_val) if access_val is not None else None
+        """Get the access level of the chart as a string."""
+        access = self._ensure_chart_props().access
+        return str(access) if access is not None else None
 
-    def set_access(self, access: str) -> None:
+    def set_access(self, access: Union[str, models.AccessLevelClass]) -> None:
         """Set the access level of the chart."""
+        if isinstance(access, str):
+            assert access in get_enum_options(models.AccessLevelClass), (
+                f"Invalid access level: {access}"
+            )
         self._ensure_chart_props().access = access
 
     @property
@@ -307,7 +300,7 @@ class Chart(
 
         chart_props = self._ensure_chart_props()
         inputs = chart_props.inputs or []
-        if input_dataset_urn not in inputs:
+        if str(input_dataset_urn) not in inputs:
             inputs.append(str(input_dataset_urn))
         chart_props.inputs = inputs
 

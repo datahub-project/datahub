@@ -10,6 +10,8 @@ from datahub.metadata.urns import ChartUrn, DashboardUrn, DatasetUrn, Urn
 from datahub.sdk._shared import (
     ChartUrnOrStr,
     DashboardUrnOrStr,
+    DataPlatformInstanceUrnOrStr,
+    DataPlatformUrnOrStr,
     DatasetUrnOrStr,
     DomainInputType,
     HasContainer,
@@ -58,9 +60,9 @@ class Dashboard(
         *,
         # Identity.
         name: str,
-        platform: str,
+        platform: DataPlatformUrnOrStr,
         display_name: Optional[str] = None,
-        platform_instance: Optional[str] = None,
+        platform_instance: Optional[DataPlatformInstanceUrnOrStr] = None,
         # Dashboard properties.
         description: str = "",
         external_url: Optional[str] = None,
@@ -82,9 +84,9 @@ class Dashboard(
     ):
         """Initialize a new Dashboard instance."""
         urn = DashboardUrn.create_from_ids(
-            platform=platform,
+            platform=str(platform),
             name=name,
-            platform_instance=platform_instance,
+            platform_instance=str(platform_instance) if platform_instance else None,
         )
         super().__init__(urn)
         self._set_extra_aspects(extra_aspects)
@@ -111,8 +113,6 @@ class Dashboard(
                     actor="urn:li:corpuser:datahub",
                 ),
             )
-
-        self._setdefault_aspect(dashboard_info)
 
         # Set additional properties
         if description is not None:
@@ -159,14 +159,13 @@ class Dashboard(
 
     @property
     def urn(self) -> DashboardUrn:
-        return self._urn  # type: ignore
+        assert isinstance(self._urn, DashboardUrn)
+        return self._urn
 
     def _ensure_dashboard_props(self) -> models.DashboardInfoClass:
         """Get the dashboard properties safely."""
-        props = self._get_aspect(models.DashboardInfoClass)
-        if props is None:
-            # Create a new DashboardInfoClass with default values
-            props = models.DashboardInfoClass(
+        return self._setdefault_aspect(
+            models.DashboardInfoClass(
                 title=self.urn.dashboard_id,
                 description="",
                 lastModified=models.ChangeAuditStampsClass(
@@ -179,8 +178,7 @@ class Dashboard(
                 datasetEdges=[],
                 dashboards=[],
             )
-            self._set_aspect(props)
-        return props
+        )
 
     @property
     def name(self) -> str:
@@ -190,8 +188,7 @@ class Dashboard(
     @property
     def title(self) -> str:
         """Get the title of the dashboard."""
-        props = self._ensure_dashboard_props()
-        return props.title
+        return self._ensure_dashboard_props().title
 
     def set_title(self, title: str) -> None:
         """Set the title of the dashboard."""

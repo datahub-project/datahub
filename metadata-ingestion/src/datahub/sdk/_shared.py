@@ -59,6 +59,8 @@ ChartUrnOrStr: TypeAlias = Union[str, ChartUrn]
 DashboardUrnOrStr: TypeAlias = Union[str, DashboardUrn]
 DataflowUrnOrStr: TypeAlias = Union[str, DataFlowUrn]
 DashboardUrnOrStr: TypeAlias = Union[str, DashboardUrn]
+DataPlatformInstanceUrnOrStr: TypeAlias = Union[str, DataPlatformInstanceUrn]
+DataPlatformUrnOrStr: TypeAlias = Union[str, DataPlatformUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 StructuredPropertyUrnOrStr: TypeAlias = Union[str, StructuredPropertyUrn]
