@@ -1,5 +1,5 @@
 import { Column, Table } from '@components';
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
@@ -11,6 +11,7 @@ import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColu
 import DurationColumn from '@app/ingestV2/shared/components/columns/DurationColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { ExecutionRequest } from '@types';
 
@@ -22,9 +23,12 @@ interface Props {
     executionRequests: ExecutionRequest[];
     setFocusExecutionUrn: (urn: string) => void;
     loading?: boolean;
+    handleRollback: (executionUrn: string) => void;
 }
 
-export default function ExecutionsTable({ executionRequests, setFocusExecutionUrn, loading }: Props) {
+export default function ExecutionsTable({ executionRequests, setFocusExecutionUrn, loading, handleRollback }: Props) {
+    const [runIdOfRollbackConfirmation, setRunIdOfRollbackConfirmation] = useState<string | undefined>();
+
     const tableData: ExecutionRequestRecord[] = executionRequests.map((execution) => ({
         urn: execution.urn,
         name: execution?.source?.name,
@@ -35,10 +39,14 @@ export default function ExecutionsTable({ executionRequests, setFocusExecutionUr
         startedAt: execution.result?.startTimeMs,
         duration: execution.result?.durationMs,
         status: getIngestionSourceStatus(execution.result),
-        // TODO:: getting this field form backend is not implemented yet
-        showRollback: false,
+        showRollback: execution.source?.latestSuccessfulExecution?.urn === execution.urn,
         cliIngestion: execution.input.executorId === CLI_EXECUTOR_ID,
     }));
+
+    const handleConfirmRollback = useCallback(() => {
+        if (runIdOfRollbackConfirmation) handleRollback(runIdOfRollbackConfirmation);
+        setRunIdOfRollbackConfirmation(undefined);
+    }, [handleRollback, runIdOfRollbackConfirmation]);
 
     const tableColumns: Column<ExecutionRequestRecord>[] = [
         {
@@ -76,10 +84,29 @@ export default function ExecutionsTable({ executionRequests, setFocusExecutionUr
         {
             title: '',
             key: 'actions',
-            render: (record) => <ActionsColumn record={record} setFocusExecutionUrn={setFocusExecutionUrn} />,
-            width: '50px',
+            render: (record) => (
+                <ActionsColumn
+                    record={record}
+                    setFocusExecutionUrn={setFocusExecutionUrn}
+                    handleRollback={() => setRunIdOfRollbackConfirmation(record.id)}
+                />
+            ),
+            width: '100px',
         },
     ];
 
-    return <StyledTable columns={tableColumns} data={tableData} isScrollable isLoading={loading} />;
+    return (
+        <>
+            <StyledTable columns={tableColumns} data={tableData} isScrollable isLoading={loading} />
+            <ConfirmationModal
+                isOpen={!!runIdOfRollbackConfirmation}
+                modalTitle="Confirm Rollback"
+                modalText="Are you sure you want to continue? 
+                    Rolling back this ingestion run will remove any new data ingested during the run. This may
+                    exclude data that was previously extracted, but did not change during this run."
+                handleConfirm={() => handleConfirmRollback()}
+                handleClose={() => setRunIdOfRollbackConfirmation(undefined)}
+            />
+        </>
+    );
 }

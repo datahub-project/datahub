@@ -8,10 +8,16 @@ import styled from 'styled-components/macro';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
-import { ActionsColumn, NameColumn, ScheduleColumn } from '@app/ingestV2/source/IngestionSourceTableColumns';
+import {
+    ActionsColumn,
+    NameColumn,
+    OwnerColumn,
+    ScheduleColumn,
+} from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
 
@@ -43,6 +49,7 @@ function IngestionSourceTable({
     shouldPreserveParams,
 }: Props) {
     const history = useHistory();
+    const entityRegistry = useEntityRegistryV2();
 
     const tableData = sources.map((source) => ({
         urn: source.urn,
@@ -58,6 +65,7 @@ function IngestionSourceTable({
             source.executions?.executionRequests?.[0]?.result &&
             getIngestionSourceStatus(source.executions.executionRequests[0].result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
+        owners: source.ownership?.owners,
     }));
 
     const tableColumns = [
@@ -97,7 +105,7 @@ function IngestionSourceTable({
         {
             title: 'Owner',
             key: 'owner',
-            render: () => <></>,
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
             width: '15%',
         },
 
@@ -151,5 +159,5 @@ function IngestionSourceTable({
         />
     );
 }
-
-export default IngestionSourceTable;
+const MemoizedTable = React.memo(IngestionSourceTable);
+export default MemoizedTable;
