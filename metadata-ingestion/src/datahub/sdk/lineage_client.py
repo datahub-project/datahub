@@ -838,52 +838,50 @@ class LineageClient:
     ) -> List[LineageResult]:
         """Execute GraphQL query and process results."""
         # Construct GraphQL query with dynamic path query
-        graphql_query = """ 
-query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
-  scrollAcrossLineage(input: $input) {
-    nextScrollId
-    searchResults {
-      degree
-      entity {
-        urn
-        type
-        ... on Dataset {
-          name
-          platform {
-            name
-          }
-          properties {
-            description
-          }
-        }
-        ... on DataJob {
-          jobId
-          dataPlatformInstance {
-            platform {
-              name
+        graphql_query = """
+        query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
+            scrollAcrossLineage(input: $input) {
+                nextScrollId
+                searchResults {
+                    degree
+                    entity {
+                        urn
+                        type
+                        ... on Dataset {
+                            name
+                            platform {
+                                name
+                            }
+                            properties {
+                                description
+                            }
+                        }
+                        ... on DataJob {
+                            jobId
+                            dataPlatformInstance {
+                                platform {
+                                    name
+                                }
+                            }
+                            properties {
+                                name
+                                description
+                            }
+                        }
+                    }
+                    paths {
+                        path {
+                            urn
+                            type
+                        }
+                    }
+                }
             }
-          }
-          properties {
-            name
-            description
-          }
         }
-      }
-      paths {
-        path {
-          urn
-          type
-        }
-      }
-    }
-  }
-}
         """
 
-        # Track seen entities and results
         results: List[LineageResult] = []
 
-        # Pagination handling
         first_iter = True
         scroll_id: Optional[str] = None
 
@@ -916,15 +914,12 @@ query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
         max_hops: int,
     ) -> LineageResult:
         """Create a LineageResult from entity and entry data."""
-        # Determine platform
         platform = entity.get("platform", {}).get("name") or entity.get(
             "dataPlatformInstance", {}
         ).get("platform", {}).get("name")
 
-        # Create base result
-        if (
-            entry["degree"] <= max_hops
-        ):  # filter out results that are beyond the max hops
+        # Only create result if the degree (number of hops) is within the specified max_hops
+        if entry["degree"] <= max_hops:
             result = LineageResult(
                 urn=entity["urn"],
                 type=entity["type"],
@@ -933,7 +928,6 @@ query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
                 platform=platform,
             )
 
-            # Add properties from entity
             properties = entity.get("properties", {})
             if properties:
                 result.name = properties.get("name", "")
@@ -941,14 +935,14 @@ query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
 
             result.paths = []
             if "paths" in entry:
+                # Process each path in the lineage graph
                 for path in entry["paths"]:
                     for path_entry in path["path"]:
-                        # filter out non-schema fields (e.g. Query) from the path
+                        # Only include schema fields in the path (exclude other types like Query)
                         if path_entry["type"] == "SCHEMA_FIELD":
                             schema_field_urn = SchemaFieldUrn.from_string(
                                 path_entry["urn"]
                             )
-                            # get the dataset name from the schema field urn
                             result.paths.append(
                                 LineagePath(
                                     urn=path_entry["urn"],

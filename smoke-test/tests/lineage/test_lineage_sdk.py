@@ -6,6 +6,7 @@ from datahub.sdk.dataset import Dataset
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.search_filters import FilterDsl as F
 from datahub.sdk.lineage_client import LineageResult
+from datahub.metadata.urns import SchemaFieldUrn
 
 @pytest.fixture(scope="module")
 def test_client(graph_client: DataHubGraph) -> DataHubClient:
@@ -87,3 +88,13 @@ def test_filtered_column_level_lineage(test_client: DataHubClient, test_datasets
 
     assert len(filtered_column_lineage_results) == 1
     validate_lineage_results(filtered_column_lineage_results[0], hops=3, platform="mysql", urn=str(test_datasets["downstream3"].urn), paths_len=4)
+
+def test_column_level_lineage_from_schema_field(test_client: DataHubClient, test_datasets: Dict[str, Dataset]):
+    source_schema_field = SchemaFieldUrn(test_datasets["upstream"].urn, "id")
+    column_lineage_results = test_client.lineage.get_lineage(source_urn=str(source_schema_field), direction="downstream", max_hops=3)
+
+    assert len(column_lineage_results) == 3
+    column_lineage_results = sorted(column_lineage_results, key=lambda x: x.hops)
+    validate_lineage_results(column_lineage_results[0], hops=1, urn=str(test_datasets["downstream1"].urn), paths_len=2)
+    validate_lineage_results(column_lineage_results[1], hops=2, urn=str(test_datasets["downstream2"].urn), paths_len=3)
+    validate_lineage_results(column_lineage_results[2], hops=3, urn=str(test_datasets["downstream3"].urn), paths_len=4)
