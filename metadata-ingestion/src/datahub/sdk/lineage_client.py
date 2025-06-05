@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import difflib
 import logging
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
+    Dict,
     List,
     Literal,
     Optional,
@@ -18,12 +21,7 @@ from typing_extensions import assert_never, deprecated
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import (
-    DataJobUrn,
-    DatasetUrn,
-    QueryUrn,
-    Urn,
-)
+from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
     ChartUrnOrStr,
     DashboardUrnOrStr,
@@ -32,8 +30,6 @@ from datahub.sdk._shared import (
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
-from datahub.specific.chart import ChartPatchBuilder
-from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub.specific.chart import ChartPatchBuilder
