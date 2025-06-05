@@ -1,5 +1,5 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
-import { Modal, message } from 'antd';
+import { InputRef, Modal, message } from 'antd';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -127,12 +127,15 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
-    const searchInputRef = useRef<HTMLInputElement | null>(null);
+    const searchInputRef = useRef<InputRef>(null);
     // highlight search input if user arrives with a query preset for salience
     useEffect(() => {
         if (paramsQuery?.length) {
             setQuery(paramsQuery);
-            searchInputRef.current?.focus();
+            setSearchInput(paramsQuery);
+            setTimeout(() => {
+                searchInputRef.current?.focus?.();
+            }, 0);
         }
     }, [paramsQuery]);
 
@@ -520,6 +523,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                                 placeholder="Search..."
                                 value={searchInput || ''}
                                 onChange={(value) => setSearchInput(value)}
+                                ref={searchInputRef}
                             />
                         </SearchContainer>
                         <FilterButtonsContainer>
