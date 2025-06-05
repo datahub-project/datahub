@@ -3,6 +3,7 @@ package com.linkedin.metadata.search;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -165,6 +166,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
         .getSideEffects()
         .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
     appConfig.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
+    appConfig.setElasticSearch(TEST_SEARCH_CONFIG);
 
     lineageSearchService =
         spy(
@@ -198,12 +200,11 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             searchClientSpy,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            getSearchConfiguration(),
+            TEST_SEARCH_CONFIG,
             null,
             QueryFilterRewriteChain.EMPTY);
     ESBrowseDAO browseDAO =
-        new ESBrowseDAO(
-            searchClientSpy, getSearchConfiguration(), null, QueryFilterRewriteChain.EMPTY);
+        new ESBrowseDAO(searchClientSpy, TEST_SEARCH_CONFIG, null, QueryFilterRewriteChain.EMPTY);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClientSpy, getBulkProcessor(), 1);
     ElasticSearchService searchService =
         new ElasticSearchService(
@@ -211,6 +212,7 @@ public abstract class LineageServiceTestBase extends AbstractTestNGSpringContext
             operationContext.getEntityRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
             settingsBuilder,
+            TEST_SEARCH_CONFIG,
             searchDAO,
             browseDAO,
             writeDAO);

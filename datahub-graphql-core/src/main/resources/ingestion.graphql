@@ -503,6 +503,11 @@ type IngestionSource {
   Ownership metadata of the ingestion source
   """
   ownership: Ownership
+
+  """
+  The latest successful execution request for this source
+  """
+  latestSuccessfulExecution: ExecutionRequest
 }
 
 """

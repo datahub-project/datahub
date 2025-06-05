@@ -25,11 +25,13 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasSubtype,
     HasTags,
     HasTerms,
     LinksInputType,
     OwnersInputType,
+    StructuredPropertyInputType,
     TagsInputType,
     TermsInputType,
     make_time_stamp,
@@ -48,6 +50,7 @@ class DataJob(
     HasTags,
     HasTerms,
     HasDomain,
+    HasStructuredProperties,
     Entity,
 ):
     """Represents a data job in DataHub.
@@ -81,9 +84,10 @@ class DataJob(
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
         domain: Optional[DomainInputType] = None,
-        extra_aspects: ExtraAspectsType = None,
         inlets: Optional[List[DatasetUrnOrStr]] = None,
         outlets: Optional[List[DatasetUrnOrStr]] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
     ):
         """
         Initialize a DataJob with either a DataFlow or a DataFlowUrn with platform instance.
@@ -159,6 +163,9 @@ class DataJob(
             self.set_inlets(inlets)
         if outlets is not None:
             self.set_outlets(outlets)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:

@@ -451,7 +451,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                         <TitleWrapper>
                             <TitleLine>
                                 <OverflowTitle
-                                    title={entity?.name}
+                                    title={entity?.name ?? entity?.urn}
                                     highlightText={searchQuery}
                                     highlightColor={highlightColor}
                                     extra={

@@ -187,7 +187,7 @@ curl -X POST 'http://localhost:8080/aspects?action=getTimeseriesAspectValues' \
 
 {
    "value":{
-      "limit":10000,
+      "limit":2000,
       "aspectName":"datasetProfile",
       "endTimeMillis":1627455600000,
       "startTimeMillis":1625122800000,

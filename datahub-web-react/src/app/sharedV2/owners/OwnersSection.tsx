@@ -1,28 +1,23 @@
 import { Text } from '@components';
 import { Select } from 'antd';
+import { debounce } from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
+import { ExpandedOwner } from '@app/entityV2/shared/components/styled/ExpandedOwner/ExpandedOwner';
 import { OwnerLabel } from '@app/shared/OwnerLabel';
+import { useGetRecommendations } from '@app/shared/recommendation';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
-import { useGetSearchResultsForMultipleLazyQuery } from '@graphql/search.generated';
-import { EntityType, OwnerEntityType } from '@types';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '@graphql/search.generated';
+import { Entity, EntityType, Owner, OwnerEntityType } from '@types';
 
 // Interface for pending owner
 export interface PendingOwner {
     ownerUrn: string;
     ownerEntityType: OwnerEntityType;
     ownershipTypeUrn: string;
-}
-
-// Owners section props
-export interface OwnersSectionProps {
-    selectedOwnerUrns: string[];
-    setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
-    pendingOwners: PendingOwner[];
-    setPendingOwners: React.Dispatch<React.SetStateAction<PendingOwner[]>>;
 }
 
 const SectionContainer = styled.div`
@@ -60,24 +55,48 @@ const SelectInput = styled(Select)`
     }
 `;
 
+const OwnersContainer = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+`;
+
+// Owners section props
+interface Props {
+    selectedOwnerUrns: string[];
+    setSelectedOwnerUrns: React.Dispatch<React.SetStateAction<string[]>>;
+    existingOwners: Owner[];
+    onChange: (owners: PendingOwner[]) => void;
+    sourceRefetch?: () => Promise<any>;
+    isEditForm?: boolean;
+}
+
 /**
  * Component for owner selection and management
  */
-const OwnersSection: React.FC<OwnersSectionProps> = ({
+const OwnersSection = ({
     selectedOwnerUrns,
     setSelectedOwnerUrns,
-    pendingOwners,
-    setPendingOwners,
-}) => {
+    existingOwners,
+    onChange,
+    sourceRefetch,
+    isEditForm = false,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const [inputValue, setInputValue] = useState('');
     const [isSearching, setIsSearching] = useState(false);
 
-    // Search query for owners across both CorpUser and CorpGroup types
-    const [searchAcrossEntities, { data: searchData, loading: searchLoading }] =
-        useGetSearchResultsForMultipleLazyQuery({
+    // Autocomplete query for owners across both CorpUser and CorpGroup types
+    const [autoCompleteQuery, { data: autocompleteData, loading: searchLoading }] =
+        useGetAutoCompleteMultipleResultsLazyQuery({
             fetchPolicy: 'no-cache',
         });
+
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([
+        EntityType.CorpGroup,
+        EntityType.CorpUser,
+    ]);
 
     // Lazy load ownership types
     const { data: ownershipTypesData } = useListOwnershipTypesQuery({
@@ -89,27 +108,32 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
     const ownershipTypes = ownershipTypesData?.listOwnershipTypes?.ownershipTypes || [];
     const defaultOwnerType = ownershipTypes.length > 0 ? ownershipTypes[0].urn : undefined;
 
-    // Get search results from the combined query
-    const searchResults = searchData?.searchAcrossEntities?.searchResults?.map((result) => result.entity) || [];
+    // Get results from the recommendations or autocomplete
+    const searchResults: Array<Entity> =
+        !inputValue || inputValue.length === 0
+            ? recommendedData
+            : autocompleteData?.autoCompleteForMultiple?.suggestions?.flatMap((suggestion) => suggestion.entities) ||
+              [];
+
+    const finalResults = searchResults.filter(
+        (res) => !existingOwners.map((owner) => owner.owner.urn).includes(res.urn),
+    );
 
     // Debounced search handler
-    const handleOwnerSearch = (text: string) => {
+    const handleOwnerSearch = debounce((text: string) => {
         setInputValue(text.trim());
         setIsSearching(true);
 
-        if (text && text.trim().length > 1) {
-            searchAcrossEntities({
-                variables: {
-                    input: {
-                        types: [EntityType.CorpUser, EntityType.CorpGroup],
-                        query: text.trim(),
-                        start: 0,
-                        count: 10,
-                    },
+        autoCompleteQuery({
+            variables: {
+                input: {
+                    types: [EntityType.CorpUser, EntityType.CorpGroup],
+                    query: text.trim(),
+                    limit: 10,
                 },
-            });
-        }
-    };
+            },
+        });
+    }, 300);
 
     // Renders a search result in the select dropdown
     const renderSearchResult = (entityItem: any) => {
@@ -129,16 +153,12 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
     };
 
     // Handle select change - stores owners as pending until save
-    const handleSelectChange = (values: any) => {
-        const newValues = values as string[];
+    const handleSelectChange = (newValues) => {
         setSelectedOwnerUrns(newValues);
 
-        // Find new owner URNs that weren't previously selected
-        const newOwnerUrns = newValues.filter((urn) => !pendingOwners.some((owner) => owner.ownerUrn === urn));
-
-        if (newOwnerUrns.length > 0 && defaultOwnerType) {
-            const newPendingOwners = newOwnerUrns.map((urn) => {
-                const foundEntity = searchResults.find((e) => e.urn === urn);
+        if (newValues.length > 0 && defaultOwnerType) {
+            const newOwners = newValues.map((urn) => {
+                const foundEntity = finalResults.find((e) => e.urn === urn);
                 const ownerEntityType =
                     foundEntity && foundEntity.type === EntityType.CorpGroup
                         ? OwnerEntityType.CorpGroup
@@ -151,25 +171,18 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
                 };
             });
 
-            setPendingOwners([...pendingOwners, ...newPendingOwners]);
-        }
-
-        // Handle removed owners
-        if (newValues.length < selectedOwnerUrns.length) {
-            const removedUrns = selectedOwnerUrns.filter((urn) => !newValues.includes(urn));
-            const updatedPendingOwners = pendingOwners.filter((owner) => !removedUrns.includes(owner.ownerUrn));
-            setPendingOwners(updatedPendingOwners);
+            onChange(newOwners);
         }
     };
 
     // Loading state for the select
-    const isSelectLoading = isSearching && searchLoading;
+    const isSelectLoading = recommendationsLoading || (isSearching && searchLoading);
 
     // Simplified conditional content for notFoundContent
     let notFoundContent: React.ReactNode = null;
     if (isSelectLoading) {
         notFoundContent = 'Loading...';
-    } else if (inputValue && searchResults.length === 0) {
+    } else if (inputValue && finalResults.length === 0) {
         notFoundContent = 'No results found';
     }
 
@@ -191,9 +204,25 @@ const OwnersSection: React.FC<OwnersSectionProps> = ({
                     notFoundContent={notFoundContent}
                     optionLabelProp="label"
                 >
-                    {searchResults.map((entity) => renderSearchResult(entity))}
+                    {finalResults.map((entity) => renderSearchResult(entity))}
                 </SelectInput>
             </FormSection>
+            {isEditForm && (
+                <OwnersContainer>
+                    {existingOwners.length > 0 ? (
+                        existingOwners.map((owner) => (
+                            <ExpandedOwner
+                                key={owner.owner.urn}
+                                entityUrn={owner.associatedUrn}
+                                owner={owner}
+                                refetch={sourceRefetch}
+                            />
+                        ))
+                    ) : (
+                        <div>No owners assigned</div>
+                    )}
+                </OwnersContainer>
+            )}
         </SectionContainer>
     );
 };
