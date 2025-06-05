@@ -53,15 +53,10 @@ type Props = {
 };
 
 export const AssertionPredictionTableItem = ({ predictions }: Props) => {
-    const futurePredictions = predictions.filter(
-        (prediction) =>
-            prediction.evaluationTimeWindow?.startTimeMillis &&
-            prediction.evaluationTimeWindow?.startTimeMillis > Date.now(),
-    );
     const futurePredictionsInfo: {
         expectedText: string;
         timeLabel: string;
-    }[] = futurePredictions
+    }[] = predictions
         .map((prediction) => {
             const expectedText = getFormattedExpectedResultText(prediction.assertion);
             const timeLabel = prediction.evaluationTimeWindow?.startTimeMillis
@@ -83,7 +78,7 @@ export const AssertionPredictionTableItem = ({ predictions }: Props) => {
         .sort((a, b) => a.startTimeMillis - b.startTimeMillis)
         .slice(0, MAX_PREDICTIONS_TO_SHOW);
 
-    if (futurePredictions.length === 0) {
+    if (predictions.length === 0) {
         return null;
     }
     return (

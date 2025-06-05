@@ -6,7 +6,6 @@ import {
     ONE_HOUR_IN_MS,
     ONE_WEEK_IN_MS,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
-import { NUMBER_DISPLAY_PRECISION } from '@app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 
 import { Operation } from '@types';
 
@@ -99,7 +98,7 @@ const YEAR_IN_MS = 365 * ONE_DAY_IN_MS;
  * @returns number rounded to NUMBER_DISPLAY_PRECISION decimal place maximum.
  */
 const round = (num: number): number => {
-    return _.round(num, NUMBER_DISPLAY_PRECISION);
+    return _.round(num);
 };
 
 /**

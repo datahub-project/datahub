@@ -1,10 +1,9 @@
-import { Form, Typography } from 'antd';
+import { Form } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
 import { VolumeRowCountChangeBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeRowCountChangeBuilder';
 import { VolumeRowCountTotalBuilder } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/VolumeRowCountTotalBuilder';
-import { getParameterBuilderTitle } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/volume/utils';
 import {
     VolumeAssertionBuilderState,
     VolumeAssertionBuilderTypeOptions,
@@ -34,12 +33,10 @@ export const VolumeParametersBuilder = (props: Props) => {
     const isRowCountChange = selectedType ? getIsRowCountChange(selectedType) : null;
     const propertyName = selectedType ? getPropertyFromVolumeType(selectedType) : '';
     const operator = selectedType ? volumeInfo?.[propertyName]?.operator : null;
-    const title = selectedType && operator ? getParameterBuilderTitle(selectedType, operator) : '';
     const showParameters = selectedType && operator && form.getFieldValue('volume-type');
 
     return showParameters ? (
         <FormDiv>
-            <Typography.Title level={5}>{title}</Typography.Title>
             {props.volumeInfo &&
                 (isRowCountChange ? (
                     <VolumeRowCountChangeBuilder volumeInfo={props.volumeInfo} {...props} />

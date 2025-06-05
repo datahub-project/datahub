@@ -104,6 +104,7 @@ export const VolumeRowCountChangeBuilder = ({
         case AssertionStdOperator.Between:
             return (
                 <Container>
+                    <Typography.Text strong>At least</Typography.Text>
                     <VolumeNumberInput
                         name="parameters.minValue"
                         placeholder="Min"

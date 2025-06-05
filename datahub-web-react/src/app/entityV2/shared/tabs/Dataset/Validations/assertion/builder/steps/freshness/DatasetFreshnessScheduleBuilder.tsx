@@ -21,7 +21,7 @@ import {
     FreshnessAssertionScheduleBuilderTypeOptions,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/types';
 import { formatDuration } from '@app/shared/formatDuration';
-import { Tooltip } from '@src/alchemy-components';
+import { Tooltip, colors } from '@src/alchemy-components';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 import { useGetOperationsQuery } from '@graphql/dataset.generated';
@@ -70,6 +70,23 @@ const TextContainer = styled.div`
     display: flex;
     flex-direction: column;
     gap: 4px;
+`;
+
+const RecentUpdatesSection = styled.div`
+    margin-bottom: 16px;
+    padding: 16px;
+    border: 1px solid ${colors.gray[1000]};
+    background-color: ${colors.gray[1500]};
+    border-radius: 12px;
+
+    .assertion-form-title {
+        font-size: 14px;
+        font-weight: 600;
+    }
+`;
+
+const UpdateOperationsSummary = styled.div`
+    margin-top: 4px;
 `;
 
 type Props = {
@@ -127,38 +144,36 @@ export const DatasetFreshnessScheduleBuilder = ({ value, onChange, disabled, isE
     const operations = operationsData?.dataset?.operations;
     const mostRecentOperations = mostRecentOperationsTimeSinceInMillis(operations || []);
     const updateOperationsSummary = (
-        <div>
-            {'On average, this table updates every '}
-            <b>{formatDuration(computeAverageUpdateFrequencyInMillis(operations || []))}</b>.
+        <UpdateOperationsSummary>
+            <Typography.Text>
+                On average, this table updates every{' '}
+                <b>{formatDuration(computeAverageUpdateFrequencyInMillis(operations || []))}</b>.
+            </Typography.Text>
             <br />
-            The latest {mostRecentOperations.length} updates were:{' '}
-            {mostRecentOperations.map((operation, index) => (
-                <Tooltip title={`Updated ${formatTimestamp(operation.lastUpdatedTimestamp, DATE_COMMA_TIME_TZ)}`}>
-                    <b key={operation.key}>
-                        {`(${index + 1}) ${getFormattedTimeStringTimeSince(Date.now() - operation.delta, Date.now())}`}
-                        {index < mostRecentOperations.length - 1 ? ', ' : '.'}
-                    </b>
-                </Tooltip>
-            ))}
-        </div>
+            <Typography.Text>
+                The latest {mostRecentOperations.length} updates were:{' '}
+                {mostRecentOperations.map((operation, index) => (
+                    <Tooltip title={`Updated ${formatTimestamp(operation.lastUpdatedTimestamp, DATE_COMMA_TIME_TZ)}`}>
+                        <span key={operation.key}>
+                            <b>{getFormattedTimeStringTimeSince(Date.now() - operation.delta, Date.now())}</b>
+                            {index < mostRecentOperations.length - 1 ? ', ' : '.'}
+                        </span>
+                    </Tooltip>
+                ))}
+            </Typography.Text>
+        </UpdateOperationsSummary>
     );
 
-    const recentUpdateHistoryHeader = (
-        <Title level={5}>
+    const recentUpdatesSection = (
+        <RecentUpdatesSection>
             <AssertionFormTitleAndTooltip
                 formTitle="Recent table update history"
                 tooltipTitle="Recent table update history"
                 tooltipDescription={`This summary is computed using up to ${MAX_LOOKBACK_OPERATIONS} table update operations over the last ${MAX_LOOKBACK_WINDOW_DAYS} days.`}
+                titleClassName="assertion-form-title"
             />
-        </Title>
-    );
-
-    const recentUpdatesSection = (
-        <>
-            {recentUpdateHistoryHeader}
             {updateOperationsSummary}
-            <br />
-        </>
+        </RecentUpdatesSection>
     );
 
     return (

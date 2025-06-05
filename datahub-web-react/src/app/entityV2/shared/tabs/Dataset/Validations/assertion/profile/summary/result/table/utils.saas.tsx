@@ -13,9 +13,13 @@ export const useAssertionPredictionItem = (assertion: Assertion, monitor?: Monit
         return null;
     }
 
-    const predictedAssertions = monitor?.info?.assertionMonitor?.assertions?.find(
-        (assrn) => assrn.assertion.urn === assertion.urn,
-    )?.context?.embeddedAssertions;
+    const predictedAssertions = monitor?.info?.assertionMonitor?.assertions
+        ?.find((assrn) => assrn.assertion.urn === assertion.urn)
+        ?.context?.embeddedAssertions?.filter(
+            (prediction) =>
+                prediction.evaluationTimeWindow?.startTimeMillis &&
+                prediction.evaluationTimeWindow?.startTimeMillis > Date.now(),
+        );
     return predictedAssertions?.length
         ? {
               dot: (

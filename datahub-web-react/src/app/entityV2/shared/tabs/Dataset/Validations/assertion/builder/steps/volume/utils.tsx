@@ -237,32 +237,32 @@ export const VOLUME_TYPE_OPTIONS: Record<VolumeTypeOptionEnum, VolumeTypeOption>
         category: VolumeTypeCategoryEnum.AI_INFERRED,
     },
     [VolumeTypeOptionEnum.LESS_THAN_ROWS]: {
-        label: 'Is less than or equal to',
+        label: 'Less than or equal to',
         operator: AssertionStdOperator.LessThanOrEqualTo,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
     [VolumeTypeOptionEnum.GREATER_THAN_ROWS]: {
-        label: 'Is greater than or equal to',
+        label: 'Greater than or equal to',
         operator: AssertionStdOperator.GreaterThanOrEqualTo,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
     [VolumeTypeOptionEnum.ROWS_IN_RANGE]: {
-        label: 'Is within an expected range',
+        label: 'Within a range',
         operator: AssertionStdOperator.Between,
         category: VolumeTypeCategoryEnum.ROW_COUNT,
     },
     [VolumeTypeOptionEnum.GROWTH_LESS_THAN]: {
-        label: 'Grows by at most',
+        label: 'Growing by at most',
         operator: AssertionStdOperator.LessThanOrEqualTo,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },
     [VolumeTypeOptionEnum.GROWTH_GREATER_THAN]: {
-        label: 'Grows by at least',
+        label: 'Growing by at least',
         operator: AssertionStdOperator.GreaterThanOrEqualTo,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },
     [VolumeTypeOptionEnum.GROWTH_IN_RANGE]: {
-        label: 'Is growing within an expected range',
+        label: 'Growing within a range',
         operator: AssertionStdOperator.Between,
         category: VolumeTypeCategoryEnum.GROWTH_RATE,
     },

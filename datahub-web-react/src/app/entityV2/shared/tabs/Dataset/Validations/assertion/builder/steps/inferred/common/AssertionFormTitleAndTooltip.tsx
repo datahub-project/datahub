@@ -6,16 +6,20 @@ export interface AssertionFormTitleAndTooltipProps {
     formTitle: string;
     tooltipTitle: string;
     tooltipDescription: string;
+    titleClassName?: string;
 }
 
 export const AssertionFormTitleAndTooltip = ({
     formTitle,
     tooltipTitle,
     tooltipDescription,
+    titleClassName,
 }: AssertionFormTitleAndTooltipProps) => {
     return (
         <>
-            <span style={{ marginRight: '8px' }}>{formTitle}</span>{' '}
+            <span style={{ marginRight: '8px' }} className={titleClassName}>
+                {formTitle}
+            </span>{' '}
             <AssertionTooltip title={tooltipTitle} description={tooltipDescription} />
         </>
     );

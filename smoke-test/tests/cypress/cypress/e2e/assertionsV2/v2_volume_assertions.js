@@ -47,7 +47,7 @@ describe("create and manage volume assertion", () => {
     cy.get("button").contains("Next").click();
     cy.waitTextVisible("Please select an option");
     clickElement("#volume-type");
-    cy.clickOptionWithText("Is less than or equal to");
+    cy.clickOptionWithText("Less than or equal to");
     cy.waitTextVisible("If this assertion fails...");
     cy.waitTextVisible("If this assertion passes...");
     cy.get("button").contains("Next").click();

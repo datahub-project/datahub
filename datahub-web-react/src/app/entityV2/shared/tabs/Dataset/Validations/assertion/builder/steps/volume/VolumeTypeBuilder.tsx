@@ -71,7 +71,7 @@ export const VolumeTypeBuilder = ({ volumeInfo, onChange, segment, disabled, isE
 
     return (
         <Container>
-            <Typography.Title level={5}>Pass when table row count</Typography.Title>
+            <Typography.Title level={5}>Table row count should be...</Typography.Title>
             <Form.Item
                 initialValue={selectedType}
                 name="volume-type"

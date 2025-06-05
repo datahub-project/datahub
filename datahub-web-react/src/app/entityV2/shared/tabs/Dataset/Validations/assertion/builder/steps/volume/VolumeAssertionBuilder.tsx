@@ -28,6 +28,7 @@ const Section = styled.div`
     display: flex;
     flex-direction: column;
     padding-bottom: 20px;
+    margin-top: 8px;
 `;
 
 type Props = {
@@ -145,6 +146,7 @@ export const VolumeAssertionBuilder = ({
 
     return (
         <div>
+            {!isEditMode || !isAiInferenceSelected ? <QualityTabRowCountGraph /> : null}
             {/* Cannot change type for AI inferred volume assertions */}
             {!(isEditMode && isAiInferenceSelected) && (
                 <VolumeTypeBuilder
@@ -154,8 +156,6 @@ export const VolumeAssertionBuilder = ({
                     isEditMode={isEditMode}
                 />
             )}
-            <QualityTabRowCountGraph />
-            <br />
             {/* hidden for ai inferred assertions */}
             {!isAiInferenceSelected && (
                 <VolumeParametersBuilder
