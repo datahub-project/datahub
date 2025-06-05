@@ -26,9 +26,11 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import MultipleSubtypesWarning, SdkUsageError
 from datahub.metadata.urns import (
+    ChartUrn,
     ContainerUrn,
     CorpGroupUrn,
     CorpUserUrn,
+    DashboardUrn,
     DataFlowUrn,
     DataJobUrn,
     DataPlatformInstanceUrn,
@@ -52,6 +54,8 @@ if TYPE_CHECKING:
 UrnOrStr: TypeAlias = Union[Urn, str]
 DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 DatajobUrnOrStr: TypeAlias = Union[str, DataJobUrn]
+ChartUrnOrStr: TypeAlias = Union[str, ChartUrn]
+DashboardUrnOrStr: TypeAlias = Union[str, DashboardUrn]
 DataflowUrnOrStr: TypeAlias = Union[str, DataFlowUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
