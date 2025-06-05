@@ -15,6 +15,9 @@ from typing import Any, Optional, Union
 from typing_extensions import Self
 
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
+    ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+    DEFAULT_DETECTION_MECHANISM,
+    DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
     DetectionMechanism,
     ExclusionWindowTypes,
@@ -31,12 +34,6 @@ from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, TagUrn
 from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
-
-
-DEFAULT_SENSITIVITY = InferenceSensitivity.LOW
-# TODO: Import ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS from datahub_executor.config
-ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS = 60
-DEFAULT_DETECTION_MECHANISM = DetectionMechanism.INFORMATION_SCHEMA
 
 
 class AssertionMode(Enum):

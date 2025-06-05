@@ -290,9 +290,9 @@ def test_assertion_creation_with_detection_mechanism_dict(
         ),
         pytest.param(
             None,
-            InferenceSensitivity.MEDIUM,
+            InferenceSensitivity.LOW,
             nullcontext(),
-            id="None (default to medium)",
+            id="None (default to low)",
         ),
         pytest.param(
             "invalid", None, pytest.raises(SDKUsageErrorWithExamples), id="invalid"
@@ -803,7 +803,7 @@ def test_to_monitor_entity_with_smart_freshness_assertion_defaults(
     settings = monitor.info.assertionMonitor.settings.adjustmentSettings
     assert settings is not None  # Type narrowing
     assert settings.sensitivity is not None  # Type narrowing
-    assert settings.sensitivity.level == 5
+    assert settings.sensitivity.level == 1
     assert settings.exclusionWindows == []
     assert (
         settings.trainingDataLookbackWindowDays

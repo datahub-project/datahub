@@ -288,7 +288,7 @@ class InferenceSensitivity(Enum):
         }[sensitivity]
 
 
-DEFAULT_SENSITIVITY = InferenceSensitivity.MEDIUM
+DEFAULT_SENSITIVITY = InferenceSensitivity.LOW
 
 
 class FixedRangeExclusionWindow(BaseModel):
