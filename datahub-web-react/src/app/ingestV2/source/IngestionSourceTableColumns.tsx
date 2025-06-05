@@ -126,7 +126,12 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
         <>
             {singleOwner && (
                 <HoverEntityTooltip entity={singleOwner} showArrow={false}>
-                    <Link to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}>
+                    <Link
+                        to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
                         <Avatar
                             name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
                             imageUrl={singleOwner.editableProperties?.pictureLink}
