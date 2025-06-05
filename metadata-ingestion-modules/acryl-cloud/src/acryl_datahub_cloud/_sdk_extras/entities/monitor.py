@@ -1,4 +1,6 @@
+import logging
 from typing import (
+    Any,
     Dict,
     Optional,
     Tuple,
@@ -22,6 +24,9 @@ from datahub.metadata.urns import (
     Urn,
 )
 from datahub.sdk.entity import Entity
+
+logger = logging.getLogger(__name__)
+
 
 MonitorIdentityInputType: TypeAlias = Union[
     Tuple[DatasetUrn, str],  # (dataset urn, monitor id)
@@ -220,3 +225,67 @@ class Monitor(Entity):
             custom_properties: Dictionary of custom properties to set.
         """
         self._ensure_info().customProperties = custom_properties
+
+    @property
+    def sensitivity(self) -> Optional[models.AssertionMonitorSensitivityClass]:
+        """Get the sensitivity of the monitor.
+
+        Returns:
+            The sensitivity or None if not found.
+        """
+        return _get_nested_field_for_entity_with_default(
+            self, "info.assertionMonitor.settings.adjustmentSettings.sensitivity"
+        )
+
+    @property
+    def exclusion_windows(self) -> Optional[list[models.AssertionExclusionWindowClass]]:
+        """Get the exclusion windows of the monitor.
+
+        Returns:
+            The exclusion windows or None if not found.
+        """
+        return _get_nested_field_for_entity_with_default(
+            self, "info.assertionMonitor.settings.adjustmentSettings.exclusionWindows"
+        )
+
+    @property
+    def training_data_lookback_days(self) -> Optional[int]:
+        """Get the training data lookback days of the monitor.
+
+        Returns:
+            The training data lookback days or None if not found.
+        """
+        return _get_nested_field_for_entity_with_default(
+            self,
+            "info.assertionMonitor.settings.adjustmentSettings.trainingDataLookbackWindowDays",
+        )
+
+
+def _get_nested_field_for_entity_with_default(
+    entity: Entity,
+    field_path: str,
+    default: Any = None,
+) -> Any:
+    """
+    Get a nested field from an Entity object, and warn and return default if not found.
+
+    Args:
+        entity: The entity to get the nested field from.
+        field_path: The path to the nested field.
+        default: The default value to return if the field is not found.
+    """
+    fields = field_path.split(".")
+    current = entity
+    last_valid_path = entity.entity_type_name()
+
+    for field in fields:
+        try:
+            current = getattr(current, field)
+            last_valid_path = f"{last_valid_path}.{field}"
+        except AttributeError:
+            logger.warning(
+                f"{entity.entity_type_name().capitalize()} {entity.urn} does not have an `{last_valid_path}` field, defaulting to {default}"
+            )
+            return default
+
+    return current

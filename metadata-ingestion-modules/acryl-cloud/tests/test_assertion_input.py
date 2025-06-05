@@ -8,7 +8,6 @@ from pydantic import ValidationError
 
 import datahub.metadata.schema_classes as models
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
-    _DETECTION_MECHANISM_TYPES,
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_NAME_PREFIX,
     DEFAULT_NAME_SUFFIX_LENGTH,
@@ -19,6 +18,7 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     InferenceSensitivity,
     SDKUsageErrorWithExamples,
     _AssertionInput,
+    _DetectionMechanismTypes,
     _SmartFreshnessAssertionInput,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import (
@@ -36,7 +36,7 @@ class AssertionInputParams(TypedDict, total=False):
     dataset_urn: Union[str, DatasetUrn]
     entity_client: EntityClient
     display_name: str
-    detection_mechanism: Union[str, dict[str, str], _DETECTION_MECHANISM_TYPES]
+    detection_mechanism: Union[str, dict[str, str], _DetectionMechanismTypes]
     sensitivity: Union[str, InferenceSensitivity]
     exclusion_windows: Union[
         dict[str, datetime],
@@ -133,7 +133,7 @@ def default_created_updated_params() -> CreatedUpdatedParams:
     ],
 )
 def test_assertion_creation_with_detection_mechanism_instance(
-    detection_mechanism: _DETECTION_MECHANISM_TYPES,
+    detection_mechanism: _DetectionMechanismTypes,
     expected_type: str,
     expected_additional_kwargs: dict[str, str],
     stub_entity_client: StubEntityClient,
@@ -653,7 +653,7 @@ def test_assertion_input_creation_with_incident_behavior(
     ],
 )
 def test_to_assertion_entity(
-    detection_mechanism: _DETECTION_MECHANISM_TYPES,
+    detection_mechanism: _DetectionMechanismTypes,
     additional_filter: Optional[str],
     stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
@@ -1000,7 +1000,7 @@ def test_assertion_creation_with_training_data_lookback_days(
     [
         pytest.param("Custom Name", "Custom Name", id="custom name"),
         pytest.param(None, None, id="default name"),
-        pytest.param("", None, id="empty name"),
+        pytest.param("", "", id="empty name"),
     ],
 )
 def test_assertion_creation_with_display_name(

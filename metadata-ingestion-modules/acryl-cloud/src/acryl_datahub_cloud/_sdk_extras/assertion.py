@@ -15,27 +15,27 @@ from typing import Any, Optional, Union
 from typing_extensions import Self
 
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
-    _DETECTION_MECHANISM_TYPES,
     AssertionIncidentBehavior,
     DetectionMechanism,
     ExclusionWindowTypes,
     FixedRangeExclusionWindow,
     InferenceSensitivity,
+    _DetectionMechanismTypes,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
 from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
 from acryl_datahub_cloud._sdk_extras.errors import SDKNotYetSupportedError
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.metadata import schema_classes as models
-from datahub.metadata.urns import AssertionUrn, DatasetUrn
+from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, TagUrn
 from datahub.sdk.entity import Entity
-from datahub.utilities.urns.urn import Urn
 
 logger = logging.getLogger(__name__)
 
 
 DEFAULT_SENSITIVITY = InferenceSensitivity.LOW
-DEFAULT_TRAINING_DATA_LOOKBACK_DAYS = 30
+# TODO: Import ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS from datahub_executor.config
+ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS = 60
 DEFAULT_DETECTION_MECHANISM = DetectionMechanism.INFORMATION_SCHEMA
 
 
@@ -91,9 +91,11 @@ class _HasSmartFunctionality:
         *,
         sensitivity: InferenceSensitivity = DEFAULT_SENSITIVITY,
         exclusion_windows: list[ExclusionWindowTypes],
-        training_data_lookback_days: int = DEFAULT_TRAINING_DATA_LOOKBACK_DAYS,
+        training_data_lookback_days: int = ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
         incident_behavior: list[AssertionIncidentBehavior],
-        detection_mechanism: _DETECTION_MECHANISM_TYPES = DEFAULT_DETECTION_MECHANISM,
+        detection_mechanism: Optional[
+            _DetectionMechanismTypes
+        ] = DEFAULT_DETECTION_MECHANISM,
     ) -> None:
         """
         Initialize the smart functionality mixin.
@@ -129,7 +131,7 @@ class _HasSmartFunctionality:
         return self._incident_behavior
 
     @property
-    def detection_mechanism(self) -> _DETECTION_MECHANISM_TYPES:
+    def detection_mechanism(self) -> Optional[_DetectionMechanismTypes]:
         return self._detection_mechanism
 
     @staticmethod
@@ -147,11 +149,7 @@ class _HasSmartFunctionality:
     @staticmethod
     def _get_exclusion_windows(monitor: Monitor) -> list[ExclusionWindowTypes]:
         # 1. Check if the monitor has an exclusion windows field
-        raw_windows = _get_nested_field_for_entity_with_default(
-            monitor,
-            "info.assertionMonitor.settings.adjustmentSettings.exclusionWindows",
-            [],
-        )
+        raw_windows = monitor.exclusion_windows or []
 
         # 2. Convert the raw exclusion windows to the SDK exclusion windows
         exclusion_windows = []
@@ -176,36 +174,37 @@ class _HasSmartFunctionality:
 
     @staticmethod
     def _get_training_data_lookback_days(monitor: Monitor) -> int:
-        # 1. Check if the monitor has a training data lookback days field
-        raw_days = _get_nested_field_for_entity_with_default(
-            monitor,
-            "info.assertionMonitor.settings.adjustmentSettings.trainingDataLookbackWindowDays",
-            DEFAULT_TRAINING_DATA_LOOKBACK_DAYS,
-        )
-
-        # 2. No conversion needed, just return the raw training data lookback days
-        return raw_days
+        retrieved = monitor.training_data_lookback_days
+        if (
+            retrieved is None
+        ):  # Explicitly check for None since retrieved can be 0 which is falsy
+            return ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
+        assert isinstance(retrieved, int)
+        return retrieved
 
     @staticmethod
     def _get_detection_mechanism(
-        assertion: Assertion, monitor: Monitor
-    ) -> _DETECTION_MECHANISM_TYPES:
+        assertion: Assertion,
+        monitor: Monitor,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[_DetectionMechanismTypes]:
         """Get the detection mechanism from the monitor and assertion."""
         if not _HasSmartFunctionality._has_valid_monitor_info(monitor):
-            return DEFAULT_DETECTION_MECHANISM
+            return default
 
         # 1. Check if the assertion has a parameters field
         def _warn_and_return_default_detection_mechanism(
             field_name: str,
-        ) -> _DETECTION_MECHANISM_TYPES:
+            default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+        ) -> Optional[_DetectionMechanismTypes]:
             logger.warning(
-                f"Monitor {monitor.urn} does not have an `{field_name}` field, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
+                f"Monitor {monitor.urn} does not have an `{field_name}` field, defaulting detection mechanism to {default}"
             )
-            return DEFAULT_DETECTION_MECHANISM
+            return default
 
-        parameters = _HasSmartFunctionality._get_assertion_parameters(monitor)
+        parameters = _HasSmartFunctionality._get_assertion_parameters(monitor, default)
         if parameters is None:
-            return _warn_and_return_default_detection_mechanism("parameters")
+            return _warn_and_return_default_detection_mechanism("parameters", default)
 
         # 2. Convert the raw detection mechanism to the SDK detection mechanism
         if (
@@ -214,7 +213,7 @@ class _HasSmartFunctionality:
         ):
             # TODO: Add support for other detection mechanisms when other assertion types are supported
             return _HasSmartFunctionality._get_freshness_detection_mechanism(
-                assertion, parameters
+                assertion, parameters, default
             )
         else:
             raise SDKNotYetSupportedError(
@@ -246,6 +245,7 @@ class _HasSmartFunctionality:
     @staticmethod
     def _get_assertion_parameters(
         monitor: Monitor,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
     ) -> Optional[models.AssertionEvaluationParametersClass]:
         """Get the assertion parameters from the monitor."""
         # We know these are not None from _has_valid_monitor_info check
@@ -262,7 +262,7 @@ class _HasSmartFunctionality:
 
         if assertions[0].parameters is None:
             logger.warning(
-                f"Monitor {monitor.urn} does not have a assertionMonitor.assertions[0].parameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
+                f"Monitor {monitor.urn} does not have a assertionMonitor.assertions[0].parameters, defaulting detection mechanism to {default}"
             )
             return None
         return assertions[0].parameters
@@ -271,13 +271,14 @@ class _HasSmartFunctionality:
     def _get_freshness_detection_mechanism(
         assertion: Assertion,
         parameters: models.AssertionEvaluationParametersClass,
-    ) -> _DETECTION_MECHANISM_TYPES:
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> Optional[_DetectionMechanismTypes]:
         """Get the detection mechanism for freshness assertions."""
         if parameters.datasetFreshnessParameters is None:
             logger.warning(
                 f"Monitor does not have datasetFreshnessParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
             )
-            return DEFAULT_DETECTION_MECHANISM
+            return default
 
         source_type = parameters.datasetFreshnessParameters.sourceType
         if source_type == models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA:
@@ -299,7 +300,7 @@ class _HasSmartFunctionality:
     def _get_field_value_detection_mechanism(
         assertion: Assertion,
         parameters: models.AssertionEvaluationParametersClass,
-    ) -> _DETECTION_MECHANISM_TYPES:
+    ) -> _DetectionMechanismTypes:
         """Get the detection mechanism for field value based freshness."""
         # We know datasetFreshnessParameters is not None from _get_freshness_detection_mechanism check
         assert parameters.datasetFreshnessParameters is not None
@@ -360,11 +361,11 @@ class _AssertionPublic(ABC):
         dataset_urn: DatasetUrn,
         display_name: str,
         mode: AssertionMode,
-        tags: list[Urn],
-        created_by: Union[Urn, None] = None,
+        tags: list[TagUrn],
+        created_by: Optional[CorpUserUrn] = None,
         created_at: Union[datetime, None] = None,
-        updated_by: Union[Urn, None] = None,
-        updated_at: Union[datetime, None] = None,
+        updated_by: Optional[CorpUserUrn] = None,
+        updated_at: Optional[datetime] = None,
     ):
         """
         Initialize the public facing assertion class.
@@ -407,7 +408,7 @@ class _AssertionPublic(ABC):
         return self._mode
 
     @property
-    def created_by(self) -> Union[Urn, None]:
+    def created_by(self) -> Optional[CorpUserUrn]:
         return self._created_by
 
     @property
@@ -415,7 +416,7 @@ class _AssertionPublic(ABC):
         return self._created_at
 
     @property
-    def updated_by(self) -> Union[Urn, None]:
+    def updated_by(self) -> Optional[CorpUserUrn]:
         return self._updated_by
 
     @property
@@ -423,7 +424,7 @@ class _AssertionPublic(ABC):
         return self._updated_at
 
     @property
-    def tags(self) -> list[Urn]:
+    def tags(self) -> list[TagUrn]:
         return self._tags
 
     @staticmethod
@@ -438,7 +439,7 @@ class _AssertionPublic(ABC):
         return incident_behaviors
 
     @staticmethod
-    def _get_created_by(assertion: Assertion) -> Union[Urn, None]:
+    def _get_created_by(assertion: Assertion) -> Optional[CorpUserUrn]:
         if assertion.source is None:
             logger.warning(f"Assertion {assertion.urn} does not have a source")
             return None
@@ -448,7 +449,7 @@ class _AssertionPublic(ABC):
                     f"Assertion {assertion.urn} does not have a created by in the source"
                 )
                 return None
-            return Urn.from_string(assertion.source.created.actor)
+            return CorpUserUrn.from_string(assertion.source.created.actor)
         elif isinstance(assertion.source, models.AssertionSourceTypeClass):
             logger.warning(
                 f"Assertion {assertion.urn} has a source type with no created by"
@@ -476,11 +477,11 @@ class _AssertionPublic(ABC):
         return None
 
     @staticmethod
-    def _get_updated_by(assertion: Assertion) -> Union[Urn, None]:
+    def _get_updated_by(assertion: Assertion) -> Optional[CorpUserUrn]:
         if assertion.last_updated is None:
             logger.warning(f"Assertion {assertion.urn} does not have a last updated")
             return None
-        return Urn.from_string(assertion.last_updated.actor)
+        return CorpUserUrn.from_string(assertion.last_updated.actor)
 
     @staticmethod
     def _get_updated_at(assertion: Assertion) -> Union[datetime, None]:
@@ -490,8 +491,8 @@ class _AssertionPublic(ABC):
         return parse_ts_millis(assertion.last_updated.time)
 
     @staticmethod
-    def _get_tags(assertion: Assertion) -> list[Urn]:
-        return [Urn.from_string(t.tag) for t in assertion.tags or []]
+    def _get_tags(assertion: Assertion) -> list[TagUrn]:
+        return [TagUrn.from_string(t.tag) for t in assertion.tags or []]
 
     @staticmethod
     def _get_mode(monitor: Monitor) -> AssertionMode:
@@ -528,14 +529,16 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
         mode: AssertionMode,
         sensitivity: InferenceSensitivity = DEFAULT_SENSITIVITY,
         exclusion_windows: list[ExclusionWindowTypes],
-        training_data_lookback_days: int = DEFAULT_TRAINING_DATA_LOOKBACK_DAYS,
+        training_data_lookback_days: int = ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
         incident_behavior: list[AssertionIncidentBehavior],
-        detection_mechanism: _DETECTION_MECHANISM_TYPES = DEFAULT_DETECTION_MECHANISM,
-        tags: list[Urn],
-        created_by: Union[Urn, None] = None,
+        detection_mechanism: Optional[
+            _DetectionMechanismTypes
+        ] = DEFAULT_DETECTION_MECHANISM,
+        tags: list[TagUrn],
+        created_by: Optional[CorpUserUrn] = None,
         created_at: Union[datetime, None] = None,
-        updated_by: Union[Urn, None] = None,
-        updated_at: Union[datetime, None] = None,
+        updated_by: Optional[CorpUserUrn] = None,
+        updated_at: Optional[datetime] = None,
     ):
         """
         Initialize a smart freshness assertion.

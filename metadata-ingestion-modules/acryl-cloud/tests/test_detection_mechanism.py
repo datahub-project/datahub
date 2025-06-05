@@ -1,9 +1,9 @@
 import pytest
 
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
-    _DETECTION_MECHANISM_TYPES,
     DetectionMechanism,
     SDKUsageErrorWithExamples,
+    _DetectionMechanismTypes,
 )
 
 
@@ -166,7 +166,7 @@ def test_parse_detection_mechanism_with_extra_unrecognized_kwargs_and_missing_re
     ],
 )
 def test_parse_detection_mechanism_with_detection_mechanism_instance(
-    mechanism_instance: _DETECTION_MECHANISM_TYPES,
+    mechanism_instance: _DetectionMechanismTypes,
     expected_type: str,
     expected_kwargs: dict[str, str],
 ) -> None:

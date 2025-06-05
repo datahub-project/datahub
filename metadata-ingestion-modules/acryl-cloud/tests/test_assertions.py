@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 import pytest
 
 from acryl_datahub_cloud._sdk_extras.assertion import (
+    ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
     DEFAULT_SENSITIVITY,
-    DEFAULT_TRAINING_DATA_LOOKBACK_DAYS,
     AssertionMode,
     SmartFreshnessAssertion,
 )
@@ -14,29 +14,18 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     DetectionMechanism,
     FixedRangeExclusionWindow,
     InferenceSensitivity,
+    _SmartFreshnessAssertionInput,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
 from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
 from datahub.metadata import schema_classes as models
-from datahub.metadata.urns import AssertionUrn, DatasetUrn, MonitorUrn
-from datahub.utilities.urns.urn import Urn
-
-
-@pytest.fixture
-def any_monitor_urn() -> MonitorUrn:
-    _any_dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD)"
-    _any_monitor_id = "my_monitor_id"
-    _any_monitor_urn = MonitorUrn(
-        entity=DatasetUrn.from_string(_any_dataset_urn),
-        id=_any_monitor_id,
-    )
-    return _any_monitor_urn
-
-
-@pytest.fixture
-def any_assertion_urn() -> AssertionUrn:
-    _any_assertion_urn = "urn:li:assertion:smart_freshness_assertion"
-    return AssertionUrn(_any_assertion_urn)
+from datahub.metadata.urns import (
+    AssertionUrn,
+    CorpUserUrn,
+    DatasetUrn,
+    MonitorUrn,
+    TagUrn,
+)
 
 
 def test_smart_freshness_assertion_creation_min_fields(
@@ -85,9 +74,9 @@ def test_smart_freshness_assertion_all_attributes_are_readonly(
         training_data_lookback_days=30,
         detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
         incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
-        created_by=Urn.from_string("urn:li:corpuser:acryl-cloud-user"),
+        created_by=CorpUserUrn.from_string("urn:li:corpuser:acryl-cloud-user"),
         created_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
-        updated_by=Urn.from_string("urn:li:corpuser:acryl-cloud-user"),
+        updated_by=CorpUserUrn.from_string("urn:li:corpuser:acryl-cloud-user"),
         updated_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
         tags=[],
     )
@@ -143,8 +132,8 @@ def monitor_without_sensitivity(any_monitor_urn: MonitorUrn) -> Monitor:
                     models.AssertionEvaluationSpecClass(
                         assertion="urn:li:assertion:test",
                         schedule=models.CronScheduleClass(
-                            cron="0 0 * * *",
-                            timezone="UTC",
+                            cron=_SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.cron,
+                            timezone=_SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.timezone,
                         ),
                         parameters=models.AssertionEvaluationParametersClass(
                             type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
@@ -172,62 +161,6 @@ def monitor_without_sensitivity(any_monitor_urn: MonitorUrn) -> Monitor:
                             ),
                         ],
                         trainingDataLookbackWindowDays=60,
-                    ),
-                ),
-            ),
-        ),
-    )
-
-
-@pytest.fixture
-def monitor_with_all_fields(
-    any_monitor_urn: MonitorUrn, any_assertion_urn: AssertionUrn
-) -> Monitor:
-    """A monitor with all fields set."""
-    return Monitor(
-        id=any_monitor_urn,
-        info=models.MonitorInfoClass(
-            type=models.MonitorTypeClass.ASSERTION,
-            status=models.MonitorStatusClass(
-                mode=models.MonitorModeClass.ACTIVE,
-            ),
-            assertionMonitor=models.AssertionMonitorClass(
-                assertions=[
-                    models.AssertionEvaluationSpecClass(
-                        assertion=str(any_assertion_urn),
-                        schedule=models.CronScheduleClass(
-                            cron="0 0 * * *",
-                            timezone="UTC",
-                        ),
-                        parameters=models.AssertionEvaluationParametersClass(
-                            type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
-                            datasetFreshnessParameters=models.DatasetFreshnessAssertionParametersClass(
-                                sourceType=models.DatasetFreshnessSourceTypeClass.FIELD_VALUE,
-                                field=models.FreshnessFieldSpecClass(
-                                    path="field",
-                                    type="string",
-                                    nativeType="string",
-                                    kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
-                                ),
-                            ),
-                        ),
-                    )
-                ],
-                settings=models.AssertionMonitorSettingsClass(
-                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
-                        exclusionWindows=[
-                            models.AssertionExclusionWindowClass(
-                                type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,
-                                fixedRange=models.AbsoluteTimeWindowClass(
-                                    startTimeMillis=1609459200000,  # 2021-01-01 00:00:00 UTC
-                                    endTimeMillis=1609545600000,  # 2021-01-02 00:00:00 UTC
-                                ),
-                            ),
-                        ],
-                        trainingDataLookbackWindowDays=60,
-                        sensitivity=models.AssertionMonitorSensitivityClass(
-                            level=1,  # LOW
-                        ),
                     ),
                 ),
             ),
@@ -274,69 +207,36 @@ def test_smart_freshness_assertion_log_messages(
 
 
 def test_smart_freshness_assertion_from_entities_all_fields(
-    monitor_with_all_fields: Monitor, any_assertion_urn: AssertionUrn
+    monitor_with_all_fields: Monitor, assertion_entity_with_all_fields: Assertion
 ) -> None:
     """Test that SmartFreshnessAssertion can be created from entities."""
     smart_freshness_assertion = SmartFreshnessAssertion.from_entities(
-        assertion=Assertion(
-            id=any_assertion_urn,
-            info=models.FreshnessAssertionInfoClass(
-                type=models.AssertionTypeClass.FRESHNESS,
-                entity="urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)",
-            ),
-            description="Smart Freshness Assertion",
-            source=models.AssertionSourceClass(
-                type=models.AssertionSourceTypeClass.NATIVE,
-                created=models.AuditStampClass(
-                    actor="urn:li:corpuser:acryl-cloud-user-created",
-                    time=1609459200000,  # 2021-01-01 00:00:00 UTC
-                ),
-            ),
-            last_updated=models.AuditStampClass(
-                actor="urn:li:corpuser:acryl-cloud-user-updated",
-                time=1609545600000,  # 2021-01-02 00:00:00 UTC
-            ),
-            tags=[
-                models.TagAssociationClass(
-                    tag="urn:li:tag:smart_freshness_assertion_tag",
-                )
-            ],
-            on_failure=[
-                models.AssertionActionClass(
-                    type=models.AssertionActionTypeClass.RAISE_INCIDENT,
-                )
-            ],
-            on_success=[
-                models.AssertionActionClass(
-                    type=models.AssertionActionTypeClass.RESOLVE_INCIDENT,
-                )
-            ],
-        ),
+        assertion=assertion_entity_with_all_fields,
         monitor=monitor_with_all_fields,
     )
 
-    assert smart_freshness_assertion.urn == any_assertion_urn
+    assert smart_freshness_assertion.urn == assertion_entity_with_all_fields.urn
     assert smart_freshness_assertion.dataset_urn == DatasetUrn.from_string(
-        "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD)"
     )
     assert smart_freshness_assertion.display_name == "Smart Freshness Assertion"
 
     assert smart_freshness_assertion.mode == AssertionMode.ACTIVE
 
-    assert smart_freshness_assertion.created_by == Urn.from_string(
+    assert smart_freshness_assertion.created_by == CorpUserUrn.from_string(
         "urn:li:corpuser:acryl-cloud-user-created"
     )
     assert smart_freshness_assertion.created_at == datetime(
         2021, 1, 1, tzinfo=timezone.utc
     )
-    assert smart_freshness_assertion.updated_by == Urn.from_string(
+    assert smart_freshness_assertion.updated_by == CorpUserUrn.from_string(
         "urn:li:corpuser:acryl-cloud-user-updated"
     )
     assert smart_freshness_assertion.updated_at == datetime(
         2021, 1, 2, tzinfo=timezone.utc
     )
     assert smart_freshness_assertion.tags == [
-        Urn.from_string("urn:li:tag:smart_freshness_assertion_tag")
+        TagUrn.from_string("urn:li:tag:smart_freshness_assertion_tag")
     ]
     assert smart_freshness_assertion.sensitivity == DEFAULT_SENSITIVITY
     assert smart_freshness_assertion.exclusion_windows == [
@@ -347,9 +247,9 @@ def test_smart_freshness_assertion_from_entities_all_fields(
     ]
     assert (
         smart_freshness_assertion.training_data_lookback_days
-        != DEFAULT_TRAINING_DATA_LOOKBACK_DAYS
+        != ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
     )
-    assert smart_freshness_assertion.training_data_lookback_days == 60
+    assert smart_freshness_assertion.training_data_lookback_days == 99
     assert smart_freshness_assertion.incident_behavior == [
         AssertionIncidentBehavior.RAISE_ON_FAIL,
         AssertionIncidentBehavior.RESOLVE_ON_PASS,
@@ -402,7 +302,7 @@ def test_smart_freshness_assertion_from_entities_minimal(
     assert smart_freshness_assertion.exclusion_windows == []
     assert (
         smart_freshness_assertion.training_data_lookback_days
-        == DEFAULT_TRAINING_DATA_LOOKBACK_DAYS
+        == ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
     )
     assert smart_freshness_assertion.detection_mechanism == DEFAULT_DETECTION_MECHANISM
 

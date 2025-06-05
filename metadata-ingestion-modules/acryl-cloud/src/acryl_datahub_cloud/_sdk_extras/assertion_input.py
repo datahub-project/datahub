@@ -27,7 +27,7 @@ from acryl_datahub_cloud._sdk_extras.errors import (
     SDKUsageErrorWithExamples,
 )
 from datahub.emitter.enum_helpers import get_enum_options
-from datahub.emitter.mce_builder import make_ts_millis
+from datahub.emitter.mce_builder import make_ts_millis, parse_ts_millis
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk import Dataset
@@ -63,7 +63,7 @@ LAST_MODIFIED_ALLOWED_FIELD_TYPES = [models.DateTypeClass(), models.TimeTypeClas
 class _LastModifiedColumn(AbstractDetectionMechanism):
     type: Literal["last_modified_column"] = "last_modified_column"
     column_name: str
-    additional_filter: Union[str, None] = None
+    additional_filter: Optional[str] = None
 
 
 # Keep this in sync with the allowed field types in the UI, currently in
@@ -78,7 +78,7 @@ HIGH_WATERMARK_ALLOWED_FIELD_TYPES = [
 class _HighWatermarkColumn(AbstractDetectionMechanism):
     type: Literal["high_watermark_column"] = "high_watermark_column"
     column_name: str
-    additional_filter: Union[str, None] = None
+    additional_filter: Optional[str] = None
 
 
 class _DataHubOperation(AbstractDetectionMechanism):
@@ -93,7 +93,7 @@ _DETECTION_MECHANISM_CONCRETE_TYPES = (
     _HighWatermarkColumn,
     _DataHubOperation,
 )
-_DETECTION_MECHANISM_TYPES = Union[
+_DetectionMechanismTypes = Union[
     _InformationSchema,
     _AuditLog,
     _LastModifiedColumn,
@@ -134,10 +134,10 @@ class DetectionMechanism:
 
     @staticmethod
     def parse(
-        detection_mechanism_config: Union[
-            str, dict[str, str], _DETECTION_MECHANISM_TYPES, None
-        ],
-    ) -> _DETECTION_MECHANISM_TYPES:
+        detection_mechanism_config: Optional[
+            Union[str, dict[str, str], _DetectionMechanismTypes]
+        ] = None,
+    ) -> _DetectionMechanismTypes:
         if detection_mechanism_config is None:
             return DEFAULT_DETECTION_MECHANISM
         if isinstance(detection_mechanism_config, _DETECTION_MECHANISM_CONCRETE_TYPES):
@@ -155,7 +155,7 @@ class DetectionMechanism:
     @staticmethod
     def _try_parse_from_string(
         detection_mechanism_config: str,
-    ) -> _DETECTION_MECHANISM_TYPES:
+    ) -> _DetectionMechanismTypes:
         try:
             return_value = getattr(
                 DetectionMechanism, detection_mechanism_config.upper()
@@ -180,7 +180,7 @@ class DetectionMechanism:
     @staticmethod
     def _try_parse_from_dict(
         detection_mechanism_config: dict[str, str],
-    ) -> _DETECTION_MECHANISM_TYPES:
+    ) -> _DetectionMechanismTypes:
         try:
             detection_mechanism_type = detection_mechanism_config.pop("type")
         except KeyError as e:
@@ -223,7 +223,7 @@ class DetectionMechanism:
 DEFAULT_DETECTION_MECHANISM = DetectionMechanism.INFORMATION_SCHEMA
 
 DetectionMechanismInputTypes: TypeAlias = Union[
-    str, dict[str, str], _DETECTION_MECHANISM_TYPES, None
+    str, dict[str, str], _DetectionMechanismTypes, None
 ]
 
 
@@ -234,7 +234,14 @@ class InferenceSensitivity(Enum):
 
     @staticmethod
     def parse(
-        sensitivity: Union[str, int, "InferenceSensitivity", None],
+        sensitivity: Optional[
+            Union[
+                str,
+                int,
+                "InferenceSensitivity",
+                models.AssertionMonitorSensitivityClass,
+            ]
+        ],
     ) -> "InferenceSensitivity":
         if sensitivity is None:
             return DEFAULT_SENSITIVITY
@@ -250,6 +257,8 @@ class InferenceSensitivity(Enum):
 
         if isinstance(sensitivity, InferenceSensitivity):
             return sensitivity
+        if isinstance(sensitivity, models.AssertionMonitorSensitivityClass):
+            sensitivity = sensitivity.level
         if isinstance(sensitivity, int):
             if (sensitivity < 1) or (sensitivity > 10):
                 raise SDKUsageErrorWithExamples(
@@ -314,14 +323,22 @@ FixedRangeExclusionWindowInputTypes: TypeAlias = Union[
 ]
 
 ExclusionWindowInputTypes: TypeAlias = Union[
+    models.AssertionExclusionWindowClass,
+    list[models.AssertionExclusionWindowClass],
     FixedRangeExclusionWindowInputTypes,
     # Add other exclusion window types here as they are added to the SDK.
-    None,
+]
+
+IterableExclusionWindowInputTypes: TypeAlias = Union[
+    list[dict[str, datetime]],
+    list[dict[str, str]],
+    list[FixedRangeExclusionWindow],
+    list[models.AssertionExclusionWindowClass],
 ]
 
 
 def _try_parse_exclusion_window(
-    config: ExclusionWindowInputTypes,
+    config: Optional[ExclusionWindowInputTypes],
 ) -> Union[FixedRangeExclusionWindow, list[FixedRangeExclusionWindow], None]:
     if config is None:
         return []
@@ -329,7 +346,39 @@ def _try_parse_exclusion_window(
         return [FixedRangeExclusionWindow(**config)]
     if isinstance(config, FixedRangeExclusionWindow):
         return [config]
+    elif isinstance(config, models.AssertionExclusionWindowClass):
+        assert config.fixedRange is not None
+        return [
+            FixedRangeExclusionWindow(
+                start=parse_ts_millis(config.fixedRange.startTimeMillis),
+                end=parse_ts_millis(config.fixedRange.endTimeMillis),
+            )
+        ]
     elif isinstance(config, list):
+        return _try_parse_list_of_exclusion_windows(config)
+    else:
+        raise SDKUsageErrorWithExamples(
+            msg=f"Invalid exclusion window: {config}",
+            examples=FIXED_RANGE_EXCLUSION_WINDOW_EXAMPLES,
+        )
+
+
+def _try_parse_list_of_exclusion_windows(
+    config: IterableExclusionWindowInputTypes,
+) -> Union[list[FixedRangeExclusionWindow], None]:
+    if all(isinstance(item, models.AssertionExclusionWindowClass) for item in config):
+        exclusion_windows = []
+        for item in config:
+            assert isinstance(item, models.AssertionExclusionWindowClass)
+            assert item.fixedRange is not None
+            exclusion_windows.append(
+                FixedRangeExclusionWindow(
+                    start=parse_ts_millis(item.fixedRange.startTimeMillis),
+                    end=parse_ts_millis(item.fixedRange.endTimeMillis),
+                )
+            )
+        return exclusion_windows
+    else:
         exclusion_windows = []
         for item in config:
             if isinstance(item, dict):
@@ -349,12 +398,7 @@ def _try_parse_exclusion_window(
                     msg=f"Invalid exclusion window: {item}",
                     examples=FIXED_RANGE_EXCLUSION_WINDOW_EXAMPLES,
                 )
-        return exclusion_windows
-    else:
-        raise SDKUsageErrorWithExamples(
-            msg=f"Invalid exclusion window: {config}",
-            examples=FIXED_RANGE_EXCLUSION_WINDOW_EXAMPLES,
-        )
+    return exclusion_windows
 
 
 class AssertionIncidentBehavior(Enum):
@@ -430,7 +474,7 @@ TRAINING_DATA_LOOKBACK_DAYS_EXAMPLES = {
 
 
 def _try_parse_training_data_lookback_days(
-    training_data_lookback_days: Union[int, None],
+    training_data_lookback_days: Optional[int],
 ) -> int:
     if training_data_lookback_days is None:
         return ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
@@ -460,17 +504,17 @@ class _AssertionInput(ABC):
         dataset_urn: Union[str, DatasetUrn],
         entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
         # Optional fields
-        urn: Union[
-            str, None, AssertionUrn
+        urn: Optional[
+            Union[str, AssertionUrn]
         ] = None,  # Can be None if the assertion is not yet created
-        display_name: Union[str, None] = None,
+        display_name: Optional[str] = None,
         enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        sensitivity: Union[str, InferenceSensitivity, None] = None,
-        exclusion_windows: ExclusionWindowInputTypes = None,
-        training_data_lookback_days: Union[int, None] = None,
-        incident_behavior: Union[
-            AssertionIncidentBehavior, list[AssertionIncidentBehavior], None
+        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
+        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
+        training_data_lookback_days: Optional[int] = None,
+        incident_behavior: Optional[
+            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
         ] = None,
         tags: Optional[TagsInputType] = None,
         source_type: str = models.AssertionSourceTypeClass.NATIVE,  # Verified on init to be a valid enum value
@@ -503,8 +547,10 @@ class _AssertionInput(ABC):
         self.dataset_urn = DatasetUrn.from_string(dataset_urn)
         self.entity_client = entity_client
         self.urn = AssertionUrn(urn) if urn else None
-        self.display_name = display_name or _generate_default_name(
-            DEFAULT_NAME_PREFIX, DEFAULT_NAME_SUFFIX_LENGTH
+        self.display_name = (
+            display_name
+            if display_name is not None
+            else _generate_default_name(DEFAULT_NAME_PREFIX, DEFAULT_NAME_SUFFIX_LENGTH)
         )
         self.enabled = enabled
 
@@ -865,20 +911,27 @@ class _AssertionInput(ABC):
 
 
 class _SmartFreshnessAssertionInput(_AssertionInput):
+    DEFAULT_SCHEDULE = models.CronScheduleClass(
+        cron="0 0 * * *",
+        timezone="UTC",
+    )
+
     def __init__(
         self,
         *,
+        # Required fields
         dataset_urn: Union[str, DatasetUrn],
         entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
-        urn: Union[str, None, AssertionUrn] = None,
-        display_name: Union[str, None] = None,
+        # Optional fields
+        urn: Optional[Union[str, AssertionUrn]] = None,
+        display_name: Optional[str] = None,
         enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        sensitivity: Union[str, InferenceSensitivity, None] = None,
-        exclusion_windows: ExclusionWindowInputTypes = None,
-        training_data_lookback_days: Union[int, None] = None,
-        incident_behavior: Union[
-            AssertionIncidentBehavior, list[AssertionIncidentBehavior], None
+        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
+        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
+        training_data_lookback_days: Optional[int] = None,
+        incident_behavior: Optional[
+            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
         ] = None,
         tags: Optional[TagsInputType] = None,
         created_by: Union[str, CorpUserUrn],
@@ -932,10 +985,7 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
         Returns:
             A CronScheduleClass with appropriate schedule settings.
         """
-        return models.CronScheduleClass(
-            cron="0 0 * * *",
-            timezone="America/Los_Angeles",
-        )
+        return self.DEFAULT_SCHEDULE
 
     def _convert_assertion_source_type_and_field(
         self,

@@ -3,7 +3,10 @@ from typing import Any, Dict
 
 import pytest
 
-from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+from acryl_datahub_cloud._sdk_extras.entities.monitor import (
+    Monitor,
+    _get_nested_field_for_entity_with_default,
+)
 from datahub.errors import SdkUsageError
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import (
@@ -281,3 +284,94 @@ def test_monitor_complex() -> None:
     )
 
     assert_entity_golden(monitor, _GOLDEN_DIR / "test_monitor_complex_golden.json")
+
+
+def test_monitor_properties_sensitivity_exclusion_windows_training_data_lookback_days() -> (
+    None
+):
+    monitor_info = models.MonitorInfoClass(
+        type=models.MonitorTypeClass.ASSERTION,
+        status=models.MonitorStatusClass(mode=models.MonitorModeClass.ACTIVE),
+        assertionMonitor=models.AssertionMonitorClass(
+            assertions=[],
+            settings=models.AssertionMonitorSettingsClass(
+                adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                    sensitivity=models.AssertionMonitorSensitivityClass(level=7),
+                    exclusionWindows=[
+                        models.AssertionExclusionWindowClass(
+                            type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,
+                            displayName="window1",
+                            fixedRange=models.AbsoluteTimeWindowClass(
+                                startTimeMillis=1234567890,
+                                endTimeMillis=1234567990,
+                            ),
+                        )
+                    ],
+                    trainingDataLookbackWindowDays=42,
+                )
+            ),
+        ),
+    )
+    monitor = Monitor(
+        id=(DatasetUrn.from_string(_any_dataset_urn), _any_monitor_id),
+        info=monitor_info,
+    )
+    # Test sensitivity property
+    assert monitor.sensitivity is not None
+    assert monitor.sensitivity.level == 7
+    # Test exclusion_windows property
+    assert monitor.exclusion_windows is not None
+    assert len(monitor.exclusion_windows) == 1
+    assert monitor.exclusion_windows[0].displayName == "window1"
+    # Test training_data_lookback_days property
+    assert monitor.training_data_lookback_days is not None
+    assert monitor.training_data_lookback_days == 42
+
+
+def test_monitor_properties_return_none_when_missing() -> None:
+    monitor_info = models.MonitorInfoClass(
+        type=models.MonitorTypeClass.ASSERTION,
+        status=models.MonitorStatusClass(mode=models.MonitorModeClass.ACTIVE),
+        # No assertionMonitor/settings/adjustmentSettings
+    )
+    monitor = Monitor(
+        id=(DatasetUrn.from_string(_any_dataset_urn), _any_monitor_id),
+        info=monitor_info,
+    )
+    assert monitor.sensitivity is None
+    assert monitor.exclusion_windows is None
+    assert monitor.training_data_lookback_days is None
+
+
+def test_get_nested_field_for_entity_with_default() -> None:
+    monitor_info = models.MonitorInfoClass(
+        type=models.MonitorTypeClass.ASSERTION,
+        status=models.MonitorStatusClass(mode=models.MonitorModeClass.ACTIVE),
+        assertionMonitor=models.AssertionMonitorClass(
+            assertions=[],
+            settings=models.AssertionMonitorSettingsClass(
+                adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                    sensitivity=models.AssertionMonitorSensitivityClass(level=3),
+                )
+            ),
+        ),
+    )
+    monitor = Monitor(
+        id=(DatasetUrn.from_string(_any_dataset_urn), _any_monitor_id),
+        info=monitor_info,
+    )
+    # Should return the nested sensitivity object
+    result = _get_nested_field_for_entity_with_default(
+        monitor,
+        "info.assertionMonitor.settings.adjustmentSettings.sensitivity",
+        default="not_found",
+    )
+    assert isinstance(result, models.AssertionMonitorSensitivityClass)
+    assert result.level == 3
+    # Should return the default if path is missing
+    result_missing = _get_nested_field_for_entity_with_default(
+        monitor,
+        "info.assertionMonitor.settings.adjustmentSettings.nonexistent",
+        default="not_found",
+    )
+    assert result_missing == "not_found"
