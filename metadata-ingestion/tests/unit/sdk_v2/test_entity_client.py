@@ -1,4 +1,6 @@
 import pathlib
+from dataclasses import dataclass
+from typing import Optional, Tuple, Type, Union
 from unittest.mock import Mock
 
 import pytest
@@ -7,7 +9,7 @@ import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.errors import ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.urns import DatasetUrn, TagUrn
+from datahub.metadata.urns import DatasetUrn, TagUrn, Urn
 from datahub.sdk.container import Container
 from datahub.sdk.dataset import Dataset
 from datahub.sdk.main_client import DataHubClient
@@ -141,3 +143,141 @@ def test_get_nonexistent_dataset_fails(client: DataHubClient, mock_graph: Mock) 
 
     with pytest.raises(ItemNotFoundError, match="Entity .* not found"):
         client.entities.get(dataset_urn)
+
+
+@dataclass
+class EntityClientDeleteTestParams:
+    """Test parameters for the delete method."""
+
+    urn: Union[str, Urn]
+    check_exists: bool = True
+    cascade: bool = False
+    hard: bool = False
+    entity_exists: bool = True
+    expected_exception: Optional[Type[Exception]] = None
+    expected_graph_exists_call: bool = True
+    expected_delete_call: Optional[Tuple[str, bool]] = None
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            EntityClientDeleteTestParams(
+                urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                check_exists=True,
+                cascade=False,
+                hard=False,
+                entity_exists=True,
+                expected_exception=None,
+                expected_graph_exists_call=True,
+                expected_delete_call=(
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                    False,
+                ),
+            ),
+            id="successful_soft_delete_with_exists_check",
+        ),
+        pytest.param(
+            EntityClientDeleteTestParams(
+                urn=DatasetUrn(platform="snowflake", name="test.table", env="prod"),
+                check_exists=True,
+                cascade=False,
+                hard=True,
+                entity_exists=True,
+                expected_exception=None,
+                expected_graph_exists_call=True,
+                expected_delete_call=(
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                    True,
+                ),
+            ),
+            id="successful_hard_delete_with_urn_object",
+        ),
+        pytest.param(
+            EntityClientDeleteTestParams(
+                urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                check_exists=False,
+                cascade=False,
+                hard=False,
+                entity_exists=False,
+                expected_exception=None,
+                expected_graph_exists_call=False,
+                expected_delete_call=(
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                    False,
+                ),
+            ),
+            id="delete_without_exists_check",
+        ),
+        pytest.param(
+            EntityClientDeleteTestParams(
+                urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                check_exists=True,
+                cascade=False,
+                hard=False,
+                entity_exists=False,
+                expected_exception=SdkUsageError,
+                expected_graph_exists_call=True,
+                expected_delete_call=None,
+            ),
+            id="delete_nonexistent_entity_with_check",
+        ),
+        pytest.param(
+            EntityClientDeleteTestParams(
+                urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)",
+                check_exists=True,
+                cascade=True,
+                hard=False,
+                entity_exists=True,
+                expected_exception=SdkUsageError,
+                expected_graph_exists_call=True,
+                expected_delete_call=None,
+            ),
+            id="cascade_delete_not_supported",
+        ),
+    ],
+)
+def test_delete_entity(
+    client: DataHubClient,
+    mock_graph: Mock,
+    params: EntityClientDeleteTestParams,
+) -> None:
+    """Test delete method with various parameter combinations."""
+    # Setup mock
+    mock_graph.exists.return_value = params.entity_exists
+    mock_graph.delete_entity = Mock()
+
+    if params.expected_exception:
+        # Test that expected exception is raised
+        with pytest.raises(params.expected_exception):
+            client.entities.delete(
+                urn=params.urn,
+                check_exists=params.check_exists,
+                cascade=params.cascade,
+                hard=params.hard,
+            )
+    else:
+        # Test successful deletion
+        client.entities.delete(
+            urn=params.urn,
+            check_exists=params.check_exists,
+            cascade=params.cascade,
+            hard=params.hard,
+        )
+
+    # Verify graph.exists was called correctly
+    if params.expected_graph_exists_call:
+        expected_urn_str = str(params.urn)
+        mock_graph.exists.assert_called_once_with(entity_urn=expected_urn_str)
+    else:
+        mock_graph.exists.assert_not_called()
+
+    # Verify graph.delete_entity was called correctly
+    if params.expected_delete_call:
+        expected_urn_str, expected_hard = params.expected_delete_call
+        mock_graph.delete_entity.assert_called_once_with(
+            urn=expected_urn_str, hard=expected_hard
+        )
+    else:
+        mock_graph.delete_entity.assert_not_called()
