@@ -1,15 +1,19 @@
 import { Table } from '@components';
+import { SorterResult } from 'antd/lib/table/interface';
 import React from 'react';
 import styled from 'styled-components/macro';
 
+import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
+import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
     ActionsColumn,
-    LastExecutionColumn,
     NameColumn,
+    OwnerColumn,
     ScheduleColumn,
-    StatusColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
-import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
 
@@ -24,9 +28,22 @@ interface Props {
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
+    onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
+    isLoading?: boolean;
 }
 
-function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit, onView, onDelete }: Props) {
+function IngestionSourceTable({
+    sources,
+    setFocusExecutionUrn,
+    onExecute,
+    onEdit,
+    onView,
+    onDelete,
+    onChangeSort,
+    isLoading,
+}: Props) {
+    const entityRegistry = useEntityRegistryV2();
+
     const tableData = sources.map((source) => ({
         urn: source.urn,
         type: source.type,
@@ -41,6 +58,7 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
             source.executions?.executionRequests?.[0]?.result &&
             getIngestionSourceStatus(source.executions.executionRequests[0].result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
+        owners: source.ownership?.owners,
     }));
 
     const tableColumns = [
@@ -51,6 +69,7 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
                 return <NameColumn type={record.type} record={record} />;
             },
             width: '30%',
+            sorter: true,
         },
         {
             title: 'Schedule',
@@ -61,7 +80,7 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
         {
             title: 'Last Run',
             key: 'lastRun',
-            render: (record) => <LastExecutionColumn time={record.lastExecTime ?? 0} />,
+            render: (record) => <DateTimeColumn time={record.lastExecTime ?? 0} placeholder={<>Never run</>} />,
             width: '15%',
         },
         {
@@ -70,8 +89,8 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
             render: (record) => (
                 <StatusColumn
                     status={record.lastExecStatus}
-                    record={record}
-                    setFocusExecutionUrn={setFocusExecutionUrn}
+                    onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
+                    dataTestId="ingestion-source-table-status"
                 />
             ),
             width: '15%',
@@ -79,7 +98,7 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
         {
             title: 'Owner',
             key: 'owner',
-            render: () => <></>,
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
             width: '15%',
         },
 
@@ -100,7 +119,19 @@ function IngestionSourceTable({ sources, setFocusExecutionUrn, onExecute, onEdit
         },
     ];
 
-    return <StyledTable columns={tableColumns} data={tableData} isScrollable />;
-}
+    const handleSortColumnChange = ({ sortColumn, sortOrder }) => {
+        onChangeSort(sortColumn, sortOrder);
+    };
 
-export default IngestionSourceTable;
+    return (
+        <StyledTable
+            columns={tableColumns}
+            data={tableData}
+            isScrollable
+            handleSortColumnChange={handleSortColumnChange}
+            isLoading={isLoading}
+        />
+    );
+}
+const MemoizedTable = React.memo(IngestionSourceTable);
+export default MemoizedTable;

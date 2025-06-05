@@ -40,6 +40,7 @@ from datahub.metadata.urns import (
     DomainUrn,
     GlossaryTermUrn,
     OwnershipTypeUrn,
+    StructuredPropertyUrn,
     TagUrn,
     Urn,
     VersionSetUrn,
@@ -58,6 +59,11 @@ DataflowUrnOrStr: TypeAlias = Union[str, DataFlowUrn]
 DashboardUrnOrStr: TypeAlias = Union[str, DashboardUrn]
 
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
+StructuredPropertyUrnOrStr: TypeAlias = Union[str, StructuredPropertyUrn]
+StructuredPropertyValueType: TypeAlias = Union[str, float, int]
+StructuredPropertyInputType: TypeAlias = Dict[
+    StructuredPropertyUrnOrStr, Sequence[StructuredPropertyValueType]
+]
 
 TrainingMetricsInputType: TypeAlias = Union[
     List[models.MLMetricClass], Dict[str, Optional[str]]
@@ -721,3 +727,107 @@ class HasVersion(Entity):
                 a for a in version_props.aliases if a.versionTag != alias
             ]
             self._set_aspect(version_props)
+
+
+class HasStructuredProperties(Entity):
+    """
+    Mixin for entities that support structured properties
+    """
+
+    __slots__ = ()
+
+    @property
+    def structured_properties(
+        self,
+    ) -> Optional[List[models.StructuredPropertyValueAssignmentClass]]:
+        """
+        Retrieve structured properties for the entity
+
+        Returns:
+            Optional list of structured property value assignments
+        """
+        sp_aspect = self._get_aspect(models.StructuredPropertiesClass)
+        return sp_aspect.properties if sp_aspect else None
+
+    def _ensure_structured_properties(self) -> models.StructuredPropertiesClass:
+        """
+        Ensure structured properties aspect exists, creating it if necessary
+
+        Returns:
+            StructuredPropertiesClass aspect
+        """
+        return self._setdefault_aspect(models.StructuredPropertiesClass(properties=[]))
+
+    def set_structured_property(
+        self,
+        property_urn: StructuredPropertyUrnOrStr,
+        values: Sequence[StructuredPropertyValueType],
+    ) -> None:
+        """
+        Update an existing structured property or add if it doesn't exist
+
+        Args:
+            property_urn: URN of the structured property
+            values: List of values for the property
+        """
+        # validate property_urn is a valid structured property urn
+        property_urn = StructuredPropertyUrn.from_string(property_urn)
+
+        properties = self._ensure_structured_properties()
+
+        # Find existing property assignment
+        existing_prop = next(
+            (
+                prop
+                for prop in properties.properties
+                if prop.propertyUrn == str(property_urn)
+            ),
+            None,
+        )
+        current_timestamp = make_ts_millis(datetime.now())
+
+        if existing_prop:
+            # Update existing property
+            existing_prop.values = list(values)
+            existing_prop.lastModified = models.AuditStampClass(
+                time=current_timestamp,
+                actor=DEFAULT_ACTOR_URN,
+            )
+        else:
+            # Create new property assignment
+            new_property = models.StructuredPropertyValueAssignmentClass(
+                propertyUrn=str(property_urn),
+                values=list(values),
+                created=models.AuditStampClass(
+                    time=current_timestamp,
+                    actor=DEFAULT_ACTOR_URN,
+                ),
+                lastModified=models.AuditStampClass(
+                    time=current_timestamp,
+                    actor=DEFAULT_ACTOR_URN,
+                ),
+            )
+            add_list_unique(
+                properties.properties,
+                key=lambda prop: prop.propertyUrn,
+                item=new_property,
+            )
+
+        self._set_aspect(properties)
+
+    def remove_structured_property(
+        self, property_urn: StructuredPropertyUrnOrStr
+    ) -> None:
+        """
+        Remove a structured property from the entity
+
+        Args:
+            property_urn: URN of the structured property to remove
+        """
+        remove_list_unique(
+            self._ensure_structured_properties().properties,
+            key=lambda prop: prop.propertyUrn,
+            item=models.StructuredPropertyValueAssignmentClass(
+                propertyUrn=str(property_urn), values=[]
+            ),
+        )

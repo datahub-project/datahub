@@ -26,12 +26,14 @@ from datahub.sdk._shared import (
     HasInstitutionalMemory,
     HasOwnership,
     HasPlatformInstance,
+    HasStructuredProperties,
     HasSubtype,
     HasTags,
     HasTerms,
     LinksInputType,
     OwnersInputType,
     ParentContainerInputType,
+    StructuredPropertyInputType,
     TagInputType,
     TagsInputType,
     TermInputType,
@@ -428,6 +430,7 @@ class Dataset(
     HasTags,
     HasTerms,
     HasDomain,
+    HasStructuredProperties,
     Entity,
 ):
     """Represents a dataset in DataHub.
@@ -471,12 +474,12 @@ class Dataset(
         links: Optional[LinksInputType] = None,
         tags: Optional[TagsInputType] = None,
         terms: Optional[TermsInputType] = None,
-        # TODO structured_properties
         domain: Optional[DomainInputType] = None,
-        extra_aspects: ExtraAspectsType = None,
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         upstreams: Optional[models.UpstreamLineageClass] = None,
+        structured_properties: Optional[StructuredPropertyInputType] = None,
+        extra_aspects: ExtraAspectsType = None,
     ):
         """Initialize a new Dataset instance.
 
@@ -548,6 +551,9 @@ class Dataset(
             self.set_terms(terms)
         if domain is not None:
             self.set_domain(domain)
+        if structured_properties is not None:
+            for key, value in structured_properties.items():
+                self.set_structured_property(property_urn=key, values=value)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
