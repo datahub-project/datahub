@@ -58,7 +58,7 @@ ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 StructuredPropertyUrnOrStr: TypeAlias = Union[str, StructuredPropertyUrn]
 StructuredPropertyValueType: TypeAlias = Union[str, float, int]
 StructuredPropertyInputType: TypeAlias = Dict[
-    StructuredPropertyUrnOrStr, List[StructuredPropertyValueType]
+    StructuredPropertyUrnOrStr, Sequence[StructuredPropertyValueType]
 ]
 
 TrainingMetricsInputType: TypeAlias = Union[
@@ -757,7 +757,7 @@ class HasStructuredProperties(Entity):
     def set_structured_property(
         self,
         property_urn: StructuredPropertyUrnOrStr,
-        values: List[StructuredPropertyValueType],
+        values: Sequence[StructuredPropertyValueType],
     ) -> None:
         """
         Update an existing structured property or add if it doesn't exist
@@ -780,22 +780,34 @@ class HasStructuredProperties(Entity):
             ),
             None,
         )
+        current_timestamp = make_ts_millis(datetime.now())
 
         if existing_prop:
             # Update existing property
-            existing_prop.values = values
-            existing_prop.lastModified = (
-                None  # Could be updated with actual timestamp if needed
+            existing_prop.values = list(values)
+            existing_prop.lastModified = models.AuditStampClass(
+                time=current_timestamp,
+                actor=DEFAULT_ACTOR_URN,
             )
         else:
             # Create new property assignment
             new_property = models.StructuredPropertyValueAssignmentClass(
                 propertyUrn=str(property_urn),
-                values=values,
-                created=None,
-                lastModified=None,
+                values=list(values),
+                created=models.AuditStampClass(
+                    time=current_timestamp,
+                    actor=DEFAULT_ACTOR_URN,
+                ),
+                lastModified=models.AuditStampClass(
+                    time=current_timestamp,
+                    actor=DEFAULT_ACTOR_URN,
+                ),
             )
-            properties.properties.append(new_property)
+            add_list_unique(
+                properties.properties,
+                key=lambda prop: prop.propertyUrn,
+                item=new_property,
+            )
 
         self._set_aspect(properties)
 

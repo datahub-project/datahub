@@ -24,7 +24,15 @@
                         {
                             "string": "updated_value"
                         }
-                    ]
+                    ],
+                    "created": {
+                        "time": 1749096977253,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    },
+                    "lastModified": {
+                        "time": 1749096977253,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
                 },
                 {
                     "propertyUrn": "urn:li:structuredProperty:sp2",
@@ -32,7 +40,15 @@
                         {
                             "string": "value2"
                         }
-                    ]
+                    ],
+                    "created": {
+                        "time": 1749096977253,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    },
+                    "lastModified": {
+                        "time": 1749096977253,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
                 }
             ]
         }
