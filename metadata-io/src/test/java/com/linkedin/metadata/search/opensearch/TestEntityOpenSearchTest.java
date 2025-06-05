@@ -50,12 +50,6 @@ public class TestEntityOpenSearchTest extends TestEntityTestBase {
     return _esIndexBuilder;
   }
 
-  @NotNull
-  @Override
-  protected SearchConfiguration getSearchConfiguration() {
-    return _searchConfiguration;
-  }
-
   @Test
   public void initTest() {
     assertNotNull(_searchClient);

@@ -76,6 +76,7 @@ public class CommonApplicationConfig {
             // HTTP Configuration
             HttpConfiguration httpConfig = new HttpConfiguration();
             httpConfig.setRequestHeaderSize(32768);
+            httpConfig.setSendServerVersion(false);
 
             // See https://github.com/jetty/jetty.project/issues/11890
             // Configure URI compliance to allow encoded slashes

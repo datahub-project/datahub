@@ -1829,3 +1829,86 @@ fragment customPropertiesFields on CustomPropertiesEntry {
     value
     associatedUrn
 }
+
+fragment ingestionSourceFields on IngestionSource {
+    urn
+    name
+    type
+    config {
+        recipe
+        version
+        executorId
+        debugMode
+        extraArgs {
+            key
+            value
+        }
+    }
+    schedule {
+        interval
+        timezone
+    }
+    platform {
+        urn
+        type
+        name
+    }
+}
+
+fragment minimalIngestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    type
+    input {
+        requestedAt
+        source {
+            type
+        }
+        task
+    }
+}
+
+fragment ingestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    type
+    input {
+        requestedAt
+        source {
+            type
+        }
+        arguments {
+            key
+            value
+        }
+        actor {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+                active
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+        task
+        executorId
+    }
+    result {
+        status
+        startTimeMs
+        durationMs
+        report
+        structuredReport {
+            type
+            serializedValue
+            contentType
+        }
+    }
+}

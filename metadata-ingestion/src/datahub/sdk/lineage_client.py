@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import difflib
 import logging
-from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
-    Any,
     Callable,
-    Dict,
     List,
     Literal,
     Optional,
@@ -16,7 +13,7 @@ from typing import (
     overload,
 )
 
-from typing_extensions import assert_never
+from typing_extensions import assert_never, deprecated
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -25,7 +22,6 @@ from datahub.metadata.urns import (
     DataJobUrn,
     DatasetUrn,
     QueryUrn,
-    SchemaFieldUrn,
     Urn,
 )
 from datahub.sdk._shared import (
@@ -36,6 +32,8 @@ from datahub.sdk._shared import (
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
+from datahub.specific.chart import ChartPatchBuilder
+from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub.specific.chart import ChartPatchBuilder
@@ -166,10 +164,9 @@ class LineageClient:
         *,
         upstream: DatasetUrnOrStr,
         downstream: DatasetUrnOrStr,
-        is_column_lineage: bool = False,
-        column_lineage_mapping: Optional[
-            Union[ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]]
-        ] = None,
+        column_lineage: Union[
+            bool, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
+        ] = False,
         transformation_text: Optional[str] = None,
     ) -> None:
         ...
@@ -239,10 +236,9 @@ class LineageClient:
         downstream: Union[
             DatasetUrnOrStr, DatajobUrnOrStr, DashboardUrnOrStr, ChartUrnOrStr
         ],
-        is_column_lineage: bool = False,
-        column_lineage_mapping: Union[
-            None, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
-        ] = None,
+        column_lineage: Union[
+            bool, ColumnLineageMapping, Literal["auto_fuzzy", "auto_strict"]
+        ] = False,
         transformation_text: Optional[str] = None,
     ) -> None:
         """
@@ -261,9 +257,7 @@ class LineageClient:
         Args:
             upstream: URN of the upstream entity (dataset or datajob)
             downstream: URN of the downstream entity (dataset or datajob)
-            is_column_lineage: Optional boolean to indicate if column-level lineage should be added
-            column_lineage_mapping: Optional column-level lineage mapping or auto-generation method
-                        (only applicable for dataset-to-dataset lineage)
+            column_lineage: Optional boolean to indicate if column-level lineage should be added or a lineage mapping type (auto_fuzzy, auto_strict, or a mapping of column-level lineage)
             transformation_text: Optional SQL query text that defines the transformation
                     (only applicable for dataset-to-dataset lineage)
 
@@ -277,23 +271,21 @@ class LineageClient:
 
         key = (upstream_entity_type, downstream_entity_type)
 
-        # if it's not dataset-dataset lineage but provided with column_lineage_mapping or transformation_text, raise an error
-        if key != ("dataset", "dataset") and (
-            column_lineage_mapping or transformation_text
-        ):
+        # if it's not dataset-dataset lineage but provided with column_lineage or transformation_text, raise an error
+        if key != ("dataset", "dataset") and (column_lineage or transformation_text):
             raise SdkUsageError(
                 "Column lineage and query text are only applicable for dataset-to-dataset lineage"
             )
 
         lineage_handlers: dict[tuple[str, str], Callable] = {
-            ("dataset", "dataset"): self._handle_dataset_lineage,
-            ("dataset", "dashboard"): self._handle_dashboard_lineage,
-            ("chart", "dashboard"): self._handle_dashboard_lineage,
-            ("dashboard", "dashboard"): self._handle_dashboard_lineage,
-            ("dataset", "dataJob"): self._handle_datajob_lineage,
-            ("dataJob", "dataJob"): self._handle_datajob_lineage,
-            ("dataJob", "dataset"): self._handle_datajob_output,
-            ("dataset", "chart"): self._handle_chart_lineage,
+            ("dataset", "dataset"): self._add_dataset_lineage,
+            ("dataset", "dashboard"): self._add_dashboard_lineage,
+            ("chart", "dashboard"): self._add_dashboard_lineage,
+            ("dashboard", "dashboard"): self._add_dashboard_lineage,
+            ("dataset", "dataJob"): self._add_datajob_lineage,
+            ("dataJob", "dataJob"): self._add_datajob_lineage,
+            ("dataJob", "dataset"): self._add_datajob_output,
+            ("dataset", "chart"): self._add_chart_lineage,
         }
 
         try:
@@ -302,8 +294,7 @@ class LineageClient:
                 upstream=upstream,
                 downstream=downstream,
                 upstream_type=upstream_entity_type,
-                is_column_lineage=is_column_lineage,
-                column_lineage_mapping=column_lineage_mapping,
+                column_lineage=column_lineage,
                 transformation_text=transformation_text,
             )
         except KeyError:
@@ -311,22 +302,24 @@ class LineageClient:
                 f"Unsupported entity type combination: {upstream_entity_type} -> {downstream_entity_type}"
             ) from None
 
-    def _handle_dataset_lineage(
+    def _add_dataset_lineage(
         self,
         *,
         upstream,
         downstream,
-        is_column_lineage,
-        column_lineage_mapping,
+        column_lineage,
         transformation_text,
         **_,
     ):
         upstream_urn = DatasetUrn.from_string(upstream)
         downstream_urn = DatasetUrn.from_string(downstream)
 
-        if is_column_lineage or column_lineage_mapping:
+        if column_lineage:
+            column_lineage = (
+                "auto_fuzzy" if column_lineage is True else column_lineage
+            )  # if column_lineage is True, set it to auto_fuzzy
             cll = self._process_column_lineage(
-                column_lineage_mapping or "auto_fuzzy", upstream_urn, downstream_urn
+                column_lineage, upstream_urn, downstream_urn
             )
         else:
             cll = None
@@ -347,7 +340,7 @@ class LineageClient:
                 updater.add_fine_grained_upstream_lineage(cl)
             self._client.entities.update(updater)
 
-    def _handle_dashboard_lineage(self, *, upstream, downstream, upstream_type, **_):
+    def _add_dashboard_lineage(self, *, upstream, downstream, upstream_type, **_):
         patch = DashboardPatchBuilder(str(downstream))
         if upstream_type == "dataset":
             patch.add_dataset_edge(upstream)
@@ -361,7 +354,7 @@ class LineageClient:
             )
         self._client.entities.update(patch)
 
-    def _handle_datajob_lineage(self, *, upstream, downstream, upstream_type, **_):
+    def _add_datajob_lineage(self, *, upstream, downstream, upstream_type, **_):
         patch = DataJobPatchBuilder(str(downstream))
         if upstream_type == "dataset":
             patch.add_input_dataset(upstream)
@@ -373,19 +366,19 @@ class LineageClient:
             )
         self._client.entities.update(patch)
 
-    def _handle_datajob_output(self, *, upstream, downstream, **_):
+    def _add_datajob_output(self, *, upstream, downstream, **_):
         patch = DataJobPatchBuilder(str(upstream))
         patch.add_output_dataset(downstream)
         self._client.entities.update(patch)
 
-    def _handle_chart_lineage(self, *, upstream, downstream, **_):
+    def _add_chart_lineage(self, *, upstream, downstream, **_):
         patch = ChartPatchBuilder(str(downstream))
         patch.add_input_edge(upstream)
         self._client.entities.update(patch)
 
     def _process_column_lineage(self, column_lineage, upstream_urn, downstream_urn):
         cll = None
-        if column_lineage is not None:
+        if column_lineage:
             # Auto column lineage generation
             if column_lineage == "auto_fuzzy" or column_lineage == "auto_strict":
                 upstream_schema = self._get_fields_from_dataset_urn(upstream_urn)
@@ -547,14 +540,14 @@ class LineageClient:
                         column_mapping[col_lineage.downstream.column] = upstream_cols
 
             # Add lineage, including query text
-            self.add_dataset_transform_lineage(
+            self.add_lineage(
                 upstream=upstream_table,
                 downstream=downstream_urn,
-                column_lineage=column_mapping or None,
+                column_lineage=column_mapping,
                 transformation_text=query_text,
             )
 
-    # TODO: deprecate this method
+    @deprecated("Use add_lineage instead")
     def add_dataset_copy_lineage(
         self,
         *,
@@ -606,7 +599,7 @@ class LineageClient:
 
         self._client.entities.update(updater)
 
-    # TODO: deprecate this method
+    @deprecated("Use add_lineage instead")
     def add_dataset_transform_lineage(
         self,
         *,
@@ -686,7 +679,7 @@ class LineageClient:
             mcps.extend(query_entity)
         self._client._graph.emit_mcps(mcps)
 
-    # TODO: deprecate this method
+    @deprecated("Use add_lineage instead")
     def add_datajob_lineage(
         self,
         *,

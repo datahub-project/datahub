@@ -6,7 +6,7 @@ client = DataHubClient.from_env()
 upstream_urn = DatasetUrn(platform="snowflake", name="upstream_table")
 downstream_urn = DatasetUrn(platform="snowflake", name="downstream_table")
 
-query_text = """
+transformation_text = """
 from pyspark.sql import SparkSession
 
 spark = SparkSession.builder.appName("HighValueFilter").getOrCreate()
@@ -18,8 +18,8 @@ high_value.write.saveAsTable("high_value_customers")
 client.lineage.add_lineage(
     upstream=upstream_urn,
     downstream=downstream_urn,
-    transformation_text=query_text,
-    column_lineage_mapping={"id": ["id", "customer_id"]},
+    transformation_text=transformation_text,
+    column_lineage={"id": ["id", "customer_id"]},
 )
 
 # by passing the transformation_text, the query node will be created with the table level lineage.

@@ -231,7 +231,7 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
     default=3000,
     type=int,
     help="Batch size when querying for entities to un-soft delete."
-    "Maximum 10000. Large batch sizes may cause timeouts.",
+    "Maximum 5000. Large batch sizes may cause timeouts.",
 )
 def undo_by_filter(
     urn: Optional[str], platform: Optional[str], batch_size: int
@@ -336,7 +336,7 @@ def undo_by_filter(
     default=3000,
     type=int,
     help="Batch size when querying for entities to delete."
-    "Maximum 10000. Large batch sizes may cause timeouts.",
+    "Maximum 5000. Large batch sizes may cause timeouts.",
 )
 @click.option(
     "-n",
@@ -654,8 +654,8 @@ def _validate_user_aspect_flags(
 def _validate_batch_size(batch_size: int) -> None:
     if batch_size <= 0:
         raise click.UsageError("Batch size must be a positive integer.")
-    elif batch_size > 10000:
-        raise click.UsageError("Batch size cannot exceed 10,000.")
+    elif batch_size > 5000:
+        raise click.UsageError("Batch size cannot exceed 5,000.")
 
 
 def _delete_one_urn(
