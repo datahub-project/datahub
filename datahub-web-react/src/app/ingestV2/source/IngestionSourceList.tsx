@@ -114,9 +114,10 @@ const removeExecutionsFromIngestionSource = (source) => {
 interface Props {
     showCreateModal?: boolean;
     setShowCreateModal?: (show: boolean) => void;
+    shouldPreserveParams: React.MutableRefObject<boolean>;
 }
 
-export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Props) => {
+export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shouldPreserveParams }: Props) => {
     // const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -489,6 +490,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal }: Pro
                                 onDelete={onDelete}
                                 onChangeSort={onChangeSort}
                                 isLoading={loading}
+                                shouldPreserveParams={shouldPreserveParams}
                             />
                         </TableContainer>
                         <PaginationContainer>

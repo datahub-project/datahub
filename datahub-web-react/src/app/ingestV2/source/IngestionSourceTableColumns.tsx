@@ -205,7 +205,14 @@ export function ActionsColumn({
             dropdownItems={items}
             extraActions={
                 !record.cliIngestion && record.lastExecStatus !== EXECUTION_REQUEST_STATUS_RUNNING ? (
-                    <Icon icon="Play" source="phosphor" onClick={() => onExecute(record.urn)} />
+                    <Icon
+                        icon="Play"
+                        source="phosphor"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onExecute(record.urn);
+                        }}
+                    />
                 ) : null
             }
         />
