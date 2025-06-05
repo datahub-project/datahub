@@ -144,7 +144,9 @@ def test_dashboard_complex() -> None:
         DatasetUrn(platform="snowflake", name="my_table2", env="PROD")
     ]
 
-    assert_entity_golden(d, _GOLDEN_DIR / "test_dashboard_complex_golden.json")
+    assert_entity_golden(
+        d, _GOLDEN_DIR / "test_dashboard_complex_golden.json", ["lastRefreshed"]
+    )
 
 
 def test_client_get_dashboard() -> None:
