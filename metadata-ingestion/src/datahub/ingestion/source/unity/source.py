@@ -532,7 +532,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     table.ref.catalog, table.ref.schema, table.ref.table
                 )
                 if table_tags:
-                    logger.info(f"Table tags for {table.ref}: {table_tags}")
+                    logger.debug(f"Table tags for {table.ref}: {table_tags}")
                     attribution = MetadataAttribution(
                         # source="unity-catalog",
                         actor="urn:li:corpuser:datahub",
@@ -771,7 +771,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             schema.catalog.name
         ).get(f"{schema.catalog.name}.{schema.name}", [])
         if schema_tags:
-            logger.info(f"Schema tags for {schema.name}: {schema_tags}")
+            logger.debug(f"Schema tags for {schema.name}: {schema_tags}")
             # Generate platform resources for schema tags
             yield from self.gen_platform_resources(schema_tags)
 
@@ -812,7 +812,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             catalog.name, []
         )
         if catalog_tags:
-            logger.info(f"Schema tags for {catalog.name}: {catalog_tags}")
+            logger.debug(f"Schema tags for {catalog.name}: {catalog_tags}")
             # Generate platform resources for schema tags
             yield from self.gen_platform_resources(catalog_tags)
 
@@ -1024,7 +1024,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     platform_resource_repository=self.platform_resource_repository,
                     tag=tag,
                 )
-                logger.info(f"Created platform resource {platform_resource_id}")
+                logger.debug(f"Created platform resource {platform_resource_id}")
 
                 unity_catalog_tag = UnityCatalogTagPlatformResource.get_from_datahub(
                     platform_resource_id, self.platform_resource_repository, False

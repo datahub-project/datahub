@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional
 
 from pydantic import BaseModel
 
@@ -52,7 +52,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         return PlatformResourceKey(
             platform="databricks",
             resource_type=str(UnityCatalogTagPlatformResourceId._RESOURCE_TYPE()),
-            primary_key=f"{self.tag_key}/{self.tag_value}",
+            primary_key=f"{self.tag_key}:{self.tag_value}",
             platform_instance=self.platform_instance,
         )
 
@@ -83,7 +83,7 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
 
         return UnityCatalogTagPlatformResourceId(
             tag_key=tag.key.original,
-            tag_value=tag.value.original if tag.value else None,
+            tag_value=tag.value.original if tag.value is not None else None,
             platform_instance=platform_instance,
             exists_in_unity_catalog=exists_in_unity_catalog,
             persisted=False,
@@ -191,32 +191,24 @@ class UnityCatalogTagPlatformResourceId(BaseModel, ExternalEntityId):
         parsed_urn = Urn.from_string(urn)
         entity_type = parsed_urn.entity_type
         if entity_type == "tag":
-            new_snowflake_tag_id = UnityCatalogTagPlatformResourceId.from_datahub_tag(
-                TagUrn.from_string(urn), tag_sync_context
+            new_unity_catalog_tag_id = (
+                UnityCatalogTagPlatformResourceId.from_datahub_tag(
+                    TagUrn.from_string(urn), tag_sync_context
+                )
             )
         else:
             raise ValueError(f"Unsupported entity type {entity_type} for URN {urn}")
-        return new_snowflake_tag_id
-
-    @classmethod
-    def get_key_value_from_datahub_tag(cls, urn: Union[TagUrn]) -> Tuple[str, str]:
-        tag_name = urn.name
-        if ":" in tag_name:
-            tag_name, value = tag_name.split(":", 1)
-            return tag_name, value
-        else:
-            tag_name = tag_name
-            return tag_name, ""
+        return new_unity_catalog_tag_id
 
     @classmethod
     def from_datahub_tag(
         cls, tag_urn: TagUrn, tag_sync_context: UnityCatalogTagSyncContext
     ) -> "UnityCatalogTagPlatformResourceId":
-        tag_key, tag_value = cls.get_key_value_from_datahub_tag(tag_urn)
+        uc_tag = UnityCatalogTag.from_urn(tag_urn)
 
         return UnityCatalogTagPlatformResourceId(
-            tag_key=tag_key,
-            tag_value=tag_value,
+            tag_key=str(uc_tag.key),
+            tag_value=str(uc_tag.value) if uc_tag.value is not None else None,
             platform_instance=tag_sync_context.platform_instance,
             exists_in_unity_catalog=False,
         )
