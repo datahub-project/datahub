@@ -40,4 +40,5 @@ dependencies {
     testImplementation externalDependency.jacksonCore
     testImplementation externalDependency.jacksonDataBind
     testImplementation externalDependency.springBootStarterWeb
+    testImplementation externalDependency.springBootStarterJetty
 }
