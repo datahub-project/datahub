@@ -11,7 +11,7 @@ from datahub.api.entities.external.unity_catalog_external_entites import (
     UnityCatalogTagKeyText,
     UnityCatalogTagValueText,
 )
-from datahub.metadata._urns.urn_defs import TagUrn
+from datahub.metadata.urns import TagUrn
 
 
 class TestRestrictedText:
