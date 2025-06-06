@@ -345,9 +345,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                         },
                         platform: null,
                         executions: null,
-                        ownership: {
-                            owners: ownersToAdd,
-                        },
+                        ownership: null,
                     };
 
                     if (ownersToAdd && ownersToAdd.length > 0) {
