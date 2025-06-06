@@ -4,6 +4,7 @@ from datahub.errors import ItemNotFoundError
 from datahub.metadata.urns import CorpUserUrn
 
 # TODO: Change __ingestion to _ingestion.
+# TODO: remove use of this, use DataHubCient#audit_actor instead
 DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion").urn()
 
 
