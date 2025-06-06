@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
-import static com.linkedin.metadata.Constants.DEFAULT_EXECUTOR_ID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
