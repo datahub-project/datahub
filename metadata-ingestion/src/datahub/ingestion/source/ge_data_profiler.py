@@ -315,7 +315,6 @@ class _SingleColumnSpec:
 
     unique_count: Optional[int] = None
     nonnull_count: Optional[int] = None
-    cardinality: Optional[Cardinality] = None
 
 
 @dataclasses.dataclass
@@ -421,7 +420,7 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 column_spec.type_ = ProfilerDataType.NUMERIC
 
     @_run_with_query_combiner
-    def _get_column_cardinality(
+    def _get_column_nonnull_count(
         self, column_spec: _SingleColumnSpec, column: str
     ) -> None:
         try:
@@ -438,22 +437,19 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 context=f"{self.dataset_name}.{column}",
                 exc=e,
             )
-            return
 
+    @_run_with_query_combiner
+    def _get_column_unique_count(
+        self, column_spec: _SingleColumnSpec, column: str
+    ) -> None:
         unique_count = None
-        pct_unique = None
         try:
             unique_count = self.dataset.get_column_unique_count(column)
-            if nonnull_count > 0:
-                pct_unique = float(unique_count) / nonnull_count
         except Exception:
             logger.exception(
                 f"Failed to get unique count for column {self.dataset_name}.{column}"
             )
-
         column_spec.unique_count = unique_count
-
-        column_spec.cardinality = convert_to_cardinality(unique_count, pct_unique)
 
     @_run_with_query_combiner
     def _get_dataset_rows(self, dataset_profile: DatasetProfileClass) -> None:
@@ -850,7 +846,8 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     columns_profiling_queue.append(column_spec)
 
                     self._get_column_type(column_spec, column)
-                    self._get_column_cardinality(column_spec, column)
+                    self._get_column_nonnull_count(column_spec, column)
+                    self._get_column_unique_count(column_spec, column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()
@@ -859,7 +856,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             column = column_spec.column
             column_profile = column_spec.column_profile
             type_ = column_spec.type_
-            cardinality = column_spec.cardinality
 
             non_null_count = column_spec.nonnull_count
             unique_count = column_spec.unique_count
@@ -873,14 +869,15 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         # Sometimes this value is bigger than 1 because of the approx queries
                         column_profile.nullProportion = min(1, null_count / row_count)
 
+            pct_unique = None
             if unique_count is not None:
+                if non_null_count is not None and non_null_count > 0:
+                    # Sometimes this value is bigger than 1 because of the approx queries
+                    pct_unique = min(1, float(unique_count) / non_null_count)
                 if self.config.include_field_distinct_count:
                     column_profile.uniqueCount = unique_count
-                    if non_null_count is not None and non_null_count > 0:
-                        # Sometimes this value is bigger than 1 because of the approx queries
-                        column_profile.uniqueProportion = min(
-                            1, unique_count / non_null_count
-                        )
+                    column_profile.uniqueProportion = pct_unique
+            cardinality = convert_to_cardinality(unique_count, pct_unique)
 
             if not profile.rowCount:
                 continue
