@@ -7,4 +7,5 @@ export interface AvatarProps {
     size?: AvatarSizeOptions;
     showInPill?: boolean;
     isOutlined?: boolean;
+    isGroup?: boolean;
 }
