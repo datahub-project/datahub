@@ -580,7 +580,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 result_dict[table_key] = []
 
             result_dict[table_key].append(
-                UnityCatalogTag(key=tag_name, value=tag_value)
+                UnityCatalogTag(key=tag_name, value=tag_value if tag_value else None)
             )
 
         return result_dict
@@ -605,7 +605,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 result_dict[column_key] = []
 
             result_dict[column_key].append(
-                UnityCatalogTag(key=tag_name, value=tag_value)
+                UnityCatalogTag(key=tag_name, value=tag_value if tag_value else None)
             )
 
         return result_dict
