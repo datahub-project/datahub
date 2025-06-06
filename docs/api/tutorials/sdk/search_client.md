@@ -20,10 +20,10 @@ from datahub.sdk import DataHubClient
 client = DataHubClient(server="<your_server>", token="<your_token>")
 ```
 
-- `server`: The URL of your DataHub GMS server
+- **server**: The URL of your DataHub GMS server
   - local: `http://localhost:8080`
   - hosted: `https://<your_datahub_url>/gms`
-- `token`: You'll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
+- **token**: You'll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
 
 ## Core Search Concepts
 
@@ -32,6 +32,8 @@ DataHub offers two primary search approaches:
 ### Query-Based Search
 
 Query-based search allows you to search using simple keywords. This matches across common fields like name, description, and column names. This is useful for exploration when you're unsure of the exact asset you're looking for.
+
+For example, the script below searches for any assets that have sales in their metadata.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_with_query.py show_path_as_comment }}
@@ -51,6 +53,8 @@ Example output:
 Filter-based search allows you to scope results by platform, environment, entity type, and other structured fields.
 This is useful when you want to narrow down results to specific asset types or metadata fields.
 
+For example, the script below searches for entities on the Snowflake platform.
+
 ```python
 {{ inline /metadata-ingestion/examples/library/search_with_filter.py show_path_as_comment }}
 ```
@@ -59,7 +63,8 @@ This is useful when you want to narrow down results to specific asset types or m
 
 ### Combined Search
 
-You can combine query and filters to refine search results further. For example, search for anything containing "forecast" that is either a chart or a Snowflake dataset.
+You can combine query and filters to refine search results further.
+For example, search for anything containing "forecast" that is either a chart or a Snowflake dataset.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_with_query_and_filter.py show_path_as_comment }}
@@ -109,7 +114,7 @@ Use field-level filters to target specific fields such as `urn`, `name`, or `des
 {{ inline /metadata-ingestion/examples/library/search_filter_custom.py show_path_as_comment }}
 ```
 
-## Search Examples
+## Search Filter Examples
 
 #### Filter by Entity Type
 
