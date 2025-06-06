@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -51,6 +52,7 @@ public class ElasticSearchServiceTest {
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
+            TEST_SEARCH_CONFIG,
             mock(ESSearchDAO.class),
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -135,6 +137,7 @@ public class ElasticSearchServiceTest {
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
+            TEST_SEARCH_CONFIG,
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -196,6 +199,7 @@ public class ElasticSearchServiceTest {
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
+            TEST_SEARCH_CONFIG,
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -253,6 +257,7 @@ public class ElasticSearchServiceTest {
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
+            TEST_SEARCH_CONFIG,
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);
@@ -292,6 +297,7 @@ public class ElasticSearchServiceTest {
             opContext.getEntityRegistry(),
             opContext.getSearchContext().getIndexConvention(),
             mock(SettingsBuilder.class),
+            TEST_SEARCH_CONFIG,
             mockEsSearchDAO,
             mock(ESBrowseDAO.class),
             mockEsWriteDAO);

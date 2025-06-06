@@ -1,160 +1,149 @@
-import { blue } from '@ant-design/colors';
-import { CodeOutlined, CopyOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Button, Image, Typography } from 'antd';
+import { Avatar, Icon, Pill, Text, Tooltip, colors } from '@components';
+import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { AvatarStack } from '@components/components/AvatarStack/AvatarStack';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
+import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
-import {
-    RUNNING,
-    getExecutionRequestStatusDisplayColor,
-    getExecutionRequestStatusDisplayText,
-    getExecutionRequestStatusIcon,
-} from '@app/ingestV2/source/utils';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
 
+import { Owner } from '@types';
+
 const PreviewImage = styled(Image)`
-    max-height: 28px;
+    max-height: 20px;
     width: auto;
     object-fit: contain;
     margin: 0px;
     background-color: transparent;
 `;
 
-const StatusContainer = styled.div`
-    display: flex;
-    justify-content: left;
-    align-items: center;
+const TextContainer = styled(Typography.Text)`
+    color: ${colors.gray[1700]};
 `;
 
-const AllStatusWrapper = styled.div`
+const NameContainer = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+`;
+
+const DisplayNameContainer = styled.div`
     display: flex;
     flex-direction: column;
+    max-width: calc(100% - 50px);
 `;
 
-const StatusButton = styled(Button)`
-    padding: 0px;
-    margin: 0px;
+const TruncatedText = styled(Text)`
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
-const ActionButtonContainer = styled.div`
-    display: flex;
-    justify-content: right;
-`;
-
-const TypeWrapper = styled.div`
-    align-items: center;
-    display: flex;
-`;
-
-const CliBadge = styled.span`
-    margin-left: 20px;
-    border-radius: 15px;
-    border: 1px solid ${ANTD_GRAY[8]};
-    padding: 1px 4px;
-    font-size: 10px;
-
-    font-size: 8px;
-    font-weight: bold;
-    letter-spacing: 0.5px;
-    border: 1px solid ${blue[6]};
-    color: ${blue[6]};
-
-    svg {
-        display: none;
-        margin-right: 5px;
-    }
-`;
-const StatusText = styled(Typography.Text)`
-    font-weight: bold;
-    margin-left: 8px;
-    color: ${(props) => props.color};
-    &:hover {
-        text-decoration: underline;
-      },
-`;
 interface TypeColumnProps {
     type: string;
     record: any;
 }
 
-export function TypeColumn({ type, record }: TypeColumnProps) {
+export function NameColumn({ type, record }: TypeColumnProps) {
     const iconUrl = useGetSourceLogoUrl(type);
     const typeDisplayName = capitalizeFirstLetter(type);
 
     return (
-        <TypeWrapper>
-            {iconUrl ? (
+        <NameContainer>
+            {iconUrl && (
                 <Tooltip overlay={typeDisplayName}>
                     <PreviewImage preview={false} src={iconUrl} alt={type || ''} />
                 </Tooltip>
-            ) : (
-                <Typography.Text strong>{typeDisplayName}</Typography.Text>
             )}
+            <DisplayNameContainer>
+                <TextContainer
+                    ellipsis={{
+                        tooltip: {
+                            title: record.name,
+                            color: 'white',
+                            overlayInnerStyle: { color: colors.gray[1700] },
+                            showArrow: false,
+                        },
+                    }}
+                >
+                    {record.name || ''}
+                </TextContainer>
+                {!iconUrl && typeDisplayName && <TruncatedText color="gray">{typeDisplayName}</TruncatedText>}
+            </DisplayNameContainer>
             {record.cliIngestion && (
                 <Tooltip title="This source is ingested from the command-line interface (CLI)">
-                    <CliBadge>
-                        <CodeOutlined />
-                        CLI
-                    </CliBadge>
+                    <div>
+                        <Pill label="CLI" color="blue" size="xs" />
+                    </div>
                 </Tooltip>
             )}
-        </TypeWrapper>
+        </NameContainer>
     );
 }
 
-export function LastExecutionColumn({ time }: { time: number }) {
-    const executionDate = time && new Date(time);
-    const localTime = executionDate && `${executionDate.toLocaleDateString()} at ${executionDate.toLocaleTimeString()}`;
-    return <Typography.Text type="secondary">{localTime ? `Last run ${localTime}` : 'Never run'}</Typography.Text>;
-}
-
-export function ScheduleColumn(schedule: any, record: any) {
-    let tooltip: string;
+export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
+    let scheduleText: string;
     try {
-        tooltip = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${record.timezone})`;
+        scheduleText = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${timezone})`;
     } catch (e) {
-        tooltip = 'Invalid cron schedule';
+        scheduleText = 'Invalid cron schedule';
         console.debug('Error parsing cron schedule', e);
     }
     return (
-        <Tooltip title={tooltip || 'Not scheduled'}>
-            <Typography.Text code>{schedule || 'None'}</Typography.Text>
-        </Tooltip>
+        <TextContainer
+            ellipsis={{
+                tooltip: {
+                    title: scheduleText,
+                    color: 'white',
+                    overlayInnerStyle: { color: colors.gray[1700] },
+                    showArrow: false,
+                },
+            }}
+        >
+            {scheduleText || 'Not scheduled'}
+        </TextContainer>
     );
 }
 
-interface LastStatusProps {
-    status: any;
-    record: any;
-    setFocusExecutionUrn: (urn: string) => void;
-}
-
-export function LastStatusColumn({ status, record, setFocusExecutionUrn }: LastStatusProps) {
-    const Icon = getExecutionRequestStatusIcon(status);
-    const text = getExecutionRequestStatusDisplayText(status);
-    const color = getExecutionRequestStatusDisplayColor(status);
-    const { lastExecTime, lastExecUrn } = record;
+export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entityRegistry: EntityRegistry }) {
+    const ownerAvatars = owners.map((owner) => {
+        return {
+            name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
+            imageUrl: owner.owner.editableProperties?.pictureLink,
+        };
+    });
+    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
     return (
-        <AllStatusWrapper>
-            <StatusContainer>
-                {Icon && <Icon style={{ color, fontSize: 14 }} />}
-                <StatusButton
-                    data-testid="ingestion-source-table-status"
-                    type="link"
-                    onClick={() => setFocusExecutionUrn(lastExecUrn)}
-                >
-                    <StatusText color={color}>{text || 'Pending...'}</StatusText>
-                </StatusButton>
-            </StatusContainer>
-            <LastExecutionColumn time={lastExecTime} />
-        </AllStatusWrapper>
+        <>
+            {singleOwner && (
+                <HoverEntityTooltip entity={singleOwner} showArrow={false}>
+                    <Link
+                        to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
+                        <Avatar
+                            name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+                            imageUrl={singleOwner.editableProperties?.pictureLink}
+                            showInPill
+                        />
+                    </Link>
+                </HoverEntityTooltip>
+            )}
+            {owners.length > 1 && <AvatarStack avatars={ownerAvatars} showRemainingNumber />}
+        </>
     );
 }
-
 interface ActionsColumnProps {
     record: any;
     setFocusExecutionUrn: (urn: string) => void;
@@ -164,6 +153,11 @@ interface ActionsColumnProps {
     onDelete: (urn: string) => void;
 }
 
+type MenuOption = {
+    key: string;
+    label: React.ReactNode;
+};
+
 export function ActionsColumn({
     record,
     onEdit,
@@ -172,56 +166,88 @@ export function ActionsColumn({
     onExecute,
     onDelete,
 }: ActionsColumnProps) {
+    const items: MenuOption[] = [];
+
+    if (!record.cliIngestion)
+        items.push({
+            key: '0',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        onEdit(record.urn);
+                    }}
+                >
+                    Edit
+                </MenuItem>
+            ),
+        });
+    else
+        items.push({
+            key: '1',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        onView(record.urn);
+                    }}
+                >
+                    View
+                </MenuItem>
+            ),
+        });
+    if (navigator.clipboard)
+        items.push({
+            key: '2',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        navigator.clipboard.writeText(record.urn);
+                    }}
+                >
+                    Copy Urn
+                </MenuItem>
+            ),
+        });
+    if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
+        items.push({
+            key: '3',
+            label: (
+                <MenuItem
+                    onClick={() => {
+                        setFocusExecutionUrn(record.lastExecUrn);
+                    }}
+                >
+                    Details
+                </MenuItem>
+            ),
+        });
+    items.push({
+        key: '4',
+        label: (
+            <MenuItem
+                onClick={() => {
+                    onDelete(record.urn);
+                }}
+            >
+                <Text color="red">Delete </Text>
+            </MenuItem>
+        ),
+    });
+
     return (
-        <ActionButtonContainer>
-            {navigator.clipboard && (
-                <Tooltip title="Copy Ingestion Source URN">
-                    <Button
-                        style={{ marginRight: 16 }}
-                        icon={<CopyOutlined />}
-                        onClick={() => {
-                            navigator.clipboard.writeText(record.urn);
+        <BaseActionsColumn
+            dropdownItems={items}
+            extraActions={
+                !record.cliIngestion && record.lastExecStatus !== EXECUTION_REQUEST_STATUS_RUNNING ? (
+                    <Icon
+                        icon="Play"
+                        source="phosphor"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onExecute(record.urn);
                         }}
                     />
-                </Tooltip>
-            )}
-            {!record.cliIngestion && (
-                <Button
-                    data-testid="ingestion-source-table-edit-button"
-                    style={{ marginRight: 16 }}
-                    onClick={() => onEdit(record.urn)}
-                >
-                    EDIT
-                </Button>
-            )}
-            {record.cliIngestion && (
-                <Button style={{ marginRight: 16 }} onClick={() => onView(record.urn)}>
-                    VIEW
-                </Button>
-            )}
-            {record.lastExecStatus !== RUNNING && (
-                <Button
-                    disabled={record.cliIngestion}
-                    style={{ marginRight: 16 }}
-                    onClick={() => onExecute(record.urn)}
-                >
-                    RUN
-                </Button>
-            )}
-            {record.lastExecStatus === RUNNING && (
-                <Button style={{ marginRight: 16 }} onClick={() => setFocusExecutionUrn(record.lastExecUrn)}>
-                    DETAILS
-                </Button>
-            )}
-            <Button
-                data-testid={`delete-ingestion-source-${record.name}`}
-                onClick={() => onDelete(record.urn)}
-                type="text"
-                shape="circle"
-                danger
-            >
-                <DeleteOutlined />
-            </Button>
-        </ActionButtonContainer>
+                ) : null
+            }
+        />
     );
 }

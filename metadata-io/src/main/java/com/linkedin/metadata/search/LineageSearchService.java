@@ -24,6 +24,7 @@ import com.linkedin.metadata.query.FreshnessStats;
 import com.linkedin.metadata.query.GroupingCriterion;
 import com.linkedin.metadata.query.GroupingCriterionArray;
 import com.linkedin.metadata.query.GroupingSpec;
+import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -75,6 +76,7 @@ public class LineageSearchService {
                               // maintain backwards compatibility
                               .setBaseEntityType(SCHEMA_FIELD_ENTITY_NAME)
                               .setGroupingEntityType(DATASET_ENTITY_NAME))));
+
   private final SearchService _searchService;
   private final GraphService _graphService;
   @Nullable private final Cache cache;
@@ -139,9 +141,7 @@ public class LineageSearchService {
     final String finalInput = input == null || input.isEmpty() ? "*" : input;
 
     log.debug("Cache enabled {}, Input :{}:", cacheEnabled, finalInput);
-    if (maxHops == null) {
-      maxHops = 1000;
-    }
+    maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
 
     final OperationContext finalOpContext =
         opContext
@@ -912,5 +912,30 @@ public class LineageSearchService {
       finalResult.setScrollId(two.getScrollId());
     }
     return finalResult;
+  }
+
+  private int applyMaxHopsLimit(
+      @Nullable LineageFlags lineageFlags, @Nullable Integer inputMaxHops) {
+    // Determine if we're in UI mode or impact analysis mode
+    boolean isLineageVisualization =
+        lineageFlags != null
+            && lineageFlags.getEntitiesExploredPerHopLimit() != null
+            && lineageFlags.getEntitiesExploredPerHopLimit() > 0;
+
+    // Get the appropriate limit based on the mode
+    int configLimit =
+        isLineageVisualization
+            ? appConfig.getElasticSearch().getSearch().getGraph().getLineageMaxHops()
+            : appConfig.getElasticSearch().getSearch().getGraph().getImpactMaxHops();
+
+    // Apply the limit (either the config limit or the minimum of config and input)
+    int result = (inputMaxHops == null) ? configLimit : Math.min(configLimit, inputMaxHops);
+
+    // Log a warning if we had to reduce the requested hops
+    if (inputMaxHops != null && result < inputMaxHops) {
+      log.warn("Requested maxHops {} exceeded limit {}.", inputMaxHops, result);
+    }
+
+    return result;
   }
 }
