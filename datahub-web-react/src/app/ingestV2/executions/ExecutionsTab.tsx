@@ -52,7 +52,11 @@ const PaginationContainer = styled.div`
 
 const DEFAULT_PAGE_SIZE = 25;
 
-export const ExecutionsTab = () => {
+interface Props {
+    shouldPreserveParams: React.MutableRefObject<boolean>;
+}
+
+export const ExecutionsTab = ({ shouldPreserveParams }: Props) => {
     const [appliedFilters, setAppliedFilters] = useState<Map<string, string[]>>(new Map());
     const [executionRequestUrnToView, setExecutionRequestUrnToView] = useState<undefined | string>(undefined);
     const [hideSystemSources, setHideSystemSources] = useState(true);
@@ -126,6 +130,7 @@ export const ExecutionsTab = () => {
                             <Filters
                                 onFiltersApplied={(newFilters) => setAppliedFilters(newFilters)}
                                 hideSystemSources={hideSystemSources}
+                                shouldPreserveParams={shouldPreserveParams}
                             />
                             <RefreshButton onClick={() => refetch()} />
                         </StyledTabToolbar>

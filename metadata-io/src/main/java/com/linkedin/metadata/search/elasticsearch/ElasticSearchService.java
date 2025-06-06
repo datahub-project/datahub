@@ -504,6 +504,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
   }
 
   @Override
+  public IndexConvention getIndexConvention() {
+    return indexConvention;
+  }
+
+  @Override
   public ESIndexBuilder getIndexBuilder() {
     return indexBuilder;
   }
