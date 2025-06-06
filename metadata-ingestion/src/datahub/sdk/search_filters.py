@@ -421,7 +421,7 @@ class FilterDsl:
     # TODO add shortcut for custom filters
 
     @staticmethod
-    def custom_filter
+    def custom_filter(
         field: str, condition: FilterOperator, values: Sequence[str]
     ) -> _CustomCondition:
         return _CustomCondition(
