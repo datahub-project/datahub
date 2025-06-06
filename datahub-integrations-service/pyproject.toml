@@ -21,6 +21,8 @@ dependencies = [
 	# Slack.
 	"slack-bolt",
 	"inflect",
+	# MCP
+	"mcp",
 	"markdown_to_mrkdwn",
 	# Actions.
 	"acryl-datahub-actions[kafka,tag_propagation,term_propagation,doc_propagation,snowflake_tag_propagation]",
@@ -60,7 +62,9 @@ dev = [
 	"pytest",
 	"mypy",
 	"pytest-cov",
-	"pytest-asyncio",
+	"asgi-lifespan",
+	"httpx",
+	"httpx-sse",
 	"types-setuptools",
 	"types-cachetools",
 	"types-PyYAML",

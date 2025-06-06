@@ -1,25 +1,24 @@
-from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
-
 import pathlib
 import time
 from typing import Annotated, List, Optional
 
 import asyncer
 import mlflow
-from mlflow import metrics as mlflow_metrics
 import pandas as pd
 import typer
 from datahub.sdk.main_client import DataHubClient
 from loguru import logger
+from mlflow import metrics as mlflow_metrics
 
 from datahub_integrations.chat.chat_history import (
     ChatHistory,
     HumanMessage,
 )
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
-from datahub_integrations.chat.mcp_server import mcp
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 from datahub_integrations.experimentation.chatbot import Prompt, prompts, prompts_file
 from datahub_integrations.experimentation.creds import create_uncached_datahub_graph
+from datahub_integrations.mcp.mcp_server import mcp
 
 assert AI_EXPERIMENTATION_INITIALIZED
 

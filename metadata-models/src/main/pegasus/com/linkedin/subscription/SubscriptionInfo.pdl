@@ -11,7 +11,7 @@ import com.linkedin.common.Urn
 }
 record SubscriptionInfo {
     /**
-    * Actor Urn
+    * Actor Urn who will be notified 
     */
     @Searchable = {
         "fieldType": "URN"
@@ -48,7 +48,7 @@ record SubscriptionInfo {
     updatedOn: AuditStamp
 
     /**
-    * Optional entity Urn
+    * Optional entity Urn - top level for now (Dataset, container etc. )
     */
     @Searchable = {
         "fieldType": "URN"

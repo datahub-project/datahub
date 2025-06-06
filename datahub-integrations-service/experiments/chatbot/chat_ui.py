@@ -3,8 +3,8 @@ from datahub.sdk.main_client import DataHubClient
 
 from datahub_integrations.chat.chat_history import HumanMessage
 from datahub_integrations.chat.chat_session import ChatSession
-from datahub_integrations.chat.mcp_server import mcp
 from datahub_integrations.experimentation.st_chat_history import st_chat_history
+from datahub_integrations.mcp.mcp_server import mcp
 
 
 @st.cache_resource

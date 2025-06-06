@@ -17,7 +17,6 @@ from datahub_integrations.chat.chat_history import (
 )
 from datahub_integrations.chat.chat_session import ChatSession, Message, NextMessage
 from datahub_integrations.chat.linkify import slackify_markdown
-from datahub_integrations.chat.mcp_server import mcp
 from datahub_integrations.chat.telemetry import track_saas_event
 from datahub_integrations.chat.telemetry_models import (
     ChatbotInteractionEvent,
@@ -25,6 +24,7 @@ from datahub_integrations.chat.telemetry_models import (
     slack_chat_id,
     slack_message_id,
 )
+from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.slack.constants import (
     ACRYL_SLACK_ICON_URL,
     MESSAGE_LENGTH_HARD_LIMIT,
@@ -296,7 +296,7 @@ def handle_mention(
             thread_messages.append(HumanMessage(text=message_text))
 
     chat_session = ChatSession(
-        tools=mcp.get_all_tools(),
+        tools=[mcp],
         client=DataHubClient(graph=graph),
         history=ChatHistory(messages=thread_messages),
         progress_callback=progress_callback,

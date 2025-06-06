@@ -167,10 +167,14 @@ def test_monitor_basic_other_ids() -> None:
         ),
         info=_any_monitor_info,
     )
-    assert monitor.urn == _any_monitor_urn
+    expected_monitor_urn = MonitorUrn(
+        entity=DatasetUrn.from_string(_any_dataset_urn),
+        id=f"urn:li:assertion:{_any_monitor_id}",
+    )
+    assert monitor.urn == expected_monitor_urn
     assert (
         monitor.urn.urn()
-        == "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD),my_monitor_id)"
+        == "urn:li:monitor:(urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD),urn:li:assertion:my_monitor_id)"
     )
 
     # models.MonitorKeyClass

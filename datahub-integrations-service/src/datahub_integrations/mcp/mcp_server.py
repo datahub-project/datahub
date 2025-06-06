@@ -11,11 +11,10 @@ from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub.utilities.ordered_set import OrderedSet
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
-from datahub_integrations.chat.tool import ToolRegistry
-
-mcp = ToolRegistry(tool_name_prefix="datahub")
+mcp = FastMCP(name="datahub", stateless_http=True)
 
 
 _mcp_dh_client = contextvars.ContextVar[DataHubClient]("_mcp_dh_client")

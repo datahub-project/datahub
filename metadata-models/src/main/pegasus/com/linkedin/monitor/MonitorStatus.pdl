@@ -25,6 +25,7 @@ record MonitorStatus {
        /**
         * The monitor is running in passive mode.
         * For assertion monitors, this means that assertions will be run in dry mode.
+        * This is for internal troubleshooting purposes.
         */
        PASSIVE
     }

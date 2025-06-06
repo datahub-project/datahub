@@ -115,8 +115,8 @@ class Monitor(Entity):
                 # This allows for flexibility in how monitor ids are specified.
                 return MonitorUrn(entity=id[0], id=id[1])
             elif isinstance(id[1], AssertionUrn):
-                # If the second element is an AssertionUrn, we use its id as the monitor id so they both are linked.
-                return MonitorUrn(entity=id[0], id=id[1].assertion_id)
+                # If the second element is an AssertionUrn, we use assertion urn as the monitor id so they both are linked.
+                return MonitorUrn(entity=id[0], id=id[1].urn())
             else:
                 assert_never(id[1])
         elif isinstance(id, models.MonitorKeyClass):

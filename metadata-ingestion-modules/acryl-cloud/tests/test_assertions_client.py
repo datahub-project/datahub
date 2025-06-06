@@ -34,6 +34,7 @@ from acryl_datahub_cloud._sdk_extras.entities.assertion import (
 )
 from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
 from acryl_datahub_cloud._sdk_extras.errors import (
+    SDKNotYetSupportedError,
     SDKUsageError,
     SDKUsageErrorWithExamples,
 )
@@ -294,44 +295,6 @@ _OTHER_OUTPUT_PARAMS: OtherOutputParams = {
             ),
             id="last_modified_column_detection_mechanism_without_additional_filter",
         ),
-        pytest.param(
-            SmartFreshnessAssertionInputParams(
-                dataset_urn=_any_dataset_urn,
-                display_name="High Water Mark Column Detection Mechanism Assertion",
-                detection_mechanism=DetectionMechanism.HIGH_WATERMARK_COLUMN(
-                    column_name="high_watermark", additional_filter="amount > 1000"
-                ),
-            ),
-            "DateTypeClass",
-            models.FreshnessFieldKindClass.HIGH_WATERMARK,
-            SmartFreshnessAssertionOutputParams(
-                **_OTHER_OUTPUT_PARAMS,
-                display_name="High Water Mark Column Detection Mechanism Assertion",
-                detection_mechanism=DetectionMechanism.HIGH_WATERMARK_COLUMN(
-                    column_name="high_watermark", additional_filter="amount > 1000"
-                ),
-            ),
-            id="high_watermark_column_detection_mechanism",
-        ),
-        pytest.param(
-            SmartFreshnessAssertionInputParams(
-                dataset_urn=_any_dataset_urn,
-                display_name="High Water Mark Column Detection Mechanism Assertion",
-                detection_mechanism=DetectionMechanism.HIGH_WATERMARK_COLUMN(
-                    column_name="high_watermark", additional_filter=None
-                ),
-            ),
-            "DateTypeClass",
-            models.FreshnessFieldKindClass.HIGH_WATERMARK,
-            SmartFreshnessAssertionOutputParams(
-                **_OTHER_OUTPUT_PARAMS,
-                display_name="High Water Mark Column Detection Mechanism Assertion",
-                detection_mechanism=DetectionMechanism.HIGH_WATERMARK_COLUMN(
-                    column_name="high_watermark", additional_filter=None
-                ),
-            ),
-            id="high_watermark_column_detection_mechanism_without_additional_filter",
-        ),
     ],
 )
 def test_create_smart_freshness_assertion_valid_complex_detection_mechanism_input(
@@ -385,6 +348,17 @@ def test_create_smart_freshness_assertion_entities_client_called(
             SDKUsageErrorWithExamples,
             "Invalid detection mechanism type: invalid_detection_mechanism",
             id="invalid_detection_mechanism",
+        ),
+        pytest.param(
+            SmartFreshnessAssertionInputParams(
+                dataset_urn=_any_dataset_urn,
+                detection_mechanism=DetectionMechanism.HIGH_WATERMARK_COLUMN(
+                    column_name="high_watermark", additional_filter="amount > 1000"
+                ),
+            ),
+            SDKNotYetSupportedError,
+            "This feature is not yet supported in the Python SDK",
+            id="unsupported_detection_mechanism_high_watermark_column",
         ),
         pytest.param(
             SmartFreshnessAssertionInputParams(

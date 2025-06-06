@@ -288,7 +288,7 @@ class InferenceSensitivity(Enum):
         }[sensitivity]
 
 
-DEFAULT_SENSITIVITY = InferenceSensitivity.LOW
+DEFAULT_SENSITIVITY = InferenceSensitivity.MEDIUM
 
 
 class FixedRangeExclusionWindow(BaseModel):
@@ -1014,14 +1014,6 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
                 LAST_MODIFIED_ALLOWED_FIELD_TYPES,
                 "last modified column",
                 models.FreshnessFieldKindClass.LAST_MODIFIED,
-            )
-        elif isinstance(self.detection_mechanism, _HighWatermarkColumn):
-            source_type = models.DatasetFreshnessSourceTypeClass.FIELD_VALUE
-            field = self._create_field_spec(
-                self.detection_mechanism.column_name,
-                HIGH_WATERMARK_ALLOWED_FIELD_TYPES,
-                "high watermark column",
-                models.FreshnessFieldKindClass.HIGH_WATERMARK,
             )
         elif isinstance(self.detection_mechanism, _InformationSchema):
             source_type = models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA

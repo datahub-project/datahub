@@ -7,7 +7,6 @@ from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.ingestion.graph.config import ClientMode, DatahubClientConfig
 from datahub.sdk.entity_client import EntityClient
 from datahub.sdk.lineage_client import LineageClient
-from datahub.sdk.resolver_client import ResolverClient
 from datahub.sdk.search_client import SearchClient
 
 try:
@@ -15,7 +14,9 @@ try:
         ResolverClient,
     )
 except ImportError:
-    from datahub.sdk.resolver_client import ResolverClient
+    from datahub.sdk.resolver_client import (  # type: ignore[assignment]  # If the client is not installed, use the one from the SDK
+        ResolverClient,
+    )
 
 
 class DataHubClient:

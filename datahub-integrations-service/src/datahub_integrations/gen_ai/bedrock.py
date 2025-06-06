@@ -35,14 +35,15 @@ _MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "4"))
 
 
 class BedrockModel(enum.Enum):
-    CLAUDE_3_HAIKU = "anthropic.claude-3-haiku-20240307-v1:0"
-    CLAUDE_35_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
+    # These are the system-defined inference profile name, not the model ID.
+    # Cross-region inference profiles allow higher request and token quota.
+    CLAUDE_3_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-haiku-20240307-v1:0"
+    CLAUDE_35_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-sonnet-20240620-v1:0"
 
-    CLAUDE_35_HAIKU = "anthropic.claude-3-5-haiku-20241022-v1:0"
-    CLAUDE_35_SONNET_V2 = "anthropic.claude-3-5-sonnet-20241022-v2:0"
+    CLAUDE_35_HAIKU = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-haiku-20241022-v1:0"
+    CLAUDE_35_SONNET_V2 = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-5-sonnet-20241022-v2:0"
 
     # Newer AWS Bedrock models require cross-region inference.
-    # This is the system-defined inference profile name, not the model ID.
     CLAUDE_37_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-3-7-sonnet-20250219-v1:0"
 
     CLAUDE_4_SONNET = f"{_ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX}.anthropic.claude-sonnet-4-20250514-v1:0"

@@ -16,11 +16,6 @@ from datahub_integrations.dispatch.runner import (
 pytestmark = pytest.mark.anyio
 
 
-@pytest.fixture
-def anyio_backend() -> str:
-    return "asyncio"
-
-
 def test_venv_config_json_parsing() -> None:
     venv_config = VenvConfig(
         extra_pip_requirements='["snowflake"]',  # type: ignore
