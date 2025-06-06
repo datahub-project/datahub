@@ -41,7 +41,6 @@ export const AssetsSection = () => {
                 types: [],
                 query: '',
                 orFilters: [{ and: [{ field: 'applications', values: [urn] }] }],
-                // TODO: Store this information in a filterable property
                 count: 1000,
             },
         },
