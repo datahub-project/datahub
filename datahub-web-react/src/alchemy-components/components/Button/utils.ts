@@ -116,7 +116,7 @@ const getButtonVariantStyles = (
     theme?: Theme,
 ): CSSObject => {
     const isPrimary = color === 'violet' || color === 'primary';
-    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles['primary-color-gradient'] || '#705EE4'} 38.97%, ${theme?.styles['primary-color'] || '#533FD1'} 100%)`;
+    const primaryGradient = `radial-gradient(115.48% 144.44% at 50% -44.44%, ${theme?.styles?.['primary-color-gradient'] || '#705EE4'} 38.97%, ${theme?.styles?.['primary-color'] || '#533FD1'} 100%)`;
 
     const variantStyles = {
         filled: {
@@ -235,8 +235,7 @@ const getButtonPadding = (size: SizeOptions, hasChildren: boolean, isCircle: boo
 // Generate active styles for button
 const getButtonActiveStyles = (colorStyles: ColorStyles) => ({
     borderColor: 'transparent',
-    backgroundColor: colorStyles.activeBgColor,
-    // TODO: Figure out how to make the #fff interior border transparent
+    backgroundColor: colorStyles.activeBgColor, // TODO: Figure out how to make the #fff interior border transparent
     boxShadow: `0 0 0 2px #fff, 0 0 0 4px ${colorStyles.activeBgColor}`,
 });
 
