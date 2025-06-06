@@ -747,21 +747,14 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             return
 
         try:
-            # TODO do this without GE
-            self.dataset.set_config_value("interactive_evaluation", True)
+            result = self.dataset.engine.execute(
+                sa.select(sa.column(column))
+                .select_from(self.dataset._table)
+                .where(sa.column(column).is_not(None))
+                .limit(self.config.field_sample_values_limit)
+            ).fetchall()
 
-            res = self.dataset.expect_column_values_to_be_in_set(
-                column,
-                [],
-                result_format={
-                    "result_format": "SUMMARY",
-                    "partial_unexpected_count": self.config.field_sample_values_limit,
-                },
-            ).result
-
-            column_profile.sampleValues = [
-                str(v) for v in res["partial_unexpected_list"]
-            ]
+            column_profile.sampleValues = [str(row[0]) for row in result]
         except Exception as e:
             logger.debug(
                 f"Caught exception while attempting to get sample values for column {column}. {e}"
