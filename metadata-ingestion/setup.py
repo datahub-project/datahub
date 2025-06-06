@@ -56,6 +56,7 @@ framework_common = {
     "jsonref",
     "jsonschema",
     "ruamel.yaml",
+    "PyJWT>=2.0.0",
 }
 
 pydantic_no_v2 = {

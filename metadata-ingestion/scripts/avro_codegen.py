@@ -346,6 +346,40 @@ EntityTypeName = Literal[
     schema_class_file.write_text("\n".join(schema_classes_lines))
 
 
+def annotate_schema_classes(schema_class_file: Path) -> None:
+    """Add extra methods to schema classes that are defined in _extra_schema_methods."""
+    schema_classes_lines = schema_class_file.read_text().splitlines()
+    line_lookup_table = {line: i for i, line in enumerate(schema_classes_lines)}
+
+    for class_name, methods in _extra_schema_methods.items():
+        class_def_original = f"class {class_name}(DictWrapper):"
+        
+        if class_def_original not in line_lookup_table:
+            # If the class doesn't exist, skip it
+            continue
+        
+        class_def_line = line_lookup_table[class_def_original]
+        
+        # Find the end of the class by looking for the next class definition or end of file
+        class_end_line = len(schema_classes_lines)
+        for i in range(class_def_line + 1, len(schema_classes_lines)):
+            line = schema_classes_lines[i].strip()
+            if line.startswith("class ") and line.endswith("(DictWrapper):"):
+                class_end_line = i
+                break
+        
+        # Add the methods before the end of the class
+        for method in methods:
+            import textwrap
+            indented_method = textwrap.indent(method, prefix="    ")
+            schema_classes_lines.insert(class_end_line, indented_method)
+            # Update line lookup table and class_end_line for subsequent insertions
+            line_lookup_table = {line: i for i, line in enumerate(schema_classes_lines)}
+            class_end_line += method.count('\n') + 1
+
+    schema_class_file.write_text("\n".join(schema_classes_lines))
+
+
 def write_urn_classes(key_aspects: List[dict], urn_dir: Path) -> None:
     urn_dir.mkdir()
 
@@ -555,6 +589,73 @@ def create_from_ids(
         dashboard_id=f"{platform_instance}.{name}" if platform_instance else name,
     )
         """
+    ],
+}
+
+
+_extra_schema_methods: Dict[str, List[str]] = {
+    "AuditStampClass": [
+        """
+@staticmethod
+def from_token(
+    auth_token: Optional[str] = None,
+    fallback_actor: Optional[Union["CorpUserUrn", "CorpGroupUrn"]] = None,
+    fallback_timestamp: Optional["datetime"] = None,
+) -> "AuditStampClass":
+    \"\"\"Create an AuditStampClass from a JWT token.
+    
+    This method extracts the actor from the JWT token and creates an AuditStamp.
+    If no token is provided or any error occurs when processing the JWT token, 
+    it defaults to fallback_actor and, if not given, it fallbacks to DEFAULT_ACTOR_URN.
+    
+    Args:
+        auth_token: Optional JWT authentication token.
+        fallback_actor: Optional fallback actor URN.
+        fallback_timestamp: Optional fallback timestamp.
+        
+    Returns:
+        AuditStampClass instance with the appropriate actor and timestamp.
+    \"\"\"
+    import jwt
+    import logging
+    from datetime import datetime
+    from datahub.metadata.urns import CorpUserUrn, CorpGroupUrn
+    
+    logger = logging.getLogger(__name__)
+    DEFAULT_ACTOR_URN = CorpUserUrn("__ingestion")
+    
+    default_actor = fallback_actor or DEFAULT_ACTOR_URN
+    
+    if auth_token is None:
+        actor_urn = default_actor
+    else:
+        try:
+            payload = jwt.decode(auth_token, options={"verify_signature": False})
+        except Exception as e:
+            logger.warning(
+                f"Failed to decode JWT token: {e} Falling back to default actor: {default_actor}"
+            )
+            actor_urn = default_actor
+        else:
+            if "actorId" not in payload or not payload["actorId"]:
+                logger.warning(
+                    f"Missing 'actorId' in JWT token, using default actor: {default_actor}"
+                )
+                actor_urn = default_actor
+            elif "type" not in payload or payload["type"] != "PERSONAL":
+                logger.warning(
+                    f"JWT token 'type' is not 'PERSONAL', using default actor: {default_actor}"
+                )
+                actor_urn = default_actor
+            else:
+                actor_urn = CorpUserUrn.create_from_id(payload["actorId"])
+    
+    timestamp = fallback_timestamp or datetime.now()
+    # Convert datetime to milliseconds timestamp as expected by AuditStampClass
+    timestamp_ms = int(timestamp.timestamp() * 1000)
+    
+    return AuditStampClass(time=timestamp_ms, actor=str(actor_urn))
+""",
     ],
 }
 
@@ -840,6 +941,7 @@ def generate(
         list(aspects.values()),
         Path(outdir) / "schema_classes.py",
     )
+    annotate_schema_classes(Path(outdir) / "schema_classes.py")
 
     if enable_custom_loader:
         # Move schema_classes.py -> _internal_schema_classes.py
@@ -847,6 +949,8 @@ def generate(
         (Path(outdir) / "_internal_schema_classes.py").write_text(
             (Path(outdir) / "schema_classes.py").read_text()
         )
+        # Apply schema class annotations to the internal schema classes file
+        annotate_schema_classes(Path(outdir) / "_internal_schema_classes.py")
         (Path(outdir) / "schema_classes.py").write_text(
             """
 # This is a specialized shim layer that allows us to dynamically load custom models from elsewhere.
