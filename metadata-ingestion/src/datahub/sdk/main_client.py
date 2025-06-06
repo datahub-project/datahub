@@ -14,8 +14,8 @@ try:
         ResolverClient,
     )
 except ImportError:
-    from datahub.sdk.resolver_client import (
-        ResolverClient,  # type: ignore[assignment]  # If the client is not installed, use the one from the SDK
+    from datahub.sdk.resolver_client import (  # type: ignore[assignment]  # If the client is not installed, use the one from the SDK
+        ResolverClient,
     )
 
 
