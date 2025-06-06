@@ -363,7 +363,7 @@ def test__upsert_and_merge_smart_freshness_assertion_calls_upsert_if_assertion_e
             dataset_urn=any_dataset_urn,
             display_name="Explicitly Input Display Name",
             detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
-            sensitivity=InferenceSensitivity.LOW,  # From the stored monitor entity
+            sensitivity=InferenceSensitivity.MEDIUM,  # From the stored monitor entity
             exclusion_windows=[],
             training_data_lookback_days=ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,  # From the stored monitor entity
             incident_behavior=[

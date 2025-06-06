@@ -173,12 +173,12 @@ def monitor_without_sensitivity(any_monitor_urn: MonitorUrn) -> Monitor:
     [
         pytest.param(
             "minimal_monitor",
-            "Monitor {monitor_urn} does not have an `monitor.info.assertionMonitor` field, defaulting to InferenceSensitivity.LOW",
+            "Monitor {monitor_urn} does not have an `monitor.info.assertionMonitor` field, defaulting to InferenceSensitivity.MEDIUM",
             id="minimal_monitor",
         ),
         pytest.param(
             "monitor_without_sensitivity",
-            "Monitor {monitor_urn} does not have an `monitor.info.assertionMonitor.settings.adjustmentSettings.sensitivity` field, defaulting to InferenceSensitivity.LOW",
+            "Monitor {monitor_urn} does not have an `monitor.info.assertionMonitor.settings.adjustmentSettings.sensitivity` field, defaulting to InferenceSensitivity.MEDIUM",
             id="monitor_without_sensitivity",
         ),
     ],
@@ -238,7 +238,7 @@ def test_smart_freshness_assertion_from_entities_all_fields(
     assert smart_freshness_assertion.tags == [
         TagUrn.from_string("urn:li:tag:smart_freshness_assertion_tag")
     ]
-    assert smart_freshness_assertion.sensitivity == DEFAULT_SENSITIVITY
+    assert smart_freshness_assertion.sensitivity == InferenceSensitivity.LOW
     assert smart_freshness_assertion.exclusion_windows == [
         FixedRangeExclusionWindow(
             start=datetime(2021, 1, 1, tzinfo=timezone.utc),
