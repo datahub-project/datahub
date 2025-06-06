@@ -22,7 +22,9 @@ anyio==4.9.0
     #   acryl-datahub-integrations
     #   asyncer
     #   httpx
+    #   mcp
     #   reactpy
+    #   sse-starlette
     #   starlette
     #   watchfiles
 asgiref==3.8.1
@@ -240,10 +242,14 @@ httpcore==1.0.9
     # via
     #   acryl-datahub-actions
     #   httpx
-httptools==0.6.1
+httptools==0.6.4
     # via uvicorn
 httpx==0.27.0
-    # via acryl-datahub-integrations
+    # via
+    #   acryl-datahub-integrations
+    #   mcp
+httpx-sse==0.4.0
+    # via mcp
 humanfriendly==10.0
     # via acryl-datahub
 idna==3.7
@@ -285,6 +291,8 @@ markdown-to-mrkdwn==0.2.0
     # via acryl-datahub-integrations
 markupsafe==2.1.5
     # via jinja2
+mcp==1.9.2
+    # via acryl-datahub-integrations
 mixpanel==4.10.1
     # via acryl-datahub
 mlflow-skinny==2.22.0
@@ -380,15 +388,19 @@ pyasn1-modules==0.4.1
     # via google-auth
 pycparser==2.22
     # via cffi
-pydantic==2.11.4
+pydantic==2.11.5
     # via
     #   acryl-datahub
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
     #   fastapi
+    #   mcp
     #   mlflow-skinny
+    #   pydantic-settings
 pydantic-core==2.33.2
     # via pydantic
+pydantic-settings==2.9.1
+    # via mcp
 pygithub==2.3.0
     # via acryl-datahub-integrations
 pygitops==0.16.1
@@ -414,9 +426,13 @@ python-dateutil==2.8.2
     #   google-cloud-bigquery
     #   pandas
 python-dotenv==1.0.1
-    # via uvicorn
+    # via
+    #   pydantic-settings
+    #   uvicorn
 python-http-client==3.3.7
     # via sendgrid
+python-multipart==0.0.20
+    # via mcp
 python-utils==3.8.2
     # via progressbar2
 pytz==2024.1
@@ -510,12 +526,16 @@ sqlglotrs==0.4.0
     # via sqlglot
 sqlparse==0.5.0
     # via mlflow-skinny
+sse-starlette==2.3.6
+    # via mcp
 stackprinter==0.2.12
     # via acryl-datahub-actions
 starkbank-ecdsa==2.2.0
     # via sendgrid
 starlette==0.46.2
-    # via fastapi
+    # via
+    #   fastapi
+    #   mcp
 tabulate==0.9.0
     # via acryl-datahub
 tenacity==9.0.0
@@ -555,7 +575,9 @@ typing-inspect==0.9.0
     #   acryl-datahub
     #   acryl-datahub-actions
 typing-inspection==0.4.0
-    # via pydantic
+    # via
+    #   pydantic
+    #   pydantic-settings
 tzdata==2024.1
     # via pandas
 urllib3==1.26.18
@@ -566,9 +588,10 @@ urllib3==1.26.18
     #   pygithub
     #   requests
     #   sentry-sdk
-uvicorn==0.29.0
+uvicorn==0.34.3
     # via
     #   acryl-datahub-integrations
+    #   mcp
     #   mlflow-skinny
 uvloop==0.19.0 ; platform_python_implementation != 'PyPy' and sys_platform != 'cygwin' and sys_platform != 'win32'
     # via uvicorn

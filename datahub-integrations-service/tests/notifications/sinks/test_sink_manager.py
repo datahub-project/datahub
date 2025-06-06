@@ -50,7 +50,7 @@ def notification_manager(test_sink: TestSink) -> NotificationSinkManager:
     return manager
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_notification_manager_enabled(
     notification_manager: NotificationSinkManager,
     notification_request: NotificationRequestClass,
@@ -62,7 +62,7 @@ async def test_notification_manager_enabled(
         mock_send.assert_called()
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_notification_manager_disabled(
     notification_manager: NotificationSinkManager,
     notification_request: NotificationRequestClass,

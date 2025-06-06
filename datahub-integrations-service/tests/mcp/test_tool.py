@@ -4,10 +4,11 @@ from typing import Optional
 import pytest
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter
+from mcp.server.fastmcp import FastMCP
 
-from datahub_integrations.chat.tool import ToolRegistry, ToolRunError
+from datahub_integrations.mcp.tool import ToolRunError, tools_from_fastmcp
 
-fake_mcp = ToolRegistry(tool_name_prefix="fake_mcp")
+fake_mcp = FastMCP(name="fake_mcp")
 
 
 @fake_mcp.tool(description="Search for stuff")
@@ -18,9 +19,11 @@ def search(query: str, filter: Optional[Filter], num_results: int = 10) -> Filte
 
 
 def test_tool_call() -> None:
-    assert set(fake_mcp.tools.keys()) == {"fake_mcp__search"}
+    tools = tools_from_fastmcp(fake_mcp)
+    tools_map = {tool.name: tool for tool in tools}
+    assert set(tools_map.keys()) == {"fake_mcp__search"}
 
-    search_tool = fake_mcp.tools["fake_mcp__search"]
+    search_tool = tools_map["fake_mcp__search"]
 
     result = search_tool.run(
         {
@@ -34,7 +37,7 @@ def test_tool_call() -> None:
         }
     )
     assert result is not None
-    assert compile_filters(result)
+    _ = compile_filters(result)
 
     with pytest.raises(ToolRunError, match="missing filter"):
         search_tool.run({"query": "test", "filter": None})

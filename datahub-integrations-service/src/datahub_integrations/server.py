@@ -1,6 +1,8 @@
+import contextlib
 import functools
 import logging
 import os
+from typing import AsyncIterator
 
 import fastapi
 import reactpy
@@ -28,6 +30,7 @@ from datahub_integrations.gen_ai.description_context import (
     TooManyColumnsError,
 )
 from datahub_integrations.gen_ai.router import router as gen_ai_router
+from datahub_integrations.mcp.router import authed_mcp_app, mcp_session_manager
 from datahub_integrations.notifications.router import router as notifications_router
 from datahub_integrations.share.share_router import router as share_router
 from datahub_integrations.slack.slack import (
@@ -40,7 +43,16 @@ from datahub_integrations.slack.slack import (
 from datahub_integrations.sql import router as sql_router
 from datahub_integrations.util.access_log import access_log
 
-app = FastAPI(lifespan=actions_lifespan)
+
+@contextlib.asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    async with contextlib.AsyncExitStack() as stack:
+        await stack.enter_async_context(actions_lifespan(app))
+        await stack.enter_async_context(mcp_session_manager.run())
+        yield
+
+
+app = FastAPI(lifespan=_lifespan)
 
 # Disable the uvicorn-native access logger and use our own.
 # As per https://github.com/Kludex/asgi-logger#usage
@@ -134,16 +146,19 @@ internal_router.include_router(sql_router, prefix="/sql", tags=["SQL"])
 
 external_router.include_router(dist_external_router, tags=["Dist"])
 
-
-app.include_router(internal_router, prefix="/private")
-
-# Using .mount() on ApiRouter doesn't work. See https://github.com/tiangolo/fastapi/issues/1469.
-# As such, we have to mount it directly on the app.
+# Using .mount() on ApiRouter doesn't work. See
+# https://github.com/tiangolo/fastapi/issues/1469 and
+# https://github.com/fastapi/fastapi/issues/10180.
+# As such, we have to mount sub-applications directly on the main app.
 app.mount(
     "/public/static",
     StaticFiles(directory=STATIC_ASSETS_DIR),
     name="integrations-static-dir",
 )
+app.mount("/public/ai", authed_mcp_app)
+
+
+app.include_router(internal_router, prefix="/private")
 app.include_router(external_router, prefix="/public")
 
 if os.environ.get("DEV_MODE_BYPASS_FRONTEND", False):

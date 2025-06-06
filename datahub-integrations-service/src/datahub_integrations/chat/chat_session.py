@@ -8,6 +8,7 @@ from typing import (
     Iterator,
     List,
     Optional,
+    Sequence,
     TypeGuard,
 )
 
@@ -16,6 +17,7 @@ import mlflow.entities
 import mlflow.tracing
 from datahub.sdk.main_client import DataHubClient
 from loguru import logger
+from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
 from datahub_integrations.chat.chat_history import (
@@ -28,13 +30,13 @@ from datahub_integrations.chat.chat_history import (
     ToolResult,
     ToolResultError,
 )
-from datahub_integrations.chat.mcp_server import mcp, with_client
-from datahub_integrations.chat.tool import Tool
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
     get_bedrock_client,
     get_bedrock_model_env_variable,
 )
+from datahub_integrations.mcp.mcp_server import mcp, with_client
+from datahub_integrations.mcp.tool import ToolWrapper, tools_from_fastmcp
 
 assert MLFLOW_INITIALIZED
 MAX_TOOL_CALLS = 15
@@ -78,7 +80,7 @@ def respond_to_user(next_message: NextMessage) -> NextMessage:
     return next_message
 
 
-_respond_to_user_tool = Tool(
+_respond_to_user_tool = ToolWrapper.from_function(
     fn=respond_to_user,
     name="respond_to_user",
     description=f"""\
@@ -113,13 +115,19 @@ DataHub AI is now being connected with a person.
 class ChatSession:
     def __init__(
         self,
-        tools: List[Tool],
+        tools: Sequence[ToolWrapper | FastMCP],
         client: DataHubClient,
         history: Optional[ChatHistory] = None,
         progress_callback: Optional[ProgressCallback] = None,
     ):
         self.session_id = str(uuid.uuid4())  # TODO: use uuid7 in the future
-        self.tools = tools + [_respond_to_user_tool]
+        self.tools: List[ToolWrapper] = [
+            tool
+            for entry in tools
+            for tool in (
+                tools_from_fastmcp(entry) if isinstance(entry, FastMCP) else [entry]
+            )
+        ] + [_respond_to_user_tool]
         self.client = client
         self.history: ChatHistory = history or ChatHistory()
         self._progress_callback = progress_callback
@@ -130,7 +138,7 @@ class ChatSession:
         self._use_prompt_caching = True
 
     @property
-    def tool_map(self) -> Dict[str, Tool]:
+    def tool_map(self) -> Dict[str, ToolWrapper]:
         return {tool.name: tool for tool in self.tools}
 
     @classmethod
@@ -345,7 +353,7 @@ if __name__ == "__main__":
     from pprint import pprint as print
 
     chat = ChatSession(
-        tools=mcp.get_all_tools(),
+        tools=[mcp],
         client=DataHubClient.from_env(),
         history=ChatHistory(
             messages=[
