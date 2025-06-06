@@ -1,0 +1,95 @@
+query getApplication($urn: String!) {
+    application(urn: $urn) {
+        urn
+        type
+        ...applicationFields
+        privileges {
+            ...entityPrivileges
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+        ...notes
+    }
+}
+
+query getApplicationsList($input: SearchAcrossEntitiesInput!) {
+    searchAcrossEntities(input: $input) {
+        searchResults {
+            entity {
+                ... on Application {
+                    urn
+                    type
+                    properties {
+                        name
+                        description
+                        numAssets
+                    }
+                    domain {
+                        ...entityDomain
+                    }
+                }
+            }
+        }
+    }
+}
+
+fragment applicationFields on Application {
+    ...applicationSearchFields
+    properties {
+        customProperties {
+            key
+            value
+        }
+    }
+    institutionalMemory {
+        ...institutionalMemoryFields
+    }
+}
+
+fragment applicationSearchFields on Application {
+    urn
+    type
+    properties {
+        name
+        description
+        externalUrl
+    }
+    ownership {
+        ...ownershipFields
+    }
+    tags {
+        ...globalTagsFields
+    }
+    glossaryTerms {
+        ...glossaryTerms
+    }
+    domain {
+        ...entityDomain
+    }
+    children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
+        total
+    }
+}
+
+mutation createApplication($input: CreateApplicationInput!) {
+    createApplication(input: $input) {
+        ...applicationSearchFields
+    }
+}
+
+mutation deleteApplication($urn: String!) {
+    deleteApplication(urn: $urn)
+}
+
+mutation batchSetApplication($input: BatchSetApplicationInput!) {
+    batchSetApplication(input: $input)
+}
