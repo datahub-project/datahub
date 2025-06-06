@@ -180,7 +180,7 @@ class GlueSourceConfig(
     )
 
     extract_lakeformation_tags: Optional[bool] = Field(
-        default=True,
+        default=False,
         description="If set to True, extract lakeformation tags for glue tables.",
     )
 
@@ -354,7 +354,8 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.ctx.graph
             )
 
-        self.cache_lf_tags()
+        if self.source_config.extract_lakeformation_tags:
+            self.cache_lf_tags()
 
     def cache_lf_tags(self) -> None:
         """
@@ -1448,7 +1449,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # Add profile if enabled
         try:
             yield from self.get_profile_if_enabled(
-                metadata_record, table["DatabaseName"], table_name
+                metadata_record, table["DatabaseName"], table["Name"]
             )
         except KeyError as e:
             self.report.report_failure(

@@ -23,7 +23,7 @@ class UnityCatalogTagKeyText(RestrictedText):
 
     _default_max_length: ClassVar[int] = 255
     # Unity Catalog tag keys: alphanumeric, hyphens, underscores, periods only
-    _default_replace_chars: ClassVar[Set[str]] = {
+    _default_forbidden_chars: ClassVar[Set[str]] = {
         "\t",
         "\n",
         "\r",
@@ -43,7 +43,7 @@ class UnityCatalogTagValueText(RestrictedText):
 
     _default_max_length: ClassVar[int] = 1000
     # Unity Catalog tag values are more permissive but still have some restrictions
-    _default_replace_chars: ClassVar[Set[str]] = {"\t", "\n", "\r"}
+    _default_forbidden_chars: ClassVar[Set[str]] = {"\t", "\n", "\r"}
     _default_replacement_char: ClassVar[str] = " "
     _default_truncation_suffix: ClassVar[str] = "..."
 
