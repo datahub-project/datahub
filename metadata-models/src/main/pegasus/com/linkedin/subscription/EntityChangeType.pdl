@@ -1,7 +1,7 @@
 namespace com.linkedin.subscription
 
 /**
-  * Enum to define change types that can trigger a subscription.
+  * Enum to define change types that can trigger a notification for a subscription.
   */
 enum EntityChangeType {
     /**

@@ -21,7 +21,7 @@ record MonitorInfo includes CustomProperties, ExternalReference {
       ASSERTION
 
       /**
-       * A monitor responsible for evaluating system freshness monitors
+       * A monitor responsible for evaluating system freshness monitors - This is not used
        */
       FRESHNESS
     }
