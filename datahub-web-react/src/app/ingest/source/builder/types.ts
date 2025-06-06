@@ -1,12 +1,8 @@
 import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
-<<<<<<< HEAD
-import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
-||||||| 69f368b00e
-=======
 import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import { EMBEDDED_EXECUTOR_POOL_NAME } from '@src/app/shared/constants';
 
 import { IngestionSource } from '@types';
->>>>>>> master
 
 /**
  * The size of the builder modal

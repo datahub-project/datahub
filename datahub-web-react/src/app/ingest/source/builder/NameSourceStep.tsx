@@ -19,11 +19,6 @@ const ExtraEnvKey = 'extra_env_vars';
 const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
-<<<<<<< HEAD
-export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: StepProps) => {
-||||||| 69f368b00e
-export const NameSourceStep = ({ state, updateState, prev, submit }: StepProps) => {
-=======
 export const NameSourceStep = ({
     state,
     updateState,
@@ -40,7 +35,6 @@ export const NameSourceStep = ({
         setExistingOwners(selectedSource?.ownership?.owners || []);
     }, [selectedSource?.ownership?.owners]);
 
->>>>>>> master
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
             ...state,

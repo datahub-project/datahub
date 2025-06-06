@@ -83,38 +83,22 @@ export const ManageIngestionPage = () => {
     const { platformPrivileges, loaded: loadedPlatformPrivileges } = useUserContext();
     const { config, loaded: loadedAppConfig } = useAppConfig();
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
-<<<<<<< HEAD
     const showIngestionTab = isIngestionEnabled && platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
     const canManagePools = platformPrivileges?.manageIngestion;
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
 
-    // undefined == not loaded, null == no permissions
-    const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
+    const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>(TabType.Sources);
 
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
-||||||| 69f368b00e
-    const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
-    const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
-    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
-=======
-    const showIngestionTab = isIngestionEnabled && platformPrivileges?.manageIngestion;
-    const showSecretsTab = isIngestionEnabled && platformPrivileges?.manageSecrets;
 
-    // undefined == not loaded, null == no permissions
-    const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
-
-    const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
-    const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
->>>>>>> master
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
-<<<<<<< HEAD
         if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
             if (showIngestionTab) {
                 setSelectedTab(TabType.Sources);
@@ -125,21 +109,7 @@ export const ManageIngestionPage = () => {
             } else {
                 setSelectedTab(null);
             }
-||||||| 69f368b00e
-        if (loaded && me.loaded && !showIngestionTab && selectedTab === TabType.Sources) {
-            setSelectedTab(TabType.Secrets);
-=======
-        if (loadedAppConfig && loadedPlatformPrivileges && selectedTab === undefined) {
-            if (showIngestionTab) {
-                setSelectedTab(TabType.Sources);
-            } else if (showSecretsTab) {
-                setSelectedTab(TabType.Secrets);
-            } else {
-                setSelectedTab(null);
-            }
->>>>>>> master
         }
-<<<<<<< HEAD
     }, [
         loadedAppConfig,
         loadedPlatformPrivileges,
@@ -148,11 +118,6 @@ export const ManageIngestionPage = () => {
         showRemoteExecutorsTab,
         selectedTab,
     ]);
-||||||| 69f368b00e
-    }, [loaded, me.loaded, showIngestionTab, selectedTab]);
-=======
-    }, [loadedAppConfig, loadedPlatformPrivileges, showIngestionTab, showSecretsTab, selectedTab]);
->>>>>>> master
 
     const history = useHistory();
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
@@ -167,7 +132,6 @@ export const ManageIngestionPage = () => {
         setShowCreateSourceModal(true);
     };
 
-<<<<<<< HEAD
     const handleCreateSecret = () => {
         setShowCreateSecretModal(true);
     };
@@ -204,37 +168,10 @@ export const ManageIngestionPage = () => {
         return <NoPageFound />;
     }
 
-||||||| 69f368b00e
-=======
-    const handleCreateSecret = () => {
-        setShowCreateSecretModal(true);
-    };
-
-    const TabTypeToListComponent = {
-        [TabType.Sources]: (
-            <IngestionSourceList
-                showCreateModal={showCreateSourceModal}
-                setShowCreateModal={setShowCreateSourceModal}
-            />
-        ),
-        [TabType.Secrets]: (
-            <SecretsList showCreateModal={showCreateSecretModal} setShowCreateModal={setShowCreateSecretModal} />
-        ),
-    };
-
-    if (selectedTab === undefined) {
-        return <></>; // loading
-    }
-    if (selectedTab === null) {
-        return <NoPageFound />;
-    }
-
->>>>>>> master
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID]} />
             <PageHeaderContainer>
-<<<<<<< HEAD
                 <TitleContainer>
                     <PageTitle
                         title="Manage Data Sources"
@@ -270,37 +207,6 @@ export const ManageIngestionPage = () => {
                         </Button>
                     )}
                 </HeaderActionsContainer>
-||||||| 69f368b00e
-                <PageTitle level={3}>Manage Data Sources</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    Configure and schedule syncs to import data from your data sources
-                </Typography.Paragraph>
-=======
-                <TitleContainer>
-                    <PageTitle
-                        title="Manage Data Sources"
-                        subTitle="Configure and schedule syncs to import data from your data sources"
-                    />
-                </TitleContainer>
-                <HeaderActionsContainer>
-                    {selectedTab === TabType.Sources && showIngestionTab && (
-                        <Button
-                            variant="filled"
-                            id={INGESTION_CREATE_SOURCE_ID}
-                            onClick={handleCreateSource}
-                            data-testid="create-ingestion-source-button"
-                        >
-                            <PlusOutlined style={{ marginRight: '4px' }} /> Create new source
-                        </Button>
-                    )}
-
-                    {selectedTab === TabType.Secrets && showSecretsTab && (
-                        <Button variant="filled" onClick={handleCreateSecret} data-testid="create-secret-button">
-                            <PlusOutlined style={{ marginRight: '4px' }} /> Create new secret
-                        </Button>
-                    )}
-                </HeaderActionsContainer>
->>>>>>> master
             </PageHeaderContainer>
             <StyledTabs
                 activeKey={selectedTab}
