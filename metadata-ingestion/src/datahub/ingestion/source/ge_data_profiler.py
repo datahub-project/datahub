@@ -109,8 +109,6 @@ elif original_gx_version:
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-_original_get_column_median = SqlAlchemyDataset.get_column_median
-
 P = ParamSpec("P")
 POSTGRESQL = "postgresql"
 MYSQL = "mysql"
@@ -266,22 +264,6 @@ def _get_column_quantiles_awsathena_patch(  # type:ignore
     except ProgrammingError as pe:
         self._treat_quantiles_exception(pe)
         return []
-
-
-def _get_column_median_patch(self, column):
-    # AWS Athena and presto have an special function that can be used to retrieve the median
-    if (
-        self.sql_engine_dialect.name.lower() == GXSqlDialect.AWSATHENA
-        or self.sql_engine_dialect.name.lower() == GXSqlDialect.TRINO
-    ):
-        element_values = self.engine.execute(
-            sa.select([sa.func.approx_percentile(sa.column(column), 0.5)]).select_from(
-                self._table
-            )
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
-    else:
-        return _original_get_column_median(self, column)
 
 
 def _run_with_query_combiner(
@@ -582,6 +564,17 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     self.dataset.engine.execute(
                         sa.select(
                             sa.text(f"approx_quantiles(`{column}`, 2) [OFFSET (1)]")
+                        ).select_from(self.dataset._table)
+                    ).scalar()
+                )
+            elif (
+                self.dataset.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+                or self.dataset.engine.dialect.name.lower() == GXSqlDialect.TRINO
+            ):
+                column_profile.median = str(
+                    self.dataset.engine.execute(
+                        sa.select(
+                            [sa.func.approx_percentile(sa.column(column), 0.5)]
                         ).select_from(self.dataset._table)
                     ).scalar()
                 )
@@ -1163,10 +1156,6 @@ class DatahubGEProfiler:
             unittest.mock.patch(
                 "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset._get_column_quantiles_awsathena",
                 _get_column_quantiles_awsathena_patch,
-            ),
-            unittest.mock.patch(
-                "great_expectations.dataset.sqlalchemy_dataset.SqlAlchemyDataset.get_column_median",
-                _get_column_median_patch,
             ),
             concurrent.futures.ThreadPoolExecutor(
                 max_workers=max_workers
