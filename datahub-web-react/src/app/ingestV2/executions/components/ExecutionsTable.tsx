@@ -54,8 +54,8 @@ export default function ExecutionsTable({ executionRequests, setFocusExecutionUr
 
     const tableColumns: Column<ExecutionRequestRecord>[] = [
         {
-            title: 'Name',
-            key: 'name',
+            title: 'Source',
+            key: 'source',
             render: (record) => <SourceColumn record={record} />,
             width: '30%',
         },
