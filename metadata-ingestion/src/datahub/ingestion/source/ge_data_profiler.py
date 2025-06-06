@@ -398,13 +398,10 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
 
         return sql_type in _get_column_types_to_ignore(self.dataset.engine.dialect.name)
 
-    @_run_with_query_combiner
-    def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
-        column_spec.type_ = BasicDatasetProfilerBase._get_column_type(
-            self.dataset, column
-        )
+    def _get_column_type(self, column: str) -> Optional[ProfilerDataType]:
+        type_ = BasicDatasetProfilerBase._get_column_type(self.dataset, column)
 
-        if column_spec.type_ == ProfilerDataType.UNKNOWN:
+        if type_ == ProfilerDataType.UNKNOWN:
             try:
                 datahub_field_type = resolve_sql_type(
                     self.column_types[column], self.dataset.engine.dialect.name.lower()
@@ -415,9 +412,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 )
                 datahub_field_type = None
             if datahub_field_type is None:
-                return
+                return None
             if isinstance(datahub_field_type, NumberType):
-                column_spec.type_ = ProfilerDataType.NUMERIC
+                type_ = ProfilerDataType.NUMERIC
+
+        return type_
 
     @_run_with_query_combiner
     def _get_column_nonnull_count(
@@ -845,9 +844,28 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     column_spec = _SingleColumnSpec(column, column_profile)
                     columns_profiling_queue.append(column_spec)
 
-                    self._get_column_type(column_spec, column)
+                    type_ = column_spec.type_ = self._get_column_type(column)
+
                     self._get_column_nonnull_count(column_spec, column)
                     self._get_column_unique_count(column_spec, column)
+
+                    if (
+                        not ignore_table_sampling
+                        and column not in columns_list_to_ignore_sampling
+                    ):
+                        if (
+                            type_ == ProfilerDataType.INT
+                            or type_ == ProfilerDataType.FLOAT
+                            or type_ == ProfilerDataType.NUMERIC
+                        ):
+                            self._get_dataset_column_min(column_profile, column)
+                            self._get_dataset_column_max(column_profile, column)
+                            self._get_dataset_column_mean(column_profile, column)
+                            self._get_dataset_column_median(column_profile, column)
+                            self._get_dataset_column_stdev(column_profile, column)
+                        elif type_ == ProfilerDataType.DATETIME:
+                            self._get_dataset_column_min(column_profile, column)
+                            self._get_dataset_column_max(column_profile, column)
 
         logger.debug(f"profiling {self.dataset_name}: flushing stage 2 queries")
         self.query_combiner.flush()
@@ -880,6 +898,11 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
             cardinality = convert_to_cardinality(unique_count, pct_unique)
 
             if not profile.rowCount:
+                column_profile.min = None
+                column_profile.max = None
+                column_profile.mean = None
+                column_profile.median = None
+                column_profile.stdev = None
                 continue
 
             if (
@@ -893,12 +916,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                     or type_ == ProfilerDataType.FLOAT
                     or type_ == ProfilerDataType.NUMERIC
                 ):
-                    self._get_dataset_column_min(column_profile, column)
-                    self._get_dataset_column_max(column_profile, column)
-                    self._get_dataset_column_mean(column_profile, column)
-                    self._get_dataset_column_median(column_profile, column)
-                    self._get_dataset_column_stdev(column_profile, column)
-
                     if cardinality in [
                         Cardinality.ONE,
                         Cardinality.TWO,
@@ -929,9 +946,6 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                         )
 
                 elif type_ == ProfilerDataType.DATETIME:
-                    self._get_dataset_column_min(column_profile, column)
-                    self._get_dataset_column_max(column_profile, column)
-
                     # FIXME: Re-add histogram once kl_divergence has been modified to support datetimes
 
                     if cardinality in [
