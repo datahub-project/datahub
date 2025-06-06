@@ -128,9 +128,8 @@ def test_get_strict_column_lineage(
         cast(Set[str], upstream_fields),
         cast(Set[str], downstream_fields),
     )
-    assert result == expected, f"Test failed: {result} != {expected}"
     """Test the strict column lineage matching algorithm."""
-    # Create a minimal client just for testing the method
+    assert result == expected, f"Test failed: {result} != {expected}"
 
 
 def test_infer_lineage_from_sql(client: DataHubClient) -> None:

@@ -1,4 +1,3 @@
-import time
 from typing import Dict, Generator
 
 import pytest
@@ -9,6 +8,7 @@ from datahub.sdk.dataset import Dataset
 from datahub.sdk.lineage_client import LineageResult
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_filters import FilterDsl as F
+from tests.utils import wait_for_writes_to_sync
 
 
 @pytest.fixture(scope="module")
@@ -65,8 +65,7 @@ def test_datasets(
         column_lineage=True,
     )
 
-    # Allow time for propagation
-    time.sleep(5)
+    wait_for_writes_to_sync()
 
     yield datasets
 
@@ -75,7 +74,7 @@ def test_datasets(
         try:
             test_client._graph.delete_entity(str(entity.urn), hard=True)
         except Exception as e:
-            print(f"Warning: Could not delete entity {entity.urn}: {e}")
+            raise Exception(f"Could not delete entity {entity.urn}: {e}")
 
 
 def validate_lineage_results(
