@@ -34,8 +34,16 @@ interface Props {
     selectDomainOverride?: (domain: Domain) => void;
 }
 
+<<<<<<< HEAD
 export default function DomainNavigator({ domainUrnToHide, selectDomainOverride, displayDomainColoredIcon }: Props) {
     const { sortedDomains, loading, error } = useListDomains({});
+||||||| 69f368b00e
+export default function DomainNavigator({ domainUrnToHide, selectDomainOverride }: Props) {
+    const { sortedDomains, error } = useListDomains({});
+=======
+export default function DomainNavigator({ domainUrnToHide, selectDomainOverride, displayDomainColoredIcon }: Props) {
+    const { sortedDomains, error } = useListDomains({});
+>>>>>>> master
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
 
     const domainNavigatorNodes = noDomainsFound
@@ -67,6 +75,31 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride,
             ) : (
                 domainNavigatorNodes
             )}
+<<<<<<< HEAD
+||||||| 69f368b00e
+            {!noDomainsFound &&
+                sortedDomains?.map((domain) => (
+                    <DomainNode
+                        key={domain.urn}
+                        domain={domain as Domain}
+                        numDomainChildren={domain.children?.total || 0}
+                        domainUrnToHide={domainUrnToHide}
+                        selectDomainOverride={selectDomainOverride}
+                    />
+                ))}
+=======
+            {!noDomainsFound &&
+                sortedDomains?.map((domain) => (
+                    <DomainNode
+                        key={domain.urn}
+                        domain={domain as Domain}
+                        numDomainChildren={domain.children?.total || 0}
+                        domainUrnToHide={domainUrnToHide}
+                        selectDomainOverride={selectDomainOverride}
+                        displayDomainColoredIcon={displayDomainColoredIcon}
+                    />
+                ))}
+>>>>>>> master
         </NavigatorWrapper>
     );
 }

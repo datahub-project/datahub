@@ -1,0 +1,17 @@
+[
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(urn:li:dataPlatform:snowflake,chart_id)",
+    "changeType": "PATCH",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/inputEdges/urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)",
+                "value": "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
+            }
+        ]
+    }
+}
+]

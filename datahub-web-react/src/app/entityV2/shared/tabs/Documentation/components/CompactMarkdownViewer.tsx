@@ -135,12 +135,22 @@ export default function CompactMarkdownViewer({
                     readOnly
                 />
             </MarkdownViewContainer>
+<<<<<<< HEAD
 
             {hideShowMore && isTruncated && (
                 <Tooltip title={content}>
                     <MoreIndicator>...</MoreIndicator>
                 </Tooltip>
             )}
+||||||| 69f368b00e
+            {hideShowMore && <>...</>}
+=======
+            {hideShowMore && isTruncated && (
+                <Tooltip title={content}>
+                    <MoreIndicator>...</MoreIndicator>
+                </Tooltip>
+            )}
+>>>>>>> master
 
             {!hideShowMore &&
                 (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore

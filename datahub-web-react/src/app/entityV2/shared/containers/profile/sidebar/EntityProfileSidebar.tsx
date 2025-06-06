@@ -152,8 +152,16 @@ export default function EntityProfileSidebar({
             $isShowNavBarRedesign={isShowNavBarRedesign}
         >
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
+<<<<<<< HEAD
                 <ContentContainer isVisible={!isClosed} data-testid="entity-profile-sidebar-container">
                     <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
+||||||| 69f368b00e
+                <ContentContainer isVisible={!isClosed}>
+                    <SidebarCollapsibleHeader currentTab={selectedTab} />
+=======
+                <ContentContainer isVisible={!isClosed}>
+                    <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />
+>>>>>>> master
                     <Body>
                         {selectedTab && (
                             <Content>

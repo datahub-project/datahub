@@ -356,6 +356,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
 
     searchSourceBuilder.size(applyResultLimit(configs, size));
+    searchSourceBuilder.fetchSource("urn", null);
 
     if (fieldFetchConfig == null) {
       fieldFetchConfig = new SearchDocFieldFetchConfig();

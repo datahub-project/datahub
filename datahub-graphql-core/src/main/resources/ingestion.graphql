@@ -216,11 +216,16 @@ type StructuredReport {
 """
 Retrieve an ingestion execution request
 """
-type ExecutionRequest {
+type ExecutionRequest implements Entity {
   """
   Urn of the execution request
   """
   urn: String!
+
+  """
+  The standard Entity Type
+  """
+  type: EntityType!
 
   """
   Unique id for the execution request
@@ -236,6 +241,16 @@ type ExecutionRequest {
   Result of the execution request
   """
   result: ExecutionRequestResult
+
+  """
+  The ingestion source of this execution request
+  """
+  source: IngestionSource
+
+  """
+  Unused for execution requests
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
 }
 
 """
@@ -423,6 +438,11 @@ input ListExecutionRequestsInput {
   Optional sort order. Defaults to use systemCreated.
   """
   sort: SortCriterion
+
+  """
+  When defined it adds filter to show executions with only system/non system sources
+  """
+  systemSources: Boolean
 }
 
 """
@@ -488,6 +508,16 @@ type IngestionSource {
   Previous requests to execute the ingestion source
   """
   executions(start: Int, count: Int): IngestionSourceExecutionRequests
+
+  """
+  Ownership metadata of the ingestion source
+  """
+  ownership: Ownership
+
+  """
+  The latest successful execution request for this source
+  """
+  latestSuccessfulExecution: ExecutionRequest
 }
 
 """

@@ -73,13 +73,17 @@ public class SearchTestUtils {
     BulkProcessorTestUtils.syncAfterWrite(bulkProcessor);
   }
 
-  public static final List<String> SEARCHABLE_ENTITIES =
-      Stream.concat(
-              SearchUtils.SEARCHABLE_ENTITY_TYPES.stream(),
-              SearchUtils.AUTO_COMPLETE_ENTITY_TYPES.stream())
-          .map(EntityTypeMapper::getName)
-          .distinct()
-          .collect(Collectors.toList());
+  public static final List<String> SEARCHABLE_ENTITIES;
+
+  static {
+    SEARCHABLE_ENTITIES =
+        Stream.concat(
+                SearchUtils.SEARCHABLE_ENTITY_TYPES.stream(),
+                SearchUtils.AUTO_COMPLETE_ENTITY_TYPES.stream())
+            .map(EntityTypeMapper::getName)
+            .distinct()
+            .collect(Collectors.toList());
+  }
 
   public static SearchResult facetAcrossEntities(
       OperationContext opContext,

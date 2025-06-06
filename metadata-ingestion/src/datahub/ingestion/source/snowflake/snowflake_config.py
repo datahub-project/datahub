@@ -22,6 +22,7 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
 )
@@ -324,6 +325,18 @@ class SnowflakeV2Config(
         "If specified, connector creates lineage and siblings relationship between current account's database tables "
         "and consumer/producer account's database tables."
         " Map of share name -> details of share.",
+    )
+
+    known_snowflake_edition: Optional[SnowflakeEdition] = Field(
+        default=None,
+        description="Explicitly specify the Snowflake edition (STANDARD or ENTERPRISE). If unset, the edition will be inferred automatically using 'SHOW TAGS'.",
+    )
+
+    # Allows empty containers to be ingested before datasets are added, avoiding permission errors
+    warn_no_datasets: bool = Field(
+        hidden_from_docs=True,
+        default=False,
+        description="If True, warns when no datasets are found during ingestion. If False, ingestion fails when no datasets are found.",
     )
 
     include_assertion_results: bool = Field(

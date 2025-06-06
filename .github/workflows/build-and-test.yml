@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
       - acryl-main
     paths-ignore:
       - "docs/**"
@@ -11,6 +12,8 @@ on:
     branches:
       - "**"
   workflow_dispatch:
+  schedule:
+    - cron: "0 0 * * *" # Run at midnight UTC every day
   release:
     types: [published]
 
@@ -22,10 +25,10 @@ jobs:
   setup:
     runs-on: depot-ubuntu-22.04-small
     outputs:
-      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
+      frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' || github.event_name != 'pull_request' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
-      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' }}
-      docker_change: ${{ steps.ci-optimize.outputs.docker-change == 'true' }}
+      backend_change: ${{ steps.ci-optimize.outputs.backend-change == 'true' || github.event_name != 'pull_request'}}
+      docker_change: ${{ steps.ci-optimize.outputs.docker-change == 'true' || github.event_name != 'pull_request' }}
       frontend_only: ${{ steps.ci-optimize.outputs.frontend-only == 'true' }}
       ingestion_only: ${{ steps.ci-optimize.outputs.ingestion-only == 'true' }}
       kafka_setup_change: ${{ steps.ci-optimize.outputs.kafka-setup-change == 'true' }}
@@ -103,6 +106,7 @@ jobs:
             -x :metadata-ingestion-modules:prefect-plugin:check \
             -x :metadata-ingestion-modules:gx-plugin:build \
             -x :metadata-ingestion-modules:gx-plugin:check \
+            -x :datahub-actions:build \
             -x :metadata-ingestion-modules:acryl-cloud:build \
             -x :metadata-ingestion-modules:acryl-cloud:check \
             -x :datahub-integrations-service:build \
@@ -112,12 +116,15 @@ jobs:
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
             -x :metadata-integration:java:datahub-schematron:cli:test \
-            -x :datahub-actions:build \
             --parallel
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew -PwithCoverage :datahub-frontend:build :datahub-web-react:build --parallel
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Gradle build (and test) for integrations-service
         if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
         run: |
@@ -151,7 +158,19 @@ jobs:
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload backend coverage to Codecov
-        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        if: ${{  (matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' && github.event_name != 'release') }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.BACKEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: backend
+          name: ${{ matrix.command }}
+          verbose: true
+      - name: Upload backend coverage to Codecov on release
+        if: ${{  (matrix.command == 'except_metadata_ingestion' && github.event_name == 'release' ) }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -163,8 +182,22 @@ jobs:
           name: ${{ matrix.command }}
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
+
       - name: Upload frontend coverage to Codecov
-        if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
+        if: ${{  (matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' && github.event_name != 'release') }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.FRONTEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: frontend
+          name: ${{ matrix.command }}
+          verbose: true
+
+      - name: Upload frontend coverage to Codecov on Release
+        if: ${{  (matrix.command == 'frontend' &&  github.event_name == 'release') }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -203,7 +236,12 @@ jobs:
           verbose: true
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && github.event_name != 'release'  }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+      - name: Upload test results to Codecov on release
+        if: ${{ !cancelled() && github.event_name == 'release'  }}
         uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

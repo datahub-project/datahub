@@ -364,7 +364,9 @@ class TestDataHubRestEmitter:
             # Mock the response for the initial emit
             mock_response = Mock(spec=Response)
             mock_response.status_code = 200
-            mock_response.headers = {"traceparent": "test-trace-123"}
+            mock_response.headers = {
+                "traceparent": "00-00063609cb934b9d0d4e6a7d6d5e1234-1234567890abcdef-01"
+            }
             mock_response.json.return_value = [
                 {
                     "urn": "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccount,PROD)",
@@ -434,7 +436,7 @@ class TestDataHubRestEmitter:
                 call for call in mock_emit.call_args_list if "trace/write" in call[0][0]
             ]
             assert len(trace_calls) == 2
-            assert "test-trace-123" in trace_calls[0][0][0]
+            assert "00063609cb934b9d0d4e6a7d6d5e1234" in trace_calls[0][0][0]
 
     def test_openapi_emitter_emit_mcps_with_tracing(self, openapi_emitter):
         """Test emitting multiple MCPs with tracing enabled"""
@@ -656,7 +658,9 @@ class TestDataHubRestEmitter:
             # Create initial emit response
             emit_response = Mock(spec=Response)
             emit_response.status_code = 200
-            emit_response.headers = {"traceparent": "test-trace-123"}
+            emit_response.headers = {
+                "traceparent": "00-00063609cb934b9d0d4e6a7d6d5e1234-1234567890abcdef-01"
+            }
             emit_response.json.return_value = [{"urn": test_urn, "datasetProfile": {}}]
 
             # Create trace verification response
@@ -697,19 +701,22 @@ class TestDataHubRestEmitter:
                     wait_timeout=timedelta(seconds=10),
                 )
 
-            assert "Unable to validate async write to DataHub GMS" in str(
-                exc_info.value
-            )
+            error_message = str(exc_info.value)
 
-            # Verify the error details are included
-            assert "Failed to write to storage" in str(exc_info.value)
+            # Check for key error message components
+            assert "Unable to validate async write" in error_message
+            assert "to DataHub GMS" in error_message
+            assert "Failed to write to storage" in error_message
+            assert "primaryStorage" in error_message
+            assert "writeStatus" in error_message
+            assert "'ERROR'" in error_message
 
             # Verify trace was actually called
             trace_calls = [
                 call for call in mock_emit.call_args_list if "trace/write" in call[0][0]
             ]
             assert len(trace_calls) > 0
-            assert "test-trace-123" in trace_calls[0][0][0]
+            assert "00063609cb934b9d0d4e6a7d6d5e1234" in trace_calls[0][0][0]
 
     def test_await_status_empty_trace_data(self, openapi_emitter):
         with patch(

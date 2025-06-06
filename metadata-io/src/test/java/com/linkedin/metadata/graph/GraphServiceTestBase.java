@@ -1,6 +1,8 @@
 package com.linkedin.metadata.graph;
 
-import static com.linkedin.metadata.search.utils.QueryUtils.*;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
+import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
+import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
 import static org.testng.Assert.*;
 

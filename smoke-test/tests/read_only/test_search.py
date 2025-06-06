@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 import pytest
 
 from tests.test_result_msg import add_datahub_stats
@@ -145,7 +147,8 @@ def test_openapi_v3_entity(auth_session, entity_type):
 
     first_urn = entities[0]["entity"]["urn"]
 
-    url = f"{BASE_URL_V3}/entity/{entity_type}/{first_urn}"
+    encoded_urn = quote(first_urn, safe="")
+    url = f"{BASE_URL_V3}/entity/{entity_type}/{encoded_urn}"
     response = auth_session.get(url, headers=default_headers)
     response.raise_for_status()
     actual_data = response.json()

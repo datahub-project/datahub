@@ -190,6 +190,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     icon: PartitionOutlined,
+<<<<<<< HEAD
                     supportsFullsize: true,
                 },
                 {
@@ -200,6 +201,10 @@ export class DatasetEntity implements Entity<Dataset> {
                         visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
                         enabled: (_, _2) => true,
                     },
+||||||| 69f368b00e
+=======
+                    supportsFullsize: true,
+>>>>>>> master
                 },
                 {
                     name: 'Access',

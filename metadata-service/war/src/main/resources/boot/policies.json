@@ -6,9 +6,7 @@
         "resourceOwners": false,
         "allUsers": false,
         "allGroups": false,
-        "users": [
-          "urn:li:corpuser:admin"
-        ]
+        "users": ["urn:li:corpuser:admin"]
       },
       "privileges": [
         "MANAGE_POLICIES",
@@ -65,9 +63,7 @@
         "resourceOwners": false,
         "allUsers": false,
         "allGroups": false,
-        "users": [
-          "urn:li:corpuser:admin"
-        ]
+        "users": ["urn:li:corpuser:admin"]
       },
       "privileges": [
         "EDIT_ENTITY",
@@ -137,9 +133,7 @@
         "resourceOwners": false,
         "allUsers": false,
         "allGroups": false,
-        "users": [
-          "urn:li:corpuser:admin"
-        ]
+        "users": ["urn:li:corpuser:admin"]
       },
       "privileges": [
         "MANAGE_ENTITY_TAGS",
@@ -225,9 +219,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Admin"
-        ]
+        "roles": ["urn:li:dataHubRole:Admin"]
       },
       "privileges": [
         "MANAGE_POLICIES",
@@ -287,9 +279,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Admin"
-        ]
+        "roles": ["urn:li:dataHubRole:Admin"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
@@ -364,9 +354,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "privileges": [
         "GENERATE_PERSONAL_ACCESS_TOKENS",
@@ -400,9 +388,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
@@ -447,6 +433,7 @@
         "MANAGE_DATA_PRODUCTS",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "EDIT_ENTITY_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
@@ -469,9 +456,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "resources": {
         "allResources": false,
@@ -499,9 +484,7 @@
           ]
         }
       },
-      "privileges": [
-        "EDIT_ENTITY"
-      ],
+      "privileges": ["EDIT_ENTITY"],
       "displayName": "Editors - Edit Metadata Entities",
       "description": "Editors can edit primary metadata entities.",
       "state": "ACTIVE",
@@ -518,9 +501,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Reader"
-        ]
+        "roles": ["urn:li:dataHubRole:Reader"]
       },
       "privileges": [],
       "displayName": "Readers - Platform Policy",
@@ -539,9 +520,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Reader"
-        ]
+        "roles": ["urn:li:dataHubRole:Reader"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",

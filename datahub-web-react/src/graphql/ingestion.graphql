@@ -4,31 +4,13 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
         count
         total
         ingestionSources {
-            urn
-            name
-            type
-            config {
-                recipe
-                version
-                executorId
-                debugMode
-                extraArgs {
-                    key
-                    value
-                }
-            }
-            schedule {
-                interval
-                timezone
-            }
-            platform {
-                urn
-            }
+            ...ingestionSourceFields
             executions(start: 0, count: 1) {
                 start
                 count
                 total
                 executionRequests {
+<<<<<<< HEAD
                     urn
                     id
                     input {
@@ -46,7 +28,29 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                             serializedValue
                         }
                     }
+||||||| 69f368b00e
+                    urn
+                    id
+                    input {
+                        requestedAt
+                        actorUrn
+                    }
+                    result {
+                        status
+                        startTimeMs
+                        durationMs
+                        structuredReport {
+                            type
+                            serializedValue
+                        }
+                    }
+=======
+                    ...ingestionExecutionRequestFields
+>>>>>>> master
                 }
+            }
+            ownership {
+                ...ownershipFields
             }
         }
     }
@@ -61,31 +65,13 @@ query getIngestionSourceName($urn: String!) {
 
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
-        urn
-        name
-        type
-        config {
-            recipe
-            version
-            executorId
-            debugMode
-            extraArgs {
-                key
-                value
-            }
-        }
-        schedule {
-            interval
-            timezone
-        }
-        platform {
-            urn
-        }
+        ...ingestionSourceFields
         executions(start: $runStart, count: $runCount) {
             start
             count
             total
             executionRequests {
+<<<<<<< HEAD
                 urn
                 id
                 input {
@@ -120,17 +106,51 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
                         serializedValue
                     }
                 }
+||||||| 69f368b00e
+                urn
+                id
+                input {
+                    requestedAt
+                    actorUrn
+                    source {
+                        type
+                    }
+                }
+                result {
+                    status
+                    startTimeMs
+                    durationMs
+                    structuredReport {
+                        type
+                        serializedValue
+                    }
+                }
+=======
+                ...ingestionExecutionRequestFields
+>>>>>>> master
             }
+        }
+        ownership {
+            ...ownershipFields
         }
     }
 }
 
 query getIngestionExecutionRequest($urn: String!) {
     executionRequest(urn: $urn) {
-        urn
-        id
-        input {
+        ...ingestionExecutionRequestFields
+    }
+}
+
+query listIngestionExecutionRequests($input: ListExecutionRequestsInput!) {
+    listExecutionRequests(input: $input) {
+        start
+        total
+        count
+        executionRequests {
+            ...ingestionExecutionRequestFields
             source {
+<<<<<<< HEAD
                 type
             }
             actorUrn
@@ -149,6 +169,29 @@ query getIngestionExecutionRequest($urn: String!) {
             structuredReport {
                 type
                 serializedValue
+||||||| 69f368b00e
+                type
+            }
+            actorUrn
+            arguments {
+                key
+                value
+            }
+        }
+        result {
+            status
+            startTimeMs
+            durationMs
+            report
+            structuredReport {
+                type
+                serializedValue
+=======
+                ...ingestionSourceFields
+                latestSuccessfulExecution {
+                    ...minimalIngestionExecutionRequestFields
+                }
+>>>>>>> master
             }
         }
     }

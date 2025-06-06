@@ -2,7 +2,7 @@
 ---
 services:
   kafka-rest-proxy:
-    image: ${DATAHUB_CONFLUENT_KAFKA_REST_IMAGE:-confluentinc/cp-kafka-rest}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
+    image: ${DATAHUB_CONFLUENT_KAFKA_REST_IMAGE:-confluentinc/cp-kafka-rest}:${DATAHUB_CONFLUENT_VERSION:-7.9.1}
     env_file: kafka-rest-proxy/env/docker.env
     hostname: kafka-rest-proxy
     ports:

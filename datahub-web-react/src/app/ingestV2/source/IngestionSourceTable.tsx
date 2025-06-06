@@ -1,65 +1,48 @@
-import { Empty } from 'antd';
+import { Table } from '@components';
 import { SorterResult } from 'antd/lib/table/interface';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { StyledTable } from '@app/entity/shared/components/styled/StyledTable';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
+import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
     ActionsColumn,
-    LastStatusColumn,
+    NameColumn,
+    OwnerColumn,
     ScheduleColumn,
-    TypeColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
-import { IngestionSourceExecutionList } from '@app/ingestV2/source/executions/IngestionSourceExecutionList';
-import { CLI_EXECUTOR_ID, getIngestionSourceStatus } from '@app/ingestV2/source/utils';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
 
-const PAGE_HEADER_HEIGHT = 395;
-
-const StyledSourceTable = styled(StyledTable)`
-    .cliIngestion {
-        td {
-            background-color: ${ANTD_GRAY[2]} !important;
-        }
-    }
-` as typeof StyledTable;
-
-const StyledSourceTableWithNavBarRedesign = styled(StyledSourceTable)`
-    overflow: hidden;
-
-    &&& .ant-table-body {
-        overflow-y: auto;
-        height: calc(100vh - ${PAGE_HEADER_HEIGHT}px);
-    }
-` as typeof StyledSourceTable;
+const StyledTable = styled(Table)`
+    table-layout: fixed;
+`;
 
 interface Props {
-    lastRefresh: number;
     sources: IngestionSource[];
     setFocusExecutionUrn: (urn: string) => void;
     onExecute: (urn: string) => void;
     onEdit: (urn: string) => void;
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
-    onRefresh: () => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
+    isLoading?: boolean;
 }
 
 function IngestionSourceTable({
-    lastRefresh,
     sources,
     setFocusExecutionUrn,
     onExecute,
     onEdit,
     onView,
     onDelete,
-    onRefresh,
     onChangeSort,
+    isLoading,
 }: Props) {
-    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const entityRegistry = useEntityRegistryV2();
 
     const tableData = sources.map((source) => ({
         urn: source.urn,
@@ -69,55 +52,60 @@ function IngestionSourceTable({
         schedule: source.schedule?.interval,
         timezone: source.schedule?.timezone,
         execCount: source.executions?.total || 0,
-        lastExecUrn:
-            source.executions &&
-            source.executions?.executionRequests?.length > 0 &&
-            source.executions?.executionRequests[0]?.urn,
-        lastExecTime:
-            source.executions &&
-            source.executions?.executionRequests?.length > 0 &&
-            source.executions?.executionRequests[0]?.result?.startTimeMs,
+        lastExecUrn: source.executions?.executionRequests?.[0]?.urn,
+        lastExecTime: source.executions?.executionRequests?.[0]?.result?.startTimeMs,
         lastExecStatus:
-            source.executions &&
-            source.executions?.executionRequests?.length > 0 &&
-            getIngestionSourceStatus(source.executions?.executionRequests[0]?.result),
+            source.executions?.executionRequests?.[0]?.result &&
+            getIngestionSourceStatus(source.executions.executionRequests[0].result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
+        owners: source.ownership?.owners,
     }));
 
     const tableColumns = [
         {
-            title: 'Type',
-            dataIndex: 'type',
-            key: 'type',
-            render: (type: string, record: any) => <TypeColumn type={type} record={record} />,
-            sorter: true,
-        },
-        {
             title: 'Name',
-            dataIndex: 'name',
             key: 'name',
-            render: (name: string) => name || '',
+            render: (record) => {
+                return <NameColumn type={record.type} record={record} />;
+            },
+            width: '30%',
             sorter: true,
         },
         {
             title: 'Schedule',
-            dataIndex: 'schedule',
             key: 'schedule',
-            render: ScheduleColumn,
+            render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
+            width: '15%',
+        },
+        {
+            title: 'Last Run',
+            key: 'lastRun',
+            render: (record) => <DateTimeColumn time={record.lastExecTime ?? 0} placeholder={<>Never run</>} />,
+            width: '15%',
         },
         {
             title: 'Status',
-            dataIndex: 'lastExecStatus',
-            key: 'lastExecStatus',
-            render: (status: any, record) => (
-                <LastStatusColumn status={status} record={record} setFocusExecutionUrn={setFocusExecutionUrn} />
+            key: 'status',
+            render: (record) => (
+                <StatusColumn
+                    status={record.lastExecStatus}
+                    onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
+                    dataTestId="ingestion-source-table-status"
+                />
             ),
+            width: '15%',
         },
         {
+            title: 'Owner',
+            key: 'owner',
+            render: (record) => <OwnerColumn owners={record.owners || []} entityRegistry={entityRegistry} />,
+            width: '15%',
+        },
+
+        {
             title: '',
-            dataIndex: '',
-            key: 'x',
-            render: (_, record: any) => (
+            key: 'actions',
+            render: (record) => (
                 <ActionsColumn
                     record={record}
                     setFocusExecutionUrn={setFocusExecutionUrn}
@@ -127,49 +115,23 @@ function IngestionSourceTable({
                     onEdit={onEdit}
                 />
             ),
+            width: '100px',
         },
     ];
 
-    const handleTableChange = (_: any, __: any, sorter: any) => {
-        const sorterTyped: SorterResult<any> = sorter;
-        const field = sorterTyped.field as string;
-        const { order } = sorterTyped;
-        onChangeSort(field, order);
+    const handleSortColumnChange = ({ sortColumn, sortOrder }) => {
+        onChangeSort(sortColumn, sortOrder);
     };
 
-    const FinalStyledSourceTable = isShowNavBarRedesign ? StyledSourceTableWithNavBarRedesign : StyledSourceTable;
-
     return (
-        <FinalStyledSourceTable
+        <StyledTable
             columns={tableColumns}
-            onChange={handleTableChange}
-            dataSource={tableData}
-            scroll={isShowNavBarRedesign ? { y: 'max-content', x: 'max-content' } : {}}
-            rowKey="urn"
-            rowClassName={(record, _) => (record.cliIngestion ? 'cliIngestion' : '')}
-            locale={{
-                emptyText: <Empty description="No Ingestion Sources!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-            }}
-            expandable={{
-                expandedRowRender: (record, _index, _indent, expanded) => {
-                    return (
-                        <IngestionSourceExecutionList
-                            urn={record.urn}
-                            isExpanded={expanded}
-                            lastRefresh={lastRefresh}
-                            onRefresh={onRefresh}
-                        />
-                    );
-                },
-                rowExpandable: (record) => {
-                    return record.execCount > 0;
-                },
-                defaultExpandAllRows: false,
-                indentSize: 0,
-            }}
-            pagination={false}
+            data={tableData}
+            isScrollable
+            handleSortColumnChange={handleSortColumnChange}
+            isLoading={isLoading}
         />
     );
 }
-
-export default IngestionSourceTable;
+const MemoizedTable = React.memo(IngestionSourceTable);
+export default MemoizedTable;
