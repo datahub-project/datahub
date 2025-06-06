@@ -1,6 +1,8 @@
 import { Table } from '@components';
 import { SorterResult } from 'antd/lib/table/interface';
+import * as QueryString from 'query-string';
 import React from 'react';
+import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
@@ -13,6 +15,8 @@ import {
     ScheduleColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { TabType, tabUrlMap } from '@app/ingestV2/types';
+import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
@@ -30,6 +34,7 @@ interface Props {
     onDelete: (urn: string) => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     isLoading?: boolean;
+    shouldPreserveParams: React.MutableRefObject<boolean>;
 }
 
 function IngestionSourceTable({
@@ -41,7 +46,9 @@ function IngestionSourceTable({
     onDelete,
     onChangeSort,
     isLoading,
+    shouldPreserveParams,
 }: Props) {
+    const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
 
     const tableData = sources.map((source) => ({
@@ -123,6 +130,24 @@ function IngestionSourceTable({
         onChangeSort(sortColumn, sortOrder);
     };
 
+    const onRowClick = (record) => {
+        const selectedSourceNameFilter = [{ field: 'ingestionSource', values: [record.urn] }];
+        const preserveParams = shouldPreserveParams;
+        preserveParams.current = true;
+
+        const search = QueryString.stringify(
+            {
+                ...filtersToQueryStringParams(selectedSourceNameFilter),
+            },
+            { arrayFormat: 'comma' },
+        );
+
+        history.replace({
+            pathname: tabUrlMap[TabType.ExecutionLog],
+            search,
+        });
+    };
+
     return (
         <StyledTable
             columns={tableColumns}
@@ -130,6 +155,7 @@ function IngestionSourceTable({
             isScrollable
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
+            onRowClick={onRowClick}
         />
     );
 }
