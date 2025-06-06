@@ -417,8 +417,9 @@ def test_subscribe_with_no_assertion_updates_existing_subscription(
 
     # Mock: One existing subscription found
     subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
 
     # Execute
     subscription_client.subscribe(
@@ -610,8 +611,9 @@ def test_subscribe_with_assertion_updates_existing_subscription(
 
     # Mock: One existing subscription found
     subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
 
     # Execute: Subscribe to ASSERTION_ERROR, ASSERTION_FAILED, and ASSERTION_PASSED
     subscription_client.subscribe(
@@ -1176,8 +1178,9 @@ def test_unsubscribe_dataset_remove_all_change_types_deletes_subscription(
 
     # Mock: One existing subscription found
     subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
 
     # Execute: Remove all change types (entity_change_types=None)
     subscription_client.unsubscribe(
@@ -1193,7 +1196,7 @@ def test_unsubscribe_dataset_remove_all_change_types_deletes_subscription(
 
     # Verify subscription was deleted (no change types remaining)
     subscription_client.client.entities.delete.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     )
     subscription_client.client.entities.upsert.assert_not_called()  # type: ignore[attr-defined]
 
@@ -1225,8 +1228,9 @@ def test_unsubscribe_dataset_remove_specific_change_types_updates_subscription(
 
     # Mock: One existing subscription found
     subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
 
     # Execute: Remove specific change types
     subscription_client.unsubscribe(
@@ -1281,8 +1285,9 @@ def test_unsubscribe_dataset_remove_all_remaining_change_types_deletes_subscript
 
     # Mock: One existing subscription found
     subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
 
     # Execute: Remove specific change types that happen to be all the remaining ones
     subscription_client.unsubscribe(
@@ -1296,7 +1301,7 @@ def test_unsubscribe_dataset_remove_all_remaining_change_types_deletes_subscript
 
     # Verify subscription was deleted (no change types remaining)
     subscription_client.client.entities.delete.assert_called_once_with(  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     )
     subscription_client.client.entities.upsert.assert_not_called()  # type: ignore[attr-defined]
 
@@ -1320,8 +1325,9 @@ def test_unsubscribe_dataset_remove_nonexistent_change_types_no_change(
 
     # Mock: One existing subscription found
     subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
 
     # Execute: Try to remove change types that don't exist
     subscription_client.unsubscribe(
@@ -1390,8 +1396,9 @@ def test_unsubscribe_dataset_updates_audit_stamp(
 
     # Mock: One existing subscription found
     subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
-        existing_subscription
+        existing_subscription.urn
     ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
 
     # Execute: Remove one change type, keeping one
     subscription_client.unsubscribe(

@@ -137,18 +137,22 @@ class SubscriptionClient:
             return
         elif len(existing_subscriptions) == 1:
             # update existing subscription
-            subscription = existing_subscriptions[0]
-            logger.info(
-                f"Found existing subscription to be updated: {subscription.urn}"
+            subscription_urn = existing_subscriptions[0]
+            existing_subscription_entity = self.client.entities.get(subscription_urn)
+            assert isinstance(existing_subscription_entity, Subscription), (
+                f"Expected Subscription entity type for subscription urn={subscription_urn}"
             )
-            subscription.info.entityChangeTypes = self._merge_entity_change_types(
-                existing_change_types=subscription.info.entityChangeTypes,
+            logger.info(
+                f"Found existing subscription to be updated: {existing_subscription_entity.urn}"
+            )
+            existing_subscription_entity.info.entityChangeTypes = self._merge_entity_change_types(
+                existing_change_types=existing_subscription_entity.info.entityChangeTypes,
                 new_change_type_strs=entity_change_type_strs,
                 new_assertion_urn=assertion_urn,
             )
-            subscription.info.updatedOn = self._create_audit_stamp()
-            self.client.entities.upsert(subscription)
-            logger.info(f"Subscription updated: {subscription.urn}")
+            existing_subscription_entity.info.updatedOn = self._create_audit_stamp()
+            self.client.entities.upsert(existing_subscription_entity)
+            logger.info(f"Subscription updated: {existing_subscription_entity.urn}")
             return
         else:
             raise SdkUsageError(
@@ -252,24 +256,30 @@ class SubscriptionClient:
         )
 
         # Find existing subscription
-        existing_subscriptions = self.client.resolve.subscription(  # type: ignore[attr-defined]
+        existing_subscription_urns = self.client.resolve.subscription(  # type: ignore[attr-defined]
             entity_urn=dataset_urn.urn(),
             actor_urn=subscriber_urn.urn(),
         )
 
-        if not existing_subscriptions:
+        if not existing_subscription_urns:
             logger.info(
                 f"No subscription found for dataset={dataset_urn} and subscriber={subscriber_urn}"
             )
             return
-        elif len(existing_subscriptions) > 1:
+        elif len(existing_subscription_urns) > 1:
             raise SdkUsageError(
                 f"Multiple subscriptions found for dataset={dataset_urn} and subscriber={subscriber_urn}. "
-                f"Expected at most 1, got {len(existing_subscriptions)}"
+                f"Expected at most 1, got {len(existing_subscription_urns)}"
             )
 
-        subscription = existing_subscriptions[0]
-        logger.info(f"Found existing subscription to be updated: {subscription.urn}")
+        subscription_urn = existing_subscription_urns[0]
+        subscription_entity = self.client.entities.get(subscription_urn)
+        assert isinstance(subscription_entity, Subscription), (
+            f"Expected Subscription entity type for subscription urn={subscription_urn}"
+        )
+        logger.info(
+            f"Found existing subscription to be updated: {subscription_entity.urn}"
+        )
 
         # Get the change types to remove (validated input or defaults)
         change_types_to_remove = self._get_entity_change_types(
@@ -280,23 +290,27 @@ class SubscriptionClient:
         )
 
         # Remove the specified change types
+        if subscription_entity.info.entityChangeTypes is None:
+            raise SdkUsageError(
+                f"Subscription {subscription_entity.urn} has no change types to remove"
+            )
         updated_change_types = self._remove_change_types(
-            subscription.info.entityChangeTypes, change_types_to_remove
+            subscription_entity.info.entityChangeTypes, change_types_to_remove
         )
 
         # If no change types remain, delete the subscription
         if not updated_change_types:
             logger.info(
-                f"No change types remain, deleting subscription: {subscription.urn}"
+                f"No change types remain, deleting subscription: {subscription_entity.urn}"
             )
-            self.client.entities.delete(subscription)
+            self.client.entities.delete(subscription_entity.urn)
             return
 
         # Update the subscription with remaining change types
-        subscription.info.entityChangeTypes = updated_change_types
-        subscription.info.updatedOn = self._create_audit_stamp()
-        self.client.entities.upsert(subscription)
-        logger.info(f"Subscription updated: {subscription.urn}")
+        subscription_entity.info.entityChangeTypes = updated_change_types
+        subscription_entity.info.updatedOn = self._create_audit_stamp()
+        self.client.entities.upsert(subscription_entity)
+        logger.info(f"Subscription updated: {subscription_entity.urn}")
 
     def _get_entity_change_types(
         self,

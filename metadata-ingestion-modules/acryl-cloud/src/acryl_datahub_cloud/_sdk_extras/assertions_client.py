@@ -74,12 +74,6 @@ class AssertionsClient:
                     "additional_filter": "last_modified > '2021-01-01'",
                 } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
                 additional_filter='last_modified > 2021-01-01')
-                - {
-                    "type": "high_watermark_column",
-                    "column_name": "id",
-                    "additional_filter": "id > 1000",
-                } or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id',
-                additional_filter='id > 1000')
                 - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
             sensitivity: The sensitivity to be applied to the assertion. Valid values are:
                 - "low" or InferenceSensitivity.LOW
@@ -219,12 +213,6 @@ class AssertionsClient:
                     "additional_filter": "last_modified > '2021-01-01'",
                 } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
                 additional_filter='last_modified > 2021-01-01')
-                - {
-                    "type": "high_watermark_column",
-                    "column_name": "id",
-                    "additional_filter": "id > 1000",
-                } or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id',
-                additional_filter='id > 1000')
                 - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
             sensitivity: The sensitivity to be applied to the assertion. Valid values are:
                 - "low" or InferenceSensitivity.LOW
@@ -609,12 +597,6 @@ class AssertionsClient:
                     "additional_filter": "last_modified > '2021-01-01'",
                 } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
                 additional_filter='last_modified > 2021-01-01')
-                - {
-                    "type": "high_watermark_column",
-                    "column_name": "id",
-                    "additional_filter": "id > 1000",
-                } or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id',
-                additional_filter='id > 1000')
                 - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
             sensitivity: The sensitivity to be applied to the assertion. Valid values are:
                 - "low" or InferenceSensitivity.LOW
