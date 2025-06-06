@@ -7,6 +7,7 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
@@ -123,6 +124,7 @@ interface Props {
 
 export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shouldPreserveParams }: Props) => {
     const location = useLocation();
+    const me = useUserContext();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
@@ -330,6 +332,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
             createIngestionSource({ variables: { input } })
                 .then((result) => {
                     message.loading({ content: 'Loading...', duration: 2 });
+                    const ownersToAdd = owners?.filter((owner) => owner.ownerUrn !== me.urn);
+
                     const newSource = {
                         urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
                         name: input.name,
@@ -344,11 +348,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                         ownership: null,
                     };
 
-                    if (owners && owners.length > 0) {
+                    if (ownersToAdd && ownersToAdd.length > 0) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners,
+                                    owners: ownersToAdd,
                                     resources: [{ resourceUrn: newSource.urn }],
                                 },
                             },
