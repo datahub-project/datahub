@@ -120,7 +120,6 @@ SNOWFLAKE = "snowflake"
 BIGQUERY = "bigquery"
 REDSHIFT = "redshift"
 DATABRICKS = "databricks"
-TRINO = "trino"
 
 # Type names for Databricks, to match Title Case types in sqlalchemy
 ProfilerTypeMapping.INT_TYPE_NAMES.append("Integer")
@@ -184,34 +183,24 @@ class GEProfilerRequest:
 
 def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:
     if self.engine.dialect.name.lower() == REDSHIFT:
-        element_values = self.engine.execute(
-            sa.select(
-                [
-                    # We use coalesce here to force SQL Alchemy to see this
-                    # as a column expression.
-                    sa.func.coalesce(
-                        sa.text(f'APPROXIMATE count(distinct "{column}")')
-                    ),
-                ]
-            ).select_from(self._table)
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
+        # We use coalesce here to force SQL Alchemy to see this
+        # as a column expression.
+        expr = sa.func.coalesce(sa.text(f'APPROXIMATE count(distinct "{column}")'))
     elif (
         self.engine.dialect.name.lower() == BIGQUERY
         or self.engine.dialect.name.lower() == SNOWFLAKE
     ):
-        element_values = self.engine.execute(
-            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
-                self._table
-            )
-        )
-        return convert_to_json_serializable(element_values.fetchone()[0])
+        expr = sa.func.APPROX_COUNT_DISTINCT(sa.column(column))
+    elif (
+        self.engine.dialect.name.lower() == GXSqlDialect.AWSATHENA
+        or self.engine.dialect.name.lower() == GXSqlDialect.TRINO
+    ):
+        expr = sa.func.APPROX_DISTINCT(sa.column(column))
+    else:
+        expr = sa.func.count(sa.func.distinct(sa.column(column)))
+
     return convert_to_json_serializable(
-        self.engine.execute(
-            sa.select([sa.func.count(sa.func.distinct(sa.column(column)))]).select_from(
-                self._table
-            )
-        ).scalar()
+        self.engine.execute(sa.select([expr]).select_from(self._table)).scalar()
     )
 
 
@@ -734,11 +723,31 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
     def _get_dataset_column_distinct_value_frequencies(
         self, column_profile: DatasetFieldProfileClass, column: str
     ) -> None:
-        if self.config.include_field_distinct_value_frequencies:
+        if not self.config.include_field_distinct_value_frequencies:
+            return
+        try:
+            # Great Expectations runs SORT BY in SQL by default, but not all column types are sortable
+            # (such as JSON data types on Athena/Trino). Pass sort="none" and sort it in Python instead.
             column_profile.distinctValueFrequencies = [
                 ValueFrequencyClass(value=str(value), frequency=count)
-                for value, count in self.dataset.get_column_value_counts(column).items()
+                for value, count in self.dataset.get_column_value_counts(
+                    column, sort="none"
+                ).items()
             ]
+            column_profile.distinctValueFrequencies.sort(
+                key=lambda valfreq: valfreq.value
+            )
+        except Exception as e:
+            logger.debug(
+                f"Caught exception while attempting to get distinct value frequencies for column {column}. {e}"
+            )
+
+            self.report.report_warning(
+                title="Profiling: Unable to Calculate Distinct Value Frequencies",
+                message="Distinct value frequencies for the column will not be accessible",
+                context=f"{self.dataset_name}.{column}",
+                exc=e,
+            )
 
     @_run_with_query_combiner
     def _get_dataset_column_histogram(
@@ -1395,12 +1404,12 @@ class DatahubGEProfiler:
                     )
                 return None
             finally:
-                if batch is not None and self.base_engine.engine.name.upper() in [
-                    "TRINO",
-                    "AWSATHENA",
+                if batch is not None and self.base_engine.engine.name.lower() in [
+                    GXSqlDialect.TRINO,
+                    GXSqlDialect.AWSATHENA,
                 ]:
                     if (
-                        self.base_engine.engine.name.upper() == "TRINO"
+                        self.base_engine.engine.name.lower() == GXSqlDialect.TRINO
                         or temp_view is not None
                     ):
                         self._drop_temp_table(batch)
