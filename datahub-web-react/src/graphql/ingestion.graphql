@@ -10,43 +10,7 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
                 count
                 total
                 executionRequests {
-<<<<<<< HEAD
-                    urn
-                    id
-                    input {
-                        requestedAt
-                        actorUrn
-                        executorId
-                    }
-                    result {
-                        status
-                        startTimeMs
-                        durationMs
-                        executorInstanceId # SaaS only
-                        structuredReport {
-                            type
-                            serializedValue
-                        }
-                    }
-||||||| 69f368b00e
-                    urn
-                    id
-                    input {
-                        requestedAt
-                        actorUrn
-                    }
-                    result {
-                        status
-                        startTimeMs
-                        durationMs
-                        structuredReport {
-                            type
-                            serializedValue
-                        }
-                    }
-=======
                     ...ingestionExecutionRequestFields
->>>>>>> master
                 }
             }
             ownership {
@@ -71,63 +35,7 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
             count
             total
             executionRequests {
-<<<<<<< HEAD
-                urn
-                id
-                input {
-                    executorId
-                    requestedAt
-                    source {
-                        type
-                    }
-                    actor {
-                        urn
-                        type
-                        username
-                        properties {
-                            displayName
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableProperties {
-                            displayName
-                            pictureLink
-                        }
-                    }
-                }
-                result {
-                    status
-                    startTimeMs
-                    durationMs
-                    executorInstanceId # SaaS only
-                    structuredReport {
-                        type
-                        serializedValue
-                    }
-                }
-||||||| 69f368b00e
-                urn
-                id
-                input {
-                    requestedAt
-                    actorUrn
-                    source {
-                        type
-                    }
-                }
-                result {
-                    status
-                    startTimeMs
-                    durationMs
-                    structuredReport {
-                        type
-                        serializedValue
-                    }
-                }
-=======
                 ...ingestionExecutionRequestFields
->>>>>>> master
             }
         }
         ownership {
@@ -150,48 +58,10 @@ query listIngestionExecutionRequests($input: ListExecutionRequestsInput!) {
         executionRequests {
             ...ingestionExecutionRequestFields
             source {
-<<<<<<< HEAD
-                type
-            }
-            actorUrn
-            executorId
-            arguments {
-                key
-                value
-            }
-        }
-        result {
-            status
-            startTimeMs
-            durationMs
-            report
-            executorInstanceId # SaaS only
-            structuredReport {
-                type
-                serializedValue
-||||||| 69f368b00e
-                type
-            }
-            actorUrn
-            arguments {
-                key
-                value
-            }
-        }
-        result {
-            status
-            startTimeMs
-            durationMs
-            report
-            structuredReport {
-                type
-                serializedValue
-=======
                 ...ingestionSourceFields
                 latestSuccessfulExecution {
                     ...minimalIngestionExecutionRequestFields
                 }
->>>>>>> master
             }
         }
     }

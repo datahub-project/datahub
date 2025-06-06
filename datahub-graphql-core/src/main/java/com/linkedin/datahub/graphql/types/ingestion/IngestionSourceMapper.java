@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.types.ingestion;
 
+import static com.linkedin.metadata.Constants.DEFAULT_EXECUTOR_ID;
+
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -111,7 +113,11 @@ public class IngestionSourceMapper implements ModelMapper<EntityResponse, Ingest
     final IngestionConfig result = new IngestionConfig();
     result.setRecipe(config.getRecipe());
     result.setVersion(config.getVersion());
-    result.setExecutorId(config.getExecutorId());
+    if (config.hasExecutorId()) { // SaaS only
+      result.setExecutorId(config.getExecutorId());
+    } else {
+      result.setExecutorId(DEFAULT_EXECUTOR_ID);
+    }
     result.setDebugMode(config.isDebugMode());
     if (config.getExtraArgs() != null) {
       List<StringMapEntry> extraArgs =

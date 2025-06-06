@@ -2537,6 +2537,7 @@ fragment ingestionExecutionRequestFields on ExecutionRequest {
         startTimeMs
         durationMs
         report
+        executorInstanceId # SaaS only
         structuredReport {
             type
             serializedValue

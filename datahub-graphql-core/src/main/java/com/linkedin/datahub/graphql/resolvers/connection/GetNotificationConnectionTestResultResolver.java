@@ -8,7 +8,7 @@ import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
 import com.linkedin.datahub.graphql.generated.ExecutionRequestResult;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
+import com.linkedin.datahub.graphql.types.ingestion.ExecutionRequestMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -87,7 +87,7 @@ public class GetNotificationConnectionTestResultResolver
                       "ExecutionRequest not found for a connection test request with urn %s", urn));
             }
             // 3.3 Map to gql type and return results
-            return IngestionResolverUtils.mapExecutionRequestResult(executionRequestResult);
+            return ExecutionRequestMapper.mapExecutionRequestResult(executionRequestResult);
           } catch (Exception e) {
             throw new RuntimeException("Failed to retrieve execution request", e);
           }
