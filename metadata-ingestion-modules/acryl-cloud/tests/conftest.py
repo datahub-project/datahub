@@ -43,7 +43,7 @@ def any_dataset_urn() -> DatasetUrn:
 def any_monitor_urn(any_dataset_urn: DatasetUrn) -> MonitorUrn:
     return MonitorUrn(
         entity=any_dataset_urn,
-        id=_assertion_id,
+        id=f"urn:li:assertion:{_assertion_id}",
     )
 
 
