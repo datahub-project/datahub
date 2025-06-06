@@ -270,7 +270,7 @@ export const ProposalList = ({
                     onRowClick={onProposalClick}
                     actionRequests={actionRequests as ActionRequest[]}
                     // Show loading indicator when there is no cached data, or the when the cached data is empty after bulk operations
-                    isLoading={isLoading && (!data || data?.listActionRequests?.actionRequests.length === 0)}
+                    isLoading={isLoading && (!data || data?.listActionRequests?.actionRequests?.length === 0)}
                     enableSelection={enableSelection}
                     isRowSelectionDisabled={(record: ActionRequest) => {
                         return record.status === 'COMPLETED';
