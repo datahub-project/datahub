@@ -538,7 +538,9 @@ def test_get_lineage_downstream(client: DataHubClient) -> None:
     assert results[0].direction == "downstream"
 
 
-def test_get_lineage_multiple_hops(client: DataHubClient) -> None:
+def test_get_lineage_multiple_hops(
+    client: DataHubClient, caplog: pytest.LogCaptureFixture
+) -> None:
     """Test lineage retrieval with multiple hops."""
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,source_table,PROD)"
 
@@ -578,6 +580,16 @@ def test_get_lineage_multiple_hops(client: DataHubClient) -> None:
     # Patch the GraphQL execution method
     with patch.object(client._graph, "execute_graphql", return_value=mock_response):
         results = client.lineage.get_lineage(source_urn=source_urn, max_hops=2)
+
+    # check warning if logged when max_hops > 2
+    with patch.object(
+        client._graph, "execute_graphql", return_value=mock_response
+    ), caplog.at_level("WARNING"):
+        client.lineage.get_lineage(source_urn=source_urn, max_hops=3)
+        assert any(
+            "the search will try to find the full lineage graph" in msg
+            for msg in caplog.messages
+        )
 
     # Validate results
     assert len(results) == 2

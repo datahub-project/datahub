@@ -785,9 +785,9 @@ class LineageClient:
         # print warning if max_hops is greater than 2
         if max_hops > 2:
             logger.warning(
-                """If max_hops is greater than 2, the lineage search will search for full lineage graph.
-                By default, the result will be limited to 500 results.
-                You can adjust the count parameter to increase or decrease the number of results.
+                """If `max_hops` is more than 2, the search will try to find the full lineage graph.
+                By default, only 500 results are shown.
+                You can change the `count` to get more or fewer results.
                 """
             )
 
