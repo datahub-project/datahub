@@ -186,23 +186,117 @@ class SubscriptionClient:
         self,
         *,
         urn: Union[str, DatasetUrn, AssertionUrn],
-        subscriber_urn: Optional[SubscriberInputType] = None,
+        subscriber_urn: SubscriberInputType,
         entity_change_types: Optional[List[models.EntityChangeTypeClass]] = None,
     ) -> None:
         """
-        Remove existing subscriptions for a dataset or assertion.
+        Remove subscriptions for entity change notifications.
+
+        This method supports selective unsubscription based on subscriber and change types.
+        The behavior varies depending on whether the target is a dataset or assertion:
+
+        **Dataset unsubscription:**
+        - Removes specified change types from the subscription
+        - If no change types specified, removes all existing change types
+        - Deletes entire subscription if no change types remain
+
+        **Assertion unsubscription:**
+        - Removes assertion from specified change type filters
+        - If no change types specified, removes assertion from all assertion-related change types
+          (ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR)
+        - Deletes change type if no assertions remain in filter
+          (prevents assertion-level subscription from silently upgrading to dataset-level)
+        - Deletes entire subscription if no change types remain
 
         Args:
-            urn: The URN of the dataset or assertion to unsubscribe from.
-            subscriber_urn: Optional filter to unsubscribe only the specified user or group.
-                           If None, removes subscriptions for all subscribers.
-            entity_change_types: Optional filter to remove only subscriptions for specific
-                                change types. If None, removes subscriptions for all change types.
+            urn: URN (string or URN object) of the dataset or assertion to unsubscribe from.
+            subscriber_urn: User or group URN to unsubscribe.
+            entity_change_types: Specific change types to remove. If None, defaults are:
+                                - Dataset: all existing change types in the subscription
+                                - Assertion: assertion-related types (ASSERTION_PASSED,
+                                  ASSERTION_FAILED, ASSERTION_ERROR)
+
+        Returns:
+            None
+
+        Raises:
+            SdkUsageError: If URN format is invalid, entity not found, or empty change types list.
+            SdkUsageError: For assertion unsubscription - if assertion not included in specified
+                          change types, or if not assertion-related change types (ASSERTION_PASSED, ASSERTION_FAILED,
+                          ASSERTION_ERROR) are provided.
+
+        Note:
+            This method is experimental and may change in future versions.
         """
         _print_experimental_warning()
-        logger.info(
-            f"Unsubscribing from {urn} for {subscriber_urn} with change types: {entity_change_types}"
+
+        # Parse URN string if needed
+        parsed_urn = self._maybe_parse_urn(urn)
+
+        # For assertion case, fail as requested
+        if isinstance(parsed_urn, AssertionUrn):
+            raise SdkUsageError(
+                "Assertion unsubscription is not yet implemented. Only dataset unsubscription is currently supported."
+            )
+
+        dataset_urn: DatasetUrn
+        assertion_urn: Optional[AssertionUrn]
+        dataset_urn, assertion_urn = (
+            (parsed_urn, None)
+            if isinstance(parsed_urn, DatasetUrn)
+            else self._fetch_dataset_from_assertion(parsed_urn)  # type: ignore[arg-type]  # TODO: Remove when assertion unsubscribe is implemented
         )
+
+        logger.info(
+            f"Unsubscribing from dataset={dataset_urn} for subscriber={subscriber_urn} with change types: {entity_change_types}"
+        )
+
+        # Find existing subscription
+        existing_subscriptions = self.client.resolve.subscription(  # type: ignore[attr-defined]
+            entity_urn=dataset_urn.urn(),
+            actor_urn=subscriber_urn.urn(),
+        )
+
+        if not existing_subscriptions:
+            logger.info(
+                f"No subscription found for dataset={dataset_urn} and subscriber={subscriber_urn}"
+            )
+            return
+        elif len(existing_subscriptions) > 1:
+            raise SdkUsageError(
+                f"Multiple subscriptions found for dataset={dataset_urn} and subscriber={subscriber_urn}. "
+                f"Expected at most 1, got {len(existing_subscriptions)}"
+            )
+
+        subscription = existing_subscriptions[0]
+        logger.info(f"Found existing subscription to be updated: {subscription.urn}")
+
+        # Get the change types to remove (validated input or defaults)
+        change_types_to_remove = self._get_entity_change_types(
+            assertion_scope=assertion_urn is not None,
+            entity_change_types=[str(ect) for ect in entity_change_types]
+            if entity_change_types
+            else None,
+        )
+
+        # Remove the specified change types
+        updated_change_types = self._remove_change_types(
+            subscription.info.entityChangeTypes, change_types_to_remove
+        )
+
+        # If no change types remain, delete the subscription
+        if not updated_change_types:
+            logger.info(
+                f"No change types remain, deleting subscription: {subscription.urn}"
+            )
+            self.client.entities.delete(subscription)
+            return
+
+        # Update the subscription with remaining change types
+        subscription.info.entityChangeTypes = updated_change_types
+        subscription.info.updatedOn = self._create_audit_stamp()
+        self.client.entities.upsert(subscription)
+        logger.info(f"Subscription updated: {subscription.urn}")
 
     def _get_entity_change_types(
         self,
@@ -274,13 +368,21 @@ class SubscriptionClient:
         """Merge existing entity change types with new ones, avoiding duplicates.
 
         Args:
-            existing_change_types: Existing entity change types from the subscription
+            existing_change_types: Existing entity change types from the subscription.
+                                   Can be None when creating a new subscription.
             new_change_type_strs: New entity change type strings to add
             new_assertion_urn: Optional Assertion URN to associate with the new change types
 
         Returns:
             List of EntityChangeDetailsClass with merged change types
+
+        Note:
+            This method does not modify existing_change_types in-place; it returns a new list.
         """
+        assert len(new_change_type_strs) > 0, (
+            "new_change_type_strs cannot be empty, worse case we have the default values"
+        )
+
         existing_change_type_str_map_filters: Dict[
             str, Optional[models.EntityChangeDetailsFilterClass]
         ] = (
@@ -357,6 +459,51 @@ class SubscriptionClient:
             existing_filter.includeAssertions.append(new_assertion_urn.urn())
 
         return existing_filter
+
+    def _remove_change_types(
+        self,
+        existing_change_types: List[models.EntityChangeDetailsClass],
+        change_types_to_remove: List[str],
+    ) -> List[models.EntityChangeDetailsClass]:
+        """Remove specified change types from subscription, returning a new list.
+
+        Args:
+            existing_change_types: Current entity change types from the subscription.
+                                  Never None since this method is only called for existing subscriptions.
+            change_types_to_remove: List of change type strings to remove (must not be empty)
+
+        Returns:
+            New list of EntityChangeDetailsClass with specified change types removed
+
+        Note:
+            This method does not modify existing_change_types in-place; it returns a new list.
+        """
+        assert len(change_types_to_remove) > 0, (
+            "change_types_to_remove cannot be empty, worse case we have the default values"
+        )
+        assert len(existing_change_types) > 0, (
+            "Subscription must have at least one change type (no model restriction but business rule)"
+        )
+
+        change_types_to_remove_set = set(change_types_to_remove)
+        existing_change_types_set = {
+            str(ect.entityChangeType) for ect in existing_change_types
+        }
+
+        # Warn about change types that don't exist in the subscription
+        nonexistent_change_types = (
+            change_types_to_remove_set - existing_change_types_set
+        )
+        if nonexistent_change_types:
+            logger.warning(
+                f"The following change types do not exist in the subscription and will be ignored: {sorted(nonexistent_change_types)}"
+            )
+
+        return [
+            ect
+            for ect in existing_change_types
+            if str(ect.entityChangeType) not in change_types_to_remove_set
+        ]
 
     def _maybe_parse_urn(
         self, urn: Union[str, DatasetUrn, AssertionUrn]

@@ -13,7 +13,7 @@ open_search_common = {"opensearch-py==2.4.2"}
 
 plugins = {
     "datahub-lineage-features": stats_common | open_search_common,
-    "datahub-reporting-forms": stats_common 
+    "datahub-reporting-forms": stats_common
     | aws_common
     | {
         "termcolor==2.5.0",
@@ -84,7 +84,6 @@ setup(
                 "*.json",
                 "metadata/*.avsc",
                 "metadata/schemas/*.avsc",
-
             ],
             "acryl_datahub_cloud.datahub_metadata_sharing": [
                 "scroll_shared_entities.gql",
@@ -98,5 +97,5 @@ setup(
             set().union(*[requirements for _plugin, requirements in plugins.items()])
         ),
         "dev": list(dev_requirements),
-    }
+    },
 )
