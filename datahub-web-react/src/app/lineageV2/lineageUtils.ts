@@ -56,15 +56,6 @@ export function getLineageUrl(
     return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
 }
 
-export function getLineageUrl(
-    urn: string,
-    type: EntityType,
-    location: ReturnType<typeof useLocation>,
-    entityRegistry: EntityRegistry,
-) {
-    return `${entityRegistry.getEntityUrl(type, urn)}/Lineage${location.search}`;
-}
-
 export function useGetLineageUrl(urn?: string, type?: EntityType) {
     const location = useLocation();
     const entityRegistry = useEntityRegistry();

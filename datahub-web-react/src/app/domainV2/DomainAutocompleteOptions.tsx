@@ -21,16 +21,6 @@ const LoadingWrapper = styled.div`
         color: ${ANTD_GRAY[8]};
     }
 `;
-const LabelWrapper = styled.div`
-    display: flex;
-    align-items: center;
-    flex-direction: row;
-`;
-const LabelContent = styled.div`
-    display: flex;
-    flex-direction: column;
-    margin-left: 8px;
-`;
 
 const LabelWrapper = styled.div`
     display: flex;

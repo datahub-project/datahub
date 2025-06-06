@@ -1,7 +1,5 @@
-import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
 import { Button, SearchBar, SimpleSelect, colors } from '@components';
-import { Modal, Pagination, Select, message } from 'antd';
-import { debounce } from 'lodash';
+import { Modal, Pagination, message } from 'antd';
 import { ArrowClockwise, X } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -29,7 +27,6 @@ import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOn
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { OnboardingTour } from '@src/app/onboarding/OnboardingTour';
 
 import {
