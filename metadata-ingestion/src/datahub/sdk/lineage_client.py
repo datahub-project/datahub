@@ -739,6 +739,7 @@ class LineageClient:
             direction: Direction of lineage traversal
             max_hops: Maximum number of hops to traverse
             filter: Filters to apply to the lineage search
+            count: Maximum number of results to return
 
         Returns:
             List of lineage results
