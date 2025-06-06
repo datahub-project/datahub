@@ -35,6 +35,12 @@ import { Application, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([EntityMenuItems.SHARE, EntityMenuItems.DELETE, EntityMenuItems.EDIT]);
 
+type ApplicationWithChildren = Application & {
+    children?: {
+        total: number;
+    } | null;
+};
+
 /**
  * Definition of the DataHub Application entity.
  */
@@ -181,8 +187,7 @@ export class ApplicationEntity implements Entity<Application> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
-                // @ts-ignore
-                entityCount={data?.children?.total || undefined}
+                entityCount={(data as ApplicationWithChildren)?.children?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
@@ -204,8 +209,7 @@ export class ApplicationEntity implements Entity<Application> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
-                // @ts-ignore
-                entityCount={data?.children?.total || undefined}
+                entityCount={(data as ApplicationWithChildren)?.children?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
@@ -221,8 +225,7 @@ export class ApplicationEntity implements Entity<Application> {
     getOverridePropertiesFromEntity = (data: Application) => {
         const name = data?.properties?.name;
         const externalUrl = data?.properties?.externalUrl;
-        // @ts-ignore
-        const entityCount = data?.children?.total || undefined;
+        const entityCount = (data as ApplicationWithChildren)?.children?.total || undefined;
         const parentDomains = {
             domains: (data?.domain && [data?.domain?.domain]) || [],
             count: (data?.domain && 1) || 0,

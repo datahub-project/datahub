@@ -8,6 +8,7 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletionException;
@@ -25,11 +26,13 @@ public class DeleteApplicationResolverTest {
   private DeleteApplicationResolver resolver;
   private QueryContext mockContext;
   private DataFetchingEnvironment mockEnv;
+  private EntityClient mockEntityClient;
 
   @BeforeMethod
   public void setupTest() {
     mockApplicationService = Mockito.mock(ApplicationService.class);
-    resolver = new DeleteApplicationResolver(mockApplicationService);
+    mockEntityClient = Mockito.mock(EntityClient.class);
+    resolver = new DeleteApplicationResolver(mockEntityClient, mockApplicationService);
     mockContext = getMockAllowContext(TEST_ACTOR_URN.toString());
     mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);

@@ -1300,7 +1300,8 @@ public class GmsGraphQLEngine {
                   "createApplication",
                   new CreateApplicationResolver(this.applicationService, this.entityService))
               .dataFetcher(
-                  "deleteApplication", new DeleteApplicationResolver(this.applicationService))
+                  "deleteApplication",
+                  new DeleteApplicationResolver(this.entityClient, this.applicationService))
               .dataFetcher(
                   "batchSetApplication", new BatchSetApplicationResolver(this.applicationService))
               .dataFetcher(
