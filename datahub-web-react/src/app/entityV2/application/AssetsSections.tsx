@@ -18,7 +18,7 @@ import { pluralize } from '@app/shared/textUtil';
 import { EntityCountCard } from '@app/sharedV2/cards/EntityCountCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useListApplicationAssetsQuery } from '@graphql/search.generated';
+import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 
 const AssetsSectionWrapper = styled.div`
     flex: 1;
@@ -33,19 +33,22 @@ export const AssetsSection = () => {
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
     const { urn, entityType } = useEntityData();
-    const { data, loading } = useListApplicationAssetsQuery({
+
+    const { data, loading } = useGetSearchResultsForMultipleQuery({
+        skip: !urn,
         variables: {
-            urn,
             input: {
-                query: '*',
-                start: 0,
-                count: 0,
-                filters: [],
+                types: [],
+                query: '',
+                orFilters: [{ and: [{ field: 'applications', values: [urn] }] }],
+                // TODO: Store this information in a filterable property
+                count: 1000,
             },
         },
+        fetchPolicy: 'cache-first',
     });
 
-    const contentsSummary = data?.listApplicationAssets && getContentsSummary(data.listApplicationAssets);
+    const contentsSummary = data?.searchAcrossEntities && getContentsSummary(data.searchAcrossEntities);
     const contentsCount = contentsSummary?.total || 0;
     const hasContents = contentsCount > 0;
 

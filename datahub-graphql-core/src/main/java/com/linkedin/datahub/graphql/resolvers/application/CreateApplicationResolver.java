@@ -27,8 +27,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class CreateApplicationResolver implements DataFetcher<CompletableFuture<Application>> {
 
-  private final ApplicationService _applicationService;
-  private final EntityService _entityService;
+  private final ApplicationService applicationService;
+  private final EntityService entityService;
 
   @Override
   public CompletableFuture<Application> get(final DataFetchingEnvironment environment)
@@ -41,28 +41,28 @@ public class CreateApplicationResolver implements DataFetcher<CompletableFuture<
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!AuthUtil.isAuthorized(
-              context.getOperationContext(), PoliciesConfig.CREATE_APPLICATION_PRIVILEGE)) {
+              context.getOperationContext(), PoliciesConfig.EDIT_ENTITY_PRIVILEGE)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
 
           try {
             final Urn applicationUrn =
-                _applicationService.createApplication(
+                applicationService.createApplication(
                     context.getOperationContext(),
                     input.getId(),
                     input.getProperties().getName(),
                     input.getProperties().getDescription());
             if (input.getDomainUrn() != null) {
-              _applicationService.setDomain(
+              applicationService.setDomain(
                   context.getOperationContext(),
                   applicationUrn,
                   UrnUtils.getUrn(input.getDomainUrn()));
             }
             OwnerUtils.addCreatorAsOwner(
-                context, applicationUrn.toString(), OwnerEntityType.CORP_USER, _entityService);
+                context, applicationUrn.toString(), OwnerEntityType.CORP_USER, entityService);
             EntityResponse response =
-                _applicationService.getApplicationEntityResponse(
+                applicationService.getApplicationEntityResponse(
                     context.getOperationContext(), applicationUrn);
             if (response != null) {
               return ApplicationMapper.map(context, response);

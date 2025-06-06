@@ -28,15 +28,4 @@ record ApplicationProperties includes CustomProperties, ExternalReference  {
     "hasValuesFieldName": "hasDescription"
   }
   description: optional string
-
-  /**
-   * A list of assets that are part of this Application
-   */
-  @Relationship = {
-    "/*/destinationUrn": {
-      "name": "ApplicationContains",
-      "entityTypes": [ "dataset", "dataJob", "dataFlow", "chart", "dashboard", "notebook", "container", "mlModel", "mlModelGroup", "mlFeatureTable", "mlFeature", "mlPrimaryKey" ],
-    }
-  }
-  assets: optional array[ApplicationAssociation]
 }

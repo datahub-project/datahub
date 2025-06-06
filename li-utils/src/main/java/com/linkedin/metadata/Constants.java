@@ -373,6 +373,7 @@ public class Constants {
 
   // Application
   public static final String APPLICATION_PROPERTIES_ASPECT_NAME = "applicationProperties";
+  public static final String APPLICATION_MEMBERSHIP_ASPECT_NAME = "applications";
 
   // Ownership Types
   public static final String OWNERSHIP_TYPE_KEY_ASPECT_NAME = "ownershipTypeKey";

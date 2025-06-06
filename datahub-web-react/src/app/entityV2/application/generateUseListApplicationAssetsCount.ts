@@ -6,11 +6,12 @@ export function generateUseListApplicationAssetsCount({ urn }: { urn: string }) 
         const { data, loading, error } = useListApplicationAssetsQuery({
             variables: {
                 urn,
-                input: { ...input, count: 0 },
+                start: 0,
+                count: 0,
             },
             fetchPolicy: 'cache-first',
         });
 
-        return { total: data?.listApplicationAssets?.total, loading, error };
+        return { total: data?.application?.children?.total, loading, error };
     };
 }

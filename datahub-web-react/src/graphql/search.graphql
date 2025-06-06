@@ -1490,12 +1490,6 @@ query listDataProductAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
     }
 }
 
-query listApplicationAssets($urn: String!, $input: SearchAcrossEntitiesInput!) {
-    listApplicationAssets(urn: $urn, input: $input) {
-        ...searchResults
-    }
-}
-
 query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
     scrollAcrossEntities(input: $input) {
         ...scrollResults

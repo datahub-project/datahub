@@ -110,7 +110,7 @@ export class ApplicationEntity implements Entity<Application> {
                 {
                     name: 'Assets',
                     getDynamicName: (entityData, _, loading) => {
-                        const assetCount = entityData?.entities?.total;
+                        const assetCount = entityData?.children?.total;
                         return <TabNameWithCount name="Assets" count={assetCount} loading={loading} />;
                     },
                     component: ApplicationEntitiesTab,
@@ -181,7 +181,8 @@ export class ApplicationEntity implements Entity<Application> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
-                entityCount={data?.entities?.total || undefined}
+                // @ts-ignore
+                entityCount={data?.children?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
                 headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
@@ -203,7 +204,8 @@ export class ApplicationEntity implements Entity<Application> {
                 globalTags={data.tags}
                 glossaryTerms={data.glossaryTerms}
                 domain={data.domain?.domain}
-                entityCount={data?.entities?.total || undefined}
+                // @ts-ignore
+                entityCount={data?.children?.total || undefined}
                 externalUrl={data.properties?.externalUrl}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
@@ -219,7 +221,8 @@ export class ApplicationEntity implements Entity<Application> {
     getOverridePropertiesFromEntity = (data: Application) => {
         const name = data?.properties?.name;
         const externalUrl = data?.properties?.externalUrl;
-        const entityCount = data?.entities?.total || undefined;
+        // @ts-ignore
+        const entityCount = data?.children?.total || undefined;
         const parentDomains = {
             domains: (data?.domain && [data?.domain?.domain]) || [],
             count: (data?.domain && 1) || 0,

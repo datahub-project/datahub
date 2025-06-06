@@ -26,22 +26,22 @@ public class BatchSetApplicationResolverTest {
   private static final String TEST_APPLICATION_URN = "urn:li:application:test-app-id";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
 
-  private ApplicationService _mockApplicationService;
-  private BatchSetApplicationResolver _resolver;
-  private QueryContext _mockContext;
-  private DataFetchingEnvironment _mockEnv;
+  private ApplicationService mockApplicationService;
+  private BatchSetApplicationResolver resolver;
+  private QueryContext mockContext;
+  private DataFetchingEnvironment mockEnv;
 
   @BeforeMethod
   public void setupTest() {
-    _mockApplicationService = Mockito.mock(ApplicationService.class);
-    _resolver = new BatchSetApplicationResolver(_mockApplicationService);
-    _mockContext = getMockAllowContext(TEST_ACTOR_URN);
-    _mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(_mockEnv.getContext()).thenReturn(_mockContext);
+    mockApplicationService = Mockito.mock(ApplicationService.class);
+    resolver = new BatchSetApplicationResolver(mockApplicationService);
+    mockContext = getMockAllowContext(TEST_ACTOR_URN);
+    mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
   }
 
   private void mockExists(Urn urn, boolean exists) {
-    Mockito.when(_mockApplicationService.verifyEntityExists(any(), eq(urn))).thenReturn(exists);
+    Mockito.when(mockApplicationService.verifyEntityExists(any(), eq(urn))).thenReturn(exists);
   }
 
   @Test
@@ -53,11 +53,11 @@ public class BatchSetApplicationResolverTest {
     BatchSetApplicationInput input =
         new BatchSetApplicationInput(
             TEST_APPLICATION_URN, ImmutableList.of(TEST_ENTITY_URN_1, TEST_ENTITY_URN_2));
-    Mockito.when(_mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
 
-    assertTrue(_resolver.get(_mockEnv).get());
+    assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(_mockApplicationService, Mockito.times(1))
+    Mockito.verify(mockApplicationService, Mockito.times(1))
         .batchSetApplicationAssets(
             any(),
             eq(UrnUtils.getUrn(TEST_APPLICATION_URN)),
@@ -74,14 +74,14 @@ public class BatchSetApplicationResolverTest {
 
     BatchSetApplicationInput input =
         new BatchSetApplicationInput(null, ImmutableList.of(TEST_ENTITY_URN_1, TEST_ENTITY_URN_2));
-    Mockito.when(_mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
 
-    assertTrue(_resolver.get(_mockEnv).get());
+    assertTrue(resolver.get(mockEnv).get());
 
-    Mockito.verify(_mockApplicationService, Mockito.times(1))
+    Mockito.verify(mockApplicationService, Mockito.times(1))
         .unsetApplication(
             any(), eq(UrnUtils.getUrn(TEST_ENTITY_URN_1)), eq(UrnUtils.getUrn(TEST_ACTOR_URN)));
-    Mockito.verify(_mockApplicationService, Mockito.times(1))
+    Mockito.verify(mockApplicationService, Mockito.times(1))
         .unsetApplication(
             any(), eq(UrnUtils.getUrn(TEST_ENTITY_URN_2)), eq(UrnUtils.getUrn(TEST_ACTOR_URN)));
   }
@@ -93,10 +93,10 @@ public class BatchSetApplicationResolverTest {
 
     BatchSetApplicationInput input =
         new BatchSetApplicationInput(TEST_APPLICATION_URN, ImmutableList.of(TEST_ENTITY_URN_1));
-    Mockito.when(_mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
 
-    assertThrows(CompletionException.class, () -> _resolver.get(_mockEnv).join());
-    Mockito.verify(_mockApplicationService, Mockito.never())
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockApplicationService, Mockito.never())
         .batchSetApplicationAssets(any(), any(), any(), any());
   }
 
@@ -107,10 +107,10 @@ public class BatchSetApplicationResolverTest {
 
     BatchSetApplicationInput input =
         new BatchSetApplicationInput(TEST_APPLICATION_URN, ImmutableList.of(TEST_ENTITY_URN_1));
-    Mockito.when(_mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
 
-    assertThrows(CompletionException.class, () -> _resolver.get(_mockEnv).join());
-    Mockito.verify(_mockApplicationService, Mockito.never())
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockApplicationService, Mockito.never())
         .batchSetApplicationAssets(any(), any(), any(), any());
   }
 
@@ -118,14 +118,14 @@ public class BatchSetApplicationResolverTest {
   public void testGetUnauthorized() {
     // No need to mock exists, as authorization happens first.
     QueryContext mockDenyContext = getMockDenyContext();
-    Mockito.when(_mockEnv.getContext()).thenReturn(mockDenyContext);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockDenyContext);
 
     BatchSetApplicationInput input =
         new BatchSetApplicationInput(TEST_APPLICATION_URN, ImmutableList.of(TEST_ENTITY_URN_1));
-    Mockito.when(_mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
 
-    assertThrows(CompletionException.class, () -> _resolver.get(_mockEnv).join());
-    Mockito.verify(_mockApplicationService, Mockito.never())
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+    Mockito.verify(mockApplicationService, Mockito.never())
         .batchSetApplicationAssets(any(), any(), any(), any());
   }
 }

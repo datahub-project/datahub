@@ -1,7 +1,6 @@
 package com.linkedin.metadata.service;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -11,15 +10,12 @@ import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.linkedin.application.ApplicationAssociation;
-import com.linkedin.application.ApplicationAssociationArray;
 import com.linkedin.application.ApplicationKey;
 import com.linkedin.application.ApplicationProperties;
-import com.linkedin.common.EntityRelationship;
-import com.linkedin.common.EntityRelationshipArray;
-import com.linkedin.common.EntityRelationships;
+import com.linkedin.application.Applications;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -27,18 +23,14 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -55,9 +47,10 @@ public class ApplicationServiceTest {
   private static final Urn TEST_DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:" + UUID.randomUUID());
   private static final Urn TEST_ASSET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:kafka,test,PROD)");
+  private static final Urn TEST_ASSET_URN_2 =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:s3,test2,PROD)");
 
   private EntityClient _entityClient;
-  private GraphClient _graphClient;
   private ApplicationService _applicationService;
   private OperationContext _opContext;
   private EntityRegistry _mockEntityRegistry;
@@ -65,11 +58,10 @@ public class ApplicationServiceTest {
   @BeforeMethod
   public void setUp() {
     _entityClient = mock(EntityClient.class);
-    _graphClient = mock(GraphClient.class);
     _mockEntityRegistry = mock(EntityRegistry.class); // Mock EntityRegistry
     _opContext =
         TestOperationContexts.userContextNoSearchAuthorization(TEST_USER_URN, _mockEntityRegistry);
-    _applicationService = new ApplicationService(_entityClient, _graphClient);
+    _applicationService = new ApplicationService(_entityClient);
   }
 
   @Test
@@ -103,8 +95,6 @@ public class ApplicationServiceTest {
             ApplicationProperties.class);
     assertEquals(props.getName(), name);
     assertEquals(props.getDescription(), description);
-    assertNotNull(props.getAssets()); // Assets should be initialized
-    assertTrue(props.getAssets().isEmpty());
 
     // Test case 2: Create with null ID (auto-generated)
     Mockito.reset(_entityClient); // Reset mock for new interaction
@@ -143,8 +133,7 @@ public class ApplicationServiceTest {
 
   @Test
   public void testGetApplicationProperties() throws Exception {
-    ApplicationProperties props =
-        new ApplicationProperties().setName("Test").setAssets(new ApplicationAssociationArray());
+    ApplicationProperties props = new ApplicationProperties().setName("Test");
     EntityResponse response = new EntityResponse();
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     envelopedAspect.setValue(new Aspect(props.data()));
@@ -203,257 +192,111 @@ public class ApplicationServiceTest {
         _applicationService.getApplicationEntityResponse(_opContext, TEST_APPLICATION_URN_2));
   }
 
-  private EntityResponse mockApplicationPropertiesResponse(
-      Urn appUrn, ApplicationProperties properties) {
-    EntityResponse response = new EntityResponse();
-    EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    envelopedAspect.setValue(new Aspect(properties.data()));
-    Map<String, EnvelopedAspect> aspects = new HashMap<>();
-    aspects.put(Constants.APPLICATION_PROPERTIES_ASPECT_NAME, envelopedAspect);
-    response.setAspects(new EnvelopedAspectMap(aspects));
-    response.setEntityName(Constants.APPLICATION_ENTITY_NAME);
-    response.setUrn(appUrn);
-    return response;
+  @Test
+  public void testDeleteApplication() throws Exception {
+    _applicationService.deleteApplication(_opContext, TEST_APPLICATION_URN);
+    verify(_entityClient, times(1)).deleteEntity(eq(_opContext), eq(TEST_APPLICATION_URN));
   }
 
   @Test
-  public void testDeleteApplication() throws Exception {
-    // Case 1: No assets (properties or graph) - successful deletion
-    ApplicationProperties emptyProps =
-        new ApplicationProperties().setAssets(new ApplicationAssociationArray());
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(Constants.APPLICATION_ENTITY_NAME),
-            eq(TEST_APPLICATION_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(mockApplicationPropertiesResponse(TEST_APPLICATION_URN, emptyProps));
+  public void testSetDomain() throws Exception {
+    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
 
-    // Ensure graph client returns null for this case explicitly
-    when(_graphClient.getRelatedEntities(
-            eq(TEST_APPLICATION_URN.toString()),
-            eq(ImmutableSet.of("ApplicationContains")),
-            eq(RelationshipDirection.OUTGOING),
-            eq(0),
-            eq(1),
-            eq(_opContext.getAuthentication().getActor().toUrnStr())))
-        .thenReturn(null); // Explicitly return null
+    _applicationService.setDomain(_opContext, TEST_APPLICATION_URN, TEST_DOMAIN_URN);
 
-    _applicationService.deleteApplication(_opContext, TEST_APPLICATION_URN);
-    verify(_entityClient, times(1)).deleteEntity(eq(_opContext), eq(TEST_APPLICATION_URN));
-    Mockito.reset(_entityClient, _graphClient); // Reset after Case 1
-
-    // Case 2: Assets in properties - should throw exception
-    ApplicationProperties propsWithAssets =
-        new ApplicationProperties()
-            .setAssets(
-                new ApplicationAssociationArray(ImmutableList.of(new ApplicationAssociation())));
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(Constants.APPLICATION_ENTITY_NAME),
-            eq(TEST_APPLICATION_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(mockApplicationPropertiesResponse(TEST_APPLICATION_URN, propsWithAssets));
-    assertThrows(
-        RuntimeException.class,
-        () -> _applicationService.deleteApplication(_opContext, TEST_APPLICATION_URN));
-    verify(_entityClient, Mockito.never()).deleteEntity(any(), any());
-    Mockito.reset(_entityClient, _graphClient); // Reset after Case 2
+    verify(_entityClient, times(1)).ingestProposal(eq(_opContext), mcpCaptor.capture(), eq(false));
+    MetadataChangeProposal mcp = mcpCaptor.getValue();
+    assertEquals(mcp.getEntityType(), Constants.APPLICATION_ENTITY_NAME);
+    assertEquals(mcp.getEntityUrn(), TEST_APPLICATION_URN);
+    assertEquals(mcp.getAspectName(), Constants.DOMAINS_ASPECT_NAME);
+    Domains domains =
+        GenericRecordUtils.deserializeAspect(
+            mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Domains.class);
+    assertEquals(domains.getDomains().size(), 1);
+    assertEquals(domains.getDomains().get(0), TEST_DOMAIN_URN);
   }
 
   @Test
   public void testBatchSetApplicationAssets() throws Exception {
-    ApplicationProperties initialProps =
-        new ApplicationProperties().setAssets(new ApplicationAssociationArray());
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(Constants.APPLICATION_ENTITY_NAME),
-            eq(TEST_APPLICATION_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(mockApplicationPropertiesResponse(TEST_APPLICATION_URN, initialProps));
-
-    List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN);
+    List<Urn> assetUrns = ImmutableList.of(TEST_ASSET_URN, TEST_ASSET_URN_2);
     _applicationService.batchSetApplicationAssets(
         _opContext, TEST_APPLICATION_URN, assetUrns, TEST_USER_URN);
 
-    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(_entityClient, times(1)).ingestProposal(eq(_opContext), mcpCaptor.capture(), eq(false));
-    MetadataChangeProposal mcp = mcpCaptor.getValue();
-    ApplicationProperties capturedProps =
-        GenericRecordUtils.deserializeAspect(
-            mcp.getAspect().getValue(),
-            mcp.getAspect().getContentType(),
-            ApplicationProperties.class);
-    assertEquals(capturedProps.getAssets().size(), 1);
-    assertEquals(capturedProps.getAssets().get(0).getDestinationUrn(), TEST_ASSET_URN);
-    // TODO: Add more specific asset checks once ApplicationAssociation structure is clear
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
 
-    // Test case: Application properties not found
-    Mockito.reset(_entityClient);
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(Constants.APPLICATION_ENTITY_NAME),
-            eq(TEST_APPLICATION_URN_2),
-            eq(ImmutableSet.of(Constants.APPLICATION_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(null);
-    assertThrows(
-        IllegalArgumentException.class,
-        () ->
-            _applicationService.batchSetApplicationAssets(
-                _opContext, TEST_APPLICATION_URN_2, assetUrns, TEST_USER_URN));
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 2);
+
+    // Verify first proposal
+    MetadataChangeProposal mcp1 = mcps.get(0);
+    assertEquals(mcp1.getEntityUrn(), TEST_ASSET_URN);
+    assertEquals(mcp1.getEntityType(), TEST_ASSET_URN.getEntityType());
+    assertEquals(mcp1.getAspectName(), Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
+    Applications apps1 =
+        GenericRecordUtils.deserializeAspect(
+            mcp1.getAspect().getValue(), mcp1.getAspect().getContentType(), Applications.class);
+    assertEquals(apps1.getApplications().size(), 1);
+    assertEquals(apps1.getApplications().get(0), TEST_APPLICATION_URN);
+
+    // Verify second proposal
+    MetadataChangeProposal mcp2 = mcps.get(1);
+    assertEquals(mcp2.getEntityUrn(), TEST_ASSET_URN_2);
+    assertEquals(mcp2.getEntityType(), TEST_ASSET_URN_2.getEntityType());
+    assertEquals(mcp2.getAspectName(), Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
+    Applications apps2 =
+        GenericRecordUtils.deserializeAspect(
+            mcp2.getAspect().getValue(), mcp2.getAspect().getContentType(), Applications.class);
+    assertEquals(apps2.getApplications().size(), 1);
+    assertEquals(apps2.getApplications().get(0), TEST_APPLICATION_URN);
   }
 
   @Test
   public void testBatchRemoveApplicationAssets() throws Exception {
-    // === Case 1: Successfully remove an existing asset from an app with multiple assets ===
-    Urn assetUrnToRemove = TEST_ASSET_URN;
-    Urn remainingAssetUrn =
-        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:s3,remainingAsset,PROD)");
-
-    ApplicationAssociation associationToRemove =
-        new ApplicationAssociation().setDestinationUrn(assetUrnToRemove);
-    ApplicationAssociation associationToRemain =
-        new ApplicationAssociation().setDestinationUrn(remainingAssetUrn);
-
-    ApplicationProperties propsWithTwoAssets =
-        new ApplicationProperties()
-            .setAssets(
-                new ApplicationAssociationArray(
-                    ImmutableList.of(associationToRemove, associationToRemain)));
-
-    when(_entityClient.getV2(
-            eq(_opContext),
-            eq(Constants.APPLICATION_ENTITY_NAME),
-            eq(TEST_APPLICATION_URN),
-            eq(ImmutableSet.of(Constants.APPLICATION_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(mockApplicationPropertiesResponse(TEST_APPLICATION_URN, propsWithTwoAssets));
-
+    List<Urn> assetUrnsToRemove = ImmutableList.of(TEST_ASSET_URN);
     _applicationService.batchRemoveApplicationAssets(
-        _opContext, TEST_APPLICATION_URN, ImmutableList.of(assetUrnToRemove), TEST_USER_URN);
+        _opContext, TEST_APPLICATION_URN, assetUrnsToRemove, TEST_USER_URN);
 
-    ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
-        ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(_entityClient, times(1)).ingestProposal(eq(_opContext), mcpCaptor.capture(), eq(false));
-    MetadataChangeProposal mcp = mcpCaptor.getValue();
-    ApplicationProperties capturedProps =
+    ArgumentCaptor<List<MetadataChangeProposal>> mcpListCaptor =
+        ArgumentCaptor.forClass(List.class);
+    verify(_entityClient, times(1))
+        .batchIngestProposals(eq(_opContext), mcpListCaptor.capture(), eq(false));
+
+    List<MetadataChangeProposal> mcps = mcpListCaptor.getValue();
+    assertEquals(mcps.size(), 1);
+
+    MetadataChangeProposal mcp = mcps.get(0);
+    assertEquals(mcp.getEntityUrn(), TEST_ASSET_URN);
+    assertEquals(mcp.getEntityType(), TEST_ASSET_URN.getEntityType());
+    assertEquals(mcp.getAspectName(), Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
+    Applications apps =
         GenericRecordUtils.deserializeAspect(
-            mcp.getAspect().getValue(),
-            mcp.getAspect().getContentType(),
-            ApplicationProperties.class);
-    assertNotNull(capturedProps.getAssets());
-    assertEquals(capturedProps.getAssets().size(), 1, "One asset should remain");
-    assertEquals(
-        capturedProps.getAssets().get(0).getDestinationUrn(),
-        remainingAssetUrn,
-        "The correct asset should remain");
-
-    Mockito.reset(_entityClient);
-
-    // === Case 2: Application properties not found ===
-    when(_entityClient.getV2(
-            eq(_opContext),
-            eq(Constants.APPLICATION_ENTITY_NAME),
-            eq(TEST_APPLICATION_URN_2), // Use a different URN for this distinct case
-            eq(ImmutableSet.of(Constants.APPLICATION_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(null);
-    _applicationService.batchRemoveApplicationAssets(
-        _opContext,
-        TEST_APPLICATION_URN_2,
-        ImmutableList.of(TEST_ASSET_URN),
-        TEST_USER_URN); // Should do nothing as properties are not found
-    verify(_entityClient, Mockito.never()).ingestProposal(any(), any(), anyBoolean());
-
-    // No need to reset _entityClient if the next case sets its own mocks or resets.
-
-    // === Case 3: Application has no assets initially ===
-    Mockito.reset(_entityClient); // Reset for clarity for this case
-    ApplicationProperties emptyProps =
-        new ApplicationProperties().setAssets(new ApplicationAssociationArray());
-    when(_entityClient.getV2(
-            eq(_opContext),
-            eq(Constants.APPLICATION_ENTITY_NAME),
-            eq(TEST_APPLICATION_URN), // Can reuse TEST_APPLICATION_URN for this scenario
-            eq(ImmutableSet.of(Constants.APPLICATION_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(mockApplicationPropertiesResponse(TEST_APPLICATION_URN, emptyProps));
-    _applicationService.batchRemoveApplicationAssets(
-        _opContext,
-        TEST_APPLICATION_URN,
-        ImmutableList.of(TEST_ASSET_URN), // Attempt to remove an asset not present in empty list
-        TEST_USER_URN);
-    verify(_entityClient, Mockito.never())
-        .ingestProposal(any(), any(), anyBoolean()); // No change, so no proposal
+            mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Applications.class);
+    assertNotNull(apps.getApplications());
+    assertTrue(apps.getApplications().isEmpty());
   }
 
   @Test
   public void testUnsetApplication() throws Exception {
-    // Case 1: Resource is part of an application
-    EntityRelationship graphRelationship = new EntityRelationship();
-    graphRelationship.setEntity(TEST_APPLICATION_URN); // Application is the source
-    graphRelationship.setType("ApplicationContains");
-
-    EntityRelationships relationships = new EntityRelationships();
-    relationships.setRelationships(
-        new EntityRelationshipArray(ImmutableList.of(graphRelationship)));
-
-    when(_graphClient.getRelatedEntities(
-            eq(TEST_ASSET_URN.toString()),
-            eq(ImmutableSet.of("ApplicationContains")),
-            eq(RelationshipDirection.INCOMING),
-            eq(0),
-            eq(1),
-            eq(_opContext.getAuthentication().getActor().toUrnStr())))
-        .thenReturn(relationships);
-
-    // Mock getApplicationProperties for the subsequent batchRemoveApplicationAssets call
-    ApplicationAssociation assetAssociation = new ApplicationAssociation();
-    assetAssociation.setDestinationUrn(
-        TEST_ASSET_URN); // Corrected: Use setDestinationUrn with the asset being unset
-    ApplicationProperties appProps =
-        new ApplicationProperties()
-            .setAssets(new ApplicationAssociationArray(ImmutableList.of(assetAssociation)));
-    when(_entityClient.getV2(
-            any(OperationContext.class),
-            eq(Constants.APPLICATION_ENTITY_NAME),
-            eq(TEST_APPLICATION_URN), // This is the URN found by the graph client
-            eq(ImmutableSet.of(Constants.APPLICATION_PROPERTIES_ASPECT_NAME))))
-        .thenReturn(mockApplicationPropertiesResponse(TEST_APPLICATION_URN, appProps));
-
     _applicationService.unsetApplication(_opContext, TEST_ASSET_URN, TEST_USER_URN);
 
-    // Verify that batchRemoveApplicationAssets was effectively called
     ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(_entityClient, times(1))
-        .ingestProposal(eq(_opContext), mcpCaptor.capture(), eq(false)); // batchRemove called this
+    verify(_entityClient, times(1)).ingestProposal(eq(_opContext), mcpCaptor.capture(), eq(false));
 
-    MetadataChangeProposal capturedMcp = mcpCaptor.getValue();
-    ApplicationProperties capturedProps =
+    MetadataChangeProposal mcp = mcpCaptor.getValue();
+    assertEquals(mcp.getEntityUrn(), TEST_ASSET_URN);
+    assertEquals(mcp.getEntityType(), TEST_ASSET_URN.getEntityType());
+    assertEquals(mcp.getAspectName(), Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME);
+
+    Applications apps =
         GenericRecordUtils.deserializeAspect(
-            capturedMcp.getAspect().getValue(),
-            capturedMcp.getAspect().getContentType(),
-            ApplicationProperties.class);
-    assertNotNull(capturedProps.getAssets());
-    assertTrue(
-        capturedProps.getAssets().isEmpty(),
-        "Asset TEST_ASSET_URN should have been removed from application assets via unsetApplication");
-
-    // Case 2: Resource is not part of any application
-    Mockito.reset(_graphClient, _entityClient);
-    when(_graphClient.getRelatedEntities(
-            eq(TEST_ASSET_URN.toString()),
-            eq(ImmutableSet.of("ApplicationContains")),
-            eq(RelationshipDirection.INCOMING),
-            eq(0),
-            eq(1),
-            eq(_opContext.getAuthentication().getActor().toUrnStr())))
-        .thenReturn(
-            new EntityRelationships()
-                .setRelationships(new EntityRelationshipArray())); // No relationships
-
-    _applicationService.unsetApplication(_opContext, TEST_ASSET_URN, TEST_USER_URN);
-    verify(_entityClient, Mockito.never())
-        .ingestProposal(
-            eq(_opContext), any(MetadataChangeProposal.class), anyBoolean()); // No removal attempt
+            mcp.getAspect().getValue(), mcp.getAspect().getContentType(), Applications.class);
+    assertNotNull(apps.getApplications());
+    assertTrue(apps.getApplications().isEmpty());
   }
 
   @Test

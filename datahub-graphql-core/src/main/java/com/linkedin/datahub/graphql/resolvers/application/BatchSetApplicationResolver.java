@@ -27,11 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class BatchSetApplicationResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final ApplicationService _applicationService;
-
-  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =
-      new ConjunctivePrivilegeGroup(
-          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
+  private final ApplicationService applicationService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -68,7 +64,7 @@ public class BatchSetApplicationResolver implements DataFetcher<CompletableFutur
 
   private void verifyResources(List<String> resources, QueryContext context) {
     for (String resource : resources) {
-      if (!_applicationService.verifyEntityExists(
+      if (!applicationService.verifyEntityExists(
           context.getOperationContext(), UrnUtils.getUrn(resource))) {
         throw new RuntimeException(
             String.format(
@@ -81,10 +77,11 @@ public class BatchSetApplicationResolver implements DataFetcher<CompletableFutur
           resourceUrn.toString(),
           new DisjunctivePrivilegeGroup(
               ImmutableList.of(
-                  ALL_PRIVILEGES_GROUP,
                   new ConjunctivePrivilegeGroup(
                       ImmutableList.of(
-                          PoliciesConfig.EDIT_ENTITY_DOMAINS_PRIVILEGE.getType())))))) {
+                          PoliciesConfig.EDIT_ENTITY_APPLICATIONS_PRIVILEGE.getType())),
+                  new ConjunctivePrivilegeGroup(
+                      ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType())))))) {
         throw new AuthorizationException(
             "Unauthorized to perform this action. Please contact your DataHub administrator.");
       }
@@ -93,7 +90,7 @@ public class BatchSetApplicationResolver implements DataFetcher<CompletableFutur
 
   private void verifyApplication(String maybeApplicationUrn, QueryContext context) {
     if (maybeApplicationUrn != null
-        && !_applicationService.verifyEntityExists(
+        && !applicationService.verifyEntityExists(
             context.getOperationContext(), UrnUtils.getUrn(maybeApplicationUrn))) {
       throw new RuntimeException(
           String.format(
@@ -107,7 +104,7 @@ public class BatchSetApplicationResolver implements DataFetcher<CompletableFutur
     log.debug(
         "Batch setting Application. application urn: {}, resources: {}", applicationUrn, resources);
     try {
-      _applicationService.batchSetApplicationAssets(
+      applicationService.batchSetApplicationAssets(
           context.getOperationContext(),
           UrnUtils.getUrn(applicationUrn),
           resources,
@@ -125,7 +122,7 @@ public class BatchSetApplicationResolver implements DataFetcher<CompletableFutur
     log.debug("Batch unsetting Application. resources: {}", resources);
     try {
       for (Urn resource : resources) {
-        _applicationService.unsetApplication(
+        applicationService.unsetApplication(
             context.getOperationContext(), resource, UrnUtils.getUrn(context.getActorUrn()));
       }
     } catch (Exception e) {

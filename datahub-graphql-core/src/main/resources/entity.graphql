@@ -12823,11 +12823,6 @@ type Application implements Entity {
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
   """
-  Children entities inside of the Application
-  """
-  entities(input: SearchAcrossEntitiesInput): SearchResults
-
-  """
   The structured glossary terms associated with the Application
   """
   glossaryTerms: GlossaryTerms

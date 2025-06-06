@@ -75,7 +75,7 @@ fragment applicationSearchFields on Application {
     domain {
         ...entityDomain
     }
-    entities(input: { start: 0, count: 0, query: "*" }) {
+    children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
         total
     }
 }
@@ -86,16 +86,17 @@ mutation createApplication($input: CreateApplicationInput!) {
     }
 }
 
-mutation updateApplication($urn: String!, $input: UpdateApplicationInput!) {
-    updateApplication(urn: $urn, input: $input) {
-        ...applicationSearchFields
-    }
-}
-
 mutation deleteApplication($urn: String!) {
     deleteApplication(urn: $urn)
 }
 
 mutation batchSetApplication($input: BatchSetApplicationInput!) {
     batchSetApplication(input: $input)
+}
+
+query countApplicationAssets($urn: String!) {
+    application(urn: $urn) { children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
+            total
+        }
+    }
 }

@@ -119,11 +119,6 @@ public class ApplicationMapper implements ModelMapper<EntityResponse, Applicatio
     if (applicationProperties.hasExternalUrl()) {
       properties.setExternalUrl(applicationProperties.getExternalUrl().toString());
     }
-    if (applicationProperties.hasAssets()) {
-      properties.setNumAssets(applicationProperties.getAssets().size());
-    } else {
-      properties.setNumAssets(0);
-    }
     properties.setCustomProperties(
         CustomPropertiesMapper.map(
             applicationProperties.getCustomProperties(), UrnUtils.getUrn(application.getUrn())));

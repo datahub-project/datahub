@@ -23,7 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class DeleteApplicationResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final ApplicationService _applicationService;
+  private final ApplicationService applicationService;
 
   private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =
       new ConjunctivePrivilegeGroup(
@@ -37,7 +37,7 @@ public class DeleteApplicationResolver implements DataFetcher<CompletableFuture<
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (!_applicationService.verifyEntityExists(
+          if (!applicationService.verifyEntityExists(
               context.getOperationContext(), applicationUrn)) {
             throw new IllegalArgumentException("The Application provided does not exist");
           }
@@ -51,7 +51,7 @@ public class DeleteApplicationResolver implements DataFetcher<CompletableFuture<
           }
 
           try {
-            _applicationService.deleteApplication(context.getOperationContext(), applicationUrn);
+            applicationService.deleteApplication(context.getOperationContext(), applicationUrn);
             return true;
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete Application", e);
