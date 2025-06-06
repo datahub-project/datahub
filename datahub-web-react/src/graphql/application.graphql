@@ -93,10 +93,3 @@ mutation deleteApplication($urn: String!) {
 mutation batchSetApplication($input: BatchSetApplicationInput!) {
     batchSetApplication(input: $input)
 }
-
-query countApplicationAssets($urn: String!) {
-    application(urn: $urn) { children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
-            total
-        }
-    }
-}
