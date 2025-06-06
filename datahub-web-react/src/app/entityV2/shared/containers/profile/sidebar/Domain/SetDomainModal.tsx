@@ -292,7 +292,6 @@ export const SetDomainModal = ({
                                     }
                                     options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
                                 />
-<<<<<<< HEAD
                                 <BrowserWrapper isHidden={!isShowingDomainNavigator}>
                                     <DomainNavigator
                                         selectDomainOverride={selectDomainFromBrowser}
@@ -308,28 +307,5 @@ export const SetDomainModal = ({
                 <ProposalDescriptionModal onPropose={proposeDomain} onCancel={() => setShowProposeModal(false)} />
             )}
         </>
-||||||| 69f368b00e
-                            }
-                            options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
-                        />
-                        <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
-                </Form.Item>
-            </Form>
-        </Modal>
-=======
-                            }
-                            options={domainAutocompleteOptions(domainResult, searchLoading, entityRegistry)}
-                        />
-                        <BrowserWrapper isHidden={!isShowingDomainNavigator}>
-                            <DomainNavigator selectDomainOverride={selectDomainFromBrowser} displayDomainColoredIcon />
-                        </BrowserWrapper>
-                    </ClickOutside>
-                </Form.Item>
-            </Form>
-        </Modal>
->>>>>>> master
     );
 };

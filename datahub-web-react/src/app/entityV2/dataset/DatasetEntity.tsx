@@ -190,21 +190,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Lineage',
                     component: LineageTab,
                     icon: PartitionOutlined,
-<<<<<<< HEAD
                     supportsFullsize: true,
-                },
-                {
-                    name: 'Access',
-                    component: AccessManagement,
-                    icon: UnlockOutlined,
-                    display: {
-                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, _2) => true,
-                    },
-||||||| 69f368b00e
-=======
-                    supportsFullsize: true,
->>>>>>> master
                 },
                 {
                     name: 'Access',

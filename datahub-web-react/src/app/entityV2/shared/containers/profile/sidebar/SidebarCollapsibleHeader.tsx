@@ -57,7 +57,6 @@ const Top = styled.div`
 const RightActions = styled.div`
     display: flex;
     align-items: center;
-<<<<<<< HEAD
     gap: 8px;
 `;
 
@@ -77,11 +76,6 @@ const PillDot = styled.div<{ $isSelected?: boolean }>`
     border: 2px solid ${(props) => (props.$isSelected ? '#f9fafc' : '#f2f3fa')};
     top: -2px;
     left: 14px;
-||||||| 69f368b00e
-    gap: 3px;
-=======
-    gap: 8px;
->>>>>>> master
 `;
 
 interface Props {

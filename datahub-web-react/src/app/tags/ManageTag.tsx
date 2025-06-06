@@ -1,27 +1,11 @@
-<<<<<<< HEAD
-import { ColorPicker, Input, Modal, Text } from '@components';
-import { Select, message } from 'antd';
-||||||| 69f368b00e
-import { ButtonProps, ColorPicker, Input, Modal, Text } from '@components';
-import { Select, message } from 'antd';
-=======
-import { ButtonProps, ColorPicker, Input, Modal } from '@components';
+import { ColorPicker, Input, Modal } from '@components';
 import { message } from 'antd';
->>>>>>> master
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-<<<<<<< HEAD
 import { ModalButton } from '@components/components/Modal/Modal';
 
-import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { OwnerLabel } from '@src/app/shared/OwnerLabel';
-||||||| 69f368b00e
-import { ExpandedOwner } from '@src/app/entity/shared/components/styled/ExpandedOwner/ExpandedOwner';
-import { OwnerLabel } from '@src/app/shared/OwnerLabel';
-=======
 import OwnersSection from '@app/sharedV2/owners/OwnersSection';
->>>>>>> master
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import {
     useBatchAddOwnersMutation,
