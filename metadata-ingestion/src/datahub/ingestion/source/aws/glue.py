@@ -25,6 +25,12 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.api.entities.dataset.dataset import Dataset
+from datahub.api.entities.external.external_entities import (
+    PlatformResourceRepository,
+)
+from datahub.api.entities.external.lake_formation_external_entites import (
+    LakeFormationTag,
+)
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.emitter import mce_builder
@@ -61,6 +67,10 @@ from datahub.ingestion.source.aws.s3_util import (
     is_s3_uri,
     make_s3_urn,
     make_s3_urn_for_lineage,
+)
+from datahub.ingestion.source.aws.tag_entities import (
+    LakeFormationTagPlatformResource,
+    LakeFormationTagPlatformResourceId,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -168,6 +178,12 @@ class GlueSourceConfig(
         default=False,
         description="If an S3 Objects Tags should be created for the Tables ingested by Glue.",
     )
+
+    extract_lakeformation_tags: Optional[bool] = Field(
+        default=False,
+        description="If set to True, extract lakeformation tags for glue tables.",
+    )
+
     profiling: GlueProfilingConfig = Field(
         default_factory=GlueProfilingConfig,
         description="Configs to ingest data profiles from glue table",
@@ -176,6 +192,7 @@ class GlueSourceConfig(
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description=""
     )
+
     extract_delta_schema_from_parameters: Optional[bool] = Field(
         default=False,
         description="If enabled, delta schemas can be alternatively fetched from table parameters.",
@@ -198,6 +215,10 @@ class GlueSourceConfig(
     @property
     def s3_client(self):
         return self.get_s3_client()
+
+    @property
+    def lakeformation_client(self):
+        return self.get_lakeformation_client()
 
     @validator("glue_s3_lineage_direction")
     def check_direction(cls, v: str) -> str:
@@ -311,6 +332,8 @@ class GlueSource(StatefulIngestionSourceBase):
     source_config: GlueSourceConfig
     report: GlueSourceReport
 
+    lf_tag_cache: Dict[str, Dict[str, List[str]]] = {}
+
     def __init__(self, config: GlueSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.ctx = ctx
@@ -320,8 +343,165 @@ class GlueSource(StatefulIngestionSourceBase):
         self.report.catalog_id = self.source_config.catalog_id
         self.glue_client = config.glue_client
         self.s3_client = config.s3_client
+        # Initialize Lake Formation client
+        self.lf_client = config.lakeformation_client
         self.extract_transforms = config.extract_transforms
         self.env = config.env
+
+        self.platform_resource_repository: Optional[PlatformResourceRepository] = None
+        if self.ctx.graph:
+            self.platform_resource_repository = PlatformResourceRepository(
+                self.ctx.graph
+            )
+
+        if self.source_config.extract_lakeformation_tags:
+            self.cache_lf_tags()
+
+    def cache_lf_tags(self) -> None:
+        """
+        Efficiently retrieve all resources with Lake Formation tags using batch operations
+        to minimize API calls.
+
+        Returns:
+            dict: Dictionary of resources and their associated LF-Tags
+        """
+        all_lf_tags = self.get_all_lf_tags()
+
+        # 2. Create expressions to search for resources with multiple tags at once
+        resources_with_tags: Dict = {}
+        self.get_lf_table_tags(all_lf_tags, resources_with_tags)
+        self.get_lf_database_tags(all_lf_tags, resources_with_tags)
+
+        self.lf_tag_cache = resources_with_tags
+
+    def get_lf_table_tags(
+        self,
+        all_lf_tags: List[Dict],
+        resources_with_tags: Dict[str, Dict[str, List[str]]],
+    ) -> None:
+        batch_size = (
+            5  # AWS typically limits the number of expressions in a single call
+        )
+        # Process tags in batches to minimize API calls
+        for i in range(0, len(all_lf_tags), batch_size):
+            batch_tags = all_lf_tags[i : i + batch_size]
+
+            # Create a combined expression for this batch of tags
+            expression = []
+            for tag in batch_tags:
+                tag_key = tag["TagKey"]
+                # Include all values for this key in one expression element
+                expression.append({"TagKey": tag_key, "TagValues": tag["TagValues"]})
+
+            # Skip if empty expression
+            if not expression:
+                continue
+
+            # Search for resources with these tags
+            search_response = self.lf_client.search_tables_by_lf_tags(
+                Expression=expression, MaxResults=50
+            )
+
+            # Process the found resources
+            self.process_search_results(search_response, resources_with_tags)
+
+            # Handle pagination
+            while "NextToken" in search_response:
+                search_response = self.lf_client.search_tables_by_lf_tags(
+                    Expression=expression,
+                    NextToken=search_response["NextToken"],
+                    MaxResults=50,
+                )
+                self.process_search_results(search_response, resources_with_tags)
+
+    def get_lf_database_tags(self, all_lf_tags, resources_with_tags):
+        batch_size = (
+            5  # AWS typically limits the number of expressions in a single call
+        )
+        # Process tags in batches to minimize API calls
+        for i in range(0, len(all_lf_tags), batch_size):
+            batch_tags = all_lf_tags[i : i + batch_size]
+
+            # Create a combined expression for this batch of tags
+            expression = []
+            for tag in batch_tags:
+                tag_key = tag["TagKey"]
+                # Include all values for this key in one expression element
+                expression.append({"TagKey": tag_key, "TagValues": tag["TagValues"]})
+
+            # Skip if empty expression
+            if not expression:
+                continue
+
+            # Search for resources with these tags
+            search_response = self.lf_client.search_databases_by_lf_tags(
+                Expression=expression, MaxResults=50
+            )
+
+            # Process the found resources
+            self.process_search_results(search_response, resources_with_tags)
+
+            # Handle pagination
+            while "NextToken" in search_response:
+                search_response = self.lf_client.search_databases_by_lf_tags(
+                    Expression=expression,
+                    NextToken=search_response["NextToken"],
+                    MaxResults=50,
+                )
+                self.process_search_results(search_response, resources_with_tags)
+
+    def get_all_lf_tags(self) -> List:
+        # 1. Get all LF-Tags in your account (metadata only)
+        response = self.lf_client.list_lf_tags(
+            MaxResults=50  # Adjust as needed
+        )
+        all_lf_tags = response["LFTags"]
+        # Continue pagination if necessary
+        while "NextToken" in response:
+            response = self.lf_client.list_lf_tags(
+                NextToken=response["NextToken"], MaxResults=50
+            )
+            all_lf_tags.extend(response["LFTags"])
+        return all_lf_tags
+
+    def process_search_results(
+        self, search_response: Dict, resources_with_tags: Dict
+    ) -> Dict:
+        """
+        Helper function to process search results and update the resources dictionary
+
+        Args:
+            search_response (dict): Response from search_tables_by_lf_tags API call
+            resources_with_tags (dict): Dictionary to update with found resources
+        """
+        for table in search_response.get("TableList", []):
+            resource_id = f"{table['Table']['CatalogId']}.{table['Table']['DatabaseName']}.{table['Table']['Name']}"
+            # Extract tag information directly from the response
+            lf_tags = table.get("LFTagsOnTable", [])
+            lf_database_tags = table.get("LFTagOnDatabase", [])
+
+            # Store the tag information
+            existing_tags = {}
+            if resource_id in resources_with_tags:
+                # Merge tags (avoiding duplicates)
+                existing_tags = resources_with_tags[resource_id]
+
+            # Add LF-Tags to the resource
+            for lf_tag in lf_tags:
+                tag_key = f"{lf_tag['CatalogId']}.{lf_tag['TagKey']}"
+                tag_values = lf_tag["TagValues"]
+                existing_tags[tag_key] = tag_values
+
+            for db_lf_tag in lf_database_tags:
+                tag_key = f"{db_lf_tag['CatalogId']}.{db_lf_tag['TagKey']}"
+                tag_values = db_lf_tag["TagValues"]
+                if tag_key not in existing_tags:
+                    existing_tags[tag_key] = tag_values
+
+            if existing_tags:
+                resources_with_tags[resource_id] = existing_tags
+
+        return resources_with_tags
 
     def get_glue_arn(
         self, account_id: str, database: str, table: Optional[str] = None
@@ -869,7 +1049,7 @@ class GlueSource(StatefulIngestionSourceBase):
         table_stats: dict,
         column_stats: dict,
         partition_spec: Optional[str] = None,
-    ) -> MetadataChangeProposalWrapper:
+    ) -> Optional[MetadataChangeProposalWrapper]:
         assert self.source_config.profiling
 
         # instantiate profile class
@@ -936,6 +1116,14 @@ class GlueSource(StatefulIngestionSourceBase):
 
             dataset_profile.fieldProfiles.append(column_profile)
 
+        # if no stats are available, skip ingestion
+        if (
+            not dataset_profile.fieldProfiles
+            and dataset_profile.rowCount is None
+            and dataset_profile.columnCount is None
+        ):
+            return None
+
         if partition_spec:
             # inject partition level stats
             dataset_profile.partitionSpec = PartitionSpecClass(
@@ -990,18 +1178,20 @@ class GlueSource(StatefulIngestionSourceBase):
                     if self.source_config.profiling.partition_patterns.allowed(
                         partition_spec
                     ):
-                        yield self._create_profile_mcp(
+                        profile_mcp = self._create_profile_mcp(
                             mce, table_stats, column_stats, partition_spec
-                        ).as_workunit()
+                        )
+                        if profile_mcp:
+                            yield profile_mcp.as_workunit()
                     else:
                         continue
             else:
                 # ingest data profile without partition
                 table_stats = response["Table"]["Parameters"]
                 column_stats = response["Table"]["StorageDescriptor"]["Columns"]
-                yield self._create_profile_mcp(
-                    mce, table_stats, column_stats
-                ).as_workunit()
+                profile_mcp = self._create_profile_mcp(mce, table_stats, column_stats)
+                if profile_mcp:
+                    yield profile_mcp.as_workunit()
 
     def gen_database_key(self, database: str) -> DatabaseKey:
         return DatabaseKey(
@@ -1011,6 +1201,33 @@ class GlueSource(StatefulIngestionSourceBase):
             env=self.source_config.env,
             backcompat_env_as_instance=True,
         )
+
+    def gen_platform_resource(
+        self, catalog: str, tag: LakeFormationTag
+    ) -> Iterable[MetadataWorkUnit]:
+        if self.ctx.graph and self.platform_resource_repository:
+            platform_resource_id = LakeFormationTagPlatformResourceId.from_tag(
+                platform_instance=self.source_config.platform_instance,
+                platform_resource_repository=self.platform_resource_repository,
+                catalog=catalog,
+                tag=tag,
+            )
+            logger.info(f"Created platform resource {platform_resource_id}")
+
+            lf_tag = LakeFormationTagPlatformResource.get_from_datahub(
+                platform_resource_id, self.platform_resource_repository, False
+            )
+            if (
+                tag.to_datahub_tag_urn().urn()
+                not in lf_tag.datahub_linked_resources().urns
+            ):
+                lf_tag.datahub_linked_resources().add(tag.to_datahub_tag_urn().urn())
+                platform_resource = lf_tag.as_platform_resource()
+                for mcp in platform_resource.to_mcps():
+                    yield MetadataWorkUnit(
+                        id=f"platform_resource-{platform_resource.id}",
+                        mcp=mcp,
+                    )
 
     def gen_database_containers(
         self, database: Mapping[str, Any]
@@ -1106,9 +1323,8 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_instance=self.source_config.platform_instance,
         )
 
-        mce = self._extract_record(dataset_urn, table, full_table_name)
-        yield MetadataWorkUnit(full_table_name, mce=mce)
-
+        yield from self._extract_record(dataset_urn, table, full_table_name)
+        # generate a Dataset snapshot
         # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
         # possible via Dataset snapshot embedded in a mce, so we have to generate a mcp.
         yield MetadataChangeProposalWrapper(
@@ -1123,19 +1339,6 @@ class GlueSource(StatefulIngestionSourceBase):
         yield from self.add_table_to_database_container(
             dataset_urn=dataset_urn, db_name=database_name
         )
-
-        wu = self.get_lineage_if_enabled(mce)
-        if wu:
-            yield wu
-
-        try:
-            yield from self.get_profile_if_enabled(mce, database_name, table_name)
-        except KeyError as e:
-            self.report.report_failure(
-                message="Failed to extract profile for table",
-                context=f"Table: {dataset_urn}",
-                exc=e,
-            )
 
     def _transform_extraction(self) -> Iterable[MetadataWorkUnit]:
         dags: Dict[str, Optional[Dict[str, Any]]] = {}
@@ -1191,159 +1394,193 @@ class GlueSource(StatefulIngestionSourceBase):
             for dataset_id, dataset_mce in zip(new_dataset_ids, new_dataset_mces):
                 yield MetadataWorkUnit(id=dataset_id, mce=dataset_mce)
 
-    # flake8: noqa: C901
     def _extract_record(
         self, dataset_urn: str, table: Dict, table_name: str
-    ) -> MetadataChangeEvent:
+    ) -> Iterable[MetadataWorkUnit]:
+        """Extract and yield metadata work units for a Glue table."""
         logger.debug(
             f"extract record from table={table_name} for dataset={dataset_urn}"
         )
 
-        def get_dataset_properties() -> DatasetPropertiesClass:
-            return DatasetPropertiesClass(
-                description=table.get("Description"),
-                customProperties={
-                    **table.get("Parameters", {}),
-                    **{
-                        k: str(v)
-                        for k, v in table.get("StorageDescriptor", {}).items()
-                        if k not in ["Columns", "Parameters"]
-                    },
-                },
-                uri=table.get("Location"),
-                tags=[],
-                name=table["Name"],
-                qualifiedName=self.get_glue_arn(
-                    account_id=table["CatalogId"],
-                    database=table["DatabaseName"],
-                    table=table["Name"],
-                ),
+        # Create the main dataset snapshot
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[
+                Status(removed=False),
+                self._get_dataset_properties(table),
+            ],
+        )
+
+        # Add schema metadata if available
+        schema_metadata = self._get_schema_metadata(table, table_name, dataset_urn)
+        if schema_metadata:
+            dataset_snapshot.aspects.append(schema_metadata)
+
+        # Add platform instance
+        dataset_snapshot.aspects.append(self._get_data_platform_instance())
+
+        # Add ownership if enabled
+        if self.extract_owners:
+            ownership = GlueSource._get_ownership(table.get("Owner"))
+            if ownership:
+                dataset_snapshot.aspects.append(ownership)
+
+        # Add S3 tags if enabled
+        s3_tags = self._get_s3_tags(table, dataset_urn)
+        if s3_tags:
+            dataset_snapshot.aspects.append(s3_tags)
+
+        # Add Lake Formation tags if enabled
+        lf_tags = self._get_lake_formation_tags(table)
+        if lf_tags:
+            dataset_snapshot.aspects.append(lf_tags)
+            # Generate platform resources for LF tags
+            yield from self._gen_lf_tag_platform_resources(table)
+
+        # Create and yield the main metadata work unit
+        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        yield MetadataWorkUnit(table_name, mce=metadata_record)
+
+        # Add lineage if enabled
+        lineage_wu = self.get_lineage_if_enabled(metadata_record)
+        if lineage_wu:
+            yield lineage_wu
+
+        # Add profile if enabled
+        try:
+            yield from self.get_profile_if_enabled(
+                metadata_record, table["DatabaseName"], table["Name"]
+            )
+        except KeyError as e:
+            self.report.report_failure(
+                message="Failed to extract profile for table",
+                context=f"Table: {dataset_urn}",
+                exc=e,
             )
 
-        def get_s3_tags() -> Optional[GlobalTagsClass]:
-            # when TableType=VIRTUAL_VIEW the Location can be empty and we should
-            # return no tags rather than fail the entire ingestion
-            if table.get("StorageDescriptor", {}).get("Location") is None:
-                return None
-            bucket_name = s3_util.get_bucket_name(
-                table["StorageDescriptor"]["Location"]
+    def _get_dataset_properties(self, table: Dict) -> DatasetPropertiesClass:
+        """Extract dataset properties from Glue table."""
+        storage_descriptor = table.get("StorageDescriptor", {})
+        custom_properties = {
+            **table.get("Parameters", {}),
+            **{
+                k: str(v)
+                for k, v in storage_descriptor.items()
+                if k not in ["Columns", "Parameters"]
+            },
+        }
+
+        return DatasetPropertiesClass(
+            description=table.get("Description"),
+            customProperties=custom_properties,
+            uri=table.get("Location"),
+            tags=[],
+            name=table["Name"],
+            qualifiedName=self.get_glue_arn(
+                account_id=table["CatalogId"],
+                database=table["DatabaseName"],
+                table=table["Name"],
+            ),
+        )
+
+    def _get_schema_metadata(
+        self, table: Dict, table_name: str, dataset_urn: str
+    ) -> Optional[SchemaMetadata]:
+        """Extract schema metadata from Glue table."""
+        if not table.get("StorageDescriptor"):
+            return None
+
+        # Check if this is a delta table with schema in parameters
+        if self._is_delta_schema(table):
+            return self._get_delta_schema_metadata(table, table_name, dataset_urn)
+        else:
+            return self._get_glue_schema_metadata(table, table_name)
+
+    def _is_delta_schema(self, table: Dict) -> bool:
+        """Check if table uses delta format with schema in parameters."""
+        if not self.source_config.extract_delta_schema_from_parameters:
+            return False
+
+        provider = table.get("Parameters", {}).get("spark.sql.sources.provider", "")
+        num_parts = int(
+            table.get("Parameters", {}).get("spark.sql.sources.schema.numParts", "0")
+        )
+        columns = table.get("StorageDescriptor", {}).get("Columns", [])
+
+        return (
+            provider == "delta"
+            and num_parts > 0
+            and columns
+            and len(columns) == 1
+            and columns[0].get("Name", "") == "col"
+            and columns[0].get("Type", "") == "array<string>"
+        )
+
+    def _get_glue_schema_metadata(
+        self, table: Dict, table_name: str
+    ) -> Optional[SchemaMetadata]:
+        """Extract schema metadata from Glue table columns."""
+        schema = table["StorageDescriptor"]["Columns"]
+        fields: List[SchemaField] = []
+
+        # Process regular columns
+        for field in schema:
+            schema_fields = get_schema_fields_for_hive_column(
+                hive_column_name=field["Name"],
+                hive_column_type=field["Type"],
+                description=field.get("Comment"),
+                default_nullable=True,
             )
-            tags_to_add = []
-            if self.source_config.use_s3_bucket_tags:
-                try:
-                    bucket_tags = self.s3_client.get_bucket_tagging(Bucket=bucket_name)
-                    tags_to_add.extend(
-                        [
-                            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                            for tag in bucket_tags["TagSet"]
-                        ]
-                    )
-                except self.s3_client.exceptions.ClientError:
-                    logger.warning(f"No tags found for bucket={bucket_name}")
-            if self.source_config.use_s3_object_tags:
-                key_prefix = s3_util.get_key_prefix(
-                    table["StorageDescriptor"]["Location"]
-                )
-                object_tagging = self.s3_client.get_object_tagging(
-                    Bucket=bucket_name, Key=key_prefix
-                )
-                tag_set = object_tagging["TagSet"]
-                if tag_set:
-                    tags_to_add.extend(
-                        [
-                            make_tag_urn(f"""{tag["Key"]}:{tag["Value"]}""")
-                            for tag in tag_set
-                        ]
-                    )
-                else:
-                    # Unlike bucket tags, if an object does not have tags, it will just return an empty array
-                    # as opposed to an exception.
-                    logger.warning(
-                        f"No tags found for bucket={bucket_name} key={key_prefix}"
-                    )
-            if len(tags_to_add) == 0:
-                return None
-            if self.ctx.graph is not None:
-                logger.debug(
-                    "Connected to DatahubApi, grabbing current tags to maintain."
-                )
-                current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect(
-                    entity_urn=dataset_urn,
-                    aspect_type=GlobalTagsClass,
-                )
-                if current_tags:
-                    tags_to_add.extend(
-                        [current_tag.tag for current_tag in current_tags.tags]
-                    )
-            else:
-                logger.warning(
-                    "Could not connect to DatahubApi. No current tags to maintain"
-                )
-            # Remove duplicate tags
-            tags_to_add = sorted(list(set(tags_to_add)))
-            new_tags = GlobalTagsClass(
-                tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+            if schema_fields:
+                fields.extend(schema_fields)
+
+        # Process partition keys
+        partition_keys = table.get("PartitionKeys", [])
+        for partition_key in partition_keys:
+            schema_fields = get_schema_fields_for_hive_column(
+                hive_column_name=partition_key["Name"],
+                hive_column_type=partition_key.get("Type", "unknown"),
+                description=partition_key.get("Comment"),
+                default_nullable=False,
             )
-            return new_tags
+            if schema_fields:
+                fields.extend(schema_fields)
 
-        def _is_delta_schema(
-            provider: str, num_parts: int, columns: Optional[List[Mapping[str, Any]]]
-        ) -> bool:
-            return (
-                (self.source_config.extract_delta_schema_from_parameters is True)
-                and (provider == "delta")
-                and (num_parts > 0)
-                and (columns is not None)
-                and (len(columns) == 1)
-                and (columns[0].get("Name", "") == "col")
-                and (columns[0].get("Type", "") == "array<string>")
+        return SchemaMetadata(
+            schemaName=table_name,
+            version=0,
+            fields=fields,
+            platform=f"urn:li:dataPlatform:{self.platform}",
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+        )
+
+    def _get_delta_schema_metadata(
+        self, table: Dict, table_name: str, dataset_urn: str
+    ) -> Optional[SchemaMetadata]:
+        """Extract schema metadata from Delta table parameters."""
+        try:
+            # Reconstruct schema from parameters
+            num_parts = int(table["Parameters"]["spark.sql.sources.schema.numParts"])
+            schema_str = "".join(
+                table["Parameters"][f"spark.sql.sources.schema.part.{i}"]
+                for i in range(num_parts)
             )
+            schema_json = json.loads(schema_str)
 
-        def get_schema_metadata() -> Optional[SchemaMetadata]:
-            # As soon as the hive integration with Spark is correctly providing the schema as expected in the
-            # StorageProperties, the alternative path to fetch schema from table parameters for delta schemas can be removed.
-            # https://github.com/delta-io/delta/pull/2310
-            provider = table.get("Parameters", {}).get("spark.sql.sources.provider", "")
-            num_parts = int(
-                table.get("Parameters", {}).get(
-                    "spark.sql.sources.schema.numParts", "0"
-                )
-            )
-            columns = table.get("StorageDescriptor", {}).get("Columns", [{}])
-
-            if _is_delta_schema(provider, num_parts, columns):
-                return _get_delta_schema_metadata()
-
-            elif table.get("StorageDescriptor"):
-                return _get_glue_schema_metadata()
-
-            else:
-                return None
-
-        def _get_glue_schema_metadata() -> Optional[SchemaMetadata]:
-            schema = table["StorageDescriptor"]["Columns"]
             fields: List[SchemaField] = []
-            for field in schema:
+            for field in schema_json["fields"]:
+                field_type = delta_type_to_hive_type(field.get("type", "unknown"))
                 schema_fields = get_schema_fields_for_hive_column(
-                    hive_column_name=field["Name"],
-                    hive_column_type=field["Type"],
-                    description=field.get("Comment"),
-                    default_nullable=True,
+                    hive_column_name=field["name"],
+                    hive_column_type=field_type,
+                    description=field.get("description"),
+                    default_nullable=bool(field.get("nullable", True)),
                 )
-                assert schema_fields
-                fields.extend(schema_fields)
+                if schema_fields:
+                    fields.extend(schema_fields)
 
-            partition_keys = table.get("PartitionKeys", [])
-            for partition_key in partition_keys:
-                schema_fields = get_schema_fields_for_hive_column(
-                    hive_column_name=partition_key["Name"],
-                    hive_column_type=partition_key.get("Type", "unknown"),
-                    description=partition_key.get("Comment"),
-                    default_nullable=False,
-                )
-                assert schema_fields
-                fields.extend(schema_fields)
-
+            self.report.num_dataset_valid_delta_schema += 1
             return SchemaMetadata(
                 schemaName=table_name,
                 version=0,
@@ -1353,108 +1590,141 @@ class GlueSource(StatefulIngestionSourceBase):
                 platformSchema=MySqlDDL(tableSchema=""),
             )
 
-        def _get_delta_schema_metadata() -> Optional[SchemaMetadata]:
-            assert (
-                table["Parameters"]["spark.sql.sources.provider"] == "delta"
-                and int(table["Parameters"]["spark.sql.sources.schema.numParts"]) > 0
+        except Exception as e:
+            self.report_warning(
+                dataset_urn,
+                f"Could not parse schema for {table_name} because of {type(e).__name__}: {e}",
             )
-
-            try:
-                numParts = int(table["Parameters"]["spark.sql.sources.schema.numParts"])
-                schema_str = "".join(
-                    [
-                        table["Parameters"][f"spark.sql.sources.schema.part.{i}"]
-                        for i in range(numParts)
-                    ]
-                )
-                schema_json = json.loads(schema_str)
-                fields: List[SchemaField] = []
-                for field in schema_json["fields"]:
-                    field_type = delta_type_to_hive_type(field.get("type", "unknown"))
-                    schema_fields = get_schema_fields_for_hive_column(
-                        hive_column_name=field["name"],
-                        hive_column_type=field_type,
-                        description=field.get("description"),
-                        default_nullable=bool(field.get("nullable", True)),
-                    )
-                    assert schema_fields
-                    fields.extend(schema_fields)
-
-                self.report.num_dataset_valid_delta_schema += 1
-                return SchemaMetadata(
-                    schemaName=table_name,
-                    version=0,
-                    fields=fields,
-                    platform=f"urn:li:dataPlatform:{self.platform}",
-                    hash="",
-                    platformSchema=MySqlDDL(tableSchema=""),
-                )
-
-            except Exception as e:
-                self.report_warning(
-                    dataset_urn,
-                    f"Could not parse schema for {table_name} because of {type(e).__name__}: {e}",
-                )
-                self.report.num_dataset_invalid_delta_schema += 1
-                return None
-
-        def get_data_platform_instance() -> DataPlatformInstanceClass:
-            return DataPlatformInstanceClass(
-                platform=make_data_platform_urn(self.platform),
-                instance=(
-                    make_dataplatform_instance_urn(
-                        self.platform, self.source_config.platform_instance
-                    )
-                    if self.source_config.platform_instance
-                    else None
-                ),
-            )
-
-        @lru_cache(maxsize=None)
-        def _get_ownership(owner: str) -> Optional[OwnershipClass]:
-            if owner:
-                owners = [
-                    OwnerClass(
-                        owner=mce_builder.make_user_urn(owner),
-                        type=OwnershipTypeClass.DATAOWNER,
-                    )
-                ]
-                return OwnershipClass(
-                    owners=owners,
-                )
+            self.report.num_dataset_invalid_delta_schema += 1
             return None
 
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[
-                Status(removed=False),
-                get_dataset_properties(),
-            ],
+    def _get_data_platform_instance(self) -> DataPlatformInstanceClass:
+        """Get data platform instance aspect."""
+        return DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=(
+                make_dataplatform_instance_urn(
+                    self.platform, self.source_config.platform_instance
+                )
+                if self.source_config.platform_instance
+                else None
+            ),
         )
 
-        schema_metadata = get_schema_metadata()
-        if schema_metadata:
-            dataset_snapshot.aspects.append(schema_metadata)
+    @staticmethod
+    @lru_cache(maxsize=None)
+    def _get_ownership(owner: str) -> Optional[OwnershipClass]:
+        """Get ownership aspect for a given owner."""
+        if not owner:
+            return None
 
-        dataset_snapshot.aspects.append(get_data_platform_instance())
+        owners = [
+            OwnerClass(
+                owner=mce_builder.make_user_urn(owner),
+                type=OwnershipTypeClass.DATAOWNER,
+            )
+        ]
+        return OwnershipClass(owners=owners)
 
-        # Ownership
-        if self.extract_owners:
-            owner = table.get("Owner")
-            optional_owner_aspect = _get_ownership(owner)
-            if optional_owner_aspect is not None:
-                dataset_snapshot.aspects.append(optional_owner_aspect)
-
-        if (
+    def _get_s3_tags(self, table: Dict, dataset_urn: str) -> Optional[GlobalTagsClass]:
+        """Extract S3 tags if enabled."""
+        if not (
             self.source_config.use_s3_bucket_tags
             or self.source_config.use_s3_object_tags
         ):
-            s3_tags = get_s3_tags()
-            if s3_tags is not None:
-                dataset_snapshot.aspects.append(s3_tags)
+            return None
 
-        metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        return metadata_record
+        # Check if table has a location (VIRTUAL_VIEW tables may not)
+        location = table.get("StorageDescriptor", {}).get("Location")
+        if not location:
+            return None
+
+        bucket_name = s3_util.get_bucket_name(location)
+        tags_to_add: List[str] = []
+
+        # Get bucket tags
+        if self.source_config.use_s3_bucket_tags:
+            try:
+                bucket_tags = self.s3_client.get_bucket_tagging(Bucket=bucket_name)
+                tags_to_add.extend(
+                    make_tag_urn(f"{tag['Key']}:{tag['Value']}")
+                    for tag in bucket_tags["TagSet"]
+                )
+            except self.s3_client.exceptions.ClientError:
+                logger.warning(f"No tags found for bucket={bucket_name}")
+
+        # Get object tags
+        if self.source_config.use_s3_object_tags:
+            key_prefix = s3_util.get_key_prefix(location)
+            try:
+                object_tagging = self.s3_client.get_object_tagging(
+                    Bucket=bucket_name, Key=key_prefix
+                )
+                if object_tagging["TagSet"]:
+                    tags_to_add.extend(
+                        make_tag_urn(f"{tag['Key']}:{tag['Value']}")
+                        for tag in object_tagging["TagSet"]
+                    )
+                else:
+                    logger.warning(
+                        f"No tags found for bucket={bucket_name} key={key_prefix}"
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to get object tags: {e}")
+
+        if not tags_to_add:
+            return None
+
+        # Merge with existing tags if connected to DataHub API
+        if self.ctx.graph:
+            logger.debug("Connected to DatahubApi, grabbing current tags to maintain.")
+            current_tags: Optional[GlobalTagsClass] = self.ctx.graph.get_aspect(
+                entity_urn=dataset_urn, aspect_type=GlobalTagsClass
+            )
+            if current_tags:
+                tags_to_add.extend(current_tag.tag for current_tag in current_tags.tags)
+        else:
+            logger.warning(
+                "Could not connect to DatahubApi. No current tags to maintain"
+            )
+
+        # Remove duplicates and create tags
+        unique_tags = sorted(set(tags_to_add))
+        return GlobalTagsClass(tags=[TagAssociationClass(tag) for tag in unique_tags])
+
+    def _get_lake_formation_tags(self, table: Dict) -> Optional[GlobalTagsClass]:
+        """Extract Lake Formation tags if enabled."""
+        if not self.source_config.extract_lakeformation_tags or not self.lf_tag_cache:
+            return None
+
+        resource_key = f"{table['CatalogId']}.{table['DatabaseName']}.{table['Name']}"
+        lf_tags: Dict[str, List[str]] = self.lf_tag_cache.get(resource_key, {})
+
+        if not lf_tags:
+            return None
+
+        tag_urns = []
+        for tag_key, tag_values in lf_tags.items():
+            for tag_value in tag_values:
+                tag_catalog, raw_key = tag_key.split(".", 1)
+                lf_tag = LakeFormationTag(raw_key, tag_value)
+                tag_urns.append(TagAssociationClass(lf_tag.to_datahub_tag_urn().urn()))
+
+        return GlobalTagsClass(tags=tag_urns) if tag_urns else None
+
+    def _gen_lf_tag_platform_resources(self, table: Dict) -> Iterable[MetadataWorkUnit]:
+        """Generate platform resources for Lake Formation tags."""
+        if not self.source_config.extract_lakeformation_tags or not self.lf_tag_cache:
+            return
+
+        resource_key = f"{table['CatalogId']}.{table['DatabaseName']}.{table['Name']}"
+        lf_tags: Dict[str, List[str]] = self.lf_tag_cache.get(resource_key, {})
+
+        for tag_key, tag_values in lf_tags.items():
+            for tag_value in tag_values:
+                tag_catalog, raw_key = tag_key.split(".", 1)
+                lf_tag = LakeFormationTag(raw_key, tag_value)
+                yield from self.gen_platform_resource(catalog=tag_catalog, tag=lf_tag)
 
     def get_report(self):
         return self.report
