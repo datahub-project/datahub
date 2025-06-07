@@ -34,8 +34,9 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');
     process.env = { ...process.env, ...env };
 
+    const themeConfigFile = `./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`;
     // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
-    const themeConfig = require(`./src/conf/theme/${process.env.REACT_APP_THEME_CONFIG}`);
+    const themeConfig = require(themeConfigFile);
 
     // Setup proxy to the datahub-frontend service.
     const frontendProxy = {
