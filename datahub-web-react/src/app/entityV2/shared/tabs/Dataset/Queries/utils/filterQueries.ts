@@ -1,6 +1,7 @@
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
+import { CREATED_TIME_FIELD, LAST_MODIFIED_TIME_FIELD } from '@app/searchV2/context/constants';
 
-import { FacetFilterInput } from '@types';
+import { FacetFilterInput, FilterOperator } from '@types';
 
 /**
  * Filter queries by a search string. Compares name, description, and query statement.
@@ -34,4 +35,25 @@ export const getAndFilters = (
         : existingFilters;
     andFilters = selectedUsersFilter.values?.length ? [...andFilters, selectedUsersFilter] : andFilters;
     return andFilters;
+};
+
+export const getTimeFilters = (daysAgo = 30) => {
+    // Calculate epoch time in ms from X days ago
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set to start of today for caching
+    const timestamp = today.getTime() - daysAgo * 24 * 60 * 60 * 1000;
+
+    const createdAtFilter = {
+        field: CREATED_TIME_FIELD,
+        condition: FilterOperator.GreaterThanOrEqualTo,
+        values: [timestamp.toString()],
+    };
+
+    const lastModifiedAtFilter = {
+        field: LAST_MODIFIED_TIME_FIELD,
+        condition: FilterOperator.GreaterThanOrEqualTo,
+        values: [timestamp.toString()],
+    };
+
+    return { createdAtFilter, lastModifiedAtFilter };
 };

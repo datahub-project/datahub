@@ -5,6 +5,7 @@ import {
     filterQueries,
     getAndFilters,
     getQueryEntitiesFilter,
+    getTimeFilters,
 } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
 import { mapQuery } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/mapQuery';
 import { useQueryParamValue } from '@app/entityV2/shared/useQueryParamValue';
@@ -49,7 +50,17 @@ export const usePopularQueries = ({
     const { sortField, sortOrder } = sorting;
 
     const entityFilter = getQueryEntitiesFilter(entityUrn, siblingUrn);
-    const andFilters = getAndFilters(selectedColumnsFilter, selectedUsersFilter, [entityFilter]);
+    const { createdAtFilter, lastModifiedAtFilter } = getTimeFilters(30);
+
+    const andCreatedAtFilters = getAndFilters(selectedColumnsFilter, selectedUsersFilter, [
+        entityFilter,
+        createdAtFilter,
+    ]);
+    const andLastModifiedAtFilters = getAndFilters(selectedColumnsFilter, selectedUsersFilter, [
+        entityFilter,
+        lastModifiedAtFilter,
+    ]);
+
     const { data: popularQueriesData, loading } = useListQueriesQuery({
         variables: {
             input: {
@@ -61,7 +72,7 @@ export const usePopularQueries = ({
                         ? { sortCriterion: { field: sortField, sortOrder } }
                         : { sortCriterion: { field: 'runsPercentileLast30days', sortOrder: SortOrder.Descending } },
 
-                orFilters: [{ and: andFilters }],
+                orFilters: [{ and: andCreatedAtFilters }, { and: andLastModifiedAtFilters }],
             },
         },
         skip: !entityUrn,
