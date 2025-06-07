@@ -428,6 +428,11 @@ input ListExecutionRequestsInput {
   Optional sort order. Defaults to use systemCreated.
   """
   sort: SortCriterion
+
+  """
+  When defined it adds filter to show executions with only system/non system sources
+  """
+  systemSources: Boolean
 }
 
 """
@@ -498,6 +503,11 @@ type IngestionSource {
   Ownership metadata of the ingestion source
   """
   ownership: Ownership
+
+  """
+  The latest successful execution request for this source
+  """
+  latestSuccessfulExecution: ExecutionRequest
 }
 
 """
