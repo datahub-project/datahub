@@ -155,7 +155,7 @@
         "@typescript-eslint/eslint-plugin": "^5.38.1",
         "@typescript-eslint/parser": "^5.38.1",
         "@vitejs/plugin-react-swc": "^3.10.1",
-        "@vitest/coverage-v8": "^0.34.6",
+        "@vitest/coverage-v8": "^3.2.2",
         "eslint": "^8.2.0",
         "eslint-config-airbnb": "19.0.4",
         "eslint-config-airbnb-typescript": "^17.0.0",
@@ -168,7 +168,7 @@
         "eslint-plugin-react-refresh": "^0.4.6",
         "eslint-plugin-vitest": "^0.3.17",
         "jsdom": "^22.1.0",
-        "less": "^4.2.0",
+        "less": "^4.3.0",
         "prettier": "^3.5.3",
         "source-map-explorer": "^2.5.2",
         "storybook": "^8.1.11",
@@ -176,7 +176,7 @@
         "vite-plugin-babel-macros": "^1.0.6",
         "vite-plugin-static-copy": "^3.0.0",
         "vite-plugin-svgr": "^4.3.0",
-        "vitest": "^0.34.6"
+        "vitest": "^3.2.2"
     },
     "resolutions": {
         "@ant-design/colors": "6.0.0",
