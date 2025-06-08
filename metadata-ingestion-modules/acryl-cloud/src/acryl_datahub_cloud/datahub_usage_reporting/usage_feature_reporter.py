@@ -114,12 +114,12 @@ class DataHubUsageFeatureReportingSourceConfig(
         30, description="Timeout in seconds for the search queries."
     )
     extract_batch_size: int = Field(
-        1000,
+        5000,
         description="The number of documents to retrieve in each batch from ElasticSearch or OpenSearch.",
     )
 
     extract_delay: Optional[float] = Field(
-        0.25,
+        0,
         description="The delay in seconds between each batch extraction from ElasticSearch or OpenSearch.",
     )
 
@@ -177,7 +177,7 @@ class DataHubUsageFeatureReportingSourceConfig(
     # This option is only needed here until we are sure that the streaming mode is stable.
     # then we can remove it and control it with the streaming_mode option.
     experimental_full_streaming: bool = Field(
-        False,
+        True,
         description="Flag to enable full streaming mode.'",
     )
 
@@ -617,11 +617,11 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         ),
                     )
 
-                    response = server.create_pit(index, keep_alive="10m")
+                    # response = server.create_pit(index, keep_alive="10m")
 
                     # TODO: Save PIT, we can resume processing based on <pit, search_after> tuple
-                    pit = response.get("pit_id")
-                    query_copy.update({"pit": {"id": pit, "keep_alive": "10m"}})
+                    # pit = response.get("pit_id")
+                    # query_copy.update({"pit": {"id": pit, "keep_alive": "10m"}})
                 else:
                     server = Elasticsearch(
                         [endpoint],
@@ -834,7 +834,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             .drop(["removed"])
         )
 
-        return wdf.collect(streaming=self.config.streaming_mode).lazy()
+        return wdf
 
     def load_write_usage_server_side_aggregation(
         self, soft_deleted_entities_df: polars.LazyFrame
@@ -995,7 +995,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         self, lazy_frame: polars.LazyFrame
     ) -> Iterable[MetadataWorkUnit]:
         for row in lazy_frame.collect(
-            streaming=self.config.experimental_full_streaming
+            engine="streaming" if self.config.experimental_full_streaming else "auto"
         ).to_struct():
             if "siblings" in row and row["siblings"]:
                 logger.info(f"Siblings found for urn: {row['urn']} -> row['siblings']")
@@ -1086,7 +1086,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def generate_query_usage_mcp_from_lazyframe(
         self, lazy_frame: polars.LazyFrame
     ) -> Iterable[MetadataWorkUnit]:
-        for row in lazy_frame.collect().iter_rows(named=True):
+        for row in lazy_frame.collect(
+            engine="streaming" if self.config.experimental_full_streaming else "auto"
+        ).iter_rows(named=True):
             query_usage_features = QueryUsageFeaturesClass(
                 queryCountLast30Days=int(row.get("totalSqlQueries", 0) or 0),
                 queryCountTotal=None,  # This is not implemented
@@ -1308,7 +1310,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         query_entities = self.load_data_from_es_to_lf(
             schema=query_entities_schema,
             index=entity_index,
-            query=QueryBuilder.get_query_entities_query(),
+            query=QueryBuilder.get_query_entities_query(self.config.lookback_days),
             process_function=self.queries_entities_batch,
         )
 
@@ -1485,11 +1487,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             # called `Option::unwrap()` on a `None` value
             # Which only happens if we don't collect immediately
             # return polars.scan_parquet(temp_file.name, schema=schema, low_memory=True).collect().lazy()
-            return (
-                polars.scan_parquet(temp_file.name, schema=schema, low_memory=True)
-                .collect()
-                .lazy()
-            )
+            return polars.scan_parquet(temp_file.name, schema=schema, low_memory=True)
 
     def load_dataset_usage(self) -> polars.LazyFrame:
         index = "dataset_datasetusagestatisticsaspect_v1"
@@ -1606,23 +1604,40 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         delay: Optional[float] = None,
     ) -> Iterable[Dict[str, Any]]:
         processed_count = 0
+        scroll_id = None
         while True:
             with PerfTimer() as timer:
                 logger.debug(f"ES query: {query}")
-                results = server.search(
-                    body=query,
-                    size=batch_size,
-                    index=(
-                        index
-                        if not self.config.search_index.opensearch_dialect
-                        else None
-                    ),
-                    params=(
-                        {"timeout": self.config.query_timeout}
-                        if self.config.search_index.opensearch_dialect
-                        else {"request_timeout": self.config.query_timeout}
-                    ),
-                )
+                if not scroll_id:
+                    logger.debug(
+                        f"Getting inital data from index {index} without scroll id"
+                    )
+                    results = server.search(
+                        body=query,
+                        size=batch_size,
+                        scroll="2m",
+                        index=index,
+                        params=(
+                            {"timeout": self.config.query_timeout}
+                            if self.config.search_index.opensearch_dialect
+                            else {"request_timeout": self.config.query_timeout}
+                        ),
+                    )
+                else:
+                    logger.debug(
+                        f"Getting data from index {index} using scroll_id: {scroll_id}"
+                    )
+                    results = server.scroll(
+                        scroll_id=scroll_id,
+                        scroll="2m",
+                        params=(
+                            {"timeout": self.config.query_timeout}
+                            if self.config.search_index.opensearch_dialect
+                            else {"request_timeout": self.config.query_timeout}
+                        ),
+                    )
+                scroll_id = results["_scroll_id"]
+
                 if not aggregation_key:
                     yield from process_function(results["hits"]["hits"])
 
@@ -1633,7 +1648,6 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     )
                     if len(results["hits"]["hits"]) < batch_size:
                         break
-                    query.update({"search_after": results["hits"]["hits"][-1]["sort"]})
                 else:
                     yield from process_function(
                         results["aggregations"][aggregation_key]["buckets"]
@@ -1643,16 +1657,11 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         < batch_size
                     ):
                         break
-                    if "after_key" in results["aggregations"][aggregation_key]:
-                        query["aggs"][aggregation_key]["composite"]["after"] = results[
-                            "aggregations"
-                        ][aggregation_key]["after_key"]
-
-                if delay:
-                    logger.debug(
-                        f"Sleeping for {delay} seconds before getting next batch from ES"
-                    )
-                    time.sleep(delay)
+            if delay:
+                logger.debug(
+                    f"Sleeping for {delay} seconds before getting next batch from ES"
+                )
+                time.sleep(delay)
 
     def get_report(self) -> SourceReport:
         return self.report

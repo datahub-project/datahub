@@ -51,6 +51,9 @@ flag_management:
     - name: ingestion-prefect
       paths:
         - "metadata-ingestion-modules/prefect-plugin/**"
+    - name: acryl-cloud
+      paths:
+        - "metadata-ingestion-modules/acryl-cloud/**"
 coverage:
   status:
     project: false
