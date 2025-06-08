@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import difflib
 import logging
+from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
+    Dict,
     List,
     Literal,
     Optional,
@@ -18,12 +21,7 @@ from typing_extensions import assert_never, deprecated
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import (
-    DataJobUrn,
-    DatasetUrn,
-    QueryUrn,
-    Urn,
-)
+from datahub.metadata.urns import DataJobUrn, DatasetUrn, QueryUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
     ChartUrnOrStr,
     DashboardUrnOrStr,
@@ -32,6 +30,8 @@ from datahub.sdk._shared import (
 )
 from datahub.sdk._utils import DEFAULT_ACTOR_URN
 from datahub.sdk.dataset import ColumnLineageMapping, parse_cll_mapping
+from datahub.sdk.search_client import compile_filters
+from datahub.sdk.search_filters import Filter, FilterDsl
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder
@@ -53,9 +53,29 @@ _empty_audit_stamp = models.AuditStampClass(
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class LineagePath:
+    urn: str
+    entity_name: str
+    column_name: Optional[str] = None
+
+
+@dataclass
+class LineageResult:
+    urn: str
+    type: str
+    hops: int
+    direction: Literal["upstream", "downstream"]
+    platform: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    paths: Optional[List[LineagePath]] = None
+
+
 class LineageClient:
     def __init__(self, client: DataHubClient):
         self._client = client
+        self._graph = client._graph
 
     def _get_fields_from_dataset_urn(self, dataset_urn: DatasetUrn) -> Set[str]:
         schema_metadata = self._client._graph.get_aspect(
@@ -700,3 +720,242 @@ class LineageClient:
 
         # Apply the changes to the entity
         self._client.entities.update(patch_builder)
+
+    def get_lineage(
+        self,
+        *,
+        source_urn: Union[str, Urn],
+        source_column: Optional[str] = None,
+        direction: Literal["upstream", "downstream"] = "upstream",
+        max_hops: int = 1,
+        filter: Optional[Filter] = None,
+        count: int = 500,
+    ) -> List[LineageResult]:
+        """
+        Retrieve lineage entities connected to a source entity.
+        Args:
+            source_urn: Source URN for the lineage search
+            source_column: Source column for the lineage search
+            direction: Direction of lineage traversal
+            max_hops: Maximum number of hops to traverse
+            filter: Filters to apply to the lineage search
+            count: Maximum number of results to return
+
+        Returns:
+            List of lineage results
+
+        Raises:
+            SdkUsageError for invalid filter values
+        """
+        # Validate and convert input URN
+        source_urn = Urn.from_string(source_urn)
+        # Prepare GraphQL query variables with a separate method
+        variables = self._process_input_variables(
+            source_urn, source_column, filter, direction, max_hops, count
+        )
+
+        return self._execute_lineage_query(variables, direction)
+
+    def _process_input_variables(
+        self,
+        source_urn: Urn,
+        source_column: Optional[str] = None,
+        filters: Optional[Filter] = None,
+        direction: Literal["upstream", "downstream"] = "upstream",
+        max_hops: int = 1,
+        count: int = 500,
+    ) -> Dict[str, Any]:
+        """
+        Process filters and prepare GraphQL query variables for lineage search.
+
+        Args:
+            source_urn: Source URN for the lineage search
+            source_column: Source column for the lineage search
+            filters: Optional filters to apply
+            direction: Direction of lineage traversal
+            max_hops: Maximum number of hops to traverse
+            count: Maximum number of results to return
+
+        Returns:
+            Dictionary of GraphQL query variables
+
+        Raises:
+            SdkUsageError for invalid filter values
+        """
+
+        # print warning if max_hops is greater than 2
+        if max_hops > 2:
+            logger.warning(
+                """If `max_hops` is more than 2, the search will try to find the full lineage graph.
+                By default, only 500 results are shown.
+                You can change the `count` to get more or fewer results.
+                """
+            )
+
+        # Determine hop values
+        max_hop_values = (
+            [str(hop) for hop in range(1, max_hops + 1)]
+            if max_hops <= 2
+            else ["1", "2", "3+"]
+        )
+
+        degree_filter = FilterDsl.custom_filter(
+            field="degree",
+            condition="EQUAL",
+            values=max_hop_values,
+        )
+
+        filters_with_max_hops = (
+            FilterDsl.and_(degree_filter, filters)
+            if filters is not None
+            else degree_filter
+        )
+
+        types, compiled_filters = compile_filters(filters_with_max_hops)
+
+        # Prepare base variables
+        variables: Dict[str, Any] = {
+            "input": {
+                "urn": str(source_urn),
+                "direction": direction.upper(),
+                "count": count,
+                "types": types,
+                "orFilters": compiled_filters,
+            }
+        }
+
+        # if column is provided, update the variables to include the schema field urn
+        if isinstance(source_urn, SchemaFieldUrn) or source_column:
+            variables["input"]["searchFlags"] = {
+                "groupingSpec": {
+                    "groupingCriteria": {
+                        "baseEntityType": "SCHEMA_FIELD",
+                        "groupingEntityType": "SCHEMA_FIELD",
+                    }
+                }
+            }
+        if isinstance(source_urn, SchemaFieldUrn):
+            variables["input"]["urn"] = str(source_urn)
+        elif source_column:
+            variables["input"]["urn"] = str(SchemaFieldUrn(source_urn, source_column))
+
+        return variables
+
+    def _execute_lineage_query(
+        self,
+        variables: Dict[str, Any],
+        direction: Literal["upstream", "downstream"],
+    ) -> List[LineageResult]:
+        """Execute GraphQL query and process results."""
+        # Construct GraphQL query with dynamic path query
+        graphql_query = """
+        query scrollAcrossLineage($input: ScrollAcrossLineageInput!) {
+            scrollAcrossLineage(input: $input) {
+                nextScrollId
+                searchResults {
+                    degree
+                    entity {
+                        urn
+                        type
+                        ... on Dataset {
+                            name
+                            platform {
+                                name
+                            }
+                            properties {
+                                description
+                            }
+                        }
+                        ... on DataJob {
+                            jobId
+                            dataPlatformInstance {
+                                platform {
+                                    name
+                                }
+                            }
+                            properties {
+                                name
+                                description
+                            }
+                        }
+                    }
+                    paths {
+                        path {
+                            urn
+                            type
+                        }
+                    }
+                }
+            }
+        }
+        """
+
+        results: List[LineageResult] = []
+
+        first_iter = True
+        scroll_id: Optional[str] = None
+
+        while first_iter or scroll_id:
+            first_iter = False
+
+            # Update scroll ID if applicable
+            if scroll_id:
+                variables["input"]["scrollId"] = scroll_id
+
+            # Execute GraphQL query
+            response = self._graph.execute_graphql(graphql_query, variables=variables)
+            data = response["scrollAcrossLineage"]
+            scroll_id = data.get("nextScrollId")
+
+            # Process search results
+            for entry in data["searchResults"]:
+                entity = entry["entity"]
+
+                result = self._create_lineage_result(entity, entry, direction)
+                results.append(result)
+
+        return results
+
+    def _create_lineage_result(
+        self,
+        entity: Dict[str, Any],
+        entry: Dict[str, Any],
+        direction: Literal["upstream", "downstream"],
+    ) -> LineageResult:
+        """Create a LineageResult from entity and entry data."""
+        platform = entity.get("platform", {}).get("name") or entity.get(
+            "dataPlatformInstance", {}
+        ).get("platform", {}).get("name")
+
+        result = LineageResult(
+            urn=entity["urn"],
+            type=entity["type"],
+            hops=entry["degree"],
+            direction=direction,
+            platform=platform,
+        )
+
+        properties = entity.get("properties", {})
+        if properties:
+            result.name = properties.get("name", "")
+            result.description = properties.get("description", "")
+
+        result.paths = []
+        if "paths" in entry:
+            # Process each path in the lineage graph
+            for path in entry["paths"]:
+                for path_entry in path["path"]:
+                    # Only include schema fields in the path (exclude other types like Query)
+                    if path_entry["type"] == "SCHEMA_FIELD":
+                        schema_field_urn = SchemaFieldUrn.from_string(path_entry["urn"])
+                        result.paths.append(
+                            LineagePath(
+                                urn=path_entry["urn"],
+                                entity_name=DatasetUrn.from_string(
+                                    schema_field_urn.parent
+                                ).name,
+                                column_name=schema_field_urn.field_path,
+                            )
+                        )
+
+        return result

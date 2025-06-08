@@ -9,7 +9,9 @@ from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.errors import IngestionAttributionWarning, ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import (
+    ChartUrn,
     ContainerUrn,
+    DashboardUrn,
     DataFlowUrn,
     DataJobUrn,
     DatasetUrn,
@@ -19,7 +21,9 @@ from datahub.metadata.urns import (
 )
 from datahub.sdk._all_entities import ENTITY_CLASSES
 from datahub.sdk._shared import UrnOrStr
+from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
+from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
@@ -64,6 +68,10 @@ class EntityClient:
     def get(self, urn: DataFlowUrn) -> DataFlow: ...
     @overload
     def get(self, urn: DataJobUrn) -> DataJob: ...
+    @overload
+    def get(self, urn: DashboardUrn) -> Dashboard: ...
+    @overload
+    def get(self, urn: ChartUrn) -> Chart: ...
     @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:

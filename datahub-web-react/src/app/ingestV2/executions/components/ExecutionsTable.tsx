@@ -1,5 +1,7 @@
 import { Column, Table } from '@components';
+import * as QueryString from 'query-string';
 import React, { useCallback, useState } from 'react';
+import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
@@ -11,6 +13,7 @@ import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColu
 import DurationColumn from '@app/ingestV2/shared/components/columns/DurationColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
+import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { ExecutionRequest } from '@types';
@@ -28,6 +31,7 @@ interface Props {
 
 export default function ExecutionsTable({ executionRequests, setFocusExecutionUrn, loading, handleRollback }: Props) {
     const [runIdOfRollbackConfirmation, setRunIdOfRollbackConfirmation] = useState<string | undefined>();
+    const history = useHistory();
 
     const tableData: ExecutionRequestRecord[] = executionRequests.map((execution) => ({
         urn: execution.urn,
@@ -95,9 +99,22 @@ export default function ExecutionsTable({ executionRequests, setFocusExecutionUr
         },
     ];
 
+    const onRowClick = (record) => {
+        history.replace({
+            pathname: tabUrlMap[TabType.Sources],
+            search: QueryString.stringify({ query: record.name }, { arrayFormat: 'comma' }),
+        });
+    };
+
     return (
         <>
-            <StyledTable columns={tableColumns} data={tableData} isScrollable isLoading={loading} />
+            <StyledTable
+                columns={tableColumns}
+                data={tableData}
+                isScrollable
+                isLoading={loading}
+                onRowClick={onRowClick}
+            />
             <ConfirmationModal
                 isOpen={!!runIdOfRollbackConfirmation}
                 modalTitle="Confirm Rollback"

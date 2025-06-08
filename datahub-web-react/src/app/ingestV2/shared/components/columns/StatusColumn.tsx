@@ -38,7 +38,14 @@ export function StatusColumn({ status, onClick, dataTestId }: StatusProps) {
     return (
         <AllStatusWrapper>
             <StatusContainer>
-                <StatusButton data-testid={dataTestId} type="link" onClick={onClick}>
+                <StatusButton
+                    data-testid={dataTestId}
+                    type="link"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onClick?.();
+                    }}
+                >
                     <Pill
                         customIconRenderer={() => <Icon icon={icon} source="phosphor" size="md" />}
                         label={text}

@@ -126,7 +126,12 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
         <>
             {singleOwner && (
                 <HoverEntityTooltip entity={singleOwner} showArrow={false}>
-                    <Link to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}>
+                    <Link
+                        to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
                         <Avatar
                             name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
                             imageUrl={singleOwner.editableProperties?.pictureLink}
@@ -233,7 +238,14 @@ export function ActionsColumn({
             dropdownItems={items}
             extraActions={
                 !record.cliIngestion && record.lastExecStatus !== EXECUTION_REQUEST_STATUS_RUNNING ? (
-                    <Icon icon="Play" source="phosphor" onClick={() => onExecute(record.urn)} />
+                    <Icon
+                        icon="Play"
+                        source="phosphor"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onExecute(record.urn);
+                        }}
+                    />
                 ) : null
             }
         />

@@ -23,7 +23,12 @@ export default function UserWithAvatar({ user, size }: Props) {
 
     return (
         <HoverEntityTooltip entity={user} showArrow={false}>
-            <Link to={`${entityRegistry.getEntityUrl(user.type, user.urn)}`}>
+            <Link
+                to={`${entityRegistry.getEntityUrl(user.type, user.urn)}`}
+                onClick={(e) => {
+                    e.stopPropagation();
+                }}
+            >
                 <Avatar
                     name={entityRegistry.getDisplayName(user.type, user)}
                     imageUrl={avatarUrl}

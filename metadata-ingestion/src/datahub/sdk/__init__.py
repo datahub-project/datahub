@@ -18,7 +18,9 @@ from datahub.metadata.urns import (
     SchemaFieldUrn,
     TagUrn,
 )
+from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
+from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
