@@ -3,6 +3,7 @@ package com.linkedin.metadata.kafka.hook.usage.aws;
 import static com.linkedin.mxe.Topics.DATAHUB_USAGE_EVENT;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.aws.EventBridgeConfiguration;
@@ -13,6 +14,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -21,6 +23,7 @@ public class EventBridgeAuditEventExportHook implements DataHubUsageEventHook {
 
   private final EventBridgeBatchProcessor eventBridgeBatchProcessor;
   private final EventBridgeConfiguration eventBridgeConfiguration;
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   public EventBridgeAuditEventExportHook(ConfigurationProvider configurationProvider) {
     this.eventBridgeConfiguration = configurationProvider.getAws().getEventBridge();
@@ -62,6 +65,17 @@ public class EventBridgeAuditEventExportHook implements DataHubUsageEventHook {
           Optional.ofNullable(event.get(DataHubUsageEventConstants.TIMESTAMP))
               .orElse(JsonNodeFactory.instance.textNode(""))
               .asText());
+    }
+  }
+
+  @Override
+  public void invoke(@Nonnull ConsumerRecord<String, String> event) throws Exception {
+    try {
+      JsonNode jsonNode = OBJECT_MAPPER.readTree(event.value());
+      invoke(jsonNode);
+    } catch (Exception e) {
+      log.error("Failed to parse ConsumerRecord value as JsonNode", e);
+      throw e;
     }
   }
 }
