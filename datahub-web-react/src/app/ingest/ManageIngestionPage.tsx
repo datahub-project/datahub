@@ -89,7 +89,8 @@ export const ManageIngestionPage = () => {
     // TODO: For now remote executors privilege is tied to manage ingestion
     const showRemoteExecutorsTab = showIngestionTab && config.featureFlags.displayExecutorPools; // Saas only
 
-    const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>(TabType.Sources);
+    // undefined == not loaded, null == no permissions
+    const [selectedTab, setSelectedTab] = useState<TabType | undefined | null>();
 
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
