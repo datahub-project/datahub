@@ -26,7 +26,7 @@ $(VENV_SENTINEL): requirements.txt
 
 # Not using Python's http.server because it enables caching headers.
 serve:
-	serve -p 3001 _build/markdown/
+	serve -p 3001 _build/mdx/
 
 md: venv
 	@export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 && \
