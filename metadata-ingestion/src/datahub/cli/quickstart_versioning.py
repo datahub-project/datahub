@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 LOCAL_QUICKSTART_MAPPING_FILE = os.environ.get("FORCE_LOCAL_QUICKSTART_MAPPING", "")
 DEFAULT_LOCAL_CONFIG_PATH = "~/.datahub/quickstart/quickstart_version_mapping.yaml"
-DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/quickstart_version_mapping.yaml"
+DEFAULT_REMOTE_CONFIG_PATH = "https://raw.githubusercontent.com/datahub-project/datahub/cr-oss-quickstart-test/docker/quickstart/quickstart_version_mapping.yaml"
 
 MINIMUM_SUPPORTED_VERSION = "v1.1.0"
 
@@ -105,7 +105,9 @@ class QuickstartVersionMappingConfig(BaseModel):
             return QuickstartVersionMappingConfig(
                 quickstart_version_map={
                     "default": QuickstartExecutionPlan(
-                        composefile_git_ref="master", docker_tag="head", mysql_tag="8.2"
+                        composefile_git_ref="cr-oss-quickstart-test",
+                        docker_tag="head",
+                        mysql_tag="8.2",
                     ),
                 }
             )
@@ -167,7 +169,7 @@ class QuickstartVersionMappingConfig(BaseModel):
             ):  # TODO: Once we decide what the new version that supports profile based compose.
                 # The merge commit where the labels were added
                 # https://github.com/datahub-project/datahub/pull/7473
-                result.composefile_git_ref = "1d3339276129a7cb8385c07a958fcc93acda3b4e"  # TODO update after compose file is merged
+                result.composefile_git_ref = "c712cf6833c5d249655a7e287d49a45678e7aae2"  # TODO update after compose file is merged
 
         return result
 
