@@ -123,6 +123,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showCreatedAtFilter: false,
         showIngestionPageRedesign: false,
         showNotificationSettingsForComplianceForms: false,
+        lineageGraphV3: false,
     },
     chromeExtensionConfig: {
         enabled: false,

@@ -1496,6 +1496,11 @@ type FeatureFlagsConfig {
   SaaS only -- Whether to show notification settings for compliance forms
   """
   showNotificationSettingsForComplianceForms: Boolean!
+
+  """
+  Enables the redesign of the lineage v2 graph
+  """
+  lineageGraphV3: Boolean!
 }
 
 """

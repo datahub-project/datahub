@@ -790,6 +790,8 @@ featureFlags:
   # If turned on, show the expand more button (>>) in the lineage graph
   showNotificationSettingsForComplianceForms: ${SHOW_NOTIFICATION_SETTINGS_FOR_COMPLIANCE_FORMS:false}
   # Whether to show notification settings for compliance forms
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}
+  # Enables the redesign of the lineage v2 graph
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

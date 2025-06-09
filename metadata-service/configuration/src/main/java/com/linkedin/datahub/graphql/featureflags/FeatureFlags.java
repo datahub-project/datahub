@@ -42,6 +42,7 @@ public class FeatureFlags {
   private boolean showIntroducePage = false;
   private boolean showIngestionPageRedesign = false;
   private boolean showLineageExpandMore = true;
+  private boolean lineageGraphV3 = true;
 
   /* SaaS Only */
   private boolean assertionMonitorsEnabled = false;

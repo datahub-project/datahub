@@ -143,6 +143,7 @@ query appConfig {
             datasetHealthDashboardV2Enabled
             showCreatedAtFilter
             showNotificationSettingsForComplianceForms
+            lineageGraphV3
         }
         chromeExtensionConfig {
             enabled

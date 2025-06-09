@@ -324,6 +324,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowCreatedAtFilter(_featureFlags.isShowCreatedAtFilter())
             .setShowNotificationSettingsForComplianceForms(
                 _featureFlags.isShowNotificationSettingsForComplianceForms())
+            .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
