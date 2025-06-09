@@ -16,6 +16,7 @@ import SchemaFieldQueriesSidebarTab from '@app/entityV2/shared/tabs/Dataset/Sche
 import { SchemaTimelineSection } from '@app/entityV2/shared/tabs/Dataset/Timeline/SchemaTimelineSection';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import StatsSidebarView from '@src/app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarView';
 import { TabRenderType } from '@src/app/entityV2/shared/types';
 
 import { GetDatasetQuery, useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
