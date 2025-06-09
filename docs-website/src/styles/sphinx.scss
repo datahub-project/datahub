@@ -1,124 +1,85 @@
-// Styles for Sphinx Python SDK generated docs
-$borderRadius: 5px;
+.python-sdk {
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ifm-font-color-base);
 
-dl.py {
-  margin-bottom: calc(var(--ifm-spacing-vertical) * 2);
-  font-size: 14px;
-  border: 1px solid var(--ifm-hr-border-color);
-  border-radius: $borderRadius;
+  h1, h2, h3, h4 {
+    font-weight: 600;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+  }
 
-  code {
-    border: none;
-    background: none;
+  h3, h4 {
+    border-bottom: 1px solid var(--ifm-hr-border-color);
+    padding-bottom: 0.25rem;
+  }
+
+  // Signature block
+  h3:has(code), h4:has(code) {
+    background-color: var(--ifm-code-background);
+    border-radius: 6px;
+    padding: 0.75rem 1rem 0.75rem 2rem;
+    font-family: var(--ifm-font-family-monospace);
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--ifm-font-color-base);
   }
 
   p {
-    margin-bottom: 0;
+    margin-bottom: 1rem;
   }
 
-  dl {
-    margin-bottom: var(--ifm-spacing-vertical);
+  code {
+    background-color: var(--ifm-code-background);
+    padding: 0.2em 0.4em;
+    border-radius: 4px;
+    font-size: 0.9em;
   }
 
-  // The parameter name:
-  em.sig-param > span:first-child {
-    font-weight: bold;
-  }
+  ul {
+    margin-bottom: 1.5rem;
 
-  > dd:not(:empty) {
-    padding-bottom: var(--ifm-spacing-vertical);
-  }
-
-  dt.sig {
-    box-sizing: border-box;
-    font-size: 0.9rem;
-    padding: var(--ifm-spacing-vertical);
-    border-radius: $borderRadius;
-    font-family: var(--ifm-font-family-monospace);
-    background-color: var(--ifm-background-surface-color);
-  }
-
-  > dd {
-    &:not(:empty) {
-      padding-top: calc(var(--ifm-spacing-vertical) / 2);
-      margin-top: 0;
-      margin-left: var(--ifm-spacing-horizontal);
-      margin-right: var(--ifm-spacing-horizontal);
-    }
-  }
-
-  // e.g. `class`, or `def`
-  em.property {
-    color: var(--ifm-font-color-base);
-    font-weight: bold;
-  }
-
-  // e.g. `MyClass`
-  span.sig-name {
-    color: #2774b3;
-    font-weight: bold;
-  }
-
-  // e.g classmethod
-  em.property {
-    color: #66b327;
-  }
-
-  em.sig-param {
-    span.default_value {
-      color: #66b327;
-    }
-  }
-
-  span.sig-return {
-    span.sig-return-typehint {
-      color: var(--ifm-font-color-base);
-
-      pre {
-        color: var(--ifm-font-color-base);
-      }
-    }
-  }
-
-  dl.field-list {
-    padding-top: calc(var(--ifm-spacing-vertical) / 2);
-    display: grid;
-    grid-template-columns: fit-content(30%) auto;
-    &:not(:first-child) {
-      border-top: 1px solid var(--ifm-hr-border-color);
+    &:has(li strong) {
+      background-color: var(--ifm-background-surface-color);
+      border-radius: 8px;
+      padding: 1rem 1rem 1rem 2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
     }
 
-    dt {
-      margin-right: 0.5em;
-    }
+    li {
+      margin-bottom: 0.75rem;
 
-    dd {
-      font-family: var(--ifm-font-family-monospace);
-    }
-
-    dt,
-    dd {
-      margin-left: 0;
-      padding-left: 0;
-
-      &:not(:first-of-type) {
-        border-top: 1px solid var(--ifm-hr-border-color);
-        padding-top: var(--ifm-spacing-vertical);
-      }
-      &:not(:last-of-type) {
-        padding-bottom: var(--ifm-spacing-vertical);
+      strong {
+        display: inline-block;
+        color: #2774b3;
+        font-weight: 600;
+        min-width: 90px;
       }
 
-      ul {
-        list-style-type: none;
-        padding-left: 0;
-        li {
-          p {
-            margin: 0;
-            padding: 0;
-          }
-        }
+      code {
+        background: transparent;
+        color: #66b327;
+        padding: 0;
       }
     }
+
+    // nested ul for params or return type formatting
+    ul {
+      margin-top: 0.5rem;
+      margin-bottom: 0.5rem;
+      padding-left: 1rem;
+      border-left: 2px dotted var(--ifm-color-emphasis-300);
+    }
+  }
+
+  // Return type section
+  li:has(strong:contains("Return type")) {
+    font-style: italic;
+    color: var(--ifm-font-color-secondary);
+  }
+
+  // Parameter type callouts like (Optional[str])
+  em > code {
+    color: #c678dd;
   }
 }
