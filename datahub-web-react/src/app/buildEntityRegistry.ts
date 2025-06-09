@@ -1,5 +1,6 @@
 import { RoleEntity } from '@app/entity/Access/RoleEntity';
 import EntityRegistry from '@app/entity/EntityRegistry';
+import { ApplicationEntity } from '@app/entity/application/ApplicationEntity';
 import { BusinessAttributeEntity } from '@app/entity/businessAttribute/BusinessAttributeEntity';
 import { ChartEntity } from '@app/entity/chart/ChartEntity';
 import { ContainerEntity } from '@app/entity/container/ContainerEntity';
@@ -27,7 +28,6 @@ import { SchemaFieldPropertiesEntity } from '@app/entity/schemaField/SchemaField
 import { StructuredPropertyEntity } from '@app/entity/structuredProperty/StructuredPropertyEntity';
 import { TagEntity } from '@app/entity/tag/Tag';
 import { UserEntity } from '@app/entity/user/User';
-import { ApplicationEntity } from '@app/entityV2/application/ApplicationEntity';
 
 export default function buildEntityRegistry() {
     const registry = new EntityRegistry();
