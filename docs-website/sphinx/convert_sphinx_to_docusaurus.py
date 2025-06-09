@@ -33,7 +33,7 @@ def main():
         with open(outfile, "w") as f:
             f.write(final_content)
 
-        print(f"✅ Generated {outfile}")
+        print(f"Generated {outfile}")
 
 if __name__ == "__main__":
     main()
