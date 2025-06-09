@@ -30,7 +30,7 @@ class MdxBuilder(Builder):
 
         # Initialize GitHub URL configuration
         self.github_url = getattr(
-            self.config, "mdx_github_url", "https://github.com/dagster-io/dagster/blob/master"
+            self.config, "mdx_github_url", "https://github.com/datahub-project/datahub/blob/master"
         )
         self.show_source_links = getattr(self.config, "mdx_show_source_links", True)
 

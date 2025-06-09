@@ -225,7 +225,7 @@ datahub delete --platform snowflake --only-soft-deleted --hard
 
 ## Deletes using the SDK and APIs
 
-The Python SDK's [DataHubGraph](../../python-sdk/clients.md) client supports deletes via the following methods:
+The Python SDK's [DataHubGraph](../../python-sdk/clients.mdx) client supports deletes via the following methods:
 
 - `soft_delete_entity`
 - `hard_delete_entity`

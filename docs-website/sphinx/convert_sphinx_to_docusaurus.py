@@ -1,7 +1,7 @@
 import pathlib
 
 SPHINX_ROOT_DIR = pathlib.Path(".")
-SPHINX_BUILD_DIR = SPHINX_ROOT_DIR / pathlib.Path("_build/markdown/apidocs")
+SPHINX_BUILD_DIR = SPHINX_ROOT_DIR / pathlib.Path("_build/mdx/apidocs")
 DOCS_OUTPUT_DIR = pathlib.Path("../docs/python-sdk")
 
 
@@ -16,7 +16,7 @@ def main():
         ("<id2>", "<\\id2> "),
     ]
 
-    for doc in SPHINX_BUILD_DIR.glob("**/*.md"):
+    for doc in SPHINX_BUILD_DIR.glob("**/*.mdx"):
         outfile = DOCS_OUTPUT_DIR / doc.relative_to(SPHINX_BUILD_DIR)
         outfile.parent.mkdir(parents=True, exist_ok=True)
 

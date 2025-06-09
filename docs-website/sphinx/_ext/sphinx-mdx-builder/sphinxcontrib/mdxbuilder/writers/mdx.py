@@ -158,7 +158,7 @@ class MdxTranslator(SphinxTranslator):
 
         self.max_line_width = self.config.mdx_max_line_width or 120
         self.github_url = (
-            self.config.mdx_github_url or "https://github.com/dagster-io/dagster/blob/master"
+            self.config.mdx_github_url or "https://github.com/datahub-project/datahub/blob/master"
         )
         self.show_source_links = getattr(self.config, "mdx_show_source_links", True)
 
@@ -402,7 +402,7 @@ class MdxTranslator(SphinxTranslator):
         self.new_state(0)
 
     def depart_document(self, node: Element) -> None:
-        title = next(iter(node.nameids.keys()), "Dagster Python API Reference")
+        title = next(iter(node.nameids.keys()), " Python API Reference")
         title_suffix = self.builder.config.mdx_title_suffix
         title_meta = self.builder.config.mdx_title_meta
         meta_description = self.builder.config.mdx_description_meta
@@ -581,12 +581,12 @@ class MdxTranslator(SphinxTranslator):
     def visit_desc_content(self, node: Element) -> None:
         self.in_literal += 1
         self.new_state()
-        self.add_text("<dd>\n")
+        # self.add_text("<dd>\n") # temp comment out to fix the build error
 
     def depart_desc_content(self, node: Element) -> None:
         self.in_literal -= 1
         self.add_text("\n")
-        self.add_text("</dd>")
+        # self.add_text("</dd>") # temp comment out to fix the build error
         self.end_state(wrap=False)
 
     def visit_desc_inline(self, node: Element) -> None:

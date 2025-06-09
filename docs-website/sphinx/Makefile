@@ -29,7 +29,7 @@ serve:
 	serve -p 3001 _build/markdown/
 
 md: venv
-	@$(VENV_DIR)/bin/pip install -e _ext/sphinx-mdx-builder && \
+	LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 $(VENV_DIR)/bin/pip install -e _ext/sphinx-mdx-builder && \
 	$(SPHINXBUILD) -M mdx "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O) && \
 	$(VENV_DIR)/bin/python3 convert_sphinx_to_docusaurus.py
 
