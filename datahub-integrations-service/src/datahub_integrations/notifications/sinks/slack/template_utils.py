@@ -656,6 +656,41 @@ def build_incident_reopened_message(
     return (text, blocks, attachments)
 
 
+def build_compliance_form_publish_parameters(
+    request: NotificationRequestClass, base_url: str
+) -> Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]:
+    if request.message.parameters is None:
+        raise ValueError("Parameters are compliance form publish notifications.")
+
+    form_name = request.message.parameters.get("formName", "")
+
+    # Prepare the textual content and structured blocks for the Slack message
+    blocks: List[Dict[str, Any]] = [
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f":memo: You've been requested to complete tasks for *{form_name}*",
+            },
+        },
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": "View Tasks"},
+                    "url": f"{base_url}/requests/requests",
+                    "action_id": "external_redirect",
+                },
+            ],
+        },
+    ]
+
+    text = ":memo: *New Task* New compliance form tasks to complete"
+
+    return (text, blocks, [])
+
+
 def create_actors_tag_string(
     slack_client: WebClient, actors: List[Union[User, Group]]
 ) -> str:

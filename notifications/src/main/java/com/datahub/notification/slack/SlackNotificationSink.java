@@ -102,13 +102,15 @@ public class SlackNotificationSink implements NotificationSink {
           NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
           NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
           NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
-          NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE);
+          NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE,
+          NotificationTemplateType.BROADCAST_COMPLIANCE_FORM_PUBLISH);
 
   /** Templates that are supported by the V2 sink, and may be skipped by this sink. */
   private static final List<NotificationTemplateType> V2_SUPPORTED_TEMPLATES =
       ImmutableList.of(
           NotificationTemplateType.BROADCAST_NEW_INCIDENT,
-          NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE);
+          NotificationTemplateType.BROADCAST_INCIDENT_STATUS_CHANGE,
+          NotificationTemplateType.BROADCAST_COMPLIANCE_FORM_PUBLISH);
 
   /** A list of recipient types that can be handled by the sink */
   private static final List<NotificationRecipientType> RECIPIENT_TYPES =

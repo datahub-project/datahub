@@ -356,6 +356,22 @@ def build_proposal_status_change_parameters(
     }
 
 
+def build_compliance_form_publish_parameters(
+    request: NotificationRequestClass, base_url: str
+) -> Dict[str, str | None]:
+    if request.message.parameters is None:
+        raise ValueError("Parameters are compliance form publish notifications.")
+
+    form_name = request.message.parameters.get("formName", "")
+
+    return {
+        "subject": "Action Required: You have new data compliance tasks to complete.",
+        "formName": form_name,
+        "detailsUrl": f"{base_url}/requests/requests",
+        "baseUrl": base_url,
+    }
+
+
 def build_assertion_status_change_parameters(
     request: NotificationRequestClass, base_url: str
 ) -> Dict[str, str | None]:
