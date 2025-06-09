@@ -2,3 +2,4 @@
 /.envrc
 /venv
 /_build
+*.egg-info/
