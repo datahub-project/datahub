@@ -1,4 +1,4 @@
-import { Table } from '@components';
+import { Column, Table } from '@components';
 import { SorterResult } from 'antd/lib/table/interface';
 import * as QueryString from 'query-string';
 import React from 'react';
@@ -14,6 +14,7 @@ import {
     OwnerColumn,
     ScheduleColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
+import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
@@ -23,7 +24,7 @@ import { IngestionSource } from '@types';
 
 const StyledTable = styled(Table)`
     table-layout: fixed;
-`;
+` as typeof Table;
 
 interface Props {
     sources: IngestionSource[];
@@ -51,7 +52,7 @@ function IngestionSourceTable({
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
 
-    const tableData = sources.map((source) => ({
+    const tableData: IngestionSourceTableData[] = sources.map((source) => ({
         urn: source.urn,
         type: source.type,
         name: source.name,
@@ -68,7 +69,7 @@ function IngestionSourceTable({
         owners: source.ownership?.owners,
     }));
 
-    const tableColumns = [
+    const tableColumns: Column<IngestionSourceTableData>[] = [
         {
             title: 'Name',
             key: 'name',
@@ -87,7 +88,7 @@ function IngestionSourceTable({
         {
             title: 'Last Run',
             key: 'lastRun',
-            render: (record) => <DateTimeColumn time={record.lastExecTime ?? 0} placeholder={<>Never run</>} />,
+            render: (record) => <DateTimeColumn time={record.lastExecTime} />,
             width: '15%',
         },
         {
@@ -96,7 +97,7 @@ function IngestionSourceTable({
             render: (record) => (
                 <StatusColumn
                     status={record.lastExecStatus}
-                    onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
+                    onClick={() => record.lastExecUrn && setFocusExecutionUrn(record.lastExecUrn)}
                     dataTestId="ingestion-source-table-status"
                 />
             ),
