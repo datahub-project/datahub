@@ -362,16 +362,19 @@ export const extractEntityTypeCountsFromFacets = (
 /**
  * Add an entry to the ListIngestionSources cache.
  */
-export const addToListIngestionSourcesCache = (client, newSource, pageSize, query) => {
+export const addToListIngestionSourcesCache = (client, newSource, start, pageSize, query, filters, sort) => {
+    const inputs = {
+        start,
+        count: pageSize,
+        query: query?.length ? query : undefined,
+        filters: filters.length ? filters : undefined,
+        sort,
+    };
     // Read the data from our cache for this query.
     const currData: ListIngestionSourcesQuery | null = client.readQuery({
         query: ListIngestionSourcesDocument,
         variables: {
-            input: {
-                start: 0,
-                count: pageSize,
-                query,
-            },
+            input: inputs,
         },
     });
 
@@ -382,11 +385,7 @@ export const addToListIngestionSourcesCache = (client, newSource, pageSize, quer
     client.writeQuery({
         query: ListIngestionSourcesDocument,
         variables: {
-            input: {
-                start: 0,
-                count: pageSize,
-                query,
-            },
+            input: inputs,
         },
         data: {
             listIngestionSources: {

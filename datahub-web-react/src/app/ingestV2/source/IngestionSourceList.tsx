@@ -1,7 +1,7 @@
 import { Pagination, SearchBar, SimpleSelect } from '@components';
 import { InputRef, Modal, message } from 'antd';
 import * as QueryString from 'query-string';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components';
@@ -147,6 +147,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
+    const [refetchSourceUrn, setRefetchSourceUrn] = useState<undefined | string>(undefined);
+    const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -184,7 +186,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
         });
     }
 
-    // Ingestion Source Queries
+    // Fetch list of Ingestion Sources
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
         variables: {
             input: {
@@ -197,6 +199,16 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
+
+    // Fetch single ingestion source by urn
+    const { data: focusSourceData, refetch: focusSourceRefetch } = useGetIngestionSourceQuery({
+        variables: {
+            urn: focusSourceUrn || refetchSourceUrn || '',
+        },
+        skip: !focusSourceUrn && !refetchSourceUrn,
+        fetchPolicy: 'network-only',
+    });
+
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
@@ -205,44 +217,66 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     const [createExecutionRequestMutation] = useCreateIngestionExecutionRequestMutation();
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
 
+    function hasActiveExecutionForSource(source: IngestionSource): boolean {
+        return source.executions?.executionRequests?.some((request) => isExecutionRequestActive(request)) ?? false;
+    }
+
     const totalSources = data?.listIngestionSources?.total || 0;
-    const filteredSources = useMemo(() => {
-        const sources = data?.listIngestionSources?.ingestionSources || [];
-        return sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
-    }, [data?.listIngestionSources?.ingestionSources, removedUrns]);
+
+    useEffect(() => {
+        const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
+        setFinalSources(sources);
+    }, [data?.listIngestionSources?.ingestionSources]);
+
+    // Update sources after individual source refetch
+    useEffect(() => {
+        if (focusSourceData?.ingestionSource) {
+            const updatedSource = focusSourceData.ingestionSource as IngestionSource;
+            setFinalSources(
+                (prev) =>
+                    prev.map((s) =>
+                        s.urn === focusSourceData.ingestionSource?.urn ? focusSourceData.ingestionSource : s,
+                    ) as IngestionSource[],
+            );
+
+            if (
+                refetchSourceUrn === updatedSource.urn &&
+                (updatedSource.executions?.executionRequests?.length || 0) > 0 &&
+                !hasActiveExecutionForSource(updatedSource)
+            ) {
+                setRefetchSourceUrn(undefined);
+            }
+        }
+    }, [focusSourceData, refetchSourceUrn]);
+
+    useEffect(() => {
+        setFinalSources((prev) => prev.filter((source) => !removedUrns.includes(source.urn)));
+    }, [removedUrns]);
 
     const [focusSource, setFocusSource] = useState(
-        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined,
+        (focusSourceUrn && finalSources.find((source) => source.urn === focusSourceUrn)) || undefined,
     );
-
-    const { data: focusSourceData, refetch: focusSourceRefetch } = useGetIngestionSourceQuery({
-        variables: {
-            urn: focusSourceUrn || '',
-        },
-        skip: !focusSourceUrn,
-    });
-
-    const combinedRefetch = async () => {
-        await Promise.all([focusSourceRefetch(), refetch()]);
-    };
 
     useEffect(() => {
         setFocusSource(focusSourceData?.ingestionSource as IngestionSource);
     }, [focusSourceData?.ingestionSource]);
 
     const onRefresh = useCallback(() => {
-        refetch();
-    }, [refetch]);
+        focusSourceRefetch();
+    }, [focusSourceRefetch]);
 
-    function hasActiveExecution() {
-        return !!filteredSources.find((source) =>
-            source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
+    const hasActiveExecution = useCallback(() => {
+        return !!finalSources.find((source) =>
+            source.executions?.executionRequests?.some((request) => isExecutionRequestActive(request)),
         );
-    }
+    }, [finalSources]);
+
+    // Polling
     useRefreshInterval(onRefresh, hasActiveExecution);
 
     const executeIngestionSource = useCallback(
         (urn: string) => {
+            setRefetchSourceUrn(urn);
             createExecutionRequestMutation({
                 variables: {
                     input: {
@@ -258,7 +292,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                         content: `Successfully submitted ingestion execution request!`,
                         duration: 3,
                     });
-                    setTimeout(() => onRefresh(), 3000);
+                    setTimeout(() => onRefresh(), 4000);
                 })
                 .catch((e) => {
                     message.destroy();
@@ -272,7 +306,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     );
 
     const onCreateOrUpdateIngestionSourceSuccess = () => {
-        setTimeout(() => refetch(), 3000);
+        setTimeout(() => focusSourceRefetch(), 3000);
         setShowCreateModal(false);
         setFocusSourceUrn(undefined);
     };
@@ -314,9 +348,9 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                         content: `Successfully updated ingestion source!`,
                         duration: 3,
                     });
-                    onCreateOrUpdateIngestionSourceSuccess();
-                    resetState();
                     if (shouldRun) executeIngestionSource(focusSourceUrn);
+                    resetState();
+                    onCreateOrUpdateIngestionSourceSuccess();
                 })
                 .catch((e) => {
                     message.destroy();
@@ -342,6 +376,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                         platform: null,
                         executions: null,
                         ownership: null,
+                        __typename: 'IngestionSource',
                     };
 
                     if (owners && owners.length > 0) {
@@ -354,10 +389,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                             },
                         });
                     }
-
-                    addToListIngestionSourcesCache(client, newSource, pageSize, query);
+                    addToListIngestionSourcesCache(client, newSource, start, pageSize, query, filters, sort);
                     setTimeout(() => {
-                        refetch();
                         analytics.event({
                             type: EventType.CreateIngestionSourceEvent,
                             sourceType: input.type,
@@ -370,6 +403,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                         if (shouldRun && result.data?.createIngestionSource) {
                             executeIngestionSource(result.data.createIngestionSource);
                         }
+                        if (!shouldRun) setRefetchSourceUrn(newSource.urn);
                     }, 2000);
                     setShowCreateModal(false);
                     setFocusSourceUrn(undefined);
@@ -538,7 +572,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                                 showClear={false}
                                 width="fit-content"
                             />
-                            <RefreshButton onClick={onRefresh} id={INGESTION_REFRESH_SOURCES_ID} />
+                            <RefreshButton onClick={() => refetch()} id={INGESTION_REFRESH_SOURCES_ID} />
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
                 </HeaderContainer>
@@ -548,7 +582,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                     <>
                         <TableContainer>
                             <IngestionSourceTable
-                                sources={filteredSources}
+                                sources={finalSources}
                                 setFocusExecutionUrn={handleSetFocusExecutionUrn}
                                 onExecute={onExecute}
                                 onEdit={onEdit}
@@ -578,7 +612,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                 open={showCreateModal}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
-                sourceRefetch={combinedRefetch}
+                sourceRefetch={focusSourceRefetch}
                 selectedSource={focusSource}
             />
             {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
