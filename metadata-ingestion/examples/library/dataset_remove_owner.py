@@ -1,3 +1,4 @@
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk import DataHubClient
 from datahub.sdk.dataset import Dataset
 
@@ -7,17 +8,9 @@ dataset = Dataset(
     name="example_dataset",
     platform="snowflake",
     description="airflow pipeline for production",
-    custom_properties={
-        "cluster_name": "datahubproject.acryl.io",
-        "retention_time": "100",
-    },
+    owners=[CorpUserUrn(username="jdoe")],
 )
 
-dataset.set_custom_properties(
-    {
-        "cluster_name": "datahubproject.acryl.io",
-        "retention_time": "100",
-    }
-)
+dataset.remove_owner(CorpUserUrn(username="jdoe"))
 
 client.entities.upsert(dataset)

@@ -1,13 +1,8 @@
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.metadata.urns import MlModelUrn
+from datahub.sdk import DataHubClient
 
-# Imports for metadata model classes
-from datahub.metadata.schema_classes import MLModelPropertiesClass
+client = DataHubClient.from_env()
 
-# First we get the current owners
-gms_endpoint = "http://localhost:8080"
-graph = DataHubGraph(DatahubClientConfig(server=gms_endpoint))
+mlmodel = client.entities.get(MlModelUrn(platform="mlflow", name="forecast-model"))
 
-urn = "urn:li:mlModel:(urn:li:dataPlatform:science,scienceModel,PROD)"
-result = graph.get_aspect(entity_urn=urn, aspect_type=MLModelPropertiesClass)
-
-print(result)
+print(mlmodel)

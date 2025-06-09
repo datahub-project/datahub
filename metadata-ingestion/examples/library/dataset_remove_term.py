@@ -1,3 +1,4 @@
+from datahub.metadata.urns import GlossaryTermUrn
 from datahub.sdk import DataHubClient
 from datahub.sdk.dataset import Dataset
 
@@ -7,17 +8,9 @@ dataset = Dataset(
     name="example_dataset",
     platform="snowflake",
     description="airflow pipeline for production",
-    custom_properties={
-        "cluster_name": "datahubproject.acryl.io",
-        "retention_time": "100",
-    },
+    terms=[GlossaryTermUrn(name="rateofreturn")],
 )
 
-dataset.set_custom_properties(
-    {
-        "cluster_name": "datahubproject.acryl.io",
-        "retention_time": "100",
-    }
-)
+dataset.remove_term("rateofreturn")
 
 client.entities.upsert(dataset)

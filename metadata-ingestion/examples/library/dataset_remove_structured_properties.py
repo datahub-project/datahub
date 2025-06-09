@@ -1,24 +1,18 @@
-import logging
+from datahub.sdk import DataHubClient
+from datahub.sdk.dataset import Dataset
 
-from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.emitter.rest_emitter import DataHubRestEmitter
-from datahub.specific.dataset import DatasetPatchBuilder
+client = DataHubClient.from_env()
 
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+dataset = Dataset(
+    name="example_dataset",
+    platform="snowflake",
+    description="airflow pipeline for production",
+    structured_properties={
+        "urn:li:structuredProperty:sp1": ["PROD"],
+        "urn:li:structuredProperty:sp2": [100.0],
+    },
+)
 
-# Create rest emitter
-rest_emitter = DataHubRestEmitter(gms_server="http://localhost:8080")
+dataset.remove_structured_property("urn:li:structuredProperty:sp1")
 
-dataset_urn = make_dataset_urn(platform="hive", name="fct_users_created", env="PROD")
-
-
-for patch_mcp in (
-    DatasetPatchBuilder(dataset_urn)
-    .remove_structured_property("io.acryl.dataManagement.replicationSLA")
-    .build()
-):
-    rest_emitter.emit(patch_mcp)
-
-
-log.info(f"Added cluster_name, retention_time properties to dataset {dataset_urn}")
+client.entities.upsert(dataset)
