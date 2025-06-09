@@ -143,7 +143,7 @@ def subscription_client(mock_client: MagicMock) -> SubscriptionClient:
 @pytest.fixture
 def any_dataset_urn() -> DatasetUrn:
     """Any test dataset URN."""
-    return DatasetUrn.create_from_string(
+    return DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
     )
 
@@ -151,7 +151,7 @@ def any_dataset_urn() -> DatasetUrn:
 @pytest.fixture
 def any_user_urn() -> CorpUserUrn:
     """Any test user URN."""
-    return CorpUserUrn.create_from_string("urn:li:corpuser:testuser")
+    return CorpUserUrn.from_string("urn:li:corpuser:testuser")
 
 
 @pytest.fixture
@@ -166,7 +166,7 @@ def any_entity_change_types() -> List[str]:
 @pytest.fixture
 def any_assertion_urn() -> AssertionUrn:
     """Any test assertion URN."""
-    return AssertionUrn.create_from_string("urn:li:assertion:test-assertion")
+    return AssertionUrn.from_string("urn:li:assertion:test-assertion")
 
 
 @pytest.mark.parametrize(
@@ -362,7 +362,7 @@ def test_subscribe_with_no_assertion_creates_new_subscription(
     upserted_subscription = subscription_client.client.entities.upsert.call_args[0][0]  # type: ignore[attr-defined]
     assert isinstance(upserted_subscription, Subscription)
     assert isinstance(upserted_subscription.urn, SubscriptionUrn)
-    assert upserted_subscription.urn.get_type() == "subscription"
+    assert upserted_subscription.urn.entity_type == "subscription"
 
     # Verify the subscription details
     subscription_info = upserted_subscription.info
@@ -513,7 +513,7 @@ def test_subscribe_with_assertion_creates_new_subscription(
     any_entity_change_types: List[str],
 ) -> None:
     """Test subscribe creates new subscription with assertion URN successfully."""
-    test_dataset_urn = DatasetUrn.create_from_string(
+    test_dataset_urn = DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
     )
 
@@ -573,7 +573,7 @@ def test_subscribe_with_assertion_updates_existing_subscription(
     2. Existing entity change type with duplicate assertion (no change)
     3. Existing entity change type with new assertion (merge filters)
     """
-    test_dataset_urn = DatasetUrn.create_from_string(
+    test_dataset_urn = DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
     )
 
@@ -720,7 +720,7 @@ def test_subscribe_with_assertion_updates_existing_subscription(
                 new_change_type_strs=[
                     models.EntityChangeTypeClass.ASSERTION_PASSED,
                 ],
-                new_assertion_urn=AssertionUrn.create_from_string(
+                new_assertion_urn=AssertionUrn.from_string(
                     "urn:li:assertion:test-assertion"
                 ),
                 expected_results=[
@@ -747,9 +747,7 @@ def test_subscribe_with_assertion_updates_existing_subscription(
                 new_change_type_strs=[
                     models.EntityChangeTypeClass.ASSERTION_PASSED,
                 ],
-                new_assertion_urn=AssertionUrn.create_from_string(
-                    "urn:li:assertion:new"
-                ),
+                new_assertion_urn=AssertionUrn.from_string("urn:li:assertion:new"),
                 expected_results=[
                     models.EntityChangeDetailsClass(
                         entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
@@ -782,9 +780,7 @@ def test_subscribe_with_assertion_updates_existing_subscription(
                     models.EntityChangeTypeClass.INCIDENT_RESOLVED,
                     models.EntityChangeTypeClass.ASSERTION_PASSED,
                 ],
-                new_assertion_urn=AssertionUrn.create_from_string(
-                    "urn:li:assertion:assert2"
-                ),
+                new_assertion_urn=AssertionUrn.from_string("urn:li:assertion:assert2"),
                 expected_results=[
                     models.EntityChangeDetailsClass(
                         entityChangeType=models.EntityChangeTypeClass.INCIDENT_RESOLVED,
@@ -819,9 +815,7 @@ def test_subscribe_with_assertion_updates_existing_subscription(
                     models.EntityChangeTypeClass.INCIDENT_RESOLVED,
                     models.EntityChangeTypeClass.ASSERTION_PASSED,
                 ],
-                new_assertion_urn=AssertionUrn.create_from_string(
-                    "urn:li:assertion:assert1"
-                ),
+                new_assertion_urn=AssertionUrn.from_string("urn:li:assertion:assert1"),
                 expected_results=[
                     models.EntityChangeDetailsClass(
                         entityChangeType=models.EntityChangeTypeClass.INCIDENT_RESOLVED,
@@ -933,7 +927,7 @@ def test_merge_entity_change_types(
         pytest.param(
             MergeEntityChangeFilterTestParams(
                 existing_filter=None,
-                new_assertion_urn=AssertionUrn.create_from_string(
+                new_assertion_urn=AssertionUrn.from_string(
                     "urn:li:assertion:test-assertion"
                 ),
                 expected_result=models.EntityChangeDetailsFilterClass(
@@ -959,9 +953,7 @@ def test_merge_entity_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=[]
                 ),
-                new_assertion_urn=AssertionUrn.create_from_string(
-                    "urn:li:assertion:new"
-                ),
+                new_assertion_urn=AssertionUrn.from_string("urn:li:assertion:new"),
                 expected_result=models.EntityChangeDetailsFilterClass(
                     includeAssertions=["urn:li:assertion:new"]
                 ),
@@ -973,9 +965,7 @@ def test_merge_entity_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=None
                 ),
-                new_assertion_urn=AssertionUrn.create_from_string(
-                    "urn:li:assertion:new"
-                ),
+                new_assertion_urn=AssertionUrn.from_string("urn:li:assertion:new"),
                 expected_result=models.EntityChangeDetailsFilterClass(
                     includeAssertions=["urn:li:assertion:new"]
                 ),
@@ -987,9 +977,7 @@ def test_merge_entity_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=["urn:li:assertion:existing"]
                 ),
-                new_assertion_urn=AssertionUrn.create_from_string(
-                    "urn:li:assertion:new"
-                ),
+                new_assertion_urn=AssertionUrn.from_string("urn:li:assertion:new"),
                 expected_result=models.EntityChangeDetailsFilterClass(
                     includeAssertions=[
                         "urn:li:assertion:existing",
@@ -1004,9 +992,7 @@ def test_merge_entity_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=["urn:li:assertion:existing"]
                 ),
-                new_assertion_urn=AssertionUrn.create_from_string(
-                    "urn:li:assertion:existing"
-                ),
+                new_assertion_urn=AssertionUrn.from_string("urn:li:assertion:existing"),
                 expected_result=models.EntityChangeDetailsFilterClass(
                     includeAssertions=["urn:li:assertion:existing"]
                 ),

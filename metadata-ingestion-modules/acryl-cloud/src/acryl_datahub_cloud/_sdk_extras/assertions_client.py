@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 
 from acryl_datahub_cloud._sdk_extras.assertion import (
     SmartFreshnessAssertion,
+    SmartVolumeAssertion,
 )
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
     AssertionIncidentBehavior,
@@ -13,11 +14,13 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     ExclusionWindowInputTypes,
     InferenceSensitivity,
     _SmartFreshnessAssertionInput,
+    _SmartVolumeAssertionInput,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion, TagsInputType
 from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
 from acryl_datahub_cloud._sdk_extras.errors import SDKUsageError
 from datahub.errors import ItemNotFoundError
+from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, MonitorUrn
 
 if TYPE_CHECKING:
@@ -669,6 +672,273 @@ class AssertionsClient:
         #     self.client.entities.delete(assertion_entity)
         #     raise e
         return SmartFreshnessAssertion.from_entities(assertion_entity, monitor_entity)
+
+    def create_smart_volume_assertion(
+        self,
+        *,
+        dataset_urn: Union[str, DatasetUrn],
+        display_name: Optional[str] = None,
+        detection_mechanism: DetectionMechanismInputTypes = None,
+        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
+        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
+        training_data_lookback_days: Optional[int] = None,
+        incident_behavior: Optional[
+            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
+        ] = None,
+        tags: Optional[TagsInputType] = None,
+        created_by: Optional[Union[str, CorpUserUrn]] = None,
+        schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+    ) -> SmartVolumeAssertion:
+        """Create a smart volume assertion.
+
+        Note: keyword arguments are required.
+
+        Args:
+            dataset_urn: The urn of the dataset to be monitored.
+            display_name: The display name of the assertion. If not provided, a random display
+                name will be generated.
+            detection_mechanism: The detection mechanism to be used for the assertion. Information
+                schema is recommended. Valid values are:
+                - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
+                - "audit_log" or DetectionMechanism.AUDIT_LOG
+                - {
+                    "type": "last_modified_column",
+                    "column_name": "last_modified",
+                    "additional_filter": "last_modified > '2021-01-01'",
+                } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
+                additional_filter='last_modified > 2021-01-01')
+                - {
+                    "type": "high_watermark_column",
+                    "column_name": "id",
+                    "additional_filter": "id > 1000",
+                } or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id',
+                additional_filter='id > 1000')
+                - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
+            sensitivity: The sensitivity to be applied to the assertion. Valid values are:
+                - "low" or InferenceSensitivity.LOW
+                - "medium" or InferenceSensitivity.MEDIUM
+                - "high" or InferenceSensitivity.HIGH
+            exclusion_windows: The exclusion windows to be applied to the assertion, currently only
+                fixed range exclusion windows are supported. Valid values are:
+                - from datetime.datetime objects: {
+                    "start": "datetime(2025, 1, 1, 0, 0, 0)",
+                    "end": "datetime(2025, 1, 2, 0, 0, 0)",
+                }
+                - from string datetimes: {
+                    "start": "2025-01-01T00:00:00",
+                    "end": "2025-01-02T00:00:00",
+                }
+                - from FixedRangeExclusionWindow objects: FixedRangeExclusionWindow(
+                    start=datetime(2025, 1, 1, 0, 0, 0),
+                    end=datetime(2025, 1, 2, 0, 0, 0)
+                )
+            training_data_lookback_days: The training data lookback days to be applied to the
+                assertion as an integer.
+            incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
+                - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
+                - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+            tags: The tags to be applied to the assertion. Valid values are:
+                - a list of strings (strings will be converted to TagUrn objects)
+                - a list of TagUrn objects
+                - a list of TagAssociationClass objects
+            created_by: Optional urn of the user who created the assertion. The format is
+                "urn:li:corpuser:<username>", which you can find on the Users & Groups page.
+                The default is the datahub system user.
+                TODO: Retrieve the SDK user as the default instead of the datahub system user.
+            schedule: Optional cron formatted schedule for the assertion. If not provided, a default
+                schedule will be used. The schedule determines when the assertion will be evaluated.
+                The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
+                Alternatively, a models.CronScheduleClass object can be provided with string parameters
+                cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
+
+        Returns:
+            SmartVolumeAssertion: The created assertion.
+        """
+        _print_experimental_warning()
+        now_utc = datetime.now(timezone.utc)
+        if created_by is None:
+            logger.warning(
+                f"Created by is not set, using {DEFAULT_CREATED_BY} as a placeholder"
+            )
+            created_by = DEFAULT_CREATED_BY
+        assertion_input = _SmartVolumeAssertionInput(
+            urn=None,
+            entity_client=self.client.entities,
+            dataset_urn=dataset_urn,
+            display_name=display_name,
+            detection_mechanism=detection_mechanism,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            created_by=created_by,
+            created_at=now_utc,
+            updated_by=created_by,
+            updated_at=now_utc,
+            schedule=schedule,
+        )
+        assertion_entity, monitor_entity = (
+            assertion_input.to_assertion_and_monitor_entities()
+        )
+        # If assertion creation fails, we won't try to create the monitor
+        self.client.entities.create(assertion_entity)
+        # TODO: Wrap monitor creation in a try-except and delete the assertion if monitor creation fails (once delete is implemented https://linear.app/acryl-data/issue/OBS-1350/add-delete-method-to-entity-clientpy)
+        # try:
+        self.client.entities.create(monitor_entity)
+        # except Exception as e:
+        #     logger.error(f"Error creating monitor: {e}")
+        #     self.client.entities.delete(assertion_entity)
+        #     raise e
+        return SmartVolumeAssertion.from_entities(assertion_entity, monitor_entity)
+
+    def upsert_smart_volume_assertion(
+        self,
+        *,
+        dataset_urn: Union[str, DatasetUrn],
+        urn: Optional[Union[str, AssertionUrn]] = None,
+        display_name: Optional[str] = None,
+        detection_mechanism: DetectionMechanismInputTypes = None,
+        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
+        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
+        training_data_lookback_days: Optional[int] = None,
+        incident_behavior: Optional[
+            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
+        ] = None,
+        tags: Optional[TagsInputType] = None,
+        updated_by: Optional[Union[str, CorpUserUrn]] = None,
+        schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+    ) -> SmartVolumeAssertion:
+        """Upsert a smart volume assertion.
+
+        Note: keyword arguments are required.
+
+        Upsert is a combination of create and update. If the assertion does not exist, it will be created.
+        If it does exist, it will be overwritten with the input values. If the input value is None,
+        the existing value will be overridden with a default value.
+
+        Args:
+            dataset_urn: The urn of the dataset to be monitored.
+            urn: The urn of the assertion. If not provided, a urn will be generated and the assertion
+                will be _created_ in the DataHub instance.
+            display_name: The display name of the assertion. If not provided, a random display name
+                will be generated.
+            detection_mechanism: The detection mechanism to be used for the assertion. Information
+                schema is recommended. Valid values are:
+                - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
+                - "audit_log" or DetectionMechanism.AUDIT_LOG
+                - {
+                    "type": "last_modified_column",
+                    "column_name": "last_modified",
+                    "additional_filter": "last_modified > '2021-01-01'",
+                } or DetectionMechanism.LAST_MODIFIED_COLUMN(column_name='last_modified',
+                additional_filter='last_modified > 2021-01-01')
+                - {
+                    "type": "high_watermark_column",
+                    "column_name": "id",
+                    "additional_filter": "id > 1000",
+                } or DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id',
+                additional_filter='id > 1000')
+                - "datahub_operation" or DetectionMechanism.DATAHUB_OPERATION
+            sensitivity: The sensitivity to be applied to the assertion. Valid values are:
+                - "low" or InferenceSensitivity.LOW
+                - "medium" or InferenceSensitivity.MEDIUM
+                - "high" or InferenceSensitivity.HIGH
+            exclusion_windows: The exclusion windows to be applied to the assertion, currently only
+                fixed range exclusion windows are supported. Valid values are:
+                - from datetime.datetime objects: {
+                    "start": "datetime(2025, 1, 1, 0, 0, 0)",
+                    "end": "datetime(2025, 1, 2, 0, 0, 0)",
+                }
+                - from string datetimes: {
+                    "start": "2025-01-01T00:00:00",
+                    "end": "2025-01-02T00:00:00",
+                }
+                - from FixedRangeExclusionWindow objects: FixedRangeExclusionWindow(
+                    start=datetime(2025, 1, 1, 0, 0, 0),
+                    end=datetime(2025, 1, 2, 0, 0, 0)
+                )
+            training_data_lookback_days: The training data lookback days to be applied to the
+                assertion as an integer.
+            incident_behavior: The incident behavior to be applied to the assertion. Valid values are:
+                - "raise_on_fail" or AssertionIncidentBehavior.RAISE_ON_FAIL
+                - "resolve_on_pass" or AssertionIncidentBehavior.RESOLVE_ON_PASS
+            tags: The tags to be applied to the assertion. Valid values are:
+                - a list of strings (strings will be converted to TagUrn objects)
+                - a list of TagUrn objects
+                - a list of TagAssociationClass objects
+            updated_by: Optional urn of the user who updated the assertion. The format is
+                "urn:li:corpuser:<username>", which you can find on the Users & Groups page.
+                The default is the datahub system user.
+                TODO: Retrieve the SDK user as the default instead of the datahub system user.
+            schedule: Optional cron formatted schedule for the assertion. If not provided, a default
+                schedule will be used. The schedule determines when the assertion will be evaluated.
+                The format is a cron expression, e.g. "0 * * * *" for every hour using UTC timezone.
+                Alternatively, a models.CronScheduleClass object can be provided with string parameters
+                cron and timezone. Use `from datahub.metadata import schema_classes as models` to import the class.
+
+        Returns:
+            SmartVolumeAssertion: The created or updated assertion.
+        """
+        _print_experimental_warning()
+        now_utc = datetime.now(timezone.utc)
+
+        if updated_by is None:
+            logger.warning(
+                f"updated_by is not set, using {DEFAULT_CREATED_BY} as a placeholder"
+            )
+            updated_by = DEFAULT_CREATED_BY
+
+        # 1. If urn is not set, create a new assertion
+        if urn is None:
+            logger.info("URN is not set, creating a new assertion")
+            return self.create_smart_volume_assertion(
+                dataset_urn=dataset_urn,
+                display_name=display_name,
+                detection_mechanism=detection_mechanism,
+                sensitivity=sensitivity,
+                exclusion_windows=exclusion_windows,
+                training_data_lookback_days=training_data_lookback_days,
+                incident_behavior=incident_behavior,
+                tags=tags,
+                created_by=updated_by,
+                schedule=schedule,
+            )
+
+        # 2. If urn is set, first validate the input:
+        assertion_input = _SmartVolumeAssertionInput(
+            urn=urn,
+            entity_client=self.client.entities,
+            dataset_urn=dataset_urn,
+            display_name=display_name,
+            detection_mechanism=detection_mechanism,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            created_by=updated_by,  # This will be overridden by the actual created_by
+            created_at=now_utc,  # This will be overridden by the actual created_at
+            updated_by=updated_by,
+            updated_at=now_utc,
+            schedule=schedule,
+        )
+
+        # 3. Upsert the assertion and monitor entities:
+        assertion_entity, monitor_entity = (
+            assertion_input.to_assertion_and_monitor_entities()
+        )
+        # If assertion upsert fails, we won't try to upsert the monitor
+        self.client.entities.upsert(assertion_entity)
+        # TODO: Wrap monitor upsert in a try-except and delete the assertion if monitor upsert fails (once delete is implemented https://linear.app/acryl-data/issue/OBS-1350/add-delete-method-to-entity-clientpy)
+        # try:
+        self.client.entities.upsert(monitor_entity)
+        # except Exception as e:
+        #     logger.error(f"Error upserting monitor: {e}")
+        #     self.client.entities.delete(assertion_entity)
+        #     raise e
+
+        return SmartVolumeAssertion.from_entities(assertion_entity, monitor_entity)
 
 
 def _merge_field(

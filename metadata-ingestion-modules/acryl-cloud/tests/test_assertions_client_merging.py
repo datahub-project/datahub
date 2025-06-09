@@ -14,6 +14,7 @@ from acryl_datahub_cloud._sdk_extras.assertion import (
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
     _DETECTION_MECHANISM_CONCRETE_TYPES,
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+    DEFAULT_SCHEDULE,
     DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
     DetectionMechanism,
@@ -195,11 +196,11 @@ def test__upsert_and_merge_smart_freshness_assertion_valid_simple_input(
     )
     assert (
         called_with_monitor.info.assertionMonitor.assertions[0].schedule.cron
-        == _SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.cron
+        == DEFAULT_SCHEDULE.cron
     )
     assert (
         called_with_monitor.info.assertionMonitor.assertions[0].schedule.timezone
-        == _SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.timezone
+        == DEFAULT_SCHEDULE.timezone
     )
     assert (
         called_with_monitor.info.assertionMonitor.assertions[0].parameters.type
@@ -363,7 +364,7 @@ def test__upsert_and_merge_smart_freshness_assertion_calls_upsert_if_assertion_e
             dataset_urn=any_dataset_urn,
             display_name="Explicitly Input Display Name",
             detection_mechanism=DetectionMechanism.INFORMATION_SCHEMA,
-            sensitivity=InferenceSensitivity.MEDIUM,  # From the stored monitor entity
+            sensitivity=InferenceSensitivity.MEDIUM,
             exclusion_windows=[],
             training_data_lookback_days=ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,  # From the stored monitor entity
             incident_behavior=[

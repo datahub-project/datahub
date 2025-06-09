@@ -5,7 +5,7 @@ from typing import Optional, Union
 import pytest
 
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
-    _SmartFreshnessAssertionInput,
+    DEFAULT_SCHEDULE,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
 from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
@@ -69,8 +69,8 @@ def monitor_with_all_fields(
                     models.AssertionEvaluationSpecClass(
                         assertion=str(any_assertion_urn),
                         schedule=models.CronScheduleClass(
-                            cron=_SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.cron,
-                            timezone=_SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.timezone,
+                            cron=DEFAULT_SCHEDULE.cron,
+                            timezone=DEFAULT_SCHEDULE.timezone,
                         ),
                         parameters=models.AssertionEvaluationParametersClass(
                             type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,

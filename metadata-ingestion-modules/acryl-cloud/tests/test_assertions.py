@@ -10,11 +10,11 @@ from acryl_datahub_cloud._sdk_extras.assertion import (
     SmartFreshnessAssertion,
 )
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
+    DEFAULT_SCHEDULE,
     AssertionIncidentBehavior,
     DetectionMechanism,
     FixedRangeExclusionWindow,
     InferenceSensitivity,
-    _SmartFreshnessAssertionInput,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
 from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
@@ -132,8 +132,8 @@ def monitor_without_sensitivity(any_monitor_urn: MonitorUrn) -> Monitor:
                     models.AssertionEvaluationSpecClass(
                         assertion="urn:li:assertion:test",
                         schedule=models.CronScheduleClass(
-                            cron=_SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.cron,
-                            timezone=_SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.timezone,
+                            cron=DEFAULT_SCHEDULE.cron,
+                            timezone=DEFAULT_SCHEDULE.timezone,
                         ),
                         parameters=models.AssertionEvaluationParametersClass(
                             type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
