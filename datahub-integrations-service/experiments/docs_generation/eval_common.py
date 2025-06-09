@@ -148,7 +148,6 @@ AIJudgeVerdict = create_model(
         )
         for metric in METRICS_CONFIG
     },
-    
 )
 
 HumanJudgeVerdict = create_model(

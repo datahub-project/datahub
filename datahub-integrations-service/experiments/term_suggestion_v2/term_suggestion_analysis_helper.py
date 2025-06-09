@@ -44,7 +44,7 @@ class SerializedResponse(BaseModel):
 
 
 def get_table_and_column_infos_dict(
-    urns_dict: Dict[str, List[str]]
+    urns_dict: Dict[str, List[str]],
 ) -> tuple[dict, dict]:
     table_infos_dict = {}
     column_infos_dict = {}
@@ -150,7 +150,7 @@ def filter_predictions_df(df: pd.DataFrame, filter_="no_filter") -> pd.DataFrame
 def get_table_fake_columns_data(column_terms, all_column_names):
     fake_columns_count = 0
     if column_terms is not None and not isinstance(column_terms, str):
-        for key, values in column_terms.items():
+        for key, _values in column_terms.items():
             try:
                 if key not in all_column_names:
                     #                     fake_columns.append(key)
@@ -213,7 +213,7 @@ def get_classification_report_df(
     filter_="no_filter",
 ):
     table_wise_analysis_dict = {}
-    for i, response in enumerate(parsed_llm_responses):
+    for _i, response in enumerate(parsed_llm_responses):
         try:
             column_stats_dict = {}
             table_urn = response[0]
@@ -221,7 +221,6 @@ def get_classification_report_df(
             column_terms_character_length = len(str(column_infos_dict[table_urn]))
 
             if column_terms is not None:
-
                 # all_assigned_column_names = [column for column in column_terms.keys()]
                 all_actual_column_names = list(column_infos_dict[table_urn].keys())
 

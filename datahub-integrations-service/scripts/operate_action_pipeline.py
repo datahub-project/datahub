@@ -10,7 +10,8 @@ from datahub.ingestion.graph.client import get_default_graph
 @click.option(
     "--operation",
     type=click.Choice(
-        ["create", "stop", "stop-hard", "rollback", "start", "status"], case_sensitive=False
+        ["create", "stop", "stop-hard", "rollback", "start", "status"],
+        case_sensitive=False,
     ),
     help="The operation to perform",
     default="create",
@@ -54,7 +55,7 @@ def main(file: str, operation: str) -> None:
             },
         }
     elif operation in {"stop", "stop-hard"}:
-        if operation == 'stop':
+        if operation == "stop":
             print("Stopping the pipeline")
             pass
         else:

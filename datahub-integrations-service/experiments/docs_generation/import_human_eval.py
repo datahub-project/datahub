@@ -1,10 +1,13 @@
-from typing import Optional
-import dotenv
 import os
+from typing import Optional
+
+import dotenv
+
 dotenv.load_dotenv(".env")
 
 import mlflow
 import mlflow.metrics
+from loguru import logger
 
 mlflow.get_tracking_uri()
 EXPERIMENT_NAME = os.getenv("DOCS_GENERATION_EXPERIMENT_NAME")
@@ -18,6 +21,7 @@ experiment_id = experiment.experiment_id
 
 
 import json
+
 import pandas as pd
 from run_prompt_experiment import has_table_description_metric_fn
 
@@ -60,6 +64,7 @@ def import_prompt_experiment(
         assert active_run
         original_expt_run_id = active_run.info.run_id
 
+    logger.info(f"Original experiment run ID: {original_expt_run_id}")
     if has_human_annotations:
         with mlflow.start_run(
             experiment_id=experiment_id,
