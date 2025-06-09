@@ -91,11 +91,34 @@ class RemoveChangeTypesTestParams:
     # Input parameters (match method signature)
     existing_change_types: List[models.EntityChangeDetailsClass]
     change_types_to_remove: List[str]
+    assertion_urn_to_remove: Optional[AssertionUrn]
+    warn_if_missing: bool
 
     # Expected output
     expected_results: List[models.EntityChangeDetailsClass]
     should_raise: bool = False
     expected_error: Optional[str] = None
+    expected_warning_logged: bool = False
+    expected_warning_message: Optional[str] = None
+
+
+@dataclass
+class RemoveChangeTypesFilterTestParams:
+    """Test parameters for _remove_change_types_filter test cases.
+
+    Contains input parameters and expected output for the _remove_change_types_filter method.
+    """
+
+    # Input parameters (match method signature)
+    entity_change_type: str
+    existing_filter: Optional[models.EntityChangeDetailsFilterClass]
+    assertion_urn_to_remove: Optional[AssertionUrn]
+    warn_if_missing: bool
+
+    # Expected output
+    expected_result: Optional[models.EntityChangeDetailsFilterClass]
+    expected_warning_logged: bool = False
+    expected_warning_message: Optional[str] = None
 
 
 def assert_entity_change_details_filter_equal(
@@ -1339,25 +1362,6 @@ def test_unsubscribe_dataset_remove_nonexistent_change_types_no_change(
     )
 
 
-def test_unsubscribe_assertion_raises_not_implemented_error(
-    subscription_client: SubscriptionClient,
-    any_assertion_urn: AssertionUrn,
-    any_user_urn: CorpUserUrn,
-) -> None:
-    """Test unsubscribe assertion raises not implemented error."""
-    # Execute & Verify
-    with pytest.raises(SdkUsageError) as exc_info:
-        subscription_client.unsubscribe(
-            urn=any_assertion_urn,
-            subscriber_urn=any_user_urn,
-            entity_change_types=None,
-        )
-        assert "Assertion unsubscription is not yet implemented" in str(exc_info.value)
-        assert "Only dataset unsubscription is currently supported" in str(
-            exc_info.value
-        )
-
-
 @freeze_time(FROZEN_TIME)
 def test_unsubscribe_dataset_updates_audit_stamp(
     subscription_client: SubscriptionClient,
@@ -1406,6 +1410,266 @@ def test_unsubscribe_dataset_updates_audit_stamp(
     assert existing_subscription.info.updatedOn.actor == DEFAULT_ACTOR_URN
 
 
+@patch.object(SubscriptionClient, "_fetch_dataset_from_assertion")
+def test_unsubscribe_assertion_removes_assertion_from_filters(
+    mock_fetch_dataset: MagicMock,
+    subscription_client: SubscriptionClient,
+    any_assertion_urn: AssertionUrn,
+    any_user_urn: CorpUserUrn,
+) -> None:
+    """Test unsubscribe assertion removes assertion from filters."""
+    test_dataset_urn = DatasetUrn.create_from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
+    )
+
+    # Mock: _fetch_dataset_from_assertion returns the dataset URN
+    mock_fetch_dataset.return_value = (test_dataset_urn, any_assertion_urn)
+
+    # Create mock existing subscription with assertion filters
+    existing_subscription = MagicMock(spec=Subscription)
+    existing_subscription.urn = "urn:li:subscription:existing-subscription-123"
+    existing_subscription.info = MagicMock()
+    existing_subscription.info.entityChangeTypes = [
+        models.EntityChangeDetailsClass(
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+            filter=models.EntityChangeDetailsFilterClass(
+                includeAssertions=[any_assertion_urn.urn(), "urn:li:assertion:other"]
+            ),
+        ),
+        models.EntityChangeDetailsClass(
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+            filter=models.EntityChangeDetailsFilterClass(
+                includeAssertions=[any_assertion_urn.urn()]
+            ),
+        ),
+    ]
+
+    # Mock: One existing subscription found
+    subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
+        existing_subscription.urn
+    ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
+
+    # Execute: Remove assertion from default assertion-related change types
+    subscription_client.unsubscribe(
+        urn=any_assertion_urn,
+        subscriber_urn=any_user_urn,
+        entity_change_types=None,  # Should default to assertion-related types
+    )
+
+    # Verify _fetch_dataset_from_assertion was called
+    mock_fetch_dataset.assert_called_once_with(any_assertion_urn)
+
+    # Verify subscription was updated (not deleted)
+    subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
+        existing_subscription
+    )
+    subscription_client.client.entities.delete.assert_not_called()  # type: ignore[attr-defined]
+
+    # Verify the assertion was removed from appropriate filters
+    updated_change_types = existing_subscription.info.entityChangeTypes
+    assert len(updated_change_types) == 1  # ASSERTION_FAILED should be removed entirely
+
+    # ASSERTION_PASSED should remain with only the other assertion
+    assertion_passed = updated_change_types[0]
+    assert (
+        assertion_passed.entityChangeType
+        == models.EntityChangeTypeClass.ASSERTION_PASSED
+    )
+    assert assertion_passed.filter is not None
+    assert assertion_passed.filter.includeAssertions == ["urn:li:assertion:other"]
+
+
+@patch.object(SubscriptionClient, "_fetch_dataset_from_assertion")
+def test_unsubscribe_assertion_specific_change_types(
+    mock_fetch_dataset: MagicMock,
+    subscription_client: SubscriptionClient,
+    any_assertion_urn: AssertionUrn,
+    any_user_urn: CorpUserUrn,
+) -> None:
+    """Test unsubscribe assertion with specific change types."""
+    test_dataset_urn = DatasetUrn.create_from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
+    )
+
+    # Mock: _fetch_dataset_from_assertion returns the dataset URN
+    mock_fetch_dataset.return_value = (test_dataset_urn, any_assertion_urn)
+
+    # Create mock existing subscription with assertion filters
+    existing_subscription = MagicMock(spec=Subscription)
+    existing_subscription.urn = "urn:li:subscription:existing-subscription-123"
+    existing_subscription.info = MagicMock()
+    existing_subscription.info.entityChangeTypes = [
+        models.EntityChangeDetailsClass(
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+            filter=models.EntityChangeDetailsFilterClass(
+                includeAssertions=[any_assertion_urn.urn()]
+            ),
+        ),
+        models.EntityChangeDetailsClass(
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+            filter=models.EntityChangeDetailsFilterClass(
+                includeAssertions=[any_assertion_urn.urn()]
+            ),
+        ),
+        models.EntityChangeDetailsClass(
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_ERROR,
+            filter=models.EntityChangeDetailsFilterClass(
+                includeAssertions=[any_assertion_urn.urn()]
+            ),
+        ),
+    ]
+
+    # Mock: One existing subscription found
+    subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
+        existing_subscription.urn
+    ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
+
+    # Execute: Remove assertion only from ASSERTION_PASSED
+    subscription_client.unsubscribe(
+        urn=any_assertion_urn,
+        subscriber_urn=any_user_urn,
+        entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],  # type: ignore[list-item]
+    )
+
+    # Verify subscription was updated
+    subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
+        existing_subscription
+    )
+
+    # Verify only ASSERTION_PASSED was removed, others remain
+    updated_change_types = existing_subscription.info.entityChangeTypes
+    assert len(updated_change_types) == 2
+
+    change_types_map = {ect.entityChangeType: ect for ect in updated_change_types}
+    assert models.EntityChangeTypeClass.ASSERTION_FAILED in change_types_map
+    assert models.EntityChangeTypeClass.ASSERTION_ERROR in change_types_map
+    assert models.EntityChangeTypeClass.ASSERTION_PASSED not in change_types_map
+
+
+@patch.object(SubscriptionClient, "_fetch_dataset_from_assertion")
+def test_unsubscribe_assertion_deletes_subscription_when_no_change_types_remain(
+    mock_fetch_dataset: MagicMock,
+    subscription_client: SubscriptionClient,
+    any_assertion_urn: AssertionUrn,
+    any_user_urn: CorpUserUrn,
+) -> None:
+    """Test unsubscribe assertion deletes subscription when no change types remain."""
+    test_dataset_urn = DatasetUrn.create_from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
+    )
+
+    # Mock: _fetch_dataset_from_assertion returns the dataset URN
+    mock_fetch_dataset.return_value = (test_dataset_urn, any_assertion_urn)
+
+    # Create mock existing subscription with only this assertion
+    existing_subscription = MagicMock(spec=Subscription)
+    existing_subscription.urn = "urn:li:subscription:existing-subscription-123"
+    existing_subscription.info = MagicMock()
+    existing_subscription.info.entityChangeTypes = [
+        models.EntityChangeDetailsClass(
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+            filter=models.EntityChangeDetailsFilterClass(
+                includeAssertions=[any_assertion_urn.urn()]
+            ),
+        ),
+        models.EntityChangeDetailsClass(
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+            filter=models.EntityChangeDetailsFilterClass(
+                includeAssertions=[any_assertion_urn.urn()]
+            ),
+        ),
+    ]
+
+    # Mock: One existing subscription found
+    subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
+        existing_subscription.urn
+    ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
+
+    # Execute: Remove assertion from all default change types
+    subscription_client.unsubscribe(
+        urn=any_assertion_urn,
+        subscriber_urn=any_user_urn,
+        entity_change_types=None,  # Defaults to all assertion-related types
+    )
+
+    # Verify subscription was deleted (no change types remain)
+    subscription_client.client.entities.delete.assert_called_once_with(  # type: ignore[attr-defined]
+        existing_subscription.urn
+    )
+    subscription_client.client.entities.upsert.assert_not_called()  # type: ignore[attr-defined]
+
+
+@patch.object(SubscriptionClient, "_fetch_dataset_from_assertion")
+def test_unsubscribe_assertion_warns_about_missing_assertions(
+    mock_fetch_dataset: MagicMock,
+    subscription_client: SubscriptionClient,
+    any_assertion_urn: AssertionUrn,
+    any_user_urn: CorpUserUrn,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test unsubscribe assertion logs warnings when assertion not in filters."""
+    test_dataset_urn = DatasetUrn.create_from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
+    )
+
+    # Mock: _fetch_dataset_from_assertion returns the dataset URN
+    mock_fetch_dataset.return_value = (test_dataset_urn, any_assertion_urn)
+
+    # Create mock existing subscription WITHOUT the assertion in filters
+    existing_subscription = MagicMock(spec=Subscription)
+    existing_subscription.urn = "urn:li:subscription:existing-subscription-123"
+    existing_subscription.info = MagicMock()
+    existing_subscription.info.entityChangeTypes = [
+        models.EntityChangeDetailsClass(
+            entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+            filter=models.EntityChangeDetailsFilterClass(
+                includeAssertions=["urn:li:assertion:other"]  # Different assertion
+            ),
+        ),
+    ]
+
+    # Mock: One existing subscription found
+    subscription_client.client.resolve.subscription.return_value = [  # type: ignore[attr-defined]
+        existing_subscription.urn
+    ]
+    subscription_client.client.entities.get.return_value = existing_subscription  # type: ignore[attr-defined]
+
+    # Execute: Try to remove assertion that's not in the filters
+    with caplog.at_level(logging.WARNING):
+        subscription_client.unsubscribe(
+            urn=any_assertion_urn,
+            subscriber_urn=any_user_urn,
+            entity_change_types=[models.EntityChangeTypeClass.ASSERTION_PASSED],  # type: ignore[list-item]
+        )
+
+    # Verify warning was logged
+    warning_records = [
+        record for record in caplog.records if record.levelname == "WARNING"
+    ]
+    assert len(warning_records) >= 1
+    found_expected_message = any(
+        f"Assertion {any_assertion_urn.urn()} is not included in entity change type 'ASSERTION_PASSED'"
+        in record.message
+        for record in warning_records
+    )
+    assert found_expected_message
+
+    # Verify subscription was updated (no changes made)
+    subscription_client.client.entities.upsert.assert_called_once_with(  # type: ignore[attr-defined]
+        existing_subscription
+    )
+
+    # Verify no changes were made to the subscription
+    updated_change_types = existing_subscription.info.entityChangeTypes
+    assert len(updated_change_types) == 1
+    assert updated_change_types[0].filter.includeAssertions == [
+        "urn:li:assertion:other"
+    ]
+
+
 @pytest.mark.parametrize(
     "params",
     [
@@ -1429,6 +1693,8 @@ def test_unsubscribe_dataset_updates_audit_stamp(
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED),
                     str(models.EntityChangeTypeClass.ASSERTION_FAILED),
                 ],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
                 expected_results=[
                     models.EntityChangeDetailsClass(
                         entityChangeType=models.EntityChangeTypeClass.INCIDENT_RESOLVED,
@@ -1461,6 +1727,8 @@ def test_unsubscribe_dataset_updates_audit_stamp(
                 change_types_to_remove=[
                     str(models.EntityChangeTypeClass.ASSERTION_FAILED),
                 ],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
                 expected_results=[
                     models.EntityChangeDetailsClass(
                         entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
@@ -1487,6 +1755,8 @@ def test_unsubscribe_dataset_updates_audit_stamp(
                 change_types_to_remove=[
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED),
                 ],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
                 expected_results=[],
             ),
             id="remove_all_change_types_returns_empty",
@@ -1508,6 +1778,8 @@ def test_unsubscribe_dataset_updates_audit_stamp(
                         models.EntityChangeTypeClass.INCIDENT_RESOLVED
                     ),  # Not in existing
                 ],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
                 expected_results=[
                     models.EntityChangeDetailsClass(
                         entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
@@ -1542,6 +1814,8 @@ def test_unsubscribe_dataset_updates_audit_stamp(
                     str(models.EntityChangeTypeClass.INCIDENT_RESOLVED),
                     str(models.EntityChangeTypeClass.TAG_ADDED),  # Not in existing
                 ],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
                 expected_results=[
                     models.EntityChangeDetailsClass(
                         entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
@@ -1573,6 +1847,8 @@ def test_unsubscribe_dataset_updates_audit_stamp(
                 change_types_to_remove=[
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED),
                 ],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
                 expected_results=[
                     models.EntityChangeDetailsClass(
                         entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
@@ -1593,6 +1869,8 @@ def test_unsubscribe_dataset_updates_audit_stamp(
                     )
                 ],
                 change_types_to_remove=[],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
                 expected_results=[],
                 should_raise=True,
                 expected_error="change_types_to_remove cannot be empty, worse case we have the default values",
@@ -1605,23 +1883,215 @@ def test_unsubscribe_dataset_updates_audit_stamp(
                 change_types_to_remove=[
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED)
                 ],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
                 expected_results=[],
                 should_raise=True,
                 expected_error="Subscription must have at least one change type (no model restriction but business rule)",
             ),
             id="empty_existing_change_types_raises_error",
         ),
+        # Assertion removal test cases
+        pytest.param(
+            RemoveChangeTypesTestParams(
+                existing_change_types=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:test1"]
+                        ),
+                    ),
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=[
+                                "urn:li:assertion:test1",
+                                "urn:li:assertion:test2",
+                            ]
+                        ),
+                    ),
+                ],
+                change_types_to_remove=[
+                    str(models.EntityChangeTypeClass.ASSERTION_PASSED),
+                    str(models.EntityChangeTypeClass.ASSERTION_FAILED),
+                ],
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test1"
+                ),
+                warn_if_missing=True,
+                expected_results=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:test2"]
+                        ),
+                    ),
+                ],
+            ),
+            id="assertion_removal_keeps_filtered_change_types",
+        ),
+        pytest.param(
+            RemoveChangeTypesTestParams(
+                existing_change_types=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:test1"]
+                        ),
+                    ),
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:test1"]
+                        ),
+                    ),
+                ],
+                change_types_to_remove=[
+                    str(models.EntityChangeTypeClass.ASSERTION_PASSED),
+                    str(models.EntityChangeTypeClass.ASSERTION_FAILED),
+                ],
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test1"
+                ),
+                warn_if_missing=True,
+                expected_results=[],
+            ),
+            id="assertion_removal_removes_all_when_no_assertions_remain",
+        ),
+        pytest.param(
+            RemoveChangeTypesTestParams(
+                existing_change_types=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:other"]
+                        ),
+                    ),
+                ],
+                change_types_to_remove=[
+                    str(models.EntityChangeTypeClass.ASSERTION_PASSED),
+                ],
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:missing"
+                ),
+                warn_if_missing=True,
+                expected_results=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:other"]
+                        ),
+                    ),
+                ],
+                expected_warning_logged=True,
+                expected_warning_message="Assertion urn:li:assertion:missing is not included in entity change type 'ASSERTION_PASSED' and will be ignored",
+            ),
+            id="assertion_removal_warns_when_assertion_not_in_filter",
+        ),
+        pytest.param(
+            RemoveChangeTypesTestParams(
+                existing_change_types=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:other"]
+                        ),
+                    ),
+                ],
+                change_types_to_remove=[
+                    str(models.EntityChangeTypeClass.ASSERTION_PASSED),
+                ],
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:missing"
+                ),
+                warn_if_missing=False,
+                expected_results=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:other"]
+                        ),
+                    ),
+                ],
+                expected_warning_logged=False,
+            ),
+            id="assertion_removal_no_warn_when_flag_disabled",
+        ),
+        pytest.param(
+            RemoveChangeTypesTestParams(
+                existing_change_types=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+                        filter=None,
+                    ),
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+                        filter=models.EntityChangeDetailsFilterClass(
+                            includeAssertions=["urn:li:assertion:test1"]
+                        ),
+                    ),
+                ],
+                change_types_to_remove=[
+                    str(models.EntityChangeTypeClass.ASSERTION_PASSED),
+                    str(models.EntityChangeTypeClass.ASSERTION_FAILED),
+                ],
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test1"
+                ),
+                warn_if_missing=True,
+                expected_results=[],
+                expected_warning_logged=True,
+                expected_warning_message="Assertion urn:li:assertion:test1 is not included in entity change type 'ASSERTION_PASSED' and will be ignored",
+            ),
+            id="assertion_removal_warns_for_dataset_level_filter",
+        ),
+        pytest.param(
+            RemoveChangeTypesTestParams(
+                existing_change_types=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
+                        filter=None,
+                    ),
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+                        filter=None,
+                    ),
+                ],
+                change_types_to_remove=[
+                    str(models.EntityChangeTypeClass.ASSERTION_PASSED),  # Exists
+                    str(
+                        models.EntityChangeTypeClass.INCIDENT_RESOLVED
+                    ),  # Doesn't exist
+                    str(models.EntityChangeTypeClass.TAG_ADDED),  # Doesn't exist
+                ],
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
+                expected_results=[
+                    models.EntityChangeDetailsClass(
+                        entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
+                        filter=None,
+                    ),
+                ],
+                expected_warning_logged=True,
+                expected_warning_message="do not exist in the subscription and will be ignored",
+            ),
+            id="warns_about_nonexistent_change_types",
+        ),
     ],
 )
 def test_remove_change_types(
     subscription_client: SubscriptionClient,
     params: RemoveChangeTypesTestParams,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test _remove_change_types with various scenarios using parametrized tests."""
     if params.should_raise:
         with pytest.raises(AssertionError) as exc_info:
             subscription_client._remove_change_types(
-                params.existing_change_types, params.change_types_to_remove
+                existing_change_types=params.existing_change_types,
+                change_types_to_remove=params.change_types_to_remove,
+                assertion_urn_to_remove=params.assertion_urn_to_remove,
+                warn_if_missing=params.warn_if_missing,
             )
         if params.expected_error:
             assert params.expected_error in str(exc_info.value)
@@ -1629,9 +2099,13 @@ def test_remove_change_types(
         # Store original for immutability check
         original_count = len(params.existing_change_types)
 
-        result = subscription_client._remove_change_types(
-            params.existing_change_types, params.change_types_to_remove
-        )
+        with caplog.at_level(logging.WARNING):
+            result = subscription_client._remove_change_types(
+                existing_change_types=params.existing_change_types,
+                change_types_to_remove=params.change_types_to_remove,
+                assertion_urn_to_remove=params.assertion_urn_to_remove,
+                warn_if_missing=params.warn_if_missing,
+            )
 
         # Verify result matches expected
         assert len(result) == len(params.expected_results)
@@ -1656,46 +2130,269 @@ def test_remove_change_types(
         # Verify original list was not modified (immutability)
         assert len(params.existing_change_types) == original_count
 
+        # Check warning logging expectations
+        if params.expected_warning_logged:
+            warning_records = [
+                record for record in caplog.records if record.levelname == "WARNING"
+            ]
+            assert len(warning_records) >= 1, (
+                "Expected at least one warning to be logged"
+            )
+            if params.expected_warning_message:
+                found_expected_message = any(
+                    params.expected_warning_message in record.message
+                    for record in warning_records
+                )
+                assert found_expected_message, (
+                    f"Expected warning message '{params.expected_warning_message}' not found in logged warnings"
+                )
+        else:
+            # Verify no warnings were logged (unless it's about nonexistent change types)
+            warning_records = [
+                record for record in caplog.records if record.levelname == "WARNING"
+            ]
+            if warning_records:
+                # Only allow warnings about nonexistent change types for existing tests
+                for record in warning_records:
+                    assert (
+                        "do not exist in the subscription and will be ignored"
+                        in record.message
+                    )
 
-def test_remove_change_types_warns_about_nonexistent_types(
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=None,
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
+                expected_result=None,
+                expected_warning_logged=False,
+            ),
+            id="no_filter_no_assertion_no_warning",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=None,
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=True,
+                expected_result=None,
+                expected_warning_logged=True,
+                expected_warning_message="Assertion urn:li:assertion:test is not included in entity change type 'ASSERTION_PASSED' and will be ignored",
+            ),
+            id="no_filter_with_assertion_warns",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=None,
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=False,
+                expected_result=None,
+                expected_warning_logged=False,
+            ),
+            id="no_filter_with_assertion_no_warn_flag",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=None
+                ),
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=True,
+                expected_result=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=None
+                ),
+                expected_warning_logged=True,
+                expected_warning_message="Assertion urn:li:assertion:test is not included in entity change type 'ASSERTION_PASSED' and will be ignored",
+            ),
+            id="filter_with_none_assertions_warns",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=[]
+                ),
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=True,
+                expected_result=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=[]
+                ),
+                expected_warning_logged=True,
+                expected_warning_message="Assertion urn:li:assertion:test is not included in entity change type 'ASSERTION_PASSED' and will be ignored",
+            ),
+            id="filter_with_empty_assertions_warns",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=["urn:li:assertion:other"]
+                ),
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=True,
+                expected_result=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=["urn:li:assertion:other"]
+                ),
+                expected_warning_logged=True,
+                expected_warning_message="Assertion urn:li:assertion:test is not included in entity change type 'ASSERTION_PASSED' and will be ignored",
+            ),
+            id="assertion_not_in_filter_warns",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=["urn:li:assertion:other"]
+                ),
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=False,
+                expected_result=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=["urn:li:assertion:other"]
+                ),
+                expected_warning_logged=False,
+            ),
+            id="assertion_not_in_filter_no_warn_flag",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=["urn:li:assertion:test"]
+                ),
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=True,
+                expected_result=None,
+                expected_warning_logged=False,
+            ),
+            id="single_assertion_removed_returns_none",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=[
+                        "urn:li:assertion:test",
+                        "urn:li:assertion:other",
+                    ]
+                ),
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=True,
+                expected_result=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=["urn:li:assertion:other"]
+                ),
+                expected_warning_logged=False,
+            ),
+            id="multiple_assertions_remove_one",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_PASSED",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=[
+                        "urn:li:assertion:keep1",
+                        "urn:li:assertion:remove",
+                        "urn:li:assertion:keep2",
+                    ]
+                ),
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:remove"
+                ),
+                warn_if_missing=True,
+                expected_result=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=[
+                        "urn:li:assertion:keep1",
+                        "urn:li:assertion:keep2",
+                    ]
+                ),
+                expected_warning_logged=False,
+            ),
+            id="multiple_assertions_remove_middle_one",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_FAILED",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=[
+                        "urn:li:assertion:test",
+                        "urn:li:assertion:test",
+                    ]  # Duplicates
+                ),
+                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                    "urn:li:assertion:test"
+                ),
+                warn_if_missing=True,
+                expected_result=None,
+                expected_warning_logged=False,
+            ),
+            id="duplicate_assertions_all_removed",
+        ),
+        pytest.param(
+            RemoveChangeTypesFilterTestParams(
+                entity_change_type="ASSERTION_ERROR",
+                existing_filter=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=["urn:li:assertion:existing"]
+                ),
+                assertion_urn_to_remove=None,
+                warn_if_missing=True,
+                expected_result=models.EntityChangeDetailsFilterClass(
+                    includeAssertions=["urn:li:assertion:existing"]
+                ),
+                expected_warning_logged=False,
+            ),
+            id="no_assertion_to_remove_returns_existing",
+        ),
+    ],
+)
+def test_remove_change_types_filter(
     subscription_client: SubscriptionClient,
+    params: RemoveChangeTypesFilterTestParams,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test _remove_change_types logs warning for nonexistent change types."""
-    existing_change_types = [
-        models.EntityChangeDetailsClass(
-            entityChangeType=models.EntityChangeTypeClass.ASSERTION_PASSED,
-            filter=None,
-        ),
-        models.EntityChangeDetailsClass(
-            entityChangeType=models.EntityChangeTypeClass.ASSERTION_FAILED,
-            filter=None,
-        ),
-    ]
-
-    change_types_to_remove = [
-        str(models.EntityChangeTypeClass.ASSERTION_PASSED),  # Exists
-        str(models.EntityChangeTypeClass.INCIDENT_RESOLVED),  # Doesn't exist
-        str(models.EntityChangeTypeClass.TAG_ADDED),  # Doesn't exist
-    ]
-
+    """Test _remove_change_types_filter with various scenarios."""
     with caplog.at_level(logging.WARNING):
-        result = subscription_client._remove_change_types(
-            existing_change_types, change_types_to_remove
+        result = subscription_client._remove_change_types_filter(
+            entity_change_type=params.entity_change_type,
+            existing_filter=params.existing_filter,
+            assertion_urn_to_remove=params.assertion_urn_to_remove,
+            warn_if_missing=params.warn_if_missing,
         )
 
-    # Verify the result only contains types that weren't removed
-    assert len(result) == 1
-    assert result[0].entityChangeType == models.EntityChangeTypeClass.ASSERTION_FAILED
+    # Use our helper method for detailed comparison
+    assert_entity_change_details_filter_equal(result, params.expected_result)
 
-    # Verify warning was logged about nonexistent types
-    assert len(caplog.records) == 1
-    warning_record = caplog.records[0]
-    assert warning_record.levelname == "WARNING"
-    assert (
-        "do not exist in the subscription and will be ignored" in warning_record.message
-    )
-    assert "INCIDENT_RESOLVED" in warning_record.message
-    assert "TAG_ADDED" in warning_record.message
-    # Verify existing type is not mentioned in warning
-    assert "ASSERTION_PASSED" not in warning_record.message
+    # Check warning logging expectations
+    if params.expected_warning_logged:
+        assert len(caplog.records) == 1
+        warning_record = caplog.records[0]
+        assert warning_record.levelname == "WARNING"
+        if params.expected_warning_message:
+            assert params.expected_warning_message in warning_record.message
+    else:
+        # Verify no warnings were logged
+        warning_records = [
+            record for record in caplog.records if record.levelname == "WARNING"
+        ]
+        assert len(warning_records) == 0
