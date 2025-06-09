@@ -1,4 +1,5 @@
 import { RoleEntity } from '@app/entity/Access/RoleEntity';
+import EntityRegistry from '@app/entity/EntityRegistry';
 import { BusinessAttributeEntity } from '@app/entity/businessAttribute/BusinessAttributeEntity';
 import { ChartEntity } from '@app/entity/chart/ChartEntity';
 import { ContainerEntity } from '@app/entity/container/ContainerEntity';
@@ -12,7 +13,6 @@ import { DataProcessInstanceEntity } from '@app/entity/dataProcessInstance/DataP
 import { DataProductEntity } from '@app/entity/dataProduct/DataProductEntity';
 import { DatasetEntity } from '@app/entity/dataset/DatasetEntity';
 import { DomainEntity } from '@app/entity/domain/DomainEntity';
-import EntityRegistry from '@app/entity/EntityRegistry';
 import { ERModelRelationshipEntity } from '@app/entity/ermodelrelationships/ERModelRelationshipEntity';
 import GlossaryNodeEntity from '@app/entity/glossaryNode/GlossaryNodeEntity';
 import { GlossaryTermEntity } from '@app/entity/glossaryTerm/GlossaryTermEntity';
