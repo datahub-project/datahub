@@ -114,6 +114,7 @@ export const SEARCHABLE_ENTITY_TYPES = [
     EntityType.CorpGroup,
     EntityType.Tag,
     EntityType.Role,
+    EntityType.Application,
 ];
 
 export const APPLIES_TO_ENTITIES = [
@@ -134,6 +135,7 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.DataProduct,
     EntityType.SchemaField,
     EntityType.DataContract,
+    EntityType.Application,
 ];
 
 export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {

@@ -70,6 +70,7 @@ public class EntityTypeMapper {
           .put(EntityType.RESTRICTED, Constants.RESTRICTED_ENTITY_NAME)
           .put(EntityType.BUSINESS_ATTRIBUTE, Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)
           .put(EntityType.DATA_CONTRACT, Constants.DATA_CONTRACT_ENTITY_NAME)
+          .put(EntityType.APPLICATION, Constants.APPLICATION_ENTITY_NAME)
           .putAll(ACRYL_ENTITY_TYPE_TO_NAME) // SaaS only
           .build();
 

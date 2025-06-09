@@ -21,6 +21,7 @@ entities:
       - datasetUsageStatistics
       - operation
       - domains
+      - applications
       - schemaMetadata
       - status
       - container
@@ -77,6 +78,7 @@ entities:
       - datahubIngestionRunSummary
       - datahubIngestionCheckpoint
       - domains
+      - applications
       - deprecation
       - versionInfo
       - dataJobInfo
@@ -109,6 +111,7 @@ entities:
     keyAspect: dataFlowKey
     aspects:
       - domains
+      - applications
       - deprecation
       - versionInfo
       - dataFlowInfo
@@ -170,6 +173,7 @@ entities:
       - embed
       - browsePaths
       - domains
+      - applications
       - container
       - deprecation
       - ownership
@@ -195,6 +199,7 @@ entities:
     keyAspect: dashboardKey
     aspects:
       - domains
+      - applications
       - container
       - deprecation
       - dashboardUsageStatistics
@@ -236,6 +241,7 @@ entities:
       - browsePaths
       - institutionalMemory
       - domains
+      - applications
       - subTypes
       - dataPlatformInstance
       - browsePathsV2
@@ -318,6 +324,7 @@ entities:
       - browsePaths # unclear if this will be used
       - status
       - domains
+      - applications
       - browsePathsV2
       - structuredProperties
       - forms
@@ -351,6 +358,7 @@ entities:
       - ownership
       - deprecation
       - domains
+      - applications
       - status
       - browsePaths
       - structuredProperties
@@ -434,6 +442,7 @@ entities:
       - glossaryTerms
       - editableMlModelProperties
       - domains
+      - applications
       - ownership
       - mlModelProperties
       - intendedUse
@@ -473,6 +482,7 @@ entities:
       - glossaryTerms
       - editableMlModelGroupProperties
       - domains
+      - applications
       - mlModelGroupProperties
       - ownership
       - status
@@ -512,6 +522,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureTableProperties
       - domains
+      - applications
       - mlFeatureTableProperties
       - ownership
       - institutionalMemory
@@ -538,6 +549,7 @@ entities:
       - glossaryTerms
       - editableMlFeatureProperties
       - domains
+      - applications
       - mlFeatureProperties
       - ownership
       - institutionalMemory
@@ -565,6 +577,7 @@ entities:
       - glossaryTerms
       - editableMlPrimaryKeyProperties
       - domains
+      - applications
       - mlPrimaryKeyProperties
       - ownership
       - institutionalMemory
@@ -706,6 +719,7 @@ entities:
       - glossaryTerms
       - globalTags
       - domains
+      - applications
       - dataProductProperties
       - institutionalMemory
       - status
@@ -716,6 +730,21 @@ entities:
       # SaaS Only
       - share
       - origin
+  - name: application
+    category: core
+    keyAspect: applicationKey
+    aspects:
+      - applicationProperties
+      - ownership
+      - glossaryTerms
+      - globalTags
+      - domains
+      - institutionalMemory
+      - status
+      - structuredProperties
+      - forms
+      - testResults
+      - subTypes
   - name: ownershipType
     doc: Ownership Type represents a user-created ownership category for a person or group who is responsible for an asset.
     category: core

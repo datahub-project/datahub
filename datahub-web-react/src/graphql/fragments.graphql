@@ -1308,6 +1308,9 @@ fragment domainEntitiesFields on Domain {
     ) {
         total
     }
+    applications: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "APPLICATION" }] }) {
+        total
+    }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
         total
     }
@@ -1736,6 +1739,11 @@ fragment entityDisplayNameFields on Entity {
         ...nonConflictingPlatformFields
     }
     ... on DataProduct {
+        properties {
+            name
+        }
+    }
+    ... on Application {
         properties {
             name
         }

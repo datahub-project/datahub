@@ -67,6 +67,14 @@ extend type Query {
   ): SearchResults
 
   """
+  List Application assets for a given urn
+  """
+  listApplicationAssets(
+    urn: String!
+    input: SearchAcrossEntitiesInput!
+  ): SearchResults
+
+  """
   Browse for different entities by getting organizational groups and their
   aggregated counts + content. Uses browsePathsV2 aspect and replaces our old
   browse endpoint.

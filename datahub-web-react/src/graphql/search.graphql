@@ -203,6 +203,11 @@ fragment autoCompleteFields on Entity {
             name
         }
     }
+    ... on Application {
+        properties {
+            name
+        }
+    }
     ... on Container {
         properties {
             name
@@ -1081,6 +1086,9 @@ fragment searchResultsWithoutSchemaField on Entity {
             ...institutionalMemoryFields
         }
     }
+    ... on Application {
+        ...applicationSearchFields
+    }
     ... on ERModelRelationship {
         urn
         type
@@ -1329,6 +1337,11 @@ fragment facetFields on FacetMetadata {
                 }
             }
             ... on DataProduct {
+                properties {
+                    name
+                }
+            }
+            ... on Application {
                 properties {
                     name
                 }

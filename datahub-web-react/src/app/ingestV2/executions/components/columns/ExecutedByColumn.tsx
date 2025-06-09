@@ -35,6 +35,6 @@ export function ExecutedByColumn({ source, actor }: SourceColumnProps) {
             return <span>CLI Execution</span>;
 
         default:
-            return <span>N/A</span>;
+            return <span>-</span>;
     }
 }
