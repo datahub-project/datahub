@@ -123,10 +123,12 @@ public class ESIndexBuilder {
 
   private final RetryRegistry retryRegistry;
   private static RetryRegistry deletionRetryRegistry;
-  private final int initialSecondsDelete = 10;
-  private final int deleteMultiplier = 9;
-  // would wait >3000s for the 5th retry
-  private static final int deleteMaxAttempts = 5;
+  // try for 1h
+  private final int initialSecondsDelete = 30;
+  private static final int deleteMaxAttempts = 120;
+
+  // this is for exponential backoff, see later, we cannot use for now
+  //  private final int deleteMultiplier = 9;
 
   public ESIndexBuilder(
       RestHighLevelClient searchClient,
