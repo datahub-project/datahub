@@ -271,6 +271,11 @@ type Form implements Entity {
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  Additional settings of this form
+  """
+  formSettings: FormSettings
 }
 
 """
@@ -804,6 +809,11 @@ input CreateFormInput {
   Info about how this form is assigned to assets
   """
   formAssetAssignment: FormAssetAssignment
+
+  """
+  Additional settings of this form
+  """
+  formSettings: FormSettingsInput
 }
 
 """
@@ -1009,6 +1019,11 @@ input UpdateFormInput {
   Info about how this form is assigned to assets
   """
   formAssetAssignment: FormAssetAssignment
+
+  """
+  Additional settings for this form
+  """
+  formSettings: FormSettingsInput
 }
 
 """
@@ -1095,4 +1110,44 @@ input RefreshFormAssignmentInput {
   form filter. Default is true, but can be turned off if desired.
   """
   unassignForm: Boolean
+}
+
+"""
+Additional settings of the form
+"""
+type FormSettings {
+  """
+  Notification settings for a form
+  """
+  notificationSettings: FormNotificationSettings
+}
+
+"""
+Notification settings for a form
+"""
+type FormNotificationSettings {
+  """
+  Whether to notify the assignees of the form when it is published.
+  """
+  notifyAssigneesOnPublish: Boolean
+}
+
+"""
+Intput for creating/updating form settings
+"""
+input FormSettingsInput {
+  """
+  Notification settings for a form
+  """
+  notificationSettings: FormNotificationSettingsInput
+}
+
+"""
+Input for creating/updating notification settings of the form
+"""
+input FormNotificationSettingsInput {
+  """
+  Whether to notify the assignees of the form when it is published.
+  """
+  notifyAssigneesOnPublish: Boolean
 }

@@ -26,7 +26,10 @@ import lombok.RequiredArgsConstructor;
 public class FormType implements com.linkedin.datahub.graphql.types.EntityType<Form, String> {
   public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
-          FORM_INFO_ASPECT_NAME, DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, OWNERSHIP_ASPECT_NAME);
+          FORM_INFO_ASPECT_NAME,
+          DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          FORM_SETTINGS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override

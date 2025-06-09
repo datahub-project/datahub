@@ -31,6 +31,14 @@ export type FormAssets = {
     logicalPredicate?: LogicalPredicate;
 };
 
+export type FormSettings = {
+    notificationSettings?: FormNotificationSettings;
+};
+
+export type FormNotificationSettings = {
+    notifyAssigneesOnPublish?: boolean;
+};
+
 export type FormFields = {
     formType?: FormType;
     formName?: string;
@@ -39,6 +47,7 @@ export type FormFields = {
     actors?: FormActors;
     state?: FormState;
     assets?: FormAssets;
+    formSettings?: FormSettings;
 };
 
 export const handleInputChange = (setFormValues) => (event) => {

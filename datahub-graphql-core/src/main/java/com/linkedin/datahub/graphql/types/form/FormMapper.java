@@ -16,8 +16,10 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormActorAssignment;
 import com.linkedin.datahub.graphql.generated.FormInfo;
+import com.linkedin.datahub.graphql.generated.FormNotificationSettings;
 import com.linkedin.datahub.graphql.generated.FormPrompt;
 import com.linkedin.datahub.graphql.generated.FormPromptType;
+import com.linkedin.datahub.graphql.generated.FormSettings;
 import com.linkedin.datahub.graphql.generated.FormState;
 import com.linkedin.datahub.graphql.generated.FormStatus;
 import com.linkedin.datahub.graphql.generated.FormType;
@@ -69,6 +71,7 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
         OWNERSHIP_ASPECT_NAME,
         (form, dataMap) ->
             form.setOwnership(OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(FORM_SETTINGS_ASPECT_NAME, this::mapFormSettings);
 
     return mappingHelper.getResult();
   }
@@ -275,6 +278,19 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
       }
     }
     form.setDynamicFormAssignment(formAssignment);
+  }
+
+  private void mapFormSettings(@Nonnull Form form, @Nonnull DataMap dataMap) {
+    com.linkedin.form.FormSettings gmsFormSettings = new com.linkedin.form.FormSettings(dataMap);
+    FormSettings formSettings = new FormSettings();
+
+    com.linkedin.form.FormNotificationSettings gmsFormNotificationSettings =
+        gmsFormSettings.getNotificationSettings();
+    FormNotificationSettings formNotificationSettings =
+        new FormNotificationSettings(gmsFormNotificationSettings.isNotifyAssigneesOnPublish());
+    formSettings.setNotificationSettings(formNotificationSettings);
+
+    form.setFormSettings(formSettings);
   }
 
   /*

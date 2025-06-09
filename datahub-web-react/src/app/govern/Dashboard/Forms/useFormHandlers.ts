@@ -34,5 +34,18 @@ export const useFormHandlers = () => {
         }));
     };
 
-    return { handleInputChange, handleSelectChange, handleOwnersCheckBox };
+    const handleNotifyAsigneesCheckBox = (checked) => {
+        setFormValues((prev) => ({
+            ...prev,
+            formSettings: {
+                ...prev.formSettings,
+                notificationSettings: {
+                    ...prev.formSettings?.notificationSettings,
+                    notifyAssigneesOnPublish: checked,
+                },
+            },
+        }));
+    };
+
+    return { handleInputChange, handleSelectChange, handleOwnersCheckBox, handleNotifyAsigneesCheckBox };
 };

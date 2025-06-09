@@ -2099,6 +2099,11 @@ fragment formFields on Form {
     dynamicFormAssignment {
         json
     }
+    formSettings {
+        notificationSettings {
+            notifyAssigneesOnPublish
+        }
+    }
 }
 
 fragment formAssociationFields on FormAssociation {

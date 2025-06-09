@@ -94,6 +94,12 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                                       : undefined,
                               }
                             : undefined,
+                        formSettings: {
+                            notificationSettings: {
+                                notifyAssigneesOnPublish:
+                                    !!formValues.formSettings?.notificationSettings?.notifyAssigneesOnPublish,
+                            },
+                        },
                     };
                     setIsFormLoading(true);
 
@@ -155,6 +161,12 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                                       : undefined,
                               }
                             : undefined,
+                        formSettings: {
+                            notificationSettings: {
+                                notifyAssigneesOnPublish:
+                                    !!formValues.formSettings?.notificationSettings?.notifyAssigneesOnPublish,
+                            },
+                        },
                     };
                     setIsFormLoading(true);
 

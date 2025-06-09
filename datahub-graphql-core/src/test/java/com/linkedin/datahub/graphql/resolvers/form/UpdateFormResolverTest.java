@@ -8,6 +8,8 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Form;
+import com.linkedin.datahub.graphql.generated.FormNotificationSettingsInput;
+import com.linkedin.datahub.graphql.generated.FormSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateFormInput;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -26,7 +28,17 @@ public class UpdateFormResolverTest {
 
   private static final UpdateFormInput TEST_INPUT =
       new UpdateFormInput(
-          TEST_FORM_URN, "new name", null, null, null, null, null, null, null, null);
+          TEST_FORM_URN,
+          "new name",
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          new FormSettingsInput(new FormNotificationSettingsInput()));
 
   @Test
   public void testGetSuccess() throws Exception {

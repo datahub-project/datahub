@@ -163,7 +163,7 @@ describe("manage compliance forms", () => {
       checkForm(formUrn, FORM_NAME, FORM_DESCRIPTION, "draft");
 
       // Check if draft form not available on the related entity
-      cy.wait(2000); // wait for ES to update with form on it
+      cy.wait(3000); // wait for ES to update with form on it
       goToEntity();
       checkIfEntityHasNoAwaitingForms();
 
@@ -204,7 +204,7 @@ describe("manage compliance forms", () => {
       checkForm(formUrn, FORM_NAME, FORM_DESCRIPTION, "published");
 
       // Check if the form is available on the entity
-      cy.wait(2000); // wait for ES to update with form on it
+      cy.wait(3000); // wait for ES to update with form on it
       goToEntity();
       checkIfEntityHasAwaitingForms();
 
@@ -229,7 +229,7 @@ describe("manage compliance forms", () => {
       unpublishForm();
 
       // Check if the form is not available on the entity
-      cy.wait(2000); // wait for ES to update with form on it
+      cy.wait(3000); // wait for ES to update with form on it
       goToEntity();
       checkIfEntityHasNoAwaitingForms();
 
@@ -267,7 +267,7 @@ describe("manage compliance forms", () => {
       checkIfFormDoesNotExist(formUrn);
 
       // Check if the deleted form is not available on the entity
-      cy.wait(2000); // wait for ES to update with form on it
+      cy.wait(3000); // wait for ES to update with form on it
       goToEntity();
       checkIfEntityHasNoAwaitingForms();
     });

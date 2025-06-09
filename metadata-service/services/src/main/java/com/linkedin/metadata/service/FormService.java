@@ -22,6 +22,7 @@ import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptType;
+import com.linkedin.form.FormSettings;
 import com.linkedin.form.FormType;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
@@ -189,6 +190,28 @@ public class FormService extends BaseService {
           opContext,
           AspectUtils.buildMetadataChangeProposal(
               formUrn, Constants.DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, dynamicFormAssignment),
+          false);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create form", e);
+    }
+  }
+
+  /** Create a form settings for a particular form. */
+  public void createFormSettings(
+      @Nonnull OperationContext opContext,
+      @Nonnull final FormSettings formSettings,
+      @Nonnull final Urn formUrn)
+      throws RemoteInvocationException {
+    if (!entityClient.exists(opContext, formUrn)) {
+      throw new RuntimeException(
+          String.format("Form %s does not exist. Failed to create form settings", formUrn));
+    }
+
+    try {
+      entityClient.ingestProposal(
+          opContext,
+          AspectUtils.buildMetadataChangeProposal(
+              formUrn, Constants.FORM_SETTINGS_ASPECT_NAME, formSettings),
           false);
     } catch (Exception e) {
       throw new RuntimeException("Failed to create form", e);
