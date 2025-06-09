@@ -169,7 +169,7 @@ class AssertionsClient:
         #     self.client.entities.delete(assertion_entity)
         #     raise e
 
-        return SmartFreshnessAssertion.from_entities(assertion_entity, monitor_entity)
+        return SmartFreshnessAssertion._from_entities(assertion_entity, monitor_entity)
 
     def _upsert_and_merge_smart_freshness_assertion(
         self,
@@ -333,7 +333,7 @@ class AssertionsClient:
         #     self.client.entities.delete(assertion_entity)
         #     raise e
 
-        return SmartFreshnessAssertion.from_entities(assertion_entity, monitor_entity)
+        return SmartFreshnessAssertion._from_entities(assertion_entity, monitor_entity)
 
     def _retrieve_and_merge_assertion_and_monitor(
         self,
@@ -359,12 +359,12 @@ class AssertionsClient:
 
         # 2.1 If the assertion and monitor entities exist, create a SmartFreshnessAssertion object from them:
         if maybe_assertion_entity and maybe_monitor_entity:
-            existing_assertion = SmartFreshnessAssertion.from_entities(
+            existing_assertion = SmartFreshnessAssertion._from_entities(
                 maybe_assertion_entity, maybe_monitor_entity
             )
         # 2.2 If the assertion exists but the monitor does not, create a placeholder monitor entity to be able to create the assertion:
         elif maybe_assertion_entity and not maybe_monitor_entity:
-            existing_assertion = SmartFreshnessAssertion.from_entities(
+            existing_assertion = SmartFreshnessAssertion._from_entities(
                 maybe_assertion_entity,
                 Monitor(
                     id=monitor_urn, info=("ASSERTION", "ACTIVE")
@@ -671,7 +671,7 @@ class AssertionsClient:
         #     logger.error(f"Error creating monitor: {e}")
         #     self.client.entities.delete(assertion_entity)
         #     raise e
-        return SmartFreshnessAssertion.from_entities(assertion_entity, monitor_entity)
+        return SmartFreshnessAssertion._from_entities(assertion_entity, monitor_entity)
 
     def create_smart_volume_assertion(
         self,
@@ -790,7 +790,7 @@ class AssertionsClient:
         #     logger.error(f"Error creating monitor: {e}")
         #     self.client.entities.delete(assertion_entity)
         #     raise e
-        return SmartVolumeAssertion.from_entities(assertion_entity, monitor_entity)
+        return SmartVolumeAssertion._from_entities(assertion_entity, monitor_entity)
 
     def upsert_smart_volume_assertion(
         self,
@@ -938,7 +938,7 @@ class AssertionsClient:
         #     self.client.entities.delete(assertion_entity)
         #     raise e
 
-        return SmartVolumeAssertion.from_entities(assertion_entity, monitor_entity)
+        return SmartVolumeAssertion._from_entities(assertion_entity, monitor_entity)
 
 
 def _merge_field(

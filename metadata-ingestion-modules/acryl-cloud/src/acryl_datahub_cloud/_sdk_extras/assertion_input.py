@@ -124,6 +124,12 @@ _DetectionMechanismTypes = Union[
     _DatasetProfile,
 ]
 
+_DETECTION_MECHANISM_TYPES_WITH_ADDITIONAL_FILTER = (
+    _LastModifiedColumn,
+    _HighWatermarkColumn,
+    _Query,
+)
+
 
 class DetectionMechanism:
     # To have a more enum-like user experience even with sub parameters, we define the detection mechanisms as class attributes.
@@ -560,6 +566,9 @@ def _try_parse_schedule(
         return schedule
 
 
+FieldSpecType = Union[models.FreshnessFieldSpecClass, models.SchemaFieldSpecClass]
+
+
 class _AssertionInput(ABC):
     def __init__(
         self,
@@ -721,11 +730,7 @@ class _AssertionInput(ABC):
         """
         if not isinstance(
             self.detection_mechanism,
-            (
-                DetectionMechanism.LAST_MODIFIED_COLUMN,
-                DetectionMechanism.HIGH_WATERMARK_COLUMN,
-                DetectionMechanism.QUERY,
-            ),
+            _DETECTION_MECHANISM_TYPES_WITH_ADDITIONAL_FILTER,
         ):
             return None
 
@@ -737,12 +742,6 @@ class _AssertionInput(ABC):
             type=models.DatasetFilterTypeClass.SQL,
             sql=additional_filter,
         )
-
-    @abstractmethod
-    def _create_assertion_info(
-        self, filter: Optional[models.DatasetFilterClass]
-    ) -> AssertionInfoInputType:
-        pass
 
     def _convert_tags(self) -> Optional[TagsInputType]:
         """
@@ -866,32 +865,6 @@ class _AssertionInput(ABC):
                 )
         return exclusion_windows
 
-    @abstractmethod
-    def _convert_assertion_source_type_and_field(
-        self,
-    ) -> tuple[str, Optional[models.FreshnessFieldSpecClass]]:
-        """
-        Convert detection mechanism into source type and field specification for assertions.
-
-        NOTE: Not all assertions have a field.
-
-        Returns:
-            A tuple of (source_type, field) where field may be None.
-            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass since
-            the source type is not a enum in the code generated from the DatasetFreshnessSourceType enum in the PDL.
-
-        Raises:
-            SDKNotYetSupportedError: If the detection mechanism is not supported.
-            SDKUsageError: If the field (column) is not found in the dataset,
-            and the detection mechanism requires a field. Also if the field
-            is not an allowed type for the detection mechanism.
-        """
-        pass
-
-    @abstractmethod
-    def _convert_schedule(self) -> models.CronScheduleClass:
-        pass
-
     def _convert_sensitivity(self) -> models.AssertionMonitorSensitivityClass:
         """
         Convert sensitivity into an AssertionMonitorSensitivityClass.
@@ -903,11 +876,54 @@ class _AssertionInput(ABC):
             level=InferenceSensitivity.to_int(self.sensitivity),
         )
 
-    @abstractmethod
-    def _get_assertion_evaluation_parameters(
-        self, source_type: str, field: Optional[models.FreshnessFieldSpecClass]
-    ) -> models.AssertionEvaluationParametersClass:
-        pass
+    def _get_schema_field_spec(self, column_name: str) -> models.SchemaFieldSpecClass:
+        """
+        Get the schema field spec for the detection mechanism if needed.
+        """
+        # Only fetch the dataset if it's not already cached.
+        # Also we only fetch the dataset if it's needed for the detection mechanism.
+        if self.cached_dataset is None:
+            self.cached_dataset = self.entity_client.get(self.dataset_urn)
+
+        # TODO: Make a public accessor for _schema_dict in the SDK
+        schema_fields = self.cached_dataset._schema_dict()
+        field = schema_fields.get(column_name)
+        if field:
+            return models.SchemaFieldSpecClass(
+                path=field.fieldPath,
+                type=field.type.type.__class__.__name__,
+                nativeType=field.nativeDataType,
+            )
+        else:
+            raise SDKUsageError(
+                msg=f"Column {column_name} not found in dataset {self.dataset_urn}",
+            )
+
+    def _validate_field_type(
+        self,
+        field_spec: models.SchemaFieldSpecClass,
+        column_name: str,
+        allowed_types: list[DictWrapper],
+        field_type_name: str,
+    ) -> None:
+        """
+        Validate that a field has an allowed type.
+
+        Args:
+            field_spec: The field specification to validate
+            column_name: The name of the column for error messages
+            allowed_types: List of allowed field types
+            field_type_name: Human-readable name of the field type for error messages
+
+        Raises:
+            SDKUsageError: If the field has an invalid type
+        """
+        allowed_type_names = [t.__class__.__name__ for t in allowed_types]
+        if field_spec.type not in allowed_type_names:
+            raise SDKUsageError(
+                msg=f"Column {column_name} with type {field_spec.type} does not have an allowed type for a {field_type_name} in dataset {self.dataset_urn}. "
+                f"Allowed types are {allowed_type_names}.",
+            )
 
     def _create_monitor_info(
         self,
@@ -915,7 +931,7 @@ class _AssertionInput(ABC):
         status: models.MonitorStatusClass,
         schedule: models.CronScheduleClass,
         source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
-        field: Optional[models.FreshnessFieldSpecClass],
+        field: Optional[FieldSpecType],
         sensitivity: models.AssertionMonitorSensitivityClass,
         exclusion_windows: list[models.AssertionExclusionWindowClass],
     ) -> models.MonitorInfoClass:
@@ -925,7 +941,7 @@ class _AssertionInput(ABC):
         Args:
             status: The monitor status.
             schedule: The monitor schedule.
-            source_type: The freshness source type.
+            source_type: The source type.
             field: Optional field specification.
             sensitivity: The monitor sensitivity.
             exclusion_windows: List of exclusion windows.
@@ -956,28 +972,31 @@ class _AssertionInput(ABC):
             ),
         )
 
-    def _get_schema_field_spec(self, column_name: str) -> models.SchemaFieldSpecClass:
-        """
-        Get the schema field spec for the detection mechanism if needed.
-        """
-        # Only fetch the dataset if it's not already cached.
-        # Also we only fetch the dataset if it's needed for the detection mechanism.
-        if self.cached_dataset is None:
-            self.cached_dataset = self.entity_client.get(self.dataset_urn)
+    @abstractmethod
+    def _create_assertion_info(
+        self, filter: Optional[models.DatasetFilterClass]
+    ) -> AssertionInfoInputType:
+        """Create assertion info specific to the assertion type."""
+        pass
 
-        # TODO: Make a public accessor for _schema_dict in the SDK
-        schema_fields = self.cached_dataset._schema_dict()
-        field = schema_fields.get(column_name)
-        if field:
-            return models.SchemaFieldSpecClass(
-                path=field.fieldPath,
-                type=field.type.type.__class__.__name__,
-                nativeType=field.nativeDataType,
-            )
-        else:
-            raise SDKUsageError(
-                msg=f"Column {column_name} not found in dataset {self.dataset_urn}",
-            )
+    @abstractmethod
+    def _convert_schedule(self) -> models.CronScheduleClass:
+        """Convert schedule to appropriate format for the assertion type."""
+        pass
+
+    @abstractmethod
+    def _get_assertion_evaluation_parameters(
+        self, source_type: str, field: Optional[FieldSpecType]
+    ) -> models.AssertionEvaluationParametersClass:
+        """Get evaluation parameters specific to the assertion type."""
+        pass
+
+    @abstractmethod
+    def _convert_assertion_source_type_and_field(
+        self,
+    ) -> tuple[str, Optional[FieldSpecType]]:
+        """Convert detection mechanism to source type and field spec."""
+        pass
 
 
 class _SmartFreshnessAssertionInput(_AssertionInput):
@@ -1054,24 +1073,33 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
         return DEFAULT_SCHEDULE
 
     def _get_assertion_evaluation_parameters(
-        self, source_type: str, field: Optional[models.FreshnessFieldSpecClass]
+        self, source_type: str, field: Optional[FieldSpecType]
     ) -> models.AssertionEvaluationParametersClass:
+        # Ensure field is either None or FreshnessFieldSpecClass
+        freshness_field = None
+        if field is not None:
+            if not isinstance(field, models.FreshnessFieldSpecClass):
+                raise SDKUsageError(
+                    f"Expected FreshnessFieldSpecClass for freshness assertion, got {type(field).__name__}"
+                )
+            freshness_field = field
+
         return models.AssertionEvaluationParametersClass(
             type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
             datasetFreshnessParameters=models.DatasetFreshnessAssertionParametersClass(
-                sourceType=source_type, field=field
+                sourceType=source_type, field=freshness_field
             ),
         )
 
     def _convert_assertion_source_type_and_field(
         self,
-    ) -> tuple[str, Optional[models.FreshnessFieldSpecClass]]:
+    ) -> tuple[str, Optional[FieldSpecType]]:
         """
         Convert detection mechanism into source type and field specification for freshness assertions.
 
         Returns:
             A tuple of (source_type, field) where field may be None.
-            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass since
+            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass (or other assertion source type) since
             the source type is not a enum in the code generated from the DatasetFreshnessSourceType enum in the PDL.
 
         Raises:
@@ -1136,12 +1164,9 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             )
 
         field_spec = self._get_schema_field_spec(column_name)
-        allowed_type_names = [t.__class__.__name__ for t in allowed_types]
-        if field_spec.type not in allowed_type_names:
-            raise SDKUsageError(
-                msg=f"Column {column_name} with type {field_spec.type} does not have an allowed type for a {field_type_name} in dataset {self.dataset_urn}. "
-                f"Allowed types are {allowed_type_names}.",
-            )
+        self._validate_field_type(
+            field_spec, column_name, allowed_types, field_type_name
+        )
         return models.FreshnessFieldSpecClass(
             path=field_spec.path,
             type=field_spec.type,
@@ -1230,7 +1255,7 @@ class _SmartVolumeAssertionInput(_AssertionInput):
         )
 
     def _get_assertion_evaluation_parameters(
-        self, source_type: str, field: Optional[models.FreshnessFieldSpecClass]
+        self, source_type: str, field: Optional[FieldSpecType]
     ) -> models.AssertionEvaluationParametersClass:
         return models.AssertionEvaluationParametersClass(
             type=models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
@@ -1241,13 +1266,13 @@ class _SmartVolumeAssertionInput(_AssertionInput):
 
     def _convert_assertion_source_type_and_field(
         self,
-    ) -> tuple[str, Optional[models.FreshnessFieldSpecClass]]:
+    ) -> tuple[str, Optional[FieldSpecType]]:
         """
         Convert detection mechanism into source type and field specification for volume assertions.
 
         Returns:
             A tuple of (source_type, field) where field may be None.
-            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass since
+            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass (or other assertion source type) since
             the source type is not a enum in the code generated from the DatasetFreshnessSourceType enum in the PDL.
 
         Raises:

@@ -550,13 +550,15 @@ class _AssertionPublic(ABC):
         return AssertionMode(monitor.info.status.mode)
 
     @abstractmethod
-    def from_entities(
+    def _from_entities(
         cls,
         assertion: Assertion,
         monitor: Monitor,
     ) -> Self:
         """
         Create an assertion from the assertion and monitor entities.
+
+        Note: This is a private method since it is intended to be called internally by the client.
         """
         pass
 
@@ -631,9 +633,11 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
         )
 
     @classmethod
-    def from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
+    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
         """
         Create a smart freshness assertion from the assertion and monitor entities.
+
+        Note: This is a private method since it is intended to be called internally by the client.
         """
         return cls(
             urn=assertion.urn,
@@ -726,9 +730,11 @@ class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPubli
         )
 
     @classmethod
-    def from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
+    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
         """
         Create a smart freshness assertion from the assertion and monitor entities.
+
+        Note: This is a private method since it is intended to be called internally by the client.
         """
         return cls(
             urn=assertion.urn,
