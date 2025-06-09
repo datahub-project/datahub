@@ -88,6 +88,9 @@ class UnityCatalogTag(ExternalTag):
                     if not isinstance(value, UnityCatalogTagValueText)
                     else value
                 )
+            # If value is an empty string, set it to None to not generater empty value in DataHub tag which results in key: tags
+            if not str(value):
+                processed_value = None
 
             super().__init__(
                 key=processed_key,
