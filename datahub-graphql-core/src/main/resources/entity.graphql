@@ -11454,6 +11454,11 @@ type Health {
   type: HealthStatusType!
 
   """
+  The timestamp when the health was reported
+  """
+  reportedAt: Long
+
+  """
   An enum representing the resolved Health status of an Asset
   """
   status: HealthStatus!
@@ -11464,9 +11469,70 @@ type Health {
   message: String
 
   """
+  If type=INCIDENTS and status=FAIL, populate the details of the latest incident.
+  """
+  activeIncidentHealthDetails: ActiveIncidentHealthDetails
+
+  """
+  If type=ASSERTIONS, populate a breakdown of the assertion statuses by type.
+  """
+  latestAssertionStatusByType: [AssertionHealthStatusByType!]
+
+  """
+  NOTE: @deprecated
   The causes responsible for the health status
+  I.e., the assertion urns that are failing
   """
   causes: [String!]
+}
+
+type ActiveIncidentHealthDetails {
+  """
+  The latest incident
+  """
+  latestIncidentUrn: String
+
+  """
+  The title of the latest incident
+  """
+  latestIncidentTitle: String
+
+  """
+  The timestamp when the last incident was updated
+  """
+  lastActivityAt: Long
+
+  """
+  The number of active incidents
+  """
+  count: Int!
+}
+
+type AssertionHealthStatusByType {
+  """
+  The type group of assertions
+  """
+  type: AssertionType!
+
+  """
+  The status of the assertions in the given type group
+  """
+  status: HealthStatus!
+
+  """
+  The number of assertions in the given type group
+  """
+  total: Int!
+
+  """
+  The number of assertions in the given type group that have the given status (PASS, WARN, FAIL)
+  """
+  statusCount: Int!
+
+  """
+  The timestamp when the last assertion of this type group with the given status ran
+  """
+  lastStatusResultAt: Long
 }
 
 """
