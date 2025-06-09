@@ -17,7 +17,7 @@ There's two implementations of the plugin, with different Airflow version suppor
 
 | Approach  | Airflow Versions | Notes                                                                                   |
 | --------- | ---------------- | --------------------------------------------------------------------------------------- |
-| Plugin v2 | 2.5+             | Recommended. Requires Python 3.8+                                                       |
+| Plugin v2 | 2.7+             | Recommended. Requires Python 3.8+                                                       |
 | Plugin v1 | 2.5 - 2.8        | Deprecated. No automatic lineage extraction; may not extract lineage if the task fails. |
 
 If you're using Airflow older than 2.5, it's possible to use the plugin with older versions of `acryl-datahub-airflow-plugin`. See the [compatibility section](#compatibility) for more details.
@@ -29,7 +29,7 @@ If you're using Airflow older than 2.5, it's possible to use the plugin with old
 
 ### Installation
 
-The v2 plugin requires Airflow 2.3+ and Python 3.8+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
+The v2 plugin requires Airflow 2.7+ and Python 3.8+. If you don't meet these requirements, see the [compatibility section](#compatibility) for other options.
 
 ```shell
 pip install 'acryl-datahub-airflow-plugin[plugin-v2]'
@@ -381,7 +381,7 @@ This will immediately disable the plugin without requiring a restart.
 
 We try to support Airflow releases for ~2 years after their release. This is a best-effort guarantee - it's not always possible due to dependency / security issues cropping up in older versions.
 
-We no longer officially support Airflow <2.5. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.
+We no longer officially support Airflow <2.7. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.
 The first two options support Python 3.7+, and the others require Python 3.8+.
 
 - Airflow 1.10.x, use DataHub plugin v1 with acryl-datahub-airflow-plugin <= 0.9.1.0.
