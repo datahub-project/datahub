@@ -25,7 +25,6 @@ import {
     getSortInput,
     removeFromListIngestionSourcesCache,
 } from '@app/ingestV2/source/utils';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
@@ -519,7 +518,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}
             <SourceContainer>
-                <OnboardingTour stepIds={[INGESTION_REFRESH_SOURCES_ID]} />
                 <HeaderContainer>
                     <StyledTabToolbar>
                         <SearchContainer>
