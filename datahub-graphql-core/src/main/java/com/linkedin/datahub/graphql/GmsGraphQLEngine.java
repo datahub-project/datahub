@@ -2863,6 +2863,18 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+    builder.type(
+        "ApplicationAssociation",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "application",
+                new LoadableTypeResolver<>(
+                    applicationType,
+                    (env) ->
+                        ((com.linkedin.datahub.graphql.generated.ApplicationAssociation)
+                                env.getSource())
+                            .getApplication()
+                            .getUrn())));
   }
 
   private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {

@@ -15,7 +15,6 @@ import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import { Columns, ListBullets, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
-import { SidebarApplicationSection } from '@app/entity/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
@@ -25,6 +24,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarApplicationSection } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import SidebarDatasetHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/Dataset/Header/SidebarDatasetHeaderSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
