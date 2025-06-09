@@ -2,11 +2,6 @@
 build-backend = "setuptools.build_meta"
 requires = ["setuptools >= 71.1", "wheel"]
 
-# Note: Note: We are using the apscheduler library for cron parsing so that the logic matches the executor.
-# When the fixes in the branch mentioned below are merged upstream, please fix this to match the executor.
-dependencies = [
-  "apscheduler @ git+https://github.com/acryldata/apscheduler-fork.git@ak--crontab-fix",
-]
 
 [tool.ruff.lint.isort]
 known-first-party = ["datahub"]
