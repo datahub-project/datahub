@@ -1,6 +1,7 @@
 package com.linkedin.metadata.systemmetadata;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.mxe.SystemMetadata;
@@ -12,6 +13,9 @@ import javax.annotation.Nullable;
 import org.opensearch.client.tasks.GetTaskResponse;
 
 public interface SystemMetadataService {
+
+  SystemMetadataServiceConfig getSystemMetadataServiceConfig();
+
   /**
    * Deletes a specific aspect from the system metadata service.
    *
@@ -28,15 +32,24 @@ public interface SystemMetadataService {
 
   void insert(@Nullable SystemMetadata systemMetadata, String urn, String aspect);
 
-  List<AspectRowSummary> findByRunId(String runId, boolean includeSoftDeleted, int from, int size);
+  List<AspectRowSummary> findByRunId(
+      String runId, boolean includeSoftDeleted, int from, @Nullable Integer size);
 
-  List<AspectRowSummary> findByUrn(String urn, boolean includeSoftDeleted, int from, int size);
+  List<AspectRowSummary> findByUrn(
+      String urn, boolean includeSoftDeleted, int from, @Nullable Integer size);
 
   List<AspectRowSummary> findByParams(
-      Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from, int size);
+      Map<String, String> systemMetaParams,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size);
 
   List<AspectRowSummary> findByRegistry(
-      String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size);
+      String registryName,
+      String registryVersion,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size);
 
   List<IngestionRunSummary> listRuns(
       Integer pageOffset, Integer pageSize, boolean includeSoftDeleted);

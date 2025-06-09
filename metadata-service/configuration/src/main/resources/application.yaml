@@ -113,6 +113,11 @@ entityService:
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
+  limit:
+    results:
+      max: ${GRAPH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${GRAPH_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${GRAPH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
@@ -131,12 +136,29 @@ searchService:
       enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
+  limit:
+    results:
+      max: ${SEARCH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${SEARCH_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${SEARCH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 timeseriesAspectService:
   query:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
     queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY)QUEUE_SIZE:500}
     threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
+  limit:
+    results:
+      max: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
+
+systemMetadataService:
+  limit:
+    results:
+      max: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
@@ -254,10 +276,6 @@ elasticsearch:
     retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
   search:
-    limit:
-      results:
-        max: ${ELASTICSEARCH_LIMIT_RESULTS_MAX:5000} # Maximum allowed result count for ES queries
-        strict: ${ELASTICSEARCH_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with max and warn
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:20}
     # Defines the behavior of quoted searches, do they apply weights or exclude results
     exactMatch:
