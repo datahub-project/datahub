@@ -15,6 +15,7 @@ import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import { Columns, ListBullets, TreeStructure } from '@phosphor-icons/react';
 import * as React from 'react';
 
+import { SidebarApplicationSection } from '@app/entity/shared/containers/profile/sidebar/Applications/SidebarApplicationSection';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
@@ -286,6 +287,7 @@ export class DatasetEntity implements Entity<Dataset> {
         { component: SidebarLineageSection },
         { component: SidebarOwnerSection },
         { component: SidebarDomainSection },
+        { component: SidebarApplicationSection },
         { component: DataProductSection },
         { component: SidebarTagsSection },
         { component: SidebarGlossaryTermsSection },

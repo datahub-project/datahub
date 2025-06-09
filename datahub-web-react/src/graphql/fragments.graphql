@@ -448,7 +448,9 @@ fragment nonRecursiveDatasetFields on Dataset {
     domain {
         ...entityDomain
     }
-    ...entityDataProduct
+    application {
+        ...entityApplication
+    }
     container {
         ...entityContainer
     }
@@ -1264,6 +1266,33 @@ fragment entityDomain on DomainAssociation {
         }
     }
     associatedUrn
+}
+
+fragment entityApplication on ApplicationAssociation {
+    application {
+        urn
+        type
+        properties {
+            name
+            description
+            externalUrl
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+        children: relationships(input: { types: ["AssociatedWith"], direction: INCOMING, start: 0, count: 0 }) {
+            total
+        }
+    }
 }
 
 fragment entityDataProduct on Entity {
