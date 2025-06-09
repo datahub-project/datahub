@@ -8,15 +8,7 @@ DOCS_OUTPUT_DIR = pathlib.Path("../docs/python-sdk")
 def main():
     DOCS_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    for doc in SPHINX_BUILD_DIR.glob("**/*.md"):
-        outfile = DOCS_OUTPUT_DIR / doc.relative_to(SPHINX_BUILD_DIR)
-        outfile.parent.mkdir(parents=True, exist_ok=True)
-
-        with open(doc, "r") as f:
-            content = f.read()
-
-        # Replace dangerous characters
-        replacements = [
+    replacements = [
             ("<function ", "<\\function "),
             ("<id>", "<\\id>"),
             ("<type>", "<\\type>"),
@@ -24,6 +16,14 @@ def main():
             ("<id2>", "<\\id2>"),
             ("MDXContent.isMDXComponent = true", ""),
         ]
+    
+    for doc in SPHINX_BUILD_DIR.glob("**/*.md"):
+        outfile = DOCS_OUTPUT_DIR / doc.relative_to(SPHINX_BUILD_DIR)
+        outfile.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(doc, "r") as f:
+            content = f.read()
+
         for old, new in replacements:
             content = content.replace(old, new)
 
