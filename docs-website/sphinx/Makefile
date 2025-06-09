@@ -29,9 +29,10 @@ serve:
 	serve -p 3001 _build/markdown/
 
 md: venv
-	@$(VENV_DIR)/bin/uv pip install -e _ext/sphinx-mdx-builder
-	@$(SPHINXBUILD) -M markdown "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
-	@$(VENV_DIR)/bin/python3 convert_sphinx_to_docusaurus.py
+	@venv/bin/pip install -e _ext/sphinx-mdx-builder && \
+	$(SPHINXBUILD) -M markdown "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O) && \
+	$(VENV_DIR)/bin/python3 convert_sphinx_to_docusaurus.py
+
 # Route other targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 html doctest linkcheck clean: venv Makefile
