@@ -393,6 +393,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 

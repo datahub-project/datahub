@@ -257,6 +257,7 @@ export class MLModelEntity implements Entity<MlModel> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 }
