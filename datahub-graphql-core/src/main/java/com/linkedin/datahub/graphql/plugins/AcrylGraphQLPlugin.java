@@ -107,6 +107,7 @@ import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateAssertionMonitorSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
+import com.linkedin.datahub.graphql.resolvers.notification.SendFormNotificationRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.GetActionRequestAssigneeResolver;
@@ -526,7 +527,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new CreateRemoteExecutorPoolResolver(this.entityClient))
                 .dataFetcher(
                     "updateRemoteExecutorPool",
-                    new UpdateRemoteExecutorPoolResolver(this.entityClient)));
+                    new UpdateRemoteExecutorPoolResolver(this.entityClient))
+                .dataFetcher(
+                    "sendFormNotificationRequest",
+                    new SendFormNotificationRequestResolver(this.entityClient)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
