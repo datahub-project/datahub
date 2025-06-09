@@ -11,6 +11,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.generated.ActiveIncidentHealthDetails;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
@@ -161,15 +162,23 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       final Integer activeIncidentCount = searchResult.getNumEntities();
       if (activeIncidentCount > 0) {
         // There are active incidents.
-        final Long lastUpdatedTimestamp =
-            getIncidentLastUpdatedTimestamp(context, searchResult.getEntities().get(0).getEntity());
+        final Urn latestIncidentUrn = searchResult.getEntities().get(0).getEntity();
+        final IncidentInfo latestIncidentInfo = getIncidentInfo(context, latestIncidentUrn);
+        final Long latestIncidentTimestamp =
+            latestIncidentInfo != null
+                ? latestIncidentInfo.getStatus().getLastUpdated().getTime()
+                : null;
         return new Health(
             HealthStatusType.INCIDENTS,
-            lastUpdatedTimestamp != null ? lastUpdatedTimestamp : 0,
+            latestIncidentTimestamp != null ? latestIncidentTimestamp : 0,
             HealthStatus.FAIL,
             String.format(
                 "%s active incident%s", activeIncidentCount, activeIncidentCount > 1 ? "s" : ""),
-            null,
+            new ActiveIncidentHealthDetails(
+                latestIncidentUrn.toString(),
+                latestIncidentInfo != null ? latestIncidentInfo.getTitle() : null,
+                latestIncidentTimestamp,
+                activeIncidentCount),
             null,
             ImmutableList.of("ACTIVE_INCIDENTS"));
       }
@@ -186,7 +195,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   }
 
   @Nullable
-  private Long getIncidentLastUpdatedTimestamp(final QueryContext context, final Urn incidentUrn)
+  private IncidentInfo getIncidentInfo(final QueryContext context, final Urn incidentUrn)
       throws URISyntaxException, RemoteInvocationException {
     final EntityResponse entityResponse =
         _entityClient.getV2(
@@ -202,10 +211,8 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     if (!entityResponse.getAspects().containsKey(Constants.INCIDENT_INFO_ASPECT_NAME)) {
       return null;
     }
-    final IncidentInfo info =
-        new IncidentInfo(
-            entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME).getValue().data());
-    return info.getStatus().getLastUpdated().getTime();
+    return new IncidentInfo(
+        entityResponse.getAspects().get(Constants.INCIDENT_INFO_ASPECT_NAME).getValue().data());
   }
 
   private List<SortCriterion> buildIncidentsSort() {
