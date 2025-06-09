@@ -244,7 +244,12 @@ public class FormService extends BaseService {
       }
       ingestChangeProposals(opContext, changes, _isAsync);
 
-      return assignFormToFilter(opContext, formUrn, formFilters.getFilter());
+      Filter assetsMissingFormFilter = FormUtils.buildAssetsMissingFormFilter(formUrn.toString());
+      // only trigger assignment to assets that don't already have this form assigned
+      Filter finalFilter =
+          FilterUtils.combineFilters(formFilters.getFilter(), assetsMissingFormFilter);
+
+      return assignFormToFilter(opContext, formUrn, finalFilter);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);
