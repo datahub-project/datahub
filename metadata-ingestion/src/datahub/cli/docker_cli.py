@@ -63,7 +63,17 @@ Required steps to upgrade:
 
 3. Start fresh installation: datahub docker quickstart
 
+4. Restore data:
+    datahub docker quickstart --restore
+
 ⚠️  Without backup, all existing data will be lost.
+
+For fresh start (if data is not needed):
+1. Remove installation: 
+    datahub docker nuke
+
+2. Start fresh: 
+    datahub docker quickstart
 """
 
 REPAIR_REQUIRED_INSTRUCTIONS = f"""
