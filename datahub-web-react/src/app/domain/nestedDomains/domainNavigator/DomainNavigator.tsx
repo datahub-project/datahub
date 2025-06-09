@@ -67,17 +67,6 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride,
             ) : (
                 domainNavigatorNodes
             )}
-            {!noDomainsFound &&
-                sortedDomains?.map((domain) => (
-                    <DomainNode
-                        key={domain.urn}
-                        domain={domain as Domain}
-                        numDomainChildren={domain.children?.total || 0}
-                        domainUrnToHide={domainUrnToHide}
-                        selectDomainOverride={selectDomainOverride}
-                        displayDomainColoredIcon={displayDomainColoredIcon}
-                    />
-                ))}
         </NavigatorWrapper>
     );
 }
