@@ -209,7 +209,7 @@ curl --location --request POST 'http://localhost:8080/api/graphql' \
 <TabItem value="python" label="Python">
 
 ```python
-{{ inline /metadata-ingestion/examples/library/read_lineage_execute_graphql.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/get_linegae_basic.py show_path_as_comment }}
 ```
 
 The Python SDK example shows how to read lineage of a dataset. Please note that the `aspect_type` parameter can vary depending on the entity type.
