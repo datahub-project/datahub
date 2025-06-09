@@ -45,16 +45,35 @@ const AvatarStackWithHover = ({
                 width={280}
                 title="Owners"
                 sections={[
-                    {
-                        title: renderTitle('Users', users.length),
-                        content: <HoverSectionContent avatars={users} entityRegistry={entityRegistry} size={size} />,
-                    },
-                    {
-                        title: renderTitle('Groups', groups.length),
-                        content: (
-                            <HoverSectionContent avatars={groups} entityRegistry={entityRegistry} size={size} isGroup />
-                        ),
-                    },
+                    ...(users.length > 0
+                        ? [
+                              {
+                                  title: renderTitle('Users', users.length),
+                                  content: (
+                                      <HoverSectionContent
+                                          avatars={users}
+                                          entityRegistry={entityRegistry}
+                                          size={size}
+                                      />
+                                  ),
+                              },
+                          ]
+                        : []),
+                    ...(groups.length > 0
+                        ? [
+                              {
+                                  title: renderTitle('Groups', groups.length),
+                                  content: (
+                                      <HoverSectionContent
+                                          avatars={groups}
+                                          entityRegistry={entityRegistry}
+                                          size={size}
+                                          isGroup
+                                      />
+                                  ),
+                              },
+                          ]
+                        : []),
                 ]}
             >
                 <div>
