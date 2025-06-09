@@ -5,8 +5,11 @@
 
 # See https://stackoverflow.com/a/65147676
 import builtins
+import sys 
+import os
 
 builtins.__sphinx_build__ = True
+sys.path.insert(0, os.path.abspath("./_ext"))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
@@ -26,10 +29,9 @@ extensions = [
     "sphinx_autodoc_typehints",
     # This enables us to autogenerate docs for our CLI.
     "sphinx_click",
-    "sphinx_markdown_builder",
+    "sphinxcontrib.mdxbuilder",
 ]
 
-markdown_anchor_sections = True
 napoleon_use_param = True
 
 # Move type hint info to function description instead of signature

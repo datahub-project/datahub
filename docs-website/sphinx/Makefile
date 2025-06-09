@@ -28,7 +28,7 @@ $(VENV_SENTINEL): requirements.txt
 serve:
 	serve -p 3001 _build/markdown/
 
-md:
+md: venv
 	@$(SPHINXBUILD) -M markdown "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O) && $(VENV_DIR)/bin/python3 convert_sphinx_to_docusaurus.py
 
 # Route other targets to Sphinx using the new
