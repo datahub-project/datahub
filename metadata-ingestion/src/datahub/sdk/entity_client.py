@@ -9,7 +9,9 @@ from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.errors import IngestionAttributionWarning, ItemNotFoundError, SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import (
+    ChartUrn,
     ContainerUrn,
+    DashboardUrn,
     DataFlowUrn,
     DataJobUrn,
     DatasetUrn,
@@ -19,7 +21,9 @@ from datahub.metadata.urns import (
 )
 from datahub.sdk._all_entities import ENTITY_CLASSES
 from datahub.sdk._shared import UrnOrStr
+from datahub.sdk.chart import Chart
 from datahub.sdk.container import Container
+from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataflow import DataFlow
 from datahub.sdk.datajob import DataJob
 from datahub.sdk.dataset import Dataset
@@ -65,6 +69,10 @@ class EntityClient:
     @overload
     def get(self, urn: DataJobUrn) -> DataJob: ...
     @overload
+    def get(self, urn: DashboardUrn) -> Dashboard: ...
+    @overload
+    def get(self, urn: ChartUrn) -> Chart: ...
+    @overload
     def get(self, urn: Union[Urn, str]) -> Entity: ...
     def get(self, urn: UrnOrStr) -> Entity:
         """Retrieve an entity by its urn.
@@ -84,7 +92,26 @@ class EntityClient:
             urn = Urn.from_string(urn)
 
         # TODO: add error handling around this with a suggested alternative if not yet supported
-        EntityClass = ENTITY_CLASSES[urn.entity_type]
+        try:
+            EntityClass = ENTITY_CLASSES[urn.entity_type]
+        except KeyError as e:
+            # Try to import cloud-specific entities if not found
+            try:
+                from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
+                from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+
+                if urn.entity_type == "assertion":
+                    EntityClass = Assertion
+                elif urn.entity_type == "monitor":
+                    EntityClass = Monitor
+                else:
+                    raise SdkUsageError(
+                        f"Entity type {urn.entity_type} is not yet supported"
+                    ) from e
+            except ImportError as e:
+                raise SdkUsageError(
+                    f"Entity type {urn.entity_type} is not yet supported"
+                ) from e
 
         if not self._graph.exists(str(urn)):
             raise ItemNotFoundError(f"Entity {urn} not found")
@@ -92,7 +119,19 @@ class EntityClient:
         aspects = self._graph.get_entity_semityped(str(urn))
 
         # TODO: save the timestamp so we can use If-Unmodified-Since on the updates
-        return EntityClass._new_from_graph(urn, aspects)
+        entity = EntityClass._new_from_graph(urn, aspects)
+
+        # Type narrowing for cloud-specific entities
+        if urn.entity_type == "assertion":
+            from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
+
+            assert isinstance(entity, Assertion)
+        elif urn.entity_type == "monitor":
+            from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+
+            assert isinstance(entity, Monitor)
+
+        return entity
 
     def create(self, entity: Entity) -> None:
         mcps = []

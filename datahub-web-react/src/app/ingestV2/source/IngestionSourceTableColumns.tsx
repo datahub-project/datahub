@@ -109,7 +109,7 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
                 },
             }}
         >
-            {scheduleText || 'Not scheduled'}
+            {scheduleText || '-'}
         </TextContainer>
     );
 }
@@ -124,6 +124,9 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
         };
     });
     const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
+
+    if (owners.length === 0) return <>-</>;
+
     return (
         <>
             {singleOwner && (
