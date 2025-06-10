@@ -1,4 +1,4 @@
-import { Modal, message } from 'antd';
+import { message } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
@@ -7,6 +7,7 @@ import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import LabelPropagationDetails from '@app/sharedV2/propagation/LabelPropagationDetails';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
@@ -86,6 +87,7 @@ export default function Tag({
 
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
+    const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
 
     const showTagProfileDrawer = (urn: string) => {
@@ -101,39 +103,28 @@ export default function Tag({
 
     const removeTag = (tagAssociationToRemove: TagAssociation) => {
         const tagToRemove = tagAssociationToRemove.tag;
-        onOpenModal?.();
-        Modal.confirm({
-            title: `Do you want to remove ${displayName} tag?`,
-            content: `Are you sure you want to remove the ${displayName} tag?`,
-            onOk() {
-                if (tagAssociationToRemove.associatedUrn || entityUrn) {
-                    removeTagMutation({
-                        variables: {
-                            input: {
-                                tagUrn: tagToRemove.urn,
-                                resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
-                                subResource: entitySubresource,
-                                subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
-                            },
-                        },
-                    })
-                        .then(({ errors }) => {
-                            if (!errors) {
-                                message.success({ content: 'Removed Tag!', duration: 2 });
-                            }
-                        })
-                        .then(refetch)
-                        .catch((e) => {
-                            message.destroy();
-                            message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
-                        });
-                }
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        if (tagAssociationToRemove.associatedUrn || entityUrn) {
+            removeTagMutation({
+                variables: {
+                    input: {
+                        tagUrn: tagToRemove.urn,
+                        resourceUrn: tagAssociationToRemove.associatedUrn || entityUrn || '',
+                        subResource: entitySubresource,
+                        subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
+                    },
+                },
+            })
+                .then(({ errors }) => {
+                    if (!errors) {
+                        message.success({ content: 'Removed Tag!', duration: 2 });
+                    }
+                })
+                .then(refetch)
+                .catch((e) => {
+                    message.destroy();
+                    message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                });
+        }
     };
 
     return (
@@ -158,7 +149,8 @@ export default function Tag({
                         closable={canRemove && !readOnly}
                         onClose={(e) => {
                             e.preventDefault();
-                            removeTag(tag);
+                            onOpenModal?.();
+                            setShowConfirmDelete(true);
                         }}
                         fontSize={fontSize}
                         $highlightTag={highlightTag}
@@ -190,6 +182,13 @@ export default function Tag({
                     urn={addTagUrn}
                 />
             )}
+            <ConfirmationModal
+                isOpen={showConfirmDelete}
+                handleClose={() => setShowConfirmDelete(false)}
+                handleConfirm={() => removeTag(tag)}
+                modalTitle={`Delete Tag '${displayName}'`}
+                modalText="Are you sure you want to remove this tag?"
+            />
         </>
     );
 }

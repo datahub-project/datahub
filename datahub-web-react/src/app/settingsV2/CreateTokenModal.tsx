@@ -1,5 +1,5 @@
 import { red } from '@ant-design/colors';
-import { Form, Input, Modal, Select, Typography, message } from 'antd';
+import { Form, Input, Select, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -8,7 +8,7 @@ import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
 import { ModalButtonContainer } from '@app/shared/button/styledComponents';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button } from '@src/alchemy-components';
+import { Button, Modal } from '@src/alchemy-components';
 
 import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
@@ -130,7 +130,7 @@ export default function CreateTokenModal({
         <>
             <Modal
                 title={forRemoteExecutor ? 'Create new Token for Remote Executor' : 'Create new Token'}
-                visible={visible}
+                open={visible}
                 onCancel={onModalClose}
                 footer={
                     <ModalButtonContainer>
