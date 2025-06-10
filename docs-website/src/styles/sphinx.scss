@@ -3,44 +3,69 @@
   line-height: 1.6;
   color: var(--ifm-font-color-base);
 
-  h1, h2, h3, h4 {
-    font-weight: 600;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-  }
+  // h1, h2, h3, h4 {
+  //   font-weight: 600;
+  //   margin-top: 2rem;
+  //   margin-bottom: 1rem;
+  // }
 
-  h3, h4 {
+  .h3-block {
     border-bottom: 1px solid var(--ifm-hr-border-color);
-    padding-bottom: 0.25rem;
+    // padding-bottom: 0.25rem;
   }
 
   // Signature block
-  h3:has(code), h4:has(code) {
-    background-color: var(--ifm-code-background);
+   .h3-block {
+    border: 1px solid var(--ifm-hr-border-color);
     border-radius: 6px;
-    padding: 0.75rem 1rem 0.75rem 2rem;
+    padding: 1rem;
     font-family: var(--ifm-font-family-monospace);
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--ifm-font-color-base);
-  }
+    margin-bottom: 1rem;
+
+    h3 {
+      background-color: var(--ifm-background-surface-color);
+      padding: 1rem;
+      margin: -1rem -1rem 1rem -1rem;
+      z-index: 1;
+
+      em {
+        color: gray;
+        padding-right: 0.5rem;
+      }
+    }
+    
+    p {
+      padding: 0rem 1rem;
+    }
+
+    h4 {
+        background-color: var(--ifm-code-background);
+        border-radius: 6px;
+        padding: 1rem;
+        font-family: var(--ifm-font-family-monospace);
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--ifm-font-color-base);
+
+
+        em {
+          color: var(--ifm-color-primary);
+        }
+    }
+   }
+
 
   p {
     margin-bottom: 1rem;
-  }
-
-  code {
-    background-color: var(--ifm-code-background);
-    padding: 0.2em 0.4em;
-    border-radius: 4px;
-    font-size: 0.9em;
   }
 
   ul {
     margin-bottom: 1.5rem;
 
     &:has(li strong) {
-      background-color: var(--ifm-background-surface-color);
       border-radius: 8px;
       padding: 1rem 1rem 1rem 2rem;
       box-shadow: 0 1px 3px rgba(0,0,0,0.06);
@@ -56,11 +81,11 @@
         min-width: 90px;
       }
 
-      code {
-        background: transparent;
-        color: #66b327;
-        padding: 0;
-      }
+      // code {
+      //   background: transparent;
+      //   color: #66b327;
+      //   padding: 0;
+      // }
     }
 
     // nested ul for params or return type formatting
@@ -82,4 +107,20 @@
   em > code {
     color: #c678dd;
   }
+}
+
+
+// code styling 
+code {
+
+  &:has(span) {
+    padding: 1rem;
+    background-color: var(--ifm-code-background);
+    span {
+      color: var(--ifm-font-color-base);
+    }
+  }
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.9em;
 }
