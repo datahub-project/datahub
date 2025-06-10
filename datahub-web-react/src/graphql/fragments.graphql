@@ -493,6 +493,9 @@ fragment nonRecursiveDataFlowFields on DataFlow {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     deprecation {
         ...deprecationFields
@@ -518,6 +521,9 @@ fragment nonRecursiveDataJobFields on DataJob {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     deprecation {
@@ -563,6 +569,9 @@ fragment dataJobFields on DataJob {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     deprecation {
@@ -641,6 +650,9 @@ fragment dashboardFields on Dashboard {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     parentContainers {
@@ -737,6 +749,9 @@ fragment nonRecursiveMLFeature on MLFeature {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
@@ -888,6 +903,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
@@ -1081,6 +1099,9 @@ fragment nonRecursiveMLModel on MLModel {
     domain {
         ...entityDomain
     }
+    application {
+        ...entityApplication
+    }
     ...entityDataProduct
     tags {
         ...globalTagsFields
@@ -1124,6 +1145,9 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     domain {
         ...entityDomain
+    }
+    application {
+        ...entityApplication
     }
     ...entityDataProduct
     tags {
