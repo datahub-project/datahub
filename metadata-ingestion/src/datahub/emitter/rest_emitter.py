@@ -314,7 +314,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         openapi_ingestion: Optional[bool] = None,
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
-        config_ttl_seconds: int = 60,
+        server_config_refresh_interval: Optional[int] = None,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -330,7 +330,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._openapi_ingestion = (
             openapi_ingestion  # Re-evaluated after test connection
         )
-        self._config_ttl_seconds = config_ttl_seconds
+        self._server_config_refresh_interval = server_config_refresh_interval
         self._config_fetch_time: Optional[float] = None
 
         headers = {
@@ -406,8 +406,10 @@ class DataHubRestEmitter(Closeable, Emitter):
             not hasattr(self, "_server_config")
             or self._server_config is None
             or (
-                self._config_fetch_time is not None
-                and (time.time() - self._config_fetch_time) > self._config_ttl_seconds
+                self._server_config_refresh_interval is not None
+                and self._config_fetch_time is not None
+                and (time.time() - self._config_fetch_time)
+                > self._server_config_refresh_interval
             )
         ):
             if self._session is None or self._gms_server is None:
@@ -479,9 +481,15 @@ class DataHubRestEmitter(Closeable, Emitter):
 
     def invalidate_config_cache(self) -> None:
         """Manually invalidate the configuration cache."""
-        if hasattr(self, "_server_config") and self._server_config is not None:
+        if (
+            hasattr(self, "_server_config")
+            and self._server_config is not None
+            and self._server_config_refresh_interval is not None
+        ):
             # Set fetch time to beyond TTL in the past to force refresh on next access
-            self._config_fetch_time = time.time() - self._config_ttl_seconds - 1
+            self._config_fetch_time = (
+                time.time() - self._server_config_refresh_interval - 1
+            )
 
     def to_graph(self) -> "DataHubGraph":
         from datahub.ingestion.graph.client import DataHubGraph
