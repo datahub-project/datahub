@@ -23,6 +23,7 @@ interface Props {
     includeCount?: boolean;
     className?: string;
     aggregationsEntityTypes?: Array<EntityType>;
+    showDefaultOptions?: boolean;
 }
 
 export default function EnumValueMenu({
@@ -35,6 +36,7 @@ export default function EnumValueMenu({
     onApply,
     className,
     aggregationsEntityTypes,
+    showDefaultOptions = true,
 }: Props) {
     const entityRegistry = useEntityRegistry();
     const displayName = useFilterDisplayName(field);
@@ -45,7 +47,7 @@ export default function EnumValueMenu({
     // Here we optionally load the aggregation options, which are the options that are displayed by default.
     const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions({
         field,
-        visible: true,
+        visible: showDefaultOptions,
         includeCounts: includeCount,
         aggregationsEntityTypes,
     });
