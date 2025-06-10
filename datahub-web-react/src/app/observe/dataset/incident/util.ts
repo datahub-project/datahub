@@ -4,6 +4,8 @@ import {
 } from '@app/observe/dataset/incident/constants';
 import { UnionType } from '@app/search/utils/constants';
 
+export const LAST_INCIDENT_CREATED_TIME_SORT_FIELD = 'activeIncidentCreatedTimes';
+
 export const buildIncidentTypeFilters = (selectedIncidentTypes) => {
     if (selectedIncidentTypes) {
         return {

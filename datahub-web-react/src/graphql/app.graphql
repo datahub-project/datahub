@@ -140,7 +140,6 @@ query appConfig {
             displayExecutorPools
             onlineSmartAssertionsEnabled
             showDefaultExternalLinks
-            datasetHealthDashboardV2Enabled
             showCreatedAtFilter
             showNotificationSettingsForComplianceForms
             lineageGraphV3

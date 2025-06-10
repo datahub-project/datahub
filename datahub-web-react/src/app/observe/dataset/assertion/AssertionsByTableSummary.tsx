@@ -1,13 +1,15 @@
-import { Select, Text } from '@components';
-import { Check } from 'phosphor-react';
+import { Select, SimpleSelect, Text } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
-import { IncidentsSummaryTable } from '@app/observe/dataset/incident/IncidentsSummaryTable';
-import { HAS_ACTIVE_INCIDENTS_FILTER_FIELD } from '@app/observe/dataset/incident/constants';
-import { LAST_INCIDENT_CREATED_TIME_SORT_FIELD } from '@app/observe/dataset/incident/util';
+import { AssertionsByTableSummaryTable } from '@app/observe/dataset/assertion/AssertionsByTableSummaryTable';
+import {
+    ASSERTION_RESULT_TYPE_OPTIONS_TO_FILTER_FIELD,
+    AssertionResultTypeOptions,
+    LAST_ASSERTION_RESULT_AT_SORT_FIELD,
+} from '@app/observe/dataset/assertion/constants';
 import { Header } from '@app/observe/dataset/shared/shared';
 import {
     DOMAINS_FILTER_NAME,
@@ -26,18 +28,20 @@ import {
     Dataset,
     Domain,
     EntityType,
+    FacetFilterInput,
     GlossaryTerm,
     OwnerType,
     SortOrder,
     Tag,
 } from '@types';
 
+const ASSERTIONS_DOCS_LINK = 'https://docs.datahub.com/docs/managed-datahub/observe/assertions';
+
 const Container = styled.div`
     display: flex;
     flex-direction: column;
-    flex: 1;
-    overflow: hidden;
     height: 100%;
+    overflow: hidden;
 `;
 
 const FilterOptionsWrapper = styled.div`
@@ -54,8 +58,7 @@ const EmptyStateContainer = styled.div`
     height: 80%;
 `;
 
-const DEFAULT_PAGE_SIZE = 10;
-const INCIDENTS_DOCS_LINK = 'https://docs.datahub.com/docs/incidents/incidents';
+const DEFAULT_PAGE_SIZE = 15;
 
 const getSelectOptionsForField = (
     field: string,
@@ -78,10 +81,12 @@ const getSelectOptionsForField = (
     );
 };
 
+const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Passing', 'Error'];
+
 /**
- * A component which displays a summary of the datasets that have active incidents globally
+ * A component which displays a summary of the datasets that are failing some assertions
  */
-export const IncidentsSummary = () => {
+export const AssertionsByTableSummary = () => {
     const userContext = useUserContext();
     const entityRegistry = useEntityRegistry();
     const viewUrn = userContext.localState?.selectedViewUrn;
@@ -90,6 +95,7 @@ export const IncidentsSummary = () => {
     const start = (page - 1) * DEFAULT_PAGE_SIZE;
 
     const [searchQuery, setSearchQuery] = useState('');
+    const [selectedStatus, setSelectedStatus] = useState<AssertionResultTypeOptions[]>(DEFAULT_STATUS_OPTIONS);
     const [selectedDomains, setSelectedDomains] = useState<string[]>([]);
     const [selectedOwnership, setSelectedOwnership] = useState<string[]>([]);
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
@@ -98,6 +104,7 @@ export const IncidentsSummary = () => {
 
     const hasFilters =
         searchQuery.length > 0 ||
+        selectedStatus.length !== DEFAULT_STATUS_OPTIONS.length ||
         selectedDomains.length > 0 ||
         selectedOwnership.length > 0 ||
         selectedPlatforms.length > 0 ||
@@ -107,29 +114,44 @@ export const IncidentsSummary = () => {
     // Reset page when filters change
     useEffect(() => {
         setPage(1);
-    }, [searchQuery, selectedDomains, selectedOwnership, selectedPlatforms, selectedTerms, selectedTags]);
+    }, [
+        searchQuery,
+        selectedStatus,
+        selectedDomains,
+        selectedOwnership,
+        selectedPlatforms,
+        selectedTerms,
+        selectedTags,
+    ]);
 
-    const orFilters: AndFilterInput[] = [{ and: [{ field: HAS_ACTIVE_INCIDENTS_FILTER_FIELD, value: 'true' }] }];
+    const orFilters: AndFilterInput[] = [];
+    selectedStatus.forEach((status) => {
+        const andFilters: Array<FacetFilterInput> = [
+            { field: ASSERTION_RESULT_TYPE_OPTIONS_TO_FILTER_FIELD[status], value: 'true' },
+        ];
 
-    if (selectedDomains.length > 0) {
-        orFilters[0].and?.push({ field: DOMAINS_FILTER_NAME, values: selectedDomains });
-    }
+        if (selectedDomains.length > 0) {
+            andFilters.push({ field: DOMAINS_FILTER_NAME, values: selectedDomains });
+        }
 
-    if (selectedOwnership.length > 0) {
-        orFilters[0].and?.push({ field: OWNERS_FILTER_NAME, values: selectedOwnership });
-    }
+        if (selectedOwnership.length > 0) {
+            andFilters.push({ field: OWNERS_FILTER_NAME, values: selectedOwnership });
+        }
 
-    if (selectedPlatforms.length > 0) {
-        orFilters[0].and?.push({ field: PLATFORM_FILTER_NAME, values: selectedPlatforms });
-    }
+        if (selectedPlatforms.length > 0) {
+            andFilters.push({ field: PLATFORM_FILTER_NAME, values: selectedPlatforms });
+        }
 
-    if (selectedTerms.length > 0) {
-        orFilters[0].and?.push({ field: GLOSSARY_TERMS_FILTER_NAME, values: selectedTerms });
-    }
+        if (selectedTerms.length > 0) {
+            andFilters.push({ field: GLOSSARY_TERMS_FILTER_NAME, values: selectedTerms });
+        }
 
-    if (selectedTags.length > 0) {
-        orFilters[0].and?.push({ field: TAGS_FILTER_NAME, values: selectedTags });
-    }
+        if (selectedTags.length > 0) {
+            andFilters.push({ field: TAGS_FILTER_NAME, values: selectedTags });
+        }
+
+        orFilters.push({ and: andFilters });
+    });
 
     const { data: searchResults, loading } = useGetSearchResultsForMultipleQuery({
         variables: {
@@ -142,7 +164,7 @@ export const IncidentsSummary = () => {
                 viewUrn,
                 sortInput: {
                     sortCriterion: {
-                        field: LAST_INCIDENT_CREATED_TIME_SORT_FIELD,
+                        field: LAST_ASSERTION_RESULT_AT_SORT_FIELD,
                         sortOrder: SortOrder.Descending,
                     },
                 },
@@ -162,13 +184,14 @@ export const IncidentsSummary = () => {
     if (total === 0 && !hasFilters) {
         return (
             <EmptyStateContainer>
-                <Text size="xl" weight="semiBold" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    No active incidents <Check size={20} />
+                <Text size="xl" weight="semiBold">
+                    No assertions created yet.
                 </Text>
                 <Text size="lg" color="gray">
-                    Incidents help you track and resolve issues across your data landscape.
+                    Assertions are data quality checks that run automatically to ensure your data is accurate and up to
+                    date.
                 </Text>
-                <a href={INCIDENTS_DOCS_LINK} target="_blank" rel="noreferrer">
+                <a href={ASSERTIONS_DOCS_LINK} target="_blank" rel="noreferrer">
                     <Text size="lg" weight="semiBold">
                         Learn more
                     </Text>
@@ -176,6 +199,7 @@ export const IncidentsSummary = () => {
             </EmptyStateContainer>
         );
     }
+
     return (
         <Container>
             <Header>
@@ -194,6 +218,33 @@ export const IncidentsSummary = () => {
 
                 {/* ************************* Filter Options ************************* */}
                 <FilterOptionsWrapper>
+                    {/* ----------- Assertion status ----------- */}
+                    <SimpleSelect
+                        width="fit-content"
+                        options={[
+                            {
+                                value: 'Failing',
+                                label: 'Has a Failing assertion',
+                            },
+                            {
+                                value: 'Passing',
+                                label: 'Has a Passing assertion',
+                            },
+                            {
+                                value: 'Error',
+                                label: 'Has an Errored assertion',
+                            },
+                        ]}
+                        initialValues={selectedStatus}
+                        onUpdate={(values) => setSelectedStatus(values as AssertionResultTypeOptions[])}
+                        placeholder="Status"
+                        isMultiSelect
+                        selectLabelProps={{
+                            variant: 'labeled',
+                            label: 'Status',
+                        }}
+                        showClear={false}
+                    />
                     {/* ----------- Domains ----------- */}
                     <Select
                         width="fit-content"
@@ -211,7 +262,7 @@ export const IncidentsSummary = () => {
                             label: 'Domains',
                         }}
                         showClear
-                        emptyState={<Text color="gray">No results have Domains.</Text>}
+                        emptyState={<Text color="gray">No tables have Domains.</Text>}
                     />
                     {/* ----------- Owners ----------- */}
                     <Select
@@ -235,7 +286,7 @@ export const IncidentsSummary = () => {
                             label: 'Owners',
                         }}
                         showClear
-                        emptyState={<Text color="gray">No results have Owners.</Text>}
+                        emptyState={<Text color="gray">No tables have Owners.</Text>}
                     />
                     {/* ----------- Platforms ----------- */}
                     <Select
@@ -257,7 +308,7 @@ export const IncidentsSummary = () => {
                             label: 'Platforms',
                         }}
                         showClear
-                        emptyState={<Text color="gray">No results have Platforms.</Text>}
+                        emptyState={<Text color="gray">No tables have Platforms.</Text>}
                     />
 
                     {/* ----------- Terms ----------- */}
@@ -277,7 +328,7 @@ export const IncidentsSummary = () => {
                             label: 'Terms',
                         }}
                         showClear
-                        emptyState={<Text color="gray">No results have Terms.</Text>}
+                        emptyState={<Text color="gray">No tables have Terms.</Text>}
                     />
 
                     {/* ----------- Tags ----------- */}
@@ -295,12 +346,12 @@ export const IncidentsSummary = () => {
                             label: 'Tags',
                         }}
                         showClear
-                        emptyState={<Text color="gray">No results have Tags.</Text>}
+                        emptyState={<Text color="gray">No tables have Tags.</Text>}
                     />
                 </FilterOptionsWrapper>
             </Header>
             {/* ************************* Render Table ************************* */}
-            <IncidentsSummaryTable
+            <AssertionsByTableSummaryTable
                 datasets={datasets}
                 isLoading={loading}
                 page={page}

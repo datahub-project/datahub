@@ -49,7 +49,7 @@ function checkForHealthIcon(shouldExist) {
 
 function ensureEntityIsNotInHealthDashboard() {
   // ensure the dataset is not visible in the dataset health dashboard
-  cy.visit("observe/datasets");
+  cy.visit("observe/datasets/incidents");
   cy.get(selectorWithtestId("embedded-search-bar"))
     .first()
     .type(SAMPLE_DATASET_2_URN);
@@ -61,7 +61,7 @@ function ensureEntityIsNotInHealthDashboard() {
 
 function ensureEntityIsInHealthDashboard() {
   // ensure the dataset is visible in the dataset health dashboard
-  cy.visit("observe/datasets");
+  cy.visit("observe/datasets/incidents");
   cy.get(selectorWithtestId("embedded-search-bar"))
     .first()
     .type(SAMPLE_DATASET_2_URN);

@@ -65,6 +65,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
     renderCustomOptionText,
     selectLabelProps,
     onSearchChange,
+    emptyState,
     ...props
 }: SelectProps<OptionType>) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -195,6 +196,7 @@ export const BasicSelect = <OptionType extends SelectOption = SelectOption>({
                                         onClick={() => !(disabledValues.length === options.length) && handleSelectAll()}
                                     />
                                 )}
+                                {!filteredOptions.length && emptyState}
                                 {filteredOptions.map((option) => (
                                     <OptionLabel
                                         key={option.value}

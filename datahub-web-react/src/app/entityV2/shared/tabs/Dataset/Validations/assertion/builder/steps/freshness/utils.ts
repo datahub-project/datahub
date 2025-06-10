@@ -65,12 +65,12 @@ export const computeAverageUpdateFrequencyInMillis = (operations: Operation[]) =
 export const mostRecentOperationsTimeSinceInMillis = (
     operations: Operation[],
     maxNumOperations = MAX_NUM_LATEST_UPDATES_SHOWN,
+    nowMs = Date.now(),
 ): { key: string; delta: number; lastUpdatedTimestamp: number }[] => {
     // This assumes operations are already sorted by lastUpdatedTimestamp in descending order
     if (!operations || operations.length === 0) {
         return [];
     }
-    const nowMs = Date.now();
 
     return operations.slice(0, maxNumOperations).map((operation) => ({
         key: `${operation.lastUpdatedTimestamp}-${operation.operationType}`,

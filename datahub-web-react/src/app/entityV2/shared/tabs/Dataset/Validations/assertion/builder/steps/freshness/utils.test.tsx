@@ -81,16 +81,15 @@ describe('freshnessUtils', () => {
                         operationType: OperationType.Update,
                     },
                 ];
-                const result = mostRecentOperationsTimeSinceInMillis(operations, 1);
+                const result = mostRecentOperationsTimeSinceInMillis(operations, 1, now);
                 // breaking these apart to skip the key field
                 expect(result[0].delta).toBe(5000);
                 expect(result[0].lastUpdatedTimestamp).toBe(now - 5000);
             });
 
             it('should return an empty array for an empty array input', () => {
-                const now = Date.now();
                 const operations: Operation[] = [];
-                const result = mostRecentOperationsTimeSinceInMillis(operations, now);
+                const result = mostRecentOperationsTimeSinceInMillis(operations, 10000);
                 expect(result).toStrictEqual([]);
             });
 

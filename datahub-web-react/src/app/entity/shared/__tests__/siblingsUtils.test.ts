@@ -80,19 +80,16 @@ const datasetPrimary = {
             type: HealthStatusType.Assertions,
             status: HealthStatus.Fail,
             message: 'assertion base message',
-            causes: ['cause', 'cause2'],
         },
         {
             type: HealthStatusType.Incidents,
             status: HealthStatus.Fail,
             message: 'incident base message',
-            causes: ['cause', 'cause2'],
         },
         {
             type: HealthStatusType.Tests,
             status: HealthStatus.Fail,
             message: 'test base message',
-            causes: ['cause', 'cause2'],
         },
     ],
     institutionalMemory: {
@@ -181,19 +178,16 @@ const datasetUnprimary = {
             type: HealthStatusType.Assertions,
             status: HealthStatus.Pass,
             message: 'assertion secondary message',
-            causes: ['cause3', 'cause4'],
         },
         {
             type: HealthStatusType.Incidents,
             status: HealthStatus.Pass,
             message: 'incident secondary message',
-            causes: ['cause3', 'cause4'],
         },
         {
             type: HealthStatusType.Tests,
             status: HealthStatus.Pass,
             message: 'test secondary message',
-            causes: ['cause3', 'cause4'],
         },
     ],
     siblings: {
@@ -337,10 +331,6 @@ describe('siblingUtils', () => {
                     'See failing assertions →',
             ).toBeTruthy();
             expect(
-                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Assertions)?.causes,
-            ).toHaveLength(4);
-
-            expect(
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.status ===
                     HealthStatus.Fail,
             ).toBeTruthy();
@@ -349,10 +339,6 @@ describe('siblingUtils', () => {
                     'See active incidents →',
             ).toBeTruthy();
             expect(
-                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.causes,
-            ).toHaveLength(4);
-
-            expect(
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.status ===
                     HealthStatus.Fail,
             ).toBeTruthy();
@@ -360,9 +346,6 @@ describe('siblingUtils', () => {
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.message ===
                     'See failing governance tests →',
             ).toBeTruthy();
-            expect(
-                combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.causes,
-            ).toHaveLength(4);
 
             // will stay primary
             expect(combinedData.dataset.siblings.isPrimary).toBeTruthy();

@@ -50,6 +50,12 @@ const meta = {
         onChange: {
             description: 'The handler called when any tab is clicked',
         },
+        secondary: {
+            description: 'Whether to render the tabs in a secondary style',
+        },
+        navMarginBottom: {
+            description: 'The margin below the tabs navigation. This is useful when the tabs have scrollable content.',
+        },
     },
 
     // Args for the story

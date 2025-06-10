@@ -2196,6 +2196,20 @@ fragment entityHealth on Health {
     status
     message
     causes
+    reportedAt
+    activeIncidentHealthDetails {
+        latestIncidentUrn
+        latestIncidentTitle
+        lastActivityAt
+        count
+    }
+    latestAssertionStatusByType {
+        type
+        status
+        total
+        statusCount
+        lastStatusResultAt
+    }
 }
 
 fragment formsFields on Forms {

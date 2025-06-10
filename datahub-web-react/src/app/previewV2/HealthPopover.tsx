@@ -91,7 +91,7 @@ function healthIcon({ type }: Health) {
     }
 }
 
-function healthUrlSuffix({ type }: Health) {
+export function healthUrlSuffix({ type }: Pick<Health, 'type'>) {
     switch (type) {
         case HealthStatusType.Incidents:
             return '/Incidents';

@@ -1483,11 +1483,6 @@ type FeatureFlagsConfig {
   showDefaultExternalLinks: Boolean!
 
   """
-  SaaS only -- Whether the Dataset health dashboard v2 is enabled.
-  """
-  datasetHealthDashboardV2Enabled: Boolean!
-
-  """
   If turned on, show the "Created At" filter in search
   """
   showCreatedAtFilter: Boolean!

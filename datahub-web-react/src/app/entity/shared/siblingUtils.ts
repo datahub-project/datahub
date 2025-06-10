@@ -224,21 +224,21 @@ const mergeHealth = (
 
             viewedHealthType.add(source.type);
 
-            const { type, status, causes } = source;
+            const { type, status } = source;
 
             const destHealth = destinationArray?.find((dest) => dest.type === type);
             const destStatus = destHealth?.status;
-            const destCauses = destHealth?.causes;
 
             const finalStatus = mergeHealthStatus(destStatus, status);
+            // TODO: count up totals of source.latestAssertionStatusByType.$.total
+            // TODO: count up totals of source.activeIncidentHealthDetails?.count
+            // This will result in a better message instead of vaguely 'See active incidents →'.
             const finalMessage = mergeHealthMessage(type, finalStatus);
-            const finalCauses = [...(causes || []), ...(destCauses || [])];
 
             return {
                 type,
                 status: finalStatus,
                 message: finalMessage,
-                causes: finalCauses,
             };
         })
         .filter((health) => health !== null);

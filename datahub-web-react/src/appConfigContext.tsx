@@ -119,7 +119,6 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         displayExecutorPools: false,
         onlineSmartAssertionsEnabled: false,
         showDefaultExternalLinks: true,
-        datasetHealthDashboardV2Enabled: false,
         showCreatedAtFilter: false,
         showIngestionPageRedesign: false,
         showNotificationSettingsForComplianceForms: false,

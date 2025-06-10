@@ -15,6 +15,7 @@ interface InlineListSearchProps {
         hideMatchCountText?: boolean;
     };
     entityTypeName: string;
+    inputTestId?: string;
 }
 
 export const InlineListSearch: React.FC<InlineListSearchProps> = ({
@@ -24,6 +25,7 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
     numRows,
     entityTypeName,
     options,
+    inputTestId,
 }) => {
     return (
         <SearchContainer>
@@ -33,6 +35,7 @@ export const InlineListSearch: React.FC<InlineListSearchProps> = ({
                 onChange={debouncedSetFilterText}
                 icon={options?.hidePrefix ? undefined : { icon: 'MagnifyingGlass', source: 'phosphor' }}
                 label=""
+                inputTestId={inputTestId}
             />
             {searchText && !options?.hideMatchCountText && (
                 <MatchLabelText data-testid="inline-search-matched-result-text">

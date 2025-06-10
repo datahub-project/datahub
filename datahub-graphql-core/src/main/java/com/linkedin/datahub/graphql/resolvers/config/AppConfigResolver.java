@@ -320,7 +320,6 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
-            .setDatasetHealthDashboardV2Enabled(_featureFlags.isDatasetHealthDashboardV2Enabled())
             .setShowCreatedAtFilter(_featureFlags.isShowCreatedAtFilter())
             .setShowNotificationSettingsForComplianceForms(
                 _featureFlags.isShowNotificationSettingsForComplianceForms())

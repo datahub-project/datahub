@@ -6,7 +6,11 @@ import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/as
 import { IncidentAssigneeAvatarStack } from '@app/entityV2/shared/tabs/Incident/IncidentAssigneeAvatarStack';
 import { IncidentResolveButton } from '@app/entityV2/shared/tabs/Incident/IncidentResolveButton';
 import { CategoryType } from '@app/entityV2/shared/tabs/Incident/styledComponents';
-import { getAssigneeNamesWithAvatarUrl, getLinkedAssetsCount } from '@app/entityV2/shared/tabs/Incident/utils';
+import {
+    buildIncidentUrlSearch,
+    getAssigneeNamesWithAvatarUrl,
+    getLinkedAssetsCount,
+} from '@app/entityV2/shared/tabs/Incident/utils';
 import { IncidentPriorityLabel } from '@src/alchemy-components/components/IncidentPriorityLabel/IncidentPriorityLabel';
 import { IncidentStagePill } from '@src/alchemy-components/components/IncidentStagePill';
 import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
@@ -126,20 +130,9 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
     }, [privileges, refetch]);
 };
 
-export const useIncidentURNCopyLink = (Urn: string) => {
+export const useIncidentURNCopyLink = (incidentUrn: string) => {
     const onCopyLink = () => {
-        const assertionUrn = Urn;
-
-        // Create a URL with the assertion_urn query parameter
-        const currentUrl = new URL(window.location.href);
-
-        // Add or update the assertion_urn query parameter
-        currentUrl.searchParams.set('incident_urn', encodeURIComponent(assertionUrn));
-
-        // The updated URL with the new or modified query parameter
-        const incidentUrl = currentUrl.href;
-
-        // Copy the URL to the clipboard
+        const incidentUrl = buildIncidentUrlSearch({ urn: incidentUrn, baseUrl: window.location.pathname });
         navigator.clipboard.writeText(incidentUrl).then(
             () => {
                 message.success('Link copied to clipboard!');
