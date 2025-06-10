@@ -68,7 +68,7 @@ Here is an example for how to add a tag to a dataset. Note that this involves re
 <summary>Python SDK: Add a tag to a dataset at the top-level</summary>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_tag.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_remove_tag_execute_graphql.py show_path_as_comment }}
 ```
 
 </details>
@@ -136,7 +136,7 @@ Fine-grained lineage at field level can be associated to a dataset in two ways -
 <summary>Python SDK: Add fine-grained lineage to a dataset</summary>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/add_lineage_dataset_to_dataset_with_query_node.py show_path_as_comment }}
 ```
 
 </details>
