@@ -885,6 +885,12 @@ class _AssertionInput(ABC):
         if self.cached_dataset is None:
             self.cached_dataset = self.entity_client.get(self.dataset_urn)
 
+        # Handle case where dataset doesn't exist
+        if self.cached_dataset is None:
+            raise SDKUsageError(
+                f"Dataset {self.dataset_urn} not found. Cannot validate column {column_name}."
+            )
+
         # TODO: Make a public accessor for _schema_dict in the SDK
         schema_fields = self.cached_dataset._schema_dict()
         field = schema_fields.get(column_name)

@@ -675,6 +675,107 @@ def test_sync_smart_freshness_assertion_uses_input_tags_if_input_tags_is_set(
     assert assertion.tags == []
 
 
+@freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "enabled, expected_assertion_mode",
+    [
+        pytest.param(True, AssertionMode.ACTIVE, id="enabled_true"),
+        pytest.param(False, AssertionMode.INACTIVE, id="enabled_false"),
+        pytest.param(None, AssertionMode.ACTIVE, id="enabled_none_preserves_existing"),
+    ],
+)
+def test_sync_smart_freshness_assertion_enabled_parameter_merging(
+    stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    assertion_entity_with_all_fields: Assertion,
+    monitor_with_all_fields: Monitor,
+    enabled: Optional[bool],
+    expected_assertion_mode: AssertionMode,
+) -> None:
+    """Test that the enabled parameter merges correctly with existing values."""
+    # Set existing monitor to ACTIVE state
+    monitor_with_all_fields.info.status.mode = models.MonitorModeClass.ACTIVE
+
+    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+
+    result = client.sync_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        enabled=enabled,
+    )
+
+    # Verify the returned assertion has the expected mode
+    assert result.mode == expected_assertion_mode
+
+    # Verify the monitor entity was upserted with correct mode
+    assert mock_upsert.call_count == 2  # assertion + monitor
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    expected_monitor_mode = (
+        models.MonitorModeClass.ACTIVE
+        if expected_assertion_mode == AssertionMode.ACTIVE
+        else models.MonitorModeClass.INACTIVE
+    )
+    assert monitor_entity.info.status.mode == expected_monitor_mode
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_freshness_assertion_enabled_none_preserves_inactive(
+    stub_datahub_client: StubDataHubClient,
+    any_assertion_urn: AssertionUrn,
+    any_dataset_urn: DatasetUrn,
+    assertion_entity_with_all_fields: Assertion,
+    monitor_with_all_fields: Monitor,
+) -> None:
+    """Test that enabled=None preserves existing INACTIVE state."""
+    # Set existing monitor to INACTIVE state
+    monitor_with_all_fields.info.status.mode = models.MonitorModeClass.INACTIVE
+
+    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+
+    result = client.sync_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+        urn=any_assertion_urn,
+        enabled=None,  # Should preserve existing state
+    )
+
+    # Verify the returned assertion preserves INACTIVE mode
+    assert result.mode == AssertionMode.INACTIVE
+
+    # Verify the monitor entity was upserted with INACTIVE mode preserved
+    assert mock_upsert.call_count == 2  # assertion + monitor
+    monitor_entity = mock_upsert.call_args_list[1][0][0]
+    assert monitor_entity.info.status.mode == models.MonitorModeClass.INACTIVE
+
+
+@freeze_time(FROZEN_TIME)
+def test_sync_smart_freshness_assertion_enabled_calls_create_with_enabled_when_urn_is_none(
+    stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that sync passes enabled parameter to create when urn is None."""
+    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+
+    # Mock the create method to verify it's called with enabled parameter
+    with patch.object(client, "create_smart_freshness_assertion") as mock_create:
+        mock_create.return_value = MagicMock()  # Return a mock assertion
+
+        client.sync_smart_freshness_assertion(
+            dataset_urn=any_dataset_urn,
+            urn=None,  # This should trigger create
+            enabled=False,
+        )
+
+        # Verify create was called with enabled=False
+        mock_create.assert_called_once()
+        call_kwargs = mock_create.call_args[1]
+        assert call_kwargs["enabled"] is False
+
+
 class _OtherSmartFreshnessAssertionInputInputParams(TypedDict, total=False):
     sensitivity: InferenceSensitivity
     exclusion_windows: list[FixedRangeExclusionWindow]
@@ -918,6 +1019,98 @@ _OTHER_SMART_FRESHNESS_ASSERTION_INPUT_PARAMS_NO_TAGS: _OtherSmartFreshnessAsser
             None,
             "",
             id="input_falsy_existing_none",
+        ),
+        # Case 9: Enabled field - Input is None, existing assertion is ACTIVE -> use True
+        pytest.param(
+            None,
+            "enabled",
+            _SmartFreshnessAssertionInput(
+                dataset_urn=_any_dataset_urn,
+                entity_client=MagicMock(),
+                enabled=True,
+                **_OTHER_SMART_FRESHNESS_ASSERTION_INPUT_INPUT_PARAMS,
+            ),
+            SmartFreshnessAssertion(
+                urn=AssertionUrn("urn:li:assertion:test"),
+                dataset_urn=DatasetUrn.from_string(_any_dataset_urn),
+                display_name="test_assertion",
+                mode=AssertionMode.ACTIVE,
+                exclusion_windows=[],
+                incident_behavior=[],
+                tags=[],
+            ),
+            True,  # existing_entity_value derived from ACTIVE mode
+            True,
+            id="enabled_input_none_existing_active",
+        ),
+        # Case 10: Enabled field - Input is None, existing assertion is INACTIVE -> use False
+        pytest.param(
+            None,
+            "enabled",
+            _SmartFreshnessAssertionInput(
+                dataset_urn=_any_dataset_urn,
+                entity_client=MagicMock(),
+                enabled=True,
+                **_OTHER_SMART_FRESHNESS_ASSERTION_INPUT_INPUT_PARAMS,
+            ),
+            SmartFreshnessAssertion(
+                urn=AssertionUrn("urn:li:assertion:test"),
+                dataset_urn=DatasetUrn.from_string(_any_dataset_urn),
+                display_name="test_assertion",
+                mode=AssertionMode.INACTIVE,
+                exclusion_windows=[],
+                incident_behavior=[],
+                tags=[],
+            ),
+            False,  # existing_entity_value derived from INACTIVE mode
+            False,
+            id="enabled_input_none_existing_inactive",
+        ),
+        # Case 11: Enabled field - Input is True, existing is False -> use True (input overrides)
+        pytest.param(
+            True,
+            "enabled",
+            _SmartFreshnessAssertionInput(
+                dataset_urn=_any_dataset_urn,
+                entity_client=MagicMock(),
+                enabled=True,
+                **_OTHER_SMART_FRESHNESS_ASSERTION_INPUT_INPUT_PARAMS,
+            ),
+            SmartFreshnessAssertion(
+                urn=AssertionUrn("urn:li:assertion:test"),
+                dataset_urn=DatasetUrn.from_string(_any_dataset_urn),
+                display_name="test_assertion",
+                mode=AssertionMode.INACTIVE,
+                exclusion_windows=[],
+                incident_behavior=[],
+                tags=[],
+            ),
+            False,  # existing_entity_value derived from INACTIVE mode
+            True,
+            id="enabled_input_true_existing_false",
+        ),
+        # Case 12: Enabled field - Input is False, existing is True -> use False (input overrides)
+        pytest.param(
+            False,
+            "enabled",
+            _SmartFreshnessAssertionInput(
+                dataset_urn=_any_dataset_urn,
+                entity_client=MagicMock(),
+                enabled=False,
+                **_OTHER_SMART_FRESHNESS_ASSERTION_INPUT_INPUT_PARAMS,
+            ),
+            SmartFreshnessAssertion(
+                urn=AssertionUrn("urn:li:assertion:test"),
+                dataset_urn=DatasetUrn.from_string(_any_dataset_urn),
+                display_name="test_assertion",
+                mode=AssertionMode.ACTIVE,
+                exclusion_windows=[],
+                incident_behavior=[],
+                tags=[],
+            ),
+            True,  # existing_entity_value derived from ACTIVE mode
+            False,
+            id="enabled_input_false_existing_true",
         ),
     ],
 )

@@ -180,6 +180,45 @@ class StubEntityClient(EntityClient):
                     ),
                 ],
             )
+        elif (
+            isinstance(urn, DatasetUrn)
+            and str(urn)
+            == "urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD)"
+        ):
+            return Dataset(
+                platform=str(DataPlatformUrn("urn:li:dataPlatform:bigquery")),
+                name=urn.name,
+                schema=[
+                    models.SchemaFieldClass(
+                        fieldPath="field",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.DateTypeClass()
+                        ),
+                        nativeDataType="DATE",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="last_modified",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.DateTypeClass()
+                        ),
+                        nativeDataType="DATE",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="last_modified_wrong_type",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.NumberTypeClass()
+                        ),
+                        nativeDataType="NUMBER",
+                    ),
+                    models.SchemaFieldClass(
+                        fieldPath="wrong_type_int_as_a_string",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.StringTypeClass()
+                        ),
+                        nativeDataType="VARCHAR",
+                    ),
+                ],
+            )
         elif isinstance(urn, AssertionUrn):
             return self.assertion_entity
         elif isinstance(urn, MonitorUrn):

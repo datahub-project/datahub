@@ -433,6 +433,60 @@ def test_create_smart_freshness_assertion_invalid_input(
         client.create_smart_freshness_assertion(**asdict(input_params))
 
 
+@freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "enabled, expected_monitor_mode",
+    [
+        pytest.param(True, models.MonitorModeClass.ACTIVE, id="enabled_true"),
+        pytest.param(False, models.MonitorModeClass.INACTIVE, id="enabled_false"),
+    ],
+)
+def test_create_smart_freshness_assertion_enabled_parameter(
+    stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+    enabled: bool,
+    expected_monitor_mode: models.MonitorModeClass,
+) -> None:
+    """Test that the enabled parameter controls the monitor mode correctly."""
+    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    client.create_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+        enabled=enabled,
+    )
+
+    # Verify that create was called with the correct monitor mode
+    assert mock_create.call_count == 2  # assertion + monitor
+
+    # Check the monitor entity (second call)
+    monitor_entity = mock_create.call_args_list[1][0][0]
+    assert monitor_entity.info.status.mode == expected_monitor_mode
+
+
+@freeze_time(FROZEN_TIME)
+def test_create_smart_freshness_assertion_enabled_defaults_to_true(
+    stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that the enabled parameter defaults to True when not specified."""
+    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Don't specify enabled parameter
+    client.create_smart_freshness_assertion(
+        dataset_urn=any_dataset_urn,
+    )
+
+    # Verify that monitor is created as ACTIVE (default enabled=True)
+    assert mock_create.call_count == 2  # assertion + monitor
+
+    monitor_entity = mock_create.call_args_list[1][0][0]
+    assert monitor_entity.info.status.mode == models.MonitorModeClass.ACTIVE
+
+
 @dataclass
 class SmartFreshnessAssertionUpsertInputParams:
     dataset_urn: Union[str, DatasetUrn]

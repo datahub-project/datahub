@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion import (
+    AssertionMode,
     SmartFreshnessAssertion,
     SmartVolumeAssertion,
 )
@@ -177,6 +178,7 @@ class AssertionsClient:
         dataset_urn: Union[str, DatasetUrn],
         urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
+        enabled: Optional[bool] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
@@ -207,6 +209,8 @@ class AssertionsClient:
                 assertion will be _created_ in the DataHub instance.
             display_name: The display name of the assertion. If not provided, a random display
                 name will be generated.
+            enabled: Whether the assertion is enabled. If not provided, the existing value
+                will be preserved.
             detection_mechanism: The detection mechanism to be used for the assertion. Information
                 schema is recommended. Valid values are:
                 - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
@@ -268,6 +272,7 @@ class AssertionsClient:
             return self.create_smart_freshness_assertion(
                 dataset_urn=dataset_urn,
                 display_name=display_name,
+                enabled=enabled if enabled is not None else True,
                 detection_mechanism=detection_mechanism,
                 sensitivity=sensitivity,
                 exclusion_windows=exclusion_windows,
@@ -303,6 +308,7 @@ class AssertionsClient:
                 dataset_urn=dataset_urn,
                 urn=urn,
                 display_name=display_name,
+                enabled=enabled,
                 detection_mechanism=detection_mechanism,
                 sensitivity=sensitivity,
                 exclusion_windows=exclusion_windows,
@@ -342,6 +348,7 @@ class AssertionsClient:
         dataset_urn: Union[str, DatasetUrn],
         urn: Union[str, AssertionUrn],
         display_name: Optional[str],
+        enabled: Optional[bool],
         detection_mechanism: DetectionMechanismInputTypes,
         sensitivity: Optional[Union[str, InferenceSensitivity]],
         exclusion_windows: Optional[ExclusionWindowInputTypes],
@@ -402,6 +409,7 @@ class AssertionsClient:
             dataset_urn=dataset_urn,
             urn=urn,
             display_name=display_name,
+            enabled=enabled,
             detection_mechanism=detection_mechanism,
             sensitivity=sensitivity,
             exclusion_windows=exclusion_windows,
@@ -460,6 +468,7 @@ class AssertionsClient:
         dataset_urn: Union[str, DatasetUrn],
         urn: Union[str, AssertionUrn],
         display_name: Optional[str],
+        enabled: Optional[bool],
         detection_mechanism: DetectionMechanismInputTypes,
         sensitivity: Optional[Union[str, InferenceSensitivity]],
         exclusion_windows: Optional[ExclusionWindowInputTypes],
@@ -480,6 +489,7 @@ class AssertionsClient:
             dataset_urn: The urn of the dataset to be monitored.
             urn: The urn of the assertion.
             display_name: The display name of the assertion.
+            enabled: Whether the assertion is enabled.
             detection_mechanism: The detection mechanism to be used for the assertion.
             sensitivity: The sensitivity to be applied to the assertion.
             exclusion_windows: The exclusion windows to be applied to the assertion.
@@ -505,6 +515,15 @@ class AssertionsClient:
                 assertion_input,
                 existing_assertion,
                 maybe_assertion_entity.description if maybe_assertion_entity else None,
+            ),
+            enabled=_merge_field(
+                enabled,
+                "enabled",
+                assertion_input,
+                existing_assertion,
+                existing_assertion.mode == AssertionMode.ACTIVE
+                if existing_assertion
+                else None,
             ),
             schedule=_merge_field(
                 None,  # Don't allow schedule modification in updates - always preserve existing
@@ -580,6 +599,7 @@ class AssertionsClient:
         *,
         dataset_urn: Union[str, DatasetUrn],
         display_name: Optional[str] = None,
+        enabled: bool = True,
         detection_mechanism: DetectionMechanismInputTypes = None,
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
@@ -600,6 +620,7 @@ class AssertionsClient:
             dataset_urn: The urn of the dataset to be monitored.
             display_name: The display name of the assertion. If not provided, a random display
                 name will be generated.
+            enabled: Whether the assertion is enabled. Defaults to True.
             detection_mechanism: The detection mechanism to be used for the assertion. Information
                 schema is recommended. Valid values are:
                 - "information_schema" or DetectionMechanism.INFORMATION_SCHEMA
@@ -658,6 +679,7 @@ class AssertionsClient:
             entity_client=self.client.entities,
             dataset_urn=dataset_urn,
             display_name=display_name,
+            enabled=enabled,
             detection_mechanism=detection_mechanism,
             sensitivity=sensitivity,
             exclusion_windows=exclusion_windows,
