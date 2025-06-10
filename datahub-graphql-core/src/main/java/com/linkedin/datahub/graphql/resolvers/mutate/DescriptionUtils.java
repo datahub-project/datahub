@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.application.ApplicationProperties;
 import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.container.EditableContainerProperties;
@@ -530,6 +531,32 @@ public class DescriptionUtils {
         resourceUrn,
         Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME,
         properties,
+        actor,
+        entityService);
+  }
+
+  public static void updateApplicationDescription(
+      @Nonnull OperationContext opContext,
+      String newDescription,
+      Urn resourceUrn,
+      Urn actor,
+      EntityService<?> entityService) {
+    ApplicationProperties applicationProperties =
+        (ApplicationProperties)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resourceUrn.toString(),
+                Constants.APPLICATION_PROPERTIES_ASPECT_NAME,
+                entityService,
+                new ApplicationProperties());
+    if (applicationProperties != null) {
+      applicationProperties.setDescription(newDescription);
+    }
+    persistAspect(
+        opContext,
+        resourceUrn,
+        Constants.APPLICATION_PROPERTIES_ASPECT_NAME,
+        applicationProperties,
         actor,
         entityService);
   }

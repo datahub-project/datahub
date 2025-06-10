@@ -6,9 +6,7 @@
         "resourceOwners": false,
         "allUsers": false,
         "allGroups": false,
-        "users": [
-          "urn:li:corpuser:admin"
-        ]
+        "users": ["urn:li:corpuser:admin"]
       },
       "privileges": [
         "MANAGE_POLICIES",
@@ -65,9 +63,7 @@
         "resourceOwners": false,
         "allUsers": false,
         "allGroups": false,
-        "users": [
-          "urn:li:corpuser:admin"
-        ]
+        "users": ["urn:li:corpuser:admin"]
       },
       "privileges": [
         "EDIT_ENTITY",
@@ -100,7 +96,18 @@
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "SHARE_ENTITY",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
-        "EXECUTE_ENTITY"
+        "MANAGE_GROUP_SUBSCRIPTIONS",
+        "MANAGE_USER_SUBSCRIPTIONS",
+        "EXECUTE_ENTITY",
+        "PROPOSE_ENTITY_TAGS",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS",
+        "PROPOSE_ENTITY_DOCS",
+        "PROPOSE_ENTITY_DOMAINS",
+        "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+        "PROPOSE_DATASET_COL_TAGS",
+        "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATA_CONTRACT_PRIVILEGE"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
@@ -137,9 +144,7 @@
         "resourceOwners": false,
         "allUsers": false,
         "allGroups": false,
-        "users": [
-          "urn:li:corpuser:admin"
-        ]
+        "users": ["urn:li:corpuser:admin"]
       },
       "privileges": [
         "MANAGE_ENTITY_TAGS",
@@ -225,9 +230,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Admin"
-        ]
+        "roles": ["urn:li:dataHubRole:Admin"]
       },
       "privileges": [
         "MANAGE_POLICIES",
@@ -287,9 +290,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Admin"
-        ]
+        "roles": ["urn:li:dataHubRole:Admin"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
@@ -346,7 +347,17 @@
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
         "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE",
         "SHARE_ENTITY",
-        "EXECUTE_ENTITY"
+        "EXECUTE_ENTITY",
+        "PROPOSE_ENTITY_TAGS",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS",
+        "PROPOSE_ENTITY_DOCS",
+        "PROPOSE_ENTITY_DOMAINS",
+        "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+        "PROPOSE_DATASET_COL_TAGS",
+        "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATA_CONTRACT_PRIVILEGE",
+        "EDIT_ENTITY_MONITORS"
       ],
       "displayName": "Admins - Metadata Policy",
       "description": "Admins have all metadata privileges.",
@@ -364,9 +375,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "privileges": [
         "GENERATE_PERSONAL_ACCESS_TOKENS",
@@ -400,9 +409,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",
@@ -447,11 +454,22 @@
         "MANAGE_DATA_PRODUCTS",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "EDIT_ENTITY_PROPERTIES",
+        "VIEW_STRUCTURED_PROPERTIES_PAGE",
         "MANAGE_GROUP_NOTIFICATION_SETTINGS",
         "MANAGE_GROUP_SUBSCRIPTIONS",
         "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
         "EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE",
-        "SHARE_ENTITY"
+        "SHARE_ENTITY",
+        "PROPOSE_ENTITY_TAGS",
+        "PROPOSE_ENTITY_GLOSSARY_TERMS",
+        "PROPOSE_ENTITY_DOCS",
+        "PROPOSE_ENTITY_DOMAINS",
+        "PROPOSE_ENTITY_OWNERS",
+        "PROPOSE_DATASET_COL_GLOSSARY_TERMS",
+        "PROPOSE_DATASET_COL_TAGS",
+        "PROPOSE_DATASET_COL_PROPERTIES",
+        "PROPOSE_DATA_CONTRACT_PRIVILEGE",
+        "VIEW_DOCUMENTATION_FORMS_PAGE"
       ],
       "displayName": "Editors - Metadata Policy",
       "description": "Editors have all metadata privileges.",
@@ -469,9 +487,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Editor"
-        ]
+        "roles": ["urn:li:dataHubRole:Editor"]
       },
       "resources": {
         "allResources": false,
@@ -499,9 +515,7 @@
           ]
         }
       },
-      "privileges": [
-        "EDIT_ENTITY"
-      ],
+      "privileges": ["EDIT_ENTITY"],
       "displayName": "Editors - Edit Metadata Entities",
       "description": "Editors can edit primary metadata entities.",
       "state": "ACTIVE",
@@ -518,9 +532,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Reader"
-        ]
+        "roles": ["urn:li:dataHubRole:Reader"]
       },
       "privileges": [],
       "displayName": "Readers - Platform Policy",
@@ -539,9 +551,7 @@
         "allGroups": false,
         "users": [],
         "groups": [],
-        "roles": [
-          "urn:li:dataHubRole:Reader"
-        ]
+        "roles": ["urn:li:dataHubRole:Reader"]
       },
       "privileges": [
         "VIEW_ENTITY_PAGE",

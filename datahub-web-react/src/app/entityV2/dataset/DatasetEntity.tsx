@@ -202,15 +202,6 @@ export class DatasetEntity implements Entity<Dataset> {
                     },
                 },
                 {
-                    name: 'Access',
-                    component: AccessManagement,
-                    icon: UnlockOutlined,
-                    display: {
-                        visible: (_, _1) => this.appconfig().config.featureFlags.showAccessManagement,
-                        enabled: (_, _2) => true,
-                    },
-                },
-                {
                     name: 'Properties',
                     component: PropertiesTab,
                     icon: UnorderedListOutlined,

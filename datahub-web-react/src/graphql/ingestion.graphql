@@ -4,55 +4,17 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
         count
         total
         ingestionSources {
-            urn
-            name
-            type
-            config {
-                recipe
-                version
-                executorId
-                debugMode
-                extraArgs {
-                    key
-                    value
-                }
-            }
-            schedule {
-                interval
-                timezone
-            }
-            platform {
-                urn
-            }
-            privileges {
-                canEdit
-                canView
-                canDelete
-                canExecute
-            }
+            ...ingestionSourceFields
             executions(start: 0, count: 1) {
                 start
                 count
                 total
                 executionRequests {
-                    urn
-                    id
-                    input {
-                        requestedAt
-                        actorUrn
-                        executorId
-                    }
-                    result {
-                        status
-                        startTimeMs
-                        durationMs
-                        executorInstanceId # SaaS only
-                        structuredReport {
-                            type
-                            serializedValue
-                        }
-                    }
+                    ...ingestionExecutionRequestFields
                 }
+            }
+            ownership {
+                ...ownershipFields
             }
         }
     }
@@ -67,100 +29,39 @@ query getIngestionSourceName($urn: String!) {
 
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
-        urn
-        name
-        type
-        config {
-            recipe
-            version
-            executorId
-            debugMode
-            extraArgs {
-                key
-                value
-            }
-        }
-        schedule {
-            interval
-            timezone
-        }
-        platform {
-            urn
-        }
-        privileges {
-            canEdit
-            canView
-            canDelete
-            canExecute
-        }
+        ...ingestionSourceFields
         executions(start: $runStart, count: $runCount) {
             start
             count
             total
             executionRequests {
-                urn
-                id
-                input {
-                    executorId
-                    requestedAt
-                    source {
-                        type
-                    }
-                    actor {
-                        urn
-                        type
-                        username
-                        properties {
-                            displayName
-                            firstName
-                            lastName
-                            fullName
-                        }
-                        editableProperties {
-                            displayName
-                            pictureLink
-                        }
-                    }
-                }
-                result {
-                    status
-                    startTimeMs
-                    durationMs
-                    executorInstanceId # SaaS only
-                    structuredReport {
-                        type
-                        serializedValue
-                    }
-                }
+                ...ingestionExecutionRequestFields
             }
+        }
+        ownership {
+            ...ownershipFields
         }
     }
 }
 
 query getIngestionExecutionRequest($urn: String!) {
     executionRequest(urn: $urn) {
-        urn
-        id
-        input {
+        ...ingestionExecutionRequestFields
+    }
+}
+
+query listIngestionExecutionRequests($input: ListExecutionRequestsInput!) {
+    listExecutionRequests(input: $input) {
+        start
+        total
+        count
+        executionRequests {
+            ...ingestionExecutionRequestFields
             source {
-                type
-            }
-            actorUrn
-            executorId
-            arguments {
-                key
-                value
-            }
-        }
-        result {
-            status
-            startTimeMs
-            durationMs
-            report
-            executorInstanceId # SaaS only
-            structuredReport {
-                type
-                serializedValue
+                ...ingestionSourceFields
+                latestSuccessfulExecution {
+                    ...minimalIngestionExecutionRequestFields
+                }
             }
         }
     }

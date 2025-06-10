@@ -76,33 +76,36 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
-    DateTypeClass,
-    EnumTypeClass,
-    ForeignKeyConstraint,
-    MySqlDDL,
-    NullTypeClass,
-    NumberTypeClass,
-    RecordTypeClass,
-    SchemaField,
-    SchemaFieldDataType,
-    SchemaMetadata,
-    StringTypeClass,
-    TimeTypeClass,
-)
-from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    DatasetSnapshotClass,
+    DateTypeClass,
+    EnumTypeClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    ForeignKeyConstraintClass,
     GlobalTagsClass,
+    MetadataChangeEventClass,
+    MySqlDDLClass,
+    NullTypeClass,
+    NumberTypeClass,
+    RecordTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StatusClass,
+    StringTypeClass,
     SubTypesClass,
     TagAssociationClass,
+    TimeTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
     ViewPropertiesClass,
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -112,6 +115,7 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
 )
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import (
@@ -198,7 +202,7 @@ def make_sqlalchemy_type(name: str) -> Type[TypeEngine]:
 
 def get_column_type(
     sql_report: SQLSourceReport, dataset_name: str, column_type: Any
-) -> SchemaFieldDataType:
+) -> SchemaFieldDataTypeClass:
     """
     Maps SQLAlchemy types (https://docs.sqlalchemy.org/en/13/core/type_basics.html) to corresponding schema types
     """
@@ -223,7 +227,7 @@ def get_column_type(
         )
         TypeClass = NullTypeClass
 
-    return SchemaFieldDataType(type=TypeClass())
+    return SchemaFieldDataTypeClass(type=TypeClass())
 
 
 def get_schema_metadata(
@@ -232,10 +236,10 @@ def get_schema_metadata(
     platform: str,
     columns: List[dict],
     pk_constraints: Optional[dict] = None,
-    foreign_keys: Optional[List[ForeignKeyConstraint]] = None,
-    canonical_schema: Optional[List[SchemaField]] = None,
+    foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None,
+    canonical_schema: Optional[List[SchemaFieldClass]] = None,
     simplify_nested_field_paths: bool = False,
-) -> SchemaMetadata:
+) -> SchemaMetadataClass:
     if (
         simplify_nested_field_paths
         and canonical_schema is not None
@@ -243,12 +247,12 @@ def get_schema_metadata(
     ):
         canonical_schema = downgrade_schema_from_v2(canonical_schema)
 
-    schema_metadata = SchemaMetadata(
+    schema_metadata = SchemaMetadataClass(
         schemaName=dataset_name,
         platform=make_data_platform_urn(platform),
         version=0,
         hash="",
-        platformSchema=MySqlDDL(tableSchema=""),
+        platformSchema=MySqlDDLClass(tableSchema=""),
         fields=canonical_schema or [],
     )
     if foreign_keys is not None and foreign_keys != []:
@@ -590,7 +594,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         fk_dict: Dict[str, str],
         inspector: Inspector,
-    ) -> ForeignKeyConstraint:
+    ) -> ForeignKeyConstraintClass:
         referred_schema: Optional[str] = fk_dict.get("referred_schema")
 
         if not referred_schema:
@@ -617,7 +621,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             for f in fk_dict["referred_columns"]
         ]
 
-        return ForeignKeyConstraint(
+        return ForeignKeyConstraintClass(
             fk_dict["name"], foreign_fields, source_fields, foreign_dataset
         )
 
@@ -714,7 +718,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             self.config.platform_instance,
             self.config.env,
         )
-        dataset_snapshot = DatasetSnapshot(
+        dataset_snapshot = DatasetSnapshotClass(
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
@@ -742,6 +746,30 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             tags=extra_tags,
             partition_keys=partitions,
         )
+
+        if self.config.include_table_location_lineage and location_urn:
+            self.aggregator.add_known_lineage_mapping(
+                upstream_urn=location_urn,
+                downstream_urn=dataset_snapshot.urn,
+                lineage_type=DatasetLineageTypeClass.COPY,
+            )
+            external_upstream_table = UpstreamClass(
+                dataset=location_urn,
+                type=DatasetLineageTypeClass.COPY,
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_snapshot.urn,
+                aspect=UpstreamLineageClass(
+                    upstreams=[external_upstream_table],
+                    fineGrainedLineages=self.get_fine_grained_lineages(
+                        dataset_urn=dataset_snapshot.urn,
+                        upstream_dataset_urn=location_urn,
+                        schema_fields=schema_fields,
+                    ),
+                ),
+            ).as_workunit()
+
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
@@ -762,7 +790,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         yield from self.add_table_to_schema_container(
             dataset_urn=dataset_urn, db_name=db_name, schema=schema
         )
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        mce = MetadataChangeEventClass(proposedSnapshot=dataset_snapshot)
         yield SqlWorkUnit(id=dataset_name, mce=mce)
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:
@@ -797,7 +825,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         table: str,
         data_reader: Optional[DataReader],
-        schema_metadata: SchemaMetadata,
+        schema_metadata: SchemaMetadataClass,
     ) -> None:
         try:
             if (
@@ -908,7 +936,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_foreign_keys(
         self, dataset_urn: str, inspector: Inspector, schema: str, table: str
-    ) -> List[ForeignKeyConstraint]:
+    ) -> List[ForeignKeyConstraintClass]:
         try:
             foreign_keys = [
                 self.get_foreign_key_metadata(dataset_urn, schema, fk_rec, inspector)
@@ -922,6 +950,42 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             foreign_keys = []
         return foreign_keys
 
+    def get_fine_grained_lineages(
+        self,
+        dataset_urn: str,
+        upstream_dataset_urn: str,
+        schema_fields: List[SchemaFieldClass],
+    ) -> Optional[List[FineGrainedLineageClass]]:
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for schema_field in schema_fields:
+            try:
+                field_path_v1 = get_simple_field_path_from_v2_field_path(
+                    schema_field.fieldPath
+                )
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[make_schema_field_urn(dataset_urn, field_path_v1)],
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            make_schema_field_urn(
+                                upstream_dataset_urn,
+                                get_simple_field_path_from_v2_field_path(
+                                    schema_field.fieldPath
+                                ),
+                            )
+                        ],
+                    )
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Error processing field path for {dataset_urn}: {str(e)}"
+                )
+                continue
+
+        return fine_grained_lineages if fine_grained_lineages else None
+
     def get_schema_fields(
         self,
         dataset_name: str,
@@ -930,7 +994,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         pk_constraints: Optional[dict] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[Dict[str, List[str]]] = None,
-    ) -> List[SchemaField]:
+    ) -> List[SchemaFieldClass]:
         canonical_schema = []
         for column in columns:
             column_tags: Optional[List[str]] = None
@@ -955,14 +1019,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         pk_constraints: Optional[dict] = None,
         partition_keys: Optional[List[str]] = None,
         tags: Optional[List[str]] = None,
-    ) -> List[SchemaField]:
+    ) -> List[SchemaFieldClass]:
         gtc: Optional[GlobalTagsClass] = None
         if tags:
             tags_str = [make_tag_urn(t) for t in tags]
             tags_tac = [TagAssociationClass(t) for t in tags_str]
             gtc = GlobalTagsClass(tags_tac)
         full_type = column.get("full_type")
-        field = SchemaField(
+        field = SchemaFieldClass(
             fieldPath=column["name"],
             type=get_column_type(self.report, dataset_name, column["type"]),
             nativeDataType=(
@@ -1092,7 +1156,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 default_schema=default_schema,
             )
 
-        dataset_snapshot = DatasetSnapshot(
+        dataset_snapshot = DatasetSnapshotClass(
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
@@ -1111,7 +1175,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_snapshot.aspects.append(dataset_properties)
         if schema_metadata:
             dataset_snapshot.aspects.append(schema_metadata)
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        mce = MetadataChangeEventClass(proposedSnapshot=dataset_snapshot)
         yield SqlWorkUnit(id=dataset_name, mce=mce)
         dpi_aspect = self.get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
         if dpi_aspect:

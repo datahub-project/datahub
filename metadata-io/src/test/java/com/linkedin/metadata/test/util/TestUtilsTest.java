@@ -35,7 +35,8 @@ public class TestUtilsTest {
             "dataset",
             "chart",
             "dashboard",
-            "notebook"),
+            "notebook",
+            "application"),
         TestUtils.getSupportedEntityTypes(registry));
   }
 }

@@ -135,7 +135,6 @@ export default function CompactMarkdownViewer({
                     readOnly
                 />
             </MarkdownViewContainer>
-
             {hideShowMore && isTruncated && (
                 <Tooltip title={content}>
                     <MoreIndicator>...</MoreIndicator>

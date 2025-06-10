@@ -1308,6 +1308,9 @@ fragment domainEntitiesFields on Domain {
     ) {
         total
     }
+    applications: entities(input: { start: 0, count: 0, filters: [{ field: "_entityType", values: "APPLICATION" }] }) {
+        total
+    }
     children: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 0 }) {
         total
     }
@@ -1736,6 +1739,11 @@ fragment entityDisplayNameFields on Entity {
         ...nonConflictingPlatformFields
     }
     ... on DataProduct {
+        properties {
+            name
+        }
+    }
+    ... on Application {
         properties {
             name
         }
@@ -2483,4 +2491,94 @@ fragment customPropertiesFields on CustomPropertiesEntry {
     key
     value
     associatedUrn
+}
+
+fragment ingestionSourceFields on IngestionSource {
+    urn
+    name
+    type
+    config {
+        recipe
+        version
+        executorId
+        debugMode
+        extraArgs {
+            key
+            value
+        }
+    }
+    schedule {
+        interval
+        timezone
+    }
+    platform {
+        urn
+        type
+        name
+    }
+    privileges {
+        canEdit
+        canView
+        canDelete
+        canExecute
+    }
+}
+
+fragment minimalIngestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    type
+    input {
+        requestedAt
+        source {
+            type
+        }
+        task
+    }
+}
+
+fragment ingestionExecutionRequestFields on ExecutionRequest {
+    urn
+    id
+    type
+    input {
+        requestedAt
+        source {
+            type
+        }
+        arguments {
+            key
+            value
+        }
+        actor {
+            urn
+            type
+            username
+            properties {
+                displayName
+                firstName
+                lastName
+                fullName
+                active
+            }
+            editableProperties {
+                displayName
+                pictureLink
+            }
+        }
+        task
+        executorId
+    }
+    result {
+        status
+        startTimeMs
+        durationMs
+        report
+        executorInstanceId # SaaS only
+        structuredReport {
+            type
+            serializedValue
+            contentType
+        }
+    }
 }

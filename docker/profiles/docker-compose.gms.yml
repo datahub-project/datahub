@@ -3,12 +3,12 @@
 #################################
 x-primary-datastore-mysql-env: &primary-datastore-mysql-env
   EBEAN_DATASOURCE_HOST: mysql:3306
-  EBEAN_DATASOURCE_URL: 'jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2'
+  EBEAN_DATASOURCE_URL: "jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2"
   EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
 
 x-primary-datastore-postgres-env: &primary-datastore-postgres-env
   EBEAN_DATASOURCE_HOST: postgres:5432
-  EBEAN_DATASOURCE_URL: 'jdbc:postgresql://postgres:5432/datahub'
+  EBEAN_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/datahub"
   EBEAN_DATASOURCE_DRIVER: org.postgresql.Driver
   EBEAN_POSTGRES_USE_AWS_IAM_AUTH: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:-false}
 
@@ -17,13 +17,13 @@ x-primary-datastore-cassandra-env: &primary-datastore-cassandra-env
   CASSANDRA_DATASOURCE_PASSWORD: cassandra
   CASSANDRA_HOSTS: cassandra
   CASSANDRA_PORT: 9042
-  CASSANDRA_DATASOURCE_HOST: 'cassandra:9042'
+  CASSANDRA_DATASOURCE_HOST: "cassandra:9042"
   ENTITY_SERVICE_IMPL: cassandra
 
 x-graph-datastore-neo4j-env: &graph-datastore-neo4j-env
   GRAPH_SERVICE_IMPL: neo4j
-  NEO4J_HOST: 'http://neo4j:7474'
-  NEO4J_URI: 'bolt://neo4j'
+  NEO4J_HOST: "http://neo4j:7474"
+  NEO4J_URI: "bolt://neo4j"
   NEO4J_USERNAME: neo4j
   NEO4J_PASSWORD: datahub
 x-graph-datastore-search-env: &graph-datastore-search-env
@@ -66,11 +66,18 @@ x-datahub-system-update-service: &datahub-system-update-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty2.env}
   environment: &datahub-system-update-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+    <<:
+      [
+        *primary-datastore-mysql-env,
+        *graph-datastore-search-env,
+        *search-datastore-env,
+        *kafka-env,
+      ]
     SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
     SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: ${SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS:-true}
     SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS: ${ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS:-3}
   volumes:
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
@@ -83,7 +90,7 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     <<: [*datahub-dev-telemetry-env, *datahub-system-update-env]
     SKIP_ELASTICSEARCH_CHECK: false
     REPROCESS_DEFAULT_BROWSE_PATHS_V2: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
-    JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
+    JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003"
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
     - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
@@ -103,7 +110,15 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-mae-env]
+    <<:
+      [
+        *primary-datastore-mysql-env,
+        *graph-datastore-search-env,
+        *search-datastore-env,
+        *datahub-quickstart-telemetry-env,
+        *kafka-env,
+        *datahub-mae-env,
+      ]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -133,12 +148,16 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
   environment: &datahub-gms-dev-env
     <<: [*datahub-dev-telemetry-env, *datahub-gms-env]
     SKIP_ELASTICSEARCH_CHECK: false
-    JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001'
+    JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001"
     BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: ${BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE:-false}
     SEARCH_SERVICE_ENABLE_CACHE: false
     LINEAGE_SEARCH_CACHE_ENABLED: false
     SHOW_BROWSE_V2: true
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
+    AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
+    AWS_ACCESS_KEY_ID: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+    AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
+    AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
     METADATA_TESTS_ENABLED: true
     ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED: true
   volumes:
@@ -162,7 +181,14 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_MAE_ENV:-empty2.env}
   environment: &datahub-mae-consumer-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-mae-env]
+    <<:
+      [
+        *primary-datastore-mysql-env,
+        *graph-datastore-search-env,
+        *search-datastore-env,
+        *kafka-env,
+        *datahub-mae-env,
+      ]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
 
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
@@ -190,7 +216,14 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_MCE_ENV:-empty2.env}
   environment: &datahub-mce-consumer-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    <<:
+      [
+        *primary-datastore-mysql-env,
+        *graph-datastore-search-env,
+        *search-datastore-env,
+        *datahub-quickstart-telemetry-env,
+        *kafka-env,
+      ]
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
     STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -230,7 +263,12 @@ services:
     profiles:
       - quickstart-cassandra
     environment:
-      <<: [*primary-datastore-cassandra-env, *graph-datastore-neo4j-env, *datahub-system-update-env]
+      <<:
+        [
+          *primary-datastore-cassandra-env,
+          *graph-datastore-neo4j-env,
+          *datahub-system-update-env,
+        ]
     depends_on:
       neo4j:
         condition: service_healthy
@@ -337,7 +375,12 @@ services:
     profiles:
       - quickstart-cassandra
     environment:
-      <<: [*primary-datastore-cassandra-env, *graph-datastore-neo4j-env, *datahub-gms-env]
+      <<:
+        [
+          *primary-datastore-cassandra-env,
+          *graph-datastore-neo4j-env,
+          *datahub-gms-env,
+        ]
     depends_on:
       system-update-quickstart-cassandra:
         condition: service_completed_successfully

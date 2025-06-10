@@ -18,8 +18,12 @@ from datahub.utilities.time import datetime_to_ts_millis
 logger = logging.getLogger(__name__)
 
 # Pattern to extract both project_id and workspace_name from Hex metadata in SQL comments
-# Only match metadata with "context": "SCHEDULED_RUN" to filter out non-scheduled runs
-HEX_METADATA_PATTERN = r'-- Hex query metadata: \{.*?"context": "SCHEDULED_RUN".*?"project_id": "([^"]+)".*?"project_url": "https?://[^/]+/([^/]+)/hex/.*?\}'
+# Context values:
+# - SCHEDULED_RUN: The query was executed during a scheduled run of a published Hex app.
+# - LOGIC_VIEW: The query was executed from the Hex project's notebook view. This happens when a user is actively editing a Hex notebook: When they first open and run it or when they rerun without cached results.
+# - APP_VIEW: The query was executed during a published app session. This happens when a user opens up a published app or reruns the app without cached results.
+# Only match metadata with "context": "SCHEDULED_RUN|APP_VIEW" to filter out those from notebook, which may bring more noise from development than value
+HEX_METADATA_PATTERN = r'-- Hex query metadata: \{.*?"context": "(?:SCHEDULED_RUN|APP_VIEW)".*?"project_id": "([^"]+)".*?"project_url": "https?://[^/]+/([^/]+)/hex/.*?\}'
 
 
 @dataclass
@@ -197,12 +201,14 @@ class HexQueryFetcher:
         Example:
         -- Hex query metadata: {"categories": ["Scratchpad"], "cell_type": "SQL", "connection": "Long Tail Companions", "context": "SCHEDULED_RUN", "project_id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf", "project_url": "https://app.hex.tech/acryl-partnership/hex/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf/draft/logic?selectedCellId=67c38da0-e631-4005-9750-5bdae2a2ef3f"}
 
-        # TODO: Consider supporting multiline metadata format in the future:
+        TODO: Consider supporting multiline metadata format in the future:
         # -- Hex query metadata: {
         # --   "categories": ["Scratchpad"],
         # --   "project_id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf",
         # --   ...
         # -- }
+
+        TODO: Extract based on pattern matching is strict on the order of the keys in the metadata. Consider using a more flexible approach like JSON parsing.
 
         Returns:
             A tuple of (project_id, workspace_name) if both are successfully extracted

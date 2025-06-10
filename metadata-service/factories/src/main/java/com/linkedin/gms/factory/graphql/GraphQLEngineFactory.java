@@ -41,6 +41,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.ActionRequestService;
+import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataContractService;
@@ -210,6 +211,10 @@ public class GraphQLEngineFactory {
   private DataProductService dataProductService;
 
   @Autowired
+  @Qualifier("applicationService")
+  private ApplicationService applicationService;
+
+  @Autowired
   @Qualifier("formService")
   private FormService formService;
 
@@ -316,6 +321,7 @@ public class GraphQLEngineFactory {
     args.setFormService(formService);
     args.setRestrictedService(restrictedService);
     args.setDataProductService(dataProductService);
+    args.setApplicationService(applicationService);
     args.setGraphQLQueryComplexityLimit(
         configProvider.getGraphQL().getQuery().getComplexityLimit());
     args.setGraphQLQueryIntrospectionEnabled(

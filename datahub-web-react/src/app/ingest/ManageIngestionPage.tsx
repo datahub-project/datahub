@@ -95,6 +95,7 @@ export const ManageIngestionPage = () => {
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
     const [showCreatePoolModal, setShowCreatePoolModal] = useState(false);
+
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet

@@ -163,10 +163,10 @@ services:
     image: postgres:${DATAHUB_POSTGRES_VERSION:-15.5}
     env_file: postgres/env/docker.env
     ports:
-      - '5432:5432'
+      - "5432:5432"
     restart: on-failure
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready" ]
+      test: ["CMD-SHELL", "pg_isready"]
       start_period: 20s
       interval: 2s
       timeout: 10s
@@ -231,24 +231,24 @@ services:
       - neo4jdata:/data
   kafka-broker:
     hostname: broker
-    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.9.1}
     command:
       - /bin/bash
       - -c
       - |
         # Generate KRaft clusterID
         file_path="/var/lib/kafka/data/clusterID"
-  
+
         if [ ! -f "$$file_path" ]; then
            /bin/kafka-storage random-uuid > $$file_path
            echo "Cluster id has been created..."
            # KRaft required step: Format the storage directory with a new cluster ID
            kafka-storage format --ignore-formatted -t $$(cat "$$file_path") -c /etc/kafka/kafka.properties
         fi
-  
+
         export CLUSTER_ID=$$(cat "$$file_path")
         echo "CLUSTER_ID=$$CLUSTER_ID"
-  
+
         /etc/confluent/docker/run
     ports:
       - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
@@ -263,7 +263,7 @@ services:
       KAFKA_PROCESS_ROLES: controller, broker
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:39092
       # https://github.com/confluentinc/cp-all-in-one/issues/120
-      KAFKA_LOG4J_LOGGERS: 'org.apache.kafka.image.loader.MetadataLoader=WARN'
+      KAFKA_LOG4J_LOGGERS: "org.apache.kafka.image.loader.MetadataLoader=WARN"
       KAFKA_ZOOKEEPER_CONNECT: null
     healthcheck:
       test: nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
@@ -380,7 +380,7 @@ services:
     hostname: localstack
     image: ${LOCALSTACK_IMAGE:-localstack/localstack:4}
     ports:
-      - ${DATAHUB_MAPPED_LOCALSTACK_PORT:-4566}:4566                     # LocalStack's main service port
+      - ${DATAHUB_MAPPED_LOCALSTACK_PORT:-4566}:4566 # LocalStack's main service port
     environment:
       - AWS_DEFAULT_REGION=${LOCALSTACK_REGION:-us-east-1}
       - SERVICES=${LOCALSTACK_SERVICES:-s3,sqs,iam,sts,events}

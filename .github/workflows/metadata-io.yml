@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - master
+      - releases/**
       - acryl-main
     paths:
       - "**/*.gradle"

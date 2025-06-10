@@ -11,6 +11,15 @@ public interface DataHubUsageEventHook extends EventHook<JsonNode> {
     return this;
   }
 
-  /** Invoke the hook when a MetadataChangeLog is received */
+  /** Invoke the hook when a DataHubUsageEvent is received */
   void invoke(@Nonnull JsonNode event) throws Exception;
+
+  /**
+   * Controls hook execution ordering
+   *
+   * @return order to execute
+   */
+  default int executionOrder() {
+    return 100;
+  }
 }
