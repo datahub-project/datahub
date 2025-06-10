@@ -171,7 +171,7 @@ class AssertionsClient:
 
         return SmartFreshnessAssertion._from_entities(assertion_entity, monitor_entity)
 
-    def _upsert_and_merge_smart_freshness_assertion(
+    def sync_smart_freshness_assertion(
         self,
         *,
         dataset_urn: Union[str, DatasetUrn],
@@ -197,8 +197,9 @@ class AssertionsClient:
         will be preserved. If the input value can be un-set e.g. by passing an empty list or
         empty string.
 
-        NOTE: This method is private and is not part of the public API. It will be used by the
-        yaml client to manage assertions.
+        Schedule behavior:
+        - Create case: Uses default hourly schedule ("0 * * * *")
+        - Update case: Preserves existing schedule from backend (not modifiable)
 
         Args:
             dataset_urn: The urn of the dataset to be monitored.
@@ -505,6 +506,13 @@ class AssertionsClient:
                 existing_assertion,
                 maybe_assertion_entity.description if maybe_assertion_entity else None,
             ),
+            schedule=_merge_field(
+                None,  # Don't allow schedule modification in updates - always preserve existing
+                "schedule",
+                assertion_input,
+                existing_assertion,
+                existing_assertion.schedule if existing_assertion else None,
+            ),
             detection_mechanism=_merge_field(
                 detection_mechanism,
                 "detection_mechanism",
@@ -585,6 +593,8 @@ class AssertionsClient:
         """Create a smart freshness assertion.
 
         Note: keyword arguments are required.
+
+        The created assertion will use the default hourly schedule ("0 * * * *").
 
         Args:
             dataset_urn: The urn of the dataset to be monitored.

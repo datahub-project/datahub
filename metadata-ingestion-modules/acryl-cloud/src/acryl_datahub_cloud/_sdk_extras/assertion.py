@@ -563,7 +563,7 @@ class _AssertionPublic(ABC):
         pass
 
 
-class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
+class SmartFreshnessAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPublic):
     """
     A class that represents a smart freshness assertion.
     """
@@ -575,6 +575,7 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
         dataset_urn: DatasetUrn,
         display_name: str,
         mode: AssertionMode,
+        schedule: models.CronScheduleClass = DEFAULT_SCHEDULE,
         sensitivity: InferenceSensitivity = DEFAULT_SENSITIVITY,
         exclusion_windows: list[ExclusionWindowTypes],
         training_data_lookback_days: int = ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
@@ -598,6 +599,7 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
             dataset_urn: The urn of the dataset that the assertion is for.
             display_name: The display name of the assertion.
             mode: The mode of the assertion (active, inactive).
+            schedule: The schedule of the assertion.
             sensitivity: The sensitivity of the assertion (low, medium, high).
             exclusion_windows: The exclusion windows of the assertion.
             training_data_lookback_days: The max number of days of data to use for training the assertion.
@@ -609,7 +611,8 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
             updated_by: The urn of the user that updated the assertion.
             updated_at: The timestamp of when the assertion was updated.
         """
-        # Initialize the mixin first
+        # Initialize the mixins first
+        _HasSchedule.__init__(self, schedule=schedule)
         _HasSmartFunctionality.__init__(
             self,
             sensitivity=sensitivity,
@@ -644,6 +647,7 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
             dataset_urn=assertion.dataset,
             display_name=assertion.description or "",
             mode=cls._get_mode(monitor),
+            schedule=cls._get_schedule(monitor),
             sensitivity=cls._get_sensitivity(monitor),
             exclusion_windows=cls._get_exclusion_windows(monitor),
             training_data_lookback_days=cls._get_training_data_lookback_days(monitor),

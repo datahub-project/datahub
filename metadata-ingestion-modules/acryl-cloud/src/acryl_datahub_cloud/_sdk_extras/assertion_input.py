@@ -1010,6 +1010,7 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
         urn: Optional[Union[str, AssertionUrn]] = None,
         display_name: Optional[str] = None,
         enabled: bool = True,
+        schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
@@ -1029,7 +1030,9 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             urn=urn,
             display_name=display_name,
             enabled=enabled,
-            schedule=DEFAULT_SCHEDULE,  # Schedule is not used for smart freshness assertions
+            schedule=schedule
+            if schedule is not None
+            else DEFAULT_SCHEDULE,  # Use provided schedule or default for create case
             detection_mechanism=detection_mechanism,
             sensitivity=sensitivity,
             exclusion_windows=exclusion_windows,
@@ -1058,19 +1061,22 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
         return models.FreshnessAssertionInfoClass(
             type=models.FreshnessAssertionTypeClass.DATASET_CHANGE,  # Currently only dataset change is supported
             entity=str(self.dataset_urn),
-            # schedule (optional, not used for smart freshness assertions)
+            # schedule (optional, must be left empty for smart freshness assertions - managed by the AI inference engine)
             filter=filter,
         )
 
     def _convert_schedule(self) -> models.CronScheduleClass:
         """Create a schedule for a smart freshness assertion.
 
-        Since the schedule is not used for smart freshness assertions, we return a default schedule.
+        For create case, uses DEFAULT_SCHEDULE. For update case, preserves existing schedule.
 
         Returns:
             A CronScheduleClass with appropriate schedule settings.
         """
-        return DEFAULT_SCHEDULE
+        assert self.schedule is not None, (
+            "Schedule should never be None due to constructor logic"
+        )
+        return self.schedule
 
     def _get_assertion_evaluation_parameters(
         self, source_type: str, field: Optional[FieldSpecType]
