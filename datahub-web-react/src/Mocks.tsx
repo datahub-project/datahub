@@ -334,6 +334,7 @@ export const dataset1 = {
     ],
     domain: null,
     container: null,
+    application: null,
     health: [],
     assertions: null,
     deprecation: null,
@@ -430,6 +431,7 @@ export const dataset2 = {
     ],
     domain: null,
     container: null,
+    application: null,
     health: [],
     assertions: null,
     status: null,
@@ -671,6 +673,7 @@ export const dataset3 = {
     ],
     domain: null,
     container: null,
+    application: null,
     lineage: null,
     relationships: null,
     health: [],
@@ -1037,6 +1040,7 @@ export const container1 = {
         externalUrl: null,
         __typename: 'ContainerProperties',
     },
+    application: null,
     autoRenderAspects: [],
     __typename: 'Container',
 } as Container;
@@ -1052,6 +1056,7 @@ export const container2 = {
         externalUrl: null,
         __typename: 'ContainerProperties',
     },
+    application: null,
     autoRenderAspects: [],
     __typename: 'Container',
 } as Container;
@@ -1100,6 +1105,7 @@ export const glossaryTerm1 = {
     },
     parentNodes: null,
     deprecation: null,
+    application: null,
     autoRenderAspects: [],
 } as GlossaryTerm;
 
@@ -1174,6 +1180,7 @@ const glossaryTerm2 = {
         __typename: 'EntityRelationshipsResult',
     },
     parentNodes: null,
+    application: null,
     autoRenderAspects: [],
     __typename: 'GlossaryTerm',
 };
@@ -1241,6 +1248,7 @@ export const glossaryTerm3 = {
         __typename: 'GlossaryRelatedTerms',
     },
     deprecation: null,
+    application: null,
     autoRenderAspects: [],
     __typename: 'GlossaryTerm',
 } as GlossaryTerm;
@@ -1411,6 +1419,7 @@ export const dataFlow1 = {
     },
     domain: null,
     deprecation: null,
+    application: null,
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
@@ -1499,6 +1508,7 @@ export const dataJob1 = {
     domain: null,
     status: null,
     deprecation: null,
+    application: null,
     autoRenderAspects: [],
     activeIncidents: null,
     health: [],
@@ -3127,18 +3137,6 @@ export const mocks = [
                             ],
                             entity: null,
                         },
-                        // {
-                        //     displayName: 'Domain',
-                        //     field: 'domains',
-                        //     __typename: 'FacetMetadata',
-                        //     aggregations: [
-                        //         {
-                        //             value: 'urn:li:domain:baedb9f9-98ef-4846-8a0c-2a88680f213e',
-                        //             count: 1,
-                        //             __typename: 'AggregationMetadata',
-                        //         },
-                        //     ],
-                        // },
                         {
                             __typename: 'FacetMetadata',
                             field: '_entityType',
@@ -3484,488 +3482,6 @@ export const mocks = [
                     ],
                 },
             } as GetSearchResultsForMultipleQuery,
-        },
-    },
-    {
-        request: {
-            query: GetSearchResultsForMultipleDocument,
-            variables: {
-                input: {
-                    types: [],
-                    query: 'test',
-                    start: 0,
-                    count: 10,
-                    filters: [],
-                    orFilters: [
-                        {
-                            and: [
-                                {
-                                    field: '_entityType',
-                                    values: ['DATASET'],
-                                    negated: false,
-                                    condition: FilterOperator.Equal,
-                                },
-                                {
-                                    field: 'platform',
-                                    values: ['kafka', 'hdfs'],
-                                    negated: false,
-                                    condition: FilterOperator.Equal,
-                                },
-                            ],
-                        },
-                    ],
-                    searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
-                },
-            },
-        },
-        result: {
-            data: {
-                __typename: 'Query',
-                searchAcrossEntities: {
-                    __typename: 'SearchResults',
-                    start: 0,
-                    count: 1,
-                    total: 1,
-                    searchResults: [
-                        {
-                            __typename: 'SearchResult',
-                            entity: {
-                                __typename: 'Dataset',
-                                ...dataset3,
-                            },
-                            matchedFields: [],
-                            insights: [],
-                        },
-                    ],
-                    suggestions: [],
-                    facets: [
-                        {
-                            __typename: 'FacetMetadata',
-                            field: 'origin',
-                            displayName: 'origin',
-                            aggregations: [
-                                {
-                                    __typename: 'AggregationMetadata',
-                                    value: 'PROD',
-                                    count: 3,
-                                    entity: null,
-                                },
-                            ],
-                            entity: null,
-                        },
-                        {
-                            __typename: 'FacetMetadata',
-                            field: '_entityType',
-                            displayName: 'Type',
-                            aggregations: [
-                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
-                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
-                            ],
-                            entity: null,
-                        },
-                        {
-                            __typename: 'FacetMetadata',
-                            field: 'platform',
-                            displayName: 'platform',
-                            aggregations: [
-                                { value: 'hdfs', count: 1, entity: null, __typename: 'AggregationMetadata' },
-                                { value: 'mysql', count: 1, entity: null, __typename: 'AggregationMetadata' },
-                                { value: 'kafka', count: 1, entity: null, __typename: 'AggregationMetadata' },
-                            ],
-                            entity: null,
-                        },
-                    ],
-                },
-            } as GetSearchResultsForMultipleQuery,
-        },
-    },
-    {
-        request: {
-            query: GetSearchResultsForMultipleDocument,
-            variables: {
-                input: {
-                    types: [],
-                    query: 'test',
-                    start: 0,
-                    count: 10,
-                    filters: [],
-                    orFilters: [
-                        {
-                            and: [
-                                {
-                                    field: '_entityType',
-                                    values: ['DATASET'],
-                                    negated: false,
-                                    condition: FilterOperator.Equal,
-                                },
-                                {
-                                    field: 'platform',
-                                    values: ['kafka', 'hdfs'],
-                                    negated: false,
-                                    condition: FilterOperator.Equal,
-                                },
-                            ],
-                        },
-                    ],
-                    searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
-                },
-            },
-        },
-        result: {
-            data: {
-                __typename: 'Query',
-                searchAcrossEntities: {
-                    __typename: 'SearchResults',
-                    start: 0,
-                    count: 1,
-                    total: 1,
-                    searchResults: [
-                        {
-                            __typename: 'SearchResult',
-                            entity: {
-                                __typename: 'Dataset',
-                                ...dataset3,
-                            },
-                            matchedFields: [],
-                            insights: [],
-                        },
-                    ],
-                    suggestions: [],
-                    facets: [
-                        {
-                            __typename: 'FacetMetadata',
-                            field: 'origin',
-                            displayName: 'origin',
-                            aggregations: [
-                                {
-                                    value: 'PROD',
-                                    count: 3,
-                                    entity: null,
-                                    __typename: 'AggregationMetadata',
-                                },
-                            ],
-                            entity: null,
-                        },
-                        {
-                            __typename: 'FacetMetadata',
-                            field: '_entityType',
-                            displayName: 'Type',
-                            aggregations: [
-                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
-                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
-                            ],
-                            entity: null,
-                        },
-                        {
-                            __typename: 'FacetMetadata',
-                            field: 'platform',
-                            displayName: 'platform',
-                            aggregations: [
-                                { value: 'hdfs', count: 1, entity: null, __typename: 'AggregationMetadata' },
-                                { value: 'mysql', count: 1, entity: null, __typename: 'AggregationMetadata' },
-                                { value: 'kafka', count: 1, entity: null, __typename: 'AggregationMetadata' },
-                            ],
-                            entity: null,
-                        },
-                    ],
-                },
-            } as GetSearchResultsForMultipleQuery,
-        },
-    },
-    {
-        request: {
-            query: GetEntityCountsDocument,
-            variables: {
-                input: {
-                    types: [EntityType.Dataset],
-                },
-            },
-        },
-        result: {
-            data: {
-                getEntityCounts: {
-                    counts: [
-                        {
-                            entityType: EntityType.Dataset,
-                            count: 10,
-                        },
-                    ],
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetMeDocument,
-            variables: {},
-        },
-        result: {
-            data: {
-                __typename: 'Query',
-                me: {
-                    __typename: 'AuthenticatedUser',
-                    corpUser: { ...user2 },
-                    platformPrivileges: {
-                        __typename: 'PlatformPrivileges',
-                        viewAnalytics: true,
-                        managePolicies: true,
-                        manageIdentities: true,
-                        manageDomains: true,
-                        manageTags: true,
-                        viewManageTags: true,
-                        createDomains: true,
-                        createTags: true,
-                        manageUserCredentials: true,
-                        manageGlossaries: true,
-                        viewTests: false,
-                        manageTests: true,
-                        manageTokens: true,
-                        manageSecrets: true,
-                        manageIngestion: true,
-                        generatePersonalAccessTokens: true,
-                        manageGlobalViews: true,
-                        manageOwnershipTypes: true,
-                        manageGlobalAnnouncements: true,
-                        createBusinessAttributes: true,
-                        manageBusinessAttributes: true,
-                        manageStructuredProperties: true,
-                        viewStructuredPropertiesPage: true,
-                    },
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: ListRecommendationsDocument,
-            variables: {
-                input: {
-                    userUrn: user2.urn,
-                    requestContext: {
-                        scenario: ScenarioType.Home,
-                    },
-                    limit: 10,
-                },
-            },
-        },
-        result: {
-            data: {
-                listRecommendations: {
-                    modules: [...recommendationModules],
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: ListRecommendationsDocument,
-            variables: {
-                input: {
-                    userUrn: user2.urn,
-                    requestContext: {
-                        scenario: ScenarioType.EntityProfile,
-                        entityRequestContext: {
-                            urn: dataset3.urn,
-                            type: EntityType.Dataset,
-                        },
-                    },
-                    limit: 3,
-                },
-            },
-        },
-        result: {
-            data: {
-                listRecommendations: {
-                    modules: [...recommendationModules],
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: ListRecommendationsDocument,
-            variables: {
-                input: {
-                    userUrn: user2.urn,
-                    requestContext: {
-                        scenario: ScenarioType.SearchResults,
-                        searchRequestContext: {
-                            query: 'noresults',
-                            filters: [],
-                        },
-                    },
-                    limit: 3,
-                },
-            },
-        },
-        result: {
-            data: {
-                listRecommendations: {
-                    modules: [...recommendationModules],
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetSearchResultsForMultipleDocument,
-            variables: {
-                input: {
-                    types: [],
-                    query: 'noresults',
-                    start: 0,
-                    count: 10,
-                    filters: [],
-                    orFilters: [],
-                    searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
-                },
-            },
-        },
-        result: {
-            data: {
-                search: {
-                    start: 0,
-                    count: 0,
-                    total: 0,
-                    searchResults: [],
-                    facets: [],
-                    suggestions: [],
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetEntityCountsDocument,
-            variables: {
-                input: {
-                    types: [
-                        EntityType.Dataset,
-                        EntityType.Chart,
-                        EntityType.Dashboard,
-                        EntityType.DataFlow,
-                        EntityType.GlossaryTerm,
-                        EntityType.MlfeatureTable,
-                        EntityType.Mlmodel,
-                        EntityType.MlmodelGroup,
-                        EntityType.DataProduct,
-                    ],
-                },
-            },
-        },
-        result: {
-            data: {
-                getEntityCounts: {
-                    counts: [
-                        {
-                            entityType: EntityType.Dataset,
-                            count: 670,
-                        },
-                    ],
-                },
-            },
-        },
-    },
-    {
-        request: {
-            query: GetSearchResultsForMultipleDocument,
-            variables: {
-                input: {
-                    types: [],
-                    query: '*',
-                    start: 0,
-                    count: 6,
-                    filters: [],
-                    orFilters: [],
-                },
-            },
-        },
-        result: {
-            data: {
-                __typename: 'Query',
-                searchAcrossEntities: {
-                    __typename: 'SearchResults',
-                    start: 0,
-                    count: 1,
-                    total: 1,
-                    searchResults: [
-                        {
-                            entity: {
-                                __typename: 'Dataset',
-                                ...dataset3,
-                            },
-                            matchedFields: [],
-                            insights: [],
-                        },
-                        {
-                            entity: {
-                                __typename: 'Dataset',
-                                ...dataset4,
-                            },
-                            matchedFields: [],
-                            insights: [],
-                        },
-                    ],
-                    facets: [
-                        {
-                            field: 'origin',
-                            displayName: 'origin',
-                            aggregations: [
-                                {
-                                    value: 'PROD',
-                                    count: 3,
-                                    entity: null,
-                                },
-                            ],
-                            entity: null,
-                        },
-                        {
-                            field: '_entityType',
-                            displayName: 'Type',
-                            aggregations: [
-                                { count: 37, entity: null, value: 'DATASET', __typename: 'AggregationMetadata' },
-                                { count: 7, entity: null, value: 'CHART', __typename: 'AggregationMetadata' },
-                            ],
-                            entity: null,
-                        },
-                        {
-                            field: 'platform',
-                            displayName: 'platform',
-                            aggregations: [
-                                { value: 'hdfs', count: 1, entity: null },
-                                { value: 'mysql', count: 1, entity: null },
-                                { value: 'kafka', count: 1, entity: null },
-                            ],
-                            entity: null,
-                        },
-                    ],
-                },
-            } as GetSearchResultsForMultipleQuery,
-        },
-    },
-    {
-        request: {
-            query: GetQuickFiltersDocument,
-            variables: {
-                input: {},
-            },
-        },
-        result: {
-            data: [],
-        },
-    },
-    {
-        request: {
-            query: GetGrantedPrivilegesDocument,
-            variables: {
-                input: {
-                    actorUrn: 'urn:li:corpuser:3',
-                    resourceSpec: { resourceType: EntityType.Dataset, resourceUrn: dataset3.urn },
-                },
-            },
-        },
-        result: {
-            data: { getGrantedPrivileges: { privileges: [VIEW_ENTITY_PAGE] } },
         },
     },
 ];
