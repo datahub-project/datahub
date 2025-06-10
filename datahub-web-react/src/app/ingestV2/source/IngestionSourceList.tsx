@@ -208,7 +208,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     const focusSource = finalSources.find((s) => s.urn === focusSourceUrn);
     const isLastPage = totalSources <= pageSize * page;
 
-
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
         setFinalSources(sources);
