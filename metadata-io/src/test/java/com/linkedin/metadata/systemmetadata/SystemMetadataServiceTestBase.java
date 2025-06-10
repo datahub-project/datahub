@@ -1,6 +1,6 @@
 package com.linkedin.metadata.systemmetadata;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SYSTEM_METADATA_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 
@@ -56,9 +56,19 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
   @Nonnull
   private ElasticSearchSystemMetadataService buildService() {
     ESSystemMetadataDAO dao =
-        new ESSystemMetadataDAO(getSearchClient(), _indexConvention, getBulkProcessor(), 1);
+        new ESSystemMetadataDAO(
+            getSearchClient(),
+            _indexConvention,
+            getBulkProcessor(),
+            1,
+            TEST_SYSTEM_METADATA_SERVICE_CONFIG);
     return new ElasticSearchSystemMetadataService(
-        getBulkProcessor(), _indexConvention, dao, getIndexBuilder(), "MD5", TEST_SEARCH_CONFIG);
+        getBulkProcessor(),
+        _indexConvention,
+        dao,
+        getIndexBuilder(),
+        "MD5",
+        TEST_SYSTEM_METADATA_SERVICE_CONFIG);
   }
 
   @Test
@@ -138,9 +148,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
     syncAfterWrite(getBulkProcessor());
 
-    List<AspectRowSummary> rows =
-        _client.findByRunId(
-            "abc-456", false, 0, TEST_SEARCH_CONFIG.getSearch().getLimit().getResults().getMax());
+    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, null);
 
     assertEquals(rows.size(), 4);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));
@@ -172,9 +180,7 @@ public abstract class SystemMetadataServiceTestBase extends AbstractTestNGSpring
 
     syncAfterWrite(getBulkProcessor());
 
-    List<AspectRowSummary> rows =
-        _client.findByRunId(
-            "abc-456", false, 0, TEST_SEARCH_CONFIG.getSearch().getLimit().getResults().getMax());
+    List<AspectRowSummary> rows = _client.findByRunId("abc-456", false, 0, null);
 
     assertEquals(rows.size(), 2);
     rows.forEach(row -> assertEquals(row.getRunId(), "abc-456"));

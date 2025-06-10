@@ -5,7 +5,8 @@ import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.newFilter;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -19,9 +20,9 @@ import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.GraphQueryConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
@@ -131,7 +132,12 @@ public class ESGraphQueryDAOTest {
     Long endTime = 1L;
 
     ESGraphQueryDAO graphQueryDAO =
-        new ESGraphQueryDAO(null, operationContext.getLineageRegistry(), null, TEST_SEARCH_CONFIG);
+        new ESGraphQueryDAO(
+            null,
+            operationContext.getLineageRegistry(),
+            null,
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG);
     QueryBuilder limitedBuilder = graphQueryDAO.getLineageQueryForEntityType(urns, edgeInfos);
 
     LineageGraphFilters lineageGraphFilters =
@@ -306,7 +312,8 @@ public class ESGraphQueryDAOTest {
             mockClient,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
-            TEST_SEARCH_CONFIG);
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG);
 
     // Mock the search response
     SearchResponse mockSearchResponse = mock(SearchResponse.class);
@@ -365,7 +372,8 @@ public class ESGraphQueryDAOTest {
             mockClient,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
-            TEST_SEARCH_CONFIG);
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG);
 
     // Create a map with mixed entity types for a single entity type key
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -414,7 +422,8 @@ public class ESGraphQueryDAOTest {
             mockClient,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
-            TEST_SEARCH_CONFIG);
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG);
 
     // Create a map with empty URN sets
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -480,7 +489,8 @@ public class ESGraphQueryDAOTest {
             mockClient,
             mockLineageRegistry,
             operationContext.getSearchContext().getIndexConvention(),
-            TEST_SEARCH_CONFIG);
+            TEST_GRAPH_SERVICE_CONFIG,
+            TEST_ES_SEARCH_CONFIG);
 
     // Create a map with dataset URNs
     Map<String, Set<Urn>> urnsPerEntityType = new HashMap<>();
@@ -595,7 +605,6 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testSearchSourceBuilderAppliesResultLimit() throws Exception {
-    // This test verifies that applyResultLimit is correctly used in SearchSourceBuilder
     // construction
 
     // Mock dependencies
@@ -605,17 +614,12 @@ public class ESGraphQueryDAOTest {
         .thenReturn(mockResponse);
 
     // Create a configuration with a specific limit
-    ElasticSearchConfiguration testConfig =
-        TEST_SEARCH_CONFIG.toBuilder()
-            .search(
-                new SearchConfiguration()
-                    .setGraph(new GraphQueryConfiguration())
-                    .setLimit(
-                        new SearchConfiguration.SearchLimitConfig()
-                            .setResults(
-                                new SearchConfiguration.SearchResultsLimit()
-                                    .setMax(50)
-                                    .setStrict(false))))
+    GraphServiceConfiguration testConfig =
+        TEST_GRAPH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(new ResultsLimitConfig().setMax(50).setApiDefault(50))
+                    .build())
             .build();
 
     // Create the DAO with our test config
@@ -624,7 +628,8 @@ public class ESGraphQueryDAOTest {
             mockClient,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
-            testConfig);
+            testConfig,
+            TEST_ES_SEARCH_CONFIG);
 
     // Create test data - requesting more than the limit
     GraphFilters graphFilters =
@@ -648,8 +653,6 @@ public class ESGraphQueryDAOTest {
 
   @Test
   public void testScrollSearchAppliesResultLimit() throws Exception {
-    // This test verifies that applyResultLimit is correctly used in scroll search queries
-
     // Mock dependencies
     RestHighLevelClient mockClient = mock(RestHighLevelClient.class);
     SearchResponse mockResponse = mock(SearchResponse.class);
@@ -657,17 +660,12 @@ public class ESGraphQueryDAOTest {
         .thenReturn(mockResponse);
 
     // Create a configuration with a specific limit
-    ElasticSearchConfiguration testConfig =
-        TEST_SEARCH_CONFIG.toBuilder()
-            .search(
-                new SearchConfiguration()
-                    .setGraph(new GraphQueryConfiguration())
-                    .setLimit(
-                        new SearchConfiguration.SearchLimitConfig()
-                            .setResults(
-                                new SearchConfiguration.SearchResultsLimit()
-                                    .setMax(25)
-                                    .setStrict(false))))
+    GraphServiceConfiguration testConfig =
+        TEST_GRAPH_SERVICE_CONFIG.toBuilder()
+            .limit(
+                LimitConfig.builder()
+                    .results(new ResultsLimitConfig().setMax(25).setApiDefault(25))
+                    .build())
             .build();
 
     // Create the DAO with our test config
@@ -676,7 +674,8 @@ public class ESGraphQueryDAOTest {
             mockClient,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
-            testConfig);
+            testConfig,
+            TEST_ES_SEARCH_CONFIG);
 
     // Create test data
     GraphFilters graphFilters =

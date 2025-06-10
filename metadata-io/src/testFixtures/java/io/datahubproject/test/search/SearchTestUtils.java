@@ -12,9 +12,15 @@ import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
+import com.linkedin.metadata.config.SystemMetadataServiceConfig;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -42,7 +48,15 @@ import org.opensearch.client.RestClientBuilder;
 public class SearchTestUtils {
   private SearchTestUtils() {}
 
-  public static ElasticSearchConfiguration TEST_SEARCH_CONFIG =
+  public static LimitConfig TEST_1K_LIMIT_CONFIG =
+      LimitConfig.builder()
+          .results(ResultsLimitConfig.builder().apiDefault(1000).max(1000).build())
+          .build();
+
+  public static SearchServiceConfiguration TEST_SEARCH_SERVICE_CONFIG =
+      SearchServiceConfiguration.builder().limit(TEST_1K_LIMIT_CONFIG).build();
+
+  public static ElasticSearchConfiguration TEST_ES_SEARCH_CONFIG =
       ElasticSearchConfiguration.builder()
           .search(
               new SearchConfiguration() {
@@ -60,12 +74,18 @@ public class SearchTestUtils {
                           setQueryOptimization(true);
                         }
                       });
-                  setLimit(
-                      new SearchLimitConfig()
-                          .setResults(new SearchResultsLimit().setMax(1000).setStrict(false)));
                 }
               })
           .build();
+
+  public static SystemMetadataServiceConfig TEST_SYSTEM_METADATA_SERVICE_CONFIG =
+      SystemMetadataServiceConfig.builder().limit(TEST_1K_LIMIT_CONFIG).build();
+
+  public static GraphServiceConfiguration TEST_GRAPH_SERVICE_CONFIG =
+      GraphServiceConfiguration.builder().limit(TEST_1K_LIMIT_CONFIG).build();
+
+  public static TimeseriesAspectServiceConfig TEST_TIMESERIES_ASPECT_SERVICE_CONFIG =
+      TimeseriesAspectServiceConfig.builder().limit(TEST_1K_LIMIT_CONFIG).build();
 
   public static void syncAfterWrite(ESBulkProcessor bulkProcessor)
       throws InterruptedException, IOException {

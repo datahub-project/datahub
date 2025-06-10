@@ -1,7 +1,9 @@
 package io.datahubproject.test.fixtures.search;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.EntityClientConfig;
@@ -102,7 +104,7 @@ public class SearchLineageFixtureConfiguration {
         .getSideEffects()
         .setSchemaField(new MetadataChangeProposalConfig.SideEffectConfig());
     conf.getMetadataChangeProposal().getSideEffects().getSchemaField().setEnabled(false);
-    conf.setElasticSearch(TEST_SEARCH_CONFIG);
+    conf.setElasticSearch(TEST_ES_SEARCH_CONFIG);
     return conf;
   }
 
@@ -113,7 +115,17 @@ public class SearchLineageFixtureConfiguration {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     ESIndexBuilder indexBuilder =
         new ESIndexBuilder(
-            searchClient, 1, 0, 1, 1, Map.of(), true, false, false, TEST_SEARCH_CONFIG, gitVersion);
+            searchClient,
+            1,
+            0,
+            1,
+            1,
+            Map.of(),
+            true,
+            false,
+            false,
+            TEST_ES_SEARCH_CONFIG,
+            gitVersion);
     IndexConfiguration indexConfiguration = new IndexConfiguration();
     indexConfiguration.setMinSearchFilterLength(3);
     SettingsBuilder settingsBuilder = new SettingsBuilder(null, indexConfiguration);
@@ -122,12 +134,17 @@ public class SearchLineageFixtureConfiguration {
             searchClient,
             false,
             ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH,
-            TEST_SEARCH_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             customSearchConfiguration,
-            queryFilterRewriteChain);
+            queryFilterRewriteChain,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESBrowseDAO browseDAO =
         new ESBrowseDAO(
-            searchClient, TEST_SEARCH_CONFIG, customSearchConfiguration, queryFilterRewriteChain);
+            searchClient,
+            TEST_ES_SEARCH_CONFIG,
+            customSearchConfiguration,
+            queryFilterRewriteChain,
+            TEST_SEARCH_SERVICE_CONFIG);
     ESWriteDAO writeDAO = new ESWriteDAO(searchClient, bulkProcessor, 1);
 
     return new ElasticSearchService(
@@ -135,7 +152,7 @@ public class SearchLineageFixtureConfiguration {
         opContext.getEntityRegistry(),
         opContext.getSearchContext().getIndexConvention(),
         settingsBuilder,
-        TEST_SEARCH_CONFIG,
+        TEST_SEARCH_SERVICE_CONFIG,
         searchDAO,
         browseDAO,
         writeDAO);
@@ -157,7 +174,7 @@ public class SearchLineageFixtureConfiguration {
   protected ESIndexBuilder esIndexBuilder() {
     GitVersion gitVersion = new GitVersion("0.0.0-test", "123456", Optional.empty());
     return new ESIndexBuilder(
-        searchClient, 1, 1, 1, 1, Map.of(), true, true, false, TEST_SEARCH_CONFIG, gitVersion);
+        searchClient, 1, 1, 1, 1, Map.of(), true, true, false, TEST_ES_SEARCH_CONFIG, gitVersion);
   }
 
   @Bean(name = "searchLineageGraphService")
@@ -173,8 +190,13 @@ public class SearchLineageFixtureConfiguration {
             bulkProcessor,
             indexConvention,
             new ESGraphWriteDAO(
-                indexConvention, bulkProcessor, 1, TEST_SEARCH_CONFIG.getSearch().getGraph()),
-            new ESGraphQueryDAO(searchClient, lineageRegistry, indexConvention, TEST_SEARCH_CONFIG),
+                indexConvention, bulkProcessor, 1, TEST_ES_SEARCH_CONFIG.getSearch().getGraph()),
+            new ESGraphQueryDAO(
+                searchClient,
+                lineageRegistry,
+                indexConvention,
+                TEST_GRAPH_SERVICE_CONFIG,
+                TEST_ES_SEARCH_CONFIG),
             indexBuilder,
             indexConvention.getIdHashAlgo());
     graphService.reindexAll(Collections.emptySet());
@@ -224,7 +246,8 @@ public class SearchLineageFixtureConfiguration {
                 entitySearchService,
                 entityDocCountCacheConfiguration),
             new CachingEntitySearchService(cacheManager, entitySearchService, batchSize, false),
-            ranker);
+            ranker,
+            TEST_SEARCH_SERVICE_CONFIG);
 
     // Build indices
     entitySearchService.reindexAll(Collections.emptySet());

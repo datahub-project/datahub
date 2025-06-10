@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from datetime import timedelta
 from typing import Any, Dict
 from unittest.mock import ANY, MagicMock, Mock, patch
@@ -1021,6 +1022,168 @@ class TestDataHubRestEmitter:
                 )
                 == "true"
             )
+
+    def test_config_cache_ttl(self, mock_session, mock_response):
+        """Test that config is cached and respects TTL"""
+        mock_session.get.return_value = mock_response
+
+        # Create emitter with 2 second TTL
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, config_ttl_seconds=2)
+        emitter._session = mock_session
+
+        # First call should fetch from server
+        config1 = emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # Second call within TTL should use cache
+        config2 = emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1  # Still 1, not 2
+        assert config1 is config2  # Same object reference
+
+        # Wait for TTL to expire
+        time.sleep(2.1)
+
+        # Next call should fetch from server again
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 2
+
+    def test_config_cache_default_ttl(self, mock_session, mock_response):
+        """Test that default TTL is 60 seconds"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        assert emitter._config_ttl_seconds == 60
+
+    def test_config_cache_manual_invalidation(self, mock_session, mock_response):
+        """Test manual cache invalidation"""
+        mock_session.get.return_value = mock_response
+
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        emitter._session = mock_session
+
+        # First call fetches from server
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # Second call uses cache
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # Invalidate cache
+        emitter.invalidate_config_cache()
+
+        # Next call should fetch from server
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 2
+
+    def test_config_cache_with_pre_set_config(self):
+        """Test that pre-set config doesn't trigger fetch"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+
+        # Manually set config without fetch time
+        test_config = RestServiceConfig(raw_config={"noCode": "true", "test": "value"})
+        emitter._server_config = test_config
+
+        # Mock session to ensure it's not called
+        with patch.object(emitter._session, "get") as mock_get:
+            config = emitter.fetch_server_config()
+
+            # Should not have made any HTTP calls
+            mock_get.assert_not_called()
+
+            # Should return the pre-set config
+            assert config is test_config
+
+    def test_config_cache_with_connection_error(self, mock_session):
+        """Test that failed fetches don't affect cache"""
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        emitter._session = mock_session
+
+        # First call fails
+        mock_session.get.side_effect = ConfigurationError("Connection failed")
+
+        with pytest.raises(ConfigurationError):
+            emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # Cache should still be empty
+        assert not hasattr(emitter, "_server_config") or emitter._server_config is None
+        assert emitter._config_fetch_time is None
+
+        # Fix the error and set up successful response
+        mock_session.get.side_effect = None
+        mock_response = Mock(
+            status_code=200, json=lambda: {"noCode": "true", "test": "value"}
+        )
+        mock_session.get.return_value = mock_response
+
+        # Second call should still hit server (no cache from failed attempt)
+        config = emitter.fetch_server_config()
+        assert mock_session.get.call_count == 2
+        assert config is not None
+
+    def test_config_property_uses_fetch_method(self, mock_session, mock_response):
+        """Test that server_config property uses fetch_server_config method"""
+        mock_session.get.return_value = mock_response
+
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        emitter._session = mock_session
+
+        # Access via property
+        with patch.object(
+            emitter, "fetch_server_config", wraps=emitter.fetch_server_config
+        ) as mock_fetch:
+            config = emitter.server_config
+            mock_fetch.assert_called_once()
+            assert config is not None
+
+    def test_config_cache_multiple_emitters(self, mock_session, mock_response):
+        """Test that each emitter has its own cache"""
+        mock_session.get.return_value = mock_response
+
+        emitter1 = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        emitter1._session = mock_session
+
+        emitter2 = DataHubRestEmitter(MOCK_GMS_ENDPOINT)
+        # Create a separate mock for emitter2
+        mock_session2 = Mock()
+        mock_session2.get.return_value = mock_response
+        emitter2._session = mock_session2
+
+        # Each emitter should make its own call
+        config1 = emitter1.fetch_server_config()
+        config2 = emitter2.fetch_server_config()
+
+        assert mock_session.get.call_count == 1
+        assert mock_session2.get.call_count == 1
+
+        # Configs should be different objects
+        assert config1 is not config2
+
+    def test_config_cache_custom_ttl(self, mock_session, mock_response):
+        """Test creating emitter with custom TTL"""
+        mock_session.get.return_value = mock_response
+
+        # Create with 5 minute TTL
+        emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, config_ttl_seconds=300)
+        emitter._session = mock_session
+
+        assert emitter._config_ttl_seconds == 300
+
+        # Fetch config
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1
+
+        # After 1 minute, should still use cache
+        # Simulate time passing by manipulating _config_fetch_time
+        emitter._config_fetch_time = time.time() - 60  # 1 minute ago
+
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 1  # Still cached
+
+        # After 6 minutes, should fetch again
+        emitter._config_fetch_time = time.time() - 360  # 6 minutes ago
+
+        emitter.fetch_server_config()
+        assert mock_session.get.call_count == 2  # Fetched again
 
 
 class TestOpenApiModeSelection:
