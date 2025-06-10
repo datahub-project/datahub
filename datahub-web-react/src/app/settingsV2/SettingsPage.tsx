@@ -6,6 +6,7 @@ import {
     Question,
     ShieldCheck,
     SignIn,
+    Sparkle,
     SquaresFour,
     Star,
     Users,
@@ -114,6 +115,7 @@ export const SettingsPage = () => {
 
     // SaaS Only
     const showGlobalSettings = me?.platformPrivileges?.manageGlobalSettings || false;
+    const showAiSettings = config.featureFlags.aiFeaturesEnabled && me?.platformPrivileges?.manageGlobalSettings;
     const showCustomHelpLink = me?.platformPrivileges?.manageGlobalSettings;
     // End SaaS Only
 
@@ -213,6 +215,14 @@ export const SettingsPage = () => {
                         link: `${url}/integrations`,
                         isHidden: !showGlobalSettings,
                         icon: <SquaresFour />,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'AI',
+                        key: 'ai',
+                        link: `${url}/ai`,
+                        isHidden: !showAiSettings,
+                        icon: <Sparkle />,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,

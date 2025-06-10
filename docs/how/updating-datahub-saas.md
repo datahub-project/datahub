@@ -25,6 +25,23 @@ This is over and above updating-datahub.md file
 
 ### Breaking Changes
 
+- [graphql] The `appConfig -> documentationAiEnabled` field has been removed, superseded by `globalSettings -> documentationAi -> enabled`.
+
+### Potential Downtime
+
+### Deprecations
+
+### Other Notable Changes
+
+### Environment variables
+
+- [datahub-gms] `AI_FEATURES_ENABLED`: Flag to enable the AI settings page in the UI.
+- [datahub-gms] `DOCUMENTATION_AI_ENABLED`: This flag has been repurposed - it now controls the default value for whether or not documentation AI is enabled, but will be superseded by `globalSettings.documentationAi.enabled` if that is set.
+
+## v0.3.11
+
+### Breaking Changes
+
 ### Potential Downtime
 
 ### Deprecations

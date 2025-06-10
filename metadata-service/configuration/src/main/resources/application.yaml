@@ -747,8 +747,12 @@ featureFlags:
   # Enables the ability to subscribe to notifications
   datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:true}
   # Enables the Dataset Health dashboard in the application
-  documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false}
-  # Enables the AI-powered documentation feature in the UI
+  aiFeaturesEnabled: ${AI_FEATURES_ENABLED:true}
+  # Whether AI-powered features are enabled. Not supported for non-AWS deployments.
+  documentationAiDefaultEnabled: ${DOCUMENTATION_AI_ENABLED:false}
+  # If the AI-powered documentation feature should be enabled by default.
+  # The globalSettings.documentationAi.enabled setting takes precedence over this.
+  # Requires aiFeaturesEnabled to be true.
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false}
   # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true}

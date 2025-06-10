@@ -1,5 +1,5 @@
+import { useGlobalSettingsContext } from '@app/context/GlobalSettings/GlobalSettingsContext';
 import { INFER_DOCUMENTATION_ENTITY_TYPES } from '@app/entityV2/shared/components/inferredDocs/constants';
-import { useAppConfig } from '@src/app/useAppConfig';
 import { useInferDocumentationMutation } from '@src/graphql/mutations.generated';
 import { EntityType } from '@src/types.generated';
 
@@ -32,5 +32,6 @@ export function useShouldShowInferDocumentationButton(entityType: EntityType) {
 }
 
 export function useIsDocumentationInferenceEnabled() {
-    return useAppConfig().config.featureFlags?.documentationAiEnabled;
+    const { globalSettings } = useGlobalSettingsContext();
+    return globalSettings?.documentationAi?.enabled ?? false;
 }

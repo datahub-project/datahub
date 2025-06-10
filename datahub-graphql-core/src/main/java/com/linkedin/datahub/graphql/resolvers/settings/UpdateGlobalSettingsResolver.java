@@ -19,6 +19,7 @@ import com.linkedin.datahub.graphql.types.notification.mappers.NotificationSetti
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.settings.NotificationSettingMap;
+import com.linkedin.settings.global.DocumentationAiSettings;
 import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
@@ -96,6 +97,11 @@ public class UpdateGlobalSettingsResolver implements DataFetcher<CompletableFutu
           existingSettings.hasSso() ? existingSettings.getSso() : new SsoSettings();
       updateSsoSettings(existingSsoSettings, update.getSsoSettings());
       existingSettings.setSso(existingSsoSettings);
+    }
+    if (update.getDocumentationAi() != null) {
+      DocumentationAiSettings docAiSettings = new DocumentationAiSettings();
+      docAiSettings.setEnabled(update.getDocumentationAi().getEnabled());
+      existingSettings.setDocumentationAi(docAiSettings);
     }
   }
 

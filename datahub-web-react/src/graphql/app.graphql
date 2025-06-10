@@ -104,7 +104,7 @@ query appConfig {
             businessAttributeEntityEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
-            documentationAiEnabled
+            aiFeaturesEnabled
             themeV2Enabled
             themeV2Default
             themeV2Toggleable

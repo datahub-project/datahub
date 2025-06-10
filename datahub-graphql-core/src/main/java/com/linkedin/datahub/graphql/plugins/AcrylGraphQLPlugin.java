@@ -849,7 +849,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         "Query",
         typeWiring ->
             typeWiring.dataFetcher(
-                "globalSettings", new GlobalSettingsResolver(entityClient, secretService)));
+                "globalSettings",
+                new GlobalSettingsResolver(entityClient, secretService, featureFlags)));
     builder.type(
         "Mutation",
         typeWiring ->

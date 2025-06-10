@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.settings;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.settings.global.GlobalSettingsInfo;
@@ -19,9 +20,11 @@ public class GlobalSettingsResolver implements DataFetcher<CompletableFuture<Glo
   private final SettingsMapper _settingsMapper;
 
   public GlobalSettingsResolver(
-      final EntityClient entityClient, final SecretService secretService) {
+      final EntityClient entityClient,
+      final SecretService secretService,
+      final FeatureFlags featureFlags) {
     _entityClient = entityClient;
-    _settingsMapper = new SettingsMapper(secretService);
+    _settingsMapper = new SettingsMapper(secretService, featureFlags);
   }
 
   @Override

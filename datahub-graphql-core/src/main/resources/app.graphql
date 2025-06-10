@@ -697,6 +697,11 @@ type GlobalSettings {
   Global visual Settings
   """
   visualSettings: GlobalVisualSettings
+
+  """
+  Settings related to AI-powered documentation.
+  """
+  documentationAi: DocumentationAiSettings
 }
 
 """
@@ -1019,10 +1024,16 @@ input UpdateGlobalSettingsInput {
   Input required to update notifications settings
   """
   notificationSettings: UpdateGlobalNotificationSettingsInput
+
   """
   Input required to update SSO settings
   """
   ssoSettings: UpdateSsoSettingsInput
+
+  """
+  Input required to update documentation AI settings
+  """
+  documentationAi: UpdateDocumentationAiSettingsInput
 }
 
 """
@@ -1205,6 +1216,7 @@ input UpdateOidcSettingsInput {
   """
   preferredJwsAlgorithm: String
 }
+
 """
 Configurations related to DataHub Views feature
 """
@@ -1306,9 +1318,9 @@ type FeatureFlagsConfig {
   editableDatasetNameEnabled: Boolean!
 
   """
-  Whether AI-powered documentation should be enabled
+  Whether AI-powered features are enabled.
   """
-  documentationAiEnabled: Boolean!
+  aiFeaturesEnabled: Boolean!
 
   """
   Allows the V2 theme to be turned on.
@@ -1626,4 +1638,21 @@ input UpdateOrganizationDisplayPreferencesInput {
   The url of the customized logo url
   """
   customLogoUrl: String
+}
+
+"""
+Settings related to AI-powered documentation.
+"""
+type DocumentationAiSettings {
+  """
+  Whether or not AI-generated documentation is enabled.
+  """
+  enabled: Boolean!
+}
+
+input UpdateDocumentationAiSettingsInput {
+  """
+  Whether or not AI-generated documentation is enabled.
+  """
+  enabled: Boolean!
 }

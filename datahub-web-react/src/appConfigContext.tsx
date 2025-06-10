@@ -84,7 +84,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showAccessManagement: false,
         nestedDomainsEnabled: true,
         dataContractsEnabled: false,
-        documentationAiEnabled: false,
+        aiFeaturesEnabled: false,
         themeV2Enabled: false,
         themeV2Default: false,
         themeV2Toggleable: false,

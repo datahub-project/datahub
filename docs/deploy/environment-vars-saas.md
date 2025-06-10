@@ -54,13 +54,14 @@ AI terms classification is covered below.
 
 The AI-powered Slack bot, which replies to the @datahub mentions, is covered in the Slack Integration section.
 
-| Variable                                     | Default            | Unit/Type | Components | Description                                                                           |
-| -------------------------------------------- | ------------------ | --------- | ---------- | ------------------------------------------------------------------------------------- |
-| `AI_TERM_CLASSIFICATION_ENABLED`             | `false`            | boolean   | [`GMS`]    | Controls whether the term classification feature is enabled.                          |
-| `DOCUMENTATION_AI_ENABLED`                   | `false`            | boolean   | [`GMS`]    | Controls whether the documentation AI feature (both datasets and queries) is enabled. |
-| `DESCRIPTION_GENERATION_BEDROCK_MODEL`       | `CLAUDE_3_HAIKU`   | string    | [`GMS`]    | Which Bedrock model to use for description generation.                                |
-| `QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL` | `CLAUDE_35_SONNET` | string    | [`GMS`]    | Which Bedrock model to use for query description generation.                          |
-| `TERM_SUGGESTION_GENERATION_BEDROCK_MODEL`   | `CLAUDE_3_HAIKU`   | string    | [`GMS`]    | Which Bedrock model to use for term suggestion generation.                            |
+| Variable                                     | Default            | Unit/Type | Components | Description                                                                                                                        |
+| -------------------------------------------- | ------------------ | --------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `AI_FEATURES_ENABLED`                        | `true`             | boolean   | [`GMS`]    | Controls whether the AI settings page is visible to admins.                                                                        |
+| `AI_TERM_CLASSIFICATION_ENABLED`             | `false`            | boolean   | [`GMS`]    | Controls whether the term classification feature is enabled.                                                                       |
+| `DOCUMENTATION_AI_ENABLED`                   | `false`            | boolean   | [`GMS`]    | Controls the fallback value for whether or not documentation AI is enabled if `globalSettings.documentationAi.enabled` is not set. |
+| `DESCRIPTION_GENERATION_BEDROCK_MODEL`       | `CLAUDE_3_HAIKU`   | string    | [`GMS`]    | Which Bedrock model to use for description generation.                                                                             |
+| `QUERY_DESCRIPTION_GENERATION_BEDROCK_MODEL` | `CLAUDE_35_SONNET` | string    | [`GMS`]    | Which Bedrock model to use for query description generation.                                                                       |
+| `TERM_SUGGESTION_GENERATION_BEDROCK_MODEL`   | `CLAUDE_3_HAIKU`   | string    | [`GMS`]    | Which Bedrock model to use for term suggestion generation.                                                                         |
 
 ## Remote Executor System
 

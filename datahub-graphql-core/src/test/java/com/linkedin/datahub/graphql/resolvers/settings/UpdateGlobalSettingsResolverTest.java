@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.NotificationScenarioType;
 import com.linkedin.datahub.graphql.generated.NotificationSettingInput;
 import com.linkedin.datahub.graphql.generated.NotificationSettingValue;
 import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
+import com.linkedin.datahub.graphql.generated.UpdateDocumentationAiSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateEmailIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalIntegrationSettingsInput;
 import com.linkedin.datahub.graphql.generated.UpdateGlobalNotificationSettingsInput;
@@ -35,6 +36,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.settings.NotificationSettingMap;
+import com.linkedin.settings.global.DocumentationAiSettings;
 import com.linkedin.settings.global.EmailIntegrationSettings;
 import com.linkedin.settings.global.GlobalIntegrationSettings;
 import com.linkedin.settings.global.GlobalNotificationSettings;
@@ -82,6 +84,10 @@ public class UpdateGlobalSettingsResolverTest {
     updateSsoSettingsInput.setOidcSettings(updateOidcSettingsInput);
 
     TEST_INPUT.setSsoSettings(updateSsoSettingsInput);
+
+    UpdateDocumentationAiSettingsInput docAiInput = new UpdateDocumentationAiSettingsInput();
+    docAiInput.setEnabled(true);
+    TEST_INPUT.setDocumentationAi(docAiInput);
   }
 
   @Test
@@ -199,6 +205,7 @@ public class UpdateGlobalSettingsResolverTest {
         new com.linkedin.settings.NotificationSetting()
             .setValue(com.linkedin.settings.NotificationSettingValue.DISABLED));
     globalSettingsInfo.setNotifications(new GlobalNotificationSettings().setSettings(map));
+    globalSettingsInfo.setDocumentationAi(new DocumentationAiSettings().setEnabled(true));
     return globalSettingsInfo;
   }
 }

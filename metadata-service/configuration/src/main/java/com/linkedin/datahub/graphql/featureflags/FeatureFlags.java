@@ -51,7 +51,8 @@ public class FeatureFlags {
   private boolean slackBotTokensConfigEnabled = false;
   private boolean slackBotTokensObfuscationEnabled = false;
   private boolean datasetHealthDashboardEnabled = false;
-  private boolean documentationAiEnabled = false;
+  private boolean aiFeaturesEnabled = true;
+  private boolean documentationAiDefaultEnabled = false;
   private boolean metadataShareEnabled = false;
   private boolean documentationFormsEnabled = false;
   private boolean emailNotificationsEnabled = false;
