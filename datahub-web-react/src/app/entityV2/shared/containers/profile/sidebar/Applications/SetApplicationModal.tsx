@@ -1,11 +1,8 @@
 import { Modal, Select, Typography, message } from 'antd';
 import React, { useState } from 'react';
 
-import {
-    useBatchSetApplicationMutation,
-    useGetApplicationsListQuery,
-} from '../../../../../../../graphql/application.generated';
-import { Application, EntityType } from '../../../../../../../types.generated';
+import { useBatchSetApplicationMutation, useGetApplicationsListQuery } from '@graphql/application.generated';
+import { Application, EntityType } from '@types';
 
 interface Props {
     urns: string[];
