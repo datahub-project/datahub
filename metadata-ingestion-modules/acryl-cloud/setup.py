@@ -99,6 +99,11 @@ setup(
                 "scroll_shared_entities.gql",
                 "share_entity.gql",
             ],
+            "acryl_datahub_cloud.datahub_forms_notifications": [
+                "get_search_results_total.gql",
+                "scroll_forms_for_notification.gql",
+                "send_form_notification_request.gql",
+            ],
         },
     },
     extras_require={

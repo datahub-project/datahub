@@ -123,7 +123,9 @@ class DataHubFormsNotificationsSource(Source):
                     "input": {
                         "type": "BROADCAST_COMPLIANCE_FORM_PUBLISH",
                         "parameters": [{"key": "formName", "value": form_name}],
-                        "recipients": recipients,
+                        "recipients": self.recipient_builder.convert_recipients_to_json_objects(
+                            recipients
+                        ),
                     }
                 },
             )

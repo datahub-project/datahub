@@ -229,6 +229,13 @@ def test_process_notify_on_publish(source: DataHubFormsNotificationsSource) -> N
             "parameters": [],
         }
     ]
+    mock_recipient_builder.convert_recipients_to_json_objects.return_value = [
+        {
+            "actor": "urn:li:corpuser:user1",
+            "type": "COMPLIANCE_FORM_PUBLISH",
+            "parameters": [],
+        }
+    ]
     source.recipient_builder = mock_recipient_builder
 
     # Mock successful notification send
@@ -334,6 +341,18 @@ def test_notify_form_assignees(source: DataHubFormsNotificationsSource) -> None:
     # Mock the recipient builder
     mock_recipient_builder = MagicMock(spec=NotificationRecipientBuilder)
     mock_recipient_builder.build_actor_recipients.return_value = [
+        {
+            "actor": "urn:li:corpuser:user1",
+            "type": "COMPLIANCE_FORM_PUBLISH",
+            "parameters": [],
+        },
+        {
+            "actor": "urn:li:corpuser:group-user1",
+            "type": "COMPLIANCE_FORM_PUBLISH",
+            "parameters": [],
+        },
+    ]
+    mock_recipient_builder.convert_recipients_to_json_objects.return_value = [
         {
             "actor": "urn:li:corpuser:user1",
             "type": "COMPLIANCE_FORM_PUBLISH",

@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, List
+from typing import Any, Dict, List
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -21,6 +21,20 @@ class NotificationRecipientBuilder:
         self.graph: DataHubGraph = graph
         self.user_settings_map: Dict[str, CorpUserSettingsClass] = {}
         self.group_settings_map: Dict[str, CorpGroupSettingsClass] = {}
+
+    def convert_recipients_to_json_objects(
+        self, recipients: List[NotificationRecipientClass]
+    ) -> List[Dict[str, Any]]:
+        converted_recipients: List[Dict[str, Any]] = []
+
+        for r in recipients:
+            recipient: Dict[str, Any] = {}
+            recipient["type"] = r.type
+            recipient["id"] = r.id
+            recipient["actor"] = r.actor
+            converted_recipients.append(recipient)
+
+        return converted_recipients
 
     def build_actor_recipients(
         self,
