@@ -7,6 +7,7 @@ import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
+import { useUserContext } from '@app/context/useUserContext';
 import EmptySources from '@app/ingestV2/EmptySources';
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
@@ -24,11 +25,11 @@ import {
     getSortInput,
     removeFromListIngestionSourcesCache,
 } from '@app/ingestV2/source/utils';
-import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import usePagination from '@app/sharedV2/pagination/usePagination';
 
 import {
     useCreateIngestionExecutionRequestMutation,
@@ -119,10 +120,19 @@ interface Props {
     showCreateModal: boolean;
     setShowCreateModal: (show: boolean) => void;
     shouldPreserveParams: React.MutableRefObject<boolean>;
+    hideSystemSources: boolean;
+    setHideSystemSources: (show: boolean) => void;
 }
 
-export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shouldPreserveParams }: Props) => {
+export const IngestionSourceList = ({
+    showCreateModal,
+    setShowCreateModal,
+    shouldPreserveParams,
+    hideSystemSources,
+    setHideSystemSources,
+}: Props) => {
     const location = useLocation();
+    const me = useUserContext();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
@@ -139,10 +149,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
         }
     }, [paramsQuery]);
 
-    const [page, setPage] = useState(1);
-
-    const pageSize = DEFAULT_PAGE_SIZE;
-    const start = (page - 1) * pageSize;
+    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
 
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
@@ -151,7 +158,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
-    const [hideSystemSources, setHideSystemSources] = useState(true);
     const [sort, setSort] = useState<SortCriterion>();
 
     // Debounce the search query
@@ -167,7 +173,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     // When source filter changes, reset page to 1
     useEffect(() => {
         setPage(1);
-    }, [sourceFilter]);
+    }, [sourceFilter, setPage]);
 
     /**
      * Show or hide system ingestion sources using a hidden command S command.
@@ -206,6 +212,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
 
     const totalSources = data?.listIngestionSources?.total || 0;
+    const isLastPage = totalSources <= pageSize * page;
+
     const filteredSources = useMemo(() => {
         const sources = data?.listIngestionSources?.ingestionSources || [];
         return sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
@@ -330,6 +338,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
             createIngestionSource({ variables: { input } })
                 .then((result) => {
                     message.loading({ content: 'Loading...', duration: 2 });
+                    const ownersToAdd = owners?.filter((owner) => owner.ownerUrn !== me.urn);
+
                     const newSource = {
                         urn: result?.data?.createIngestionSource || PLACEHOLDER_URN,
                         name: input.name,
@@ -344,11 +354,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                         ownership: null,
                     };
 
-                    if (owners && owners.length > 0) {
+                    if (ownersToAdd && ownersToAdd.length > 0) {
                         batchAddOwnersMutation({
                             variables: {
                                 input: {
-                                    owners,
+                                    owners: ownersToAdd,
                                     resources: [{ resourceUrn: newSource.urn }],
                                 },
                             },
@@ -515,7 +525,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                 <Message type="error" content="Failed to load ingestion sources! An unexpected error occurred." />
             )}
             <SourceContainer>
-                <OnboardingTour stepIds={[INGESTION_REFRESH_SOURCES_ID]} />
                 <HeaderContainer>
                     <StyledTabToolbar>
                         <SearchContainer>
@@ -557,6 +566,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                                 onChangeSort={onChangeSort}
                                 isLoading={loading}
                                 shouldPreserveParams={shouldPreserveParams}
+                                isLastPage={isLastPage}
                             />
                         </TableContainer>
                         <PaginationContainer>

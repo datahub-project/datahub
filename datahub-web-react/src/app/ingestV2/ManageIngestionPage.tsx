@@ -11,7 +11,10 @@ import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { INGESTION_CREATE_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
+import {
+    INGESTION_CREATE_SOURCE_ID,
+    INGESTION_REFRESH_SOURCES_ID,
+} from '@app/onboarding/config/IngestionOnboardingConfig';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -73,6 +76,7 @@ export const ManageIngestionPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
+    const [hideSystemSources, setHideSystemSources] = useState(true);
 
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
@@ -101,13 +105,21 @@ export const ManageIngestionPage = () => {
                     showCreateModal={showCreateSourceModal}
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
+                    hideSystemSources={hideSystemSources}
+                    setHideSystemSources={setHideSystemSources}
                 />
             ),
             key: TabType.Sources as string,
             name: TabType.Sources as string,
         },
         {
-            component: <ExecutionsTab shouldPreserveParams={shouldPreserveParams} />,
+            component: (
+                <ExecutionsTab
+                    shouldPreserveParams={shouldPreserveParams}
+                    hideSystemSources={hideSystemSources}
+                    setHideSystemSources={setHideSystemSources}
+                />
+            ),
             key: TabType.ExecutionLog as string,
             name: 'Execution Log',
         },
@@ -134,7 +146,7 @@ export const ManageIngestionPage = () => {
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-            <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID]} />
+            <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
                 <TitleContainer>
                     <PageTitle

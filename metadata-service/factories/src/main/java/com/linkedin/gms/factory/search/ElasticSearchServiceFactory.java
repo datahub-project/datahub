@@ -64,19 +64,21 @@ public class ElasticSearchServiceFactory {
             elasticSearchConfiguration.getImplementation(),
             elasticSearchConfiguration,
             customSearchConfiguration,
-            queryFilterRewriteChain);
+            queryFilterRewriteChain,
+            configurationProvider.getSearchService());
     return new ElasticSearchService(
         components.getIndexBuilder(),
         entityRegistry,
         components.getIndexConvention(),
         settingsBuilder,
-        elasticSearchConfiguration,
+        configurationProvider.getSearchService(),
         esSearchDAO,
         new ESBrowseDAO(
             components.getSearchClient(),
             elasticSearchConfiguration,
             customSearchConfiguration,
-            queryFilterRewriteChain),
+            queryFilterRewriteChain,
+            configurationProvider.getSearchService()),
         new ESWriteDAO(
             components.getSearchClient(),
             components.getBulkProcessor(),

@@ -251,17 +251,14 @@
   },
   {
     "request": {
-      "url": "/openapi/v3/entity/scroll?query=*&count=10000",
-      "description": "Test count too high",
+      "url": "/openapi/v3/entity/scroll?query=*&count=99999",
+      "description": "Test count too high, no error limited by max limit transparently.",
       "json": {}
     },
     "response": {
       "status_codes": [
-        400
-      ],
-      "json": {
-        "error": "Elasticsearch result count exceeds limit of 5000"
-      }
+        200
+      ]
     }
   }
 ]

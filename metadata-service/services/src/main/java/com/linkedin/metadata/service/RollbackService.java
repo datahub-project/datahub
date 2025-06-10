@@ -13,7 +13,7 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.key.ExecutionRequestKey;
@@ -51,10 +51,11 @@ public class RollbackService {
   private final EntityService<?> entityService;
   private final SystemMetadataService systemMetadataService;
   private final TimeseriesAspectService timeseriesAspectService;
-  private final SearchConfiguration.SearchResultsLimit searchResultsLimit;
+  private final SystemMetadataServiceConfig systemMetadataServiceConfig;
 
   public List<AspectRowSummary> rollbackTargetAspects(@Nonnull String runId, boolean hardDelete) {
-    return systemMetadataService.findByRunId(runId, hardDelete, 0, searchResultsLimit.getMax());
+    return systemMetadataService.findByRunId(
+        runId, hardDelete, 0, systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
   }
 
   public RollbackResponse rollbackIngestion(
@@ -114,7 +115,10 @@ public class RollbackService {
               .map(
                   (AspectRowSummary urn) ->
                       systemMetadataService.findByUrn(
-                          urn.getUrn(), false, 0, searchResultsLimit.getMax()))
+                          urn.getUrn(),
+                          false,
+                          0,
+                          systemMetadataServiceConfig.getLimit().getResults().getApiDefault()))
               .flatMap(List::stream)
               .filter(
                   row ->
@@ -159,10 +163,15 @@ public class RollbackService {
 
     // since elastic limits how many rows we can access at once, we need to iteratively
     // delete
-    while (aspectRowsToDelete.size() >= searchResultsLimit.getMax()) {
+    while (aspectRowsToDelete.size()
+        >= systemMetadataServiceConfig.getLimit().getResults().getApiDefault()) {
       sleep(ELASTIC_BATCH_DELETE_SLEEP_SEC);
       aspectRowsToDelete =
-          systemMetadataService.findByRunId(runId, hardDelete, 0, searchResultsLimit.getMax());
+          systemMetadataService.findByRunId(
+              runId,
+              hardDelete,
+              0,
+              systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
       log.info("{} remaining rows to delete...", stringifyRowCount(aspectRowsToDelete.size()));
       log.info("deleting...");
       rollbackRunResult =
@@ -203,7 +212,10 @@ public class RollbackService {
             .map(
                 (AspectRowSummary urn) ->
                     systemMetadataService.findByUrn(
-                        urn.getUrn(), false, 0, searchResultsLimit.getMax()))
+                        urn.getUrn(),
+                        false,
+                        0,
+                        systemMetadataServiceConfig.getLimit().getResults().getApiDefault()))
             .flatMap(List::stream)
             .filter(
                 row ->
@@ -301,7 +313,7 @@ public class RollbackService {
   }
 
   private String stringifyRowCount(int size) {
-    if (size < searchResultsLimit.getMax()) {
+    if (size < systemMetadataServiceConfig.getLimit().getResults().getMax()) {
       return String.valueOf(size);
     } else {
       return "at least " + size;

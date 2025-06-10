@@ -151,7 +151,7 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
       @Nullable Filter filter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
     return TimeseriesScrollResult.builder().build();

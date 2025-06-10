@@ -244,7 +244,7 @@ public class PoliciesConfig {
       Privilege.of(
           "EXISTS_ENTITY", "Entity Exists", "The ability to determine whether the entity exists.");
 
-  static final Privilege CREATE_ENTITY_PRIVILEGE =
+  public static final Privilege CREATE_ENTITY_PRIVILEGE =
       Privilege.of(
           "CREATE_ENTITY", "Create Entity", "The ability to create an entity if it doesn't exist.");
 
@@ -285,6 +285,13 @@ public class PoliciesConfig {
   public static final Privilege EDIT_ENTITY_DOMAINS_PRIVILEGE =
       Privilege.of(
           "EDIT_DOMAINS_PRIVILEGE", "Edit Domain", "The ability to edit the Domain of an entity.");
+
+  // can you edit the application applied to an entity
+  public static final Privilege EDIT_ENTITY_APPLICATIONS_PRIVILEGE =
+      Privilege.of(
+          "EDIT_ENTITY_APPLICATIONS_PRIVILEGE",
+          "Edit Entity Applications",
+          "The ability to edit the Applications of an entity.");
 
   public static final Privilege EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE =
       Privilege.of(
@@ -359,6 +366,7 @@ public class PoliciesConfig {
           EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
           EDIT_ENTITY_STATUS_PRIVILEGE,
           EDIT_ENTITY_DOMAINS_PRIVILEGE,
+          EDIT_ENTITY_APPLICATIONS_PRIVILEGE,
           EDIT_ENTITY_DATA_PRODUCTS_PRIVILEGE,
           EDIT_ENTITY_DEPRECATION_PRIVILEGE,
           EDIT_ENTITY_PRIVILEGE,
@@ -722,6 +730,25 @@ public class PoliciesConfig {
               CREATE_ENTITY_PRIVILEGE,
               EXISTS_ENTITY_PRIVILEGE));
 
+  // Application Privileges
+  public static final ResourcePrivileges APPLICATION_PRIVILEGES =
+      ResourcePrivileges.of(
+          "application",
+          "Applications",
+          "Applications created on DataHub",
+          ImmutableList.of(
+              VIEW_ENTITY_PAGE_PRIVILEGE,
+              EDIT_ENTITY_OWNERS_PRIVILEGE,
+              EDIT_ENTITY_DOCS_PRIVILEGE,
+              EDIT_ENTITY_DOC_LINKS_PRIVILEGE,
+              EDIT_ENTITY_PRIVILEGE,
+              DELETE_ENTITY_PRIVILEGE,
+              EDIT_ENTITY_TAGS_PRIVILEGE,
+              EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+              EDIT_ENTITY_DOMAINS_PRIVILEGE,
+              EDIT_ENTITY_PROPERTIES_PRIVILEGE,
+              EXISTS_ENTITY_PRIVILEGE));
+
   // Glossary Term Privileges
   public static final ResourcePrivileges GLOSSARY_TERM_PRIVILEGES =
       ResourcePrivileges.of(
@@ -863,7 +890,8 @@ public class PoliciesConfig {
           BUSINESS_ATTRIBUTE_PRIVILEGES,
           STRUCTURED_PROPERTIES_PRIVILEGES,
           VERSION_SET_PRIVILEGES,
-          PLATFORM_INSTANCE_PRIVILEGES);
+          PLATFORM_INSTANCE_PRIVILEGES,
+          APPLICATION_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =
