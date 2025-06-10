@@ -275,6 +275,11 @@ type Query {
   Fetch a Data Process Instance by primary key (urn)
   """
   dataProcessInstance(urn: String!): DataProcessInstance
+
+  """
+  Fetch an Application by primary key (urn)
+  """
+  application(urn: String!): Application
 }
 
 """
@@ -886,6 +891,37 @@ type Mutation {
   ): Boolean
 
   """
+  Create a new Application
+  """
+  createApplication(
+    "Inputs required to create a new Application."
+    input: CreateApplicationInput!
+  ): Application
+
+  """
+  Update a Application
+  """
+  updateApplication(
+    "The urn identifier for the Application to update."
+    urn: String!
+    "Inputs required to create a new Application."
+    input: UpdateApplicationInput!
+  ): Application
+
+  """
+  Delete a Application by urn.
+  """
+  deleteApplication("Urn of the application to remove." urn: String!): Boolean
+
+  """
+  Batch set or unset a Application to a list of entities
+  """
+  batchSetApplication(
+    "Input for batch setting application"
+    input: BatchSetApplicationInput!
+  ): Boolean
+
+  """
   Create a Custom Ownership Type. This requires the 'Manage Ownership Types' Metadata Privilege.
   """
   createOwnershipType(
@@ -1256,6 +1292,11 @@ enum EntityType {
   A set of versioned entities, representing a single source / logical entity over time
   """
   VERSION_SET
+
+  """
+  An application
+  """
+  APPLICATION
 }
 
 """
@@ -12741,6 +12782,200 @@ input BatchSetDataProductInput {
 
   """
   The urns of the entities the given data product should be set on
+  """
+  resourceUrns: [String!]!
+}
+
+"""
+An Application, or a grouping of Entities for a single business purpose. Compared with Data Products, Applications represent a grouping of tables that exist to serve a specific
+purpose. However, unlike Data Products, they don't represent groups that are tailored to be consumed for any particular purpose. Often, the assets in Applications power specific
+outcomes, for example a Pricing Application.
+"""
+type Application implements Entity {
+  """
+  The primary key of the Application
+  """
+  urn: String!
+
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
+
+  """
+  Properties about an Application
+  """
+  properties: ApplicationProperties
+
+  """
+  Ownership metadata of the Application
+  """
+  ownership: Ownership
+
+  """
+  References to internal resources related to the Application
+  """
+  institutionalMemory: InstitutionalMemory
+
+  """
+  Edges extending from this entity
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+
+  """
+  The structured glossary terms associated with the Application
+  """
+  glossaryTerms: GlossaryTerms
+
+  """
+  The Domain associated with the Application
+  """
+  domain: DomainAssociation
+
+  """
+  Tags used for searching Application
+  """
+  tags: GlobalTags
+
+  """
+  Experimental API.
+  For fetching extra entities that do not have custom UI code yet
+  """
+  aspects(input: AspectParams): [RawAspect!]
+
+  """
+  Structured properties about this asset
+  """
+  structuredProperties: StructuredProperties
+
+  """
+  The forms associated with the Application
+  """
+  forms: Forms
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges
+}
+
+"""
+Properties about an Application
+"""
+type ApplicationProperties {
+  """
+  Display name of the Application
+  """
+  name: String!
+
+  """
+  Description of the Application
+  """
+  description: String
+
+  """
+  External URL for the Appliation (most likely GitHub repo where Application may be managed as code)
+  """
+  externalUrl: String
+
+  """
+  Number of children entities inside of the Application. This number includes soft deleted entities.
+  """
+  numAssets: Int
+
+  """
+  Custom properties of the Application
+  """
+  customProperties: [CustomPropertiesEntry!]
+}
+
+"""
+Input required to fetch the entities inside of a Application.
+"""
+input ApplicationEntitiesInput {
+  """
+  Optional query filter for particular entities inside the Application
+  """
+  query: String
+
+  """
+  The offset of the result set
+  """
+  start: Int
+
+  """
+  The number of entities to include in result set
+  """
+  count: Int
+
+  """
+  Optional Facet filters to apply to the result set
+  """
+  filters: [FacetFilterInput!]
+}
+
+"""
+Input required for creating a Application.
+"""
+input CreateApplicationInput {
+  """
+  Properties about the Application
+  """
+  properties: CreateApplicationPropertiesInput!
+
+  """
+  An Optional Domain
+  """
+  domainUrn: String
+
+  """
+  An optional id for the new application
+  """
+  id: String
+}
+
+"""
+Input properties required for creating a Application
+"""
+input CreateApplicationPropertiesInput {
+  """
+  A display name for the Application
+  """
+  name: String!
+
+  """
+  An optional description for the Application
+  """
+  description: String
+}
+
+"""
+Input properties required for update a Application
+"""
+input UpdateApplicationInput {
+  """
+  A display name for the Application
+  """
+  name: String
+
+  """
+  An optional description for the Application
+  """
+  description: String
+}
+
+"""
+Input properties required for batch setting a Application on other entities
+"""
+input BatchSetApplicationInput {
+  """
+  The urn of the application you are setting on a group of resources.
+  If this is null, the Application will be unset for the given resources.
+  """
+  applicationUrn: String
+
+  """
+  The urns of the entities the given application should be set on
   """
   resourceUrns: [String!]!
 }

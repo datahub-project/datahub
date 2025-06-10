@@ -38,7 +38,7 @@ interface Props {
 
 export default function BaseActionsColumn({ dropdownItems, extraActions }: Props) {
     return (
-        <ActionIcons>
+        <ActionIcons onClick={(e) => e.stopPropagation()}>
             {extraActions}
             <Dropdown menu={{ items: dropdownItems }} trigger={['click']}>
                 <Icon icon="DotsThreeVertical" source="phosphor" />

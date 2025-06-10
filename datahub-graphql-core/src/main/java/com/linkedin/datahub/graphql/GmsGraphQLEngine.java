@@ -26,6 +26,9 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.MeResolver;
+import com.linkedin.datahub.graphql.resolvers.application.BatchSetApplicationResolver;
+import com.linkedin.datahub.graphql.resolvers.application.CreateApplicationResolver;
+import com.linkedin.datahub.graphql.resolvers.application.DeleteApplicationResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionRunEventResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.DeleteAssertionResolver;
 import com.linkedin.datahub.graphql.resolvers.assertion.EntityAssertionsResolver;
@@ -110,6 +113,7 @@ import com.linkedin.datahub.graphql.resolvers.incident.UpdateIncidentStatusResol
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CancelIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateIngestionExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.CreateTestConnectionRequestResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.execution.GetLatestSuccessfulExecutionRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.RollbackIngestionResolver;
@@ -241,6 +245,7 @@ import com.linkedin.datahub.graphql.types.BrowsableEntityType;
 import com.linkedin.datahub.graphql.types.EntityType;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.datahub.graphql.types.SearchableEntityType;
+import com.linkedin.datahub.graphql.types.application.ApplicationType;
 import com.linkedin.datahub.graphql.types.aspect.AspectType;
 import com.linkedin.datahub.graphql.types.assertion.AssertionType;
 import com.linkedin.datahub.graphql.types.auth.AccessTokenMetadataType;
@@ -315,6 +320,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.recommendation.RecommendationsService;
+import com.linkedin.metadata.service.ApplicationService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
@@ -395,6 +401,7 @@ public class GmsGraphQLEngine {
   private ConnectionService connectionService;
   private AssertionService assertionService;
   private final EntityVersioningService entityVersioningService;
+  private final ApplicationService applicationService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -447,6 +454,7 @@ public class GmsGraphQLEngine {
   private final DataHubViewType dataHubViewType;
   private final QueryType queryType;
   private final DataProductType dataProductType;
+  private final ApplicationType applicationType;
   private final OwnershipType ownershipType;
   private final StructuredPropertyType structuredPropertyType;
   private final DataTypeType dataTypeType;
@@ -521,6 +529,7 @@ public class GmsGraphQLEngine {
     this.queryService = args.queryService;
     this.erModelRelationshipService = args.erModelRelationshipService;
     this.dataProductService = args.dataProductService;
+    this.applicationService = args.applicationService;
     this.formService = args.formService;
     this.restrictedService = args.restrictedService;
     this.connectionService = args.connectionService;
@@ -575,6 +584,7 @@ public class GmsGraphQLEngine {
     this.dataHubViewType = new DataHubViewType(entityClient);
     this.queryType = new QueryType(entityClient);
     this.dataProductType = new DataProductType(entityClient);
+    this.applicationType = new ApplicationType(entityClient);
     this.ownershipType = new OwnershipType(entityClient);
     this.structuredPropertyType = new StructuredPropertyType(entityClient);
     this.dataTypeType = new DataTypeType(entityClient);
@@ -640,6 +650,7 @@ public class GmsGraphQLEngine {
                 restrictedType,
                 businessAttributeType,
                 dataProcessInstanceType,
+                applicationType,
                 executionRequestType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     this.loadableTypes.add(ingestionSourceType);
@@ -717,6 +728,7 @@ public class GmsGraphQLEngine {
     configureGlossaryNodeResolvers(builder);
     configureDomainResolvers(builder);
     configureDataProductResolvers(builder);
+    configureApplicationResolvers(builder);
     configureAssertionResolvers(builder);
     configureContractResolvers(builder);
     configurePolicyResolvers(builder);
@@ -1047,6 +1059,7 @@ public class GmsGraphQLEngine {
                     "getQuickFilters",
                     new GetQuickFiltersResolver(this.entityClient, this.viewService))
                 .dataFetcher("dataProduct", getResolver(dataProductType))
+                .dataFetcher("application", getResolver(applicationType))
                 .dataFetcher(
                     "listDataProductAssets", new ListDataProductAssetsResolver(this.entityClient))
                 .dataFetcher(
@@ -1284,6 +1297,14 @@ public class GmsGraphQLEngine {
                   "deleteDataProduct", new DeleteDataProductResolver(this.dataProductService))
               .dataFetcher(
                   "batchSetDataProduct", new BatchSetDataProductResolver(this.dataProductService))
+              .dataFetcher(
+                  "createApplication",
+                  new CreateApplicationResolver(this.applicationService, this.entityService))
+              .dataFetcher(
+                  "deleteApplication",
+                  new DeleteApplicationResolver(this.entityClient, this.applicationService))
+              .dataFetcher(
+                  "batchSetApplication", new BatchSetApplicationResolver(this.applicationService))
               .dataFetcher(
                   "createOwnershipType", new CreateOwnershipTypeResolver(this.ownershipTypeService))
               .dataFetcher(
@@ -2834,6 +2855,17 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
   }
 
+  private void configureApplicationResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "Application",
+        typeWiring ->
+            typeWiring
+                .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
+                .dataFetcher(
+                    "aspects", new WeaklyTypedAspectsResolver(entityClient, entityRegistry))
+                .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient)));
+  }
+
   private void configureAssertionResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
         "Assertion",
@@ -3194,7 +3226,11 @@ public class GmsGraphQLEngine {
                               return ingestionSource.getPlatform() != null
                                   ? ingestionSource.getPlatform().getUrn()
                                   : null;
-                            })))
+                            }))
+                    .dataFetcher(
+                        "latestSuccessfulExecution",
+                        new GetLatestSuccessfulExecutionRequestResolver(
+                            this.entityClient, this.executionRequestType)))
         .type(
             "ListIngestionSourcesResult",
             typeWiring ->

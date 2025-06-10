@@ -1,5 +1,5 @@
 import { Button, PageTitle, Tabs } from '@components';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
@@ -9,9 +9,12 @@ import { useUserContext } from '@app/context/useUserContext';
 import { ExecutionsTab } from '@app/ingestV2/executions/ExecutionsTab';
 import { SecretsList } from '@app/ingestV2/secret/SecretsList';
 import { IngestionSourceList } from '@app/ingestV2/source/IngestionSourceList';
-import { TabType } from '@app/ingestV2/types';
+import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
-import { INGESTION_CREATE_SOURCE_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
+import {
+    INGESTION_CREATE_SOURCE_ID,
+    INGESTION_REFRESH_SOURCES_ID,
+} from '@app/onboarding/config/IngestionOnboardingConfig';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -69,10 +72,13 @@ export const ManageIngestionPage = () => {
     const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
-    const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);
+    const [selectedTab, setSelectedTab] = useState<TabType>();
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
+
+    const history = useHistory();
+    const shouldPreserveParams = useRef(false);
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -81,13 +87,14 @@ export const ManageIngestionPage = () => {
         }
     }, [loaded, me.loaded, showIngestionTab, selectedTab]);
 
-    const history = useHistory();
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
+        const preserveParams = shouldPreserveParams.current;
         const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
-        setSelectedTab(matchingTab || selectedTab);
-        if (options?.clearQueryParams) {
+        if (!preserveParams && options?.clearQueryParams) {
             history.push({ search: '' });
         }
+        setSelectedTab(matchingTab || selectedTab);
+        shouldPreserveParams.current = false;
     };
 
     const tabs: Tab[] = [
@@ -96,13 +103,14 @@ export const ManageIngestionPage = () => {
                 <IngestionSourceList
                     showCreateModal={showCreateSourceModal}
                     setShowCreateModal={setShowCreateSourceModal}
+                    shouldPreserveParams={shouldPreserveParams}
                 />
             ),
             key: TabType.Sources as string,
             name: TabType.Sources as string,
         },
         {
-            component: <ExecutionsTab />,
+            component: <ExecutionsTab shouldPreserveParams={shouldPreserveParams} />,
             key: TabType.ExecutionLog as string,
             name: 'Execution Log',
         },
@@ -115,6 +123,10 @@ export const ManageIngestionPage = () => {
         },
     ].filter((tab): tab is Tab => Boolean(tab));
 
+    const onUrlChange = (tabPath: string) => {
+        history.push(tabPath);
+    };
+
     const handleCreateSource = () => {
         setShowCreateSourceModal(true);
     };
@@ -125,7 +137,7 @@ export const ManageIngestionPage = () => {
 
     return (
         <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
-            <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID]} />
+            <OnboardingTour stepIds={[INGESTION_CREATE_SOURCE_ID, INGESTION_REFRESH_SOURCES_ID]} />
             <PageHeaderContainer>
                 <TitleContainer>
                     <PageTitle
@@ -163,6 +175,10 @@ export const ManageIngestionPage = () => {
                     tabs={tabs}
                     selectedTab={selectedTab}
                     onChange={(tab) => onSwitchTab(tab, { clearQueryParams: true })}
+                    urlMap={tabUrlMap}
+                    onUrlChange={onUrlChange}
+                    defaultTab={TabType.Sources}
+                    getCurrentUrl={() => window.location.pathname}
                 />
             </PageContentContainer>
         </PageContainer>
