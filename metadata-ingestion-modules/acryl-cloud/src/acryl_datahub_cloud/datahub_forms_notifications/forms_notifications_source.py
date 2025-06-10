@@ -143,7 +143,7 @@ class DataHubFormsNotificationsSource(Source):
                 for actor_urn in unique_actor_urns:
                     self.update_form_notifications(actor_urn, form_urn)
 
-    def update_form_notifications(self, user_urn: str, form_urn: str):
+    def update_form_notifications(self, user_urn: str, form_urn: str) -> None:
         """
         After sending a notification, update the user's formNotifications aspect
         to track that we sent the notification that we did
@@ -404,7 +404,7 @@ class DataHubFormsNotificationsSource(Source):
 
         return notification_details
 
-    def populate_user_to_form_notifications(self, user_urns: List[str]):
+    def populate_user_to_form_notifications(self, user_urns: List[str]) -> None:
         new_users = [
             urn for urn in user_urns if urn not in self.user_to_form_notifications
         ]
