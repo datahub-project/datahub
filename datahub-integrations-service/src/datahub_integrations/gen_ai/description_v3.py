@@ -4,6 +4,7 @@ from datahub_integrations.gen_ai.mlflow_init import (  # noqa: F401
 )
 
 import json
+import os
 from typing import Dict, List, Optional, Tuple
 
 import asyncer
@@ -13,8 +14,10 @@ import tenacity
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 
+from datahub_integrations.chat.linkify import datahub_linkify
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
+    BedrockPromptMessage,
     call_bedrock_llm,
     get_bedrock_model_env_variable,
 )
@@ -27,12 +30,14 @@ from datahub_integrations.gen_ai.description_context import (
     TooManyColumnsError,
     extract_metadata_for_urn,
     parse_columns_llm_output,
-    parse_llm_output,
+    parse_table_desc_llm_output,
     transform_table_info_for_llm,
 )
 
-_MAX_COLUMNS = 1000
-_MAX_COLUMNS_PER_BATCH = 50
+_MAX_COLUMNS = int(os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS", 1000))
+_MAX_COLUMNS_PER_BATCH = int(
+    os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS_PER_BATCH", 50)
+)
 
 # TODO: adaptive batching for schema field v2 paths OR preprocessing them to covert to v1 paths
 # TODO: Add retry on parsing failure of the output - less likely to happen with v3 - need to track
@@ -59,8 +64,8 @@ def split_columns_into_batch(columns: List[str], batch_size: int) -> List[List[s
     return list(more_itertools.chunked_even(columns, batch_size))
 
 
-TABLE_DESC_PROMPT = '''\
-You are tasked with generating concise description for a DataHub table based on provided metadata. Here is the information you will be working with:
+PROMPT_COMMON_CONTEXT = """\
+You are tasked with generating concise description for a DataHub table and its columns based on provided metadata. Here is the information you will be working with:
 
 <table_info>
 {table_info}
@@ -70,46 +75,39 @@ You are tasked with generating concise description for a DataHub table based on 
 {column_info}
 </column_info>
 
+"""
+
+TABLE_DESC_PROMPT = """\
 Generate the description as follows:
 
    Create a few paragraphs of Markdown-formatted text that includes:
    a) A summary of the primary purpose and business importance of the table.
    b) If metadata is available, a summary of the upstream tables and transformations applied.
    c) A summary of the downstream tables (consumers) and general use cases for the table. Only include information that can be substantiated by the provided table_info.
-   d) Technical notes and usage tips, including the table type (fact or dimension) and grain if available.
-   e) A note on whether the table directly contains any PII data, like names, emails, and addresses. Do not provide recommendations related to access control, monitoring, or governance.
+   d) Technical notes and usage tips, including the table type and grain if available.
+   e) A note on whether the table directly contains any PII data, like names, emails, and addresses. Do not provide any recommendations related to access control, monitoring, or governance.
 
-   Format any references to other entities as markdown links, using the entity URN as the link. For example: [table_name](urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table_name,PROD))
-   Use Markdown sections like H2 and H3 with appropriate section titles. The first line should be "# <table name>", followed by a blank line.
+   Format any references to other entities as markdown links, using the entity URN as the link. For example: [@table_name](urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table_name,PROD))
+   Use Markdown sections like H4 and H5 with appropriate section titles. The first line should be "### <table name>", followed by a blank line.
 
 When writing the descriptions:
 - Aim for a technical yet informative tone, suitable for a data catalog.
 - Avoid weak phrases like "suggests", "could be", "likely", or "is considered". Only include information you are confident about based on the provided metadata.
+- Aim for self-sufficient description, avoid phrases like "based on the provided metadata", "table does not have documented upstream".
 - Be concise and to the point.
 
-Provide your output in the following dictionary format:
+Provide your output in the markdown format:
 
-{{
-    "table_description": """
+### <table name>
+
 [Your multi-line table description here]
-"""
-}}
 
-Ensure that the dictionary is properly formatted and parsable. Include the table description with the key "table_description".\
-'''
+
+Ensure that the markdown is properly formatted.\
+"""
 
 
 COLUMN_DESC_PROMPT = """\
-You are tasked with generating concise description for a columns of a DataHub table based on provided metadata. Here is the information you will be working with:
-
-<table_info>
-{table_info}
-</table_info>
-
-<column_info>
-{column_info}
-</column_info>
-
 <table_description>
 {table_description}
 </table_description>
@@ -133,7 +131,7 @@ Provide your output in the following dictionary format:
     ...
 }}
 
-Ensure that the dictionary is properly formatted and parsable. Use the column display names as keys for the column descriptions.\
+Ensure that the dictionary is properly formatted and parsable. Use the column names as keys for the column descriptions.\
 """
 
 COLUMN_BATCH_INSTRUCTIONS = """\
@@ -226,21 +224,33 @@ _MAX_ATTEMPTS = 3  # Original attempt + 2 retries
 def generate_table_description(
     table_info: TableInfo, column_infos: Dict[str, ColumnMetadataInfo]
 ) -> Optional[str]:
-    formatted_prompt = TABLE_DESC_PROMPT.format(
-        table_info=table_info.dict(exclude_none=True),
+    formatted_common_context = PROMPT_COMMON_CONTEXT.format(
+        table_info=table_info.model_dump(exclude_none=True),
         column_info={
-            col: column_info.dict(exclude_none=True)
+            col: column_info.model_dump(exclude_none=True)
             for col, column_info in column_infos.items()
         },
     )
 
     entity_descriptions = call_bedrock_llm(
-        formatted_prompt,
+        prompt=[
+            BedrockPromptMessage(
+                text=formatted_common_context,
+                cache=True,
+            ),
+            BedrockPromptMessage(
+                text=TABLE_DESC_PROMPT,
+                cache=False,
+            ),
+        ],
         max_tokens=4096,
         model=CURRENT_MODEL,
     )
 
-    table_description = parse_llm_output(entity_descriptions)
+    table_description = parse_table_desc_llm_output(entity_descriptions)
+
+    # post process table description to fix links
+    table_description = datahub_linkify(table_description)
 
     return table_description
 
@@ -261,13 +271,10 @@ async def generate_column_descriptions(
     ] = []
     async with asyncer.create_task_group() as task_group:
         for columns_batch in column_splits:
-            if len(column_splits) == 1:
-                column_batch_instructions = ""
-            else:
-                column_batch_instructions = COLUMN_BATCH_INSTRUCTIONS.format(
-                    num_columns=len(columns_batch),
-                    columns=json.dumps(columns_batch),
-                )
+            column_batch_instructions = COLUMN_BATCH_INSTRUCTIONS.format(
+                num_columns=len(columns_batch),
+                columns=json.dumps(columns_batch),
+            )
 
             generated_batch_column_descriptions.append(
                 task_group.soonify(
@@ -309,19 +316,30 @@ def generate_column_batch_descriptions(
     generated_table_description: str,
     column_batch_instructions: str,
 ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
-    formatted_prompt = COLUMN_DESC_PROMPT.format(
-        table_info=table_info.dict(exclude_none=True),
+    formatted_common_context = PROMPT_COMMON_CONTEXT.format(
+        table_info=table_info.model_dump(exclude_none=True),
         column_info={
-            col: column_info.dict(exclude_none=True)
+            col: column_info.model_dump(exclude_none=True)
             for col, column_info in column_infos.items()
         },
+    )
+    formatted_column_prompt = COLUMN_DESC_PROMPT.format(
         table_description=generated_table_description,
         column_batch_instructions=column_batch_instructions,
     )
     try:
         column_descriptions_raw = call_bedrock_llm(
-            formatted_prompt,
-            max_tokens=5000,
+            prompt=[
+                BedrockPromptMessage(
+                    text=formatted_common_context,
+                    cache=True,
+                ),
+                BedrockPromptMessage(
+                    text=formatted_column_prompt,
+                    cache=False,
+                ),
+            ],
+            max_tokens=4096,
             model=CURRENT_MODEL,
         )
 

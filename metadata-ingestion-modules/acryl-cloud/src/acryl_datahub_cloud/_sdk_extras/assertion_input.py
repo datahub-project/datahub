@@ -11,6 +11,8 @@ from enum import Enum
 from typing import Literal, Optional, TypeAlias, Union
 
 import pydantic
+import tzlocal
+from apscheduler.triggers.cron import CronTrigger
 from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel, Extra, ValidationError
 
@@ -38,6 +40,13 @@ ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS = 60
 
 DEFAULT_NAME_PREFIX = "New Assertion"
 DEFAULT_NAME_SUFFIX_LENGTH = 8
+
+DEFAULT_SCHEDULE = models.CronScheduleClass(
+    cron="0 * * * *",  # Every hour, matches the UI default
+    timezone=str(
+        tzlocal.get_localzone()
+    ),  # User local timezone, matches the UI default
+)
 
 
 class AbstractDetectionMechanism(BaseModel, ABC):
@@ -85,6 +94,16 @@ class _DataHubOperation(AbstractDetectionMechanism):
     type: Literal["datahub_operation"] = "datahub_operation"
 
 
+class _Query(AbstractDetectionMechanism):
+    # COUNT(*) query
+    type: Literal["query"] = "query"
+    additional_filter: Optional[str] = None
+
+
+class _DatasetProfile(AbstractDetectionMechanism):
+    type: Literal["dataset_profile"] = "dataset_profile"
+
+
 # Keep these two lists in sync:
 _DETECTION_MECHANISM_CONCRETE_TYPES = (
     _InformationSchema,
@@ -92,6 +111,8 @@ _DETECTION_MECHANISM_CONCRETE_TYPES = (
     _LastModifiedColumn,
     _HighWatermarkColumn,
     _DataHubOperation,
+    _Query,
+    _DatasetProfile,
 )
 _DetectionMechanismTypes = Union[
     _InformationSchema,
@@ -99,7 +120,15 @@ _DetectionMechanismTypes = Union[
     _LastModifiedColumn,
     _HighWatermarkColumn,
     _DataHubOperation,
+    _Query,
+    _DatasetProfile,
 ]
+
+_DETECTION_MECHANISM_TYPES_WITH_ADDITIONAL_FILTER = (
+    _LastModifiedColumn,
+    _HighWatermarkColumn,
+    _Query,
+)
 
 
 class DetectionMechanism:
@@ -110,6 +139,8 @@ class DetectionMechanism:
     LAST_MODIFIED_COLUMN = _LastModifiedColumn
     HIGH_WATERMARK_COLUMN = _HighWatermarkColumn
     DATAHUB_OPERATION = _DataHubOperation()
+    QUERY = _Query
+    DATASET_PROFILE = _DatasetProfile()
 
     _DETECTION_MECHANISM_EXAMPLES = {
         "Information Schema from string": "information_schema",
@@ -130,6 +161,14 @@ class DetectionMechanism:
         "High Watermark Column from DetectionMechanism": "DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name='id', additional_filter='id > 1000')",
         "DataHub Operation from string": "datahub_operation",
         "DataHub Operation from DetectionMechanism": "DetectionMechanism.DATAHUB_OPERATION",
+        "Query from string": "query",
+        "Query from dict": {
+            "type": "query",
+            "additional_filter": "id > 1000",
+        },
+        "Query from DetectionMechanism (with optional additional filter)": "DetectionMechanism.QUERY(additional_filter='id > 1000')",
+        "Dataset Profile from string": "dataset_profile",
+        "Dataset Profile from DetectionMechanism": "DetectionMechanism.DATASET_PROFILE",
     }
 
     @staticmethod
@@ -496,6 +535,40 @@ def _try_parse_training_data_lookback_days(
     return training_data_lookback_days
 
 
+def _validate_cron_schedule(schedule: str, timezone: str) -> None:
+    """We are using the POSIX.1-2017 standard for cron expressions.
+
+    Note: We are using the apscheduler library for cron parsing so that the logic matches the executor.
+    """
+    try:
+        CronTrigger.from_crontab(
+            schedule, timezone=timezone, strict=True, standard="POSIX.1-2017"
+        )
+    except Exception as e:
+        raise SDKUsageError(
+            f"Invalid cron expression or timezone: {schedule} {timezone}, please use a POSIX.1-2017 compatible cron expression and timezone."
+        ) from e
+
+
+def _try_parse_schedule(
+    schedule: Optional[Union[str, models.CronScheduleClass]],
+) -> Optional[models.CronScheduleClass]:
+    if schedule is None:
+        return None
+    if isinstance(schedule, str):
+        _validate_cron_schedule(schedule, "UTC")
+        return models.CronScheduleClass(
+            cron=schedule,
+            timezone="UTC",
+        )
+    if isinstance(schedule, models.CronScheduleClass):
+        _validate_cron_schedule(schedule.cron, schedule.timezone)
+        return schedule
+
+
+FieldSpecType = Union[models.FreshnessFieldSpecClass, models.SchemaFieldSpecClass]
+
+
 class _AssertionInput(ABC):
     def __init__(
         self,
@@ -509,6 +582,7 @@ class _AssertionInput(ABC):
         ] = None,  # Can be None if the assertion is not yet created
         display_name: Optional[str] = None,
         enabled: bool = True,
+        schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
         sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
         exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
@@ -553,7 +627,7 @@ class _AssertionInput(ABC):
             else _generate_default_name(DEFAULT_NAME_PREFIX, DEFAULT_NAME_SUFFIX_LENGTH)
         )
         self.enabled = enabled
-
+        self.schedule = _try_parse_schedule(schedule)
         self.detection_mechanism = DetectionMechanism.parse(detection_mechanism)
         self.sensitivity = InferenceSensitivity.parse(sensitivity)
         self.exclusion_windows = _try_parse_exclusion_window(exclusion_windows)
@@ -656,10 +730,7 @@ class _AssertionInput(ABC):
         """
         if not isinstance(
             self.detection_mechanism,
-            (
-                DetectionMechanism.LAST_MODIFIED_COLUMN,
-                DetectionMechanism.HIGH_WATERMARK_COLUMN,
-            ),
+            _DETECTION_MECHANISM_TYPES_WITH_ADDITIONAL_FILTER,
         ):
             return None
 
@@ -671,12 +742,6 @@ class _AssertionInput(ABC):
             type=models.DatasetFilterTypeClass.SQL,
             sql=additional_filter,
         )
-
-    @abstractmethod
-    def _create_assertion_info(
-        self, filter: Optional[models.DatasetFilterClass]
-    ) -> AssertionInfoInputType:
-        pass
 
     def _convert_tags(self) -> Optional[TagsInputType]:
         """
@@ -800,30 +865,6 @@ class _AssertionInput(ABC):
                 )
         return exclusion_windows
 
-    @abstractmethod
-    def _convert_assertion_source_type_and_field(
-        self,
-    ) -> tuple[str, Optional[models.FreshnessFieldSpecClass]]:
-        """
-        Convert detection mechanism into source type and field specification for freshness assertions.
-
-        Returns:
-            A tuple of (source_type, field) where field may be None.
-            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass since
-            the source type is not a enum in the code generated from the DatasetFreshnessSourceType enum in the PDL.
-
-        Raises:
-            SDKNotYetSupportedError: If the detection mechanism is not supported.
-            SDKUsageError: If the field (column) is not found in the dataset,
-            and the detection mechanism requires a field. Also if the field
-            is not an allowed type for the detection mechanism.
-        """
-        pass
-
-    @abstractmethod
-    def _convert_schedule(self) -> models.CronScheduleClass:
-        pass
-
     def _convert_sensitivity(self) -> models.AssertionMonitorSensitivityClass:
         """
         Convert sensitivity into an AssertionMonitorSensitivityClass.
@@ -833,57 +874,6 @@ class _AssertionInput(ABC):
         """
         return models.AssertionMonitorSensitivityClass(
             level=InferenceSensitivity.to_int(self.sensitivity),
-        )
-
-    def _create_monitor_info(
-        self,
-        assertion_urn: AssertionUrn,
-        status: models.MonitorStatusClass,
-        schedule: models.CronScheduleClass,
-        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
-        field: Optional[models.FreshnessFieldSpecClass],
-        sensitivity: models.AssertionMonitorSensitivityClass,
-        exclusion_windows: list[models.AssertionExclusionWindowClass],
-    ) -> models.MonitorInfoClass:
-        """
-        Create a MonitorInfoClass with all the necessary components.
-
-        Args:
-            status: The monitor status.
-            schedule: The monitor schedule.
-            source_type: The freshness source type.
-            field: Optional field specification.
-            sensitivity: The monitor sensitivity.
-            exclusion_windows: List of exclusion windows.
-
-        Returns:
-            A MonitorInfoClass configured with all the provided components.
-        """
-        return models.MonitorInfoClass(
-            type=models.MonitorTypeClass.ASSERTION,
-            status=status,
-            assertionMonitor=models.AssertionMonitorClass(
-                assertions=[
-                    models.AssertionEvaluationSpecClass(
-                        assertion=str(assertion_urn),
-                        schedule=schedule,
-                        parameters=models.AssertionEvaluationParametersClass(
-                            type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
-                            datasetFreshnessParameters=models.DatasetFreshnessAssertionParametersClass(
-                                sourceType=source_type,
-                                field=field,
-                            ),
-                        ),
-                    )
-                ],
-                settings=models.AssertionMonitorSettingsClass(
-                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
-                        sensitivity=sensitivity,
-                        exclusionWindows=exclusion_windows,
-                        trainingDataLookbackWindowDays=self.training_data_lookback_days,
-                    ),
-                ),
-            ),
         )
 
     def _get_schema_field_spec(self, column_name: str) -> models.SchemaFieldSpecClass:
@@ -909,13 +899,107 @@ class _AssertionInput(ABC):
                 msg=f"Column {column_name} not found in dataset {self.dataset_urn}",
             )
 
+    def _validate_field_type(
+        self,
+        field_spec: models.SchemaFieldSpecClass,
+        column_name: str,
+        allowed_types: list[DictWrapper],
+        field_type_name: str,
+    ) -> None:
+        """
+        Validate that a field has an allowed type.
+
+        Args:
+            field_spec: The field specification to validate
+            column_name: The name of the column for error messages
+            allowed_types: List of allowed field types
+            field_type_name: Human-readable name of the field type for error messages
+
+        Raises:
+            SDKUsageError: If the field has an invalid type
+        """
+        allowed_type_names = [t.__class__.__name__ for t in allowed_types]
+        if field_spec.type not in allowed_type_names:
+            raise SDKUsageError(
+                msg=f"Column {column_name} with type {field_spec.type} does not have an allowed type for a {field_type_name} in dataset {self.dataset_urn}. "
+                f"Allowed types are {allowed_type_names}.",
+            )
+
+    def _create_monitor_info(
+        self,
+        assertion_urn: AssertionUrn,
+        status: models.MonitorStatusClass,
+        schedule: models.CronScheduleClass,
+        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
+        field: Optional[FieldSpecType],
+        sensitivity: models.AssertionMonitorSensitivityClass,
+        exclusion_windows: list[models.AssertionExclusionWindowClass],
+    ) -> models.MonitorInfoClass:
+        """
+        Create a MonitorInfoClass with all the necessary components.
+
+        Args:
+            status: The monitor status.
+            schedule: The monitor schedule.
+            source_type: The source type.
+            field: Optional field specification.
+            sensitivity: The monitor sensitivity.
+            exclusion_windows: List of exclusion windows.
+
+        Returns:
+            A MonitorInfoClass configured with all the provided components.
+        """
+        return models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=status,
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(assertion_urn),
+                        schedule=schedule,
+                        parameters=self._get_assertion_evaluation_parameters(
+                            str(source_type), field
+                        ),
+                    )
+                ],
+                settings=models.AssertionMonitorSettingsClass(
+                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                        sensitivity=sensitivity,
+                        exclusionWindows=exclusion_windows,
+                        trainingDataLookbackWindowDays=self.training_data_lookback_days,
+                    ),
+                ),
+            ),
+        )
+
+    @abstractmethod
+    def _create_assertion_info(
+        self, filter: Optional[models.DatasetFilterClass]
+    ) -> AssertionInfoInputType:
+        """Create assertion info specific to the assertion type."""
+        pass
+
+    @abstractmethod
+    def _convert_schedule(self) -> models.CronScheduleClass:
+        """Convert schedule to appropriate format for the assertion type."""
+        pass
+
+    @abstractmethod
+    def _get_assertion_evaluation_parameters(
+        self, source_type: str, field: Optional[FieldSpecType]
+    ) -> models.AssertionEvaluationParametersClass:
+        """Get evaluation parameters specific to the assertion type."""
+        pass
+
+    @abstractmethod
+    def _convert_assertion_source_type_and_field(
+        self,
+    ) -> tuple[str, Optional[FieldSpecType]]:
+        """Convert detection mechanism to source type and field spec."""
+        pass
+
 
 class _SmartFreshnessAssertionInput(_AssertionInput):
-    DEFAULT_SCHEDULE = models.CronScheduleClass(
-        cron="0 0 * * *",
-        timezone="UTC",
-    )
-
     def __init__(
         self,
         *,
@@ -945,6 +1029,7 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             urn=urn,
             display_name=display_name,
             enabled=enabled,
+            schedule=DEFAULT_SCHEDULE,  # Schedule is not used for smart freshness assertions
             detection_mechanism=detection_mechanism,
             sensitivity=sensitivity,
             exclusion_windows=exclusion_windows,
@@ -985,17 +1070,36 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
         Returns:
             A CronScheduleClass with appropriate schedule settings.
         """
-        return self.DEFAULT_SCHEDULE
+        return DEFAULT_SCHEDULE
+
+    def _get_assertion_evaluation_parameters(
+        self, source_type: str, field: Optional[FieldSpecType]
+    ) -> models.AssertionEvaluationParametersClass:
+        # Ensure field is either None or FreshnessFieldSpecClass
+        freshness_field = None
+        if field is not None:
+            if not isinstance(field, models.FreshnessFieldSpecClass):
+                raise SDKUsageError(
+                    f"Expected FreshnessFieldSpecClass for freshness assertion, got {type(field).__name__}"
+                )
+            freshness_field = field
+
+        return models.AssertionEvaluationParametersClass(
+            type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
+            datasetFreshnessParameters=models.DatasetFreshnessAssertionParametersClass(
+                sourceType=source_type, field=freshness_field
+            ),
+        )
 
     def _convert_assertion_source_type_and_field(
         self,
-    ) -> tuple[str, Optional[models.FreshnessFieldSpecClass]]:
+    ) -> tuple[str, Optional[FieldSpecType]]:
         """
         Convert detection mechanism into source type and field specification for freshness assertions.
 
         Returns:
             A tuple of (source_type, field) where field may be None.
-            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass since
+            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass (or other assertion source type) since
             the source type is not a enum in the code generated from the DatasetFreshnessSourceType enum in the PDL.
 
         Raises:
@@ -1060,15 +1164,135 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             )
 
         field_spec = self._get_schema_field_spec(column_name)
-        allowed_type_names = [t.__class__.__name__ for t in allowed_types]
-        if field_spec.type not in allowed_type_names:
-            raise SDKUsageError(
-                msg=f"Column {column_name} with type {field_spec.type} does not have an allowed type for a {field_type_name} in dataset {self.dataset_urn}. "
-                f"Allowed types are {allowed_type_names}.",
-            )
+        self._validate_field_type(
+            field_spec, column_name, allowed_types, field_type_name
+        )
         return models.FreshnessFieldSpecClass(
             path=field_spec.path,
             type=field_spec.type,
             nativeType=field_spec.nativeType,
             kind=kind,
         )
+
+
+class _SmartVolumeAssertionInput(_AssertionInput):
+    def __init__(
+        self,
+        *,
+        # Required fields
+        dataset_urn: Union[str, DatasetUrn],
+        entity_client: EntityClient,  # Needed to get the schema field spec for the detection mechanism if needed
+        # Optional fields
+        urn: Optional[Union[str, AssertionUrn]] = None,
+        display_name: Optional[str] = None,
+        enabled: bool = True,
+        schedule: Optional[Union[str, models.CronScheduleClass]] = None,
+        detection_mechanism: DetectionMechanismInputTypes = None,
+        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
+        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
+        training_data_lookback_days: Optional[int] = None,
+        incident_behavior: Optional[
+            Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
+        ] = None,
+        tags: Optional[TagsInputType] = None,
+        created_by: Union[str, CorpUserUrn],
+        created_at: datetime,
+        updated_by: Union[str, CorpUserUrn],
+        updated_at: datetime,
+    ):
+        super().__init__(
+            dataset_urn=dataset_urn,
+            entity_client=entity_client,
+            urn=urn,
+            display_name=display_name,
+            enabled=enabled,
+            schedule=schedule,
+            detection_mechanism=detection_mechanism,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
+            incident_behavior=incident_behavior,
+            tags=tags,
+            source_type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
+            created_by=created_by,
+            created_at=created_at,
+            updated_by=updated_by,
+            updated_at=updated_at,
+        )
+
+    def _create_assertion_info(
+        self, filter: Optional[models.DatasetFilterClass]
+    ) -> AssertionInfoInputType:
+        """
+        Create a VolumeAssertionInfoClass for a smart volume assertion.
+
+        Args:
+            filter: Optional filter to apply to the assertion.
+
+        Returns:
+            A VolumeAssertionInfoClass configured for smart volume.
+        """
+        return models.VolumeAssertionInfoClass(
+            type=models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL,  # Currently only ROW_COUNT_TOTAL is supported for smart volume
+            entity=str(self.dataset_urn),
+            filter=filter,
+        )
+
+    def _convert_schedule(self) -> models.CronScheduleClass:
+        """Create a schedule for a smart freshness assertion.
+
+        Since the schedule is not used for smart freshness assertions, we return a default schedule.
+
+        Returns:
+            A CronScheduleClass with appropriate schedule settings.
+        """
+        if self.schedule is None:
+            return DEFAULT_SCHEDULE
+
+        return models.CronScheduleClass(
+            cron=self.schedule.cron,
+            timezone=self.schedule.timezone,
+        )
+
+    def _get_assertion_evaluation_parameters(
+        self, source_type: str, field: Optional[FieldSpecType]
+    ) -> models.AssertionEvaluationParametersClass:
+        return models.AssertionEvaluationParametersClass(
+            type=models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
+            datasetVolumeParameters=models.DatasetVolumeAssertionParametersClass(
+                sourceType=source_type,
+            ),
+        )
+
+    def _convert_assertion_source_type_and_field(
+        self,
+    ) -> tuple[str, Optional[FieldSpecType]]:
+        """
+        Convert detection mechanism into source type and field specification for volume assertions.
+
+        Returns:
+            A tuple of (source_type, field) where field may be None.
+            Note that the source_type is a string, not a models.DatasetFreshnessSourceTypeClass (or other assertion source type) since
+            the source type is not a enum in the code generated from the DatasetFreshnessSourceType enum in the PDL.
+
+        Raises:
+            SDKNotYetSupportedError: If the detection mechanism is not supported.
+            SDKUsageError: If the field (column) is not found in the dataset,
+            and the detection mechanism requires a field. Also if the field
+            is not an allowed type for the detection mechanism.
+        """
+        source_type = models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA
+        field = None
+
+        if isinstance(self.detection_mechanism, _Query):
+            source_type = models.DatasetVolumeSourceTypeClass.QUERY
+        elif isinstance(self.detection_mechanism, _InformationSchema):
+            source_type = models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA
+        elif isinstance(self.detection_mechanism, _DatasetProfile):
+            source_type = models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE
+        else:
+            raise SDKNotYetSupportedError(
+                f"Detection mechanism {self.detection_mechanism} not yet supported for smart volume assertions"
+            )
+
+        return source_type, field

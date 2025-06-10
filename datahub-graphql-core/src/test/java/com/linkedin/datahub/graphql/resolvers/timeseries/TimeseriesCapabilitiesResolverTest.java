@@ -31,7 +31,15 @@ import org.testng.annotations.Test;
 public class TimeseriesCapabilitiesResolverTest {
   private static final CreateFormInput TEST_INPUT =
       new CreateFormInput(
-          null, "test name", null, FormType.VERIFICATION, new ArrayList<>(), null, null, null);
+          null,
+          "test name",
+          null,
+          FormType.VERIFICATION,
+          new ArrayList<>(),
+          null,
+          null,
+          null,
+          null);
 
   private static final Dataset TEST_SOURCE = new Dataset();
   private static final String TEST_DATASET_URN = "urn:li:dataset:(test,test,test)";

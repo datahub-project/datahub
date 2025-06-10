@@ -22,6 +22,16 @@ record AssertionsSummary {
     passingAssertions: array[Urn] = []
 
     /**
+    * The last time an assertion was run.
+    */
+    @Searchable = {
+      "fieldType": "DATETIME",
+      "fieldName": "lastAssertionResultAt",
+      "queryByDefault": false,
+    }
+    lastAssertionResultAt: optional long
+
+    /**
     * Summary details about the set of passing assertions
     */
     @Searchable = {

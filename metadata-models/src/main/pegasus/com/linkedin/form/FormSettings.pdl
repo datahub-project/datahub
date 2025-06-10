@@ -11,6 +11,9 @@ record FormSettings {
     /**
      * Whether to notify the assignees of the form when it is published.
      */
+    @Searchable = {
+      "fieldType": "BOOLEAN"
+    }
     notifyAssigneesOnPublish: boolean = false
   }
 }

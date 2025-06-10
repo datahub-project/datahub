@@ -104,7 +104,7 @@ query appConfig {
             businessAttributeEntityEnabled
             dataContractsEnabled
             editableDatasetNameEnabled
-            documentationAiEnabled
+            aiFeaturesEnabled
             themeV2Enabled
             themeV2Default
             themeV2Toggleable
@@ -140,9 +140,9 @@ query appConfig {
             displayExecutorPools
             onlineSmartAssertionsEnabled
             showDefaultExternalLinks
-            datasetHealthDashboardV2Enabled
             showCreatedAtFilter
             showNotificationSettingsForComplianceForms
+            lineageGraphV3
         }
         chromeExtensionConfig {
             enabled

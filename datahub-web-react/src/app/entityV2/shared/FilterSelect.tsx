@@ -20,6 +20,7 @@ interface FilterSelectProps {
     onFilterChange: (selectedFilters: FilterOption[]) => void;
     excludedCategories?: string[];
     initialSelectedOptions?: NestedSelectOption[];
+    placeholder?: string;
 }
 
 export const FilterSelect = ({
@@ -27,6 +28,7 @@ export const FilterSelect = ({
     onFilterChange,
     excludedCategories,
     initialSelectedOptions,
+    placeholder,
 }: FilterSelectProps) => {
     const handleFilterChange = useCallback(
         (selectedValues: NestedSelectOption[]) => {
@@ -68,14 +70,14 @@ export const FilterSelect = ({
 
     return (
         <NestedSelect
-            placeholder="Filter"
+            placeholder={placeholder || 'Filter'}
             options={options}
             initialValues={initialSelectedOptions}
             onUpdate={handleFilterChange}
             isMultiSelect
             areParentsSelectable={false}
             width={100}
-            selectLabelProps={{ variant: 'labeled', label: 'Filter' }}
+            selectLabelProps={{ variant: 'labeled', label: placeholder || 'Filter' }}
             shouldAlwaysSyncParentValues
             hideParentCheckbox
         />

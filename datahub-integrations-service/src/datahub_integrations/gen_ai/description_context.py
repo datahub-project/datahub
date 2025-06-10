@@ -1,5 +1,4 @@
 import ast
-import os
 import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
@@ -50,6 +49,7 @@ class TableUpstreamLineageInfo(BaseModel):
     upstream_table_urn: str
     upstream_table_name: Optional[str] = None
     upstream_table_description: Optional[str] = None
+    upstream_table_type: Optional[str] = None
     query: Optional[QueryInfo] = None
     lineage_type: Optional[str] = None
 
@@ -58,6 +58,7 @@ class TableDownstreamLineageInfo(BaseModel):
     downstream_table_urn: str
     downstream_table_name: Optional[str] = None
     downstream_table_description: Optional[str] = None
+    downstream_table_type: Optional[str] = None
 
 
 class TagInfo(BaseModel):
@@ -104,6 +105,7 @@ class ExtractedTableInfo(BaseModel):
     table_view_properties: Optional[ViewInfo] = None
     table_name: Optional[str] = None
     table_description: Optional[str] = None
+    table_subtype: Optional[str] = None
     table_domains_info: Optional[List[DomainInfo]] = None
     table_owners_info: Optional[List[OwnerInfo]] = None
     table_upstream_lineage_info: Optional[List[TableUpstreamLineageInfo]] = None
@@ -131,6 +133,8 @@ class ColumnMetadataInfo(BaseModel):
 
 
 class TableInfo(BaseModel):
+    type: Optional[str] = None
+
     tags: Optional[List[TagInfo]] = None
     glossary_terms: Optional[List[GlossaryTermInfo]] = None
     view_properties: Optional[ViewInfo] = None
@@ -145,7 +149,6 @@ class TableInfo(BaseModel):
 DESCRIPTION_GENERATION_MODEL: BedrockModel | str = get_bedrock_model_env_variable(
     "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU
 )
-_MAX_COLUMNS = int(os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS", 100))
 
 _MAX_UPSTREAM_TABLES = 5
 _MAX_DOWNSTREAM_TABLES = 8
@@ -235,6 +238,7 @@ def get_table_upstream_lineage_info(
             upstream_table_name,
             upstream_table_description,
         ) = get_table_name_and_description(entity=entity, urn=dataset_urn)
+        upstream_table_subtype = get_table_subtype(entity)
         if upstream.query is not None:
             query = get_lineage_query(graph_client, upstream.query)
         else:
@@ -245,6 +249,7 @@ def get_table_upstream_lineage_info(
                 upstream_table_urn=dataset_urn,
                 upstream_table_name=upstream_table_name,
                 upstream_table_description=upstream_table_description,
+                upstream_table_type=upstream_table_subtype,
                 query=query,
                 lineage_type=lineage_type,
             )
@@ -279,21 +284,6 @@ def get_downstream_urns_for_table(
     return downstream_urns
 
 
-# def get_query_for_matching_upstream(
-#     upstreams: List[models.UpstreamClass], urn: str, graph_client: DataHubGraph
-# ) -> Tuple[dict, str]:
-#     query_info = {}
-#     lineage_type = None
-#     for upstream in upstreams:
-#         if upstream.dataset == urn and upstream.query is not None:
-#             query_info = get_lineage_query(graph_client, upstream.query)
-#             lineage_type = upstream.type
-#             break
-#         else:
-#             continue
-#     return query_info, lineage_type
-
-
 def get_table_downstream_lineage_info(
     urn: str, graph_client: DataHubGraph
 ) -> List[TableDownstreamLineageInfo]:
@@ -316,10 +306,12 @@ def get_table_downstream_lineage_info(
             downstream_table_name,
             downstream_table_description,
         ) = get_table_name_and_description(entity=entity, urn=downstream_urn)
+        downstream_table_subtype = get_table_subtype(entity)
         lineage_info = TableDownstreamLineageInfo(
             downstream_table_urn=downstream_urn,
             downstream_table_name=downstream_table_name,
             downstream_table_description=downstream_table_description,
+            downstream_table_type=downstream_table_subtype,
         )
         table_downstream_lineage_info.append(lineage_info)
     return table_downstream_lineage_info
@@ -341,16 +333,14 @@ def get_upstream_finegrained_lineage_info(
                     graph_client, lineage.upstreams
                 )
                 column_upstream: UpstreamLineageInfo
-                if len(upstreams_with_metadata) == 0:
-                    column_upstream = UpstreamLineageInfo(
-                        lineage=lineage.upstreams,
-                        transform_operation=lineage.transformOperation,
-                    )
-                else:
+                if len(upstreams_with_metadata) != 0:
                     column_upstream = UpstreamLineageInfo(
                         lineage=upstreams_with_metadata,
                         transform_operation=lineage.transformOperation,
                     )
+                else:
+                    # We do not consider upstreams without metadata to avoid shell entities
+                    continue
                 if column_urn in column_lineages:
                     if (
                         len(column_lineages[column_urn])
@@ -620,6 +610,9 @@ def extract_metadata_for_urn(
     else:
         table_view_properties = None
 
+    # Table subtype:
+    table_subtype = get_table_subtype(entity)
+
     # Table domain information:
     table_domains = entity.get("domains")
     if table_domains is not None:
@@ -653,12 +646,22 @@ def extract_metadata_for_urn(
         table_view_properties=table_view_properties,
         table_name=table_name,
         table_description=table_description,
+        table_subtype=table_subtype,
         table_domains_info=table_domain_info,
         table_owners_info=table_owners_info,
         table_upstream_lineage_info=table_upstream_lineage_info,
         table_downstream_lineage_info=table_downstream_lineage_info,
     )
     return extracted_table_info
+
+
+def get_table_subtype(entity: AspectBag) -> Optional[str]:
+    table_subtypes = entity.get("subTypes")
+    if table_subtypes is not None and table_subtypes.typeNames:
+        table_subtype = table_subtypes.typeNames[0]
+    else:
+        table_subtype = None
+    return table_subtype
 
 
 def transform_table_info_for_llm(
@@ -696,29 +699,17 @@ def transform_table_info_for_llm(
     return table_info, column_info
 
 
-def parse_llm_output(
+def parse_table_desc_llm_output(
     text: str,
 ) -> str:
-    match = re.search(r"\{[^}]*\}", text, re.DOTALL)
+    match = re.search(r"###.*", text, re.DOTALL)
     if match:
-        dict_str = match.group(0)
-        # dict_str_cleaned = dict_str.replace("\n", " ").strip()
-        dict_str_cleaned = dict_str.strip()
-        dict_str_cleaned = re.sub("(?<=[a-z])'(?=[a-z])", "\\'", dict_str_cleaned)
-        try:
-            extracted_dict: dict = ast.literal_eval(dict_str_cleaned)
-            table_description: str = extracted_dict.pop("table_description")
-            table_description = table_description.strip("'\"").strip()
-            return table_description
-
-        except (SyntaxError, ValueError) as e:
-            logger.info(f"Error evaluating dictionary: {e}. Text: {text}")
-            raise DescriptionParsingError(
-                f"Error evaluating dictionary: {e}. Text: {text}"
-            ) from e
+        md_str = match.group(0)
+        table_description: str = md_str.strip().strip("'\"").strip()
+        return table_description
     else:
-        logger.info("No dictionary found in the text.")
-        raise DescriptionParsingError("No dictionary found in the text.")
+        logger.info("No markdown heading found in the text.")
+        raise DescriptionParsingError("No markdown heading found in the text.")
 
 
 def parse_columns_llm_output(
@@ -729,6 +720,7 @@ def parse_columns_llm_output(
         dict_str = match.group(0)
         # dict_str_cleaned = dict_str.replace("\n", " ").strip()
         dict_str_cleaned = dict_str.strip()
+        # Escape single quotes that appear between lowercase letters to prevent syntax errors during ast.literal_eval
         dict_str_cleaned = re.sub("(?<=[a-z])'(?=[a-z])", "\\'", dict_str_cleaned)
         try:
             extracted_dict: dict = ast.literal_eval(dict_str_cleaned)

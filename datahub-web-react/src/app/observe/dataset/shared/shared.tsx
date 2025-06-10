@@ -1,16 +1,24 @@
+import { Text, Tooltip } from '@components';
 import { Typography } from 'antd';
+import React from 'react';
 import styled from 'styled-components';
 
+import { OwnerLabel } from '@app/shared/OwnerLabel';
 import { colors } from '@src/alchemy-components';
+import { EntityRegistry } from '@src/entityRegistryContext';
+
+import { EntityType, Owner } from '@types';
 
 export const Header = styled.div`
     && {
-        padding-left: 40px;
-        padding-right: 40px;
-        padding-bottom: 20px;
-        padding-top: 20px;
+        padding-left: 2px;
+        padding-right: 2px;
+        padding-bottom: 8px;
+        padding-top: 8px;
     }
-    border-bottom: 1px solid ${colors.gray[100]};
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 `;
 
 export const Title = styled.div`
@@ -57,3 +65,38 @@ export const List = styled.div`
     border-color: ${colors.gray[100]};
     border-width: 1px;
 `;
+
+const MAX_OWNERS_TO_SHOW = 2;
+
+export const renderOwners = (owners: Owner[], entityRegistry: EntityRegistry) => {
+    if (!owners) {
+        return <div>No owners</div>;
+    }
+    const truncatedOwners = owners.slice(0, MAX_OWNERS_TO_SHOW);
+    return (
+        <div>
+            {truncatedOwners.map((owner) => {
+                const ownerEntity = owner.owner;
+                const name = entityRegistry.getDisplayName(ownerEntity.type, ownerEntity);
+                const avatarUrl =
+                    ownerEntity.type === EntityType.CorpUser
+                        ? ownerEntity.editableProperties?.pictureLink || undefined
+                        : undefined;
+                return <OwnerLabel name={name} avatarUrl={avatarUrl} type={ownerEntity.type} />;
+            })}
+            {owners.length > MAX_OWNERS_TO_SHOW && (
+                <Tooltip
+                    title={
+                        <div>
+                            {owners.slice(MAX_OWNERS_TO_SHOW).map((owner) => (
+                                <Text>{entityRegistry.getDisplayName(owner.owner.type, owner.owner)}</Text>
+                            ))}
+                        </div>
+                    }
+                >
+                    <Text style={{ display: 'inline-block' }}>+{owners.length - MAX_OWNERS_TO_SHOW} more</Text>
+                </Tooltip>
+            )}
+        </div>
+    );
+};

@@ -116,8 +116,7 @@ export const NavSidebar = () => {
         config?.featureFlags?.documentationFormsEnabled &&
         (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
         (showFormAnalytics || formCreationEnabled);
-    const showDatasetHealth =
-        config?.featureFlags?.datasetHealthDashboardEnabled || config?.featureFlags?.datasetHealthDashboardV2Enabled;
+    const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     /* End SaaS Only */
 
     const showDataSources =

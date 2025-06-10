@@ -11,40 +11,7 @@ import com.linkedin.datahub.graphql.GmsGraphQLEngineArgs;
 import com.linkedin.datahub.graphql.GmsGraphQLPlugin;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
-import com.linkedin.datahub.graphql.generated.ActionRequest;
-import com.linkedin.datahub.graphql.generated.AssertionEvaluationSpec;
-import com.linkedin.datahub.graphql.generated.ChartStatsSummary;
-import com.linkedin.datahub.graphql.generated.CorpUser;
-import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityProposalProperties;
-import com.linkedin.datahub.graphql.generated.DataHubSubscription;
-import com.linkedin.datahub.graphql.generated.DefaultRemoteExecutorPoolResult;
-import com.linkedin.datahub.graphql.generated.DomainProposalParams;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
-import com.linkedin.datahub.graphql.generated.FacetFilterInput;
-import com.linkedin.datahub.graphql.generated.FilterOperator;
-import com.linkedin.datahub.graphql.generated.FormForActor;
-import com.linkedin.datahub.graphql.generated.GlossaryTerm;
-import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
-import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
-import com.linkedin.datahub.graphql.generated.IngestionSourceSourceType;
-import com.linkedin.datahub.graphql.generated.ListExecutionRequestsInput;
-import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
-import com.linkedin.datahub.graphql.generated.ListRemoteExecutorPoolsResult;
-import com.linkedin.datahub.graphql.generated.ListRemoteExecutorsResult;
-import com.linkedin.datahub.graphql.generated.Monitor;
-import com.linkedin.datahub.graphql.generated.QueryUsageFeatures;
-import com.linkedin.datahub.graphql.generated.RemoteExecutor;
-import com.linkedin.datahub.graphql.generated.RemoteExecutorPool;
-import com.linkedin.datahub.graphql.generated.RemoteExecutorPoolIngestionSourcesInput;
-import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
-import com.linkedin.datahub.graphql.generated.RowResult;
-import com.linkedin.datahub.graphql.generated.ShareResult;
-import com.linkedin.datahub.graphql.generated.SortCriterion;
-import com.linkedin.datahub.graphql.generated.SortOrder;
-import com.linkedin.datahub.graphql.generated.SystemMonitor;
-import com.linkedin.datahub.graphql.generated.Tag;
-import com.linkedin.datahub.graphql.generated.TagProposalParams;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.resolvers.action.execution.BootstrapActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.DeleteActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.GetActionPipelineResolver;
@@ -94,12 +61,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequ
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.source.ListIngestionSourcesResolver;
 import com.linkedin.datahub.graphql.resolvers.integration.GetLinkPreviewResolver;
-import com.linkedin.datahub.graphql.resolvers.load.BatchGetEntitiesResolver;
-import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
-import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
-import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.load.ProposalsResolver;
+import com.linkedin.datahub.graphql.resolvers.load.*;
 import com.linkedin.datahub.graphql.resolvers.monitor.CreateAssertionMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.DeleteMonitorResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.ReportAnomalyFeedbackResolver;
@@ -107,6 +69,7 @@ import com.linkedin.datahub.graphql.resolvers.monitor.SystemMonitorsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateAssertionMonitorSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateMonitorStatusResolver;
 import com.linkedin.datahub.graphql.resolvers.monitor.UpdateSystemMonitorsResolver;
+import com.linkedin.datahub.graphql.resolvers.notification.SendFormNotificationRequestResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.GetActionRequestAssigneeResolver;
@@ -192,11 +155,7 @@ import com.linkedin.test.MetadataTestClient;
 import graphql.schema.DataFetchingEnvironmentImpl;
 import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import software.amazon.awssdk.services.sts.StsClient;
 
@@ -526,7 +485,10 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                     new CreateRemoteExecutorPoolResolver(this.entityClient))
                 .dataFetcher(
                     "updateRemoteExecutorPool",
-                    new UpdateRemoteExecutorPoolResolver(this.entityClient)));
+                    new UpdateRemoteExecutorPoolResolver(this.entityClient))
+                .dataFetcher(
+                    "sendFormNotificationRequest",
+                    new SendFormNotificationRequestResolver(this.entityClient)));
   }
 
   private void configureQueryResolvers(final RuntimeWiring.Builder builder) {
@@ -845,7 +807,8 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         "Query",
         typeWiring ->
             typeWiring.dataFetcher(
-                "globalSettings", new GlobalSettingsResolver(entityClient, secretService)));
+                "globalSettings",
+                new GlobalSettingsResolver(entityClient, secretService, featureFlags)));
     builder.type(
         "Mutation",
         typeWiring ->
@@ -937,11 +900,54 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .type(
             "ActionRequest",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "entity",
-                    new EntityTypeResolver(
-                        new ArrayList<>(baseEngine.entityTypes),
-                        (env) -> ((ActionRequest) env.getSource()).getEntity())))
+                typeWiring
+                    .dataFetcher(
+                        "entity",
+                        new EntityTypeResolver(
+                            new ArrayList<>(baseEngine.entityTypes),
+                            (env) -> ((ActionRequest) env.getSource()).getEntity()))
+                    .dataFetcher(
+                        "assignees",
+                        new OwnerTypeBatchResolver(
+                            Arrays.asList(
+                                baseEngine.getCorpUserType(), baseEngine.getCorpGroupType()),
+                            (env) -> {
+                              ActionRequest source = (ActionRequest) env.getSource();
+                              List<OwnerType> ownerTypes = new ArrayList<>();
+                              Set<String> seenUrns = new HashSet<>();
+
+                              // Add users
+                              source
+                                  .getAssignedUsers()
+                                  .forEach(
+                                      userUrn -> {
+                                        if (seenUrns.add(userUrn)) {
+                                          CorpUser user = new CorpUser();
+                                          user.setUrn(userUrn);
+                                          user.setType(
+                                              com.linkedin.datahub.graphql.generated.EntityType
+                                                  .CORP_USER);
+                                          ownerTypes.add(user);
+                                        }
+                                      });
+
+                              // Add groups
+                              source
+                                  .getAssignedGroups()
+                                  .forEach(
+                                      groupUrn -> {
+                                        if (seenUrns.add(groupUrn)) {
+                                          CorpGroup group = new CorpGroup();
+                                          group.setUrn(groupUrn);
+                                          group.setType(
+                                              com.linkedin.datahub.graphql.generated.EntityType
+                                                  .CORP_GROUP);
+                                          ownerTypes.add(group);
+                                        }
+                                      });
+
+                              return ownerTypes;
+                            })))
         .type(
             "DataHubSubscription",
             typeWiring ->

@@ -37,7 +37,15 @@ metrics:
       guidelines: []
 
   - name: is_confident
-    definition: Whether the tone of description is confident and avoids weak / speculative phrases ? Fail this metric if description includes phrases like 'suggests', 'could be', 'likely', or 'is considered'.
+    definition: Whether the tone of description is confident and it avoids weak / speculative phrases ? Fail this metric if description includes phrases like 'suggests', 'could be', 'likely', or 'is considered'.
+    type: binary
+    scoring_criteria:
+      possible_values:
+        - pass
+        - fail
+      guidelines: []
+  - name: has_metadata_independence
+    definition: Does description avoid referencing provided metadata or information as source or proof ? Fail this metric if description includes phrases like 'as per provided metadata'or 'The lineage shows that' or 'table does not have any documented lineage information'
     type: binary
     scoring_criteria:
       possible_values:

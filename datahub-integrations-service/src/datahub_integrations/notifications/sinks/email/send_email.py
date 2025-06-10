@@ -10,6 +10,7 @@ from sendgrid.helpers.mail import Asm, Email, Mail, To
 
 from datahub_integrations.notifications.constants import (
     ACTOR_CHANGE_NOTIFICATION_TEMPLATE,
+    COMPLIANCE_FORM_PUBLISH_TEMPLATE,
     CUSTOM_TEMPLATE,
     DEFAULT_RECIPIENT_NAME,
     ENTITY_CHANGE_SUBSCRIPTION_TEMPLATE,
@@ -41,6 +42,13 @@ def send_ingestion_run_notification_to_recipients(
 ) -> None:
     for recipient in recipients:
         send_ingestion_notification_email(recipient, parameters)
+
+
+def send_compliance_form_notification_to_recipients(
+    recipients: List[NotificationRecipientClass], parameters: Dict[str, str]
+) -> None:
+    for recipient in recipients:
+        send_compliance_form_email(recipient, parameters)
 
 
 # TODO: handle non-subscription and subscription case in followup.
@@ -138,6 +146,36 @@ def send_custom_email(
     }
 
     send_email(email, recipient_address)
+
+
+def send_compliance_form_email(
+    recipient: NotificationRecipientClass, parameters: Dict[str, str]
+) -> None:
+    # Extract recipient address
+    recipient_address = recipient.id
+    recipient_name = recipient.displayName or DEFAULT_RECIPIENT_NAME
+
+    parameters["recipientName"] = recipient_name
+
+    if recipient_address is None:
+        logger.error(
+            f"Recipient address is None, skipping sending email. Parameters: {parameters}"
+        )
+        return
+
+    # Create new message
+    message = Mail(
+        from_email=Email(FROM_EMAIL_ADDRESS, FROM_EMAIL_TITLE),
+        to_emails=To(recipient_address),
+    )
+
+    # Specify the sendgrid template
+    message.template_id = COMPLIANCE_FORM_PUBLISH_TEMPLATE
+
+    # Add dynamic data
+    message.dynamic_template_data = parameters
+
+    send_email(message, recipient_address)
 
 
 def send_email(message: Mail, context: str) -> None:

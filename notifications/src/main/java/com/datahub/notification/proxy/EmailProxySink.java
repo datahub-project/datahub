@@ -25,7 +25,8 @@ public class EmailProxySink extends IntegrationsServiceProxySink {
           NotificationTemplateType.BROADCAST_PROPOSAL_STATUS_CHANGE,
           NotificationTemplateType.BROADCAST_ENTITY_CHANGE,
           NotificationTemplateType.BROADCAST_INGESTION_RUN_CHANGE,
-          NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE);
+          NotificationTemplateType.BROADCAST_ASSERTION_STATUS_CHANGE,
+          NotificationTemplateType.BROADCAST_COMPLIANCE_FORM_PUBLISH);
 
   /** A list of recipient types that can be handled by the sink */
   private static final List<NotificationRecipientType> RECIPIENT_TYPES =

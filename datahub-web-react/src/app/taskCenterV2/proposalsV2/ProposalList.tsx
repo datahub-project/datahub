@@ -56,7 +56,7 @@ const ActionRequestsTitle = styled(Typography.Title)`
 
 const ProposalsTableHeader = styled.div`
     display: flex;
-    padding: 2px;
+    gap: 8px;
 `;
 
 type Props = {
@@ -73,6 +73,7 @@ type Props = {
     getAllActionRequests?: boolean;
     showPendingView?: boolean;
     enableSelection?: boolean;
+    showAssignee?: boolean;
 };
 
 export const ProposalList = ({
@@ -89,6 +90,7 @@ export const ProposalList = ({
     getAllActionRequests = false,
     showPendingView = false,
     enableSelection,
+    showAssignee,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [selectedUrns, setSelectedUrns] = useState<string[]>([]);
@@ -129,6 +131,7 @@ export const ProposalList = ({
                 resourceUrn,
                 allActionRequests: getAllActionRequests,
             },
+            includeAssignees: showAssignee,
         },
         fetchPolicy: 'cache-and-network',
         nextFetchPolicy: 'cache-first',
@@ -280,6 +283,7 @@ export const ProposalList = ({
                     setSelectedKeys={setSelectedUrns}
                     setSelectedProposals={setSelectedProposals}
                     showPendingView={showPendingView}
+                    showAssignee={showAssignee}
                 />
                 <FooterContainer>
                     {selectedUrns.length > 0 && (

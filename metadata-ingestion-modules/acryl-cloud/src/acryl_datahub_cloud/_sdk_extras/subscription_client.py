@@ -212,6 +212,12 @@ class SubscriptionClient:
           (prevents assertion-level subscription from silently upgrading to dataset-level)
         - Deletes entire subscription if no change types remain
 
+        **Warning behavior:**
+        - If entity_change_types is explicitly provided:
+          * Warns about change types that don't exist in the subscription
+          * For assertions: warns about change types that don't include the assertion in their filter
+        - If entity_change_types is None (using defaults), no warnings are logged
+
         Args:
             urn: URN (string or URN object) of the dataset or assertion to unsubscribe from.
             subscriber_urn: User or group URN to unsubscribe.
@@ -225,9 +231,8 @@ class SubscriptionClient:
 
         Raises:
             SdkUsageError: If URN format is invalid, entity not found, or empty change types list.
-            SdkUsageError: For assertion unsubscription - if assertion not included in specified
-                          change types, or if not assertion-related change types (ASSERTION_PASSED, ASSERTION_FAILED,
-                          ASSERTION_ERROR) are provided.
+            SdkUsageError: For assertion unsubscription - if not assertion-related change types
+                          (ASSERTION_PASSED, ASSERTION_FAILED, ASSERTION_ERROR) are provided.
 
         Note:
             This method is experimental and may change in future versions.
@@ -237,22 +242,16 @@ class SubscriptionClient:
         # Parse URN string if needed
         parsed_urn = self._maybe_parse_urn(urn)
 
-        # For assertion case, fail as requested
-        if isinstance(parsed_urn, AssertionUrn):
-            raise SdkUsageError(
-                "Assertion unsubscription is not yet implemented. Only dataset unsubscription is currently supported."
-            )
-
         dataset_urn: DatasetUrn
         assertion_urn: Optional[AssertionUrn]
         dataset_urn, assertion_urn = (
             (parsed_urn, None)
             if isinstance(parsed_urn, DatasetUrn)
-            else self._fetch_dataset_from_assertion(parsed_urn)  # type: ignore[arg-type]  # TODO: Remove when assertion unsubscribe is implemented
+            else self._fetch_dataset_from_assertion(parsed_urn)
         )
 
         logger.info(
-            f"Unsubscribing from dataset={dataset_urn} for subscriber={subscriber_urn} with change types: {entity_change_types}"
+            f"Unsubscribing from dataset={dataset_urn}{f' assertion={assertion_urn}' if assertion_urn else ''} for subscriber={subscriber_urn} with change types: {entity_change_types}"
         )
 
         # Find existing subscription
@@ -294,8 +293,13 @@ class SubscriptionClient:
             raise SdkUsageError(
                 f"Subscription {subscription_entity.urn} has no change types to remove"
             )
+        # Determine if we should warn about missing items (only when user explicitly provided change types)
+        warn_if_missing = entity_change_types is not None
         updated_change_types = self._remove_change_types(
-            subscription_entity.info.entityChangeTypes, change_types_to_remove
+            subscription_entity.info.entityChangeTypes,
+            change_types_to_remove,
+            assertion_urn_to_remove=assertion_urn,
+            warn_if_missing=warn_if_missing,
         )
 
         # If no change types remain, delete the subscription
@@ -474,20 +478,93 @@ class SubscriptionClient:
 
         return existing_filter
 
+    def _remove_change_types_filter(
+        self,
+        entity_change_type: str,
+        existing_filter: Optional[models.EntityChangeDetailsFilterClass],
+        assertion_urn_to_remove: Optional[AssertionUrn] = None,
+        warn_if_missing: bool = True,
+    ) -> Optional[models.EntityChangeDetailsFilterClass]:
+        """Remove assertion URN from existing filter.
+
+        Args:
+            entity_change_type: The entity change type, used only for better logging messages
+            existing_filter: Existing filter from the subscription
+            assertion_urn_to_remove: Assertion URN to remove from the filter
+            warn_if_missing: Whether to log warning if assertion is not found in filter
+
+        Returns:
+            Updated filter with assertion URN removed, or None if no assertions remain
+            (indicating the entire change type should be removed).
+        """
+        if not existing_filter:
+            # No filter means dataset-level subscription, assertion is not included
+            if assertion_urn_to_remove and warn_if_missing:
+                logger.warning(
+                    f"Assertion {assertion_urn_to_remove.urn()} is not included in entity change type '{entity_change_type}' and will be ignored"
+                )
+            return existing_filter
+
+        if not assertion_urn_to_remove:
+            # If no assertion URN to remove, just return the existing filter
+            return existing_filter
+
+        if (
+            existing_filter.includeAssertions is None
+            or len(existing_filter.includeAssertions) == 0
+        ):
+            # Empty includeAssertions means dataset-level subscription, assertion is not included
+            if warn_if_missing:
+                logger.warning(
+                    f"Assertion {assertion_urn_to_remove.urn()} is not included in entity change type '{entity_change_type}' and will be ignored"
+                )
+            return existing_filter
+
+        assertion_urn_str = assertion_urn_to_remove.urn()
+        if assertion_urn_str not in existing_filter.includeAssertions:
+            # Assertion not found in filter
+            if warn_if_missing:
+                logger.warning(
+                    f"Assertion {assertion_urn_str} is not included in entity change type '{entity_change_type}' and will be ignored"
+                )
+            return existing_filter
+
+        # Remove the assertion from the list
+        updated_assertions = [
+            urn for urn in existing_filter.includeAssertions if urn != assertion_urn_str
+        ]
+
+        if not updated_assertions:
+            # No assertions remain, return None to indicate change type should be removed
+            return None
+
+        # Return updated filter with remaining assertions
+        existing_filter.includeAssertions = updated_assertions
+        return existing_filter
+
     def _remove_change_types(
         self,
         existing_change_types: List[models.EntityChangeDetailsClass],
         change_types_to_remove: List[str],
+        assertion_urn_to_remove: Optional[AssertionUrn] = None,
+        warn_if_missing: bool = True,
     ) -> List[models.EntityChangeDetailsClass]:
         """Remove specified change types from subscription, returning a new list.
+
+        For dataset unsubscription, removes entire change types.
+        For assertion unsubscription, removes assertion from change type filters,
+        and removes entire change type if no assertions remain.
 
         Args:
             existing_change_types: Current entity change types from the subscription.
                                   Never None since this method is only called for existing subscriptions.
             change_types_to_remove: List of change type strings to remove (must not be empty)
+            assertion_urn_to_remove: Optional assertion URN to remove from filters.
+                                   If None, performs dataset-level removal (removes entire change types).
+            warn_if_missing: Whether to log warnings about missing change types or assertions.
 
         Returns:
-            New list of EntityChangeDetailsClass with specified change types removed
+            New list of EntityChangeDetailsClass with specified change types or assertions removed
 
         Note:
             This method does not modify existing_change_types in-place; it returns a new list.
@@ -508,16 +585,43 @@ class SubscriptionClient:
         nonexistent_change_types = (
             change_types_to_remove_set - existing_change_types_set
         )
-        if nonexistent_change_types:
+        if nonexistent_change_types and warn_if_missing:
             logger.warning(
                 f"The following change types do not exist in the subscription and will be ignored: {sorted(nonexistent_change_types)}"
             )
 
-        return [
-            ect
-            for ect in existing_change_types
-            if str(ect.entityChangeType) not in change_types_to_remove_set
-        ]
+        if assertion_urn_to_remove is None:
+            # Dataset-level removal: remove entire change types
+            return [
+                ect
+                for ect in existing_change_types
+                if str(ect.entityChangeType) not in change_types_to_remove_set
+            ]
+        else:
+            # Assertion-level removal: remove assertion from filters
+            result = []
+            for ect in existing_change_types:
+                if str(ect.entityChangeType) not in change_types_to_remove_set:
+                    # Keep change types not being removed
+                    result.append(ect)
+                else:
+                    # Remove assertion from this change type's filter
+                    updated_filter = self._remove_change_types_filter(
+                        entity_change_type=str(ect.entityChangeType),
+                        existing_filter=ect.filter,
+                        assertion_urn_to_remove=assertion_urn_to_remove,
+                        warn_if_missing=warn_if_missing,
+                    )
+                    if updated_filter is not None:
+                        # Keep change type with updated filter
+                        result.append(
+                            models.EntityChangeDetailsClass(
+                                entityChangeType=ect.entityChangeType,
+                                filter=updated_filter,
+                            )
+                        )
+                    # If updated_filter is None, the change type is removed entirely
+            return result
 
     def _maybe_parse_urn(
         self, urn: Union[str, DatasetUrn, AssertionUrn]

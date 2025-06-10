@@ -9,6 +9,7 @@ import { useCustomTheme } from '@src/customThemeContext';
 const PATH_FRAGMENT_TO_TITLE_OVERRIDES = {
     sso: 'SSO',
     oidc: 'OIDC',
+    ai: 'AI',
 };
 
 export default function DataHubTitle() {

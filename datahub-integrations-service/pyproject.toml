@@ -99,6 +99,9 @@ exclude = [
 	".git",
 	"venv",
 	"__pycache__",
+	"experiments/*-private/",
+	"experiments/*/archive/",
+	"scripts/forms/*.py",
 ]
 
 [tool.ruff.lint.isort]
@@ -123,10 +126,12 @@ extend-ignore = [
 	'D203', # Ignore 1 blank line required before class docstring.
 ]
 exclude = [
-	'scripts/forms/*.py', 
-	'experiments/**/*.py',
-	'experiments/**/*.ipynb'
+	"experiments/**/*.ipynb",
 ]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"experiments/**.py" = ["INP001", "E402"]
+"scripts/**.py" = ["B008"]
 
 [tool.pyright]
 extraPaths = ['tests']

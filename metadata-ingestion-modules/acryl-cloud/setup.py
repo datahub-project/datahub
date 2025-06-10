@@ -6,6 +6,12 @@ from setuptools import setup
 _codegen_config_file = pathlib.Path("./src/acryl_datahub_cloud/_codegen_config.json")
 _codegen_config: dict = json.loads(_codegen_config_file.read_text())
 
+# Note: We are using the apscheduler library for cron parsing so that the logic matches the executor.
+# When the fixes in the branch mentioned below are merged upstream, please fix this to match the executor.
+base_requirements = [
+    "apscheduler @ git+https://github.com/acryldata/apscheduler-fork.git@ak--crontab-fix",
+]
+
 # Adding pydantic<2 since we use pydantic models to map to pyarrow models and that is only compatible in pydantic v1
 stats_common = {"pandas", "pyarrow", "duckdb", "pydantic<2"}
 aws_common = {"boto3"}
@@ -34,6 +40,7 @@ plugins = {
     "datahub-metadata-sharing": {"tenacity"},
     "datahub-action-request-owner": {"tenacity"},
     "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
+    "datahub-forms-notifications": {"tenacity"},
 }
 
 dev_requirements = {
@@ -50,6 +57,7 @@ dev_requirements = {
             "datahub-usage-reporting",
             "datahub-metadata-sharing",
             "acryl-cs-issues",
+            "datahub-forms-notifications",
         ]
         for dependency in plugins[plugin]
     ),
@@ -60,6 +68,7 @@ setup(
         **_codegen_config,
         "install_requires": [
             *_codegen_config["install_requires"],
+            *base_requirements,
         ],
         "entry_points": {
             **_codegen_config["entry_points"],
@@ -76,6 +85,7 @@ setup(
                 "acryl-cs-issues = acryl_datahub_cloud.acryl_cs_issues.source:AcrylCSIssuesSource",
                 "datahub-restore = acryl_datahub_cloud.datahub_restore.source:DataHubRestoreSource",
                 "datahub-action-request-owner = acryl_datahub_cloud.action_request.action_request_owner_source:ActionRequestOwnerSource",
+                "datahub-forms-notifications = acryl_datahub_cloud.datahub_forms_notifications.forms_notifications_source:DataHubFormsNotificationsSource",
             ],
         },
         "include_package_data": True,

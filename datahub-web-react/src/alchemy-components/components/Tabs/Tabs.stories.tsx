@@ -90,6 +90,12 @@ const meta = {
         getCurrentUrl: {
             description: 'A custom function to get the current URL. Defaults to window.location.pathname',
         },
+        secondary: {
+            description: 'Whether to render the tabs in a secondary style',
+        },
+        navMarginBottom: {
+            description: 'The margin below the tabs navigation. This is useful when the tabs have scrollable content.',
+        },
     },
 
     // Args for the story

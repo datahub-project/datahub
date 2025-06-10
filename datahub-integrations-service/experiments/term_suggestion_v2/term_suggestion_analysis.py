@@ -165,11 +165,11 @@ glossary_info.glossary = new_glossary
 
 if not USE_TERM_PARENT_INFO:
     print("removing parent node info ......")
-    for key, value in glossary_info.glossary.items():
+    for key, _value in glossary_info.glossary.items():
         glossary_info.glossary[key].pop("parent_node", None)
 
 terms = []
-for key, value in glossary_info.glossary.items():
+for _key, value in glossary_info.glossary.items():
     terms.append(value["term_name"])
 print("Number of terms available: ", len(terms))
 print("Available Terms: ", terms)

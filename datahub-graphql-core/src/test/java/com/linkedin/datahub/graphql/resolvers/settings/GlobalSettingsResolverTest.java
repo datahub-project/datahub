@@ -9,6 +9,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.GlobalSettings;
 import com.linkedin.datahub.graphql.generated.NotificationScenarioType;
 import com.linkedin.datahub.graphql.generated.NotificationSetting;
@@ -64,7 +65,9 @@ public class GlobalSettingsResolverTest {
                                         .setActor(
                                             Urn.createFromString("urn:li:corpuser:test")))))));
 
-    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient, mockSecretService);
+    FeatureFlags featureFlags = new FeatureFlags();
+    GlobalSettingsResolver resolver =
+        new GlobalSettingsResolver(mockClient, mockSecretService, featureFlags);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -105,7 +108,9 @@ public class GlobalSettingsResolverTest {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     SecretService mockSecretService = Mockito.mock(SecretService.class);
-    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient, mockSecretService);
+    FeatureFlags featureFlags = new FeatureFlags();
+    GlobalSettingsResolver resolver =
+        new GlobalSettingsResolver(mockClient, mockSecretService, featureFlags);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -126,7 +131,9 @@ public class GlobalSettingsResolverTest {
         .batchGetV2(any(OperationContext.class), Mockito.any(), Mockito.anySet(), Mockito.anySet());
     SecretService mockSecretService = Mockito.mock(SecretService.class);
 
-    GlobalSettingsResolver resolver = new GlobalSettingsResolver(mockClient, mockSecretService);
+    FeatureFlags featureFlags = new FeatureFlags();
+    GlobalSettingsResolver resolver =
+        new GlobalSettingsResolver(mockClient, mockSecretService, featureFlags);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -153,5 +160,85 @@ public class GlobalSettingsResolverTest {
             .setValue(NotificationSettingValue.DISABLED));
     globalSettingsInfo.setNotifications(new GlobalNotificationSettings().setSettings(map));
     return globalSettingsInfo;
+  }
+
+  private GlobalSettings getDocumentationAiResult(
+      boolean aiFeaturesEnabled, Boolean docAiEnabled, boolean docAiDefaultEnabled)
+      throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    SecretService mockSecretService = Mockito.mock(SecretService.class);
+    FeatureFlags featureFlags = new FeatureFlags();
+    featureFlags.setAiFeaturesEnabled(aiFeaturesEnabled);
+    featureFlags.setDocumentationAiDefaultEnabled(docAiDefaultEnabled);
+
+    GlobalSettingsInfo info = getGlobalSettingsInfo();
+    if (docAiEnabled != null) {
+      com.linkedin.settings.global.DocumentationAiSettings docAi =
+          new com.linkedin.settings.global.DocumentationAiSettings();
+      docAi.setEnabled(docAiEnabled);
+      info.setDocumentationAi(docAi);
+    }
+
+    Mockito.when(
+            mockClient.getV2(
+                any(OperationContext.class),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_ENTITY_NAME),
+                Mockito.eq(Constants.GLOBAL_SETTINGS_URN),
+                Mockito.eq(ImmutableSet.of(Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME))))
+        .thenReturn(
+            new EntityResponse()
+                .setEntityName(Constants.GLOBAL_SETTINGS_ENTITY_NAME)
+                .setUrn(Constants.GLOBAL_SETTINGS_URN)
+                .setAspects(
+                    new EnvelopedAspectMap(
+                        ImmutableMap.of(
+                            Constants.GLOBAL_SETTINGS_INFO_ASPECT_NAME,
+                            new EnvelopedAspect()
+                                .setValue(new Aspect(info.data()))
+                                .setCreated(
+                                    new AuditStamp()
+                                        .setTime(0L)
+                                        .setActor(
+                                            Urn.createFromString("urn:li:corpuser:test")))))));
+
+    GlobalSettingsResolver resolver =
+        new GlobalSettingsResolver(mockClient, mockSecretService, featureFlags);
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    return resolver.get(mockEnv).get();
+  }
+
+  @Test
+  public void testDocumentationAiPresentTrue() throws Exception {
+    GlobalSettings result = getDocumentationAiResult(true, true, false);
+    assertNotNull(result.getDocumentationAi());
+    assertTrue(result.getDocumentationAi().getEnabled());
+  }
+
+  @Test
+  public void testDocumentationAiPresentFalse() throws Exception {
+    GlobalSettings result = getDocumentationAiResult(true, false, true);
+    assertNotNull(result.getDocumentationAi());
+    assertFalse(result.getDocumentationAi().getEnabled());
+  }
+
+  @Test
+  public void testDocumentationAiAbsentUsesDefault() throws Exception {
+    GlobalSettings resultTrue = getDocumentationAiResult(true, null, true);
+    assertNotNull(resultTrue.getDocumentationAi());
+    assertTrue(resultTrue.getDocumentationAi().getEnabled());
+    GlobalSettings resultFalse = getDocumentationAiResult(true, null, false);
+    assertNotNull(resultFalse.getDocumentationAi());
+    assertFalse(resultFalse.getDocumentationAi().getEnabled());
+  }
+
+  @Test
+  public void testDocumentationAiDisabledWhenAiFeaturesDisabled() throws Exception {
+    GlobalSettings result = getDocumentationAiResult(false, true, true);
+    assertNotNull(result.getDocumentationAi());
+    assertFalse(
+        result.getDocumentationAi().getEnabled(),
+        "documentationAi.enabled should be false when aiFeaturesEnabled is false");
   }
 }

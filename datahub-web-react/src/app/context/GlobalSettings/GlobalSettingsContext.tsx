@@ -16,6 +16,7 @@ export type GlobalSettingsContextType = {
     globalSettings?: GlobalSettings;
     helpLinkState: HelpLinkState;
     refetch: () => void;
+    loading: boolean;
 };
 
 const DEFAULT_HELP_LINK_STATE: HelpLinkState = {
@@ -31,6 +32,7 @@ const DEFAULT_HELP_LINK_STATE: HelpLinkState = {
 export const DEFAULT_CONTEXT = {
     helpLinkState: DEFAULT_HELP_LINK_STATE,
     refetch: () => null,
+    loading: true,
 };
 
 export const GlobalSettingsContext = React.createContext<GlobalSettingsContextType>(DEFAULT_CONTEXT);

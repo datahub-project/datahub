@@ -127,8 +127,7 @@ export function NavLinksMenu(props: Props) {
         isIngestionEnabled && (me.platformPrivileges?.manageIngestion || me.platformPrivileges?.manageSecrets);
     const showActionRequests = isActionRequestsEnabled || false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
-    const showDatasetHealth =
-        config?.featureFlags?.datasetHealthDashboardEnabled || config?.featureFlags?.datasetHealthDashboardV2Enabled;
+    const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled &&

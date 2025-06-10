@@ -26,6 +26,14 @@ extend type Mutation {
   updateGroupNotificationSettings(
     input: UpdateGroupNotificationSettingsInput!
   ): NotificationSettings!
+
+  """
+  Send notification requests for compliance form initiatives.
+  This endpoint is in Beta and is subject to change.
+  """
+  sendFormNotificationRequest(
+    input: SendFormNotificationRequestInput!
+  ): Boolean!
 }
 
 input GetGroupNotificationSettingsInput {
@@ -148,4 +156,58 @@ enum NotificationSinkType {
   Email
   """
   EMAIL
+}
+
+enum FormNotificationType {
+  """
+  Sent when letting a user know about a new form to work on
+  """
+  BROADCAST_COMPLIANCE_FORM_PUBLISH
+}
+
+input SendFormNotificationRequestInput {
+  """
+  The type of form notification being sent
+  """
+  type: FormNotificationType!
+
+  """
+  The parameters that are used for this notification.
+  These parameters are what is used to add specific info to
+  the notification template.
+  """
+  parameters: [StringMapEntryInput!]
+
+  """
+  Info on who is to receive this notification
+  """
+  recipients: [FormNotificationRecipientInput!]!
+}
+
+enum NotificationRecipientType {
+  EMAIL
+  SLACK_CHANNEL
+  SLACK_DM
+}
+
+input FormNotificationRecipientInput {
+  """
+  What type of notification recipient this is being sent to
+  """
+  type: NotificationRecipientType!
+
+  """
+  ID of the recipient
+  """
+  id: String
+
+  """
+  The urn of the actor this notification is being sent to
+  """
+  actor: String
+
+  """
+  Display name of the recipient
+  """
+  displayName: String
 }

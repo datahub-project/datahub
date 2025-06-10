@@ -9,7 +9,6 @@ from typing import TypedDict
 import dotenv
 import tqdm
 from graph_helper import create_datahub_graph
-from loguru import logger
 
 from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
 from datahub_integrations.gen_ai.description_context import (
@@ -137,7 +136,7 @@ def get_llm_response_comparison_score(
 ) -> dict[EntityRef, str]:
     comparison_scores_dict: dict[EntityRef, str] = {}
     for ref in tqdm.tqdm(table_info_with_descriptions.keys()):
-        #if ref.instance == "longtailcompanions":
+        # if ref.instance == "longtailcompanions":
         #    logger.debug(f"Skipping {ref}")
         #    continue
         # print(ref)
@@ -151,9 +150,9 @@ def prepare_csv_output(llm_output, dict1, dict2):
     # out_csv_format = ["urn", "instance", "csv1_desc", "csv2_desc", "csv1_score", "csv2_score", "csv1_reasoning", "csv2_reasoning"]
     formatted_llm_output = []
     for ref in llm_output.keys():
-        assert (
-            llm_output.get(ref) is not None and llm_output.get(ref) is not None
-        ), "table not present in csvs"
+        assert llm_output.get(ref) is not None and llm_output.get(ref) is not None, (
+            "table not present in csvs"
+        )
         table1_description = dict1[ref].get("table_description")
         table2_description = dict2[ref].get("table_description")
         table_description_1_score = llm_output[ref].get("table_description_1_score")
@@ -240,7 +239,9 @@ def parse_llm_output(text: str):
                     "score_computation_logic"
                 )
                 is not None
-            ), "LLM response for table_description_1 does not match the dessired output format"
+            ), (
+                "LLM response for table_description_1 does not match the dessired output format"
+            )
             assert (
                 extracted_dict["table_description_2_score"].get("score") is not None
                 and extracted_dict["table_description_2_score"].get("score") is not None
@@ -248,7 +249,9 @@ def parse_llm_output(text: str):
                     "score_computation_logic"
                 )
                 is not None
-            ), "LLM response for table_description_2 does not match the dessired output format"
+            ), (
+                "LLM response for table_description_2 does not match the dessired output format"
+            )
             return extracted_dict
 
         except (SyntaxError, ValueError) as e:

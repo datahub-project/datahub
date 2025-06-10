@@ -42,6 +42,7 @@ public class FeatureFlags {
   private boolean showIntroducePage = false;
   private boolean showIngestionPageRedesign = false;
   private boolean showLineageExpandMore = true;
+  private boolean lineageGraphV3 = true;
 
   /* SaaS Only */
   private boolean assertionMonitorsEnabled = false;
@@ -50,7 +51,8 @@ public class FeatureFlags {
   private boolean slackBotTokensConfigEnabled = false;
   private boolean slackBotTokensObfuscationEnabled = false;
   private boolean datasetHealthDashboardEnabled = false;
-  private boolean documentationAiEnabled = false;
+  private boolean aiFeaturesEnabled = true;
+  private boolean documentationAiDefaultEnabled = false;
   private boolean metadataShareEnabled = false;
   private boolean documentationFormsEnabled = false;
   private boolean emailNotificationsEnabled = false;
@@ -68,7 +70,6 @@ public class FeatureFlags {
   private boolean displayExecutorPools = false;
   private boolean onlineSmartAssertionsEnabled = false;
   private boolean showDefaultExternalLinks = true;
-  private boolean datasetHealthDashboardV2Enabled = false;
   private boolean showCreatedAtFilter = false;
   private boolean showNotificationSettingsForComplianceForms = false;
 }

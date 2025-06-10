@@ -121,8 +121,7 @@ export function HeaderLinks(props: Props) {
         (!isDocumentationFormsEnabled && isActionRequestsEnabled && me?.platformPrivileges?.viewMetadataProposals) ||
         false;
     const showTests = (isTestsEnabled && me?.platformPrivileges?.manageTests) || false;
-    const showDatasetHealth =
-        config?.featureFlags?.datasetHealthDashboardEnabled || config?.featureFlags?.datasetHealthDashboardV2Enabled;
+    const showDatasetHealth = config?.featureFlags?.datasetHealthDashboardEnabled;
     const showObserve = showDatasetHealth;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled &&

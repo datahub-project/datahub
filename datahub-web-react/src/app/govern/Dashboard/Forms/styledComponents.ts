@@ -73,7 +73,13 @@ export const LeftSection = styled.div`
     flex-direction: column;
 `;
 
-export const OwnershipCheckbox = styled.div`
+export const AddRecipientsOptions = styled.div`
+    display: flex;
+    flex-direction: row;
+    gap: 10px;
+`;
+
+export const OptionCheckbox = styled.div`
     display: flex;
     align-items: center;
     gap: 10px;

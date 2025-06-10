@@ -746,10 +746,14 @@ featureFlags:
   # Enables the ability to create native schema assertions inside the UI.
   subscriptionsEnabled: ${SUBSCRIPTIONS_ENABLED:true}
   # Enables the ability to subscribe to notifications
-  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:false}
+  datasetHealthDashboardEnabled: ${DATASET_HEALTH_DASHBOARD_ENABLED:true}
   # Enables the Dataset Health dashboard in the application
-  documentationAiEnabled: ${DOCUMENTATION_AI_ENABLED:false}
-  # Enables the AI-powered documentation feature in the UI
+  aiFeaturesEnabled: ${AI_FEATURES_ENABLED:true}
+  # Whether AI-powered features are enabled. Not supported for non-AWS deployments.
+  documentationAiDefaultEnabled: ${DOCUMENTATION_AI_ENABLED:false}
+  # If the AI-powered documentation feature should be enabled by default.
+  # The globalSettings.documentationAi.enabled setting takes precedence over this.
+  # Requires aiFeaturesEnabled to be true.
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false}
   # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true}
@@ -782,8 +786,6 @@ featureFlags:
   # If turned on, allow on-demand creation of smart assertions in the UI, and they will run online.
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true}
   # If turned on, show the default external links on the entity page
-  datasetHealthDashboardV2Enabled: ${DATASET_HEALTH_DASHBOARD_V2_ENABLED:false}
-  # Enables the Dataset Health dashboard V2 in the application
   showCreatedAtFilter: ${SHOW_CREATED_AT_FILTER:false}
   # If turned on, the "Created At" filter will be visible in search results page
   showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false}
@@ -791,6 +793,8 @@ featureFlags:
   # If turned on, show the expand more button (>>) in the lineage graph
   showNotificationSettingsForComplianceForms: ${SHOW_NOTIFICATION_SETTINGS_FOR_COMPLIANCE_FORMS:false}
   # Whether to show notification settings for compliance forms
+  lineageGraphV3: ${LINEAGE_GRAPH_V3:false}
+  # Enables the redesign of the lineage v2 graph
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

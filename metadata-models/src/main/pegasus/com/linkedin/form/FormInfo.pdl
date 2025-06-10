@@ -53,6 +53,12 @@ record FormInfo {
   /**
    * Information about the state and status of this form
    */
+  @Searchable = {
+    "/state": {
+      "fieldName": "formStatus",
+      "fieldType": "KEYWORD"
+    }
+  }
   status: FormStatus = { "state": "PUBLISHED" }
 
   /**

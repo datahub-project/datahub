@@ -20,8 +20,9 @@ const StyledButtonGroup = styled(Button.Group)`
 `;
 
 const ActiveGroupTabViewContainer = styled.div`
-    height: calc(100% - 70px);
+    height: calc(100% - 58px);
     margin: 20px;
+    margin-top: 8px;
 `;
 
 const ProposalsContainer = styled.div`
@@ -130,6 +131,7 @@ export const Proposals = ({ onProposalClick }: Props) => {
                 }
                 enableSelection={activeActionRequestGroup.name !== MY_PROPOSALS_GROUP_NAME}
                 showPendingView={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
+                showAssignee={activeActionRequestGroup.name === MY_PROPOSALS_GROUP_NAME}
                 key={activeActionRequestGroup.name}
             />
         </ActiveGroupTabViewContainer>

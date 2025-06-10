@@ -22,6 +22,7 @@ import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptType;
+import com.linkedin.form.FormSettings;
 import com.linkedin.form.FormType;
 import com.linkedin.identity.GroupMembership;
 import com.linkedin.identity.NativeGroupMembership;
@@ -195,6 +196,28 @@ public class FormService extends BaseService {
     }
   }
 
+  /** Create a form settings for a particular form. */
+  public void createFormSettings(
+      @Nonnull OperationContext opContext,
+      @Nonnull final FormSettings formSettings,
+      @Nonnull final Urn formUrn)
+      throws RemoteInvocationException {
+    if (!entityClient.exists(opContext, formUrn)) {
+      throw new RuntimeException(
+          String.format("Form %s does not exist. Failed to create form settings", formUrn));
+    }
+
+    try {
+      entityClient.ingestProposal(
+          opContext,
+          AspectUtils.buildMetadataChangeProposal(
+              formUrn, Constants.FORM_SETTINGS_ASPECT_NAME, formSettings),
+          false);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create form", e);
+    }
+  }
+
   /**
    * Creates a form prompt automation, which verifies that the prompt is completed, and unsets it
    * when it's not.
@@ -244,7 +267,12 @@ public class FormService extends BaseService {
       }
       ingestChangeProposals(opContext, changes, _isAsync);
 
-      return assignFormToFilter(opContext, formUrn, formFilters.getFilter());
+      Filter assetsMissingFormFilter = FormUtils.buildAssetsMissingFormFilter(formUrn.toString());
+      // only trigger assignment to assets that don't already have this form assigned
+      Filter finalFilter =
+          FilterUtils.combineFilters(formFilters.getFilter(), assetsMissingFormFilter);
+
+      return assignFormToFilter(opContext, formUrn, finalFilter);
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to dynamically assign form with urn: %s", formUrn), e);

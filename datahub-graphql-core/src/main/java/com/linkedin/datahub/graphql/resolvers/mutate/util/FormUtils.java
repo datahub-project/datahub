@@ -22,6 +22,8 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FormActorAssignmentInput;
 import com.linkedin.datahub.graphql.generated.FormAssetAssignment;
 import com.linkedin.datahub.graphql.generated.FormFilter;
+import com.linkedin.datahub.graphql.generated.FormNotificationSettingsInput;
+import com.linkedin.datahub.graphql.generated.FormSettingsInput;
 import com.linkedin.datahub.graphql.generated.GlossaryTermsParamsInput;
 import com.linkedin.datahub.graphql.generated.OwnershipParamsInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyParamsInput;
@@ -33,9 +35,11 @@ import com.linkedin.form.DomainParams;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormActorAssignment;
 import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormNotificationSettings;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.form.FormPromptType;
+import com.linkedin.form.FormSettings;
 import com.linkedin.form.FormState;
 import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
@@ -290,6 +294,44 @@ public class FormUtils {
     }
 
     return dynamicFormAssignment;
+  }
+
+  @Nonnull
+  public static FormSettings updateFormSettings(
+      @Nonnull OperationContext context,
+      @Nullable final EntityResponse response,
+      @Nonnull final FormSettingsInput formSettingsInput) {
+    Objects.requireNonNull(formSettingsInput, "formSettingsInput must not be null");
+
+    final FormSettings formSettings =
+        response != null && response.getAspects().containsKey(Constants.FORM_SETTINGS_ASPECT_NAME)
+            ? new FormSettings(
+                response.getAspects().get(Constants.FORM_SETTINGS_ASPECT_NAME).getValue().data())
+            : new FormSettings();
+
+    FormNotificationSettings formNotificationSettings =
+        getFormNotificationSettings(formSettings, formSettingsInput);
+    formSettings.setNotificationSettings(formNotificationSettings);
+
+    return formSettings;
+  }
+
+  private static FormNotificationSettings getFormNotificationSettings(
+      final FormSettings formSettings, FormSettingsInput formSettingsInput) {
+    FormNotificationSettings formNotificationSettings =
+        formSettings.hasNotificationSettings()
+            ? formSettings.getNotificationSettings()
+            : new FormNotificationSettings();
+    if (formSettingsInput.getNotificationSettings() != null) {
+      FormNotificationSettingsInput formNotificationSettingsInput =
+          formSettingsInput.getNotificationSettings();
+
+      if (formNotificationSettingsInput.getNotifyAssigneesOnPublish() != null) {
+        formNotificationSettings.setNotifyAssigneesOnPublish(
+            formNotificationSettingsInput.getNotifyAssigneesOnPublish());
+      }
+    }
+    return formNotificationSettings;
   }
 
   @Nonnull

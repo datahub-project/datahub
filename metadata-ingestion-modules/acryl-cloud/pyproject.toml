@@ -2,6 +2,7 @@
 build-backend = "setuptools.build_meta"
 requires = ["setuptools >= 71.1", "wheel"]
 
+
 [tool.ruff.lint.isort]
 known-first-party = ["datahub"]
 combine-as-imports = true

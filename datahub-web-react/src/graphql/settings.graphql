@@ -108,6 +108,9 @@ query getGlobalSettings {
             customLogoUrl
             customOrgName
         }
+        documentationAi {
+            enabled
+        }
     }
 }
 
@@ -177,6 +180,10 @@ mutation updateGlobalNotificationSettings($input: UpdateGlobalNotificationSettin
 
 mutation updateSsoSettings($input: UpdateSsoSettingsInput!) {
     updateGlobalSettings(input: { ssoSettings: $input })
+}
+
+mutation updateGlobalDocsAiSettings($input: UpdateDocumentationAiSettingsInput!) {
+    updateGlobalSettings(input: { documentationAi: $input })
 }
 
 mutation updateHelpLink($input: UpdateHelpLinkInput!) {

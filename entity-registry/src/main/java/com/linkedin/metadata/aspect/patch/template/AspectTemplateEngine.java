@@ -23,6 +23,7 @@ public class AspectTemplateEngine {
   public static final Set<String> SUPPORTED_TEMPLATES =
       Stream.of(
               ASSERTIONS_SUMMARY_ASPECT_NAME,
+              ASSERTION_RUN_SUMMARY_ASPECT_NAME,
               ASSERTION_INFERENCE_DETAILS_ASPECT_NAME,
               INCIDENT_NOTIFICATION_DETAILS_ASPECT_NAME,
               MONITOR_INFO_ASPECT_NAME,

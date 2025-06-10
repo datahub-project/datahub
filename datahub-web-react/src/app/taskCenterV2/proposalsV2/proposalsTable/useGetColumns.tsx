@@ -2,11 +2,14 @@ import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
+import ProposalsAssignee from '@app/taskCenterV2/proposalsV2/ProposalsAssignee';
 import ActionsColumn from '@app/taskCenterV2/proposalsV2/proposalsTable/ActionsColumn';
 import { colors } from '@src/alchemy-components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { ActionRequestListItem } from '@src/app/actionrequestV2/item/ActionRequestListItem';
 import { toLocalDateString } from '@src/app/shared/time/timeUtils';
+
+import { ActionRequest } from '@types';
 
 const OverflowText = styled(Typography.Text)`
     color: ${colors.gray[1700]};
@@ -16,22 +19,35 @@ const OverflowText = styled(Typography.Text)`
 interface Props {
     onActionRequestUpdate: (completedUrns: string[]) => void;
     showPendingView?: boolean;
+    showAssignee?: boolean;
 }
 
-export const useGetColumns = ({ onActionRequestUpdate, showPendingView }: Props) => {
+export const useGetColumns = ({ onActionRequestUpdate, showPendingView, showAssignee = false }: Props) => {
     const columns = [
         {
             title: 'Content',
             key: 'content',
-            render: (record) => {
+            render: (record: ActionRequest) => {
                 return <ActionRequestListItem actionRequest={record} />;
             },
             minWidth: '650px',
         },
+        ...(showAssignee
+            ? [
+                  {
+                      title: 'To',
+                      key: 'To',
+                      render: (record: ActionRequest) => {
+                          return <ProposalsAssignee assignees={record?.assignees || []} />;
+                      },
+                      width: '10%',
+                  },
+              ]
+            : []),
         {
             title: 'Date',
             key: 'date',
-            render: (record) => {
+            render: (record: ActionRequest) => {
                 const createdTime = record.created.time;
                 return <>{toLocalDateString(createdTime)}</>;
             },
@@ -46,7 +62,7 @@ export const useGetColumns = ({ onActionRequestUpdate, showPendingView }: Props)
         {
             title: 'Note',
             key: 'note',
-            render: (record) => {
+            render: (record: ActionRequest) => {
                 return (
                     <OverflowText
                         ellipsis={{
@@ -65,7 +81,7 @@ export const useGetColumns = ({ onActionRequestUpdate, showPendingView }: Props)
         {
             title: '',
             key: 'actions',
-            render: (record) => {
+            render: (record: ActionRequest) => {
                 return (
                     <ActionsColumn
                         actionRequest={record}

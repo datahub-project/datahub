@@ -16,7 +16,7 @@ function CreatedByView({ actionRequest }: Props) {
     const createdBy = actionRequest.created.actor;
     const createdByDisplayName =
         (createdBy && entityRegistry.getDisplayName(EntityType.CorpUser, createdBy)) || 'Anonymous';
-    const createdByDisplayImage = createdBy && createdBy.editableInfo?.pictureLink;
+    const createdByDisplayImage = createdBy && createdBy.editableProperties?.pictureLink;
     const createdByProfileUrl = `/${entityRegistry.getPathName(EntityType.CorpUser)}/${createdBy?.urn}`;
 
     return (

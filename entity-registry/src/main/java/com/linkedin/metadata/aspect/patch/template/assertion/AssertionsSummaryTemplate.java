@@ -17,6 +17,7 @@ public class AssertionsSummaryTemplate extends CompoundKeyTemplate<AssertionsSum
   private static final String PASSING_ASSERTION_DETAILS_FIELD_NAME = "passingAssertionDetails";
   private static final String LEGACY_FAILING_ASSERTIONS_FIELD_NAME = "failingAssertions";
   private static final String FAILING_ASSERTION_DETAILS_FIELD_NAME = "failingAssertionDetails";
+  private static final String ERRORING_ASSERTION_DETAILS_FIELD_NAME = "erroringAssertionDetails";
   private static final String URN_FIELD_NAME = "urn";
 
   @Override
@@ -38,6 +39,7 @@ public class AssertionsSummaryTemplate extends CompoundKeyTemplate<AssertionsSum
     AssertionsSummary assertionsSummary = new AssertionsSummary();
     assertionsSummary.setPassingAssertionDetails(new AssertionSummaryDetailsArray());
     assertionsSummary.setFailingAssertionDetails(new AssertionSummaryDetailsArray());
+    assertionsSummary.setErroringAssertionDetails(new AssertionSummaryDetailsArray());
     return assertionsSummary;
   }
 
@@ -60,6 +62,11 @@ public class AssertionsSummaryTemplate extends CompoundKeyTemplate<AssertionsSum
     transformedNode =
         arrayFieldToMap(
             transformedNode, LEGACY_FAILING_ASSERTIONS_FIELD_NAME, Collections.emptyList());
+    transformedNode =
+        arrayFieldToMap(
+            transformedNode,
+            ERRORING_ASSERTION_DETAILS_FIELD_NAME,
+            Collections.singletonList(URN_FIELD_NAME));
     return transformedNode;
   }
 
@@ -82,6 +89,11 @@ public class AssertionsSummaryTemplate extends CompoundKeyTemplate<AssertionsSum
     rebasedNode =
         transformedMapToArray(
             rebasedNode, LEGACY_FAILING_ASSERTIONS_FIELD_NAME, Collections.emptyList());
+    rebasedNode =
+        transformedMapToArray(
+            rebasedNode,
+            ERRORING_ASSERTION_DETAILS_FIELD_NAME,
+            Collections.singletonList(URN_FIELD_NAME));
     return rebasedNode;
   }
 }

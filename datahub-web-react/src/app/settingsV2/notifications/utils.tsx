@@ -1,6 +1,6 @@
 import { message } from 'antd';
 
-import { FormattedNotificationSetting, SLACK_SINK } from '@src/app/settings/platform/types';
+import { EMAIL_SINK, FormattedNotificationSetting, SLACK_SINK } from '@src/app/settings/platform/types';
 import {
     NotificationScenarioType,
     NotificationSetting,
@@ -9,7 +9,7 @@ import {
 } from '@src/types.generated';
 
 export const SLACK_CHANNEL_PARAM_NAME = `${SLACK_SINK.id}.channel`;
-export const EMAIL_ADDRESS_PARAM_NAME = `${SLACK_SINK.id}.address`;
+export const EMAIL_ADDRESS_PARAM_NAME = `${EMAIL_SINK.id}.address`;
 
 export const paramsMapToArray = (params: Map<string, string>) => {
     const paramsArray = Array<StringMapEntry>();

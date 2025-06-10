@@ -305,6 +305,43 @@ fragment actionRequestFields on ActionRequest {
     }
 }
 
+fragment assigneeFields on OwnerType {
+    ... on CorpUser {
+        type
+        urn
+        username
+        editableProperties {
+            displayName
+            pictureLink
+        }
+        properties {
+            displayName
+        }
+        info {
+            displayName
+        }
+    }
+    ... on CorpGroup {
+        type
+        urn
+        name
+        info {
+            displayName
+        }
+        memberCount: relationships(
+            input: {
+                types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
+                direction: INCOMING
+                start: 0
+                count: 0
+                includeSoftDelete: false
+            }
+        ) {
+            total
+        }
+    }
+}
+
 fragment actionRequestFieldsV2 on ActionRequest {
     urn
     type
@@ -415,6 +452,9 @@ fragment actionRequestFieldsV2 on ActionRequest {
             }
         }
     }
+    assignees @include(if: $includeAssignees) {
+        ...assigneeFields
+    }
     created {
         time
         actor {
@@ -427,7 +467,7 @@ fragment actionRequestFieldsV2 on ActionRequest {
                 lastName
                 fullName
             }
-            editableInfo {
+            editableProperties {
                 pictureLink
             }
         }
@@ -452,7 +492,7 @@ fragment actionRequestFieldsV2 on ActionRequest {
     origin
 }
 
-query listActionRequestsV2($input: ListActionRequestsInput!) {
+query listActionRequestsV2($input: ListActionRequestsInput!, $includeAssignees: Boolean = false) {
     listActionRequests(input: $input) {
         start
         count

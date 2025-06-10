@@ -25,6 +25,7 @@ const ManageFormContext = React.createContext<ManageFormState>({
             groups: [],
         },
         state: FormState.Draft,
+        formSettings: undefined,
     },
     setFormValues: () => {},
     form: undefined,

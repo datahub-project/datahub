@@ -273,6 +273,7 @@ entities:
       - slackUserInfo
       # SaaS Only
       - share
+      - formNotifications
   - name: corpGroup
     doc: CorpGroup represents an identity of a group of users in the enterprise.
     keyAspect: corpGroupKey
@@ -291,6 +292,7 @@ entities:
       # SaaS Only
       - corpGroupSettings
       - share
+      - formNotifications
   - name: domain
     doc: A data domain within an organization.
     category: core

@@ -17,6 +17,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.form.DynamicFormAssignment;
 import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormSettings;
 import com.linkedin.form.FormState;
 import com.linkedin.form.FormStatus;
 import com.linkedin.form.FormType;
@@ -131,6 +132,13 @@ public class UpdateFormResolver implements DataFetcher<CompletableFuture<Form>> 
                       context.getOperationContext(), response, input.getFormAssetAssignment());
               _formService.createDynamicFormAssignment(
                   context.getOperationContext(), dynamicFormAssignment, formUrn);
+            }
+
+            if (input.getFormSettings() != null) {
+              FormSettings formSettings =
+                  FormUtils.updateFormSettings(
+                      context.getOperationContext(), response, input.getFormSettings());
+              _formService.createFormSettings(context.getOperationContext(), formSettings, formUrn);
             }
 
             return FormMapper.map(context, response);

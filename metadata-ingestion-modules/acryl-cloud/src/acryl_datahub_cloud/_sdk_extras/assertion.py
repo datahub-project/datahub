@@ -10,13 +10,14 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 from typing_extensions import Self
 
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
+    DEFAULT_SCHEDULE,
     DEFAULT_SENSITIVITY,
     AssertionIncidentBehavior,
     DetectionMechanism,
@@ -26,12 +27,14 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     _DetectionMechanismTypes,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
-from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+from acryl_datahub_cloud._sdk_extras.entities.monitor import (
+    Monitor,
+    _get_nested_field_for_entity_with_default,
+)
 from acryl_datahub_cloud._sdk_extras.errors import SDKNotYetSupportedError
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, TagUrn
-from datahub.sdk.entity import Entity
 
 logger = logging.getLogger(__name__)
 
@@ -48,40 +51,44 @@ class AssertionMode(Enum):
     # PASSIVE = "PASSIVE" # Not supported in the user facing interface.
 
 
-def _get_nested_field_for_entity_with_default(
-    entity: Entity,
-    field_path: str,
-    default: Any = None,
-) -> Any:
+class _HasSchedule:
     """
-    Get a nested field from an Entity object, and warn and return default if not found.
-
-    Args:
-        entity: The entity to get the nested field from.
-        field_path: The path to the nested field.
-        default: The default value to return if the field is not found.
+    Mixin class that provides schedule functionality for assertions.
     """
-    fields = field_path.split(".")
-    current = entity
-    last_valid_path = entity.entity_type_name()
 
-    for field in fields:
-        try:
-            current = getattr(current, field)
-            last_valid_path = f"{last_valid_path}.{field}"
-        except AttributeError:
-            logger.warning(
-                f"{entity.entity_type_name().capitalize()} {entity.urn} does not have an `{last_valid_path}` field, defaulting to {default}"
-            )
-            return default
+    def __init__(self, schedule: models.CronScheduleClass) -> None:
+        self._schedule = schedule
 
-    return current
+    @property
+    def schedule(self) -> models.CronScheduleClass:
+        return self._schedule
+
+    @staticmethod
+    def _get_schedule(monitor: Monitor) -> models.CronScheduleClass:
+        """Get the schedule from the monitor."""
+        assertion_evaluation_specs = _get_nested_field_for_entity_with_default(
+            monitor,
+            "info.assertionMonitor.assertions",
+            [],
+        )
+        if len(assertion_evaluation_specs) == 0:
+            return DEFAULT_SCHEDULE
+        assertion_evaluation_spec = assertion_evaluation_specs[0]
+        schedule = assertion_evaluation_spec.schedule
+        if schedule is None:
+            return DEFAULT_SCHEDULE
+        return schedule
 
 
 class _HasSmartFunctionality:
     """
     Mixin class that provides smart functionality for assertions.
     """
+
+    _SUPPORTED_WITH_FILTER_ASSERTION_TYPES = (
+        models.FreshnessAssertionInfoClass,
+        models.VolumeAssertionInfoClass,
+    )
 
     def __init__(
         self,
@@ -204,17 +211,29 @@ class _HasSmartFunctionality:
             return _warn_and_return_default_detection_mechanism("parameters", default)
 
         # 2. Convert the raw detection mechanism to the SDK detection mechanism
-        if (
-            parameters.type
-            == models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS
-        ):
-            # TODO: Add support for other detection mechanisms when other assertion types are supported
-            return _HasSmartFunctionality._get_freshness_detection_mechanism(
-                assertion, parameters, default
-            )
+        if parameters.type in [
+            models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
+            models.AssertionEvaluationParametersTypeClass.DATASET_VOLUME,
+        ]:
+            if assertion.info is None:
+                return _warn_and_return_default_detection_mechanism("info", default)
+            if isinstance(assertion.info, models.VolumeAssertionInfoClass):
+                return _HasSmartFunctionality._get_volume_detection_mechanism(
+                    assertion, parameters, default
+                )
+            elif isinstance(assertion.info, models.FreshnessAssertionInfoClass):
+                return _HasSmartFunctionality._get_freshness_detection_mechanism(
+                    assertion, parameters, default
+                )
+            # TODO: Consider moving the detection mechanism logic to the assertion classes themselves e.g. _get_assertion_specific_detection_mechanism as an abstract method
+            # TODO: Add support here for other detection mechanisms when other assertion types are supported
+            else:
+                raise SDKNotYetSupportedError(
+                    f"AssertionType {type(assertion.info).__name__}"
+                )
         else:
             raise SDKNotYetSupportedError(
-                f"AssertionEvaluationParametersType {parameters.type}"
+                f"AssertionEvaluationParametersType {parameters.type} not supported"
             )
 
     @staticmethod
@@ -294,6 +313,33 @@ class _HasSmartFunctionality:
             raise SDKNotYetSupportedError(f"DatasetFreshnessSourceType {source_type}")
 
     @staticmethod
+    def _get_volume_detection_mechanism(
+        assertion: Assertion,
+        parameters: models.AssertionEvaluationParametersClass,
+        default: Optional[_DetectionMechanismTypes] = DEFAULT_DETECTION_MECHANISM,
+    ) -> _DetectionMechanismTypes:
+        """Get the detection mechanism for volume assertions."""
+        if parameters.datasetVolumeParameters is None:
+            logger.warning(
+                f"Monitor does not have datasetVolumeParameters, defaulting detection mechanism to {DEFAULT_DETECTION_MECHANISM}"
+            )
+            if default is None:
+                return DEFAULT_DETECTION_MECHANISM
+            else:
+                return default
+
+        source_type = parameters.datasetVolumeParameters.sourceType
+        if source_type == models.DatasetVolumeSourceTypeClass.INFORMATION_SCHEMA:
+            return DetectionMechanism.INFORMATION_SCHEMA
+        elif source_type == models.DatasetVolumeSourceTypeClass.QUERY:
+            additional_filter = _HasSmartFunctionality._get_additional_filter(assertion)
+            return DetectionMechanism.QUERY(additional_filter=additional_filter)
+        elif source_type == models.DatasetVolumeSourceTypeClass.DATAHUB_DATASET_PROFILE:
+            return DetectionMechanism.DATASET_PROFILE
+        else:
+            raise SDKNotYetSupportedError(f"DatasetVolumeSourceType {source_type}")
+
+    @staticmethod
     def _get_field_value_detection_mechanism(
         assertion: Assertion,
         parameters: models.AssertionEvaluationParametersClass,
@@ -332,7 +378,10 @@ class _HasSmartFunctionality:
             )
             return None
         if (
-            not isinstance(assertion.info, models.FreshnessAssertionInfoClass)
+            not isinstance(
+                assertion.info,
+                _HasSmartFunctionality._SUPPORTED_WITH_FILTER_ASSERTION_TYPES,
+            )
             or assertion.info.filter is None
         ):
             logger.warning(
@@ -501,13 +550,15 @@ class _AssertionPublic(ABC):
         return AssertionMode(monitor.info.status.mode)
 
     @abstractmethod
-    def from_entities(
+    def _from_entities(
         cls,
         assertion: Assertion,
         monitor: Monitor,
     ) -> Self:
         """
         Create an assertion from the assertion and monitor entities.
+
+        Note: This is a private method since it is intended to be called internally by the client.
         """
         pass
 
@@ -582,9 +633,11 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
         )
 
     @classmethod
-    def from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
+    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
         """
         Create a smart freshness assertion from the assertion and monitor entities.
+
+        Note: This is a private method since it is intended to be called internally by the client.
         """
         return cls(
             urn=assertion.urn,
@@ -604,7 +657,106 @@ class SmartFreshnessAssertion(_HasSmartFunctionality, _AssertionPublic):
         )
 
 
+class SmartVolumeAssertion(_HasSchedule, _HasSmartFunctionality, _AssertionPublic):
+    """
+    A class that represents a smart volume assertion.
+    """
+
+    def __init__(
+        self,
+        *,
+        urn: AssertionUrn,
+        dataset_urn: DatasetUrn,
+        display_name: str,
+        mode: AssertionMode,
+        schedule: models.CronScheduleClass,
+        sensitivity: InferenceSensitivity = DEFAULT_SENSITIVITY,
+        exclusion_windows: list[ExclusionWindowTypes],
+        training_data_lookback_days: int = ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
+        incident_behavior: list[AssertionIncidentBehavior],
+        detection_mechanism: Optional[
+            _DetectionMechanismTypes
+        ] = DEFAULT_DETECTION_MECHANISM,
+        tags: list[TagUrn],
+        created_by: Optional[CorpUserUrn] = None,
+        created_at: Union[datetime, None] = None,
+        updated_by: Optional[CorpUserUrn] = None,
+        updated_at: Optional[datetime] = None,
+    ):
+        """
+        Initialize a smart volume assertion.
+
+        Note: Values can be accessed, but not set on the assertion object.
+        To update an assertion, use the `upsert_*` method.
+        Args:
+            urn: The urn of the assertion.
+            dataset_urn: The urn of the dataset that the assertion is for.
+            display_name: The display name of the assertion.
+            mode: The mode of the assertion (active, inactive).
+            schedule: The schedule of the assertion.
+            sensitivity: The sensitivity of the assertion (low, medium, high).
+            exclusion_windows: The exclusion windows of the assertion.
+            training_data_lookback_days: The max number of days of data to use for training the assertion.
+            incident_behavior: Whether to raise or resolve an incident when the assertion fails / passes.
+            detection_mechanism: The detection mechanism of the assertion.
+            tags: The tags applied to the assertion.
+            created_by: The urn of the user that created the assertion.
+            created_at: The timestamp of when the assertion was created.
+            updated_by: The urn of the user that updated the assertion.
+            updated_at: The timestamp of when the assertion was updated.
+        """
+        # Initialize the mixins first
+        _HasSchedule.__init__(self, schedule=schedule)
+        _HasSmartFunctionality.__init__(
+            self,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
+            incident_behavior=incident_behavior,
+            detection_mechanism=detection_mechanism,
+        )
+        # Then initialize the parent class
+        _AssertionPublic.__init__(
+            self,
+            urn=urn,
+            dataset_urn=dataset_urn,
+            display_name=display_name,
+            mode=mode,
+            created_by=created_by,
+            created_at=created_at,
+            updated_by=updated_by,
+            updated_at=updated_at,
+            tags=tags,
+        )
+
+    @classmethod
+    def _from_entities(cls, assertion: Assertion, monitor: Monitor) -> Self:
+        """
+        Create a smart freshness assertion from the assertion and monitor entities.
+
+        Note: This is a private method since it is intended to be called internally by the client.
+        """
+        return cls(
+            urn=assertion.urn,
+            dataset_urn=assertion.dataset,
+            display_name=assertion.description or "",
+            mode=cls._get_mode(monitor),
+            schedule=cls._get_schedule(monitor),
+            sensitivity=cls._get_sensitivity(monitor),
+            exclusion_windows=cls._get_exclusion_windows(monitor),
+            training_data_lookback_days=cls._get_training_data_lookback_days(monitor),
+            incident_behavior=cls._get_incident_behavior(assertion),
+            detection_mechanism=cls._get_detection_mechanism(assertion, monitor),
+            created_by=cls._get_created_by(assertion),
+            created_at=cls._get_created_at(assertion),
+            updated_by=cls._get_updated_by(assertion),
+            updated_at=cls._get_updated_at(assertion),
+            tags=cls._get_tags(assertion),
+        )
+
+
 AssertionTypes = Union[
     SmartFreshnessAssertion,
+    SmartVolumeAssertion,
     # TODO: Add other assertion types here as we add them.
 ]

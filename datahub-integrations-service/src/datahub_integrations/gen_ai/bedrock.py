@@ -6,7 +6,7 @@ import json
 import os
 import pprint
 import time
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional, Union
 
 import boto3
 import botocore.config
@@ -29,6 +29,10 @@ _ANTHROPIC_CROSS_REGION_INFERENCE_PREFIX = os.getenv(
 
 _ENABLE_BEDROCK_OPTIMIZED_LATENCY = get_boolean_env_variable(
     "ENABLE_BEDROCK_OPTIMIZED_LATENCY", False
+)
+
+_ENABLE_BEDROCK_PROMPT_CACHING = get_boolean_env_variable(
+    "ENABLE_BEDROCK_PROMPT_CACHING", False
 )
 
 _MAX_ATTEMPTS = int(os.getenv("BEDROCK_MAX_ATTEMPTS", "4"))
@@ -69,6 +73,11 @@ class BedrockResponseBody(pydantic.BaseModel):
     retry_attempts: Optional[int] = None
 
 
+class BedrockPromptMessage(pydantic.BaseModel):
+    text: str
+    cache: bool = False
+
+
 @serialized
 @functools.cache
 def get_bedrock_client() -> "BedrockRuntimeClient":
@@ -103,7 +112,10 @@ def get_bedrock_client() -> "BedrockRuntimeClient":
 
 
 def call_bedrock_llm(
-    prompt: str, max_tokens: int, model: BedrockModel | str, temperature: float = 0.3
+    prompt: Union[str, List[BedrockPromptMessage]],
+    max_tokens: int,
+    model: BedrockModel | str,
+    temperature: float = 0.3,
 ) -> str:
     boto3_bedrock = get_bedrock_client()
     response = call_bedrock_llm_inner(
@@ -114,23 +126,13 @@ def call_bedrock_llm(
 
 def call_bedrock_llm_inner(
     boto3_bedrock: "BedrockRuntimeClient",
-    prompt: str,
+    prompt: Union[str, List[BedrockPromptMessage]],
     max_tokens: int,
     model: BedrockModel | str,
     temperature: float,
 ) -> BedrockResponseBody:
     start_time = time.time()
-    body = {
-        "anthropic_version": "bedrock-2023-05-31",
-        "messages": [
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": prompt}],
-            }
-        ],
-        "max_tokens": max_tokens,
-        "temperature": temperature,
-    }
+    body = prepare_body_for_prompt(prompt, max_tokens, temperature)
     accept = "application/json"
     contentType = "application/json"
 
@@ -167,9 +169,54 @@ def call_bedrock_llm_inner(
     )
 
 
+def prepare_body_for_prompt(
+    prompt: Union[str, List[BedrockPromptMessage]],
+    max_tokens: int,
+    temperature: float,
+) -> dict:
+    if isinstance(prompt, str):
+        body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt}],
+                }
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+    else:
+        # depending on cache, we need to format the messages differently
+        body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": message.text,
+                            "cache_control": {
+                                "type": "ephemeral",
+                            },
+                        }
+                        if message.cache and _ENABLE_BEDROCK_PROMPT_CACHING
+                        else {"type": "text", "text": message.text}
+                        for message in prompt
+                    ],
+                }
+            ],
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+    return body
+
+
 if __name__ == "__main__":
     # Simple testing code.
     import sys
 
-    prompt = sys.argv[1]
-    logger.info(call_bedrock_llm(prompt, 100, BedrockModel.CLAUDE_37_SONNET))
+    text_prompt = sys.argv[1]
+    logger.info(call_bedrock_llm(text_prompt, 100, BedrockModel.CLAUDE_37_SONNET))

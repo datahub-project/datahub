@@ -29,7 +29,6 @@ export const FilterLabelContainer = styled(Button)<{ $isActive: boolean }>`
     cursor: pointer;
     transition: all 0.2s ease;
     gap: 8px;
-    margin: 0 4px;
     border: 1px solid #ebecf0;
 
     &:hover,

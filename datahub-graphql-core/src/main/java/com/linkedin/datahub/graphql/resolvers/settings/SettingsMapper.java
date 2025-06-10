@@ -4,6 +4,8 @@ import com.datahub.authorization.AuthUtil;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.generated.DocumentationAiSettings;
 import com.linkedin.datahub.graphql.generated.EmailIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalIntegrationSettings;
 import com.linkedin.datahub.graphql.generated.GlobalNotificationSettings;
@@ -28,9 +30,11 @@ import javax.annotation.Nonnull;
 public class SettingsMapper {
 
   private final SecretService _secretService;
+  private final FeatureFlags _featureFlags;
 
-  public SettingsMapper(final SecretService secretService) {
+  public SettingsMapper(final SecretService secretService, final FeatureFlags featureFlags) {
     _secretService = secretService;
+    _featureFlags = featureFlags;
   }
 
   /** Returns true if the authenticated user is able to manage global settings. */
@@ -79,6 +83,15 @@ public class SettingsMapper {
     if (input.hasVisual() && input.getVisual() != null) {
       result.setVisualSettings(mapVisualSettings(input.getVisual()));
     }
+    DocumentationAiSettings docAiSettings = new DocumentationAiSettings();
+    if (!_featureFlags.isAiFeaturesEnabled()) {
+      docAiSettings.setEnabled(false);
+    } else if (input.hasDocumentationAi() && input.getDocumentationAi() != null) {
+      docAiSettings.setEnabled(input.getDocumentationAi().isEnabled());
+    } else {
+      docAiSettings.setEnabled(_featureFlags.isDocumentationAiDefaultEnabled());
+    }
+    result.setDocumentationAi(docAiSettings);
     return result;
   }
 

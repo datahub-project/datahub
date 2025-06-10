@@ -281,7 +281,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowAccessManagement(_featureFlags.isShowAccessManagement())
             .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
-            .setDocumentationAiEnabled(_featureFlags.isDocumentationAiEnabled())
+            .setAiFeaturesEnabled(_featureFlags.isAiFeaturesEnabled())
             .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
             .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
             .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
@@ -320,10 +320,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowLineageExpandMore(_featureFlags.isShowLineageExpandMore())
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
-            .setDatasetHealthDashboardV2Enabled(_featureFlags.isDatasetHealthDashboardV2Enabled())
             .setShowCreatedAtFilter(_featureFlags.isShowCreatedAtFilter())
             .setShowNotificationSettingsForComplianceForms(
                 _featureFlags.isShowNotificationSettingsForComplianceForms())
+            .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);

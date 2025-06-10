@@ -560,7 +560,7 @@ describe('acrylUtils', () => {
                         runEvents: [
                             {
                                 result: { type: AssertionResultType.Failure },
-                                timestampMillis: Date.now(),
+                                timestampMillis: Date.now() - 1000,
                                 asserteeUrn: 'test-urn',
                                 assertionUrn: 'test-urn',
                                 runId: 'test-run',

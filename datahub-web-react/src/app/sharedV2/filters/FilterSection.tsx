@@ -12,6 +12,7 @@ const Section = styled.div<{ removePadding?: boolean }>`
     position: relative;
     height: 40px;
     display: flex;
+    gap: 8px;
 `;
 
 interface Props {

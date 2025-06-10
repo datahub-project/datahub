@@ -316,6 +316,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
       patchBuilder = buildAssertionSuccessSummaryPatch(assertionUrn, details, entityUrn);
     } else if (AssertionResultType.FAILURE.equals(result.getType())) {
       patchBuilder = buildAssertionFailureSummaryPatch(assertionUrn, details, entityUrn);
+    } else if (AssertionResultType.ERROR.equals(result.getType())) {
+      patchBuilder = buildAssertionErrorSummaryPatch(assertionUrn, details, entityUrn);
     } else {
       log.debug(
           "Ignoring assertion run event with unknown result type {} for assertion with urn {}",
@@ -323,6 +325,7 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
           assertionUrn);
       return;
     }
+    patchBuilder = patchBuilder.addOverallLastAssertionResultAt(event.getTimestampMillis());
 
     // 4. Emit the patch back!
     patchAssertionSummary(entityUrn, patchBuilder);
@@ -503,7 +506,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         .urn(entityUrn)
         .withEntityName(entityUrn.getEntityType())
         .removeFromFailingAssertionDetails(assertionUrn)
-        .removeFromPassingAssertionDetails(assertionUrn);
+        .removeFromPassingAssertionDetails(assertionUrn)
+        .removeFromErroringAssertionDetails(assertionUrn);
   }
 
   private AssertionsSummaryPatchBuilder buildAssertionSuccessSummaryPatch(
@@ -514,7 +518,8 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         .urn(entityUrn)
         .withEntityName(entityUrn.getEntityType())
         .addPassingAssertionDetails(details)
-        .removeFromFailingAssertionDetails(assertionUrn);
+        .removeFromFailingAssertionDetails(assertionUrn)
+        .removeFromErroringAssertionDetails(assertionUrn);
   }
 
   private AssertionsSummaryPatchBuilder buildAssertionFailureSummaryPatch(
@@ -525,7 +530,20 @@ public class AssertionsSummaryHook implements MetadataChangeLogHook {
         .urn(entityUrn)
         .withEntityName(entityUrn.getEntityType())
         .addFailingAssertionDetails(details)
-        .removeFromPassingAssertionDetails(assertionUrn);
+        .removeFromPassingAssertionDetails(assertionUrn)
+        .removeFromErroringAssertionDetails(assertionUrn);
+  }
+
+  private AssertionsSummaryPatchBuilder buildAssertionErrorSummaryPatch(
+      @Nonnull final Urn assertionUrn,
+      @Nonnull final AssertionSummaryDetails details,
+      @Nonnull final Urn entityUrn) {
+    return new AssertionsSummaryPatchBuilder()
+        .urn(entityUrn)
+        .withEntityName(entityUrn.getEntityType())
+        .addErroringAssertionDetails(details)
+        .removeFromPassingAssertionDetails(assertionUrn)
+        .removeFromFailingAssertionDetails(assertionUrn);
   }
 
   /** Patches the assertions summary for a given entity */

@@ -1,3 +1,5 @@
+from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
+
 import pathlib
 import time
 from typing import Annotated, List, Optional
@@ -15,7 +17,6 @@ from datahub_integrations.chat.chat_history import (
     HumanMessage,
 )
 from datahub_integrations.chat.chat_session import ChatSession, NextMessage
-from datahub_integrations.experimentation.ai_init import AI_EXPERIMENTATION_INITIALIZED
 from datahub_integrations.experimentation.chatbot import Prompt, prompts, prompts_file
 from datahub_integrations.experimentation.creds import create_uncached_datahub_graph
 from datahub_integrations.mcp.mcp_server import mcp

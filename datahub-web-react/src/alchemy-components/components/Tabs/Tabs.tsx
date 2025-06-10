@@ -7,7 +7,7 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { colors } from '@src/alchemy-components/theme';
 
-const StyledTabs = styled(AntTabs)`
+const StyledTabsPrimary = styled(AntTabs)<{ $navMarginBottom?: number }>`
     flex: 1;
     overflow: hidden;
 
@@ -39,7 +39,51 @@ const StyledTabs = styled(AntTabs)`
     }
 
     .ant-tabs-nav {
-        margin-bottom: 24px;
+        margin-bottom: ${(props) => props.$navMarginBottom ?? 24}px;
+    }
+`;
+
+const StyledTabsSecondary = styled(AntTabs)<{ $navMarginBottom?: number }>`
+    flex: 1;
+    overflow: hidden;
+
+    .ant-tabs-tab {
+        padding: 8px 8px;
+        border-radius: 4px;
+        font-size: 14px;
+        color: ${colors.gray[600]};
+    }
+
+    .ant-tabs-tab + .ant-tabs-tab {
+        margin-left: 16px;
+    }
+
+    .ant-tabs-tab-active {
+        background-color: ${(props) => props.theme.styles['primary-color-light']}80;
+    }
+
+    .ant-tabs-tab-active .ant-tabs-tab-btn {
+        color: ${(props) => props.theme.styles['primary-color']};
+        font-weight: 600;
+    }
+
+    .ant-tabs-ink-bar {
+        background-color: transparent;
+    }
+
+    .ant-tabs-content-holder {
+        display: flex;
+    }
+
+    .ant-tabs-tabpane {
+        height: 100%;
+    }
+
+    .ant-tabs-nav {
+        margin-bottom: ${(props) => props.$navMarginBottom ?? 24}px;
+        &::before {
+            display: none;
+        }
     }
 `;
 
@@ -78,6 +122,8 @@ export interface Props {
     onUrlChange?: (url: string) => void;
     defaultTab?: string;
     getCurrentUrl?: () => string;
+    secondary?: boolean;
+    navMarginBottom?: number;
 }
 
 export function Tabs({
@@ -88,6 +134,8 @@ export function Tabs({
     onUrlChange = (url) => window.history.replaceState({}, '', url),
     defaultTab,
     getCurrentUrl = () => window.location.pathname,
+    secondary,
+    navMarginBottom,
 }: Props) {
     const { TabPane } = AntTabs;
 
@@ -127,8 +175,10 @@ export function Tabs({
         }
     }
 
+    const StyledTabs = secondary ? StyledTabsSecondary : StyledTabsPrimary;
+
     return (
-        <StyledTabs activeKey={selectedTab} onChange={handleTabClick}>
+        <StyledTabs activeKey={selectedTab} onChange={handleTabClick} $navMarginBottom={navMarginBottom}>
             {tabs.map((tab) => {
                 return (
                     <TabPane tab={<TabView tab={tab} />} key={tab.key}>

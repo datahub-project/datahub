@@ -54,6 +54,12 @@ export const ManageFormContextProvider = ({ children }: { children: React.ReactN
                     logicalPredicate:
                         formData?.dynamicFormAssignment?.json && JSON.parse(formData?.dynamicFormAssignment?.json),
                 },
+                formSettings: {
+                    notificationSettings: {
+                        notifyAssigneesOnPublish:
+                            !!formData?.formSettings?.notificationSettings?.notifyAssigneesOnPublish,
+                    },
+                },
             };
             setFormValues(values);
             form?.setFieldsValue(values);

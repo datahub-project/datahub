@@ -29,6 +29,7 @@ from datahub_integrations.notifications.sinks.slack.send_slack_message import (
     update_messages,
 )
 from datahub_integrations.notifications.sinks.slack.template_utils import (
+    build_compliance_form_publish_parameters,
     build_incident_message,
     build_incident_status_change_message,
 )
@@ -91,6 +92,9 @@ class SlackNotificationSink(NotificationSink):
             NotificationTemplateTypeClass.BROADCAST_INCIDENT_STATUS_CHANGE: lambda: self._send_incident_status_change_notification(
                 request
             ),
+            NotificationTemplateTypeClass.BROADCAST_COMPLIANCE_FORM_PUBLISH: lambda: self._send_compliance_form_publish_notification(
+                request
+            ),
         }
 
         # Execute the corresponding function or raise an exception for unsupported types
@@ -143,6 +147,21 @@ class SlackNotificationSink(NotificationSink):
     ) -> List[SlackMessageDetails]:
         text, blocks, attachments = build_incident_status_change_message(
             request, self.identity_provider, self.slack_client, self.base_url
+        )
+
+        return self._send_change_notification(
+            request.recipients,
+            text,
+            blocks,
+            attachments,
+            RetryMode.ENABLED,
+        )
+
+    def _send_compliance_form_publish_notification(
+        self, request: NotificationRequestClass
+    ) -> List[SlackMessageDetails]:
+        text, blocks, attachments = build_compliance_form_publish_parameters(
+            request, self.base_url
         )
 
         return self._send_change_notification(

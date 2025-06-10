@@ -10,11 +10,11 @@ from acryl_datahub_cloud._sdk_extras.assertion import (
     SmartFreshnessAssertion,
 )
 from acryl_datahub_cloud._sdk_extras.assertion_input import (
+    DEFAULT_SCHEDULE,
     AssertionIncidentBehavior,
     DetectionMechanism,
     FixedRangeExclusionWindow,
     InferenceSensitivity,
-    _SmartFreshnessAssertionInput,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
 from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
@@ -132,8 +132,8 @@ def monitor_without_sensitivity(any_monitor_urn: MonitorUrn) -> Monitor:
                     models.AssertionEvaluationSpecClass(
                         assertion="urn:li:assertion:test",
                         schedule=models.CronScheduleClass(
-                            cron=_SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.cron,
-                            timezone=_SmartFreshnessAssertionInput.DEFAULT_SCHEDULE.timezone,
+                            cron=DEFAULT_SCHEDULE.cron,
+                            timezone=DEFAULT_SCHEDULE.timezone,
                         ),
                         parameters=models.AssertionEvaluationParametersClass(
                             type=models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS,
@@ -191,7 +191,7 @@ def test_smart_freshness_assertion_log_messages(
 ) -> None:
     """Test that SmartFreshnessAssertion emits the correct log messages when fields are missing."""
     monitor = request.getfixturevalue(monitor_fixture)
-    SmartFreshnessAssertion.from_entities(
+    SmartFreshnessAssertion._from_entities(
         assertion=Assertion(
             id=AssertionUrn("urn:li:assertion:test"),
             info=models.FreshnessAssertionInfoClass(
@@ -210,7 +210,7 @@ def test_smart_freshness_assertion_from_entities_all_fields(
     monitor_with_all_fields: Monitor, assertion_entity_with_all_fields: Assertion
 ) -> None:
     """Test that SmartFreshnessAssertion can be created from entities."""
-    smart_freshness_assertion = SmartFreshnessAssertion.from_entities(
+    smart_freshness_assertion = SmartFreshnessAssertion._from_entities(
         assertion=assertion_entity_with_all_fields,
         monitor=monitor_with_all_fields,
     )
@@ -267,7 +267,7 @@ def test_smart_freshness_assertion_from_entities_minimal(
     minimal_monitor: Monitor,
 ) -> None:
     """Test that SmartFreshnessAssertion can be created from entities with minimal fields."""
-    smart_freshness_assertion = SmartFreshnessAssertion.from_entities(
+    smart_freshness_assertion = SmartFreshnessAssertion._from_entities(
         assertion=Assertion(
             id=AssertionUrn("urn:li:assertion:minimal_assertion"),
             info=models.FreshnessAssertionInfoClass(

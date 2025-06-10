@@ -20,6 +20,7 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     _AssertionInput,
     _DetectionMechanismTypes,
     _SmartFreshnessAssertionInput,
+    _validate_cron_schedule,
 )
 from acryl_datahub_cloud._sdk_extras.entities.assertion import (
     TagsInputType,
@@ -123,6 +124,18 @@ def default_created_updated_params() -> CreatedUpdatedParams:
             "high_watermark_column",
             {"column_name": "id", "additional_filter": "id > 1000"},
             id="high_watermark_column (column_name + additional_filter)",
+        ),
+        pytest.param(
+            DetectionMechanism.QUERY(additional_filter="id > 1000"),
+            "query",
+            {"additional_filter": "id > 1000"},
+            id="query (additional_filter only)",
+        ),
+        pytest.param(
+            DetectionMechanism.QUERY(),
+            "query",
+            {"additional_filter": None},
+            id="query (default additional_filter)",
         ),
         pytest.param(
             None,
@@ -1214,6 +1227,11 @@ class StubAssertionInput(_AssertionInput):
     def _convert_schedule(self) -> None:  # type: ignore[override]  # Not used
         return None
 
+    def _get_assertion_evaluation_parameters(  # type: ignore[override]  # Not used
+        self, source_type: str, field: Optional[models.FreshnessFieldSpecClass]
+    ) -> models.AssertionEvaluationParametersClass:
+        return None  # type: ignore[return-value]  # Not used
+
     def _convert_assertion_source_type_and_field(self) -> None:  # type: ignore[override]  # Not used
         return None
 
@@ -1233,3 +1251,136 @@ def test_assertion_creation_with_invalid_source_type(
             **default_created_updated_params,
             source_type="INVALID",
         )
+
+
+@pytest.mark.parametrize(
+    "schedule, timezone, expected_raises",
+    [
+        # Valid cron expressions
+        pytest.param(
+            "0 * * * *",  # Every hour
+            "UTC",
+            nullcontext(),
+            id="valid-hourly-cron",
+        ),
+        pytest.param(
+            "0 0 * * *",  # Daily at midnight
+            "UTC",
+            nullcontext(),
+            id="valid-daily-cron",
+        ),
+        pytest.param(
+            "0 0 * * 0",  # Weekly on Sunday
+            "UTC",
+            nullcontext(),
+            id="valid-weekly-cron",
+        ),
+        pytest.param(
+            "0 0 1 * *",  # Monthly on 1st
+            "UTC",
+            nullcontext(),
+            id="valid-monthly-cron",
+        ),
+        pytest.param(
+            "0 0 1 1 *",  # Yearly on Jan 1st
+            "UTC",
+            nullcontext(),
+            id="valid-yearly-cron",
+        ),
+        pytest.param(
+            "*/15 * * * *",  # Every 15 minutes
+            "UTC",
+            nullcontext(),
+            id="valid-minutes-cron",
+        ),
+        pytest.param(
+            "0 0-23/2 * * *",  # Every 2 hours
+            "UTC",
+            nullcontext(),
+            id="valid-range-cron",
+        ),
+        # Valid timezones
+        pytest.param(
+            "0 * * * *",
+            "America/New_York",
+            nullcontext(),
+            id="valid-timezone-america",
+        ),
+        pytest.param(
+            "0 * * * *",
+            "Europe/London",
+            nullcontext(),
+            id="valid-timezone-europe",
+        ),
+        pytest.param(
+            "0 * * * *",
+            "Asia/Tokyo",
+            nullcontext(),
+            id="valid-timezone-asia",
+        ),
+        pytest.param(
+            "0 * * * *",
+            "Australia/Sydney",
+            nullcontext(),
+            id="valid-timezone-australia",
+        ),
+        # Invalid cron expressions
+        pytest.param(
+            "invalid",
+            "UTC",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-cron-expression",
+        ),
+        pytest.param(
+            "0 * * *",  # Missing field
+            "UTC",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-cron-missing-field",
+        ),
+        pytest.param(
+            "0 * * * * *",  # Extra field
+            "UTC",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-cron-extra-field",
+        ),
+        pytest.param(
+            "99 * * * *",  # Invalid hour
+            "UTC",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-cron-hour",
+        ),
+        pytest.param(
+            "0 99 * * *",  # Invalid minute
+            "UTC",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-cron-minute",
+        ),
+        # Invalid timezones
+        pytest.param(
+            "0 * * * *",
+            "Invalid/Timezone",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-timezone",
+        ),
+        pytest.param(
+            "0 * * * *",
+            "Not/A/Timezone",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-timezone-format",
+        ),
+        pytest.param(
+            "0 * * * *",
+            "",  # Empty timezone
+            nullcontext(),
+            id="empty-timezone",
+        ),
+    ],
+)
+def test_validate_cron_schedule(
+    schedule: str,
+    timezone: str,
+    expected_raises: ContextManager[Any],
+) -> None:
+    """Test the validation of cron schedule expressions and timezones."""
+    with expected_raises:
+        _validate_cron_schedule(schedule, timezone)

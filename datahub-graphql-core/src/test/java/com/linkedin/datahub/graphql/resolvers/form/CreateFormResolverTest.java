@@ -7,9 +7,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.CreateFormInput;
-import com.linkedin.datahub.graphql.generated.Form;
-import com.linkedin.datahub.graphql.generated.FormType;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
@@ -25,10 +23,6 @@ import org.testng.annotations.Test;
 public class CreateFormResolverTest {
   private static final String TEST_FORM_URN = "urn:li:form:1";
 
-  private static final CreateFormInput TEST_INPUT =
-      new CreateFormInput(
-          null, "test name", null, FormType.VERIFICATION, new ArrayList<>(), null, null, null);
-
   @Test
   public void testGetSuccess() throws Exception {
     FormService mockFormService = initMockFormService(true);
@@ -38,7 +32,7 @@ public class CreateFormResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(getCreateFormInput());
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     Form form = resolver.get(mockEnv).get();
@@ -59,7 +53,7 @@ public class CreateFormResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockDenyContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(getCreateFormInput());
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -78,7 +72,7 @@ public class CreateFormResolverTest {
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
-    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(getCreateFormInput());
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
@@ -113,5 +107,24 @@ public class CreateFormResolverTest {
         .thenReturn(response);
 
     return client;
+  }
+
+  private CreateFormInput getCreateFormInput() {
+    FormNotificationSettingsInput formNotificationSettingsInput =
+        new FormNotificationSettingsInput();
+    formNotificationSettingsInput.setNotifyAssigneesOnPublish(true);
+    FormSettingsInput formSettingsInput = new FormSettingsInput();
+    formSettingsInput.setNotificationSettings(formNotificationSettingsInput);
+
+    return new CreateFormInput(
+        null,
+        "test name",
+        null,
+        FormType.VERIFICATION,
+        new ArrayList<>(),
+        null,
+        null,
+        null,
+        formSettingsInput);
   }
 }
