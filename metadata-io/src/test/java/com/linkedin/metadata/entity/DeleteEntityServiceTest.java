@@ -99,7 +99,7 @@ public class DeleteEntityServiceTest {
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq((5000))))
+                nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
 
     Mockito.when(
@@ -114,7 +114,7 @@ public class DeleteEntityServiceTest {
                 Mockito.eq(null),
                 Mockito.isNull(),
                 Mockito.any(),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
 
     final EntityResponse entityResponse = new EntityResponse();
@@ -188,7 +188,7 @@ public class DeleteEntityServiceTest {
                 Mockito.eq(null),
                 Mockito.eq(null),
                 Mockito.eq("5m"),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(scrollResult);
 
     ScrollResult scrollResult2 = new ScrollResult();
@@ -202,7 +202,7 @@ public class DeleteEntityServiceTest {
                 Mockito.eq(null),
                 Mockito.eq("1"),
                 Mockito.eq("5m"),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(scrollResult2);
 
     Forms formsAspect = new Forms();
@@ -231,7 +231,7 @@ public class DeleteEntityServiceTest {
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq((5000))))
+                nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
 
     Mockito.when(
@@ -246,7 +246,7 @@ public class DeleteEntityServiceTest {
                 Mockito.eq(null),
                 Mockito.isNull(),
                 Mockito.any(),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
 
     final DeleteReferencesResponse response =
@@ -285,7 +285,7 @@ public class DeleteEntityServiceTest {
                 Mockito.eq(null),
                 Mockito.eq(null),
                 Mockito.eq("5m"),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(scrollResult);
 
     // no entities with relationships on forms
@@ -301,7 +301,7 @@ public class DeleteEntityServiceTest {
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq((5000))))
+                nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
 
     Mockito.when(
@@ -316,7 +316,7 @@ public class DeleteEntityServiceTest {
                 Mockito.eq(null),
                 Mockito.isNull(),
                 Mockito.any(),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
 
     final DeleteReferencesResponse response =
@@ -360,7 +360,7 @@ public class DeleteEntityServiceTest {
                 Mockito.eq(null),
                 Mockito.eq(null),
                 Mockito.eq("5m"),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(scrollResult);
 
     // no entities with relationships on forms
@@ -376,7 +376,7 @@ public class DeleteEntityServiceTest {
                 eq(ImmutableSet.of()),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq((5000))))
+                nullable(Integer.class)))
         .thenReturn(mockRelatedEntities);
 
     Mockito.when(
@@ -391,7 +391,7 @@ public class DeleteEntityServiceTest {
                 Mockito.eq(null),
                 Mockito.isNull(),
                 Mockito.any(),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()).setNumEntities(0));
 
     final DeleteReferencesResponse response =
@@ -438,7 +438,7 @@ public class DeleteEntityServiceTest {
                 Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(scrollResult);
 
     Mockito.when(
@@ -451,7 +451,7 @@ public class DeleteEntityServiceTest {
                 anySet(),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq(5000)))
+                nullable(Integer.class)))
         .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
 
     final DeleteReferencesResponse response =
@@ -510,7 +510,7 @@ public class DeleteEntityServiceTest {
                 Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(scrollResult1);
 
     Mockito.when(
@@ -525,7 +525,7 @@ public class DeleteEntityServiceTest {
                 Mockito.isNull(),
                 Mockito.eq("scrollIdValue"),
                 Mockito.any(),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(scrollResult2);
 
     Mockito.when(
@@ -538,7 +538,7 @@ public class DeleteEntityServiceTest {
                 anySet(),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq(5000)))
+                nullable(Integer.class)))
         .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
 
     final DeleteReferencesResponse response =
@@ -581,7 +581,7 @@ public class DeleteEntityServiceTest {
                 Mockito.isNull(),
                 Mockito.isNull(),
                 Mockito.any(),
-                Mockito.eq(1000)))
+                Mockito.nullable(Integer.class)))
         .thenReturn(scrollResult);
 
     Mockito.when(
@@ -594,7 +594,7 @@ public class DeleteEntityServiceTest {
                 anySet(),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq(5000)))
+                nullable(Integer.class)))
         .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
 
     final DeleteReferencesResponse response =
@@ -652,7 +652,7 @@ public class DeleteEntityServiceTest {
                 anySet(),
                 eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
                 eq(0),
-                eq(5000)))
+                nullable(Integer.class)))
         .thenReturn(new RelatedEntitiesResult(0, 0, 0, ImmutableList.of()));
 
     final DeleteReferencesResponse response =

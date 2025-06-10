@@ -2516,6 +2516,12 @@ fragment ingestionSourceFields on IngestionSource {
         type
         name
     }
+    privileges {
+        canEdit
+        canView
+        canDelete
+        canExecute
+    }
 }
 
 fragment minimalIngestionExecutionRequestFields on ExecutionRequest {

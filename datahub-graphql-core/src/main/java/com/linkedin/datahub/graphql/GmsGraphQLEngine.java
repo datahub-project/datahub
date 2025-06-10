@@ -129,6 +129,7 @@ import com.linkedin.datahub.graphql.resolvers.ingest.execution.IngestionSourceEx
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListExecutionRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.ListSignalRequestsResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.execution.RollbackIngestionResolver;
+import com.linkedin.datahub.graphql.resolvers.ingest.privileges.IngestionSourcePrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.CreateSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.DeleteSecretResolver;
 import com.linkedin.datahub.graphql.resolvers.ingest.secret.GetSecretValuesResolver;
@@ -3449,7 +3450,8 @@ public class GmsGraphQLEngine {
                     .dataFetcher(
                         "latestSuccessfulExecution",
                         new GetLatestSuccessfulExecutionRequestResolver(
-                            this.entityClient, this.executionRequestType)))
+                            this.entityClient, this.executionRequestType))
+                    .dataFetcher("privileges", new IngestionSourcePrivilegesResolver()))
         .type(
             "ListIngestionSourcesResult",
             typeWiring ->

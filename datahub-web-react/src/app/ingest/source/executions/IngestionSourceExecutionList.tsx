@@ -58,6 +58,8 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
             isExecutionRequestActive(request as ExecutionRequest),
         );
     }
+
+    const canExecute = !!data?.ingestionSource?.privileges?.canExecute;
     useRefreshIngestionData(refetch, hasActiveExecution);
 
     const [cancelExecutionRequestMutation] = useCancelIngestionExecutionRequestMutation();
@@ -173,6 +175,7 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
                 handleViewDetails={handleViewDetails}
                 handleRollbackExecution={handleRollbackExecution}
                 setNumResultsPerPage={setNumResultsPerPage}
+                canExecute={canExecute}
             />
             {focusExecutionUrn && (
                 <ExecutionDetailsModal

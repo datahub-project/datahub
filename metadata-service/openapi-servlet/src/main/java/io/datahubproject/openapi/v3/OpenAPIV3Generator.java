@@ -10,7 +10,7 @@ import com.github.fge.processing.ProcessingUtil;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.avro.SchemaTranslator;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -176,7 +176,7 @@ public class OpenAPIV3Generator {
         });
 
     addExtraParameters(
-        configurationProvider.getElasticSearch().getSearch().getLimit().getResults(), components);
+        configurationProvider.getSearchService().getLimit().getResults(), components);
 
     // Path
     final Paths paths = new Paths();
@@ -673,7 +673,7 @@ public class OpenAPIV3Generator {
   }
 
   private static void addExtraParameters(
-      SearchConfiguration.SearchResultsLimit searchResultsLimit, final Components components) {
+      ResultsLimitConfig searchResultsLimit, final Components components) {
     components.addParameters(
         "ScrollId" + MODEL_VERSION,
         new Parameter()
@@ -713,7 +713,7 @@ public class OpenAPIV3Generator {
             .schema(
                 new Schema()
                     .type(TYPE_INTEGER)
-                    ._default(10)
+                    ._default(searchResultsLimit.getApiDefault())
                     .maximum(BigDecimal.valueOf(searchResultsLimit.getMax()))
                     .minimum(new BigDecimal(1))));
     components.addParameters(

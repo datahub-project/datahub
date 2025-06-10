@@ -436,6 +436,31 @@ type EntityPrivileges {
 }
 
 """
+Privileges object for Ingestion sources
+"""
+type IngestionSourcePrivileges {
+  """
+  Whether the user can view Ingestion source
+  """
+  canView: Boolean
+
+  """
+  Whether the user can edit Ingestion source
+  """
+  canEdit: Boolean
+
+  """
+  Whether the user can delete the Ingestion source
+  """
+  canDelete: Boolean
+
+  """
+  Whether the user can execute the Ingestion source
+  """
+  canExecute: Boolean
+}
+
+"""
 Experimental API result to debug Access for users.
 Backward incompatible changes will be made without notice in the future.
 """

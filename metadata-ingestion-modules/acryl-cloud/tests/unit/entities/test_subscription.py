@@ -2,7 +2,7 @@ import pathlib
 
 import pytest
 
-from acryl_datahub_cloud._sdk_extras.entities.subscription import Subscription
+from acryl_datahub_cloud.sdk.entities.subscription import Subscription
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import SubscriptionUrn
 from datahub.testing.sdk_v2_helpers import assert_entity_golden

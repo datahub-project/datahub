@@ -4,11 +4,11 @@ import logging
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Optional, Union
 
-from acryl_datahub_cloud._sdk_extras.assertion import (
+from acryl_datahub_cloud.sdk.assertion import (
     SmartFreshnessAssertion,
     SmartVolumeAssertion,
 )
-from acryl_datahub_cloud._sdk_extras.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input import (
     AssertionIncidentBehavior,
     DetectionMechanismInputTypes,
     ExclusionWindowInputTypes,
@@ -16,9 +16,9 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     _SmartFreshnessAssertionInput,
     _SmartVolumeAssertionInput,
 )
-from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion, TagsInputType
-from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
-from acryl_datahub_cloud._sdk_extras.errors import SDKUsageError
+from acryl_datahub_cloud.sdk.entities.assertion import Assertion, TagsInputType
+from acryl_datahub_cloud.sdk.entities.monitor import Monitor
+from acryl_datahub_cloud.sdk.errors import SDKUsageError
 from datahub.errors import ItemNotFoundError
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, MonitorUrn

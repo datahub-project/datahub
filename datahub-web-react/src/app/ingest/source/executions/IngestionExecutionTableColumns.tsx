@@ -128,7 +128,11 @@ export function ButtonsColumn({
                 </Button>
             )}
             {record.status === SUCCESS && record.showRollback && (
-                <Button style={{ marginRight: 16 }} onClick={() => handleRollbackExecution(record.id)}>
+                <Button
+                    style={{ marginRight: 16 }}
+                    disabled={!record.canExecute}
+                    onClick={() => handleRollbackExecution(record.id)}
+                >
                     ROLLBACK
                 </Button>
             )}

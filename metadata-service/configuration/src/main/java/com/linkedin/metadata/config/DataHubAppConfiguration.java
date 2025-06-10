@@ -4,6 +4,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.metadata.config.aws.AWSConfiguration;
 import com.linkedin.metadata.config.cache.CacheConfiguration;
 import com.linkedin.metadata.config.events.EventSinksConfiguration;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.notification.NotificationConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -51,8 +52,11 @@ public class DataHubAppConfiguration {
   /** ElasticSearch configurations */
   private ElasticSearchConfiguration elasticSearch;
 
-  /* Search Service configurations */
+  /** Search Service configurations */
   private SearchServiceConfiguration searchService;
+
+  /** Graph Service configurations */
+  private GraphServiceConfiguration graphService;
 
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
@@ -99,6 +103,9 @@ public class DataHubAppConfiguration {
 
   /** Timeseries Aspect Service configuration */
   private TimeseriesAspectServiceConfig timeseriesAspectService;
+
+  /** SystemMetadata Service configuration */
+  private SystemMetadataServiceConfig systemMetadataService;
 
   /** EntityService configuration */
   private EntityServiceConfiguration entityService;

@@ -246,7 +246,7 @@ public interface TimeseriesAspectService {
       @Nullable Filter filter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);
 }

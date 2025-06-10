@@ -5,8 +5,8 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
-from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
-from acryl_datahub_cloud._sdk_extras.entities.subscription import Subscription
+from acryl_datahub_cloud.sdk.entities.assertion import Assertion
+from acryl_datahub_cloud.sdk.entities.subscription import Subscription
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.errors import SdkUsageError

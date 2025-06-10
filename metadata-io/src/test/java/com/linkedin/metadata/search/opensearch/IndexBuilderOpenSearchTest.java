@@ -1,6 +1,6 @@
 package com.linkedin.metadata.search.opensearch;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 
@@ -47,7 +47,7 @@ public class IndexBuilderOpenSearchTest extends IndexBuilderTestBase {
             false,
             false,
             false,
-            TEST_SEARCH_CONFIG,
+            TEST_ES_SEARCH_CONFIG,
             gitVersion);
     customIndexBuilder.buildIndex(TEST_INDEX_NAME, Map.of(), Map.of());
     GetIndexResponse resp = getTestIndex();

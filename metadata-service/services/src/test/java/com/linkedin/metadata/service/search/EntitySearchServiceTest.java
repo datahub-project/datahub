@@ -1,5 +1,6 @@
 package com.linkedin.metadata.service.search;
 
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -14,6 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
@@ -199,6 +201,11 @@ public class EntitySearchServiceTest {
     public void appendRunId(OperationContext opContext, Urn urn, String runId) {}
 
     @Override
+    public SearchServiceConfiguration getSearchServiceConfig() {
+      return TEST_SEARCH_SERVICE_CONFIG;
+    }
+
+    @Override
     public SearchResult search(
         OperationContext opContext,
         List<String> entityNames,
@@ -206,7 +213,7 @@ public class EntitySearchServiceTest {
         Filter postFilters,
         List<SortCriterion> sortCriteria,
         int from,
-        int size) {
+        @Nullable Integer size) {
       return null;
     }
 
@@ -218,7 +225,7 @@ public class EntitySearchServiceTest {
         Filter postFilters,
         List<SortCriterion> sortCriteria,
         int from,
-        int size,
+        @Nullable Integer size,
         @Nonnull List<String> facets) {
       return null;
     }
@@ -230,7 +237,7 @@ public class EntitySearchServiceTest {
         Filter filters,
         List<SortCriterion> sortCriteria,
         int from,
-        int size) {
+        @Nullable Integer size) {
       return null;
     }
 
@@ -255,7 +262,7 @@ public class EntitySearchServiceTest {
         String query,
         String field,
         Filter requestParams,
-        int limit) {
+        @Nullable Integer limit) {
       return null;
     }
 
@@ -265,7 +272,7 @@ public class EntitySearchServiceTest {
         List<String> entityNames,
         String field,
         Filter requestParams,
-        int limit) {
+        @Nullable Integer limit) {
       return null;
     }
 
@@ -276,7 +283,7 @@ public class EntitySearchServiceTest {
         String path,
         Filter requestParams,
         int from,
-        int size) {
+        @Nullable Integer size) {
       return null;
     }
 
@@ -288,7 +295,7 @@ public class EntitySearchServiceTest {
         Filter filter,
         String input,
         int start,
-        int count) {
+        @Nullable Integer count) {
       return null;
     }
 
@@ -301,7 +308,7 @@ public class EntitySearchServiceTest {
         @Nullable Filter filter,
         @Nonnull String input,
         int start,
-        int count) {
+        @Nullable Integer count) {
       return null;
     }
 
@@ -320,7 +327,7 @@ public class EntitySearchServiceTest {
         List<SortCriterion> sortCriteria,
         @Nullable String scrollId,
         @Nullable String keepAlive,
-        int size,
+        @Nullable Integer size,
         @Nonnull List<String> facets) {
       throw new NotImplementedException();
     }
@@ -334,14 +341,9 @@ public class EntitySearchServiceTest {
         List<SortCriterion> sortCriteria,
         String scrollId,
         String keepAlive,
-        int size,
+        @Nullable Integer size,
         @Nonnull List<String> facets) {
       return null;
-    }
-
-    @Override
-    public int maxResultSize() {
-      return 0;
     }
 
     @Override
@@ -354,7 +356,7 @@ public class EntitySearchServiceTest {
         List<SortCriterion> sortCriteria,
         String scrollId,
         String keepAlive,
-        int size,
+        @Nullable Integer size,
         @Nonnull List<String> facets) {
       return null;
     }

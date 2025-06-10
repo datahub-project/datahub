@@ -14,7 +14,7 @@ from typing import Optional, Union
 
 from typing_extensions import Self
 
-from acryl_datahub_cloud._sdk_extras.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
     DEFAULT_SCHEDULE,
@@ -26,12 +26,12 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     InferenceSensitivity,
     _DetectionMechanismTypes,
 )
-from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
-from acryl_datahub_cloud._sdk_extras.entities.monitor import (
+from acryl_datahub_cloud.sdk.entities.assertion import Assertion
+from acryl_datahub_cloud.sdk.entities.monitor import (
     Monitor,
     _get_nested_field_for_entity_with_default,
 )
-from acryl_datahub_cloud._sdk_extras.errors import SDKNotYetSupportedError
+from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError
 from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, TagUrn

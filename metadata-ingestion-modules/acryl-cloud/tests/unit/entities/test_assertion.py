@@ -5,8 +5,8 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
-from acryl_datahub_cloud._sdk_extras.errors import SDKNotYetSupportedError
+from acryl_datahub_cloud.sdk.entities.assertion import Assertion
+from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError
 from datahub.errors import SdkUsageError
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import (

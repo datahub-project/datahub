@@ -7,7 +7,7 @@ import pytest
 from pydantic import ValidationError
 
 import datahub.metadata.schema_classes as models
-from acryl_datahub_cloud._sdk_extras.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_NAME_PREFIX,
     DEFAULT_NAME_SUFFIX_LENGTH,
@@ -22,14 +22,14 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     _SmartFreshnessAssertionInput,
     _validate_cron_schedule,
 )
-from acryl_datahub_cloud._sdk_extras.entities.assertion import (
+from acryl_datahub_cloud.sdk.entities.assertion import (
     TagsInputType,
 )
-from acryl_datahub_cloud._sdk_extras.errors import SDKUsageError
+from acryl_datahub_cloud.sdk.errors import SDKUsageError
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn, InvalidUrnError
 from datahub.sdk.entity_client import EntityClient
-from tests.conftest import StubEntityClient
+from tests.sdk.assertions.conftest import StubEntityClient
 
 
 class AssertionInputParams(TypedDict, total=False):

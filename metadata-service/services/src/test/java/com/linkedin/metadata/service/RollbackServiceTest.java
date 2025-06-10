@@ -1,7 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_SYSTEM_METADATA_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -26,6 +26,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
@@ -71,8 +72,15 @@ public class RollbackServiceTest {
             mockEntityService,
             mockSystemMetadataService,
             mockTimeseriesAspectService,
-            TEST_SEARCH_CONFIG.getSearch().getLimit().getResults().toBuilder()
-                .max(MAX_SEARCH_RESULTS)
+            TEST_SYSTEM_METADATA_SERVICE_CONFIG.toBuilder()
+                .limit(
+                    TEST_SYSTEM_METADATA_SERVICE_CONFIG.getLimit().toBuilder()
+                        .results(
+                            ResultsLimitConfig.builder()
+                                .max(MAX_SEARCH_RESULTS)
+                                .apiDefault(MAX_SEARCH_RESULTS)
+                                .build())
+                        .build())
                 .build());
   }
 

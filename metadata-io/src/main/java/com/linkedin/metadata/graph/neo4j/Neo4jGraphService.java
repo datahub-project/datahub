@@ -12,6 +12,8 @@ import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
@@ -50,6 +52,7 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang.time.StopWatch;
 import org.apache.commons.lang3.ClassUtils;
@@ -68,19 +71,18 @@ public class Neo4jGraphService implements GraphService {
   private static final int MAX_TRANSACTION_RETRY = 3;
   private final LineageRegistry lineageRegistry;
   private final Driver driver;
-  private SessionConfig sessionConfig;
-
-  public Neo4jGraphService(@Nonnull LineageRegistry lineageRegistry, @Nonnull Driver driver) {
-    this(lineageRegistry, driver, SessionConfig.defaultConfig());
-  }
+  private final SessionConfig sessionConfig;
+  @Getter private final GraphServiceConfiguration graphServiceConfig;
 
   public Neo4jGraphService(
       @Nonnull LineageRegistry lineageRegistry,
       @Nonnull Driver driver,
-      @Nonnull SessionConfig sessionConfig) {
+      @Nonnull SessionConfig sessionConfig,
+      @Nonnull GraphServiceConfiguration graphServiceConfig) {
     this.lineageRegistry = lineageRegistry;
     this.driver = driver;
     this.sessionConfig = sessionConfig;
+    this.graphServiceConfig = graphServiceConfig;
   }
 
   @Override
@@ -256,10 +258,10 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull Urn entityUrn,
       @Nonnull LineageGraphFilters lineageGraphFilters,
       int offset,
-      int count,
+      @Nullable Integer count,
       int maxHops) {
-    log.debug(String.format("Neo4j getLineage maxHops = %d", maxHops));
-
+    log.debug("Neo4j getLineage maxHops = {}", maxHops);
+    count = ConfigUtils.applyLimit(graphServiceConfig, count);
     final var statementAndParams =
         generateLineageStatementAndParameters(
             entityUrn,
@@ -301,8 +303,7 @@ public class Neo4jGraphService implements GraphService {
                         .setDegree(path.length())
                         .setPaths(new UrnArrayArray(new UrnArray(nodeListAsPath))));
               } catch (URISyntaxException ignored) {
-                log.warn(
-                    String.format("Can't convert urn = %s, Error = %s", urn, ignored.getMessage()));
+                log.warn("Can't convert urn = {}, Error = {}", urn, ignored.getMessage());
               }
             });
     EntityLineageResult result =
@@ -312,7 +313,7 @@ public class Neo4jGraphService implements GraphService {
             .setRelationships(relations)
             .setTotal(neo4jResult.size());
 
-    log.debug(String.format("Neo4j getLineage results = %s", result));
+    log.debug("Neo4j getLineage results = {}", result);
     return result;
   }
 
@@ -453,20 +454,20 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull final OperationContext opContext,
       @Nonnull final GraphFilters graphFilters,
       final int offset,
-      final int count) {
+      @Nullable Integer count) {
+
+    count = ConfigUtils.applyLimit(graphServiceConfig, count);
 
     log.debug(
-        String.format(
-                "Finding related Neo4j nodes sourceType: %s, sourceEntityFilter: %s, destinationType: %s, ",
-                graphFilters.getSourceTypes(),
-                graphFilters.getSourceEntityFilter(),
-                graphFilters.getDestinationTypes())
-            + String.format(
-                "destinationEntityFilter: %s, relationshipTypes: %s, relationshipFilter: %s, ",
-                graphFilters.getDestinationEntityFilter(),
-                graphFilters.getRelationshipTypes(),
-                graphFilters.getRelationshipFilter())
-            + String.format("offset: %s, count: %s", offset, count));
+        "Finding related Neo4j nodes sourceType: {}, sourceEntityFilter: {}, destinationType: {}, destinationEntityFilter: {}, relationshipTypes: {}, relationshipFilter: {}, offset: {}, count: {}",
+        graphFilters.getSourceTypes(),
+        graphFilters.getSourceEntityFilter(),
+        graphFilters.getDestinationTypes(),
+        graphFilters.getDestinationEntityFilter(),
+        graphFilters.getRelationshipTypes(),
+        graphFilters.getRelationshipFilter(),
+        offset,
+        count);
 
     if (graphFilters.noResultsByType()) {
       return new RelatedEntitiesResult(offset, 0, 0, Collections.emptyList());
@@ -604,7 +605,7 @@ public class Neo4jGraphService implements GraphService {
 
   public void removeNode(@Nonnull final OperationContext opContext, @Nonnull final Urn urn) {
 
-    log.debug(String.format("Removing Neo4j node with urn: %s", urn));
+    log.debug("Removing Neo4j node with urn: {}", urn);
     final String srcNodeLabel = urn.getEntityType();
 
     // also delete any relationship going to or from it
@@ -635,9 +636,10 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull final RelationshipFilter relationshipFilter) {
 
     log.debug(
-        String.format(
-            "Removing Neo4j edge types from node with urn: %s, types: %s, filter: %s",
-            urn, relationshipTypes, relationshipFilter));
+        "Removing Neo4j edge types from node with urn: {}, types: {}, filter: {}",
+        urn,
+        relationshipTypes,
+        relationshipFilter);
 
     // also delete any relationship going to or from it
     final RelationshipDirection relationshipDirection = relationshipFilter.getDirection();
@@ -691,7 +693,7 @@ public class Neo4jGraphService implements GraphService {
   }
 
   public void removeNodesMatchingLabel(@Nonnull String labelPattern) {
-    log.debug(String.format("Removing Neo4j nodes matching label %s", labelPattern));
+    log.debug("Removing Neo4j nodes matching label {}", labelPattern);
     final String matchTemplate =
         "MATCH (n) WHERE any(l IN labels(n) WHERE l=~'%s') DETACH DELETE n";
     final String statement = String.format(matchTemplate, labelPattern);
@@ -783,7 +785,7 @@ public class Neo4jGraphService implements GraphService {
   @Nonnull
   @WithSpan
   private Result runQuery(@Nonnull Statement statement) {
-    log.debug(String.format("Running Neo4j query %s", statement));
+    log.debug("Running Neo4j query {}", statement);
     return driver.session(sessionConfig).run(statement.getCommandText(), statement.getParams());
   }
 
@@ -922,9 +924,11 @@ public class Neo4jGraphService implements GraphService {
       @Nonnull GraphFilters graphFilters,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
+
+    count = ConfigUtils.applyLimit(graphServiceConfig, count);
 
     if (graphFilters.noResultsByType()) {
       return new RelatedEntitiesScrollResult(0, 0, null, Collections.emptyList());
