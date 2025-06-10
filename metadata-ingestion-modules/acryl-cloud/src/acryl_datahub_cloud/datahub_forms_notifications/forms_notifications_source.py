@@ -20,6 +20,7 @@ from acryl_datahub_cloud.datahub_forms_notifications.query import (
 from acryl_datahub_cloud.notifications.notification_recipient_builder import (
     NotificationRecipientBuilder,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -31,7 +32,14 @@ from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RawSearchFilter
-from datahub.metadata.schema_classes import FormInfoClass, FormStateClass, FormTypeClass
+from datahub.metadata.schema_classes import (
+    FormInfoClass,
+    FormNotificationDetailsClass,
+    FormNotificationEntryClass,
+    FormNotificationsClass,
+    FormStateClass,
+    FormTypeClass,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +85,7 @@ class DataHubFormsNotificationsSource(Source):
         self.recipient_builder: NotificationRecipientBuilder = (
             NotificationRecipientBuilder(self.graph)
         )
+        self.user_to_form_notifications: Dict[str, FormNotificationsClass] = {}
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         self.notify_form_assignees()
@@ -88,15 +97,15 @@ class DataHubFormsNotificationsSource(Source):
         for urn, form in self.get_forms():
             if not self.is_form_complete(urn, form.type):
                 assignees = self.get_form_assignees(urn, form)
-                self.process_notify_on_publish(assignees, form.name)
+                self.process_notify_on_publish(assignees, form.name, urn)
 
     def process_notify_on_publish(
-        self, form_assignees: List[str], form_name: str
+        self, form_assignees: List[str], form_name: str, form_urn: str
     ) -> None:
         """
         Take in form assignees, find the ones who haven't been notified on publish, and build a notification for them.
         """
-        filtered_assignees = self.filter_assignees_to_notify(form_assignees)
+        filtered_assignees = self.filter_assignees_to_notify(form_assignees, form_urn)
         recipients = []
         if self.recipient_builder is not None:
             recipients = self.recipient_builder.build_actor_recipients(
@@ -123,6 +132,60 @@ class DataHubFormsNotificationsSource(Source):
                 logger.error(
                     f"Issue sending the notification request for this job. Response: {response}"
                 )
+            else:
+                unique_actor_urns = set(
+                    [
+                        recipient.get("actor")
+                        for recipient in recipients
+                        if recipient.get("actor") is not None
+                    ]
+                )
+                for actor_urn in unique_actor_urns:
+                    self.update_form_notifications(actor_urn, form_urn)
+
+    def update_form_notifications(self, user_urn: str, form_urn: str):
+        """
+        After sending a notification, update the user's formNotifications aspect
+        to track that we sent the notification that we did
+        """
+        # get or create default formNotifications aspect
+        form_notifications = self.user_to_form_notifications.get(user_urn)
+        if form_notifications is None:
+            form_notifications = FormNotificationsClass(notificationDetails=[])
+
+        # get the notification details for our specific form or create default
+        details_for_form = self.get_notification_details_for_form(
+            user_urn, form_urn, form_notifications
+        )
+        if details_for_form is None:
+            details_for_form = FormNotificationDetailsClass(
+                formUrn=form_urn, notificationLog=[]
+            )
+
+        # add new notification log entry for this occasion
+        new_notification_log_entry = FormNotificationEntryClass(
+            time=int(time.time() * 1000),
+            notificationType="BROADCAST_COMPLIANCE_FORM_PUBLISH",
+        )
+        details_for_form.notificationLog.append(new_notification_log_entry)
+
+        # filter out details for given form so we can add updated one
+        final_notification_details = [
+            details
+            for details in form_notifications.notificationDetails
+            if details.formUrn != form_urn
+        ]
+        final_notification_details.append(details_for_form)
+
+        # update the aspect with the final notification details
+        form_notifications.notificationDetails = final_notification_details
+
+        self.graph.emit(
+            MetadataChangeProposalWrapper(
+                entityUrn=user_urn,
+                aspect=form_notifications,
+            )
+        )
 
     @retry(
         retry=retry_if_exception_type((Exception, ConnectionError)),
@@ -282,10 +345,83 @@ class DataHubFormsNotificationsSource(Source):
 
         return (user_urns, group_urns)
 
-    def filter_assignees_to_notify(self, user_urns: List[str]) -> List[str]:
-        # TODO: filter users out who have already been notified. will be done in another PR
+    def filter_assignees_to_notify(
+        self, user_urns: List[str], form_urn: str
+    ) -> List[str]:
+        """
+        Filter out any users who have already received the publish notification type in the past
+        """
+        filtered_users = []
 
-        return user_urns
+        self.populate_user_to_form_notifications(user_urns)
+
+        for user in user_urns:
+            form_notifications = self.user_to_form_notifications.get(user)
+            if form_notifications is None or not self.has_user_been_sent_notification(
+                user, form_urn, form_notifications, "BROADCAST_COMPLIANCE_FORM_PUBLISH"
+            ):
+                filtered_users.append(user)
+
+        return filtered_users
+
+    def has_user_been_sent_notification(
+        self,
+        user_urn: str,
+        form_urn: str,
+        form_notifications: FormNotificationsClass,
+        notification_type: str,
+    ) -> bool:
+        notification_details = self.get_notification_details_for_form(
+            user_urn, form_urn, form_notifications
+        )
+        if notification_details is None:
+            return False
+
+        notification_types_sent_for_form = [
+            entry.notificationType for entry in notification_details.notificationLog
+        ]
+
+        return notification_type in notification_types_sent_for_form
+
+    def get_notification_details_for_form(
+        self, user_urn: str, form_urn: str, form_notifications: FormNotificationsClass
+    ) -> FormNotificationDetailsClass | None:
+        notification_details_for_form = [
+            detail
+            for detail in form_notifications.notificationDetails
+            if detail.formUrn == form_urn
+        ]
+
+        notification_details = None
+        if len(notification_details_for_form) > 1:
+            logger.warning(
+                f"Found more than one notificationDetails for a given form for user {user_urn} in {form_notifications}"
+            )
+            # grab first one
+            notification_details = notification_details_for_form[0]
+        elif len(notification_details_for_form) == 1:
+            notification_details = notification_details_for_form[0]
+
+        return notification_details
+
+    def populate_user_to_form_notifications(self, user_urns: List[str]):
+        new_users = [
+            urn for urn in user_urns if urn not in self.user_to_form_notifications
+        ]
+
+        if len(new_users) == 0:
+            return
+
+        entities = self.graph.get_entities("corpuser", new_users, ["formNotifications"])
+        for urn, entity in entities.items():
+            user_tuple = entity.get(FormNotificationsClass.ASPECT_NAME, (None, None))
+            if user_tuple and user_tuple[0]:
+                if not isinstance(user_tuple[0], FormNotificationsClass):
+                    logger.error(
+                        f"{user_tuple[0]} is not of type FormNotifications for urn: {urn}"
+                    )
+                else:
+                    self.user_to_form_notifications[urn] = user_tuple[0]
 
     def _get_users_in_group(self, group_urn: str) -> List[str]:
         """

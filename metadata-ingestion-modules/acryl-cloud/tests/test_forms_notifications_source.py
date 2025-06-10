@@ -1,4 +1,5 @@
 import json
+import time
 from typing import cast
 from unittest.mock import MagicMock
 
@@ -18,11 +19,21 @@ from acryl_datahub_cloud.notifications.notification_recipient_builder import (
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    CorpUserAppearanceSettingsClass,
+    CorpUserSettingsClass,
     FormActorAssignmentClass,
     FormInfoClass,
+    FormNotificationDetailsClass,
+    FormNotificationEntryClass,
+    FormNotificationsClass,
     FormStateClass,
     FormStatusClass,
     FormTypeClass,
+    NotificationSettingClass,
+    NotificationSettingsClass,
+    NotificationSettingValueClass,
+    NotificationSinkTypeClass,
+    SlackNotificationSettingsClass,
 )
 
 
@@ -223,7 +234,9 @@ def test_process_notify_on_publish(source: DataHubFormsNotificationsSource) -> N
     # Mock successful notification send
     mock_graph.execute_graphql.return_value = {"sendFormNotificationRequest": True}
 
-    source.process_notify_on_publish(["urn:li:corpuser:user1"], "Test Form")
+    source.process_notify_on_publish(
+        ["urn:li:corpuser:user1"], "Test Form", "urn:li:form:test-form-1"
+    )
 
     # Verify the notification was sent with correct parameters
     mock_graph.execute_graphql.assert_called_once()
@@ -344,10 +357,21 @@ def test_notify_form_assignees(source: DataHubFormsNotificationsSource) -> None:
         ),
     )
 
-    # Mock get_forms response
-    mock_graph.get_entities.return_value = {
-        "urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}
-    }
+    # Mock form notifications (empty for all users)
+    mock_form_notifications = FormNotificationsClass(notificationDetails=[])
+
+    # Mock get_entities to return different responses based on the call
+    def mock_get_entities(entity_type, urns, aspects):
+        if entity_type == "form":
+            return {"urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}}
+        elif entity_type == "corpuser":
+            return {
+                urn: {"formNotifications": (mock_form_notifications, None)}
+                for urn in urns
+            }
+        return {}
+
+    mock_graph.get_entities.side_effect = mock_get_entities
 
     # Mock group members
     mock_graph.get_related_entities.return_value = [
@@ -367,9 +391,30 @@ def test_notify_form_assignees(source: DataHubFormsNotificationsSource) -> None:
     source.notify_form_assignees()
 
     # Verify the form was retrieved
-    mock_graph.get_entities.assert_called_once_with(
+    mock_graph.get_entities.assert_any_call(
         "form", ["urn:li:form:test-form-1"], ["formInfo"]
     )
+
+    # Verify form notifications were retrieved for all users
+    # Get all calls to get_entities
+    get_entities_calls = [
+        call
+        for call in mock_graph.get_entities.call_args_list
+        if call[0][0] == "corpuser"  # Filter for corpuser calls
+    ]
+    assert len(get_entities_calls) == 1  # Should be exactly one call for corpuser
+
+    # Get the actual URNs from the call
+    actual_urns = get_entities_calls[0][0][1]  # Get the URNs list from the call
+    expected_urns = [
+        "urn:li:corpuser:user1",
+        "urn:li:corpuser:group-user1",
+        "urn:li:corpuser:group-user2",
+    ]
+
+    # Compare sorted lists
+    assert sorted(actual_urns) == sorted(expected_urns)
+    assert get_entities_calls[0][0][2] == ["formNotifications"]  # Verify aspects
 
     # Verify form completion was checked
     mock_graph.execute_graphql.assert_any_call(
@@ -534,3 +579,255 @@ def test_get_form_assignees_with_owners(
         "urn:li:form:test-form-1", FormTypeClass.COMPLETION
     )
     assert call_args["skip_cache"] is True
+
+
+def test_filter_assignees_to_notify(source: DataHubFormsNotificationsSource) -> None:
+    """Test filtering assignees who haven't been notified yet"""
+    mock_graph = cast(MagicMock, source.graph)
+
+    # Mock user settings with notifications enabled
+    mock_settings = CorpUserSettingsClass(
+        appearance=CorpUserAppearanceSettingsClass(),
+        notificationSettings=NotificationSettingsClass(
+            sinkTypes=[NotificationSinkTypeClass.SLACK],
+            settings={
+                "COMPLIANCE_FORM_PUBLISH": NotificationSettingClass(
+                    value=NotificationSettingValueClass.ENABLED,
+                    params={"slack.enabled": "true"},
+                )
+            },
+            slackSettings=SlackNotificationSettingsClass(userHandle="test-user"),
+        ),
+    )
+
+    # Mock form notifications for one user
+    mock_form_notifications = FormNotificationsClass(
+        notificationDetails=[
+            FormNotificationDetailsClass(
+                formUrn="urn:li:form:test-form",
+                notificationLog=[
+                    FormNotificationEntryClass(
+                        time=int(time.time() * 1000),
+                        notificationType="BROADCAST_COMPLIANCE_FORM_PUBLISH",
+                    )
+                ],
+            )
+        ]
+    )
+
+    mock_graph.get_entities.return_value = {
+        "urn:li:corpuser:test-user": {
+            "corpUserSettings": (mock_settings, None),
+            "formNotifications": (mock_form_notifications, None),
+        },
+        "urn:li:corpuser:test-user-2": {
+            "corpUserSettings": (mock_settings, None),
+            "formNotifications": (None, None),  # No notifications yet
+        },
+    }
+
+    # Test filtering users for a form they haven't been notified about
+    filtered_users = source.filter_assignees_to_notify(
+        ["urn:li:corpuser:test-user", "urn:li:corpuser:test-user-2"],
+        "urn:li:form:different-form",
+    )
+
+    assert (
+        len(filtered_users) == 2
+    )  # Both users should be included for a different form
+
+    # Test filtering users for a form they have been notified about
+    filtered_users = source.filter_assignees_to_notify(
+        ["urn:li:corpuser:test-user", "urn:li:corpuser:test-user-2"],
+        "urn:li:form:test-form",
+    )
+
+    assert len(filtered_users) == 1  # Only test-user-2 should be included
+    assert filtered_users[0] == "urn:li:corpuser:test-user-2"
+
+
+def test_has_user_been_sent_notification(
+    source: DataHubFormsNotificationsSource,
+) -> None:
+    """Test checking if a user has been sent a notification"""
+    mock_form_notifications = FormNotificationsClass(
+        notificationDetails=[
+            FormNotificationDetailsClass(
+                formUrn="urn:li:form:test-form",
+                notificationLog=[
+                    FormNotificationEntryClass(
+                        time=int(time.time() * 1000),
+                        notificationType="BROADCAST_COMPLIANCE_FORM_PUBLISH",
+                    )
+                ],
+            )
+        ]
+    )
+
+    # Test user who has been notified
+    assert (
+        source.has_user_been_sent_notification(
+            "urn:li:corpuser:test-user",
+            "urn:li:form:test-form",
+            mock_form_notifications,
+            "BROADCAST_COMPLIANCE_FORM_PUBLISH",
+        )
+        is True
+    )
+
+    # Test user who hasn't been notified for this form
+    assert (
+        source.has_user_been_sent_notification(
+            "urn:li:corpuser:test-user",
+            "urn:li:form:different-form",
+            mock_form_notifications,
+            "BROADCAST_COMPLIANCE_FORM_PUBLISH",
+        )
+        is False
+    )
+
+    # Test user who hasn't been notified for this notification type
+    assert (
+        source.has_user_been_sent_notification(
+            "urn:li:corpuser:test-user",
+            "urn:li:form:test-form",
+            mock_form_notifications,
+            "DIFFERENT_NOTIFICATION_TYPE",
+        )
+        is False
+    )
+
+
+def test_get_notification_details_for_form(
+    source: DataHubFormsNotificationsSource,
+) -> None:
+    """Test getting notification details for a specific form"""
+    mock_form_notifications = FormNotificationsClass(
+        notificationDetails=[
+            FormNotificationDetailsClass(
+                formUrn="urn:li:form:test-form",
+                notificationLog=[
+                    FormNotificationEntryClass(
+                        time=int(time.time() * 1000),
+                        notificationType="BROADCAST_COMPLIANCE_FORM_PUBLISH",
+                    )
+                ],
+            )
+        ]
+    )
+
+    # Test getting details for existing form
+    details = source.get_notification_details_for_form(
+        "urn:li:corpuser:test-user",
+        "urn:li:form:test-form",
+        mock_form_notifications,
+    )
+    assert details is not None
+    assert details.formUrn == "urn:li:form:test-form"
+
+    # Test getting details for non-existent form
+    details = source.get_notification_details_for_form(
+        "urn:li:corpuser:test-user",
+        "urn:li:form:different-form",
+        mock_form_notifications,
+    )
+    assert details is None
+
+
+def test_populate_user_to_form_notifications(
+    source: DataHubFormsNotificationsSource,
+) -> None:
+    """Test populating user form notifications map"""
+    mock_graph = cast(MagicMock, source.graph)
+
+    mock_form_notifications = FormNotificationsClass(
+        notificationDetails=[
+            FormNotificationDetailsClass(
+                formUrn="urn:li:form:test-form",
+                notificationLog=[
+                    FormNotificationEntryClass(
+                        time=int(time.time() * 1000),
+                        notificationType="BROADCAST_COMPLIANCE_FORM_PUBLISH",
+                    )
+                ],
+            )
+        ]
+    )
+
+    mock_graph.get_entities.return_value = {
+        "urn:li:corpuser:test-user": {
+            "formNotifications": (mock_form_notifications, None),
+        },
+        "urn:li:corpuser:test-user-2": {
+            "formNotifications": (None, None),
+        },
+    }
+
+    # Test populating map for new users
+    source.populate_user_to_form_notifications(
+        ["urn:li:corpuser:test-user", "urn:li:corpuser:test-user-2"]
+    )
+
+    assert "urn:li:corpuser:test-user" in source.user_to_form_notifications
+    assert (
+        source.user_to_form_notifications["urn:li:corpuser:test-user"]
+        == mock_form_notifications
+    )
+    assert "urn:li:corpuser:test-user-2" not in source.user_to_form_notifications
+
+    # Test that existing users aren't re-fetched
+    mock_graph.get_entities.reset_mock()
+    source.populate_user_to_form_notifications(["urn:li:corpuser:test-user"])
+    mock_graph.get_entities.assert_not_called()
+
+
+def test_update_form_notifications(source: DataHubFormsNotificationsSource) -> None:
+    """Test updating form notifications for a user"""
+    mock_graph = cast(MagicMock, source.graph)
+
+    # Initial form notifications
+    initial_notifications = FormNotificationsClass(
+        notificationDetails=[
+            FormNotificationDetailsClass(
+                formUrn="urn:li:form:existing-form",
+                notificationLog=[
+                    FormNotificationEntryClass(
+                        time=int(time.time() * 1000),
+                        notificationType="BROADCAST_COMPLIANCE_FORM_PUBLISH",
+                    )
+                ],
+            )
+        ]
+    )
+
+    source.user_to_form_notifications["urn:li:corpuser:test-user"] = (
+        initial_notifications
+    )
+
+    # Update notifications for a new form
+    source.update_form_notifications(
+        "urn:li:corpuser:test-user",
+        "urn:li:form:new-form",
+    )
+
+    # Verify that the graph client was called to emit the updated notifications
+    mock_graph.emit.assert_called_once()
+    emitted_wrapper = mock_graph.emit.call_args[0][0]
+    assert emitted_wrapper.entityUrn == "urn:li:corpuser:test-user"
+    assert isinstance(emitted_wrapper.aspect, FormNotificationsClass)
+
+    # Verify the updated notifications contain both forms
+    updated_notifications = emitted_wrapper.aspect
+    assert len(updated_notifications.notificationDetails) == 2
+
+    # Verify the new form notification was added
+    new_form_details = next(
+        d
+        for d in updated_notifications.notificationDetails
+        if d.formUrn == "urn:li:form:new-form"
+    )
+    assert len(new_form_details.notificationLog) == 1
+    assert (
+        new_form_details.notificationLog[0].notificationType
+        == "BROADCAST_COMPLIANCE_FORM_PUBLISH"
+    )
