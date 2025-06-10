@@ -1,3 +1,13 @@
+"""Grafana data models for DataHub ingestion.
+
+References:
+- Grafana HTTP API: https://grafana.com/docs/grafana/latest/developers/http_api/
+- Dashboard API: https://grafana.com/docs/grafana/latest/developers/http_api/dashboard/
+- Folder API: https://grafana.com/docs/grafana/latest/developers/http_api/folder/
+- Search API: https://grafana.com/docs/grafana/latest/developers/http_api/other/#search-api
+- Dashboard JSON structure: https://grafana.com/docs/grafana/latest/dashboards/build-dashboards/view-dashboard-json-model/
+"""
+
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field

@@ -75,8 +75,10 @@ def test_build_ownership(mock_dashboard):
     ownership = _build_ownership(mock_dashboard)
     assert isinstance(ownership, OwnershipClass)
     assert len(ownership.owners) == 2
-    assert any(owner.owner.split(":")[-1] == "dash1" for owner in ownership.owners)
-    assert any(owner.owner.split(":")[-1] == "test" for owner in ownership.owners)
+    assert {owner.owner for owner in ownership.owners} == {
+        "urn:li:corpuser:dash1",
+        "urn:li:corpuser:test",
+    }
 
 
 def test_build_chart_mcps(mock_panel, mock_dashboard):

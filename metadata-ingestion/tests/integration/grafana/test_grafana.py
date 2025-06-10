@@ -105,7 +105,12 @@ def loaded_grafana(docker_compose_runner, test_resources_dir):
 
 
 def wait_for_grafana(url: str, max_attempts: int = 30, sleep_time: int = 5) -> bool:
-    """Helper function to wait for Grafana to start"""
+    """Helper function to wait for Grafana to start
+
+    TODO: Replace this polling strategy with Docker Compose health checks
+    for better reliability. Use 'depends_on' with 'condition: service_healthy'
+    instead of application-level retries to avoid flaky tests.
+    """
     for i in range(max_attempts):
         logging.info("waiting for Grafana to start...")
         try:
