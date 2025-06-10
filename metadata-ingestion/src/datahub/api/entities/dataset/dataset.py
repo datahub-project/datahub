@@ -15,7 +15,13 @@ from typing import (
 
 import avro
 import yaml
-from pydantic import BaseModel, Field, root_validator, validator
+from pydantic import (
+    BaseModel,
+    Field,
+    StrictStr,
+    root_validator,
+    validator,
+)
 from ruamel.yaml import YAML
 from typing_extensions import TypeAlias
 
@@ -90,7 +96,7 @@ class StrictModel(BaseModel):
 
 
 # Define type aliases for the complex types
-PropertyValue: TypeAlias = Union[float, str]
+PropertyValue: TypeAlias = Union[StrictStr, float]
 PropertyValueList: TypeAlias = List[PropertyValue]
 StructuredProperties: TypeAlias = Dict[str, Union[PropertyValue, PropertyValueList]]
 
@@ -364,12 +370,6 @@ class Ownership(ConfigModel):
     def ownership_type_must_be_mappable_or_custom(cls, v: str) -> str:
         _, _ = validate_ownership_type(v)
         return v
-
-
-class StructuredPropertyValue(ConfigModel):
-    value: Union[str, int, float, List[str], List[int], List[float]]
-    created: Optional[str] = None
-    lastModified: Optional[str] = None
 
 
 class DatasetRetrievalConfig(BaseModel):
@@ -786,6 +786,7 @@ class Dataset(StrictModel):
         if schema_metadata:
             # If the schema is built off of an avro schema, we only extract the fields if they have structured properties
             # Otherwise, we extract all fields
+            schema_fields = []
             if (
                 schema_metadata.platformSchema
                 and isinstance(schema_metadata.platformSchema, models.OtherSchemaClass)

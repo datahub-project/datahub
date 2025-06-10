@@ -99,7 +99,7 @@ public class DataProductType
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
-      throw new RuntimeException("Failed to batch load Queries", e);
+      throw new RuntimeException("Failed to batch load Data Products", e);
     }
   }
 

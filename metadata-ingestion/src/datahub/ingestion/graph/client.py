@@ -474,7 +474,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         filter_criteria_map: Dict[str, str],
     ) -> Optional[Aspect]:
         filter_criteria = [
-            {"field": k, "value": v, "condition": "EQUAL"}
+            {"field": k, "values": [v], "condition": "EQUAL"}
             for k, v in filter_criteria_map.items()
         ]
         filter = {"or": [{"and": filter_criteria}]}
@@ -669,7 +669,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         filter_criteria = [
             {
                 "field": "name",
-                "value": domain_name,
+                "values": [domain_name],
                 "condition": "EQUAL",
             }
         ]
@@ -789,7 +789,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             filter_criteria.append(
                 {
                     "field": "customProperties",
-                    "value": f"instance={env}",
+                    "values": [f"instance={env}"],
                     "condition": "EQUAL",
                 }
             )
@@ -797,7 +797,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             filter_criteria.append(
                 {
                     "field": "typeNames",
-                    "value": container_subtype,
+                    "values": [container_subtype],
                     "condition": "EQUAL",
                 }
             )
@@ -806,7 +806,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             "input": search_query,
             "entity": "container",
             "start": 0,
-            "count": 10000,
+            "count": 5000,
             "filter": {"or": container_filters},
         }
         results: Dict = self._post_generic(url, search_body)
@@ -901,7 +901,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         query: Optional[str] = None,
         container: Optional[str] = None,
         status: Optional[RemovedStatusFilter] = RemovedStatusFilter.NOT_SOFT_DELETED,
-        batch_size: int = 10000,
+        batch_size: int = 5000,
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
     ) -> Iterable[str]:
@@ -993,7 +993,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
         query: Optional[str] = None,
         container: Optional[str] = None,
         status: RemovedStatusFilter = RemovedStatusFilter.NOT_SOFT_DELETED,
-        batch_size: int = 10000,
+        batch_size: int = 5000,
         extra_and_filters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
         extra_source_fields: Optional[List[str]] = None,

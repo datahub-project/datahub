@@ -314,6 +314,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         openapi_ingestion: Optional[bool] = None,
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
+        config_ttl_seconds: int = 60,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -329,6 +330,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._openapi_ingestion = (
             openapi_ingestion  # Re-evaluated after test connection
         )
+        self._config_ttl_seconds = config_ttl_seconds
+        self._config_fetch_time: Optional[float] = None
 
         headers = {
             "X-RestLi-Protocol-Version": "2.0.0",
@@ -398,7 +401,15 @@ class DataHubRestEmitter(Closeable, Emitter):
         Raises:
             ConfigurationError: If there's an error fetching or validating the configuration
         """
-        if not hasattr(self, "_server_config") or not self._server_config:
+
+        if (
+            not hasattr(self, "_server_config")
+            or self._server_config is None
+            or (
+                self._config_fetch_time is not None
+                and (time.time() - self._config_fetch_time) > self._config_ttl_seconds
+            )
+        ):
             if self._session is None or self._gms_server is None:
                 raise ConfigurationError(
                     "Session and URL are required to load configuration"
@@ -419,6 +430,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                     )
 
                 self._server_config = RestServiceConfig(raw_config=raw_config)
+                self._config_fetch_time = time.time()
                 self._post_fetch_server_config()
 
             else:
@@ -453,6 +465,8 @@ class DataHubRestEmitter(Closeable, Emitter):
                     DEFAULT_REST_EMITTER_ENDPOINT == RestSinkEndpoint.OPENAPI
                 )
 
+    def test_connection(self) -> None:
+        self.fetch_server_config()
         logger.debug(
             f"Using {'OpenAPI' if self._openapi_ingestion else 'Restli'} for ingestion."
         )
@@ -460,11 +474,14 @@ class DataHubRestEmitter(Closeable, Emitter):
             f"{EmitMode.ASYNC_WAIT} {'IS' if self._should_trace(emit_mode=EmitMode.ASYNC_WAIT, warn=False) else 'IS NOT'} supported."
         )
 
-    def test_connection(self) -> None:
-        self.fetch_server_config()
-
     def get_server_config(self) -> dict:
         return self.server_config.raw_config
+
+    def invalidate_config_cache(self) -> None:
+        """Manually invalidate the configuration cache."""
+        if hasattr(self, "_server_config") and self._server_config is not None:
+            # Set fetch time to beyond TTL in the past to force refresh on next access
+            self._config_fetch_time = time.time() - self._config_ttl_seconds - 1
 
     def to_graph(self) -> "DataHubGraph":
         from datahub.ingestion.graph.client import DataHubGraph
@@ -852,7 +869,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                         for aspect_name, aspect_status in aspects.items():
                             if not aspect_status["success"]:
                                 error_msg = (
-                                    f"Unable to validate async write to DataHub GMS: "
+                                    f"Unable to validate async write {trace.trace_id} ({trace.extract_timestamp()}) to DataHub GMS: "
                                     f"Persistence failure for URN '{urn}' aspect '{aspect_name}'. "
                                     f"Status: {aspect_status}"
                                 )

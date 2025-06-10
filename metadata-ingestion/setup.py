@@ -28,7 +28,8 @@ base_requirements = {
 }
 
 framework_common = {
-    "click>=7.1.2",
+    # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
+    "click>=7.1.2, !=8.2.0",
     "click-default-group",
     "PyYAML",
     "toml>=0.10.0",
@@ -376,7 +377,9 @@ plugins: Dict[str, Set[str]] = {
     "datahub-rest": rest_common,
     "sync-file-emitter": {"filelock"},
     "datahub-lite": {
-        "duckdb",
+        "duckdb>=1.0.0",
+        # duckdb dropped support for python 3.8 in 1.3.0
+        "duckdb<1.3.0; python_version < '3.9'",
         "fastapi",
         "uvicorn",
     },

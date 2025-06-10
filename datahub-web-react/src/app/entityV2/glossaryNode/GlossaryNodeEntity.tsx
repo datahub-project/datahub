@@ -12,7 +12,6 @@ import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sid
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
@@ -109,9 +108,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                     },
                 ]}
                 sidebarSections={this.getSidebarSections()}
-                headerActionItems={
-                    new Set([EntityActionItem.ADD_CHILD_GLOSSARY_NODE, EntityActionItem.ADD_CHILD_GLOSSARY_TERM])
-                }
+                // NOTE: Hiding this for now as we've moved the actions to the content of ChildrenTab.tsx
+                // The buttons are too big and causes other actions to overflow.
+                // This component requires deeper refactoring to dynamically adapt to smaller screens.
+                // headerActionItems={
+                //     new Set([EntityActionItem.ADD_CHILD_GLOSSARY_NODE, EntityActionItem.ADD_CHILD_GLOSSARY_TERM])
+                // }
                 headerDropdownItems={headerDropdownItems}
                 sidebarTabs={this.getSidebarTabs()}
             />
