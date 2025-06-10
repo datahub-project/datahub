@@ -76,6 +76,7 @@ export const ManageIngestionPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
+    const [hideSystemSources, setHideSystemSources] = useState(true);
 
     const history = useHistory();
     const shouldPreserveParams = useRef(false);
@@ -104,13 +105,21 @@ export const ManageIngestionPage = () => {
                     showCreateModal={showCreateSourceModal}
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
+                    hideSystemSources={hideSystemSources}
+                    setHideSystemSources={setHideSystemSources}
                 />
             ),
             key: TabType.Sources as string,
             name: TabType.Sources as string,
         },
         {
-            component: <ExecutionsTab shouldPreserveParams={shouldPreserveParams} />,
+            component: (
+                <ExecutionsTab
+                    shouldPreserveParams={shouldPreserveParams}
+                    hideSystemSources={hideSystemSources}
+                    setHideSystemSources={setHideSystemSources}
+                />
+            ),
             key: TabType.ExecutionLog as string,
             name: 'Execution Log',
         },
