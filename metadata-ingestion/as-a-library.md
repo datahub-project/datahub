@@ -55,6 +55,10 @@ metadata_event = MetadataChangeProposalWrapper(
 emitter.emit(metadata_event)
 ```
 
+Other examples:
+
+- [lineage_emitter_mcpw_rest.py](./examples/library/lineage_emitter_mcpw_rest.py) - emits simple bigquery table-to-table (dataset-to-dataset) lineage via REST as MetadataChangeProposalWrapper.
+
 ### Emitter Code
 
 If you're interested in looking at the REST emitter code, it is available [here](./src/datahub/emitter/rest_emitter.py)

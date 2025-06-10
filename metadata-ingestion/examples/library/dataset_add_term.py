@@ -3,9 +3,8 @@ from datahub.sdk import DataHubClient, DatasetUrn, GlossaryTermUrn
 client = DataHubClient.from_env()
 
 dataset = client.entities.get(
-    DatasetUrn(platform="hdfs", name="SampleHdfsDataset", env="PROD")
+    DatasetUrn(platform="hive", name="realestate_db.sales", env="PROD")
 )
+dataset.add_term(GlossaryTermUrn("Classification.HighlyConfidential"))
 
-dataset.add_term(GlossaryTermUrn("rateofreturn"))
-
-client.entities.upsert(dataset)
+client.entities.update(dataset)

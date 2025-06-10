@@ -579,6 +579,17 @@ For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](
 
 Types of lineage connections supported in DataHub and the example codes are as follows.
 
+* Dataset to Dataset
+    * [Dataset Lineage](../../../metadata-ingestion/examples/library/lineage_emitter_rest.py)
+    * [Finegrained Dataset Lineage](../../../metadata-ingestion/examples/library/lineage_emitter_dataset_finegrained.py)
+    * [Datahub BigQuery Lineage](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/sql/snowflake.py#L249)
+    * [Dataset Lineage via MCPW REST Emitter](../../../metadata-ingestion/examples/library/lineage_emitter_mcpw_rest.py)
+    * [Dataset Lineage via Kafka Emitter](../../../metadata-ingestion/examples/library/lineage_emitter_kafka.py)
+* [DataJob to DataFlow](../../../metadata-ingestion/examples/library/lineage_job_dataflow.py)
+* [DataJob to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_job_dataset.py)
+* [Chart to Dashboard](../../../metadata-ingestion/examples/library/lineage_chart_dashboard.py)
+* [Chart to Dataset](../../../metadata-ingestion/examples/library/lineage_dataset_chart.py)
+
 ### Automatic Lineage Extraction Support
 
 This is a summary of automatic lineage extraciton support in our data source. Please refer to the **Important Capabilities** table in the source documentation. Note that even if the source does not support automatic extraction, you can still add lineage manually using our API & SDKs.\n"""
