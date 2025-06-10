@@ -257,6 +257,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 }

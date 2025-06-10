@@ -322,6 +322,7 @@ export class DataJobEntity implements Entity<DataJob> {
             EntityCapabilityType.TEST,
             EntityCapabilityType.LINEAGE,
             EntityCapabilityType.HEALTH,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 }

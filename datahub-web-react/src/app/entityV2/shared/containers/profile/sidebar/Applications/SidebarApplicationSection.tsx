@@ -11,6 +11,7 @@ import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/Em
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ApplicationLink } from '@app/shared/tags/ApplicationLink';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { useBatchSetApplicationMutation } from '@graphql/application.generated';
 
@@ -38,6 +39,9 @@ interface Props {
 }
 
 export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
+    const {
+        config: { visualConfig },
+    } = useAppConfig();
     const updateOnly = properties?.updateOnly;
     const { entityData } = useEntityData();
     const refetch = useRefetch();
@@ -46,6 +50,10 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
     const [showModal, setShowModal] = useState(false);
     const application = entityData?.application?.application;
     const canEditApplication = !!entityData?.privileges?.canEditProperties;
+
+    if (!application && !visualConfig.application?.showSidebarSectionWhenEmpty) {
+        return null;
+    }
 
     const removeApplication = () => {
         batchSetApplicationMutation({

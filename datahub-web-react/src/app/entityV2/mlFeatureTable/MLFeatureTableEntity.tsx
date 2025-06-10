@@ -235,6 +235,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             EntityCapabilityType.SOFT_DELETE,
             EntityCapabilityType.DATA_PRODUCTS,
             EntityCapabilityType.LINEAGE,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 }

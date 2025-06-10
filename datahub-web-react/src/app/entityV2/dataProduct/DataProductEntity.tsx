@@ -262,6 +262,7 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.GLOSSARY_TERMS,
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
+            EntityCapabilityType.APPLICATIONS,
         ]);
     };
 
