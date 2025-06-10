@@ -108,17 +108,6 @@ const EntitySelectFilter = ({
                             size="sm"
                             onClear={handleClearSearch}
                         />
-                        {isLoading ? (
-                            <LoadingWrapper>
-                                <LoadingOutlined />
-                            </LoadingWrapper>
-                        ) : (
-                            !finalOptions.length && (
-                                <NoResultsFoundPlaceholder
-                                    message={searchQuery?.length < 3 ? 'Type atleast 3 characters..' : undefined}
-                                />
-                            )
-                        )}
                         <OptionList
                             style={{
                                 maxHeight: '30vh',
@@ -138,6 +127,17 @@ const EntitySelectFilter = ({
                                 </OptionLabel>
                             ))}
                         </OptionList>
+                        {isLoading ? (
+                            <LoadingWrapper>
+                                <LoadingOutlined />
+                            </LoadingWrapper>
+                        ) : (
+                            !finalOptions.length && (
+                                <NoResultsFoundPlaceholder
+                                    message={searchQuery?.length < 3 ? 'Type at least 3 characters..' : undefined}
+                                />
+                            )
+                        )}
                     </DropdownContainer>
                 )}
             >

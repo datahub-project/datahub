@@ -525,6 +525,11 @@ type ActionRequest {
   assignedRoles: [String!]
 
   """
+  The Users and Groups assigned to the action request
+  """
+  assignees: [OwnerType!]
+
+  """
   An optional target entity associated with the action request
   """
   entity: Entity

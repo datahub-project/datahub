@@ -23,6 +23,7 @@ interface Props {
     setSelectedKeys: React.Dispatch<React.SetStateAction<string[]>>;
     onRowClick?: (record: ActionRequest) => void;
     showPendingView?: boolean;
+    showAssignee?: boolean;
 }
 
 const ProposalsTable = ({
@@ -36,8 +37,9 @@ const ProposalsTable = ({
     setSelectedProposals,
     onRowClick,
     showPendingView,
+    showAssignee,
 }: Props) => {
-    const columns = useGetColumns({ onActionRequestUpdate, showPendingView });
+    const columns = useGetColumns({ onActionRequestUpdate, showPendingView, showAssignee });
 
     if (!isLoading && actionRequests.length === 0) {
         return <EmptyProposals />;
