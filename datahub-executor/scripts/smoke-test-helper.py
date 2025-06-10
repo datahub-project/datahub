@@ -39,6 +39,26 @@ def create_executor_pool(graph: DataHubGraph, name: str) -> None:
     graph.emit_mcp(mcpw)
 
 
+def get_pool_status(graph: DataHubGraph, name: str) -> RemoteExecutorPoolInfoClass:
+    request_urn = f"urn:li:dataHubRemoteExecutorPool:{name}"
+    result = graph.get_aspect(request_urn, RemoteExecutorPoolInfoClass)
+    return result
+
+
+def wait_for_pool_creation(graph: DataHubGraph, name: str, timeout=60) -> bool:
+    start_time = time.time()
+    while True:
+        res = get_pool_status(graph, name)
+        if res is not None:
+            if res.state.status == "READY":
+                return True
+            elif res.state.status in ["FAILED"]:
+                return False
+        if time.time() > (start_time + timeout):
+            return False
+        time.sleep(1.0)
+
+
 def delete_executor_pool(graph: DataHubGraph, name: str) -> None:
     graph.hard_delete_entity(f"urn:li:dataHubRemoteExecutorPool:{name}")
 
@@ -50,3 +70,4 @@ if executor_id is None or executor_id == "":
 
 graph = get_default_graph()
 create_executor_pool(graph, executor_id)
+wait_for_pool_creation(graph, executor_id)

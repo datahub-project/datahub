@@ -487,9 +487,10 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           DATAHUB_INTEGRATIONS_VERSION: ${{ needs.setup.outputs.tag }}
-          GITHUB_SHORT_SHA: ${{ needs.setup.outputs.short_sha }}
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.test_strategy }}-${{ matrix.batch }}"
           AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_SECRET }}
           AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
+          AWS_REGION: us-west-2
         run: |
           ./smoke-test/run-quickstart.sh
 
@@ -537,7 +538,7 @@ jobs:
           TEST_STRATEGY: ${{ matrix.test_strategy }}
           BATCH_COUNT: ${{ matrix.batch_count }}
           BATCH_NUMBER: ${{ matrix.batch }}
-          GITHUB_SHORT_SHA: ${{ needs.setup.outputs.short_sha }}
+          DATAHUB_SMOKETEST_EXECUTOR_ID: "${{ needs.setup.outputs.short_sha }}-${{ matrix.test_strategy }}-${{ matrix.batch }}"
         run: |
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
@@ -603,6 +604,23 @@ jobs:
           path: |
             ~/.cache/yarn
           key: ${{ runner.os }}-yarn-${{ hashFiles('**/yarn.lock') }}
+
+  smoke_test_cleanup:
+    name: Smoke Tests Cleanup Items
+    runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+    needs: [setup, base_build]
+    if: ${{ always() }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - name: Cleanup old SQS queues
+        env:
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_SECRET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.REMOTE_EXECUTOR_AWS_ACCESS_KEY_ID }}
+          AWS_REGION: us-west-2
+        run: |
+          pip install awscli
+          ./datahub-executor/scripts/smoke-test-cleanup.sh
 
   sync_deployments:
     name: Sync ArgoCD deployments
