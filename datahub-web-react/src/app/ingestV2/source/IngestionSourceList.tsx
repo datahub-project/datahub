@@ -24,6 +24,7 @@ import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOn
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
+import usePagination from '@app/sharedV2/pagination/usePagination';
 
 import {
     useCreateIngestionExecutionRequestMutation,
@@ -134,10 +135,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
         }
     }, [paramsQuery]);
 
-    const [page, setPage] = useState(1);
-
-    const pageSize = DEFAULT_PAGE_SIZE;
-    const start = (page - 1) * pageSize;
+    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
 
     const [isViewingRecipe, setIsViewingRecipe] = useState<boolean>(false);
     const [focusSourceUrn, setFocusSourceUrn] = useState<undefined | string>(undefined);
@@ -164,7 +162,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     // When source filter changes, reset page to 1
     useEffect(() => {
         setPage(1);
-    }, [sourceFilter]);
+    }, [sourceFilter, setPage]);
 
     /**
      * Show or hide system ingestion sources using a hidden command S command.
@@ -208,6 +206,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
 
     const totalSources = data?.listIngestionSources?.total || 0;
     const focusSource = finalSources.find((s) => s.urn === focusSourceUrn);
+    const isLastPage = totalSources <= pageSize * page;
+
 
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
@@ -533,6 +533,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                                     loading && (!data || data?.listIngestionSources?.ingestionSources.length === 0)
                                 }
                                 shouldPreserveParams={shouldPreserveParams}
+                                isLastPage={isLastPage}
                             />
                         </TableContainer>
                         <PaginationContainer>
