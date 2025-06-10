@@ -120,6 +120,7 @@ export const SidebarApplicationSection = ({ readOnly, properties }: Props) => {
                 extra={
                     !readOnly && (
                         <SectionActionButton
+                            dataTestId="add-applications-button"
                             button={application ? <EditOutlinedIcon /> : <AddRoundedIcon />}
                             onClick={(event) => {
                                 setShowModal(true);
