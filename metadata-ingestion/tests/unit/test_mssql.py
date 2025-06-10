@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import ANY, MagicMock, patch
 
 import pytest
 
@@ -66,12 +66,12 @@ def test_detect_rds_environment_rds(mssql_source):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.logger")
-def test_get_jobs_rds_environment_success(mock_logger, mssql_source):
-    """Test successful job retrieval in RDS environment using stored procedures"""
+def test_get_jobs_managed_environment_success(mock_logger, mssql_source):
+    """Test successful job retrieval in managed environment using stored procedures"""
     mock_conn = MagicMock()
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
-    # Mock RDS environment detection
+    # Mock managed environment detection
     with patch.object(
         mssql_source, "_detect_rds_environment", return_value=True
     ), patch.object(
@@ -81,7 +81,7 @@ def test_get_jobs_rds_environment_success(mock_logger, mssql_source):
 
     assert result == mock_jobs
     mock_logger.info.assert_called_with(
-        "Successfully retrieved jobs using stored procedures (RDS/managed environment)"
+        "Successfully retrieved jobs using stored procedures (managed environment)"
     )
 
 
@@ -104,12 +104,12 @@ def test_get_jobs_on_premises_success(mock_logger, mssql_source):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.logger")
-def test_get_jobs_rds_fallback_success(mock_logger, mssql_source):
-    """Test RDS environment with stored procedure failure but direct query success"""
+def test_get_jobs_managed_fallback_success(mock_logger, mssql_source):
+    """Test managed environment with stored procedure failure but direct query success"""
     mock_conn = MagicMock()
     mock_jobs = {"TestJob": {1: {"job_name": "TestJob", "step_name": "Step1"}}}
 
-    # Mock RDS environment detection
+    # Mock managed environment detection
     with patch.object(
         mssql_source, "_detect_rds_environment", return_value=True
     ), patch.object(
@@ -121,10 +121,10 @@ def test_get_jobs_rds_fallback_success(mock_logger, mssql_source):
 
     assert result == mock_jobs
     mock_logger.warning.assert_called_with(
-        "Failed to retrieve jobs via stored procedures in RDS environment: SP failed"
+        "Failed to retrieve jobs via stored procedures in managed environment: SP failed"
     )
     mock_logger.info.assert_called_with(
-        "Successfully retrieved jobs using direct query fallback in RDS environment"
+        "Successfully retrieved jobs using direct query fallback in managed environment"
     )
 
 
@@ -156,11 +156,11 @@ def test_get_jobs_on_premises_fallback_success(mock_logger, mssql_source):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.logger")
-def test_get_jobs_rds_both_methods_fail(mock_logger, mssql_source):
-    """Test RDS environment where both methods fail"""
+def test_get_jobs_managed_both_methods_fail(mock_logger, mssql_source):
+    """Test managed environment where both methods fail"""
     mock_conn = MagicMock()
 
-    # Mock RDS environment detection
+    # Mock managed environment detection
     with patch.object(
         mssql_source, "_detect_rds_environment", return_value=True
     ), patch.object(
@@ -175,11 +175,11 @@ def test_get_jobs_rds_both_methods_fail(mock_logger, mssql_source):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
     assert result == {}
-    mock_logger.error.assert_called_with("Both methods failed in RDS environment")
-    mssql_source.report.report_failure.assert_called_once_with(
-        "jobs",
-        "Failed to retrieve jobs in RDS environment. "
-        "Stored procedure error: SP failed. Direct query error: Direct failed",
+    mssql_source.report.failure.assert_called_once_with(
+        message="Failed to retrieve jobs in managed environment",
+        title="SQL Server Jobs Extraction",
+        context="Both stored procedures and direct query methods failed",
+        exc=ANY,
     )
 
 
@@ -203,13 +203,11 @@ def test_get_jobs_on_premises_both_methods_fail(mock_logger, mssql_source):
         result = mssql_source._get_jobs(mock_conn, "test_db")
 
     assert result == {}
-    mock_logger.error.assert_called_with(
-        "Both methods failed in on-premises environment"
-    )
-    mssql_source.report.report_failure.assert_called_once_with(
-        "jobs",
-        "Failed to retrieve jobs in on-premises environment. "
-        "Direct query error: Direct failed. Stored procedure error: SP failed",
+    mssql_source.report.failure.assert_called_once_with(
+        message="Failed to retrieve jobs in on-premises environment",
+        title="SQL Server Jobs Extraction",
+        context="Both direct query and stored procedures methods failed",
+        exc=ANY,
     )
 
 

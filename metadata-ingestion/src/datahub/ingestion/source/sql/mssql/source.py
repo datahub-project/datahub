@@ -323,9 +323,11 @@ class SQLServerSource(SQLAlchemySource):
             try:
                 yield from self.loop_jobs(inspector, self.config)
             except Exception as e:
-                self.report.report_failure(
-                    "jobs",
-                    f"Failed to list jobs due to error {e}",
+                self.report.failure(
+                    message="Failed to list jobs",
+                    title="SQL Server Jobs Extraction",
+                    context="Error occurred during database-level job extraction",
+                    exc=e,
                 )
 
     def get_schema_level_workunits(
@@ -343,9 +345,11 @@ class SQLServerSource(SQLAlchemySource):
             try:
                 yield from self.loop_stored_procedures(inspector, schema, self.config)
             except Exception as e:
-                self.report.report_failure(
-                    "jobs",
-                    f"Failed to list jobs due to error {e}",
+                self.report.failure(
+                    message="Failed to list stored procedures",
+                    title="SQL Server Stored Procedures Extraction",
+                    context="Error occurred during schema-level stored procedure extraction",
+                    exc=e,
                 )
 
     def _detect_rds_environment(self, conn: Connection) -> bool:
@@ -374,30 +378,30 @@ class SQLServerSource(SQLAlchemySource):
         is_rds = self._detect_rds_environment(conn)
 
         if is_rds:
-            # RDS/Managed environment - try stored procedures first
+            # Managed environment - try stored procedures first
             try:
                 jobs = self._get_jobs_via_stored_procedures(conn, db_name)
                 logger.info(
-                    "Successfully retrieved jobs using stored procedures (RDS/managed environment)"
+                    "Successfully retrieved jobs using stored procedures (managed environment)"
                 )
                 return jobs
             except Exception as sp_error:
                 logger.warning(
-                    f"Failed to retrieve jobs via stored procedures in RDS environment: {sp_error}"
+                    f"Failed to retrieve jobs via stored procedures in managed environment: {sp_error}"
                 )
                 # Try direct query as fallback (might work in some managed environments)
                 try:
                     jobs = self._get_jobs_via_direct_query(conn, db_name)
                     logger.info(
-                        "Successfully retrieved jobs using direct query fallback in RDS environment"
+                        "Successfully retrieved jobs using direct query fallback in managed environment"
                     )
                     return jobs
                 except Exception as direct_error:
-                    logger.error("Both methods failed in RDS environment")
-                    self.report.report_failure(
-                        "jobs",
-                        f"Failed to retrieve jobs in RDS environment. "
-                        f"Stored procedure error: {sp_error}. Direct query error: {direct_error}",
+                    self.report.failure(
+                        message="Failed to retrieve jobs in managed environment",
+                        title="SQL Server Jobs Extraction",
+                        context="Both stored procedures and direct query methods failed",
+                        exc=direct_error,
                     )
         else:
             # On-premises environment - try direct query first (usually faster)
@@ -419,11 +423,11 @@ class SQLServerSource(SQLAlchemySource):
                     )
                     return jobs
                 except Exception as sp_error:
-                    logger.error("Both methods failed in on-premises environment")
-                    self.report.report_failure(
-                        "jobs",
-                        f"Failed to retrieve jobs in on-premises environment. "
-                        f"Direct query error: {direct_error}. Stored procedure error: {sp_error}",
+                    self.report.failure(
+                        message="Failed to retrieve jobs in on-premises environment",
+                        title="SQL Server Jobs Extraction",
+                        context="Both direct query and stored procedures methods failed",
+                        exc=sp_error,
                     )
 
         return jobs
@@ -544,7 +548,7 @@ class SQLServerSource(SQLAlchemySource):
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop MS SQL jobs as dataFlow-s.
-        Now supports both RDS and on-premises SQL Server.
+        Now supports both managed and on-premises SQL Server.
         """
         db_name = self.get_db_name(inspector)
 
@@ -572,8 +576,11 @@ class SQLServerSource(SQLAlchemySource):
 
                     except Exception as job_error:
                         logger.warning(f"Failed to process job {job_name}: {job_error}")
-                        self.report.report_warning(
-                            "jobs", f"Failed to process job {job_name}: {job_error}"
+                        self.report.warning(
+                            message=f"Failed to process job {job_name}",
+                            title="SQL Server Jobs Extraction",
+                            context="Error occurred while processing individual job",
+                            exc=job_error,
                         )
                         continue
 
@@ -581,17 +588,17 @@ class SQLServerSource(SQLAlchemySource):
             error_message = f"Failed to retrieve jobs for database {db_name}: {e}"
             logger.error(error_message)
 
-            # Provide specific guidance for RDS permission issues
+            # Provide specific guidance for permission issues
             if "permission" in str(e).lower() or "denied" in str(e).lower():
-                rds_guidance = (
-                    "For RDS SQL Server, ensure the following permissions are granted:\n"
+                permission_guidance = (
+                    "For managed SQL Server services, ensure the following permissions are granted:\n"
                     "GRANT EXECUTE ON msdb.dbo.sp_help_job TO datahub_read;\n"
                     "GRANT EXECUTE ON msdb.dbo.sp_help_jobstep TO datahub_read;\n"
                     "For on-premises SQL Server, you may also need:\n"
                     "GRANT SELECT ON msdb.dbo.sysjobs TO datahub_read;\n"
                     "GRANT SELECT ON msdb.dbo.sysjobsteps TO datahub_read;"
                 )
-                logger.info(rds_guidance)
+                logger.info(permission_guidance)
 
             raise e
 
