@@ -120,9 +120,17 @@ interface Props {
     showCreateModal: boolean;
     setShowCreateModal: (show: boolean) => void;
     shouldPreserveParams: React.MutableRefObject<boolean>;
+    hideSystemSources: boolean;
+    setHideSystemSources: (show: boolean) => void;
 }
 
-export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shouldPreserveParams }: Props) => {
+export const IngestionSourceList = ({
+    showCreateModal,
+    setShowCreateModal,
+    shouldPreserveParams,
+    hideSystemSources,
+    setHideSystemSources,
+}: Props) => {
     const location = useLocation();
     const me = useUserContext();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -150,7 +158,6 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
-    const [hideSystemSources, setHideSystemSources] = useState(true);
     const [sort, setSort] = useState<SortCriterion>();
 
     // Debounce the search query
