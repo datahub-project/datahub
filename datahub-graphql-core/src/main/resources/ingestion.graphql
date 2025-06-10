@@ -518,7 +518,7 @@ type IngestionSource {
   The latest successful execution request for this source
   """
   latestSuccessfulExecution: ExecutionRequest
-  
+
   """
   Privileges given to a user relevant to this ingestion source
   """
