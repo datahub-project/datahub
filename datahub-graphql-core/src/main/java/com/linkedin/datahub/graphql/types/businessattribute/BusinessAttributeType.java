@@ -104,7 +104,7 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -124,7 +124,7 @@ public class BusinessAttributeType implements SearchableEntityType<BusinessAttri
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull QueryContext context)
       throws Exception {
     final AutoCompleteResult result =

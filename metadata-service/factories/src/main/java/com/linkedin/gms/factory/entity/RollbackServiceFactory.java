@@ -23,6 +23,6 @@ public class RollbackServiceFactory {
         entityService,
         systemMetadataService,
         timeseriesAspectService,
-        configurationProvider.getElasticSearch().getSearch().getLimit().getResults());
+        configurationProvider.getSystemMetadataService());
   }
 }
