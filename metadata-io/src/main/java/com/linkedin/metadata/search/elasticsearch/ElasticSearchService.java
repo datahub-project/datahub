@@ -42,7 +42,7 @@ import org.opensearch.action.search.SearchResponse;
 public class ElasticSearchService implements EntitySearchService, ElasticSearchIndexed {
   private final ESIndexBuilder indexBuilder;
   private final EntityRegistry entityRegistry;
-  @Getter private final IndexConvention indexConvention;
+  private final IndexConvention indexConvention;
   private final SettingsBuilder settingsBuilder;
   private final ElasticSearchConfiguration searchConfiguration;
 
@@ -493,6 +493,11 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
                     .stream())
         .map(entry -> Map.entry(entry.getKey(), entry.getValue().getSourceAsMap()))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  @Override
+  public IndexConvention getIndexConvention() {
+    return indexConvention;
   }
 
   @Override
