@@ -40,6 +40,7 @@ plugins = {
     "datahub-metadata-sharing": {"tenacity"},
     "datahub-action-request-owner": {"tenacity"},
     "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
+    "datahub-forms-notifications": {"tenacity"},
 }
 
 dev_requirements = {
@@ -56,6 +57,7 @@ dev_requirements = {
             "datahub-usage-reporting",
             "datahub-metadata-sharing",
             "acryl-cs-issues",
+            "datahub-forms-notifications",
         ]
         for dependency in plugins[plugin]
     ),
@@ -83,6 +85,7 @@ setup(
                 "acryl-cs-issues = acryl_datahub_cloud.acryl_cs_issues.source:AcrylCSIssuesSource",
                 "datahub-restore = acryl_datahub_cloud.datahub_restore.source:DataHubRestoreSource",
                 "datahub-action-request-owner = acryl_datahub_cloud.action_request.action_request_owner_source:ActionRequestOwnerSource",
+                "datahub-forms-notifications = acryl_datahub_cloud.datahub_forms_notifications.forms_notifications_source:DataHubFormsNotificationsSource",
             ],
         },
         "include_package_data": True,
