@@ -242,7 +242,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "sql_column",
+                                "nativeDataType": "value",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -251,10 +251,10 @@
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "timestamp",
+                                "nativeDataType": "sql_column",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -422,6 +422,51 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
+                        "nativeDataType": "value",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),time)",
+                    "schemaField": {
+                        "fieldPath": "time",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),value)",
+                    "schemaField": {
+                        "fieldPath": "value",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),dimension)",
+                    "schemaField": {
+                        "fieldPath": "dimension",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
                         "nativeDataType": "sql_column",
                         "recursive": false,
                         "isPartOfKey": false
@@ -438,21 +483,6 @@
                             }
                         },
                         "nativeDataType": "timestamp",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.2,PROD),dimension)",
-                    "schemaField": {
-                        "fieldPath": "dimension",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "sql_column",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -573,7 +603,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "sql_column",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -585,7 +615,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "metric",
+                                "nativeDataType": "number",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -597,7 +627,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "sql_column",
+                                "nativeDataType": "string",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -606,10 +636,10 @@
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "timestamp",
+                                "nativeDataType": "sql_column",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -753,7 +783,7 @@
                                 "com.linkedin.schema.StringType": {}
                             }
                         },
-                        "nativeDataType": "sql_column",
+                        "nativeDataType": "string",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -768,7 +798,67 @@
                                 "com.linkedin.schema.NumberType": {}
                             }
                         },
-                        "nativeDataType": "metric",
+                        "nativeDataType": "number",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),dimension)",
+                    "schemaField": {
+                        "fieldPath": "dimension",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "string",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),time)",
+                    "schemaField": {
+                        "fieldPath": "time",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),metric)",
+                    "schemaField": {
+                        "fieldPath": "metric",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),value)",
+                    "schemaField": {
+                        "fieldPath": "value",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "sql_column",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -799,6 +889,21 @@
                             }
                         },
                         "nativeDataType": "timestamp",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.4,PROD),value)",
+                    "schemaField": {
+                        "fieldPath": "value",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "metric",
                         "recursive": false,
                         "isPartOfKey": false
                     }
@@ -901,10 +1006,10 @@
                                 "nullable": false,
                                 "type": {
                                     "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "sql_column",
+                                "nativeDataType": "number",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1050,6 +1155,21 @@
     "aspect": {
         "json": {
             "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.5,PROD),count)",
+                    "schemaField": {
+                        "fieldPath": "count",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.NumberType": {}
+                            }
+                        },
+                        "nativeDataType": "number",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
                 {
                     "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:grafana,postgres.test-postgres.5,PROD),count)",
                     "schemaField": {

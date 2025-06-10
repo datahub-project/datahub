@@ -1,8 +1,12 @@
+import logging
 from typing import Iterable, List, Optional
+
+import requests
 
 from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_container_urn,
+    make_dashboard_urn,
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
@@ -22,6 +26,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import BIContainerSubTypes
 from datahub.ingestion.source.grafana.entity_mcp_builder import (
     build_chart_mcps,
     build_dashboard_mcps,
@@ -48,7 +53,12 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source_report.ingestion_stage import (
+    LINEAGE_EXTRACTION,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.common import ChangeAuditStamps
 from datahub.metadata.schema_classes import (
+    DashboardInfoClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     DatasetSnapshotClass,
@@ -62,6 +72,14 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     TagAssociationClass,
 )
+
+# Grafana-specific ingestion stages
+GRAFANA_BASIC_EXTRACTION = "Grafana Basic Dashboard Extraction"
+GRAFANA_FOLDER_EXTRACTION = "Grafana Folder Extraction"
+GRAFANA_DASHBOARD_EXTRACTION = "Grafana Dashboard Extraction"
+GRAFANA_PANEL_EXTRACTION = "Grafana Panel Extraction"
+
+logger = logging.getLogger(__name__)
 
 
 @platform_name("Grafana")
@@ -130,7 +148,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
         self.env = self.config.env
         self.report = GrafanaSourceReport()
 
-        self.client = GrafanaAPIClient(
+        self.api_client = GrafanaAPIClient(
             base_url=self.config.url,
             token=self.config.service_account_token,
             verify_ssl=self.config.verify_ssl,
@@ -139,14 +157,17 @@ class GrafanaSource(StatefulIngestionSourceBase):
         )
 
         # Initialize lineage extractor with graph
-        self.lineage_extractor = LineageExtractor(
-            platform=self.config.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            connection_to_platform_map=self.config.connection_to_platform_map,
-            graph=self.ctx.graph,
-            report=self.report,
-        )
+        self.lineage_extractor = None
+        if self.config.extract_lineage:
+            self.lineage_extractor = LineageExtractor(
+                platform=self.config.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                connection_to_platform_map=self.config.connection_to_platform_map,
+                graph=self.ctx.graph,
+                report=self.report,
+                include_column_lineage=self.config.include_column_lineage,
+            )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GrafanaSource":
@@ -163,17 +184,110 @@ class GrafanaSource(StatefulIngestionSourceBase):
         return processors
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """Generate metadata work units"""
-        # Process folders
-        for folder in self.client.get_folders():
-            self.report.report_folder_scanned()
-            yield from self._process_folder(folder)
+        """Main extraction logic"""
 
-        # Process dashboards and their panels
-        dashboards = self.client.get_dashboards()
-        for dashboard in dashboards:
-            self.report.report_dashboard_scanned()
-            yield from self._process_dashboard(dashboard)
+        # Check if we should use basic mode
+        if self.config.basic_mode:
+            logger.info("Running in basic mode - extracting dashboard metadata only")
+            yield from self._get_workunits_basic_mode()
+            return
+
+        # Enhanced mode - extract full hierarchy and details
+        yield from self._get_workunits_enhanced_mode()
+
+    def _get_workunits_basic_mode(self) -> Iterable[MetadataWorkUnit]:
+        """Basic extraction mode - only dashboard metadata (backwards compatible)"""
+        with self.report.new_stage(GRAFANA_BASIC_EXTRACTION):
+            headers = {
+                "Authorization": f"Bearer {self.config.service_account_token.get_secret_value()}",
+                "Content-Type": "application/json",
+            }
+
+            try:
+                response = requests.get(
+                    f"{self.config.url}/api/search",
+                    headers=headers,
+                    verify=self.config.verify_ssl,
+                )
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                self.report.report_failure(
+                    title="Dashboard Search Error",
+                    message="Failed to fetch dashboards in basic mode",
+                    context=str(e),
+                    exc=e,
+                )
+                return
+
+            dashboards = response.json()
+
+            for item in dashboards:
+                if not self.config.dashboard_pattern.allowed(item.get("title", "")):
+                    continue
+
+                uid = item["uid"]
+                title = item["title"]
+                url_path = item["url"]
+                full_url = f"{self.config.url}{url_path}"
+
+                dashboard_urn = make_dashboard_urn(
+                    platform=self.platform,
+                    name=uid,
+                    platform_instance=self.platform_instance,
+                )
+
+                # Create basic dashboard info
+                dashboard_info = DashboardInfoClass(
+                    description="",
+                    title=title,
+                    charts=[],
+                    lastModified=ChangeAuditStamps(),
+                    externalUrl=full_url,
+                    customProperties={
+                        key: str(value)
+                        for key, value in {
+                            "displayName": title,
+                            "id": item["id"],
+                            "uid": uid,
+                            "title": title,
+                            "uri": item["uri"],
+                            "type": item["type"],
+                            "folderId": item.get("folderId"),
+                            "folderUid": item.get("folderUid"),
+                            "folderTitle": item.get("folderTitle"),
+                        }.items()
+                        if value is not None
+                    },
+                )
+
+                # Yield dashboard workunit
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=dashboard_info,
+                ).as_workunit()
+
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dashboard_urn,
+                    aspect=StatusClass(removed=False),
+                ).as_workunit()
+
+                self.report.report_dashboard_scanned()
+
+    def _get_workunits_enhanced_mode(self) -> Iterable[MetadataWorkUnit]:
+        """Enhanced extraction mode - full hierarchy, panels, and lineage"""
+        # Process folders first
+        with self.report.new_stage(GRAFANA_FOLDER_EXTRACTION):
+            for folder in self.api_client.get_folders():
+                if self.config.folder_pattern.allowed(folder.title):
+                    self.report.report_folder_scanned()
+                    yield from self._process_folder(folder)
+
+        # Process dashboards
+        with self.report.new_stage(GRAFANA_DASHBOARD_EXTRACTION):
+            for dashboard in self.api_client.get_dashboards():
+                if self.config.dashboard_pattern.allowed(dashboard.title):
+                    self.report.report_dashboard_scanned()
+                    yield from self._process_dashboard(dashboard)
 
     def _process_folder(self, folder: Folder) -> Iterable[MetadataWorkUnit]:
         """Process Grafana folder metadata"""
@@ -186,7 +300,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
         yield from gen_containers(
             container_key=folder_key,
             name=folder.title,
-            sub_types=["Folder"],
+            sub_types=[BIContainerSubTypes.LOOKER_FOLDER],
             description=folder.description,
         )
 
@@ -199,13 +313,14 @@ class GrafanaSource(StatefulIngestionSourceBase):
             platform=self.config.platform,
             instance=self.config.platform_instance,
             dashboard_id=dashboard.uid,
+            folder_id=dashboard.folder_id,
         )
 
         # Generate dashboard container first
         yield from gen_containers(
             container_key=dashboard_container_key,
             name=dashboard.title,
-            sub_types=["Dashboard"],
+            sub_types=[BIContainerSubTypes.GRAFANA_DASHBOARD],
             description=dashboard.description,
         )
 
@@ -223,53 +338,72 @@ class GrafanaSource(StatefulIngestionSourceBase):
             )
 
         # Process all panels first
-        for panel in dashboard.panels:
-            self.report.report_chart_scanned()
+        with self.report.new_stage(GRAFANA_PANEL_EXTRACTION):
+            for panel in dashboard.panels:
+                self.report.report_chart_scanned()
 
-            # First emit the dataset for each panel's datasource
-            yield from self._process_panel_dataset(
-                panel, dashboard.uid, self.config.ingest_tags
-            )
+                # First emit the dataset for each panel's datasource
+                yield from self._process_panel_dataset(
+                    panel, dashboard.uid, self.config.ingest_tags
+                )
 
-            # Process lineage
-            lineage = self.lineage_extractor.extract_panel_lineage(panel)
-            if lineage:
-                yield lineage.as_workunit()
+                # Create chart MCE
+                dataset_urn, chart_urn, chart_mcps = build_chart_mcps(
+                    panel=panel,
+                    dashboard=dashboard,
+                    platform=self.config.platform,
+                    platform_instance=self.config.platform_instance,
+                    env=self.config.env,
+                    base_url=self.config.url,
+                    ingest_tags=self.config.ingest_tags,
+                )
+                chart_urns.append(chart_urn)
 
-            # Create chart MCE
-            dataset_urn, chart_urn, chart_mcps = build_chart_mcps(
-                panel=panel,
-                dashboard=dashboard,
-                platform=self.config.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-                base_url=self.config.url,
-                ingest_tags=self.config.ingest_tags,
-            )
-            chart_urns.append(chart_urn)
+                for mcp in chart_mcps:
+                    yield mcp.as_workunit()
 
-            for mcp in chart_mcps:
-                yield mcp.as_workunit()
-
-            # Add chart to dashboard container
-            chart_urn = make_chart_urn(
-                self.platform,
-                f"{dashboard.uid}.{panel.id}",
-                self.platform_instance,
-            )
-            if dataset_urn:
-                input_fields = extract_fields_from_panel(panel)
-                if input_fields:
-                    yield from self._add_input_fields_to_chart(
-                        chart_urn=chart_urn,
-                        dataset_urn=dataset_urn,
-                        input_fields=input_fields,
+                # Add chart to dashboard container
+                chart_urn = make_chart_urn(
+                    self.platform,
+                    f"{dashboard.uid}.{panel.id}",
+                    self.platform_instance,
+                )
+                if dataset_urn:
+                    input_fields = extract_fields_from_panel(
+                        panel,
+                        self.config.connection_to_platform_map,
+                        self.ctx.graph,
+                        self.report,
                     )
+                    if input_fields:
+                        yield from self._add_input_fields_to_chart(
+                            chart_urn=chart_urn,
+                            dataset_urn=dataset_urn,
+                            input_fields=input_fields,
+                        )
 
-            yield from add_dataset_to_container(
-                container_key=dashboard_container_key,
-                dataset_urn=chart_urn,
-            )
+                yield from add_dataset_to_container(
+                    container_key=dashboard_container_key,
+                    dataset_urn=chart_urn,
+                )
+
+        # Process lineage extraction
+        if self.config.extract_lineage and self.lineage_extractor:
+            with self.report.new_stage(LINEAGE_EXTRACTION):
+                for panel in dashboard.panels:
+                    # Process lineage
+                    try:
+                        lineage = self.lineage_extractor.extract_panel_lineage(panel)
+                        if lineage:
+                            yield lineage.as_workunit()
+                            self.report.report_lineage_extracted()
+                        else:
+                            self.report.report_no_lineage()
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to extract lineage for panel {panel.id}: {e}"
+                        )
+                        self.report.report_lineage_extraction_failure()
 
         # Create dashboard MCPs
         dashboard_urn, dashboard_mcps = build_dashboard_mcps(
@@ -306,6 +440,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             platform=self.config.platform,
             instance=self.config.platform_instance,
             dashboard_id=dashboard.uid,
+            folder_id=dashboard.folder_id,
         )
 
         yield from add_dataset_to_container(
@@ -340,10 +475,15 @@ class GrafanaSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Process dataset metadata for a panel"""
         if not panel.datasource:
+            self.report.report_datasource_warning()
             return
 
         ds_type = panel.datasource.get("type", "unknown")
         ds_uid = panel.datasource.get("uid", "unknown")
+
+        # Track datasource warnings for unknown types
+        if ds_type == "unknown" or ds_uid == "unknown":
+            self.report.report_datasource_warning()
 
         # Build dataset name
         dataset_name = f"{ds_type}.{ds_uid}.{panel.id}"
@@ -383,7 +523,9 @@ class GrafanaSource(StatefulIngestionSourceBase):
         )
 
         # Add schema metadata if available
-        schema_fields = extract_fields_from_panel(panel)
+        schema_fields = extract_fields_from_panel(
+            panel, self.config.connection_to_platform_map, self.ctx.graph, self.report
+        )
         if schema_fields:
             schema_metadata = SchemaMetadataClass(
                 schemaName=f"{ds_type}.{ds_uid}.{panel.id}",
@@ -396,7 +538,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(schema_metadata)
 
         if dashboard_uid and self.config.ingest_tags:
-            dashboard = self.client.get_dashboard(dashboard_uid)
+            dashboard = self.api_client.get_dashboard(dashboard_uid)
             if dashboard and dashboard.tags:
                 tags = []
                 for tag in dashboard.tags:

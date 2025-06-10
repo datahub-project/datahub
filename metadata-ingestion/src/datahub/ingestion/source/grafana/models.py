@@ -84,3 +84,4 @@ class DashboardContainerKey(ContainerKey):
     """Key for identifying a Grafana dashboard."""
 
     dashboard_id: str
+    folder_id: Optional[str] = None  # Reference to parent folder

@@ -112,7 +112,7 @@ def test_source_get_workunits_internal(
     mock_api_instance.get_dashboards.return_value = [mock_dashboard]
 
     # Set the mock API client on the source
-    mock_source.client = mock_api_instance
+    mock_source.api_client = mock_api_instance
 
     # Run the test
     workunit_list = list(mock_source.get_workunits_internal())

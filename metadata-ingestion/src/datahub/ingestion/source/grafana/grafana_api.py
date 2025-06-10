@@ -44,7 +44,10 @@ class GrafanaAPIClient:
         # If SSL verification is disabled, suppress the warnings
         if not self.verify_ssl:
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-            self.report.warning("SSL Verification is recommended.")
+            self.report.warning(
+                title="SSL Configuration Warning",
+                message="SSL Verification is recommended.",
+            )
 
         return session
 
@@ -70,10 +73,12 @@ class GrafanaAPIClient:
                 page += 1
             except requests.exceptions.RequestException as e:
                 self.report.report_failure(
+                    title="Folder Fetch Error",
                     message="Failed to fetch folders on page",
                     context=str(page),
                     exc=e,
                 )
+                self.report.report_permission_warning()  # Likely a permission issue
                 break
 
         return folders
@@ -86,10 +91,13 @@ class GrafanaAPIClient:
             return Dashboard.parse_obj(response.json())
         except requests.exceptions.RequestException as e:
             self.report.warning(
+                title="Dashboard Fetch Error",
                 message="Failed to fetch dashboard",
                 context=uid,
                 exc=e,
             )
+            if e.response and e.response.status_code in (401, 403):
+                self.report.report_permission_warning()
             return None
 
     def get_dashboards(self) -> List[Dashboard]:
@@ -122,10 +130,13 @@ class GrafanaAPIClient:
                 page += 1
             except requests.exceptions.RequestException as e:
                 self.report.report_failure(
+                    title="Dashboard Search Error",
                     message="Failed to fetch dashboards on page",
                     context=str(page),
                     exc=e,
                 )
+                if e.response and e.response.status_code in (401, 403):
+                    self.report.report_permission_warning()
                 break
 
         return dashboards

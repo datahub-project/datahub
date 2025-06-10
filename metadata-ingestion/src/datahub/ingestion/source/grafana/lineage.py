@@ -37,6 +37,7 @@ class LineageExtractor:
         connection_to_platform_map: Dict[str, PlatformConnectionConfig],
         report: GrafanaSourceReport,
         graph: Optional[DataHubGraph] = None,
+        include_column_lineage: bool = True,
     ):
         self.platform = platform
         self.platform_instance = platform_instance
@@ -44,6 +45,7 @@ class LineageExtractor:
         self.connection_map = connection_to_platform_map
         self.graph = graph
         self.report = report
+        self.include_column_lineage = include_column_lineage
 
     def extract_panel_lineage(
         self, panel: Panel
@@ -155,7 +157,7 @@ class LineageExtractor:
         parsed_sql: SqlParsingResult,
     ) -> Optional[MetadataChangeProposalWrapper]:
         """Create column-level lineage"""
-        if not parsed_sql.column_lineage:
+        if not parsed_sql.column_lineage or not self.include_column_lineage:
             return None
 
         upstream_lineages = []

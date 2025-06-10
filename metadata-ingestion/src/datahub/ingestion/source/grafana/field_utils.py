@@ -1,6 +1,7 @@
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Optional, Union
 
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.grafana.models import Panel
 from datahub.metadata.schema_classes import (
     NumberTypeClass,
@@ -9,14 +10,12 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import (
+    create_lineage_sql_parsed_result,
+    infer_output_schema,
+)
 
 logger = logging.getLogger(__name__)
-
-
-def _deduplicate_fields(fields: List[SchemaFieldClass]) -> List[SchemaFieldClass]:
-    """Remove duplicate fields based on fieldPath while preserving order."""
-    unique_fields = {field.fieldPath: field for field in fields}
-    return list(unique_fields.values())
 
 
 def extract_sql_column_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]:
@@ -57,8 +56,91 @@ def extract_prometheus_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]:
     return []
 
 
-def extract_raw_sql_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]:
-    """Extract fields from raw SQL queries using SQL parsing."""
+def extract_raw_sql_fields(
+    target: Dict[str, Any],
+    panel: Optional[Panel] = None,
+    connection_to_platform_map: Optional[Dict[str, Any]] = None,
+    graph: Optional[DataHubGraph] = None,
+    report: Optional[Any] = None,
+) -> List[SchemaFieldClass]:
+    """Extract fields from raw SQL queries using DataHub's SQL parsing."""
+    raw_sql = target.get("rawSql", "")
+    if not raw_sql:
+        return []
+
+    # Determine upstream platform and environment from datasource mapping
+    platform = "unknown"
+    env = "PROD"
+    default_db = None
+    default_schema = None
+    platform_instance = None
+    schema_aware = False
+
+    if panel and panel.datasource and connection_to_platform_map:
+        ds_type = panel.datasource.get("type", "unknown")
+        ds_uid = panel.datasource.get("uid", "unknown")
+
+        # Try to find mapping by datasource UID first, then by type
+        platform_config = connection_to_platform_map.get(
+            ds_uid
+        ) or connection_to_platform_map.get(ds_type)
+
+        if platform_config:
+            platform = platform_config.platform
+            env = getattr(platform_config, "env", env)
+            default_db = getattr(platform_config, "database", None)
+            default_schema = getattr(platform_config, "database_schema", None)
+            platform_instance = getattr(platform_config, "platform_instance", None)
+
+            # Enable schema-aware parsing if we have platform mapping and graph access
+            if graph and platform != "unknown":
+                schema_aware = True
+
+    # Track SQL parsing attempt
+    if report:
+        report.report_sql_parsing_attempt()
+
+    try:
+        # Use DataHub's standard SQL parsing approach
+        sql_parsing_result = create_lineage_sql_parsed_result(
+            query=raw_sql,
+            default_db=default_db,
+            default_schema=default_schema,
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+            schema_aware=schema_aware,
+            graph=graph,
+        )
+
+        # Extract the output schema from the parsing result
+        output_schema = infer_output_schema(sql_parsing_result)
+
+        if output_schema:
+            if report:
+                report.report_sql_parsing_success()
+            return output_schema
+        else:
+            # If sqlglot parsing succeeds but no schema is inferred,
+            # fall back to basic parsing
+            logger.debug(f"No schema inferred from SQL: {raw_sql}")
+            fallback_result = _extract_raw_sql_fields_fallback(target)
+            if fallback_result and report:
+                report.report_sql_parsing_success()
+            elif report:
+                report.report_sql_parsing_failure()
+            return fallback_result
+
+    except Exception as e:
+        logger.debug(f"Failed to parse SQL with DataHub parser: {raw_sql}, error: {e}")
+        if report:
+            report.report_sql_parsing_failure()
+        # Fallback to basic parsing for backwards compatibility
+        return _extract_raw_sql_fields_fallback(target)
+
+
+def _extract_raw_sql_fields_fallback(target: Dict[str, Any]) -> List[SchemaFieldClass]:
+    """Fallback basic SQL parsing for when sqlglot fails."""
     raw_sql = target.get("rawSql", "").lower()
     if not raw_sql:
         return []
@@ -118,24 +200,49 @@ def extract_raw_sql_fields(target: Dict[str, Any]) -> List[SchemaFieldClass]:
         return []
 
 
-def extract_fields_from_panel(panel: Panel) -> List[SchemaFieldClass]:
+def extract_fields_from_panel(
+    panel: Panel,
+    connection_to_platform_map: Optional[Dict[str, Any]] = None,
+    graph: Optional[DataHubGraph] = None,
+    report: Optional[Any] = None,
+) -> List[SchemaFieldClass]:
     """Extract all fields from a panel."""
     fields = []
-    fields.extend(extract_fields_from_targets(panel.targets))
+    fields.extend(
+        extract_fields_from_targets(
+            panel.targets, panel, connection_to_platform_map, graph, report
+        )
+    )
     fields.extend(get_fields_from_field_config(panel.field_config))
     fields.extend(get_fields_from_transformations(panel.transformations))
-    return _deduplicate_fields(fields)
+
+    # Track schema field extraction
+    if report:
+        if fields:
+            report.report_schema_fields_extracted()
+        else:
+            report.report_no_schema_fields()
+
+    return fields
 
 
 def extract_fields_from_targets(
     targets: List[Dict[str, Any]],
+    panel: Optional[Panel] = None,
+    connection_to_platform_map: Optional[Dict[str, Any]] = None,
+    graph: Optional[DataHubGraph] = None,
+    report: Optional[Any] = None,
 ) -> List[SchemaFieldClass]:
     """Extract fields from panel targets."""
     fields = []
     for target in targets:
         fields.extend(extract_sql_column_fields(target))
         fields.extend(extract_prometheus_fields(target))
-        fields.extend(extract_raw_sql_fields(target))
+        fields.extend(
+            extract_raw_sql_fields(
+                target, panel, connection_to_platform_map, graph, report
+            )
+        )
         fields.extend(extract_time_format_fields(target))
     return fields
 
