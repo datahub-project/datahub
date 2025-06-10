@@ -10,4 +10,4 @@ mlmodel_group = MLModelGroup(
     description="Grouping of ml model related to home page recommendations",
 )
 
-client.entities.upsert(mlmodel_group)
+client.entities.update(mlmodel_group)

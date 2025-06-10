@@ -13,5 +13,3 @@ client.lineage.add_lineage(
     upstream=DataJobUrn(flow=dataflow.urn, job_id="data_job_1"),
     downstream=DataJobUrn(flow=dataflow.urn, job_id="data_job_2"),
 )
-
-client.entities.upsert(dataflow)
