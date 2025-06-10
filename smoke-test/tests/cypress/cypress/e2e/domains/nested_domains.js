@@ -51,9 +51,9 @@ const getDomainList = (domainName) => {
   cy.contains("span.ant-typography-ellipsis", domainName)
     .parent('[data-testid="domain-list-item"]')
     .find(
-      `[data-testid="open-domain-action-item-urn:li:domain:${ 
-        domainName.toLowerCase() 
-        }"]`,
+      '[data-testid="open-domain-action-item-urn:li:domain:' +
+        domainName.toLowerCase() +
+        '"]',
     )
     .click();
 };
