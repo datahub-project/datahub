@@ -124,6 +124,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
 
@@ -354,98 +355,88 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.ctx.graph
             )
 
-    def cache_lf_tags(self) -> None:
-        """
-        Efficiently retrieve all resources with Lake Formation tags using batch operations
-        to minimize API calls.
-
-        Returns:
-            dict: Dictionary of resources and their associated LF-Tags
-        """
-        all_lf_tags = self.get_all_lf_tags()
-
-        # 2. Create expressions to search for resources with multiple tags at once
-        resources_with_tags: Dict = {}
-        self.get_lf_table_tags(all_lf_tags, resources_with_tags)
-        self.get_lf_database_tags(all_lf_tags, resources_with_tags)
-
-        self.lf_tag_cache = resources_with_tags
-
-    def get_lf_table_tags(
+    def get_database_lf_tags(
         self,
-        all_lf_tags: List[Dict],
-        resources_with_tags: Dict[str, Dict[str, List[str]]],
-    ) -> None:
-        batch_size = (
-            5  # AWS typically limits the number of expressions in a single call
-        )
-        # Process tags in batches to minimize API calls
-        for i in range(0, len(all_lf_tags), batch_size):
-            batch_tags = all_lf_tags[i : i + batch_size]
-
-            # Create a combined expression for this batch of tags
-            expression = []
-            for tag in batch_tags:
-                tag_key = tag["TagKey"]
-                # Include all values for this key in one expression element
-                expression.append({"TagKey": tag_key, "TagValues": tag["TagValues"]})
-
-            # Skip if empty expression
-            if not expression:
-                continue
-
-            # Search for resources with these tags
-            search_response = self.lf_client.search_tables_by_lf_tags(
-                Expression=expression, MaxResults=50
+        catalog_id: str,
+        database_name: str,
+    ) -> List[LakeFormationTag]:
+        """Get all LF tags for a specific table."""
+        try:
+            # Get LF tags for the specified table
+            response = self.lf_client.get_resource_lf_tags(
+                CatalogId=catalog_id,
+                Resource={
+                    "Database": {
+                        "CatalogId": catalog_id,
+                        "Name": database_name,
+                    }
+                },
+                ShowAssignedLFTags=True,
             )
 
-            # Process the found resources
-            self.process_search_results(search_response, resources_with_tags)
+            if response:
+                logger.info(f"LF tags for database {database_name}: {response}")
+            # Extract and return the LF tags
+            lf_tags = response.get("LFTagOnDatabase", [])
 
-            # Handle pagination
-            while "NextToken" in search_response:
-                search_response = self.lf_client.search_tables_by_lf_tags(
-                    Expression=expression,
-                    NextToken=search_response["NextToken"],
-                    MaxResults=50,
-                )
-                self.process_search_results(search_response, resources_with_tags)
+            tags = []
+            for lf_tag in lf_tags:
+                catalog_id = lf_tag.get("CatalogId")
+                tag_key = lf_tag.get("TagKey")
+                for tag_value in lf_tag.get("TagValues", []):
+                    t = LakeFormationTag(
+                        key=tag_key,
+                        value=tag_value,
+                        catalog_id=catalog_id,
+                    )
+                    tags.append(t)
+            return tags
 
-    def get_lf_database_tags(self, all_lf_tags, resources_with_tags):
-        batch_size = (
-            5  # AWS typically limits the number of expressions in a single call
-        )
-        # Process tags in batches to minimize API calls
-        for i in range(0, len(all_lf_tags), batch_size):
-            batch_tags = all_lf_tags[i : i + batch_size]
+        except Exception as e:
+            print(
+                f"Error getting LF tags for table {catalog_id}.{database_name}: {str(e)}"
+            )
+            return []
 
-            # Create a combined expression for this batch of tags
-            expression = []
-            for tag in batch_tags:
-                tag_key = tag["TagKey"]
-                # Include all values for this key in one expression element
-                expression.append({"TagKey": tag_key, "TagValues": tag["TagValues"]})
-
-            # Skip if empty expression
-            if not expression:
-                continue
-
-            # Search for resources with these tags
-            search_response = self.lf_client.search_databases_by_lf_tags(
-                Expression=expression, MaxResults=50
+    def get_table_lf_tags(
+        self,
+        catalog_id: str,
+        database_name: str,
+        table_name: str,
+    ) -> List[LakeFormationTag]:
+        """Get all LF tags for a specific table."""
+        try:
+            # Get LF tags for the specified table
+            response = self.lf_client.get_resource_lf_tags(
+                CatalogId=catalog_id,
+                Resource={
+                    "Table": {
+                        "CatalogId": catalog_id,
+                        "DatabaseName": database_name,
+                        "Name": table_name,
+                    },
+                },
+                ShowAssignedLFTags=True,
             )
 
-            # Process the found resources
-            self.process_search_results(search_response, resources_with_tags)
+            # Extract and return the LF tags
+            lf_tags = response.get("LFTagsOnTable", [])
 
-            # Handle pagination
-            while "NextToken" in search_response:
-                search_response = self.lf_client.search_databases_by_lf_tags(
-                    Expression=expression,
-                    NextToken=search_response["NextToken"],
-                    MaxResults=50,
-                )
-                self.process_search_results(search_response, resources_with_tags)
+            tags = []
+            for lf_tag in lf_tags:
+                catalog_id = lf_tag.get("CatalogId")
+                tag_key = lf_tag.get("TagKey")
+                for tag_value in lf_tag.get("TagValues", []):
+                    t = LakeFormationTag(
+                        key=tag_key,
+                        value=tag_value,
+                        catalog_id=catalog_id,
+                    )
+                    tags.append(t)
+            return tags
+
+        except Exception:
+            return []
 
     def get_all_lf_tags(self) -> List:
         # 1. Get all LF-Tags in your account (metadata only)
@@ -460,45 +451,6 @@ class GlueSource(StatefulIngestionSourceBase):
             )
             all_lf_tags.extend(response["LFTags"])
         return all_lf_tags
-
-    def process_search_results(
-        self, search_response: Dict, resources_with_tags: Dict
-    ) -> Dict:
-        """
-        Helper function to process search results and update the resources dictionary
-
-        Args:
-            search_response (dict): Response from search_tables_by_lf_tags API call
-            resources_with_tags (dict): Dictionary to update with found resources
-        """
-        for table in search_response.get("TableList", []):
-            resource_id = f"{table['Table']['CatalogId']}.{table['Table']['DatabaseName']}.{table['Table']['Name']}"
-            # Extract tag information directly from the response
-            lf_tags = table.get("LFTagsOnTable", [])
-            lf_database_tags = table.get("LFTagOnDatabase", [])
-
-            # Store the tag information
-            existing_tags = {}
-            if resource_id in resources_with_tags:
-                # Merge tags (avoiding duplicates)
-                existing_tags = resources_with_tags[resource_id]
-
-            # Add LF-Tags to the resource
-            for lf_tag in lf_tags:
-                tag_key = f"{lf_tag['CatalogId']}.{lf_tag['TagKey']}"
-                tag_values = lf_tag["TagValues"]
-                existing_tags[tag_key] = tag_values
-
-            for db_lf_tag in lf_database_tags:
-                tag_key = f"{db_lf_tag['CatalogId']}.{db_lf_tag['TagKey']}"
-                tag_values = db_lf_tag["TagValues"]
-                if tag_key not in existing_tags:
-                    existing_tags[tag_key] = tag_values
-
-            if existing_tags:
-                resources_with_tags[resource_id] = existing_tags
-
-        return resources_with_tags
 
     def get_glue_arn(
         self, account_id: str, database: str, table: Optional[str] = None
@@ -1200,13 +1152,13 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def gen_platform_resource(
-        self, catalog: str, tag: LakeFormationTag
+        self, tag: LakeFormationTag
     ) -> Iterable[MetadataWorkUnit]:
         if self.ctx.graph and self.platform_resource_repository:
             platform_resource_id = LakeFormationTagPlatformResourceId.from_tag(
                 platform_instance=self.source_config.platform_instance,
                 platform_resource_repository=self.platform_resource_repository,
-                catalog=catalog,
+                catalog=tag.catalog,
                 tag=tag,
             )
             logger.info(f"Created platform resource {platform_resource_id}")
@@ -1230,17 +1182,35 @@ class GlueSource(StatefulIngestionSourceBase):
                         )
                 except Exception as e:
                     logger.warning(
-                        f"Failed to create platform resource for catalog {catalog} and tag {tag}: {e}",
+                        f"Failed to create platform resource for tag {tag}: {e}",
                         exc_info=True,
                     )
                     self.report.report_warning(
                         context="Failed to create platform resource",
-                        message=f"Failed to create platform resource for Catalog: {catalog}, Tag: {tag}",
+                        message=f"Failed to create platform resource for Tag: {tag}",
                     )
 
     def gen_database_containers(
         self, database: Mapping[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
+        container_tags: Optional[List] = None
+        if self.source_config.extract_lakeformation_tags:
+            try:
+                tags = self.get_database_lf_tags(
+                    catalog_id=database["CatalogId"], database_name=database["Name"]
+                )
+                container_tags = []
+                for tag in tags:
+                    try:
+                        container_tags.append(tag.to_datahub_tag_urn().name)
+                        yield from self.gen_platform_resource(tag)
+                    except InvalidUrnError:
+                        continue
+            except Exception:
+                self.report_warning(
+                    reason="Failed to extract Lake Formation tags for database",
+                    key=database["Name"],
+                )
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
         parameters = database.get("Parameters", {})
@@ -1258,6 +1228,7 @@ class GlueSource(StatefulIngestionSourceBase):
             qualified_name=self.get_glue_arn(
                 account_id=database["CatalogId"], database=database["Name"]
             ),
+            tags=container_tags,
             extra_properties=parameters,
         )
 
@@ -1296,16 +1267,6 @@ class GlueSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        if self.source_config.extract_lakeformation_tags:
-            try:
-                self.cache_lf_tags()
-            except Exception as e:
-                self.report.report_warning(
-                    message="Failed to cache Lake Formation tags",
-                    context="workunit extraction",
-                    exc=e,
-                )
-
         databases, tables = self.get_all_databases_and_tables()
 
         for database in databases:
@@ -1450,11 +1411,19 @@ class GlueSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(s3_tags)
 
         # Add Lake Formation tags if enabled
-        lf_tags = self._get_lake_formation_tags(table)
-        if lf_tags:
-            dataset_snapshot.aspects.append(lf_tags)
-            # Generate platform resources for LF tags
-            yield from self._gen_lf_tag_platform_resources(table)
+        if self.source_config.extract_lakeformation_tags:
+            tags = self.get_table_lf_tags(
+                catalog_id=table["CatalogId"],
+                database_name=table["DatabaseName"],
+                table_name=table["Name"],
+            )
+
+            global_tags = self._get_lake_formation_tags(tags)
+            if global_tags:
+                dataset_snapshot.aspects.append(global_tags)
+                # Generate platform resources for LF tags
+                for tag in tags:
+                    yield from self.gen_platform_resource(tag)
 
         # Create and yield the main metadata work unit
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
@@ -1711,51 +1680,26 @@ class GlueSource(StatefulIngestionSourceBase):
         unique_tags = sorted(set(tags_to_add))
         return GlobalTagsClass(tags=[TagAssociationClass(tag) for tag in unique_tags])
 
-    def _get_lake_formation_tags(self, table: Dict) -> Optional[GlobalTagsClass]:
+    def _get_lake_formation_tags(
+        self, tags: List[LakeFormationTag]
+    ) -> Optional[GlobalTagsClass]:
         """Extract Lake Formation tags if enabled."""
-        if not self.source_config.extract_lakeformation_tags or not self.lf_tag_cache:
-            return None
+        tag_urns: List[str] = []
+        for tag in tags:
+            try:
+                tag_urns.append(tag.to_datahub_tag_urn().urn())
+            except InvalidUrnError as e:
+                logger.warning(
+                    f"Invalid Lake Formation tag URN for {tag}: {e}", exc_info=True
+                )
+                continue  # Skip invalid tags
 
-        resource_key = f"{table['CatalogId']}.{table['DatabaseName']}.{table['Name']}"
-        lf_tags: Dict[str, List[str]] = self.lf_tag_cache.get(resource_key, {})
-
-        if not lf_tags:
-            return None
-
-        tag_urns = []
-        for tag_key, tag_values in lf_tags.items():
-            for tag_value in tag_values:
-                try:
-                    tag_catalog, raw_key = tag_key.split(".", 1)
-                    lf_tag = LakeFormationTag(raw_key, tag_value)
-                    tag_urns.append(
-                        TagAssociationClass(lf_tag.to_datahub_tag_urn().urn())
-                    )
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to create platform resource for tag key {tag_key} and tag {tag_values}: {e}",
-                        exc_info=True,
-                    )
-                    self.report.report_warning(
-                        f"Failed to process Lake Formation tag {tag_key} for table {table['Name']}",
-                        context="Lake Formation tag extraction",
-                    )
-
-        return GlobalTagsClass(tags=tag_urns) if tag_urns else None
-
-    def _gen_lf_tag_platform_resources(self, table: Dict) -> Iterable[MetadataWorkUnit]:
-        """Generate platform resources for Lake Formation tags."""
-        if not self.source_config.extract_lakeformation_tags or not self.lf_tag_cache:
-            return
-
-        resource_key = f"{table['CatalogId']}.{table['DatabaseName']}.{table['Name']}"
-        lf_tags: Dict[str, List[str]] = self.lf_tag_cache.get(resource_key, {})
-
-        for tag_key, tag_values in lf_tags.items():
-            for tag_value in tag_values:
-                tag_catalog, raw_key = tag_key.split(".", 1)
-                lf_tag = LakeFormationTag(raw_key, tag_value)
-                yield from self.gen_platform_resource(catalog=tag_catalog, tag=lf_tag)
+        tag_urns.sort()  # Sort to maintain consistent order
+        return (
+            GlobalTagsClass(tags=[TagAssociationClass(tag_urn) for tag_urn in tag_urns])
+            if tag_urns
+            else None
+        )
 
     def get_report(self):
         return self.report

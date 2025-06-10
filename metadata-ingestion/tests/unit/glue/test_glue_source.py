@@ -780,29 +780,94 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
         mock_datahub_graph_instance=mock_datahub_graph_instance,
     )
 
-    # Mock the cache_lf_tags method to avoid real API calls
-    mock_lf_cache = {
-        "123412341234.flights-database.avro": {
-            "123412341234.tag1": ["value1"],
-            "123412341234.tag2": ["value3"],
-        },
-        "123412341234.test-database.parquet": {"123412341234.tag1": ["value2"]},
-    }
+    # Mock the Lake Formation client responses
+    def mock_get_resource_lf_tags(*args, **kwargs):
+        resource = kwargs.get("Resource", {})
+        if "Database" in resource:
+            # Mock database LF tags
+            return {
+                "LFTagOnDatabase": [
+                    {
+                        "CatalogId": "123412341234",
+                        "TagKey": "Environment",
+                        "TagValues": ["Production", "Test"],
+                    },
+                    {
+                        "CatalogId": "123412341234",
+                        "TagKey": "Owner",
+                        "TagValues": ["DataTeam"],
+                    },
+                ]
+            }
+        elif "Table" in resource:
+            # Mock table LF tags - different tags per table for more realistic testing
+            table_name = resource["Table"]["Name"]
+            if table_name == "avro":
+                return {
+                    "LFTagsOnTable": [
+                        {
+                            "CatalogId": "123412341234",
+                            "TagKey": "DataClassification",
+                            "TagValues": ["Sensitive"],
+                        },
+                        {
+                            "CatalogId": "123412341234",
+                            "TagKey": "BusinessUnit",
+                            "TagValues": ["Finance"],
+                        },
+                    ]
+                }
+            elif table_name == "json":
+                return {
+                    "LFTagsOnTable": [
+                        {
+                            "CatalogId": "123412341234",
+                            "TagKey": "DataClassification",
+                            "TagValues": ["Public"],
+                        },
+                        {
+                            "CatalogId": "123412341234",
+                            "TagKey": "BusinessUnit",
+                            "TagValues": ["Marketing"],
+                        },
+                    ]
+                }
+            else:
+                return {"LFTagsOnTable": []}
+        return {}
 
-    # Patch the cache_lf_tags method to set our mock cache instead of making API calls
-    def mock_cache_lf_tags():
-        glue_source_instance.lf_tag_cache = mock_lf_cache
+    # Mock list_lf_tags for getting all LF tags
+    def mock_list_lf_tags(*args, **kwargs):
+        return {
+            "LFTags": [
+                {"TagKey": "Environment", "TagValues": ["Production", "Test", "Dev"]},
+                {"TagKey": "Owner", "TagValues": ["DataTeam", "Analytics"]},
+                {
+                    "TagKey": "DataClassification",
+                    "TagValues": ["Public", "Internal", "Sensitive"],
+                },
+                {
+                    "TagKey": "BusinessUnit",
+                    "TagValues": ["Finance", "Marketing", "Sales"],
+                },
+            ]
+        }
 
     # Mock PlatformResourceRepository.search_by_filter to return empty list
     def mock_search_by_filter(*args, **kwargs):
         return []
 
-    with patch.object(
-        glue_source_instance, "cache_lf_tags", side_effect=mock_cache_lf_tags
-    ), patch(
+    with patch(
         "datahub.api.entities.external.external_entities.PlatformResourceRepository.search_by_filter",
         side_effect=mock_search_by_filter,
+    ), patch.object(
+        glue_source_instance.lf_client,
+        "get_resource_lf_tags",
+        side_effect=mock_get_resource_lf_tags,
+    ), patch.object(
+        glue_source_instance.lf_client, "list_lf_tags", side_effect=mock_list_lf_tags
     ), Stubber(glue_source_instance.glue_client) as glue_stubber:
+        # Set up Glue client stubs
         glue_stubber.add_response("get_databases", get_databases_response, {})
         glue_stubber.add_response(
             "get_tables",
@@ -863,6 +928,7 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
                 },
             )
 
+            # Execute the source and collect work units
             mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
 
             glue_stubber.assert_no_pending_responses()
@@ -870,7 +936,7 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
 
             write_metadata_file(tmp_path / mce_file, mce_objects)
 
-    # Verify the output.
+    # Verify the output
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_file,

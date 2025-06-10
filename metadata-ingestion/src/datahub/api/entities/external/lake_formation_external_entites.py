@@ -47,6 +47,7 @@ class LakeFormationTag(ExternalTag):
 
     key: LakeFormationTagKeyText
     value: Optional[LakeFormationTagValueText] = None
+    catalog: Optional[str] = None
 
     def __init__(
         self,
