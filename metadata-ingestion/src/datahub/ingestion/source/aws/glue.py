@@ -354,9 +354,6 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.ctx.graph
             )
 
-        if self.source_config.extract_lakeformation_tags:
-            self.cache_lf_tags()
-
     def cache_lf_tags(self) -> None:
         """
         Efficiently retrieve all resources with Lake Formation tags using batch operations
@@ -1287,6 +1284,9 @@ class GlueSource(StatefulIngestionSourceBase):
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if self.source_config.extract_lakeformation_tags:
+            self.cache_lf_tags()
+
         databases, tables = self.get_all_databases_and_tables()
 
         for database in databases:
