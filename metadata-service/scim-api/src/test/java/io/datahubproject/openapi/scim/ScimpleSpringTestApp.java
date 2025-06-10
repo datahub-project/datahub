@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.scim;
 
 import static com.linkedin.metadata.Constants.*;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.mockito.Mockito.*;
 
 import com.datahub.util.RecordUtils;
@@ -46,6 +47,7 @@ import java.net.URISyntaxException;
 import javax.annotation.Nonnull;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.SessionConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -200,7 +202,11 @@ public class ScimpleSpringTestApp {
     Driver _driver = GraphDatabase.driver(_serverBuilder.boltURI());
 
     Neo4jGraphService _client =
-        new Neo4jGraphService(new LineageRegistry(SnapshotEntityRegistry.getInstance()), _driver);
+        new Neo4jGraphService(
+            new LineageRegistry(SnapshotEntityRegistry.getInstance()),
+            _driver,
+            SessionConfig.defaultConfig(),
+            TEST_GRAPH_SERVICE_CONFIG);
 
     _client.clear();
 

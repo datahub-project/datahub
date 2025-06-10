@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeseries.search;
 import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
 import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_TIMESERIES_ASPECT_SERVICE_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.syncAfterWrite;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -26,7 +27,6 @@ import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.StringMapArray;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
@@ -148,7 +148,7 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
         getBulkProcessor(),
         1,
         QueryFilterRewriteChain.EMPTY,
-        TimeseriesAspectServiceConfig.builder().build(),
+        TEST_TIMESERIES_ASPECT_SERVICE_CONFIG,
         opContext.getEntityRegistry(),
         opContext.getSearchContext().getIndexConvention(),
         getIndexBuilder());

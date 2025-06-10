@@ -3,7 +3,7 @@ package com.linkedin.metadata.kafka.hook;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.kafka.hook.MCLProcessingTestDataGenerator.*;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -120,7 +120,7 @@ public class UpdateIndicesHookTest {
 
     SystemUpdateConfiguration systemUpdateConfiguration = new SystemUpdateConfiguration();
     systemUpdateConfiguration.setWaitForSystemUpdate(false);
-    when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_SEARCH_CONFIG);
+    when(mockConfigurationProvider.getElasticSearch()).thenReturn(TEST_ES_SEARCH_CONFIG);
     updateIndicesService =
         new UpdateIndicesService(
             UpdateGraphIndicesService.withService(mockGraphService),

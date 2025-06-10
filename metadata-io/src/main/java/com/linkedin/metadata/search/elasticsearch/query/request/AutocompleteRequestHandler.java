@@ -2,13 +2,14 @@ package com.linkedin.metadata.search.elasticsearch.query.request;
 
 import static com.linkedin.metadata.search.utils.ESAccessControlUtil.restrictUrn;
 import static com.linkedin.metadata.search.utils.ESUtils.applyDefaultSearchFilters;
-import static com.linkedin.metadata.search.utils.ESUtils.applyResultLimit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.config.search.custom.AutocompleteConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.QueryConfiguration;
@@ -61,13 +62,15 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
   private final QueryFilterRewriteChain queryFilterRewriteChain;
   private final ElasticSearchConfiguration searchConfiguration;
   @Nonnull private final HighlightBuilder highlights;
+  @Nonnull private final SearchServiceConfiguration searchServiceConfig;
 
   public AutocompleteRequestHandler(
       @Nonnull OperationContext systemOperationContext,
       @Nonnull EntitySpec entitySpec,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
-      @Nonnull ElasticSearchConfiguration searchConfiguration) {
+      @Nonnull ElasticSearchConfiguration searchConfiguration,
+      @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
     this.entitySpec = entitySpec;
     List<SearchableFieldSpec> fieldSpecs = entitySpec.getSearchableFieldSpecs();
     this.customizedQueryHandler = CustomizedQueryHandler.builder(customSearchConfiguration).build();
@@ -100,6 +103,7 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                     }));
     this.queryFilterRewriteChain = queryFilterRewriteChain;
     this.searchConfiguration = searchConfiguration;
+    this.searchServiceConfig = searchServiceConfiguration;
   }
 
   public static AutocompleteRequestHandler getBuilder(
@@ -107,7 +111,8 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nonnull EntitySpec entitySpec,
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
-      @Nonnull ElasticSearchConfiguration searchConfiguration) {
+      @Nonnull ElasticSearchConfiguration searchConfiguration,
+      @Nonnull SearchServiceConfiguration searchServiceConfiguration) {
     return AUTOCOMPLETE_QUERY_BUILDER_BY_ENTITY_NAME.computeIfAbsent(
         entitySpec,
         k ->
@@ -116,7 +121,8 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
                 entitySpec,
                 customSearchConfiguration,
                 queryFilterRewriteChain,
-                searchConfiguration));
+                searchConfiguration,
+                searchServiceConfiguration));
   }
 
   public SearchRequest getSearchRequest(
@@ -124,10 +130,10 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
       @Nonnull String input,
       @Nullable String field,
       @Nullable Filter filter,
-      int limit) {
+      @Nullable Integer limit) {
     SearchRequest searchRequest = new SearchRequest();
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
-    searchSourceBuilder.size(applyResultLimit(searchConfiguration, limit));
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, limit));
 
     AutocompleteConfiguration customAutocompleteConfig =
         customizedQueryHandler.lookupAutocompleteConfig(input).orElse(null);

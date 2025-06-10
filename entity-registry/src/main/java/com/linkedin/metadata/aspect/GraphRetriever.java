@@ -40,7 +40,7 @@ public interface GraphRetriever {
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
       @Nullable String scrollId,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis);
 
@@ -68,7 +68,7 @@ public interface GraphRetriever {
       @Nonnull Set<String> relationshipTypes,
       @Nonnull RelationshipFilter relationshipFilter,
       @Nonnull List<SortCriterion> sortCriteria,
-      int count,
+      @Nullable Integer count,
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis) {
 
@@ -115,7 +115,7 @@ public interface GraphRetriever {
         @Nonnull RelationshipFilter relationshipFilter,
         @Nonnull List<SortCriterion> sortCriterion,
         @Nullable String scrollId,
-        int count,
+        @Nullable Integer count,
         @Nullable Long startTimeMillis,
         @Nullable Long endTimeMillis) {
       return new RelatedEntitiesScrollResult(0, 0, null, Collections.emptyList());

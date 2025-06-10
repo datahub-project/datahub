@@ -151,7 +151,7 @@ public class DataJobType
       @Nonnull String query,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull final QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);
@@ -171,7 +171,7 @@ public class DataJobType
       @Nonnull String query,
       @Nullable String field,
       @Nullable Filter filters,
-      int limit,
+      @Nullable Integer limit,
       @Nonnull final QueryContext context)
       throws Exception {
     final AutoCompleteResult result =
@@ -184,7 +184,7 @@ public class DataJobType
       @Nonnull List<String> path,
       @Nullable List<FacetFilterInput> filters,
       int start,
-      int count,
+      @Nullable Integer count,
       @Nonnull QueryContext context)
       throws Exception {
     final Map<String, String> facetFilters = ResolverUtils.buildFacetFilters(filters, FACET_FIELDS);

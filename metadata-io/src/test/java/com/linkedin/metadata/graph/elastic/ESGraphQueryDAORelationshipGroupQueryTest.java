@@ -1,16 +1,19 @@
 package com.linkedin.metadata.graph.elastic;
 
 import static com.linkedin.metadata.Constants.*;
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_GRAPH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.shared.LimitConfig;
+import com.linkedin.metadata.config.shared.ResultsLimitConfig;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationship;
@@ -40,7 +43,7 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class ESGraphQueryDAORelationshipGroupQueryTest {
-  private final int GLOBAL_RESULT_LIMIT = 25;
+  private final int GLOBAL_RESULT_LIMIT = 100;
   private final OperationContext operationContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
 
@@ -60,20 +63,19 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .setEnableMultiPathSearch(true)
             .setBoostViaNodes(true);
 
-    SearchConfiguration.SearchLimitConfig limitConfig =
-        new SearchConfiguration.SearchLimitConfig()
+    LimitConfig limitConfig =
+        new LimitConfig()
             .setResults(
-                new SearchConfiguration.SearchResultsLimit()
+                new ResultsLimitConfig()
                     .setMax(GLOBAL_RESULT_LIMIT)
+                    .setApiDefault(GLOBAL_RESULT_LIMIT)
                     .setStrict(false));
 
+    GraphServiceConfiguration graphServiceConfig =
+        TEST_GRAPH_SERVICE_CONFIG.toBuilder().limit(limitConfig).build();
     ElasticSearchConfiguration testESConfig =
-        TEST_SEARCH_CONFIG.toBuilder()
-            .search(
-                TEST_SEARCH_CONFIG.getSearch().toBuilder()
-                    .graph(graphConfig)
-                    .limit(limitConfig)
-                    .build())
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .search(TEST_ES_SEARCH_CONFIG.getSearch().toBuilder().graph(graphConfig).build())
             .build();
 
     // Create the DAO with mocks
@@ -82,6 +84,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             mockClient,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
+            graphServiceConfig,
             testESConfig);
   }
 
@@ -575,8 +578,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .setQueryOptimization(true);
 
     ElasticSearchConfiguration testESConfig =
-        TEST_SEARCH_CONFIG.toBuilder()
-            .search(TEST_SEARCH_CONFIG.getSearch().toBuilder().graph(graphConfig).build())
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .search(TEST_ES_SEARCH_CONFIG.getSearch().toBuilder().graph(graphConfig).build())
             .build();
 
     ESGraphQueryDAO daoWithMultiPath =
@@ -584,6 +587,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             mockClient,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
+            TEST_GRAPH_SERVICE_CONFIG,
             testESConfig);
 
     // Call the public method directly with exploreMultiplePaths = true
@@ -607,8 +611,8 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             .setEnableMultiPathSearch(false); // Disable multiple paths
 
     ElasticSearchConfiguration testSinglePathConfig =
-        TEST_SEARCH_CONFIG.toBuilder()
-            .search(TEST_SEARCH_CONFIG.getSearch().toBuilder().graph(singlePathConfig).build())
+        TEST_ES_SEARCH_CONFIG.toBuilder()
+            .search(TEST_ES_SEARCH_CONFIG.getSearch().toBuilder().graph(singlePathConfig).build())
             .build();
 
     ESGraphQueryDAO daoWithSinglePath =
@@ -616,6 +620,7 @@ public class ESGraphQueryDAORelationshipGroupQueryTest {
             mockClient,
             operationContext.getLineageRegistry(),
             operationContext.getSearchContext().getIndexConvention(),
+            TEST_GRAPH_SERVICE_CONFIG,
             testSinglePathConfig);
 
     // Reset the mock and reconfigure it

@@ -1,6 +1,6 @@
 package io.datahubproject.test.search.config;
 
-import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_CONFIG;
+import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_SEARCH_CONFIG;
 
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.linkedin.metadata.config.search.CustomConfiguration;
@@ -20,7 +20,7 @@ import org.springframework.context.annotation.Bean;
 public class SearchCommonTestConfiguration {
   @Bean
   public SearchConfiguration searchConfiguration() {
-    SearchConfiguration searchConfiguration = TEST_SEARCH_CONFIG.getSearch();
+    SearchConfiguration searchConfiguration = TEST_ES_SEARCH_CONFIG.getSearch();
     searchConfiguration.setMaxTermBucketSize(20);
 
     ExactMatchConfiguration exactMatchConfiguration = new ExactMatchConfiguration();
