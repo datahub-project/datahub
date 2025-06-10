@@ -528,6 +528,7 @@ class SQLServerSource(SQLAlchemySource):
                 step_name=row["step_name"],
                 subsystem=row["subsystem"],
                 command=row["command"],
+                database_name=row["database_name"],
             )
             if row["name"] in jobs:
                 jobs[row["name"]][row["step_id"]] = step_data

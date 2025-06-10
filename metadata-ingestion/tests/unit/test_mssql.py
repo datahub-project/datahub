@@ -211,3 +211,79 @@ def test_get_jobs_on_premises_both_methods_fail(mock_logger, mssql_source):
         "Failed to retrieve jobs in on-premises environment. "
         "Direct query error: Direct failed. Stored procedure error: SP failed",
     )
+
+
+def test_stored_procedure_vs_direct_query_compatibility(mssql_source):
+    """Test that both methods return compatible data structures"""
+    mock_conn = MagicMock()
+
+    # Mock data that both methods should be able to process
+    mock_job_data = {
+        "job_id": "12345678-1234-1234-1234-123456789012",
+        "name": "TestJob",
+        "description": "Test job description",
+        "date_created": "2023-01-01 10:00:00",
+        "date_modified": "2023-01-02 11:00:00",
+        "enabled": 1,
+        "step_id": 1,
+        "step_name": "Test Step",
+        "subsystem": "TSQL",
+        "command": "SELECT 1",
+        "database_name": "test_db",
+    }
+
+    # Test stored procedure method
+    with patch.object(mock_conn, "execute") as mock_execute:
+        # Mock sp_help_job response
+        mock_job_result = MagicMock()
+        mock_job_result.__iter__.return_value = [mock_job_data]
+
+        # Mock sp_help_jobstep response
+        mock_step_result = MagicMock()
+        mock_step_result.__iter__.return_value = [mock_job_data]
+
+        mock_execute.side_effect = [mock_job_result, mock_step_result]
+
+        sp_result = mssql_source._get_jobs_via_stored_procedures(mock_conn, "test_db")
+
+    # Test direct query method
+    with patch.object(mock_conn, "execute") as mock_execute:
+        mock_query_result = MagicMock()
+        mock_query_result.__iter__.return_value = [mock_job_data]
+        mock_execute.return_value = mock_query_result
+
+        direct_result = mssql_source._get_jobs_via_direct_query(mock_conn, "test_db")
+
+    # Verify both methods return data with same structure
+    assert len(sp_result) > 0, "Stored procedure method should return data"
+    assert len(direct_result) > 0, "Direct query method should return data"
+
+    # Get first job from each method
+    sp_job = list(sp_result.values())[0]
+    direct_job = list(direct_result.values())[0]
+
+    # Get first step from each method
+    sp_step = list(sp_job.values())[0]
+    direct_step = list(direct_job.values())[0]
+
+    # Verify both contain critical fields
+    required_fields = [
+        "job_id",
+        "job_name",
+        "description",
+        "date_created",
+        "date_modified",
+        "step_id",
+        "step_name",
+        "subsystem",
+        "command",
+        "database_name",
+    ]
+
+    for field in required_fields:
+        assert field in sp_step, f"Stored procedure result missing field: {field}"
+        assert field in direct_step, f"Direct query result missing field: {field}"
+
+    # Verify database_name is properly set
+    assert sp_step["database_name"] == "test_db"
+    assert direct_step["database_name"] == "test_db"
