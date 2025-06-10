@@ -16,14 +16,14 @@ from apscheduler.triggers.cron import CronTrigger
 from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel, Extra, ValidationError
 
-from acryl_datahub_cloud._sdk_extras.entities.assertion import (
+from acryl_datahub_cloud.sdk.entities.assertion import (
     Assertion,
     AssertionActionsInputType,
     AssertionInfoInputType,
     TagsInputType,
 )
-from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
-from acryl_datahub_cloud._sdk_extras.errors import (
+from acryl_datahub_cloud.sdk.entities.monitor import Monitor
+from acryl_datahub_cloud.sdk.errors import (
     SDKNotYetSupportedError,
     SDKUsageError,
     SDKUsageErrorWithExamples,

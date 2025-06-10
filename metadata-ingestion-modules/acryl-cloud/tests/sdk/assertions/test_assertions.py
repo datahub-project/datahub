@@ -2,22 +2,22 @@ from datetime import datetime, timezone
 
 import pytest
 
-from acryl_datahub_cloud._sdk_extras.assertion import (
+from acryl_datahub_cloud.sdk.assertion import (
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_DETECTION_MECHANISM,
     DEFAULT_SENSITIVITY,
     AssertionMode,
     SmartFreshnessAssertion,
 )
-from acryl_datahub_cloud._sdk_extras.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input import (
     DEFAULT_SCHEDULE,
     AssertionIncidentBehavior,
     DetectionMechanism,
     FixedRangeExclusionWindow,
     InferenceSensitivity,
 )
-from acryl_datahub_cloud._sdk_extras.entities.assertion import Assertion
-from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
+from acryl_datahub_cloud.sdk.entities.assertion import Assertion
+from acryl_datahub_cloud.sdk.entities.monitor import Monitor
 from datahub.metadata import schema_classes as models
 from datahub.metadata.urns import (
     AssertionUrn,

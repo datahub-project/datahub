@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 import pytest
 
-from acryl_datahub_cloud._sdk_extras.entities.monitor import (
+from acryl_datahub_cloud.sdk.entities.monitor import (
     Monitor,
     _get_nested_field_for_entity_with_default,
 )

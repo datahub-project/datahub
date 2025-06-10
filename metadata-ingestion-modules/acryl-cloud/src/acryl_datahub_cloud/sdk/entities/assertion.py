@@ -15,7 +15,7 @@ from typing_extensions import (
     assert_never,
 )
 
-from acryl_datahub_cloud._sdk_extras.errors import SDKNotYetSupportedError
+from acryl_datahub_cloud.sdk.errors import SDKNotYetSupportedError
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import make_ts_millis
 from datahub.errors import SdkUsageError

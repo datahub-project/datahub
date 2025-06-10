@@ -8,8 +8,8 @@ import pytest
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
-from acryl_datahub_cloud._sdk_extras.entities.subscription import Subscription
-from acryl_datahub_cloud._sdk_extras.subscription_client import (
+from acryl_datahub_cloud.sdk.entities.subscription import Subscription
+from acryl_datahub_cloud.sdk.subscription_client import (
     ALL_EXISTING_ENTITY_CHANGE_TYPES,
     ASSERTION_RELATED_ENTITY_CHANGE_TYPES,
     SubscriptionClient,
@@ -1435,7 +1435,7 @@ def test_unsubscribe_assertion_removes_assertion_from_filters(
     any_user_urn: CorpUserUrn,
 ) -> None:
     """Test unsubscribe assertion removes assertion from filters."""
-    test_dataset_urn = DatasetUrn.create_from_string(
+    test_dataset_urn = DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
     )
 
@@ -1505,7 +1505,7 @@ def test_unsubscribe_assertion_specific_change_types(
     any_user_urn: CorpUserUrn,
 ) -> None:
     """Test unsubscribe assertion with specific change types."""
-    test_dataset_urn = DatasetUrn.create_from_string(
+    test_dataset_urn = DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
     )
 
@@ -1573,7 +1573,7 @@ def test_unsubscribe_assertion_deletes_subscription_when_no_change_types_remain(
     any_user_urn: CorpUserUrn,
 ) -> None:
     """Test unsubscribe assertion deletes subscription when no change types remain."""
-    test_dataset_urn = DatasetUrn.create_from_string(
+    test_dataset_urn = DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
     )
 
@@ -1628,7 +1628,7 @@ def test_unsubscribe_assertion_warns_about_missing_assertions(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Test unsubscribe assertion logs warnings when assertion not in filters."""
-    test_dataset_urn = DatasetUrn.create_from_string(
+    test_dataset_urn = DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.dataset,PROD)"
     )
 
@@ -1932,7 +1932,7 @@ def test_unsubscribe_assertion_warns_about_missing_assertions(
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED),
                     str(models.EntityChangeTypeClass.ASSERTION_FAILED),
                 ],
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test1"
                 ),
                 warn_if_missing=True,
@@ -1967,7 +1967,7 @@ def test_unsubscribe_assertion_warns_about_missing_assertions(
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED),
                     str(models.EntityChangeTypeClass.ASSERTION_FAILED),
                 ],
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test1"
                 ),
                 warn_if_missing=True,
@@ -1988,7 +1988,7 @@ def test_unsubscribe_assertion_warns_about_missing_assertions(
                 change_types_to_remove=[
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED),
                 ],
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:missing"
                 ),
                 warn_if_missing=True,
@@ -2018,7 +2018,7 @@ def test_unsubscribe_assertion_warns_about_missing_assertions(
                 change_types_to_remove=[
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED),
                 ],
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:missing"
                 ),
                 warn_if_missing=False,
@@ -2052,7 +2052,7 @@ def test_unsubscribe_assertion_warns_about_missing_assertions(
                     str(models.EntityChangeTypeClass.ASSERTION_PASSED),
                     str(models.EntityChangeTypeClass.ASSERTION_FAILED),
                 ],
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test1"
                 ),
                 warn_if_missing=True,
@@ -2195,7 +2195,7 @@ def test_remove_change_types(
             RemoveChangeTypesFilterTestParams(
                 entity_change_type="ASSERTION_PASSED",
                 existing_filter=None,
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=True,
@@ -2209,7 +2209,7 @@ def test_remove_change_types(
             RemoveChangeTypesFilterTestParams(
                 entity_change_type="ASSERTION_PASSED",
                 existing_filter=None,
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=False,
@@ -2224,7 +2224,7 @@ def test_remove_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=None
                 ),
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=True,
@@ -2242,7 +2242,7 @@ def test_remove_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=[]
                 ),
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=True,
@@ -2260,7 +2260,7 @@ def test_remove_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=["urn:li:assertion:other"]
                 ),
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=True,
@@ -2278,7 +2278,7 @@ def test_remove_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=["urn:li:assertion:other"]
                 ),
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=False,
@@ -2295,7 +2295,7 @@ def test_remove_change_types(
                 existing_filter=models.EntityChangeDetailsFilterClass(
                     includeAssertions=["urn:li:assertion:test"]
                 ),
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=True,
@@ -2313,7 +2313,7 @@ def test_remove_change_types(
                         "urn:li:assertion:other",
                     ]
                 ),
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=True,
@@ -2334,7 +2334,7 @@ def test_remove_change_types(
                         "urn:li:assertion:keep2",
                     ]
                 ),
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:remove"
                 ),
                 warn_if_missing=True,
@@ -2357,7 +2357,7 @@ def test_remove_change_types(
                         "urn:li:assertion:test",
                     ]  # Duplicates
                 ),
-                assertion_urn_to_remove=AssertionUrn.create_from_string(
+                assertion_urn_to_remove=AssertionUrn.from_string(
                     "urn:li:assertion:test"
                 ),
                 warn_if_missing=True,

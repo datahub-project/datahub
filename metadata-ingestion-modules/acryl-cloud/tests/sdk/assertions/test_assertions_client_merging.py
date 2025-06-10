@@ -7,11 +7,11 @@ import pytest
 from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
-from acryl_datahub_cloud._sdk_extras.assertion import (
+from acryl_datahub_cloud.sdk.assertion import (
     AssertionMode,
     SmartFreshnessAssertion,
 )
-from acryl_datahub_cloud._sdk_extras.assertion_input import (
+from acryl_datahub_cloud.sdk.assertion_input import (
     _DETECTION_MECHANISM_CONCRETE_TYPES,
     ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,
     DEFAULT_SCHEDULE,
@@ -24,17 +24,17 @@ from acryl_datahub_cloud._sdk_extras.assertion_input import (
     _DetectionMechanismTypes,
     _SmartFreshnessAssertionInput,
 )
-from acryl_datahub_cloud._sdk_extras.assertions_client import (
+from acryl_datahub_cloud.sdk.assertions_client import (
     DEFAULT_CREATED_BY,
     AssertionsClient,
     _merge_field,
 )
-from acryl_datahub_cloud._sdk_extras.entities.assertion import (
+from acryl_datahub_cloud.sdk.entities.assertion import (
     Assertion,
     TagsInputType,
 )
-from acryl_datahub_cloud._sdk_extras.entities.monitor import Monitor
-from acryl_datahub_cloud._sdk_extras.errors import (
+from acryl_datahub_cloud.sdk.entities.monitor import Monitor
+from acryl_datahub_cloud.sdk.errors import (
     SDKUsageError,
 )
 from datahub.emitter.mce_builder import parse_ts_millis
@@ -45,7 +45,7 @@ from datahub.metadata.urns import (
     MonitorUrn,
     TagUrn,
 )
-from tests.conftest import StubDataHubClient, StubEntityClient
+from tests.sdk.assertions.conftest import StubDataHubClient, StubEntityClient
 
 FROZEN_TIME = "2025-01-01 10:30:00"
 
