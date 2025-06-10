@@ -2,20 +2,18 @@ import { Icon, Pill, Text } from '@components';
 import React, { useContext } from 'react';
 import { Link } from 'react-router-dom';
 
-import { ColorOptions } from '@components/theme/config';
-
 import ManageFormContext from '@app/govern/Dashboard/Forms/ManageFormContext';
+import { getStatusDetails } from '@app/govern/Dashboard/Forms/formUtils';
 import { BreadcrumbContainer, Header } from '@app/govern/Dashboard/Forms/styledComponents';
 import { PageRoutes } from '@src/conf/Global';
 import { FormState } from '@src/types.generated';
 
 const CreateFormHeader = () => {
-    const { formMode, formValues } = useContext(ManageFormContext);
+    const { formMode, formValues, data } = useContext(ManageFormContext);
 
+    const assignmentStatus = data?.form?.formAssignmentStatus?.status;
     const formStatus = formValues.state || FormState.Draft;
-    let colorScheme: ColorOptions = 'gray';
-    if (formStatus === FormState.Published) colorScheme = 'violet';
-    else if (formStatus === FormState.Unpublished) colorScheme = 'blue';
+    const { label, colorScheme } = getStatusDetails(formStatus, assignmentStatus);
 
     return (
         <>
@@ -34,7 +32,7 @@ const CreateFormHeader = () => {
                 <Text size="2xl" weight="bold" data-testid="form-title">
                     Compliance Forms
                 </Text>
-                <Pill size="sm" label={formStatus.charAt(0) + formStatus.slice(1).toLowerCase()} color={colorScheme} />
+                <Pill size="sm" label={label} color={colorScheme} />
             </Header>
             <Text size="md" color="gray">
                 {`${formMode === 'create' ? 'Create a new' : 'Edit a'} compliance requirements form`}

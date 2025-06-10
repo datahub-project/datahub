@@ -1,7 +1,10 @@
+import { ColorOptions } from '@components/theme/config';
+
 import { LogicalPredicate } from '@src/app/tests/builder/steps/definition/builder/types';
 
 import {
     AndFilterInput,
+    AssignmentStatus,
     CorpGroup,
     CorpUser,
     CreatePromptInput,
@@ -162,3 +165,14 @@ export const PUBLISH_EXPLANATION = 'Publishing will assign the form to the selec
 export const PUBLISH_MODAL_TEXT = `Are you sure? ${PUBLISH_EXPLANATION}`;
 export const UNPUBLISH_EXPLANATION = 'Unpublishing will hide this form from selected assets and users.';
 export const UNPUBLISH_MODAL_TEXT = `Are you sure? ${UNPUBLISH_EXPLANATION}`;
+
+export function getStatusDetails(formStatus: FormState, assignmentStatus?: AssignmentStatus) {
+    const isInProgress = assignmentStatus === AssignmentStatus.InProgress && formStatus === FormState.Published;
+    let colorScheme: ColorOptions = 'gray';
+    if (isInProgress) colorScheme = 'blue';
+    else if (formStatus === FormState.Published) colorScheme = 'primary';
+    else if (formStatus === FormState.Unpublished) colorScheme = 'red';
+    const label = isInProgress ? 'Publishing' : formStatus?.charAt(0) + formStatus?.slice(1)?.toLowerCase();
+
+    return { label, colorScheme };
+}

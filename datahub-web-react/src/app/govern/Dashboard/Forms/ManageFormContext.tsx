@@ -4,9 +4,12 @@ import React from 'react';
 import { FormFields, FormMode } from '@app/govern/Dashboard/Forms/formUtils';
 import { FormState } from '@src/types.generated';
 
+import { GetFormQuery } from '@graphql/form.generated';
+
 interface ManageFormState {
     formValues: FormFields;
     setFormValues: React.Dispatch<React.SetStateAction<FormFields>>;
+    data: GetFormQuery | undefined;
     form: FormInstance | undefined;
     formMode: FormMode;
     setFormMode: React.Dispatch<React.SetStateAction<FormMode>>;
@@ -27,6 +30,7 @@ const ManageFormContext = React.createContext<ManageFormState>({
         state: FormState.Draft,
         formSettings: undefined,
     },
+    data: undefined,
     setFormValues: () => {},
     form: undefined,
     formMode: 'create',

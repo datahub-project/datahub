@@ -3,6 +3,18 @@ query getForm($urn: String!) {
         ...formFields
     }
 }
+
+query getFormAssignmentStatus($urn: String!) {
+    form(urn: $urn) {
+        urn
+        type
+        formAssignmentStatus {
+            status
+            timestamp
+        }
+    }
+}
+
 mutation submitFormPrompt($urn: String!, $input: SubmitFormPromptInput!) {
     submitFormPrompt(urn: $urn, input: $input)
 }

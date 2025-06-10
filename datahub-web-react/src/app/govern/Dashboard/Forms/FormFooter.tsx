@@ -71,6 +71,7 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
     };
 
     const saveForm = (state?: FormState, returnToForms?: boolean) => {
+        const showPublishing = state === FormState.Published && returnToForms;
         if (form) {
             form.validateFields().then(() => {
                 if (formUrn) {
@@ -130,7 +131,14 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                                 });
                             }
                             showSuccessMessage();
-                            updateFormsList(client, inputs, res.data?.updateForm, formUrn, searchAcrossEntities);
+                            updateFormsList(
+                                client,
+                                inputs,
+                                res.data?.updateForm,
+                                formUrn,
+                                searchAcrossEntities,
+                                showPublishing,
+                            );
 
                             if (state) updateFormState(state);
                             if (returnToForms) history.push(`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`);
@@ -192,6 +200,7 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                                 res.data?.createForm,
                                 res.data?.createForm.urn,
                                 searchAcrossEntities,
+                                showPublishing,
                             );
 
                             if (state) updateFormState(state);

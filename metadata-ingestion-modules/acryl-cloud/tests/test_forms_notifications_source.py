@@ -1,6 +1,6 @@
 import json
 import time
-from typing import cast
+from typing import Any, Dict, List, cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -361,7 +361,9 @@ def test_notify_form_assignees(source: DataHubFormsNotificationsSource) -> None:
     mock_form_notifications = FormNotificationsClass(notificationDetails=[])
 
     # Mock get_entities to return different responses based on the call
-    def mock_get_entities(entity_type: str, urns: list, aspects: list) -> dict:
+    def mock_get_entities(
+        entity_type: str, urns: List[str], aspects: Any
+    ) -> Dict[str, Any]:
         if entity_type == "form":
             return {"urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}}
         elif entity_type == "corpuser":

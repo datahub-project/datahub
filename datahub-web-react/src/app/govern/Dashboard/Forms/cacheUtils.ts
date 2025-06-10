@@ -1,10 +1,13 @@
+import { LIST_FORMS_INPUTS } from '@app/govern/Dashboard/Forms/useGetFormsData';
 import { GetSearchResultsForMultipleDocument, GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
+
+import { AssignmentStatus } from '@types';
 
 const addToCache = (existingForms, newForm) => {
     return [newForm, ...existingForms];
 };
 
-const addOrUpdateToCache = (existingForms, newForm, formUrn) => {
+const addOrUpdateToCache = (existingForms, newForm, formUrn, showPublishing) => {
     const formToWrite = {
         entity: {
             urn: newForm.urn,
@@ -21,6 +24,9 @@ const addOrUpdateToCache = (existingForms, newForm, formUrn) => {
             },
             ownership: newForm.ownership,
             dynamicFormAssignment: newForm.dynamicFormAssignment,
+            formAssignmentStatus: showPublishing
+                ? { status: AssignmentStatus.InProgress, timestamp: new Date().getTime() }
+                : newForm.formAssignmentStatus,
             __typename: 'Form',
         },
         matchedFields: [],
@@ -41,7 +47,7 @@ const addOrUpdateToCache = (existingForms, newForm, formUrn) => {
     return didUpdate ? updatedForms : addToCache(existingForms, formToWrite);
 };
 
-export const updateFormsList = (client, inputs, newForm, formUrn, searchAcrossEntities) => {
+export const updateFormsList = (client, inputs, newForm, formUrn, searchAcrossEntities, showPublishing) => {
     //  Read the data from our cache for this query.
     const currData: GetSearchResultsForMultipleQuery | null = client.readQuery({
         query: GetSearchResultsForMultipleDocument,
@@ -56,13 +62,49 @@ export const updateFormsList = (client, inputs, newForm, formUrn, searchAcrossEn
     }
 
     const existingForms = currData?.searchAcrossEntities?.searchResults || [];
-    const newForms = addOrUpdateToCache(existingForms, newForm, formUrn);
+    const newForms = addOrUpdateToCache(existingForms, newForm, formUrn, showPublishing);
 
     // Write our data back to the cache.
     client.writeQuery({
         query: GetSearchResultsForMultipleDocument,
         variables: {
             input: inputs,
+        },
+        data: {
+            searchAcrossEntities: {
+                ...searchAcrossEntities,
+                total: newForms.length,
+                searchResults: newForms,
+            },
+        },
+    });
+};
+
+export const updateFormAssignmentStatusInList = (client, formUrn, formAssignmentStatus) => {
+    //  Read the data from our cache for this query.
+    const currData: GetSearchResultsForMultipleQuery | null = client.readQuery({
+        query: GetSearchResultsForMultipleDocument,
+        variables: {
+            input: LIST_FORMS_INPUTS,
+        },
+    });
+
+    if (currData === null) {
+        // If there's no cached data, the first load has not occurred. Let it occur naturally.
+        return;
+    }
+
+    const searchAcrossEntities = currData?.searchAcrossEntities || [];
+    const existingForms = currData?.searchAcrossEntities?.searchResults || [];
+    const formToUpdate = existingForms.map((result) => result.entity as any).find((form) => form.urn === formUrn);
+    const updatedForm = { info: formToUpdate?.formInfo, ...formToUpdate, formAssignmentStatus };
+    const newForms = addOrUpdateToCache(existingForms, updatedForm, formUrn, false);
+
+    // Write our data back to the cache.
+    client.writeQuery({
+        query: GetSearchResultsForMultipleDocument,
+        variables: {
+            input: LIST_FORMS_INPUTS,
         },
         data: {
             searchAcrossEntities: {

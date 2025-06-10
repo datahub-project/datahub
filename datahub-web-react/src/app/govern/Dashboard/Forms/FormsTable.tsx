@@ -1,5 +1,5 @@
 import { NetworkStatus } from '@apollo/client';
-import { Icon, Pill, Table, Text, Tooltip, colors, typography } from '@components';
+import { Icon, Table, Text, Tooltip, colors, typography } from '@components';
 import { Dropdown, Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -8,9 +8,10 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import EmptyForms from '@app/govern/Dashboard/Forms/EmptyForms';
+import FormStatusColumn from '@app/govern/Dashboard/Forms/FormStatusColumn';
 import { UNPUBLISH_MODAL_TEXT } from '@app/govern/Dashboard/Forms/formUtils';
 import { CardIcons } from '@app/govern/Dashboard/Forms/styledComponents';
-import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
@@ -52,10 +53,6 @@ const FormDescription = styled(Typography.Text)`
 const CellContainer = styled.div`
     display: flex;
     flex-direction: column;
-`;
-
-const StatusContainer = styled.div`
-    display: inherit;
 `;
 
 const MenuItem = styled.div`
@@ -231,18 +228,12 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
             title: 'Status',
             key: 'status',
             render: (record) => {
-                const status = record.entity.formInfo.status?.state;
-                let colorScheme: ColorOptions = 'gray';
-                if (status === FormState.Published) colorScheme = 'violet';
-                else if (status === FormState.Unpublished) colorScheme = 'blue';
                 return (
-                    <StatusContainer data-testid={`${record.entity.urn}-status-${status.toLowerCase()}`}>
-                        <Pill
-                            label={status.charAt(0) + status.slice(1).toLowerCase()}
-                            color={colorScheme}
-                            clickable={false}
-                        />
-                    </StatusContainer>
+                    <FormStatusColumn
+                        formUrn={record.entity.urn}
+                        formInfo={record.entity.formInfo}
+                        formAssignmentStatus={record.entity.formAssignmentStatus}
+                    />
                 );
             },
             sorter: (sourceA, sourceB) => {

@@ -14,6 +14,7 @@ record FormNotifications {
     "/*/formUrn": {
       "fieldName": "notificationFormUrn",
       "fieldType": "URN",
+      "queryByDefault": false,
     }
   }
   notificationDetails: array[FormNotificationDetails] = []

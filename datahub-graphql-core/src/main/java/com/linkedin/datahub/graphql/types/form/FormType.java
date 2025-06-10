@@ -29,7 +29,8 @@ public class FormType implements com.linkedin.datahub.graphql.types.EntityType<F
           FORM_INFO_ASPECT_NAME,
           DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME,
           OWNERSHIP_ASPECT_NAME,
-          FORM_SETTINGS_ASPECT_NAME);
+          FORM_SETTINGS_ASPECT_NAME,
+          FORM_ASSIGNMENT_STATUS_ASPECT_NAME);
   private final EntityClient _entityClient;
 
   @Override

@@ -786,6 +786,7 @@ entities:
       - dynamicFormAssignment
       - ownership
       - formSettings
+      - formAssignmentStatus
   - name: dataHubConnection
     category: internal
     keyAspect: dataHubConnectionKey
