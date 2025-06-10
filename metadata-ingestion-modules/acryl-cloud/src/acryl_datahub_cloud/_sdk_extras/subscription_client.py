@@ -1,6 +1,6 @@
 import logging
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from typing_extensions import TypeAlias
 
@@ -61,7 +61,9 @@ class SubscriptionClient:
         *,
         urn: Union[str, DatasetUrn, AssertionUrn],
         subscriber_urn: SubscriberInputType,
-        entity_change_types: Optional[List[str]] = None,
+        entity_change_types: Optional[
+            Sequence[Union[str, models.EntityChangeTypeClass]]
+        ] = None,
     ) -> None:
         """
         Create a subscription to receive notifications for entity changes.
@@ -163,7 +165,9 @@ class SubscriptionClient:
         self,
         *,
         urn: Union[str, DatasetUrn, AssertionUrn],
-        entity_change_types: Optional[List[models.EntityChangeTypeClass]] = None,
+        entity_change_types: Optional[
+            Sequence[Union[str, models.EntityChangeTypeClass]]
+        ] = None,
         subscriber_urn: Optional[SubscriberInputType] = None,
     ) -> List[Subscription]:
         """
@@ -191,7 +195,9 @@ class SubscriptionClient:
         *,
         urn: Union[str, DatasetUrn, AssertionUrn],
         subscriber_urn: SubscriberInputType,
-        entity_change_types: Optional[List[models.EntityChangeTypeClass]] = None,
+        entity_change_types: Optional[
+            List[Union[str, models.EntityChangeTypeClass]]
+        ] = None,
     ) -> None:
         """
         Remove subscriptions for entity change notifications.
@@ -283,9 +289,7 @@ class SubscriptionClient:
         # Get the change types to remove (validated input or defaults)
         change_types_to_remove = self._get_entity_change_types(
             assertion_scope=assertion_urn is not None,
-            entity_change_types=[str(ect) for ect in entity_change_types]
-            if entity_change_types
-            else None,
+            entity_change_types=entity_change_types,
         )
 
         # Remove the specified change types
@@ -319,7 +323,9 @@ class SubscriptionClient:
     def _get_entity_change_types(
         self,
         assertion_scope: bool,
-        entity_change_types: Optional[List[str]] = None,
+        entity_change_types: Optional[
+            Sequence[Union[str, models.EntityChangeTypeClass]]
+        ] = None,
     ) -> List[str]:
         """Get entity change types with validation and defaults.
 
@@ -341,10 +347,13 @@ class SubscriptionClient:
             if len(entity_change_types) == 0:
                 raise SdkUsageError("Entity change types cannot be an empty list.")
 
+            # Convert all entity change types to strings
+            entity_change_type_strs = [str(ect) for ect in entity_change_types]
+
             all_options = get_enum_options(models.EntityChangeTypeClass)
-            if any([ect not in all_options for ect in entity_change_types]):
+            if any([ect not in all_options for ect in entity_change_type_strs]):
                 raise SdkUsageError(
-                    f"Invalid entity change types provided: {entity_change_types}. "
+                    f"Invalid entity change types provided: {entity_change_type_strs}. "
                     f"Valid options are: {all_options}"
                 )
 
@@ -352,7 +361,7 @@ class SubscriptionClient:
             if assertion_scope:
                 invalid_types = [
                     ect
-                    for ect in entity_change_types
+                    for ect in entity_change_type_strs
                     if ect not in ASSERTION_RELATED_ENTITY_CHANGE_TYPES
                 ]
                 if invalid_types:
@@ -362,7 +371,7 @@ class SubscriptionClient:
                         f"Valid types: {list(ASSERTION_RELATED_ENTITY_CHANGE_TYPES)}"
                     )
 
-            return entity_change_types
+            return entity_change_type_strs
 
         # If no specific change types are provided, return defaults based on scope
         if assertion_scope:
