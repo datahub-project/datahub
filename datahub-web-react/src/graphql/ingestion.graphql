@@ -24,6 +24,12 @@ query listIngestionSources($input: ListIngestionSourcesInput!) {
             platform {
                 urn
             }
+            privileges {
+                canEdit
+                canView
+                canDelete
+                canExecute
+            }
             executions(start: 0, count: 1) {
                 start
                 count
@@ -80,6 +86,12 @@ query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
         }
         platform {
             urn
+        }
+        privileges {
+            canEdit
+            canView
+            canDelete
+            canExecute
         }
         executions(start: $runStart, count: $runCount) {
             start

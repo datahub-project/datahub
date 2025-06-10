@@ -171,6 +171,7 @@ export function ActionsColumn({
     onExecute,
     onDelete,
 }: ActionsColumnProps) {
+    const { canEdit, canDelete, canExecute } = record?.privileges || {};
     return (
         <ActionButtonContainer>
             {navigator.clipboard && (
@@ -188,6 +189,7 @@ export function ActionsColumn({
                 <Button
                     data-testid="ingestion-source-table-edit-button"
                     style={{ marginRight: 16 }}
+                    disabled={!canEdit}
                     onClick={() => onEdit(record.urn)}
                 >
                     EDIT
@@ -200,7 +202,7 @@ export function ActionsColumn({
             )}
             {record.lastExecStatus !== RUNNING && (
                 <Button
-                    disabled={record.cliIngestion}
+                    disabled={record.cliIngestion || !canExecute}
                     style={{ marginRight: 16 }}
                     onClick={() => onExecute(record.urn)}
                 >
@@ -219,6 +221,7 @@ export function ActionsColumn({
                 type="text"
                 shape="circle"
                 danger
+                disabled={!canDelete}
             >
                 <DeleteOutlined />
             </Button>

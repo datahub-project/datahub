@@ -46,6 +46,7 @@ interface Props {
     page?: any;
     pageSize?: any;
     lastResultIndex?: any;
+    canExecute?: boolean;
 }
 
 export default function IngestionExecutionTable({
@@ -60,6 +61,7 @@ export default function IngestionExecutionTable({
     pageSize,
     lastResultIndex,
     page,
+    canExecute = false,
 }: Props) {
     const tableColumns = [
         {
@@ -122,6 +124,7 @@ export default function IngestionExecutionTable({
         duration: execution.result?.durationMs,
         status: getIngestionSourceStatus(execution.result),
         showRollback: mostRecentSuccessfulExecution && execution?.urn === mostRecentSuccessfulExecution?.urn,
+        canExecute,
     }));
 
     return (

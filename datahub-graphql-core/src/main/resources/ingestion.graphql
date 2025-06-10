@@ -488,6 +488,11 @@ type IngestionSource {
   Previous requests to execute the ingestion source
   """
   executions(start: Int, count: Int): IngestionSourceExecutionRequests
+
+  """
+  Privileges given to a user relevant to this ingestion source
+  """
+  privileges: IngestionSourcePrivileges
 }
 
 """

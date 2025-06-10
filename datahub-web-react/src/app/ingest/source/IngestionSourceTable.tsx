@@ -100,6 +100,7 @@ function IngestionSourceTable({
         type: source.type,
         name: source.name,
         platformUrn: source.platform?.urn,
+        privileges: source?.privileges,
         schedule: source.schedule?.interval,
         timezone: source.schedule?.timezone,
         execCount: source.executions?.total || 0,

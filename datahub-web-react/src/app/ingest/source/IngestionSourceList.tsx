@@ -333,6 +333,12 @@ export const IngestionSourceList = ({ onSwitchTab, showCreateModal, setShowCreat
                             timezone: input.schedule?.timezone || null,
                         },
                         platform: null,
+                        privileges: {
+                            canEdit: false,
+                            canDelete: false,
+                            canExecute: false,
+                            canView: false,
+                        },
                         executions: null,
                     };
                     addToListIngestionSourcesCache(client, newSource, pageSize, query);
