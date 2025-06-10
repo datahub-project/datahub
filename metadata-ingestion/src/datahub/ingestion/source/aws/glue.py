@@ -1218,12 +1218,24 @@ class GlueSource(StatefulIngestionSourceBase):
                 tag.to_datahub_tag_urn().urn()
                 not in lf_tag.datahub_linked_resources().urns
             ):
-                lf_tag.datahub_linked_resources().add(tag.to_datahub_tag_urn().urn())
-                platform_resource = lf_tag.as_platform_resource()
-                for mcp in platform_resource.to_mcps():
-                    yield MetadataWorkUnit(
-                        id=f"platform_resource-{platform_resource.id}",
-                        mcp=mcp,
+                try:
+                    lf_tag.datahub_linked_resources().add(
+                        tag.to_datahub_tag_urn().urn()
+                    )
+                    platform_resource = lf_tag.as_platform_resource()
+                    for mcp in platform_resource.to_mcps():
+                        yield MetadataWorkUnit(
+                            id=f"platform_resource-{platform_resource.id}",
+                            mcp=mcp,
+                        )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create platform resource for catalog {catalog} and tag {tag}: {e}",
+                        exc_info=True,
+                    )
+                    self.report.report_warning(
+                        context="Failed to create platform resource",
+                        message=f"Failed to create platform resource for Catalog: {catalog}, Tag: {tag}",
                     )
 
     def gen_database_containers(
@@ -1285,7 +1297,14 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.source_config.extract_lakeformation_tags:
-            self.cache_lf_tags()
+            try:
+                self.cache_lf_tags()
+            except Exception as e:
+                self.report.report_warning(
+                    message="Failed to cache Lake Formation tags",
+                    context="workunit extraction",
+                    exc=e,
+                )
 
         databases, tables = self.get_all_databases_and_tables()
 
@@ -1706,9 +1725,21 @@ class GlueSource(StatefulIngestionSourceBase):
         tag_urns = []
         for tag_key, tag_values in lf_tags.items():
             for tag_value in tag_values:
-                tag_catalog, raw_key = tag_key.split(".", 1)
-                lf_tag = LakeFormationTag(raw_key, tag_value)
-                tag_urns.append(TagAssociationClass(lf_tag.to_datahub_tag_urn().urn()))
+                try:
+                    tag_catalog, raw_key = tag_key.split(".", 1)
+                    lf_tag = LakeFormationTag(raw_key, tag_value)
+                    tag_urns.append(
+                        TagAssociationClass(lf_tag.to_datahub_tag_urn().urn())
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to create platform resource for tag key {tag_key} and tag {tag_values}: {e}",
+                        exc_info=True,
+                    )
+                    self.report.report_warning(
+                        f"Failed to process Lake Formation tag {tag_key} for table {table['Name']}",
+                        context="Lake Formation tag extraction",
+                    )
 
         return GlobalTagsClass(tags=tag_urns) if tag_urns else None
 
