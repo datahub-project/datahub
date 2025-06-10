@@ -277,7 +277,7 @@ public class DataHubAuthorizerTest {
             isNull(),
             anyList(),
             anyInt(),
-            eq(null)))
+            isNull()))
         .thenReturn(policySearchResult1);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -288,7 +288,7 @@ public class DataHubAuthorizerTest {
             isNull(),
             anyList(),
             anyInt(),
-            eq(null)))
+            isNull()))
         .thenReturn(policySearchResult2);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -299,7 +299,7 @@ public class DataHubAuthorizerTest {
             isNull(),
             anyList(),
             anyInt(),
-            eq(null)))
+            isNull()))
         .thenReturn(policySearchResult3);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -310,7 +310,7 @@ public class DataHubAuthorizerTest {
             isNull(),
             anyList(),
             anyInt(),
-            eq(null)))
+            isNull()))
         .thenReturn(policySearchResult4);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -321,7 +321,7 @@ public class DataHubAuthorizerTest {
             isNull(),
             anyList(),
             anyInt(),
-            eq(null)))
+            isNull()))
         .thenReturn(policySearchResult5);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -331,7 +331,8 @@ public class DataHubAuthorizerTest {
             eq("5"),
             isNull(),
             anyList(),
-            anyInt()))
+            anyInt(),
+            isNull()))
         .thenReturn(policySearchResult6);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -341,7 +342,8 @@ public class DataHubAuthorizerTest {
             eq("6"),
             isNull(),
             anyList(),
-            anyInt()))
+            anyInt(),
+            isNull()))
         .thenReturn(policySearchResult7);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -351,7 +353,8 @@ public class DataHubAuthorizerTest {
             eq("7"),
             isNull(),
             anyList(),
-            anyInt()))
+            anyInt(),
+            isNull()))
         .thenReturn(policySearchResult8);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -361,7 +364,8 @@ public class DataHubAuthorizerTest {
             eq("8"),
             isNull(),
             anyList(),
-            anyInt()))
+            anyInt(),
+            isNull()))
         .thenReturn(policySearchResult9);
     when(_entityClient.scrollAcrossEntities(
             any(OperationContext.class),
@@ -371,7 +375,8 @@ public class DataHubAuthorizerTest {
             eq("9"),
             isNull(),
             anyList(),
-            anyInt()))
+            anyInt(),
+            isNull()))
         .thenReturn(policySearchResult10);
 
     when(_entityClient.batchGetV2(
