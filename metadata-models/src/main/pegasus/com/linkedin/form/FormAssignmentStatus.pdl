@@ -1,0 +1,25 @@
+namespace com.linkedin.form
+
+@Aspect = {
+  "name": "formAssignmentStatus"
+}
+record FormAssignmentStatus {
+  /**
+   * Notification settings for a form
+   */
+  status: enum AssignmentStatus {
+    /**
+     * Assets are currently being assigned
+     */
+    IN_PROGRESS
+    /**
+     * Assets assignment is complete
+     */
+    COMPLETE
+  }
+
+  /**
+   * Timestamp this aspect was last updated at
+   */
+  timestamp: optional long
+}

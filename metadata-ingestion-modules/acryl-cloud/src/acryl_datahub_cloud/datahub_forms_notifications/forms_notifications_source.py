@@ -180,6 +180,8 @@ class DataHubFormsNotificationsSource(Source):
         # update the aspect with the final notification details
         form_notifications.notificationDetails = final_notification_details
 
+        self.user_to_form_notifications[user_urn] = form_notifications
+
         self.graph.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=user_urn,

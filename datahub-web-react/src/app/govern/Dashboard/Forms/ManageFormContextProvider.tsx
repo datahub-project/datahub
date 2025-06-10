@@ -71,6 +71,7 @@ export const ManageFormContextProvider = ({ children }: { children: React.ReactN
             value={{
                 formValues,
                 setFormValues,
+                data,
                 form,
                 formMode,
                 setFormMode,

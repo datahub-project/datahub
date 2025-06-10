@@ -25,6 +25,7 @@ interface Props {
     className?: string;
     manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
     aggregationsEntityTypes?: Array<EntityType>;
+    showDefaultOptions?: boolean;
 }
 
 export default function ValueMenu({
@@ -38,6 +39,7 @@ export default function ValueMenu({
     className,
     manuallyUpdateFilters,
     aggregationsEntityTypes,
+    showDefaultOptions,
 }: Props) {
     const [stagedSelectedValues, setStagedSelectedValues] = useState<FilterValue[]>(values || []);
     const visibilityRef = useRef<boolean>(visible);
@@ -116,6 +118,7 @@ export default function ValueMenu({
                     className={className}
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
+                    showDefaultOptions={showDefaultOptions}
                 />
             );
         case FieldType.ENTITY_TYPE:
@@ -130,6 +133,7 @@ export default function ValueMenu({
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                     aggregationsEntityTypes={aggregationsEntityTypes}
+                    showDefaultOptions={showDefaultOptions}
                 />
             );
         case FieldType.ENUM:
@@ -144,6 +148,7 @@ export default function ValueMenu({
                     onChangeValues={setStagedSelectedValues}
                     onApply={() => onChangeValues(stagedSelectedValues)}
                     aggregationsEntityTypes={aggregationsEntityTypes}
+                    showDefaultOptions={showDefaultOptions}
                 />
             );
         case FieldType.BUCKETED_TIMESTAMP:

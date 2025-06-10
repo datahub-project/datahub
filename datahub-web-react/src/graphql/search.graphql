@@ -1236,6 +1236,10 @@ fragment searchResultsWithoutSchemaField on Entity {
                 }
             }
         }
+        formAssignmentStatus {
+            status
+            timestamp
+        }
     }
 }
 

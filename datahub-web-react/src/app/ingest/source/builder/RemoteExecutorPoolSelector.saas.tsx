@@ -1,13 +1,10 @@
 import { Input, Select } from 'antd';
-import React, { useState } from 'react';
+import React from 'react';
+import { debounce } from 'remirror';
 
 import { checkIsPoolInDataHubCloud, getDisplayablePoolId } from '@app/ingest/executor_saas/utils';
 import { colors } from '@src/alchemy-components';
 import { useAppConfig } from '@src/app/useAppConfig';
-import {
-    useGetDefaultRemoteExecutorPoolQuery,
-    useListRemoteExecutorPoolsQuery,
-} from '@src/graphql/remote_executor.saas.generated';
 import { RemoteExecutorPool } from '@src/types.generated';
 
 type Props = {
@@ -15,42 +12,35 @@ type Props = {
     onChange?: (value: string) => void;
     onBlur?: (value: string) => void;
     placeholder?: string;
+    pools: RemoteExecutorPool[];
+    total?: number;
+    loading?: boolean;
+    handleSearch: (text: string) => void;
 };
 
-export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, placeholder = 'Select a pool' }: Props) {
+export default function RemoteExecutorPoolSelector({
+    value,
+    onChange,
+    onBlur,
+    placeholder = 'Select a pool',
+    pools,
+    total,
+    loading,
+    handleSearch,
+}: Props) {
     const { config } = useAppConfig();
     const isExecutorPoolEnabled = config?.featureFlags?.displayExecutorPools;
 
-    const [searchText, setSearchText] = useState('');
-
-    const { data, loading } = useListRemoteExecutorPoolsQuery({
-        variables: {
-            query: searchText,
-            count: 50,
-            start: 0,
-        },
-        fetchPolicy: 'no-cache',
-    });
-    const { data: defaultPool } = useGetDefaultRemoteExecutorPoolQuery();
-
-    const pools = (data?.listRemoteExecutorPools?.remoteExecutorPools || []) as RemoteExecutorPool[];
-    const total = data?.listRemoteExecutorPools?.total;
-    const defaultPoolId = defaultPool?.defaultRemoteExecutorPool?.pool?.executorPoolId || pools[0]?.executorPoolId;
-
     const handleChange = (newValue: string) => {
         onChange?.(newValue);
-        setSearchText('');
+        handleSearch('');
     };
 
     const handleBlur = () => {
         if (value) {
             onBlur?.(value.trim());
-            setSearchText('');
+            handleSearch('');
         }
-    };
-
-    const handleSearch = (text: string) => {
-        setSearchText(text);
     };
 
     if (!isExecutorPoolEnabled) {
@@ -66,16 +56,15 @@ export default function RemoteExecutorPoolSelector({ value, onChange, onBlur, pl
 
     return (
         <Select
-            key={defaultPoolId}
+            key="remote-executor-selector"
             showSearch
-            value={value ?? defaultPoolId}
+            value={value}
             placeholder={placeholder}
             onChange={handleChange}
             onBlur={handleBlur}
-            onSearch={handleSearch}
+            onSearch={debounce(200, handleSearch)}
             loading={loading}
             filterOption={false}
-            defaultValue={defaultPoolId}
         >
             {pools.map((pool) => (
                 <Select.Option key={pool.executorPoolId} value={pool.executorPoolId}>

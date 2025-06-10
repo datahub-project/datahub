@@ -268,6 +268,11 @@ type Form implements Entity {
   dynamicFormAssignment: DynamicFormAssignment
 
   """
+  Status info on assigning a form out to assets
+  """
+  formAssignmentStatus: FormAssignmentStatus
+
+  """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -1150,4 +1155,33 @@ input FormNotificationSettingsInput {
   Whether to notify the assignees of the form when it is published.
   """
   notifyAssigneesOnPublish: Boolean
+}
+
+"""
+Status info on assigning a form out to assets
+"""
+enum AssignmentStatus {
+  """
+  We are currently processing form assignments out to assets
+  """
+  IN_PROGRESS
+  """
+  We have completed issuing form assignment changes. There may be some lag for all assets to be assigned.
+  """
+  COMPLETE
+}
+
+"""
+Status info on assigning a form out to assets
+"""
+type FormAssignmentStatus {
+  """
+  Status info on assigning a form out to assets
+  """
+  status: AssignmentStatus!
+
+  """
+  When this status was reported
+  """
+  timestamp: Long
 }

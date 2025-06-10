@@ -434,6 +434,7 @@ public class Constants {
   public static final String FORM_KEY_ASPECT_NAME = "formKey";
   public static final String DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME = "dynamicFormAssignment";
   public static final String FORM_SETTINGS_ASPECT_NAME = "formSettings";
+  public static final String FORM_ASSIGNMENT_STATUS_ASPECT_NAME = "formAssignmentStatus";
 
   // Data Type
   public static final String DATA_TYPE_INFO_ASPECT_NAME = "dataTypeInfo";

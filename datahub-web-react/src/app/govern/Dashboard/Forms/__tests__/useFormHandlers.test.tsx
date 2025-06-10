@@ -28,6 +28,7 @@ const Wrapper = ({ children }: { children: React.ReactChildren }) => {
                 formValues,
                 setFormValues,
                 form: undefined,
+                data: undefined,
                 formMode: 'create',
                 setFormMode: () => {},
                 isFormLoading: false,

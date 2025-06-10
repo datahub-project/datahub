@@ -2,8 +2,10 @@ import React from 'react';
 import { CSSProperties } from 'styled-components';
 
 import FilterLabel from '@app/sharedV2/filters/FilterLabel';
+import { FilterQueryOptions } from '@app/sharedV2/filters/FilterSection';
+import useProposalsFilterDropdown from '@app/taskCenterV2/proposalsV2/filters/useProposalsFilterDropdown';
 import { FilterPredicate } from '@src/app/searchV2/filters/types';
-import useFilterDropdown from '@src/app/searchV2/filters/useSearchFilterDropdown';
+import useSearchFilterDropdown from '@src/app/searchV2/filters/useSearchFilterDropdown';
 import { getFilterDropdownIcon, useFilterDisplayName } from '@src/app/searchV2/filters/utils';
 import ValueSelector from '@src/app/searchV2/filters/value/ValueSelector';
 import { EntityType, FacetFilterInput, FacetMetadata } from '@src/types.generated';
@@ -22,8 +24,7 @@ interface Props {
     filterPredicates: FilterPredicate[];
     labelStyle?: CSSProperties;
     customFilterLabels?: FilterLabels;
-    aggregationsEntityTypes?: Array<EntityType>;
-    shouldApplyView?: boolean;
+    queryOptions?: FilterQueryOptions;
 }
 
 export default function Filter({
@@ -33,15 +34,26 @@ export default function Filter({
     onChangeFilters,
     labelStyle,
     customFilterLabels,
-    aggregationsEntityTypes,
-    shouldApplyView,
+    queryOptions = {
+        aggregationsEntityTypes: [],
+        shouldApplyView: false,
+        fetchPolicy: 'cache-first',
+    },
 }: Props) {
-    const { finalAggregations, updateFilters, numActiveFilters } = useFilterDropdown({
+    const { aggregationsEntityTypes, shouldApplyView, fetchPolicy } = queryOptions;
+
+    const isProposalsFilter = queryOptions.aggregationsEntityTypes?.includes(EntityType.ActionRequest);
+    const hook = isProposalsFilter ? useProposalsFilterDropdown : useSearchFilterDropdown;
+
+    const { finalAggregations, updateFilters, numActiveFilters } = hook({
         filter,
         activeFilters,
         onChangeFilters,
         aggregationsEntityTypes,
         shouldApplyView,
+        fetchPolicy,
+        // specific to action requests
+        getAllActionRequests: queryOptions?.includeAll,
     });
 
     const currentFilterPredicate = filterPredicates?.find((obj) => obj.field.field === filter.field) as FilterPredicate;
@@ -60,6 +72,7 @@ export default function Filter({
             defaultOptions={finalAggregations}
             onChangeValues={updateFilters}
             aggregationsEntityTypes={aggregationsEntityTypes}
+            showDefaultOptions={!isProposalsFilter}
         >
             <FilterLabel
                 numActiveFilters={numActiveFilters}

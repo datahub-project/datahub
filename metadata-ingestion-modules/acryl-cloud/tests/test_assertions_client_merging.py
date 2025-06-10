@@ -100,7 +100,7 @@ class SmartFreshnessAssertionUpsertInputParams:
 
 
 @freeze_time(FROZEN_TIME)
-def test__upsert_and_merge_smart_freshness_assertion_valid_simple_input(
+def test_sync_smart_freshness_assertion_valid_simple_input(
     stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_monitor_urn: MonitorUrn,
@@ -135,9 +135,7 @@ def test__upsert_and_merge_smart_freshness_assertion_valid_simple_input(
         )
 
         # Act
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
-            **asdict(input_params)
-        )
+        assertion = client.sync_smart_freshness_assertion(**asdict(input_params))
 
     # Assert
     _validate_assertion_vs_input(
@@ -226,7 +224,7 @@ def test__upsert_and_merge_smart_freshness_assertion_valid_simple_input(
     )
 
 
-def test__upsert_and_merge_smart_freshness_assertion_calls_create_assertion_if_urn_is_not_set(
+def test_sync_smart_freshness_assertion_calls_create_assertion_if_urn_is_not_set(
     stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
@@ -236,7 +234,7 @@ def test__upsert_and_merge_smart_freshness_assertion_calls_create_assertion_if_u
     stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
     mock_create_assertion = MagicMock()
     client.create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
-    client._upsert_and_merge_smart_freshness_assertion(
+    client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=None,
     )
@@ -256,7 +254,7 @@ def test__upsert_and_merge_smart_freshness_assertion_calls_create_assertion_if_u
         ),
     ],
 )
-def test__upsert_and_merge_smart_freshness_assertion_uses_default_if_updated_by_is_not_set(
+def test_sync_smart_freshness_assertion_uses_default_if_updated_by_is_not_set(
     stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
@@ -278,7 +276,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_default_if_updated_by_
             nativeType="nativeType",
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        client._upsert_and_merge_smart_freshness_assertion(
+        client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             updated_by=updated_by,
@@ -287,7 +285,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_default_if_updated_by_
     assert assertion_entity_upserted.last_updated.actor == str(expected_updated_by)
 
 
-def test__upsert_and_merge_smart_freshness_assertion_calls_create_if_assertion_and_monitor_entities_do_not_exist(
+def test_sync_smart_freshness_assertion_calls_create_if_assertion_and_monitor_entities_do_not_exist(
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
     any_monitor_urn: MonitorUrn,
@@ -314,7 +312,7 @@ def test__upsert_and_merge_smart_freshness_assertion_calls_create_if_assertion_a
         )
     )
     client.create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
-    client._upsert_and_merge_smart_freshness_assertion(
+    client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
     )
@@ -324,7 +322,7 @@ def test__upsert_and_merge_smart_freshness_assertion_calls_create_if_assertion_a
 
 
 @freeze_time(FROZEN_TIME)
-def test__upsert_and_merge_smart_freshness_assertion_calls_upsert_if_assertion_exists_but_monitor_does_not(
+def test_sync_smart_freshness_assertion_calls_upsert_if_assertion_exists_but_monitor_does_not(
     stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
@@ -351,9 +349,7 @@ def test__upsert_and_merge_smart_freshness_assertion_calls_upsert_if_assertion_e
         urn=any_assertion_urn,
         display_name="Explicitly Input Display Name",
     )
-    assertion = client._upsert_and_merge_smart_freshness_assertion(
-        **asdict(input_params)
-    )
+    assertion = client.sync_smart_freshness_assertion(**asdict(input_params))
 
     # Assert
     assert mock_upsert.call_count == 2
@@ -382,20 +378,20 @@ def test__upsert_and_merge_smart_freshness_assertion_calls_upsert_if_assertion_e
     )
 
 
-def test__upsert_and_merge_smart_freshness_assertion_raises_error_if_assertion_and_input_have_different_dataset_urns(
+def test_sync_smart_freshness_assertion_raises_error_if_assertion_and_input_have_different_dataset_urns(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
 ) -> None:
     # stub_datahub_client entity client returns assertion and monitor
     client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
     with pytest.raises(SDKUsageError, match="Dataset URN mismatch"):
-        client._upsert_and_merge_smart_freshness_assertion(
+        client.sync_smart_freshness_assertion(
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:test,not_the_same_dataset_urn,PROD)",
             urn=any_assertion_urn,
         )
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_display_name_if_input_display_name_is_not_set(
+def test_sync_smart_freshness_assertion_uses_existing_assertion_display_name_if_input_display_name_is_not_set(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
@@ -414,7 +410,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_dis
             nativeType=field_type,
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
+        assertion = client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             display_name=None,
@@ -422,7 +418,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_dis
     assert assertion.display_name == assertion_entity_with_all_fields.description
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_empty_display_name_if_existing_assertion_has_no_display_name(
+def test_sync_smart_freshness_assertion_uses_empty_display_name_if_existing_assertion_has_no_display_name(
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
     assertion_entity_with_all_fields: Assertion,
@@ -442,7 +438,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_empty_display_name_if_
         )
     )  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
-    assertion = client._upsert_and_merge_smart_freshness_assertion(
+    assertion = client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         display_name=None,
@@ -452,7 +448,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_empty_display_name_if_
     )  # Set to empty string in SmartFreshnessAssertion
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_exclusion_windows_if_input_exclusion_windows_is_not_set(
+def test_sync_smart_freshness_assertion_uses_existing_assertion_exclusion_windows_if_input_exclusion_windows_is_not_set(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
@@ -471,7 +467,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_exc
             nativeType=field_type,
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
+        assertion = client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             exclusion_windows=None,
@@ -497,7 +493,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_exc
         )
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_incident_behavior_if_input_incident_behavior_is_not_set(
+def test_sync_smart_freshness_assertion_uses_existing_assertion_incident_behavior_if_input_incident_behavior_is_not_set(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
@@ -516,7 +512,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_inc
             nativeType=field_type,
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
+        assertion = client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             incident_behavior=None,
@@ -526,7 +522,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_inc
     ) + len(assertion_entity_with_all_fields.on_success)
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_tags_if_input_tags_is_not_set(
+def test_sync_smart_freshness_assertion_uses_existing_assertion_tags_if_input_tags_is_not_set(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
@@ -545,7 +541,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_tag
             nativeType=field_type,
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
+        assertion = client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             tags=None,
@@ -559,7 +555,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_existing_assertion_tag
         )
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_input_display_name_if_input_display_name_is_set(
+def test_sync_smart_freshness_assertion_uses_input_display_name_if_input_display_name_is_set(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
@@ -577,7 +573,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_input_display_name_if_
             nativeType=field_type,
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
+        assertion = client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             display_name="",
@@ -585,7 +581,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_input_display_name_if_
     assert assertion.display_name == ""
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_input_exclusion_windows_if_input_exclusion_windows_is_set(
+def test_sync_smart_freshness_assertion_uses_input_exclusion_windows_if_input_exclusion_windows_is_set(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
@@ -604,7 +600,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_input_exclusion_window
             nativeType=field_type,
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
+        assertion = client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             exclusion_windows=[],  # Empty list means set to no exclusion windows
@@ -625,7 +621,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_input_exclusion_window
     )
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_input_incident_behavior_if_input_incident_behavior_is_set(
+def test_sync_smart_freshness_assertion_uses_input_incident_behavior_if_input_incident_behavior_is_set(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
@@ -644,7 +640,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_input_incident_behavio
             nativeType=field_type,
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
+        assertion = client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             incident_behavior=[],  # Empty list means set to no incident behavior
@@ -652,7 +648,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_input_incident_behavio
     assert assertion.incident_behavior == []
 
 
-def test__upsert_and_merge_smart_freshness_assertion_uses_input_tags_if_input_tags_is_set(
+def test_sync_smart_freshness_assertion_uses_input_tags_if_input_tags_is_set(
     stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
@@ -671,7 +667,7 @@ def test__upsert_and_merge_smart_freshness_assertion_uses_input_tags_if_input_ta
             nativeType=field_type,
             kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
         )
-        assertion = client._upsert_and_merge_smart_freshness_assertion(
+        assertion = client.sync_smart_freshness_assertion(
             dataset_urn=any_dataset_urn,
             urn=any_assertion_urn,
             tags=[],  # Empty list means set to no tags
@@ -985,3 +981,103 @@ def _validate_assertion_vs_input(
     assert assertion.created_at == expected_output_params.created_at
     assert assertion.updated_by == expected_output_params.updated_by
     assert assertion.updated_at == expected_output_params.updated_at
+
+
+def test_smart_freshness_assertion_create_case_uses_default_hourly_schedule(
+    stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that create case uses DEFAULT_SCHEDULE (hourly) when no schedule provided."""
+    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_create = MagicMock()
+    stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+
+    # Create assertion - should use default hourly schedule
+    assertion = client.create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
+
+    # Verify the assertion has the default hourly schedule
+    assert assertion.schedule.cron == DEFAULT_SCHEDULE.cron  # "0 * * * *" (hourly)
+    assert assertion.schedule.timezone == DEFAULT_SCHEDULE.timezone
+
+    # Verify create was called twice (assertion + monitor)
+    assert mock_create.call_count == 2
+
+
+def test_smart_freshness_assertion_update_case_preserves_existing_schedule(
+    stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    monitor_with_all_fields: Monitor,
+    assertion_entity_with_all_fields: Assertion,
+) -> None:
+    """Test that update case preserves existing schedule from monitor."""
+    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    mock_upsert = MagicMock()
+    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+
+    # Create a custom schedule different from DEFAULT_SCHEDULE to ensure preservation is tested
+    custom_schedule = models.CronScheduleClass(
+        cron="0 0 * * *",  # Daily at midnight (different from DEFAULT_SCHEDULE "0 * * * *")
+        timezone="UTC",  # Different timezone too
+    )
+
+    # Update the monitor's schedule to our custom schedule for this test
+    assert monitor_with_all_fields.info.assertionMonitor is not None
+    monitor_with_all_fields.info.assertionMonitor.assertions[
+        0
+    ].schedule = custom_schedule
+    existing_schedule = custom_schedule
+
+    # Mock field creation for detection mechanism - existing monitor uses FIELD_VALUE source type
+    # which requires field validation that would try to fetch real dataset schema
+    field_name = "field"
+    field_type = "DateTypeClass"
+    with patch.object(
+        _SmartFreshnessAssertionInput, "_create_field_spec", new_callable=MagicMock
+    ) as mock_create_field_spec:
+        mock_create_field_spec.return_value = models.FreshnessFieldSpecClass(
+            path=field_name,
+            type=field_type,
+            nativeType="nativeType",
+            kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
+        )
+
+        # Update assertion - should preserve existing schedule
+        assertion = client.sync_smart_freshness_assertion(
+            dataset_urn=any_dataset_urn,
+            urn=any_assertion_urn,
+            display_name="Updated Display Name",
+        )
+
+    # Verify the assertion preserved the existing schedule
+    assert assertion.schedule.cron == existing_schedule.cron
+    assert assertion.schedule.timezone == existing_schedule.timezone
+
+    # Verify upsert was called twice (assertion + monitor)
+    assert mock_upsert.call_count == 2
+
+
+def test_assertion_entity_schedule_left_empty_for_ai_inference_engine(
+    stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+) -> None:
+    """Test that assertion entity schedule is left empty (managed by AI inference engine)."""
+    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+
+    # Track what entities are created
+    created_entities = []
+    mock_create = MagicMock(side_effect=lambda entity: created_entities.append(entity))
+    stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign]
+
+    # Create assertion using public interface
+    client.create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
+
+    # Verify two entities were created (assertion + monitor)
+    assert len(created_entities) == 2
+    assertion_entity = created_entities[0]  # First entity is assertion
+
+    # Verify assertion entity schedule is None (left empty for AI inference engine)
+    assert (
+        not hasattr(assertion_entity.info, "schedule")
+        or assertion_entity.info.schedule is None
+    )

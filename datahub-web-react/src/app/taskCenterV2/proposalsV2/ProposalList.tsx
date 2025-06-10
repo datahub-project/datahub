@@ -263,9 +263,12 @@ export const ProposalList = ({
                             activeFilters={filters}
                             onChangeFilters={handleFiltersChange}
                             customFilterLabels={PROPOSALS_FILTER_LABELS}
-                            aggregationsEntityTypes={[EntityType.ActionRequest]}
+                            queryOptions={{
+                                aggregationsEntityTypes: [EntityType.ActionRequest],
+                                shouldApplyView: false,
+                                includeAll: getAllActionRequests,
+                            }}
                             noOfLoadingSkeletons={3}
-                            shouldApplyView={false}
                         />
                     </ProposalsTableHeader>
                 )}

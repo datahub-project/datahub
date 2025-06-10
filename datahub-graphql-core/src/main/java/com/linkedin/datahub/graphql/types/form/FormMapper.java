@@ -6,6 +6,7 @@ import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.AssignmentStatus;
 import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Domain;
@@ -15,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Form;
 import com.linkedin.datahub.graphql.generated.FormActorAssignment;
+import com.linkedin.datahub.graphql.generated.FormAssignmentStatus;
 import com.linkedin.datahub.graphql.generated.FormInfo;
 import com.linkedin.datahub.graphql.generated.FormNotificationSettings;
 import com.linkedin.datahub.graphql.generated.FormPrompt;
@@ -67,6 +69,7 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     MappingHelper<Form> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(FORM_INFO_ASPECT_NAME, this::mapFormInfo);
     mappingHelper.mapToResult(DYNAMIC_FORM_ASSIGNMENT_ASPECT_NAME, this::mapDynamicFormAssignment);
+    mappingHelper.mapToResult(FORM_ASSIGNMENT_STATUS_ASPECT_NAME, this::mapFormAssignmentStatus);
     mappingHelper.mapToResult(
         OWNERSHIP_ASPECT_NAME,
         (form, dataMap) ->
@@ -291,6 +294,18 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     formSettings.setNotificationSettings(formNotificationSettings);
 
     form.setFormSettings(formSettings);
+  }
+
+  private void mapFormAssignmentStatus(@Nonnull Form form, @Nonnull DataMap dataMap) {
+    com.linkedin.form.FormAssignmentStatus gmsFormAssignmentStatus =
+        new com.linkedin.form.FormAssignmentStatus(dataMap);
+    FormAssignmentStatus formAssignmentStatus = new FormAssignmentStatus();
+    formAssignmentStatus.setStatus(
+        AssignmentStatus.valueOf(gmsFormAssignmentStatus.getStatus().toString()));
+    if (gmsFormAssignmentStatus.getTimestamp() != null) {
+      formAssignmentStatus.setTimestamp(gmsFormAssignmentStatus.getTimestamp());
+    }
+    form.setFormAssignmentStatus(formAssignmentStatus);
   }
 
   /*

@@ -2112,6 +2112,10 @@ fragment formFields on Form {
             notifyAssigneesOnPublish
         }
     }
+    formAssignmentStatus {
+        status
+        timestamp
+    }
 }
 
 fragment formAssociationFields on FormAssociation {

@@ -201,8 +201,11 @@ def test_smart_freshness_assertion_log_messages(
         ),
         monitor=monitor,
     )
-    assert caplog.records[0].message == expected_log_message.format(
-        monitor_urn=monitor.urn
+    # Find the expected log message among all captured log messages
+    expected_message = expected_log_message.format(monitor_urn=monitor.urn)
+    log_messages = [record.message for record in caplog.records]
+    assert expected_message in log_messages, (
+        f"Expected message '{expected_message}' not found in log messages: {log_messages}"
     )
 
 

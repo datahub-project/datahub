@@ -21,10 +21,16 @@ interface Props {
     availableFilters: FacetMetadata[];
     activeFilters: FacetFilterInput[];
     onChangeFilters: (newFilters: FacetFilterInput[]) => void;
-    aggregationsEntityTypes?: Array<EntityType>;
     customFilterLabels?: FilterLabels;
     noOfLoadingSkeletons?: number;
+    queryOptions?: FilterQueryOptions;
+}
+
+export interface FilterQueryOptions {
+    aggregationsEntityTypes?: EntityType[];
     shouldApplyView?: boolean;
+    fetchPolicy?: 'cache-first' | 'network-only' | 'cache-and-network';
+    includeAll?: boolean;
 }
 
 export default function FilterSection({
@@ -33,10 +39,9 @@ export default function FilterSection({
     availableFilters,
     activeFilters,
     onChangeFilters,
-    aggregationsEntityTypes,
+    queryOptions,
     customFilterLabels,
     noOfLoadingSkeletons,
-    shouldApplyView,
 }: Props) {
     const [finalAvailableFilters, setFinalAvailableFilters] = useState(availableFilters);
 
@@ -64,8 +69,7 @@ export default function FilterSection({
                     onChangeFilters={onChangeFilters}
                     filterPredicates={filterPredicates}
                     customFilterLabels={customFilterLabels}
-                    aggregationsEntityTypes={aggregationsEntityTypes}
-                    shouldApplyView={shouldApplyView}
+                    queryOptions={queryOptions}
                 />
             ))}
         </Section>

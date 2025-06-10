@@ -46,7 +46,8 @@ public class SearchBasedFormAssignmentRunner {
                 formUrn,
                 batchFormEntityCount,
                 entityClient,
-                formService::batchAssignFormToEntities);
+                formService::batchAssignFormToEntities,
+                true);
           } catch (Exception e) {
             handleException(e, predicateJson, formUrn, batchFormEntityCount, entityClient);
             throw new RuntimeException("Form assignment runner error.", e);
@@ -85,7 +86,8 @@ public class SearchBasedFormAssignmentRunner {
                 formUrn,
                 batchFormEntityCount,
                 entityClient,
-                formService::batchUnassignFormForEntities);
+                formService::batchUnassignFormForEntities,
+                false);
           } catch (Exception e) {
             handleException(e, predicateJson, formUrn, batchFormEntityCount, entityClient);
           }

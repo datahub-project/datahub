@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import RemoteExecutorPoolSelector from '@app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
+import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import OwnersSection, { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
@@ -34,6 +35,8 @@ export const NameSourceStep = ({
     useEffect(() => {
         setExistingOwners(selectedSource?.ownership?.owners || []);
     }, [selectedSource?.ownership?.owners]);
+
+    const [searchPoolQuery, setSearchPoolQuery] = useState('');
 
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
@@ -180,6 +183,13 @@ export const NameSourceStep = ({
         setterFunction(trimmedValue);
     };
 
+    const { pools, loading, total } = useExecutorPoolSelection({
+        searchQuery: searchPoolQuery,
+        currentExecutorId: state?.config?.executorId || '',
+        isEditing,
+        onSetExecutorId: setExecutorId,
+    });
+
     return (
         <>
             <RequiredFieldForm layout="vertical">
@@ -212,6 +222,10 @@ export const NameSourceStep = ({
                                 value={state.config?.executorId || (isEditing ? '' : undefined)}
                                 onChange={(newPoolId) => setExecutorId(newPoolId)}
                                 onBlur={(newPoolId) => setExecutorId(newPoolId)}
+                                pools={pools || []}
+                                total={total}
+                                loading={loading}
+                                handleSearch={setSearchPoolQuery}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>

@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import List, Optional, Union
+from typing import List, Optional, Sequence, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -73,7 +73,7 @@ class EntityChangeTypesTestParams:
 
     # Input parameters (match method signature)
     assertion_scope: bool
-    entity_change_types: Optional[List[str]]
+    entity_change_types: Optional[Sequence[Union[str, models.EntityChangeTypeClass]]]
 
     # Expected output
     expected_result: Optional[List[str]]
@@ -301,6 +301,23 @@ def any_assertion_urn() -> AssertionUrn:
                 expected_error="For assertion subscriptions, only assertion-related change types are allowed",
             ),
             id="assertion_scope_non_assertion_types",
+        ),
+        pytest.param(
+            EntityChangeTypesTestParams(
+                assertion_scope=False,
+                entity_change_types=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,  # EntityChangeTypeClass
+                    "ASSERTION_FAILED",  # str
+                    models.EntityChangeTypeClass.TAG_ADDED,  # EntityChangeTypeClass
+                ],
+                expected_result=[
+                    models.EntityChangeTypeClass.ASSERTION_PASSED,
+                    models.EntityChangeTypeClass.ASSERTION_FAILED,
+                    models.EntityChangeTypeClass.TAG_ADDED,
+                ],
+                should_raise=False,
+            ),
+            id="dataset_scope_mixed_str_and_class_types",
         ),
     ],
 )
