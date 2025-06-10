@@ -1,10 +1,11 @@
 import { Button, Tooltip } from '@components';
 import { Checkbox, Collapse, Form, Input, Typography } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import RemoteExecutorPoolSelector from '@app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
+import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
 
@@ -19,6 +20,8 @@ const ExtraReqKey = 'extra_pip_requirements';
 const ExtraPluginKey = 'extra_pip_plugins';
 
 export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: StepProps) => {
+    const [searchPoolQuery, setSearchPoolQuery] = useState('');
+
     const setName = (stagedName: string) => {
         const newState: SourceBuilderState = {
             ...state,
@@ -155,6 +158,13 @@ export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: 
         setterFunction(trimmedValue);
     };
 
+    const { pools, loading, total } = useExecutorPoolSelection({
+        searchQuery: searchPoolQuery,
+        currentExecutorId: state?.config?.executorId || '',
+        isEditing,
+        onSetExecutorId: setExecutorId,
+    });
+
     return (
         <>
             <RequiredFieldForm layout="vertical">
@@ -187,6 +197,10 @@ export const NameSourceStep = ({ state, isEditing, updateState, prev, submit }: 
                                 value={state.config?.executorId || (isEditing ? '' : undefined)}
                                 onChange={(newPoolId) => setExecutorId(newPoolId)}
                                 onBlur={(newPoolId) => setExecutorId(newPoolId)}
+                                pools={pools || []}
+                                total={total}
+                                loading={loading}
+                                handleSearch={setSearchPoolQuery}
                             />
                         </Form.Item>
                         <Form.Item label={<Typography.Text strong>CLI Version</Typography.Text>}>

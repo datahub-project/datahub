@@ -1,11 +1,12 @@
 import { Tooltip } from '@components';
 import { Collapse, Input } from 'antd';
 import { Info } from 'phosphor-react';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { CategorySelector } from '@app/automations/fields/CategorySelector';
 import type { ComponentBaseProps } from '@app/automations/types';
+import { useExecutorPoolSelection } from '@app/ingest/source/builder/useExecutorPoolSelection';
 import RemoteExecutorPoolSelector from '@src/app/ingest/source/builder/RemoteExecutorPoolSelector.saas';
 
 const { Panel } = Collapse;
@@ -45,6 +46,14 @@ export const Details = ({ state, props, passStateToParent }: ComponentBaseProps)
     const handleChange = (key: string, value: string) => {
         passStateToParent({ ...state, [key]: value });
     };
+
+    const [searchPoolQuery, setSearchPoolQuery] = useState('');
+    const { pools, loading, total } = useExecutorPoolSelection({
+        searchQuery: searchPoolQuery,
+        currentExecutorId: state?.config?.executorId || '',
+        isEditing: true,
+        onSetExecutorId: (value) => handleChange('executorId', value),
+    });
 
     return (
         <Container>
@@ -101,6 +110,10 @@ export const Details = ({ state, props, passStateToParent }: ComponentBaseProps)
                             onChange={(value) => handleChange('executorId', value)}
                             onBlur={(value) => handleChange('executorId', value)}
                             placeholder={executor.placeholder}
+                            pools={pools || []}
+                            total={total}
+                            loading={loading}
+                            handleSearch={setSearchPoolQuery}
                         />
                     </div>
                 </Panel>
