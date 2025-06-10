@@ -28,6 +28,7 @@ from mlflow.entities import Run
 from mlflow.metrics import MetricValue
 from mlflow_common import get_run_or_fail
 from pydantic import BaseModel
+from run_prompt_experiment import has_table_description_metric, has_valid_links_metric
 
 from datahub_integrations.gen_ai.bedrock import (
     BedrockModel,
@@ -325,9 +326,9 @@ async def eval_metrics(
     metric: str, predictions: pd.Series, targets: pd.Series
 ) -> List[Optional[JudgedMetricValue]]:
     results: List[asyncer.SoonValue[JudgedMetricValue]] = []
-    batch_size = 20
+    batch_size = 5
 
-    # Process in batches of 10
+    # Process in batches of 5
     for i in range(0, len(predictions), batch_size):
         batch_predictions = predictions.iloc[i : i + batch_size]
         batch_targets = targets.iloc[i : i + batch_size]
@@ -422,11 +423,14 @@ def make_custom_metric(metric_name: str) -> MetricValue:
     )
 
 
+# TODO: consider non-llm metrics for this computation
 metric_overall_score = make_overall_score_metric()
 
 ai_metrics = [
     *[make_custom_metric(metric.name) for metric in METRICS_CONFIG],
     metric_overall_score,
+    has_table_description_metric,
+    has_valid_links_metric,
 ]
 
 

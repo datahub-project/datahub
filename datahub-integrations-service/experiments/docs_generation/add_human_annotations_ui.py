@@ -67,7 +67,7 @@ def get_eval_table(input_run_id: str) -> pd.DataFrame:
     return load_eval_table(input_run_id)
 
 
-def row_to_ai_judge_verdict(row: pd.Series) -> AIJudgeVerdict:
+def row_to_ai_judge_verdict(row: Dict[str, Any]) -> AIJudgeVerdict:
     return AIJudgeVerdict.model_validate(
         {
             metric_name: JudgedMetricValue.model_validate(
@@ -206,7 +206,7 @@ def init_session_state_with_previous_annotations(
             "data": row["entity_info"],
             "notes": row.get("notes", ""),
             "ai_eval_results": row_to_ai_judge_verdict(
-                ai_eval_result_indexed.loc[row["urn"]]
+                ai_eval_result_indexed.loc[row["urn"]].to_dict()
             ),
             "guidelines": guidelines.get(row["urn"]),
         }

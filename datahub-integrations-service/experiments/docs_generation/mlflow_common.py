@@ -60,7 +60,7 @@ def get_ai_eval_result_or_none(run_name: str) -> Optional[pd.DataFrame]:
     try:
         ai_run = get_run_or_fail(
             ai_run_name,
-            'and tags.evaluation_type!="eval_ai_judge" and tags.evaluation_type!="ai_judge_eval"',
+            'and tags.evaluation_type!="eval_ai_judge" and tags.evaluation_type!="ai_judge_eval" and attributes.status = "FINISHED"',
         )
         logger.info(f"AI run id: {ai_run.info.run_id}")
 
@@ -109,6 +109,6 @@ def get_latest_human_eval_result_or_none() -> Optional[pd.DataFrame]:
         filtered_table.sort_values(by="start_time", ascending=False, inplace=True)
         return filtered_table.drop_duplicates(subset=["urn", "deployment"])
     except Exception as e:
-        logger.error(f"Error getting latest human eval results: {e}")
+        logger.exception(f"Error getting latest human eval results: {e}")
 
     return None
