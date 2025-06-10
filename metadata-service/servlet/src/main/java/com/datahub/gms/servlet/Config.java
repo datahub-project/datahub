@@ -89,8 +89,8 @@ public class Config extends HttpServlet {
       // acryl-main additions:
       telemetryConfig.put(
           "enabledMixpanel",
-          configProvider.getTelemetry().mixpanel != null && configProvider.getTelemetry().mixpanel.isEnabled()
-      );
+          configProvider.getTelemetry().mixpanel != null
+              && configProvider.getTelemetry().mixpanel.isEnabled());
       telemetryConfig.put("enabledServer", configProvider.getTelemetry().isEnabledServer());
       newConfig.put("telemetry", telemetryConfig);
 
