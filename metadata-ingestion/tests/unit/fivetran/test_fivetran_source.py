@@ -118,28 +118,23 @@ class FivetranAPIClientTest(unittest.TestCase):
         # Mock detect_destination_platform to avoid actual API calls
         with patch.object(
             client, "detect_destination_platform", return_value="snowflake"
-        ):
-            with patch.object(
-                client, "get_destination_database", return_value="TEST_DB"
-            ):
-                # Call method under test
-                connector = client.extract_connector_metadata(
-                    api_connector, sync_history
-                )
+        ), patch.object(client, "get_destination_database", return_value="TEST_DB"):
+            # Call method under test
+            connector = client.extract_connector_metadata(api_connector, sync_history)
 
-                # Verify results
-                self.assertEqual(connector.connector_id, "connector1")
-                self.assertEqual(connector.connector_name, "My Connector")
-                self.assertEqual(connector.connector_type, "postgres")
-                self.assertEqual(connector.destination_id, "group1")
-                self.assertEqual(connector.user_id, "user1")
-                self.assertEqual(len(connector.jobs), 1)
-                self.assertEqual(
-                    connector.additional_properties["destination_platform"], "snowflake"
-                )
-                self.assertEqual(
-                    connector.additional_properties["destination_database"], "TEST_DB"
-                )
+            # Verify results
+            self.assertEqual(connector.connector_id, "connector1")
+            self.assertEqual(connector.connector_name, "My Connector")
+            self.assertEqual(connector.connector_type, "postgres")
+            self.assertEqual(connector.destination_id, "group1")
+            self.assertEqual(connector.user_id, "user1")
+            self.assertEqual(len(connector.jobs), 1)
+            self.assertEqual(
+                connector.additional_properties["destination_platform"], "snowflake"
+            )
+            self.assertEqual(
+                connector.additional_properties["destination_database"], "TEST_DB"
+            )
 
 
 class FivetranAccessTest(unittest.TestCase):

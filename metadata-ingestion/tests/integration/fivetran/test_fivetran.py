@@ -766,7 +766,7 @@ def test_fivetran_auto_detection():
         # Verify it's using the enterprise (log) mode
         assert source.fivetran_access.__class__.__name__ == "FivetranLogAPI"
 
-    # Test auto detection with only API config
+    # Test auto detection with only API config (parallel processing enabled by default)
     with patch("requests.Session.request", side_effect=mock_requests_get):
         source = FivetranSource.create(
             {
@@ -779,7 +779,24 @@ def test_fivetran_auto_detection():
             ctx=PipelineContext(run_id="fivetran-auto-api"),
         )
 
-        # Verify it's using the standard (API) mode
+        # Verify it's using the standard (API) mode with parallel processing
+        assert source.fivetran_access.__class__.__name__ == "ParallelFivetranAPI"
+
+    # Test auto detection with only API config (parallel processing disabled)
+    with patch("requests.Session.request", side_effect=mock_requests_get):
+        source = FivetranSource.create(
+            {
+                "fivetran_mode": "auto",
+                "use_parallel_processing": False,
+                "api_config": {
+                    "api_key": "test_api_key",
+                    "api_secret": "test_api_secret",
+                },
+            },
+            ctx=PipelineContext(run_id="fivetran-auto-api-no-parallel"),
+        )
+
+        # Verify it's using the standard (API) mode without parallel processing
         assert source.fivetran_access.__class__.__name__ == "FivetranStandardAPI"
 
     # Test auto detection with both configs (should prefer enterprise)
