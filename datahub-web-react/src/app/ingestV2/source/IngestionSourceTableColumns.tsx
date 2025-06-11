@@ -5,7 +5,9 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import { mapEntityTypeToAvatarType } from '@components/components/Avatar/utils';
 import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
+import { AvatarType } from '@components/components/AvatarStack/types';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
@@ -119,7 +121,7 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
         return {
             name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
             imageUrl: owner.owner.editableProperties?.pictureLink,
-            type: owner.owner.type,
+            type: mapEntityTypeToAvatarType(owner.owner.type),
             urn: owner.owner.urn,
         };
     });
@@ -141,7 +143,7 @@ export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entit
                             name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
                             imageUrl={singleOwner.editableProperties?.pictureLink}
                             showInPill
-                            isGroup={singleOwner.type === EntityType.CorpGroup}
+                            type={singleOwner.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user}
                         />
                     </Link>
                 </HoverEntityTooltip>

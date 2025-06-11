@@ -1,5 +1,4 @@
 import { AvatarSizeOptions } from '@src/alchemy-components/theme/config';
-import { EntityType } from '@types';
 
 export enum AvatarType {
     user,
@@ -8,7 +7,6 @@ export enum AvatarType {
 export interface AvatarItemProps {
     name: string;
     imageUrl?: string | null;
-    type?: EntityType;
     urn?: string;
     type?: AvatarType;
 }

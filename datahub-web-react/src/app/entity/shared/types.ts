@@ -4,8 +4,8 @@ import React from 'react';
 import { FetchedEntity } from '@app/lineage/types';
 
 import {
-    ApplicationAssociation,
     ActionRequest,
+    ApplicationAssociation,
     BrowsePathV2,
     ChartStatsSummary,
     Container,

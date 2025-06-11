@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { AvatarItemProps } from '@components/components/AvatarStack/types';
+import { mapAvatarTypeToEntityType } from '@components/components/Avatar/utils';
+import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 import { AvatarSizeOptions } from '@components/theme/config';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
@@ -19,10 +20,10 @@ interface Props {
     entityRegistry: EntityRegistry;
     size?: AvatarSizeOptions;
     maxVisible?: number;
-    isGroup?: boolean;
+    type?: AvatarType;
 }
 
-const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, isGroup }: Props) => {
+const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, type }: Props) => {
     const [expanded, setExpanded] = useState(false);
 
     const visibleAvatars = expanded ? avatars : avatars.slice(0, maxVisible);
@@ -39,13 +40,15 @@ const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, is
                             isOutlined
                             imageUrl={user.imageUrl}
                             name={user.name}
-                            isGroup={isGroup}
+                            type={type}
                         />
                     );
                     return (
                         <>
                             {user.type && user.urn ? (
-                                <Link to={entityRegistry.getEntityUrl(user.type, user.urn)}>{userAvatar}</Link>
+                                <Link to={entityRegistry.getEntityUrl(mapAvatarTypeToEntityType(user.type), user.urn)}>
+                                    {userAvatar}
+                                </Link>
                             ) : (
                                 { userAvatar }
                             )}

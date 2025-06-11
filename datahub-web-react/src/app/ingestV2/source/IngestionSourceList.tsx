@@ -212,32 +212,8 @@ export const IngestionSourceList = ({
     const [removeIngestionSourceMutation] = useDeleteIngestionSourceMutation();
 
     const totalSources = data?.listIngestionSources?.total || 0;
-<<<<<<< ours
-    const isLastPage = totalSources <= pageSize * page;
-
-    const filteredSources = useMemo(() => {
-        const sources = data?.listIngestionSources?.ingestionSources || [];
-        return sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
-    }, [data?.listIngestionSources?.ingestionSources, removedUrns]);
-
-    const [focusSource, setFocusSource] = useState(
-        (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined,
-    );
-
-    const { data: focusSourceData, refetch: focusSourceRefetch } = useGetIngestionSourceQuery({
-        variables: {
-            urn: focusSourceUrn || '',
-        },
-        skip: !focusSourceUrn,
-    });
-
-    const combinedRefetch = async () => {
-        await Promise.all([focusSourceRefetch(), refetch()]);
-    };
-=======
     const focusSource = finalSources.find((s) => s.urn === focusSourceUrn);
     const isLastPage = totalSources <= pageSize * page;
->>>>>>> theirs
 
     useEffect(() => {
         const sources = (data?.listIngestionSources?.ingestionSources || []) as IngestionSource[];
