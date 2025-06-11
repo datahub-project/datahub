@@ -2,10 +2,10 @@
 
 DataHub’s Python SDK allows you to programmatically define and retrieve lineage between metadata entities. With the DataHub Lineage SDK, you can:
 
-- Add table-level and column-level lineage across datasets, data jobs, dashboards, and charts
-- Automatically infer lineage from SQL queries
-- Retrieve lineage relationships (upstream or downstream) for a given entity or column
-- Filter lineage results using structured filters
+- Add **table-level and column-level lineage** across datasets, data jobs, dashboards, and charts
+- Automatically **infer lineage from SQL queries**
+- **Read lineage** (upstream or downstream) for a given entity or column
+- **Filter lineage results** using structured filters
 
 ## Getting Started
 
@@ -24,26 +24,15 @@ client = DataHubClient(server="<your_server>", token="<your_token>")
   - hosted: `https://<your_datahub_url>/gms`
 - **token**: You'll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
 
-## Supported Lineage Combinations
-
-The `add_lineage()` and `get_lineage()` APIs support the following entity combinations:
-
-| Upstream Entity | Downstream Entity | Entity-level Lineage | Column-Level Lineage | Query Node |
-| --------------- | ----------------- | -------------------- | -------------------- | ---------- |
-| Dataset         | Dataset           | ✅ Yes               | ✅ Yes               | ✅ Yes     |
-| Dataset         | DataJob           | ✅ Yes               | ❌ No                | ❌ No      |
-| DataJob         | Dataset           | ✅ Yes               | ❌ No                | ❌ No      |
-| DataJob         | DataJob           | ✅ Yes               | ❌ No                | ❌ No      |
-| Dataset         | Dashboard         | ✅ Yes               | ❌ No                | ❌ No      |
-| Chart           | Dashboard         | ✅ Yes               | ❌ No                | ❌ No      |
-| Dashboard       | Dashboard         | ✅ Yes               | ❌ No                | ❌ No      |
-| Dataset         | Chart             | ✅ Yes               | ❌ No                | ❌ No      |
-
-> ℹ️ Column-level lineage and creating query node with transformation text are **only supported** for `Dataset → Dataset` lineage.
-
 ## Add Lineage
 
 The `add_lineage()` method allows you to define lineage between two entities.
+
+### Add Entity Lineage
+
+You can create lineage between two datasets, data jobs, dashboards, or charts. The `upstream` and `downstream` parameters should be the URNs of the entities you want to link.
+
+#### Add Entity Lineage Between Datasets
 
 ```python
 from datahub.sdk import DataHubClient
@@ -53,30 +42,65 @@ client = DataHubClient(server="<your_server>", token="<your_token>")
 client.lineage.add_lineage(
     upstream="urn:li:dataset:(platform,sales_raw,PROD)",
     downstream="urn:li:dataset:(platform,sales_agg,PROD)",
-    column_lineage=True,  # Optional: True, "auto_fuzzy", "auto_strict", or a mapping
-    transformation_text="SELECT region, SUM(revenue) FROM sales_raw GROUP BY region"  # Optional
 )
 ```
 
-#### Parameters
+#### Add Entity Lineage Between Datajobs
 
-| Parameter             | Description                                                                          |
-| --------------------- | ------------------------------------------------------------------------------------ |
-| `upstream`            | URN (or string) of the upstream entity                                               |
-| `downstream`          | URN (or string) of the downstream entity                                             |
-| `column_lineage`      | One of: `False`, a `dict`, `"auto_strict"`, or `"auto_fuzzy"` (dataset→dataset only) |
-| `transformation_text` | SQL query used to describe the transformation logic (dataset→dataset only)           |
+```python
+from datahub.sdk import DataHubClient
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+client.lineage.add_lineage(
+    upstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,flow1),job1)",
+    downstream="urn:li:dataJob:(urn:li:dataFlow:(airflow,flow1),job2)",
+)
+```
+
+:::note Lineage Combinations
+For supported lineage combinations, see [Supported Lineage Combinations](#supported-lineage-combinations).
+:::
 
 ### Add Column Lineage
 
-For dataset-to-dataset lineage, you can specify `column_lineage` parameter in several ways:
+You can add column-level lineage by using `column_lineage` parameter when linking datasets.
 
-- **False**: No column lineage (default)
-- **True**: Automatically match columns based on similar names (same as "auto_fuzzy")
-- **"auto_strict"**: Automatically match columns based on exact names (strict matching)
-- **Custom Mapping**: Provide a dictionary mapping upstream columns to downstream columns
+#### Add Column Lineage with Fuzzy Matching
 
-For custom mapping, you can use a dictionary where keys are downstream column name and values are lists of upstream column names. This allows you to specify complex relationships.
+```python
+from datahub.sdk import DataHubClient
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+client.lineage.add_lineage(
+    upstream="urn:li:dataset:(platform,sales_raw,PROD)",
+    downstream="urn:li:dataset:(platform,sales_agg,PROD)",
+    column_lineage=True
+)
+```
+
+When `column_lineage` is set to **True**, DataHub will automatically map columns based on their names, allowing for fuzzy matching. This is useful when upstream and downstream datasets have similar but not identical column names. (e.g. `customer_id` in upstream and `CustomerId` in downstream).
+
+#### Add Column Lineage with Strict Matching
+
+```python
+from datahub.sdk import DataHubClient
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+client.lineage.add_lineage(
+    upstream="urn:li:dataset:(platform,sales_raw,PROD)",
+    downstream="urn:li:dataset:(platform,sales_agg,PROD)",
+    column_lineage="auto_strict"
+)
+```
+
+This will create column-level lineage with strict matching, meaning the column names must match exactly between upstream and downstream datasets.
+
+#### Add Column Lineage with Custom Mapping
+
+For custom mapping, you can use a dictionary where keys are downstream column names and values represent lists of upstream column names. This allows you to specify complex relationships.
 
 ```python
 from datahub.sdk import DataHubClient
@@ -91,21 +115,7 @@ client.lineage.add_lineage(
 )
 ```
 
-### Add Query Node
-
-If you provide a `transformation_text` to `add_lineage`, DataHub will create a query node that represents the transformation logic. This is useful for tracking how data is transformed between datasets.
-
-Transformation text can be any transformation logic, Python scripts, Airflow DAG code, or any other code that describes how the upstream dataset is transformed into the downstream dataset.
-
-![img.png](img.png)
-
-:::note
-Providing `transformation_text` will NOT create column level lineage. You need to specify `column_lineage` parameter to enable column-level lineage.
-
-If you have a SQL query that describes the transformation, you can use `infer_lineage_from_sql()` to automatically parse the query and add column level lineage.
-:::
-
-### Infer Lineage from SQL
+#### Infer Lineage from SQL
 
 You can infer lineage directly from a SQL query using `infer_lineage_from_sql()`. This will parse the query, determine upstream and downstream datasets, and automatically add lineage (including column-level lineage when possible).
 
@@ -126,28 +136,68 @@ client.lineage.infer_lineage_from_sql(
 )
 ```
 
-#### Parameters
+### Add Query Node with Lineage
 
-| Parameter           | Description                                       |
-| ------------------- | ------------------------------------------------- |
-| `query_text`        | The SQL query to parse                            |
-| `platform`          | The platform name, e.g., `"snowflake"`, `"mysql"` |
-| `platform_instance` | Optional platform instance                        |
-| `env`               | Data environment (default: `"PROD"`)              |
-| `default_db`        | Optional default DB name to resolve tables        |
-| `default_schema`    | Optional default schema name                      |
-
----
-
-## Get Lineage
-
-### Get Table-Level Lineage
-
-Use `get_lineage()` to retrieve upstream or downstream lineage.
+If you provide a `transformation_text` to `add_lineage`, DataHub will create a query node that represents the transformation logic. This is useful for tracking how data is transformed between datasets.
 
 ```python
 from datahub.sdk import DataHubClient
-from datahub.sdk.search_filters import FilterDsl as F
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+transformation_text = """
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("HighValueFilter").getOrCreate()
+df = spark.read.table("customers")
+high_value = df.filter("lifetime_value > 10000")
+high_value.write.saveAsTable("high_value_customers")
+"""
+
+client.lineage.add_lineage(
+    upstream="urn:li:dataset:(platform,sales_raw,PROD)",
+    downstream="urn:li:dataset:(platform,sales_agg,PROD)",
+    transformation_text = transformation_text,
+)
+```
+
+Transformation text can be any transformation logic, Python scripts, Airflow DAG code, or any other code that describes how the upstream dataset is transformed into the downstream dataset.
+
+![img.png](img.png)
+
+:::note
+Providing `transformation_text` will NOT create column lineage. You need to specify `column_lineage` parameter to enable column-level lineage.
+
+If you have a SQL query that describes the transformation, you can use [infer_lineage_from_sql](#infer-lineage-from-sql) to automatically parse the query and add column level lineage.
+:::
+
+## Get Lineage
+
+The `get_lineage()` method allows you to retrieve lineage for a given entity.
+
+### Get Entity Lineage
+
+#### Get Upstream Lineage for a Dataset
+
+This will return the direct upstream entity that the dataset depends on. By default, it retrieves only the immediate upstream entities (1 hop).
+
+```python
+from datahub.sdk import DataHubClient
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+results = client.lineage.get_lineage(
+    source_urn="urn:li:dataset:(platform,sales_agg,PROD)",
+    direction="upstream",
+)
+```
+
+#### Get Downstream Lineage for a Dataset Across Multiple Hops
+
+To get upstream/downstream entities that are more than one hop away, you can use the `max_hops` parameter. This allows you to traverse the lineage graph up to a specified number of hops.
+
+```python
+from datahub.sdk import DataHubClient
 
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
@@ -155,23 +205,12 @@ results = client.lineage.get_lineage(
     source_urn="urn:li:dataset:(platform,sales_agg,PROD)",
     direction="upstream",
     max_hops=2,
-    filter=F.platform("snowflake")
+    count=200,
 )
 ```
 
-#### Parameters
-
-| Parameter       | Description                                                                        |
-| --------------- | ---------------------------------------------------------------------------------- |
-| `source_urn`    | The URN of the source entity (can be column-level URN via `SchemaFieldUrn`)        |
-| `source_column` | Optional column name (used to construct `SchemaFieldUrn` from a dataset URN)       |
-| `direction`     | `"upstream"` or `"downstream"` (default: `"upstream"`)                             |
-| `max_hops`      | Max lineage depth to explore (default: `1`, recommended max for column lineage: 2) |
-| `filter`        | Optional structured filter (see below)                                             |
-| `count`         | Max number of results to return (default: `500`)                                   |
-
 :::note USING MAX_HOPS
-if you provide max_hops bigger than 2, it will traverse the full lineage graph and limit the results by `count`.
+if you provide `max_hops` greater than 2, it will traverse the full lineage graph and limit the results by `count`.
 :::
 
 #### Return Type
@@ -186,7 +225,7 @@ results = [
     hops=1,
     direction="downstream",
     platform="snowflake",
-    name="table_2", # name of the entity 
+    name="table_2", # name of the entity
     paths=[] # Only populated for column-level lineage
   )
 ]
@@ -194,12 +233,9 @@ results = [
 
 ### Get Column-Level Lineage
 
-You can retrieve column-level lineage by either:
+#### Get Downstream Lineage for a Dataset Column
 
-- Passing both `source_urn` (a dataset URN) and `source_column` (a string)
-- Or passing a full `SchemaFieldUrn` directly as the `source_urn`
-
-Both approaches return lineage paths that show how a specific column influences downstream columns (or is influenced by upstream columns).
+You can retrieve column-level lineage by specifying the `source_column` parameter. This will return lineage paths that include the specified column.
 
 ```python
 from datahub.sdk import DataHubClient
@@ -215,6 +251,14 @@ results_with_source_column = client.lineage.get_lineage(
 )
 
 print(list(results_with_source_column))
+```
+
+You can also pass `SchemaFieldUrn` as the `source_urn` to get column-level lineage.
+
+```python
+from datahub.sdk import DataHubClient
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
 
 # Getting column level lineage with SchemaFieldUrn
 results_with_schema_field_urn = client.lineage.get_lineage(
@@ -227,9 +271,9 @@ results_with_schema_field_urn = client.lineage.get_lineage(
 print(list(results_with_schema_field_urn))
 ```
 
-#### Interpreting Column Lineage Paths
+#### Return type
 
-The `paths` field in the result represents traversal paths from the source column to downstream columns across one or more hops. Each path is a list of schema field URNs.
+The return type is the same as for entity lineage, but with additional `paths` field that contains column lineage paths.
 
 ```python
 results = [
@@ -239,7 +283,7 @@ results = [
     hops=1,
     direction="downstream",
     platform="snowflake",
-    name="table_2", # name of the entity 
+    name="table_2", # name of the entity
     paths=[
       LineagePath(
         urn="urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,table_1,PROD),col1)",
@@ -255,6 +299,67 @@ results = [
   )
 ]
 ```
+
+For more details on how to interpret the results, see [Interpreting Lineage Results](#interpreting-lineage-results).
+
+### Filter Lineage Results
+
+You can filter by platform, type, domain, environment, and more.
+
+```python
+from datahub.sdk import DataHubClient
+from datahub.sdk.search_filters import FilterDsl as F
+
+client = DataHubClient(server="<your_server>", token="<your_token>")
+
+# get upstream snowflake production datasets.
+results = client.lineage.get_lineage(
+    source_urn="urn:li:dataset:(platform,sales_agg,PROD)",
+    direction="upstream",
+    filter=F.and_(
+    F.platform("snowflake"),
+    F.entity_type("DATASET"),
+    F.env("PROD")
+)
+)
+```
+
+You can check more details about the available filters in the [Search SDK documentation]().
+
+## Lineage SDK Reference
+
+### Supported Lineage Combinations
+
+The Lineage APIs support the following entity combinations:
+
+| Upstream Entity | Downstream Entity | Entity-level Lineage | Column-Level Lineage | Query Node |
+| --------------- | ----------------- | -------------------- | -------------------- | ---------- |
+| Dataset         | Dataset           | ✅ Yes               | ✅ Yes               | ✅ Yes     |
+| Dataset         | DataJob           | ✅ Yes               | ❌ No                | ❌ No      |
+| DataJob         | Dataset           | ✅ Yes               | ❌ No                | ❌ No      |
+| DataJob         | DataJob           | ✅ Yes               | ❌ No                | ❌ No      |
+| Dataset         | Dashboard         | ✅ Yes               | ❌ No                | ❌ No      |
+| Chart           | Dashboard         | ✅ Yes               | ❌ No                | ❌ No      |
+| Dashboard       | Dashboard         | ✅ Yes               | ❌ No                | ❌ No      |
+| Dataset         | Chart             | ✅ Yes               | ❌ No                | ❌ No      |
+
+> ℹ️ Column-level lineage and creating query node with transformation text are **only supported** for `Dataset → Dataset` lineage.
+
+### Column Lineage Options
+
+For dataset-to-dataset lineage, you can specify `column_lineage` parameter in `add_lineage()` in several ways:
+
+| Value           | Description                                                                       |
+| --------------- | --------------------------------------------------------------------------------- |
+| `False`         | Disable column-level lineage (default)                                            |
+| `True`          | Enable column-level lineage with automatic mapping (same as "auto_fuzzy")         |
+| `"auto_fuzzy"`  | Enable column-level lineage with fuzzy matching (useful for similar column names) |
+| `"auto_strict"` | Enable column-level lineage with strict matching (exact column names required)    |
+| Column Mapping  | A dictionary mapping downstream column names to lists of upstream column names    |
+
+### Interpreting Column Lineage Results
+
+When retrieving column-level lineage, the results include `paths` that show how columns are related across datasets. Each path is a list of column URNs that represent the lineage from the source column to the target column.
 
 For example, let's say we have the following lineage across three tables:
 
@@ -328,30 +433,6 @@ Returns:
     }
 ]
 ```
-
-### Filtering Lineage Results
-
-Lineage filters use the same `FilterDsl` as the Search SDK. You can filter by platform, type, domain, environment, and more.
-
-```python
-from datahub.sdk import DataHubClient
-from datahub.sdk.search_filters import FilterDsl as F
-
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-# get upstream snowflake production datasets.
-results = client.lineage.get_lineage(
-    source_urn="urn:li:dataset:(platform,sales_agg,PROD)",
-    direction="upstream",
-    filter=F.and_(
-    F.platform("snowflake"),
-    F.entity_type("DATASET"),
-    F.env("PROD")
-)
-)
-```
-
-You can check more details about the available filters in the [Search SDK documentation]().
 
 ## FAQ
 
