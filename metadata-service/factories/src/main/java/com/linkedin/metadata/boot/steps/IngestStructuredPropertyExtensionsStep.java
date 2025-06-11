@@ -81,7 +81,7 @@ public class IngestStructuredPropertyExtensionsStep implements BootstrapStep {
       AspectsBatch aspectsBatch =
           AspectsBatchImpl.builder()
               .mcps(proposals, opContext.getAuditStamp(), opContext.getRetrieverContext())
-              .build();
+              .build(opContext);
       entityService.ingestProposal(opContext, aspectsBatch, false);
     }
   }

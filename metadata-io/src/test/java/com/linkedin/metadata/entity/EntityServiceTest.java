@@ -1035,7 +1035,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               AspectsBatchImpl.builder()
                   .retrieverContext(opContext.getRetrieverContext())
                   .items(List.of(item))
-                  .build(),
+                  .build(opContext),
               true,
               true);
         });
@@ -1124,7 +1124,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 AspectsBatchImpl.builder()
                     .retrieverContext(opContext.getRetrieverContext())
                     .items(List.of(item))
-                    .build(),
+                    .build(opContext),
                 true,
                 true));
 
@@ -1231,7 +1231,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items.subList(0, 2))
-            .build(),
+            .build(opContext),
         true,
         true);
     _entityServiceImpl.ingestAspects(
@@ -1239,7 +1239,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items.subList(2, 3))
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1291,7 +1291,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1349,7 +1349,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1420,7 +1420,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1447,7 +1447,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1527,7 +1527,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1585,7 +1585,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -1691,7 +1691,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               AspectsBatchImpl.builder()
                   .retrieverContext(opContext.getRetrieverContext())
                   .items(List.of(item))
-                  .build(),
+                  .build(opContext),
               true,
               true);
         });
@@ -1740,7 +1740,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(items)
-            .build(),
+            .build(opContext),
         true,
         true);
 
@@ -2445,7 +2445,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(item1, item2))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2535,7 +2535,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2544,7 +2544,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd2, patchRemoveNonExistent))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2652,7 +2652,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2661,7 +2661,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd3, patchAdd2, patchAdd1))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2741,7 +2741,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2750,7 +2750,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd2, patchAdd2)) // duplicate
-            .build(),
+            .build(opContext),
         false,
         true);
 
@@ -2806,7 +2806,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             AspectsBatchImpl.builder()
                 .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(patchRemove))
-                .build(),
+                .build(opContext),
             false,
             true);
 
@@ -2863,7 +2863,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             AspectsBatchImpl.builder()
                 .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(patchAdd))
-                .build(),
+                .build(opContext),
             false,
             true);
 
@@ -3043,7 +3043,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
           AspectsBatchImpl.builder()
               .retrieverContext(opContext.getRetrieverContext())
               .items(items)
-              .build(),
+              .build(opContext),
           true,
           true);
 

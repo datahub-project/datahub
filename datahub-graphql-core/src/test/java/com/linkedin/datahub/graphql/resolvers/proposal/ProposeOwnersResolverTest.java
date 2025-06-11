@@ -58,7 +58,7 @@ public class ProposeOwnersResolverTest {
     resolver = new ProposeOwnersResolver(mockActionRequestService);
     Mockito.when(
             mockOperationContext.authorize(
-                Mockito.any(String.class), Mockito.any(EntitySpec.class)))
+                Mockito.any(String.class), Mockito.any(EntitySpec.class), Mockito.any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, null));
@@ -128,13 +128,16 @@ public class ProposeOwnersResolverTest {
     Mockito.when(
             mockOperationContext.authorize(
                 Mockito.eq(PROPOSE_ENTITY_OWNERS_PRIVILEGE.getType()),
-                Mockito.any(EntitySpec.class)))
+                Mockito.any(EntitySpec.class),
+                Mockito.any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.DENY, null));
     Mockito.when(
             mockOperationContext.authorize(
-                Mockito.eq(EDIT_ENTITY_PRIVILEGE.getType()), Mockito.any(EntitySpec.class)))
+                Mockito.eq(EDIT_ENTITY_PRIVILEGE.getType()),
+                Mockito.any(EntitySpec.class),
+                Mockito.any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.DENY, null));

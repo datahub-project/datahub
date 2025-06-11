@@ -51,6 +51,7 @@ import com.linkedin.monitor.MonitorStatus;
 import com.linkedin.monitor.MonitorType;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
@@ -348,7 +349,8 @@ public class CreateAssertionMonitorResolverTest {
                 new AuthorizationRequest(
                     "urn:li:corpuser:test",
                     PoliciesConfig.EDIT_ENTITY_SQL_ASSERTION_MONITORS.getType(),
-                    Optional.of(new EntitySpec("dataset", TEST_ENTITY_URN.toString())))));
+                    Optional.of(new EntitySpec("dataset", TEST_ENTITY_URN.toString())),
+                    Collections.emptyList())));
   }
 
   @Test

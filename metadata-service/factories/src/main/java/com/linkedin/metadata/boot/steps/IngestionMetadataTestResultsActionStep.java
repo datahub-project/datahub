@@ -65,7 +65,7 @@ public class IngestionMetadataTestResultsActionStep implements BootstrapStep {
                   Collections.singletonList(proposal),
                   opContext.getAuditStamp(),
                   opContext.getRetrieverContext())
-              .build();
+              .build(opContext);
 
       entityService.ingestProposal(opContext, aspectsBatch, false);
 

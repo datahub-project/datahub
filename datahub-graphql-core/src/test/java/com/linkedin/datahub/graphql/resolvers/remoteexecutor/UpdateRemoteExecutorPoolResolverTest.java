@@ -1,12 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.remoteexecutor;
 
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
-import com.datahub.authorization.AuthorizationRequest;
-import com.datahub.authorization.AuthorizationResult;
-import com.datahub.authorization.EntitySpec;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.UpdateRemoteExecutorPoolInput;
@@ -47,19 +45,12 @@ public class UpdateRemoteExecutorPoolResolverTest {
   private UpdateRemoteExecutorPoolResolver _resolver;
   private EntityClient _entityClient;
   private DataFetchingEnvironment _dataFetchingEnvironment;
-  private QueryContext _mockContext;
-  private OperationContext _operationContext;
+  private QueryContext _mockContext = null;
 
   @BeforeMethod
   public void setupTest() {
     _entityClient = mock(EntityClient.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
-    _mockContext = getMockAllowContext();
-    _operationContext = mock(OperationContext.class);
-
-    when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
-    when(_mockContext.getOperationContext()).thenReturn(_operationContext);
-    when(_mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
 
     // Setup input
     UpdateRemoteExecutorPoolInput input = new UpdateRemoteExecutorPoolInput();
@@ -73,11 +64,9 @@ public class UpdateRemoteExecutorPoolResolverTest {
 
   @Test
   public void testUpdatePoolSuccess() throws Exception {
-    // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
-        .thenReturn(
-            new AuthorizationResult(
-                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+    _mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
+    when(_mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
 
     // Mock existing pool info
     RemoteExecutorPoolInfo existingPoolInfo = new RemoteExecutorPoolInfo();
@@ -132,10 +121,9 @@ public class UpdateRemoteExecutorPoolResolverTest {
   @Test
   public void testUpdatePoolNoPermissions() throws RemoteInvocationException {
     // Mock insufficient permissions
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
-        .thenReturn(
-            new AuthorizationResult(
-                mock(AuthorizationRequest.class), AuthorizationResult.Type.DENY, "message"));
+    _mockContext = getMockDenyContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
+    when(_mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
 
     // Verify exception is thrown
     assertThrows(RuntimeException.class, () -> _resolver.get(_dataFetchingEnvironment).join());
@@ -149,10 +137,9 @@ public class UpdateRemoteExecutorPoolResolverTest {
   @Test
   public void testUpdatePoolNotFound() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
-        .thenReturn(
-            new AuthorizationResult(
-                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+    _mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
+    when(_mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
 
     // Mock pool not found
     when(_entityClient.getV2(
@@ -170,10 +157,9 @@ public class UpdateRemoteExecutorPoolResolverTest {
   @Test
   public void testUpdatePoolAspectNotFound() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
-        .thenReturn(
-            new AuthorizationResult(
-                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+    _mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
+    when(_mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
 
     // Mock response without aspect
     EntityResponse mockResponse = mock(EntityResponse.class);
@@ -195,10 +181,9 @@ public class UpdateRemoteExecutorPoolResolverTest {
   @Test
   public void testUpdatePoolWithReprovisionNoState() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
-        .thenReturn(
-            new AuthorizationResult(
-                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+    _mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
+    when(_mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
 
     // Mock existing pool info without state
     RemoteExecutorPoolInfo existingPoolInfo = new RemoteExecutorPoolInfo();
@@ -254,10 +239,9 @@ public class UpdateRemoteExecutorPoolResolverTest {
   @Test
   public void testUpdatePoolWithReprovisionFailedState() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
-        .thenReturn(
-            new AuthorizationResult(
-                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+    _mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
+    when(_mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
 
     // Mock existing pool info with failed state
     RemoteExecutorPoolInfo existingPoolInfo = new RemoteExecutorPoolInfo();
@@ -316,10 +300,9 @@ public class UpdateRemoteExecutorPoolResolverTest {
   @Test
   public void testUpdatePoolWithReprovisionNonFailedState() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
-        .thenReturn(
-            new AuthorizationResult(
-                mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
+    _mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(_mockContext);
+    when(_mockContext.getActorUrn()).thenReturn(TEST_ACTOR_URN);
 
     // Mock existing pool info with non-failed state
     RemoteExecutorPoolInfo existingPoolInfo = new RemoteExecutorPoolInfo();

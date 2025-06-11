@@ -56,7 +56,8 @@ public class PolicyEngine {
       final DataHubPolicyInfo policy,
       final ResolvedEntitySpec resolvedActorSpec,
       final String privilege,
-      final Optional<ResolvedEntitySpec> resource) {
+      final Optional<ResolvedEntitySpec> resource,
+      final List<ResolvedEntitySpec> subResources) {
 
     final PolicyEvaluationContext context = new PolicyEvaluationContext();
     log.debug("Evaluating policy {}", policy.getDisplayName());
@@ -72,12 +73,13 @@ public class PolicyEngine {
     }
 
     // If policy is not applicable, deny the request
-    if (!isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context).isGranted()) {
+    if (!isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context, subResources)
+        .isGranted()) {
       return new PolicyEvaluationResult(
           policy.getDisplayName(),
           false,
           String.format(
-              "Policy does not applicable for actor %s and resource %s",
+              "Policy is not applicable for actor %s and resource %s",
               resolvedActorSpec.getSpec().getEntity(), resource));
     }
 
@@ -129,7 +131,8 @@ public class PolicyEngine {
       final DataHubPolicyInfo policy,
       final ResolvedEntitySpec resolvedActorSpec,
       final Optional<ResolvedEntitySpec> resource,
-      final PolicyEvaluationContext context) {
+      final PolicyEvaluationContext context,
+      final List<ResolvedEntitySpec> subResources) {
 
     // If policy is inactive, simply return DENY.
     if (PoliciesConfig.INACTIVE_POLICY_STATE.equals(policy.getState())) {
@@ -139,6 +142,10 @@ public class PolicyEngine {
     // If the resource is not in scope, deny the request.
     if (!isResourceMatch(policy.getType(), policy.getResources(), resource)) {
       return new PolicyEvaluationResult(policy.getDisplayName(), false, "Resource does not match");
+    }
+
+    if (!isSubResourceAllowed(policy.getResources(), subResources)) {
+      return new PolicyEvaluationResult(policy.getDisplayName(), false, "SubResource not allowed.");
     }
 
     // If the actor does not match, deny the request.
@@ -155,13 +162,14 @@ public class PolicyEngine {
       @Nonnull OperationContext opContext,
       final List<DataHubPolicyInfo> policies,
       final ResolvedEntitySpec resolvedActorSpec,
-      final Optional<ResolvedEntitySpec> resource) {
+      final Optional<ResolvedEntitySpec> resource,
+      final List<ResolvedEntitySpec> subResources) {
     Set<String> privileges = new HashSet<>();
     Map<String, String> reasonsOfDeny = new HashedMap<>();
     PolicyEvaluationContext context = new PolicyEvaluationContext();
     for (DataHubPolicyInfo policy : policies) {
       PolicyEvaluationResult result =
-          isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context);
+          isPolicyApplicable(opContext, policy, resolvedActorSpec, resource, context, subResources);
       if (result.isGranted()) {
         privileges.addAll(policy.getPrivileges());
       } else {
@@ -216,6 +224,29 @@ public class PolicyEngine {
     return checkFilter(filter, requestResource.get());
   }
 
+  private boolean isSubResourceAllowed(
+      final @Nullable DataHubResourceFilter policyResourceFilter,
+      final List<ResolvedEntitySpec> subResources) {
+    if (policyResourceFilter == null) {
+      log.debug("No resource defined on the policy.");
+      return true;
+    }
+    if (subResources.isEmpty()) {
+      log.debug("No subresources to evaluate.");
+      return true;
+    }
+    if (policyResourceFilter.getPolicyConstraints() != null) {
+      PolicyMatchFilter filter = policyResourceFilter.getPolicyConstraints();
+      return subResources.stream()
+          .allMatch(
+              subResource ->
+                  WILDCARD_URN.toString().equals(subResource.getSpec().getEntity())
+                      || checkFilter(filter, subResource));
+    }
+    log.debug("No modification constraints specified.");
+    return true;
+  }
+
   /**
    * Get filter object from policy resource filter. Make sure it is backward compatible by
    * constructing PolicyMatchFilter object from other fields if the filter field is not set
@@ -257,18 +288,19 @@ public class PolicyEngine {
     }
 
     Set<String> fieldValues = resource.getFieldValues(entityFieldType);
-    return criterion.getValues().stream()
-        .anyMatch(
-            filterValue -> checkCondition(fieldValues, filterValue, criterion.getCondition()));
+    return checkCondition(fieldValues, criterion.getValues(), criterion.getCondition());
   }
 
   private boolean checkCondition(
-      Set<String> fieldValues, String filterValue, PolicyMatchCondition condition) {
+      Set<String> fieldValues, List<String> filterValues, PolicyMatchCondition condition) {
     switch (condition) {
       case EQUALS:
-        return fieldValues.contains(filterValue);
+        return filterValues.stream().anyMatch(fieldValues::contains);
       case STARTS_WITH:
-        return fieldValues.stream().anyMatch(v -> v.startsWith(filterValue));
+        return filterValues.stream()
+            .anyMatch(filterValue -> fieldValues.stream().anyMatch(v -> v.startsWith(filterValue)));
+      case NOT_EQUALS:
+        return filterValues.stream().noneMatch(fieldValues::contains);
       default:
         log.error("Unsupported condition {}", condition);
         return false;

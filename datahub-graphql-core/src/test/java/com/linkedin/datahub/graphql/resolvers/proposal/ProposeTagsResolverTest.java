@@ -47,7 +47,7 @@ public class ProposeTagsResolverTest {
     resolver = new ProposeTagsResolver(mockActionRequestService);
     Mockito.when(
             mockOperationContext.authorize(
-                Mockito.any(String.class), Mockito.any(EntitySpec.class)))
+                Mockito.any(String.class), Mockito.any(EntitySpec.class), Mockito.any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, null));
@@ -148,13 +148,16 @@ public class ProposeTagsResolverTest {
     Mockito.when(
             mockOperationContext.authorize(
                 Mockito.eq(PROPOSE_DATASET_COL_TAGS_PRIVILEGE.getType()),
-                Mockito.any(EntitySpec.class)))
+                Mockito.any(EntitySpec.class),
+                Mockito.any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.DENY, null));
     Mockito.when(
             mockOperationContext.authorize(
-                Mockito.eq(EDIT_ENTITY_PRIVILEGE.getType()), Mockito.any(EntitySpec.class)))
+                Mockito.eq(EDIT_ENTITY_PRIVILEGE.getType()),
+                Mockito.any(EntitySpec.class),
+                Mockito.any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.DENY, null));

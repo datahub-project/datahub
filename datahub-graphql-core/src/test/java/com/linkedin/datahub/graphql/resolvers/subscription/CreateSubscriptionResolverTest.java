@@ -24,6 +24,7 @@ import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
@@ -94,7 +95,10 @@ public class CreateSubscriptionResolverTest {
         getMockDenyContext(
             USER_URN_STRING,
             new AuthorizationRequest(
-                USER_URN_STRING, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty()));
+                USER_URN_STRING,
+                "MANAGE_USER_SUBSCRIPTIONS",
+                Optional.empty(),
+                Collections.emptyList()));
 
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);
@@ -120,7 +124,10 @@ public class CreateSubscriptionResolverTest {
         getMockAllowContext(
             USER_URN_STRING,
             new AuthorizationRequest(
-                USER_URN_STRING, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty()));
+                USER_URN_STRING,
+                "MANAGE_USER_SUBSCRIPTIONS",
+                Optional.empty(),
+                Collections.emptyList()));
 
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
     when(mockContext.getAuthentication()).thenReturn(_authentication);

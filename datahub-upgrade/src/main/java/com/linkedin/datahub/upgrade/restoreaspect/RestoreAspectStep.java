@@ -213,7 +213,7 @@ public class RestoreAspectStep implements UpgradeStep {
                     .build(opContext.getAspectRetriever()));
 
         _entityService.ingestAspects(
-            opContext, AspectsBatchImpl.builder().items(items).build(), emitMae, true);
+            opContext, AspectsBatchImpl.builder().items(items).build(opContext), emitMae, true);
       }
     }
     return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);

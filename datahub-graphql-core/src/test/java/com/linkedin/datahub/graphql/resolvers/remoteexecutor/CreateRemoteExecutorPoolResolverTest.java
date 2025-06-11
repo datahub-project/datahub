@@ -62,7 +62,7 @@ public class CreateRemoteExecutorPoolResolverTest {
   @Test
   public void testCreatePoolSuccess() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class), any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
@@ -103,7 +103,7 @@ public class CreateRemoteExecutorPoolResolverTest {
   @Test
   public void testCreateDefaultPoolSuccess() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class), any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
@@ -128,7 +128,7 @@ public class CreateRemoteExecutorPoolResolverTest {
   @Test
   public void testCreatePoolReserveWord() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class), any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));
@@ -151,7 +151,7 @@ public class CreateRemoteExecutorPoolResolverTest {
   @Test
   public void testCreatePoolNoPermissions() throws RemoteInvocationException {
     // Mock insufficient permissions
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class), any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.DENY, "message"));
@@ -168,7 +168,7 @@ public class CreateRemoteExecutorPoolResolverTest {
   @Test
   public void testCreatePoolEntityClientException() throws Exception {
     // Mock permissions check
-    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class)))
+    when(_mockContext.getOperationContext().authorize(anyString(), any(EntitySpec.class), any()))
         .thenReturn(
             new AuthorizationResult(
                 mock(AuthorizationRequest.class), AuthorizationResult.Type.ALLOW, "message"));

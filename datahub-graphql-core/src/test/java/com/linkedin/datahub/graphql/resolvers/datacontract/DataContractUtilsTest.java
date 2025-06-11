@@ -16,6 +16,7 @@ import com.linkedin.metadata.config.DataHubAppConfiguration;
 import graphql.Assert;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
 import java.util.Optional;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -46,7 +47,10 @@ public class DataContractUtilsTest {
                     .thenReturn(
                         new AuthorizationResult(
                             new AuthorizationRequest(
-                                "TEST", "test", Optional.of(new EntitySpec("dataset", "test"))),
+                                "TEST",
+                                "test",
+                                Optional.of(new EntitySpec("dataset", "test")),
+                                Collections.emptyList()),
                             AuthorizationResult.Type.ALLOW,
                             "TEST"));
                 return authorizer;

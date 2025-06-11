@@ -228,7 +228,7 @@ public class IngestPoliciesStep implements BootstrapStep {
                     .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
                 systemOperationContext.getRetrieverContext())
-            .build(),
+            .build(systemOperationContext),
         false);
   }
 

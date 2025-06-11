@@ -150,7 +150,7 @@ public class IngestDefaultPersonasAndViews implements BootstrapStep {
                     .setActor(Urn.createFromString(SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
                 systemOperationContext.getRetrieverContext())
-            .build(),
+            .build(systemOperationContext),
         false);
 
     _entityService.alwaysProduceMCLAsync(
@@ -234,7 +234,7 @@ public class IngestDefaultPersonasAndViews implements BootstrapStep {
                     .setActor(Urn.createFromString(SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
                 systemOperationContext.getRetrieverContext())
-            .build(),
+            .build(systemOperationContext),
         false);
 
     _entityService.alwaysProduceMCLAsync(

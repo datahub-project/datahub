@@ -852,7 +852,7 @@ public class TestEngine implements AutoCloseable {
     AspectsBatchImpl batch =
         AspectsBatchImpl.builder()
             .mcps(allMCPs, auditStamp, systemOpContext.getRetrieverContext())
-            .build();
+            .build(systemOpContext);
 
     entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
   }
@@ -1239,7 +1239,7 @@ public class TestEngine implements AutoCloseable {
                       .setTime(System.currentTimeMillis())
                       .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)),
                   systemOpContext.getRetrieverContext())
-              .build();
+              .build(systemOpContext);
 
       entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
 

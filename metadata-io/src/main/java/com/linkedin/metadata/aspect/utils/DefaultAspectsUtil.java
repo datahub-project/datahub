@@ -86,7 +86,7 @@ public class DefaultAspectsUtil {
     return AspectsBatchImpl.builder()
         .retrieverContext(inputBatch.getRetrieverContext())
         .items(result)
-        .build();
+        .build(opContext);
   }
 
   public static List<MCPItem> getAdditionalChanges(

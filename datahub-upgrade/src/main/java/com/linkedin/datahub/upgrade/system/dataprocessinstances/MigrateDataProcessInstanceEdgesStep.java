@@ -209,7 +209,7 @@ public class MigrateDataProcessInstanceEdgesStep implements UpgradeStep {
     AspectsBatch batch =
         AspectsBatchImpl.builder()
             .mcps(mcps, auditStamp, systemOpContext.getRetrieverContext())
-            .build();
+            .build(systemOpContext);
 
     entityService.ingestProposal(systemOpContext, batch, false);
   }

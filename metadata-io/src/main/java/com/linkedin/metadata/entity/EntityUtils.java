@@ -74,7 +74,7 @@ public class EntityUtils {
         opContext,
         AspectsBatchImpl.builder()
             .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext())
-            .build(),
+            .build(opContext),
         async);
   }
 

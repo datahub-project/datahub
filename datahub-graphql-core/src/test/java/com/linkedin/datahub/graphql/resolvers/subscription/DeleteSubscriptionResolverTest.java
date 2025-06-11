@@ -14,6 +14,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import org.testng.annotations.BeforeMethod;
@@ -61,7 +62,8 @@ public class DeleteSubscriptionResolverTest {
     final String requestUserUrn = USER_2_URN_STRING;
 
     final AuthorizationRequest request =
-        new AuthorizationRequest(requestUserUrn, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty());
+        new AuthorizationRequest(
+            requestUserUrn, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty(), Collections.emptyList());
     final QueryContext mockContext = getMockDenyContext(requestUserUrn, request);
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 
@@ -79,7 +81,8 @@ public class DeleteSubscriptionResolverTest {
     final String requestUserUrn = USER_2_URN_STRING;
 
     final AuthorizationRequest request =
-        new AuthorizationRequest(requestUserUrn, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty());
+        new AuthorizationRequest(
+            requestUserUrn, "MANAGE_USER_SUBSCRIPTIONS", Optional.empty(), Collections.emptyList());
     final QueryContext mockContext = getMockAllowContext(requestUserUrn, request);
     when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
 

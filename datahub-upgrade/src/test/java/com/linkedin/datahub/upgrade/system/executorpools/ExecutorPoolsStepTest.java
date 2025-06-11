@@ -190,7 +190,9 @@ public class ExecutorPoolsStepTest {
     expectedQueues.stream().forEach(item -> addExecutorPoolInfoEntry(test_mcps, item));
 
     AspectsBatch test_batch =
-        AspectsBatchImpl.builder().mcps(test_mcps, auditStamp, mockRetrieverContext).build();
+        AspectsBatchImpl.builder()
+            .mcps(test_mcps, auditStamp, mockRetrieverContext)
+            .build(mockOpContext);
 
     Mockito.verify(mockEntityService)
         .ingestProposal(

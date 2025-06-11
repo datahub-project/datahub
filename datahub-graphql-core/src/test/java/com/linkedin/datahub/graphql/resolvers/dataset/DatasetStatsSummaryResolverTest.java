@@ -1,11 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.nullable;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationResult;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -81,16 +81,8 @@ public class DatasetStatsSummaryResolverTest {
     SystemEntityClient mockEntityClient = initMockEntityClient();
     DatasetStatsSummaryResolver resolver =
         new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
-
-    AuthorizationResult mockAuthorizerResult = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(mockAuthorizerResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
-    Mockito.when(mockContext.getOperationContext().authorize(any(), any()))
-        .thenReturn(mockAuthorizerResult);
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
@@ -144,17 +136,7 @@ public class DatasetStatsSummaryResolverTest {
         initMockEntityClient(mockUsageFeatures, mockStorageFeatures);
     DatasetStatsSummaryResolver resolver =
         new DatasetStatsSummaryResolver(mockEntityClient, mockClient);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
-
-    AuthorizationResult mockAuthorizerResult = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(mockAuthorizerResult.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-
-    Mockito.when(mockContext.getOperationContext())
-        .thenReturn(Mockito.mock(OperationContext.class));
-    Mockito.when(mockContext.getOperationContext().authorize(any(), any()))
-        .thenReturn(mockAuthorizerResult);
+    QueryContext mockContext = getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
