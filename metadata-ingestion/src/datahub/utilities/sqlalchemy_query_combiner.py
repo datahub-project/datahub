@@ -44,6 +44,9 @@ class _RowProxyFake(collections.OrderedDict):
             k = list(self.keys())[k]
         return super().__getitem__(k)
 
+    def __iter__(self) -> Iterator[Any]:
+        return iter(self.values())
+
 
 class _ResultProxyFake:
     # This imitates the interface provided by sqlalchemy.engine.result.ResultProxy (sqlalchemy 1.3.x)
