@@ -126,6 +126,7 @@ public class ESSearchDAO {
             .query(
                 SearchRequestHandler.getFilterQuery(
                     opContext,
+                    List.of(entityName),
                     filter,
                     entitySpec.getSearchableFieldTypes(),
                     queryFilterRewriteChain));
@@ -590,6 +591,7 @@ public class ESSearchDAO {
       SearchRequest req =
           builder.getSearchRequest(
               opContext,
+              entityName,
               query,
               field,
               transformFilterForEntities(requestParams, indexConvention),

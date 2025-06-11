@@ -41,6 +41,7 @@ public class ESPredicateUtils {
   @Nonnull
   public static BoolQueryBuilder applyDefaultSearchFilters(
       @Nonnull OperationContext opContext,
+      @Nonnull List<String> entityNames,
       @Nullable Predicate predicate,
       @Nonnull BoolQueryBuilder filterQuery) {
     // filter soft deleted entities by default
@@ -48,7 +49,8 @@ public class ESPredicateUtils {
         predicate, filterQuery, opContext.getSearchContext().getSearchFlags());
     // Saas Only!
     // filter based on access controls
-    ESAccessControlUtil.buildAccessControlFilters(opContext).ifPresent(filterQuery::filter);
+    ESAccessControlUtil.buildAccessControlFilters(opContext, entityNames)
+        .ifPresent(filterQuery::filter);
     return filterQuery;
   }
 

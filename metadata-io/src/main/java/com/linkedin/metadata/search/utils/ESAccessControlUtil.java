@@ -120,13 +120,13 @@ public class ESAccessControlUtil {
    * @return
    */
   public static Optional<QueryBuilder> buildAccessControlFilters(
-      @Nonnull final OperationContext opContext) {
+      @Nonnull final OperationContext opContext, @Nonnull final List<String> entityNames) {
     Optional<QueryBuilder> response = Optional.empty();
 
     /*
      If search authorization is enabled AND we're also not the system performing the query
     */
-    if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
+    if (shouldApplyAccessControlFilters(opContext, entityNames)
         && !opContext.isSystemAuth()
         && !opContext.getSearchContext().isRestrictedSearch()) {
 
@@ -147,6 +147,36 @@ public class ESAccessControlUtil {
 
     // MATCH_ALL filter present or system user or disabled
     return response;
+  }
+
+  private static boolean shouldApplyAccessControlFilters(
+      @Nonnull final OperationContext opContext, @Nonnull final List<String> entityNames) {
+    final boolean isViewAuthorizationEnabled =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled();
+
+    if (isViewAuthorizationEnabled) {
+      return true;
+    }
+
+    // When ViewAuthorization is disabled we should forcibly apply access control filters only for
+    // IngestionSource entity type
+    if (entityNames.isEmpty()) {
+      return false;
+    }
+    boolean isEntityNamesIncludeIngestionSourceEntityName =
+        entityNames.contains(Constants.INGESTION_SOURCE_ENTITY_NAME);
+    if (!isEntityNamesIncludeIngestionSourceEntityName) {
+      return false;
+    }
+    // When we have not only ingestion source entity type we have to restrict it
+    if (entityNames.size() > 1) {
+      throw new RuntimeException(
+          String.format(
+              "Can't apply access control filters by ingestion source entity type with another entity types: %s",
+              entityNames));
+    }
+
+    return true;
   }
 
   private static final Function<DataHubPolicyInfo, Boolean> activeMetadataViewEntityPolicyFilter =

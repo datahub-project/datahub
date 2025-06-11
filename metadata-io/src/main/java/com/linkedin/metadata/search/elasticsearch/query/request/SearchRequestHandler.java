@@ -97,6 +97,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
   private static final String URN_FILTER = "urn";
   private static final String[] URN_FIELD = new String[] {"urn"};
   private final List<EntitySpec> entitySpecs;
+  private final List<String> entityNames;
   @Getter private final Set<String> defaultQueryFieldNames;
   @Nonnull private final HighlightBuilder highlights;
 
@@ -132,6 +133,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nonnull SearchServiceConfiguration searchServiceConfig) {
     this.entitySpecs = entitySpecs;
+    this.entityNames = entitySpecs.stream().map(EntitySpec::getName).collect(Collectors.toList());
     Map<EntitySpec, List<SearchableAnnotation>> entitySearchAnnotations =
         getSearchableAnnotations();
     List<SearchableAnnotation> annotations =
@@ -229,18 +231,20 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   public BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext, @Nullable Filter filter) {
-    return getFilterQuery(opContext, filter, searchableFieldTypes, queryFilterRewriteChain);
+    return getFilterQuery(
+        opContext, this.entityNames, filter, searchableFieldTypes, queryFilterRewriteChain);
   }
 
   public static BoolQueryBuilder getFilterQuery(
       @Nonnull OperationContext opContext,
+      @Nonnull final List<String> entityNames,
       @Nullable Filter filter,
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
     BoolQueryBuilder filterQuery =
         ESUtils.buildFilterQuery(
             filter, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
-    return applyDefaultSearchFilters(opContext, filter, filterQuery);
+    return applyDefaultSearchFilters(opContext, entityNames, filter, filterQuery);
   }
 
   /**
@@ -889,7 +893,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
             opContext,
             queryFilterRewriteChain);
 
-    filterQuery = ESPredicateUtils.applyDefaultSearchFilters(opContext, predicate, filterQuery);
+    filterQuery =
+        ESPredicateUtils.applyDefaultSearchFilters(
+            opContext, this.entityNames, predicate, filterQuery);
 
     filterQuery =
         queryFilterRewriteChain.rewrite(

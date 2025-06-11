@@ -655,6 +655,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     BoolQueryBuilder test =
         SearchRequestHandler.getFilterQuery(
             operationContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            Collections.emptyList(),
             filter,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY);
@@ -710,6 +711,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     BoolQueryBuilder test =
         SearchRequestHandler.getFilterQuery(
             mockRetrieverContext.withSearchFlags(flags -> flags.setFulltext(false)),
+            Collections.emptyList(),
             filter,
             new HashMap<>(),
             QueryFilterRewriteChain.EMPTY);

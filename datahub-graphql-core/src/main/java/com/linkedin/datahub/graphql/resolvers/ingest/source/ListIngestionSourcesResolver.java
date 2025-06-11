@@ -5,12 +5,10 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
-import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesInput;
 import com.linkedin.datahub.graphql.generated.ListIngestionSourcesResult;
-import com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -47,10 +45,6 @@ public class ListIngestionSourcesResolver
 
     final QueryContext context = environment.getContext();
 
-    if (!IngestionAuthUtils.canManageIngestion(context)) {
-      throw new AuthorizationException(
-          "You are not authorized to list ingestion sources. Please contact your DataHub administrator.");
-    }
     final ListIngestionSourcesInput input =
         bindArgument(environment.getArgument("input"), ListIngestionSourcesInput.class);
     final Integer start = input.getStart() == null ? DEFAULT_START : input.getStart();

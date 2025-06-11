@@ -3,6 +3,7 @@ package com.linkedin.metadata.search;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.data.template.LongMap;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
 import com.linkedin.metadata.query.filter.Filter;
@@ -208,7 +209,12 @@ public class SearchService {
     if (lowercaseEntities.isEmpty()) {
       return opContext.withSpan(
           "getNonEmptyEntities",
-          () -> _entityDocCountCache.getNonEmptyEntities(opContext),
+          // Saas only: Exclude ingestion source entity type from list of entities as we can't
+          // search by it in some cases when searching with another entities.
+          // (see
+          // com.linkedin.metadata.search.utils.ESAccessControlUtil.shouldApplyAccessControlFilters
+          // for details)
+          () -> excludeIngestionSourceEntity(_entityDocCountCache.getNonEmptyEntities(opContext)),
           MetricUtils.DROPWIZARD_NAME,
           MetricUtils.name(this.getClass(), "getNonEmptyEntities"));
     }
@@ -404,5 +410,25 @@ public class SearchService {
         .setNumEntities(0)
         .setPageSize(size)
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
+  }
+
+  private static List<String> excludeIngestionSourceEntity(List<String> entities) {
+    boolean hasIngestionSourceEntity =
+        entities.stream()
+            .anyMatch(entity -> entity.equalsIgnoreCase(Constants.INGESTION_SOURCE_ENTITY_NAME));
+
+    if (hasIngestionSourceEntity && entities.size() > 1) {
+      List<String> filteredEntities =
+          entities.stream()
+              .filter(entity -> !entity.equalsIgnoreCase(Constants.INGESTION_SOURCE_ENTITY_NAME))
+              .collect(Collectors.toList());
+      log.warn(
+          "Ingestion source entity was excluded from getEntitiesToSearch's response (before: {}; after: {})",
+          entities,
+          filteredEntities);
+      return filteredEntities;
+    }
+
+    return entities;
   }
 }

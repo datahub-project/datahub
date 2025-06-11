@@ -150,7 +150,7 @@ public class AutocompleteRequestHandlerTest {
   public void testDefaultAutocompleteRequest() {
     // When field is null
     SearchRequest autocompleteRequest =
-        handler.getSearchRequest(mockOpContext, "input", null, null, 10);
+        handler.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder wrapper =
@@ -195,7 +195,7 @@ public class AutocompleteRequestHandlerTest {
   public void testAutocompleteRequestWithField() {
     // The field must be a valid field in the model. Pick from `keyPart1` or `urn`
     SearchRequest autocompleteRequest =
-        handler.getSearchRequest(mockOpContext, "input", "keyPart1", null, 10);
+        handler.getSearchRequest(mockOpContext, null, "input", "keyPart1", null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     assertEquals(sourceBuilder.size(), 10);
     BoolQueryBuilder wrapper =
@@ -256,7 +256,7 @@ public class AutocompleteRequestHandlerTest {
             TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
-        withoutDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
+        withoutDefaultQuery.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     FunctionScoreQueryBuilder wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     assertEquals(((BoolQueryBuilder) wrapper.query()).should().size(), 1);
@@ -284,7 +284,8 @@ public class AutocompleteRequestHandlerTest {
             testQueryConfig,
             TEST_SEARCH_SERVICE_CONFIG);
 
-    autocompleteRequest = withDefaultQuery.getSearchRequest(mockOpContext, "input", null, null, 10);
+    autocompleteRequest =
+        withDefaultQuery.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
     wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     BoolQueryBuilder query =
@@ -331,7 +332,7 @@ public class AutocompleteRequestHandlerTest {
             TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
-        withInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
+        withInherit.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     FunctionScoreQueryBuilder wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     assertEquals(((BoolQueryBuilder) wrapper.query()).should().size(), 1);
@@ -373,7 +374,7 @@ public class AutocompleteRequestHandlerTest {
             TEST_SEARCH_SERVICE_CONFIG);
 
     autocompleteRequest =
-        noQueryCustomization.getSearchRequest(mockOpContext, "input", null, null, 10);
+        noQueryCustomization.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
     wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     assertEquals(((BoolQueryBuilder) wrapper.query()).should().size(), 1);
@@ -439,7 +440,7 @@ public class AutocompleteRequestHandlerTest {
             TEST_SEARCH_SERVICE_CONFIG);
 
     SearchRequest autocompleteRequest =
-        explicitNoInherit.getSearchRequest(mockOpContext, "input", null, null, 10);
+        explicitNoInherit.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
     FunctionScoreQueryBuilder wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     assertEquals(((BoolQueryBuilder) wrapper.query()).should().size(), 1);
@@ -494,7 +495,7 @@ public class AutocompleteRequestHandlerTest {
             testQueryConfig,
             TEST_SEARCH_SERVICE_CONFIG);
 
-    autocompleteRequest = explicit.getSearchRequest(mockOpContext, "input", null, null, 10);
+    autocompleteRequest = explicit.getSearchRequest(mockOpContext, null, "input", null, null, 10);
     sourceBuilder = autocompleteRequest.source();
     wrapper = (FunctionScoreQueryBuilder) sourceBuilder.query();
     BoolQueryBuilder query =
@@ -649,6 +650,7 @@ public class AutocompleteRequestHandlerTest {
                                 flags
                                     .setFulltext(false)
                                     .setFilterNonLatestVersions(filterNonLatest)),
+                        null,
                         "",
                         "platform",
                         filter,
@@ -682,7 +684,7 @@ public class AutocompleteRequestHandlerTest {
     // Test with count below limit
     int requestedCount = 30;
     SearchRequest autocompleteRequest =
-        limitHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+        limitHandler.getSearchRequest(mockOpContext, null, "input", null, null, requestedCount);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
 
     // Verify the requested count was used (not limited)
@@ -691,7 +693,7 @@ public class AutocompleteRequestHandlerTest {
     // Test with count above limit (non-strict)
     requestedCount = 100;
     autocompleteRequest =
-        limitHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+        limitHandler.getSearchRequest(mockOpContext, null, "input", null, null, requestedCount);
     sourceBuilder = autocompleteRequest.source();
 
     // Verify the max limit was applied
@@ -722,7 +724,7 @@ public class AutocompleteRequestHandlerTest {
     // Test with count at the limit
     int requestedCount = 50;
     SearchRequest autocompleteRequest =
-        strictHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+        strictHandler.getSearchRequest(mockOpContext, null, "input", null, null, requestedCount);
     SearchSourceBuilder sourceBuilder = autocompleteRequest.source();
 
     // Verify exact limit was used
@@ -732,7 +734,7 @@ public class AutocompleteRequestHandlerTest {
     // This should throw an IllegalArgumentException
     try {
       requestedCount = 100;
-      strictHandler.getSearchRequest(mockOpContext, "input", null, null, requestedCount);
+      strictHandler.getSearchRequest(mockOpContext, null, "input", null, null, requestedCount);
       Assert.fail(
           "Should throw IllegalArgumentException when count exceeds limit with strict config");
     } catch (IllegalArgumentException e) {
