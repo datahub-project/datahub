@@ -1355,6 +1355,18 @@ def test_assertion_creation_with_invalid_source_type(
             pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
             id="invalid-cron-minute",
         ),
+        pytest.param(
+            "0 0 * * 7",  # sunday=7 is not POSIX.1-2017
+            "UTC",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-cron-sunday-7",
+        ),
+        pytest.param(
+            "0 0 * * 6-7",  # sunday=7 is not POSIX.1-2017
+            "UTC",
+            pytest.raises(SDKUsageError, match="Invalid cron expression or timezone"),
+            id="invalid-cron-sunday-7-range",
+        ),
         # Invalid timezones
         pytest.param(
             "0 * * * *",
