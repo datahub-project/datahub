@@ -1,4 +1,4 @@
-import { Column, Table } from '@components';
+import { Column, Table, Text, colors } from '@components';
 import { SorterResult } from 'antd/lib/table/interface';
 import * as QueryString from 'query-string';
 import React from 'react';
@@ -6,6 +6,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { getDisplayablePoolId } from '@app/ingestV2/executor_saas/utils';
 import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
@@ -19,6 +20,7 @@ import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { IngestionSource } from '@types';
@@ -26,6 +28,15 @@ import { IngestionSource } from '@types';
 const StyledTable = styled(Table)`
     table-layout: fixed;
 ` as typeof Table;
+
+const LinkButton = styled(Text)`
+    border: none;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    color: ${colors.violet[500]};
+    display: inline-block;
+`;
 
 interface Props {
     sources: IngestionSource[];
@@ -37,6 +48,9 @@ interface Props {
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
+    saasProps: {
+        onViewPool: (poolId: string) => void;
+    };
     isLastPage?: boolean;
 }
 
@@ -50,11 +64,13 @@ function IngestionSourceTable({
     onChangeSort,
     isLoading,
     shouldPreserveParams,
+    saasProps,
     isLastPage,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
-
+    const appConfig = useAppConfig();
+    const isPoolsDisplayEnabled = appConfig.config.featureFlags.displayExecutorPools;
     const tableData: IngestionSourceTableData[] = sources.map((source) => ({
         urn: source.urn,
         type: source.type,
@@ -70,6 +86,7 @@ function IngestionSourceTable({
             getIngestionSourceStatus(source.executions.executionRequests[0].result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,
+        executorPoolId: source.config.executorId, // SaaS only
     }));
 
     const tableColumns: Column<IngestionSourceTableData>[] = [
@@ -79,7 +96,7 @@ function IngestionSourceTable({
             render: (record) => {
                 return <NameColumn type={record.type} record={record} />;
             },
-            width: '30%',
+            width: '20%',
             sorter: true,
         },
         {
@@ -88,6 +105,29 @@ function IngestionSourceTable({
             render: (record) => <ScheduleColumn schedule={record.schedule || ''} timezone={record.timezone || ''} />,
             width: '15%',
         },
+        ...(isPoolsDisplayEnabled
+            ? [
+                  {
+                      // SaaS only
+                      title: 'Executor Pool',
+                      key: 'executor-pool',
+                      render: (record) =>
+                          record.executorPoolId && !record.cliIngestion ? (
+                              <LinkButton
+                                  onClick={(e) => {
+                                      e.stopPropagation();
+                                      saasProps.onViewPool(record.executorPoolId);
+                                  }}
+                              >
+                                  {getDisplayablePoolId({ executorPoolId: record.executorPoolId })}
+                              </LinkButton>
+                          ) : (
+                              <span>{record.cliIngestion ? 'N/A' : 'Unknown'}</span>
+                          ),
+                      width: '15%',
+                  },
+              ]
+            : []),
         {
             title: 'Last Run',
             key: 'lastRun',
@@ -104,7 +144,7 @@ function IngestionSourceTable({
                     dataTestId="ingestion-source-table-status"
                 />
             ),
-            width: '15%',
+            width: '10%',
         },
         {
             title: 'Owner',

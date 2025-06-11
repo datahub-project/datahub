@@ -1,5 +1,6 @@
-import { Pagination, SearchBar, SimpleSelect } from '@components';
+import { Button, Pagination, SearchBar, SimpleSelect, colors } from '@components';
 import { InputRef, Modal, message } from 'antd';
+import { X } from 'phosphor-react';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation } from 'react-router';
@@ -9,7 +10,7 @@ import styled from 'styled-components';
 import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import EmptySources from '@app/ingestV2/EmptySources';
-import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import { CLI_EXECUTOR_ID, INGESTION_TAB_QUERY_PARAMS } from '@app/ingestV2/constants';
 import { ExecutionDetailsModal } from '@app/ingestV2/executions/components/ExecutionDetailsModal';
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import RefreshButton from '@app/ingestV2/shared/components/RefreshButton';
@@ -19,6 +20,7 @@ import IngestionSourceTable from '@app/ingestV2/source/IngestionSourceTable';
 import RecipeViewerModal from '@app/ingestV2/source/RecipeViewerModal';
 import { IngestionSourceBuilderModal } from '@app/ingestV2/source/builder/IngestionSourceBuilderModal';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from '@app/ingestV2/source/builder/types';
+import { usePoolActionsForIngestionSourceList } from '@app/ingestV2/source/hooks.saas';
 import {
     addToListIngestionSourcesCache,
     getIngestionSourceSystemFilter,
@@ -96,6 +98,24 @@ const PaginationContainer = styled.div`
     flex-shrink: 0;
 `;
 
+// SaaS only buttons
+const PoolsFilterButton = styled(Button)`
+    margin: 8px;
+    font-weight: bold;
+    &:hover {
+        background-color: transparent;
+    }
+`;
+
+const CloseButton = styled(X)`
+    cursor: pointer;
+    margin-left: 2px;
+    position: relative;
+    top: 2px;
+    align-items: center;
+    gap: 8px;
+`;
+
 export enum IngestionSourceType {
     ALL,
     UI,
@@ -127,6 +147,8 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
     const me = useUserContext();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
+    const paramsPoolFilter = (params?.[INGESTION_TAB_QUERY_PARAMS.pool] as string) || undefined; // SaaS only
+
     const [query, setQuery] = useState<undefined | string>(undefined);
     const [searchInput, setSearchInput] = useState('');
     const searchInputRef = useRef<InputRef>(null);
@@ -181,6 +203,11 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
             values: [CLI_EXECUTOR_ID],
             negated: sourceFilter !== IngestionSourceType.CLI,
         });
+    }
+
+    // SaaS only
+    if (paramsPoolFilter) {
+        filters.push({ field: 'sourceExecutorId', values: [paramsPoolFilter], negated: false });
     }
 
     // Ingestion Source Queries
@@ -518,6 +545,9 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
 
     const handleSetFocusExecutionUrn = useCallback((val) => setFocusExecutionUrn(val), []);
 
+    // SaaS only
+    const { onViewPool, clearPoolFilter } = usePoolActionsForIngestionSourceList(params, shouldPreserveParams);
+
     return (
         <>
             {error && (
@@ -549,6 +579,13 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                             <RefreshButton onClick={onRefresh} id={INGESTION_REFRESH_SOURCES_ID} />
                         </FilterButtonsContainer>
                     </StyledTabToolbar>
+                    {/* SaaS only: Pools filter query param indicator with an 'x' button */}
+                    {paramsPoolFilter && (
+                        <PoolsFilterButton variant="text" onClick={clearPoolFilter}>
+                            Showing sources on the &quot;{paramsPoolFilter}&quot; pool{' '}
+                            <CloseButton color={colors.gray[500]} size={12} />
+                        </PoolsFilterButton>
+                    )}
                 </HeaderContainer>
                 {!loading && totalSources === 0 ? (
                     <EmptySources sourceType="sources" isEmptySearchResult={!!query} />
@@ -565,6 +602,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                                 onChangeSort={onChangeSort}
                                 isLoading={loading}
                                 shouldPreserveParams={shouldPreserveParams}
+                                saasProps={{ onViewPool }}
                                 isLastPage={isLastPage}
                             />
                         </TableContainer>
