@@ -380,16 +380,6 @@ class FivetranSource(StatefulIngestionSourceBase):
             )
             return
 
-        # Add table-level lineage if we're working with the tables
-        fine_grained_lineage.append(
-            FineGrainedLineage(
-                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                upstreams=[str(source_urn)],
-                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                downstreams=[str(dest_urn)],
-            )
-        )
-
         logger.info(f"Creating column lineage from {source_urn} to {dest_urn}")
 
         # Extract destination platform from the URN
@@ -1131,7 +1121,6 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Process job history
         if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:
-            self._report_lineage_truncation(connector)
             self.report.warning(
                 title="Not all sync history was captured",
                 message=f"The connector had more than {MAX_JOBS_PER_CONNECTOR} sync runs in the past {self.config.history_sync_lookback_period} days. "
