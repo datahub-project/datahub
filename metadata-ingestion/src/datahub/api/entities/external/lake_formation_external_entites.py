@@ -10,7 +10,7 @@
 # Tag search using the workspace search UI is supported only for tables, views, and table columns.
 # Tag search requires exact term matching.
 # https://learn.microsoft.com/en-us/azure/databricks/database-objects/tags#constraint
-from typing import Any, Dict, Optional, Set, Union
+from typing import Any, Dict, Optional, Union
 
 from typing_extensions import ClassVar
 
@@ -18,56 +18,45 @@ from datahub.api.entities.external.external_tag import ExternalTag
 from datahub.api.entities.external.restricted_text import RestrictedText
 
 
-class UnityCatalogTagKeyText(RestrictedText):
+class LakeFormationTagKeyText(RestrictedText):
     """RestrictedText configured for Unity Catalog tag keys."""
 
-    _default_max_length: ClassVar[int] = 255
+    _default_max_length: ClassVar[int] = 50
     # Unity Catalog tag keys: alphanumeric, hyphens, underscores, periods only
-    _default_forbidden_chars: ClassVar[Set[str]] = {
-        "\t",
-        "\n",
-        "\r",
-        ".",
-        ",",
-        "-",
-        "=",
-        "/",
-        ":",
-    }
     _default_replacement_char: ClassVar[str] = "_"
     _default_truncation_suffix: ClassVar[str] = ""  # No suffix for clean identifiers
 
 
-class UnityCatalogTagValueText(RestrictedText):
+class LakeFormationTagValueText(RestrictedText):
     """RestrictedText configured for Unity Catalog tag values."""
 
-    _default_max_length: ClassVar[int] = 1000
+    _default_max_length: ClassVar[int] = 50
     # Unity Catalog tag values are more permissive but still have some restrictions
-    _default_forbidden_chars: ClassVar[Set[str]] = {"\t", "\n", "\r"}
     _default_replacement_char: ClassVar[str] = " "
     _default_truncation_suffix: ClassVar[str] = "..."
 
 
-class UnityCatalogTag(ExternalTag):
+class LakeFormationTag(ExternalTag):
     """
-    A tag type specifically designed for Unity Catalog tag restrictions.
+    A tag type specifically designed for LakeFormation tag restrictions.
 
-    Unity Catalog Tag Restrictions:
+    LakeFormation Tag Restrictions:
     - Key: Max 127 characters, alphanumeric + hyphens, underscores, periods only
     - Value: Max 256 characters, more permissive but no control characters
     """
 
-    key: UnityCatalogTagKeyText
-    value: Optional[UnityCatalogTagValueText] = None
+    key: LakeFormationTagKeyText
+    value: Optional[LakeFormationTagValueText] = None
+    catalog: Optional[str] = None
 
     def __init__(
         self,
-        key: Optional[Union[str, UnityCatalogTagKeyText]] = None,
-        value: Optional[Union[str, UnityCatalogTagValueText]] = None,
+        key: Optional[Union[str, LakeFormationTagKeyText]] = None,
+        value: Optional[Union[str, LakeFormationTagValueText]] = None,
         **data: Any,
     ) -> None:
         """
-        Initialize UnityCatalogTag from either a DataHub Tag URN or explicit key/value.
+        Initialize LakeFormation Tag from either a DataHub Tag URN or explicit key/value.
 
         Args:
             key: Explicit key value (optional for Pydantic initialization)
@@ -77,20 +66,17 @@ class UnityCatalogTag(ExternalTag):
         if key is not None:
             # Direct initialization with key/value
             processed_key = (
-                UnityCatalogTagKeyText(key)
-                if not isinstance(key, UnityCatalogTagKeyText)
+                LakeFormationTagKeyText(key)
+                if not isinstance(key, LakeFormationTagKeyText)
                 else key
             )
             processed_value = None
             if value is not None:
                 processed_value = (
-                    UnityCatalogTagValueText(value)
-                    if not isinstance(value, UnityCatalogTagValueText)
+                    LakeFormationTagValueText(value)
+                    if not isinstance(value, LakeFormationTagValueText)
                     else value
                 )
-            # If value is an empty string, set it to None to not generater empty value in DataHub tag which results in key: tags
-            if not str(value):
-                processed_value = None
 
             super().__init__(
                 key=processed_key,
@@ -103,33 +89,35 @@ class UnityCatalogTag(ExternalTag):
 
     def __eq__(self, other: object) -> bool:
         """Check equality based on key and value."""
-        if not isinstance(other, UnityCatalogTag):
+        if not isinstance(other, LakeFormationTag):
             return False
         return str(self.key) == str(other.key) and (
             str(self.value) if self.value else None
         ) == (str(other.value) if other.value else None)
 
     def __hash__(self) -> int:
-        """Make UnityCatalogTag hashable based on key and value."""
+        """Make LakeFormationTag hashable based on key and value."""
         return hash((str(self.key), str(self.value) if self.value else None))
 
     @classmethod
-    def from_dict(cls, tag_dict: Dict[str, Any]) -> "UnityCatalogTag":
+    def from_dict(cls, tag_dict: Dict[str, Any]) -> "LakeFormationTag":
         """
-        Create a UnityCatalogTag from a dictionary with 'key' and optional 'value'.
+        Create a LakeFormationTag from a dictionary with 'key' and optional 'value'.
 
         Args:
             tag_dict: Dictionary with 'key' and optional 'value' keys
 
         Returns:
-            UnityCatalogTag instance
+            LakeFormationTag instance
         """
         return cls(key=tag_dict["key"], value=tag_dict.get("value"))
 
     @classmethod
-    def from_key_value(cls, key: str, value: Optional[str] = None) -> "UnityCatalogTag":
+    def from_key_value(
+        cls, key: str, value: Optional[str] = None
+    ) -> "LakeFormationTag":
         """
-        Create a UnityCatalogTag from explicit key and value.
+        Create a LakeFormationTagPlatformResource from explicit key and value.
 
         Overrides the parent method to return the correct type.
 
@@ -138,13 +126,13 @@ class UnityCatalogTag(ExternalTag):
             value: Optional tag value
 
         Returns:
-            UnityCatalogTag instance
+            LakeFormationTag instance
         """
         return cls(key=key, value=value)
 
     def to_dict(self) -> Dict[str, str]:
         """
-        Convert to dictionary format suitable for Unity Catalog API.
+        Convert to dictionary format suitable for LakeFormation tag.
 
         Returns:
             Dictionary with 'key' and optionally 'value'
@@ -168,6 +156,6 @@ class UnityCatalogTag(ExternalTag):
 
     def __repr__(self) -> str:
         if self.value:
-            return f"UnityCatalogTag(key={self.key!r}, value={self.value!r})"
+            return f"LakeFormationTag(key={self.key!r}, value={self.value!r})"
         else:
-            return f"UnityCatalogTag(key={self.key!r})"
+            return f"LakeFormationTag(key={self.key!r})"
