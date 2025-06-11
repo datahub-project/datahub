@@ -600,6 +600,7 @@ featureFlags:
   preProcessHooks:
     uiEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:true} # Circumvents Kafka for processing index updates for UI changes sourced from GraphQL to avoid processing delays
     reprocessEnabled: ${PRE_PROCESS_HOOKS_UI_ENABLED:false} # If enabled, will reprocess UI sourced events asynchronously when reading from Kafka after pre-processing them synchronously
+<<<<<<< HEAD
   showAcrylInfo: ${SHOW_ACRYL_INFO:false} # Show different CTAs within DataHub around moving to DataHub Cloud. Set to true for the demo site.
   erModelRelationshipFeatureEnabled: ${ER_MODEL_RELATIONSHIP_FEATURE_ENABLED:false} # Enable Join Tables Feature and show within Dataset view as Relations
   nestedDomainsEnabled: ${NESTED_DOMAINS_ENABLED:true} # Enables the nested Domains feature that allows users to have sub-Domains. If this is off, Domains appear "flat" again
@@ -627,6 +628,7 @@ featureFlags:
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:false} # If turned on, show the re-designed home page
   lineageGraphV3: ${LINEAGE_GRAPH_V3:false}  # Enables the redesign of the lineage v2 graph
+  showProductUpdates: ${SHOW_PRODUCT_UPDATES:false} # Whether to show notification settings for compliance forms
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
