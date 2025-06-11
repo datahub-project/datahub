@@ -3,8 +3,13 @@ package com.linkedin.metadata.test;
 import static com.linkedin.metadata.test.TestConstants.*;
 import static com.linkedin.metadata.test.TestDefinitionParserTest.loadTest;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
@@ -35,6 +40,8 @@ import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
 import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
+import com.linkedin.test.TestSource;
+import com.linkedin.test.TestSourceType;
 import com.linkedin.test.TestStatus;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -326,6 +333,37 @@ public class TestEngineTest {
         testEngine.evaluateSingleTest(
             mock(OperationContext.class), test.getUrn(), TestEngine.EvaluationMode.SYNC);
     verify(mockEntityService, atLeastOnce()).ingestProposal(any(), any(), eq(false));
+  }
+
+  @Test
+  public void testShouldWriteAssetResults() {
+    // Test with null source
+    TestInfo testInfo = new TestInfo();
+    assertTrue(TestEngine.shouldWriteAssetResults(testInfo));
+
+    // Test with BULK_FORM_SUBMISSION source
+    TestInfo bulkFormTestInfo = new TestInfo();
+    bulkFormTestInfo.setSource(new TestSource().setType(TestSourceType.BULK_FORM_SUBMISSION));
+    assertFalse(TestEngine.shouldWriteAssetResults(bulkFormTestInfo));
+
+    // Test with FORMS source
+    TestInfo formsTestInfo = new TestInfo();
+    formsTestInfo.setSource(new TestSource().setType(TestSourceType.FORMS));
+    assertFalse(TestEngine.shouldWriteAssetResults(formsTestInfo));
+
+    // Test with FORM_PROMPT source
+    TestInfo formPromptTestInfo = new TestInfo();
+    formPromptTestInfo.setSource(new TestSource().setType(TestSourceType.FORM_PROMPT));
+    assertFalse(TestEngine.shouldWriteAssetResults(formPromptTestInfo));
+
+    // Test with other source type
+    TestInfo otherTestInfo = new TestInfo();
+    otherTestInfo.setSource(new TestSource().setType(TestSourceType.$UNKNOWN));
+    assertTrue(TestEngine.shouldWriteAssetResults(otherTestInfo));
+
+    // Test with no source
+    TestInfo noSourceTestInfo = new TestInfo();
+    assertTrue(TestEngine.shouldWriteAssetResults(noSourceTestInfo));
   }
 
   /** on: types: - dataset rules: and: - property: status.removed operator: is_true */
