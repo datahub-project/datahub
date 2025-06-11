@@ -2,10 +2,10 @@
 
 DataHub's Python SDK makes it easy to search and discover metadata across your data ecosystem. Whether you're exploring unknown datasets, filtering by environment, or building advanced search tools, this guide walks you through how to do it all programmatically.
 
-**With search SDK, you can:**
+**With the Search SDK, you can:**
 
 - Search for data assets by keyword or using structured filters
-- Filter by environment, platform, type, custom properties or other metadata fields
+- Filter by environment, platform, type, custom properties, or other metadata fields
 - Use `AND` / `OR` / `NOT` logic for advanced queries
 
 ## Getting Started
@@ -25,10 +25,6 @@ client = DataHubClient(server="<your_server>", token="<your_token>")
   - hosted: `https://<your_datahub_url>/gms`
 - **token**: You'll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
 
-#### token
-
-You'll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
-
 ## Search Types
 
 DataHub offers two primary search approaches:
@@ -37,7 +33,7 @@ DataHub offers two primary search approaches:
 
 Query-based search allows you to search using simple keywords. This matches across common fields like name, description, and column names. This is useful for exploration when you're unsure of the exact asset you're looking for.
 
-#### Find all entities related to sales
+#### Find All Entities Related to Sales
 
 For example, the script below searches for any assets that have `sales` in their metadata.
 
@@ -59,7 +55,7 @@ Example output:
 Filter-based search allows you to scope results by platform, environment, entity type, and other structured fields.
 This is useful when you want to narrow down results to specific asset types or metadata fields.
 
-#### Find all snowflake entities
+#### Find All Snowflake Entities
 
 For example, the script below searches for entities on the Snowflake platform.
 
@@ -67,7 +63,7 @@ For example, the script below searches for entities on the Snowflake platform.
 {{ inline /metadata-ingestion/examples/library/search_with_filter.py show_path_as_comment }}
 ```
 
-#### Find all snowflake datasets related to forecast
+#### Find All Snowflake Datasets Related to Forecast
 
 You can combine query and filters to refine search results further.
 For example, search for anything containing "forecast" that is either a chart or a Snowflake dataset.
@@ -82,43 +78,43 @@ For more details on available filters, see the [filter options](#filter-options)
 
 Here are some common examples of advanced queries using filters and logical operations:
 
-#### Find all dashboards
+#### Find All Dashboards
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_by_entity_type.py show_path_as_comment }}
 ```
 
-#### Find all snowflake entities
+#### Find All Snowflake Entities
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_by_platform.py show_path_as_comment }}
 ```
 
-#### Find all entities in the production environment
+#### Find All Entities in the Production Environment
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_by_env.py show_path_as_comment }}
 ```
 
-#### Find all entities that are in a certain domain
+#### Find All Entities in a Specific Domain
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_by_domain.py show_path_as_comment }}
 ```
 
-#### Find all entities with a certain subtype
+#### Find All Entities With a Specific Subtype
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_by_entity_subtype.py show_path_as_comment }}
 ```
 
-#### Find entities that have a certain custom property
+#### Find All Entities With Specific Custom Properties
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_by_custom_property.py show_path_as_comment }}
 ```
 
-#### Find all charts and snowflake datasets
+#### Find All Charts and Snowflake Datasets
 
 You can combine filters using logical operations like `and_`, `or_`, and `not_` to build advanced queries. Check the [Logical Operator Options](#logical-operator-options) for more details.
 
@@ -126,15 +122,15 @@ You can combine filters using logical operations like `and_`, `or_`, and `not_` 
 {{ inline /metadata-ingestion/examples/library/search_filter_combined_operation.py show_path_as_comment }}
 ```
 
-#### Find all production entities that are not charts
+#### Find All Production Entities Excluding Charts
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_not.py show_path_as_comment }}
 ```
 
-#### Find entities by urn matching
+#### Find Entities By URN Matching
 
-Use `custom_filter` to target specific fields such as urn, name, or description. Check the [Supported Conditions for Custom Filter](#supported-conditions-for-custom-filter) for more details on available fields for `condition`.
+Use `F.custom_filter()` to target specific fields such as urn, name, or description. Check the [Supported Conditions for Custom Filter](#supported-conditions-for-custom-filter) for more details on available fields for `condition`.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_custom.py show_path_as_comment }}
