@@ -141,6 +141,7 @@ query appConfig {
             onlineSmartAssertionsEnabled
             showDefaultExternalLinks
             showCreatedAtFilter
+            showProductUpdates
             formsNotificationsEnabled
             lineageGraphV3
         }

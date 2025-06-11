@@ -817,6 +817,8 @@ featureFlags:
   # If turned on, show the expand more button (>>) in the lineage graph
   formsNotificationsEnabled: ${FORMS_NOTIFICATIONS_ENABLED:false}
   # Whether to show notification settings for compliance forms
+  showProductUpdates: ${SHOW_PRODUCT_UPDATES:false}
+  # Whether to show product updates on app sidebar. Will go to OSS.
   lineageGraphV3: ${LINEAGE_GRAPH_V3:false}
   # Enables the redesign of the lineage v2 graph
 

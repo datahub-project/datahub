@@ -163,6 +163,7 @@ public enum DataHubUsageEventType {
   SSO_CONFIGURATION_EVENT("SSOConfigurationEvent"),
   CHATBOT_INTERACTION_EVENT("ChatbotInteractionEvent"),
   CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedbackEvent"),
+  CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent"),
   CREATE_ACTION_EVENT("CreateActionEvent"),
   UPDATE_ACTION_EVENT("UpdateActionEvent"),
   DELETE_ACTION_EVENT("DeleteActionEvent");

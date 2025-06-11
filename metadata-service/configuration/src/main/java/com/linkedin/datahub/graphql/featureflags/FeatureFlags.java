@@ -71,5 +71,6 @@ public class FeatureFlags {
   private boolean onlineSmartAssertionsEnabled = false;
   private boolean showDefaultExternalLinks = true;
   private boolean showCreatedAtFilter = false;
+  private boolean showProductUpdates = false;
   private boolean formsNotificationsEnabled = false;
 }

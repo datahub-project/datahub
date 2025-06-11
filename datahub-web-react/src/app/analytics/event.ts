@@ -182,6 +182,7 @@ export enum EventType {
     ClickCreateAssertion,
     ClickUserProfile,
     ClickViewDocumentation,
+    ClickProductUpdate,
     CreateActionEvent,
     UpdateActionEvent,
     DeleteActionEvent,
@@ -1333,6 +1334,12 @@ export interface HomePageClickEvent extends BaseEvent {
     value?: string; // what was actually clicked ie. an entity urn to go to a page, or "View all" for a section
 }
 
+export interface ClickProductUpdateEvent extends BaseEvent {
+    type: EventType.ClickProductUpdate;
+    id: string;
+    url: string;
+}
+
 /**
  * Event consisting of a union of specific event types.
  */
@@ -1489,6 +1496,7 @@ export type Event =
     | ClickCreateAssertionEvent
     | ClickUserProfileEvent
     | ClickViewDocumentationEvent
+    | ClickProductUpdateEvent
     | CreateActionEvent
     | UpdateActionEvent
     | DeleteActionEvent;

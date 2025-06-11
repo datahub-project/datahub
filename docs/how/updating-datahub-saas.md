@@ -15,8 +15,6 @@
 ### Other Notable Changes
 
 ### Environment Variables
-- `REQUEST_MINIMAL_SLACK_PERMISSIONS` (default: false) -  If turned on, request minimal required slack permissions.
-
 -->
 
 This is over and above updating-datahub.md file
@@ -37,6 +35,7 @@ This is over and above updating-datahub.md file
 
 - [datahub-gms] `AI_FEATURES_ENABLED`: Flag to enable the AI settings page in the UI.
 - [datahub-gms] `DOCUMENTATION_AI_ENABLED`: This flag has been repurposed - it now controls the default value for whether or not documentation AI is enabled, but will be superseded by `globalSettings.documentationAi.enabled` if that is set.
+- [datahub-gms] `SHOW_PRODUCT_UPDATES`: Flag to show or hide in product sidebar update banner on new releases.
 
 ## v0.3.11
 

@@ -13,6 +13,7 @@ import { SearchHeader } from '@app/searchV2/SearchHeader';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
+import ProductUpdates from '@app/shared/product/update/ProductUpdates';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
@@ -24,6 +25,8 @@ import {
     useGetAutoCompleteMultipleResultsLazyQuery,
 } from '@graphql/search.generated';
 import { FacetFilterInput } from '@types';
+
+// DataHub Cloud Only (For Now)
 
 const Body = styled.div`
     display: flex;
@@ -163,6 +166,8 @@ export const SearchablePage = ({ children }: Props) => {
             <Body>
                 <Navigation $isShowNavBarRedesign={isShowNavBarRedesign}>
                     <FinalNavBar />
+                    {/** DataHub Cloud Only (For Now) */}
+                    <ProductUpdates />
                 </Navigation>
                 <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{children}</Content>
             </Body>

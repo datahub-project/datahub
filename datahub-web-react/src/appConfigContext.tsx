@@ -121,6 +121,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
         showDefaultExternalLinks: true,
         showCreatedAtFilter: false,
         showIngestionPageRedesign: false,
+        showProductUpdates: false,
         formsNotificationsEnabled: false,
         lineageGraphV3: false,
     },
