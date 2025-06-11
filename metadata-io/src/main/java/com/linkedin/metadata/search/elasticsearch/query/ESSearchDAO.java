@@ -493,10 +493,13 @@ public class ESSearchDAO {
       @Nonnull List<String> entities,
       @Nullable Filter filters,
       @Nullable List<SortCriterion> sortCriteria,
-      int size,
+      @Nullable Integer size,
       @Nullable String scrollId,
       @Nullable String keepAliveDuration,
       @Nullable SearchDocFieldFetchConfig searchDocFieldFetchConfig) {
+
+    size = ConfigUtils.applyLimit(searchServiceConfig, size);
+
     List<EntitySpec> entitySpecs =
         entities.stream()
             .map(specName -> opContext.getEntityRegistry().getEntitySpec(specName))

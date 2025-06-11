@@ -9,6 +9,15 @@ from datahub.sdk.entity_client import EntityClient
 from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.search_client import SearchClient
 
+try:
+    from acryl_datahub_cloud.sdk import (  # type: ignore[import-not-found]
+        ResolverClient,
+    )
+except ImportError:
+    from datahub.sdk.resolver_client import (  # type: ignore[assignment]  # If the client is not installed, use the one from the SDK
+        ResolverClient,
+    )
+
 
 class DataHubClient:
     """Main client for interacting with DataHub.
@@ -92,15 +101,7 @@ class DataHubClient:
         return EntityClient(self)
 
     @property
-    def resolve(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues
-        try:
-            from acryl_datahub_cloud.sdk import (  # type: ignore[import-not-found]
-                ResolverClient,
-            )
-        except ImportError:
-            from datahub.sdk.resolver_client import (  # type: ignore[assignment]  # If the client is not installed, use the one from the SDK
-                ResolverClient,
-            )
+    def resolve(self) -> ResolverClient:
         return ResolverClient(self)
 
     @property

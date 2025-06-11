@@ -2,7 +2,9 @@ package com.linkedin.datahub.graphql.types.dataproduct.mappers;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.*;
 import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
@@ -12,6 +14,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataProduct;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
@@ -91,6 +94,9 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (dataProduct, dataMap) -> mapApplicationAssociation(context, dataProduct, dataMap));
+    mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
     mappingHelper.mapToResult(
@@ -127,5 +133,14 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
             dataProductProperties.getCustomProperties(), UrnUtils.getUrn(dataProduct.getUrn())));
 
     dataProduct.setProperties(properties);
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull DataProduct dataProduct,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    dataProduct.setApplication(
+        ApplicationAssociationMapper.map(context, applications, dataProduct.getUrn()));
   }
 }

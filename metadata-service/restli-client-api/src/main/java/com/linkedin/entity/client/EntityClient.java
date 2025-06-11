@@ -328,7 +328,7 @@ public interface EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nullable Integer count,
       List<SortCriterion> sortCriteria,
       @Nullable String predicateJson)
       throws RemoteInvocationException {

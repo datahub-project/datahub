@@ -25,29 +25,25 @@ export const Avatar = ({
 }: AvatarProps) => {
     const [hasError, setHasError] = useState(false);
 
-    const renderAvatarLogo = () => {
-        if (type === AvatarType.user) {
-            if (!hasError && imageUrl) {
-                return <AvatarImage src={imageUrl} onError={() => setHasError(true)} />;
-            }
-            return <>{getNameInitials(name)}</>;
-        }
-        if (type === AvatarType.group) {
-            return <Icon icon="UsersThree" source="phosphor" size="md" />;
-        }
-        return null;
-    };
-
     return (
         <Container onClick={onClick} $hasOnClick={!!onClick} $showInPill={showInPill}>
-            <AvatarImageWrapper
-                $color={getAvatarColor(name)}
-                $size={size}
-                $isOutlined={isOutlined}
-                $hasImage={!!imageUrl}
-            >
-                {renderAvatarLogo()}
-            </AvatarImageWrapper>
+            {(type === AvatarType.user || imageUrl) && (
+                <AvatarImageWrapper
+                    $color={getAvatarColor(name)}
+                    $size={size}
+                    $isOutlined={isOutlined}
+                    $hasImage={!!imageUrl}
+                >
+                    {!hasError && imageUrl ? (
+                        <AvatarImage src={imageUrl} onError={() => setHasError(true)} />
+                    ) : (
+                        type === AvatarType.user && getNameInitials(name)
+                    )}
+                </AvatarImageWrapper>
+            )}
+            {type === AvatarType.group && !imageUrl && (
+                <Icon icon="UsersThree" source="phosphor" variant="filled" color="gray" size="lg" />
+            )}
             {showInPill && <AvatarText $size={size}>{name}</AvatarText>}
         </Container>
     );

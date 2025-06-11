@@ -4,6 +4,7 @@ import React from 'react';
 import { FetchedEntity } from '@app/lineage/types';
 
 import {
+    ApplicationAssociation,
     ActionRequest,
     BrowsePathV2,
     ChartStatsSummary,
@@ -96,6 +97,7 @@ export type GenericEntityProperties = {
     glossaryTerms?: Maybe<GlossaryTerms>;
     ownership?: Maybe<Ownership>;
     domain?: Maybe<DomainAssociation>;
+    application?: Maybe<ApplicationAssociation>;
     dataProduct?: Maybe<EntityRelationshipsResult>;
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;

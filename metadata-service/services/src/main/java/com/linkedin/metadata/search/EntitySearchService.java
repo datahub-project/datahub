@@ -178,7 +178,7 @@ public interface EntitySearchService {
       @Nonnull List<String> entities,
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
-      int size,
+      @Nullable Integer size,
       @Nullable String scrollId,
       @Nullable String keepAliveDuration,
       @Nullable SearchDocFieldFetchConfig fieldFetchConfig);

@@ -54,12 +54,13 @@ const DEFAULT_PAGE_SIZE = 25;
 
 interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
+    hideSystemSources: boolean;
+    setHideSystemSources: (show: boolean) => void;
 }
 
-export const ExecutionsTab = ({ shouldPreserveParams }: Props) => {
+export const ExecutionsTab = ({ shouldPreserveParams, hideSystemSources, setHideSystemSources }: Props) => {
     const [appliedFilters, setAppliedFilters] = useState<Map<string, string[]>>(new Map());
     const [executionRequestUrnToView, setExecutionRequestUrnToView] = useState<undefined | string>(undefined);
-    const [hideSystemSources, setHideSystemSources] = useState(true);
 
     const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
     // When filters changed, reset page to 1

@@ -58,6 +58,9 @@ query appConfig {
             theme {
                 themeId
             }
+            application {
+                showSidebarSectionWhenEmpty
+            }
         }
         telemetryConfig {
             enableThirdPartyLogging

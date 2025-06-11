@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.chart.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.chart.EditableChartProperties;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
@@ -35,6 +36,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -143,6 +145,9 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (chart, dataMap) -> mapApplicationAssociation(context, chart, dataMap));
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
@@ -314,5 +319,11 @@ public class ChartMapper implements ModelMapper<EntityResponse, Chart> {
       @Nullable final QueryContext context, @Nonnull Chart chart, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     chart.setDomain(DomainAssociationMapper.map(context, domains, chart.getUrn()));
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context, @Nonnull Chart chart, @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    chart.setApplication(ApplicationAssociationMapper.map(context, applications, chart.getUrn()));
   }
 }

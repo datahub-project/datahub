@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.Cost;
 import com.linkedin.common.DataPlatformInstance;
@@ -26,6 +27,7 @@ import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.generated.MLModel;
 import com.linkedin.datahub.graphql.generated.MLModelEditableProperties;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CostMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -194,6 +196,9 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
             entity.setVersionProperties(
                 VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
     mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (mlModel, dataMap) -> mapApplicationAssociation(context, mlModel, dataMap));
+    mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
     mappingHelper.mapToResult(
@@ -265,5 +270,12 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
       editableProperties.setDescription(input.getDescription());
     }
     entity.setEditableProperties(editableProperties);
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context, @Nonnull MLModel mlModel, @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    mlModel.setApplication(
+        ApplicationAssociationMapper.map(context, applications, mlModel.getUrn()));
   }
 }
