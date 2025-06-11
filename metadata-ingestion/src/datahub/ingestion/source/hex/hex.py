@@ -20,6 +20,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.hex.api import HexApi, HexApiReport
@@ -169,7 +170,8 @@ class HexReport(
     IngestionStageReport,
     HexQueryFetcherReport,
 ):
-    pass
+    projects_filter: EntityFilterReport = EntityFilterReport.field(type="project")
+    components_filter: EntityFilterReport = EntityFilterReport.field(type="component")
 
 
 @platform_name("Hex")
@@ -184,6 +186,11 @@ class HexSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.source_config = config
         self.report: HexReport = HexReport()
+        self.source_config.project_title_pattern.set_report(self.report.projects_filter)
+        self.source_config.component_title_pattern.set_report(
+            self.report.components_filter
+        )
+
         self.platform = HEX_PLATFORM_NAME
         self.hex_api = HexApi(
             report=self.report,

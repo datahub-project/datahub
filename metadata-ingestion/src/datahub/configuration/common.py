@@ -236,6 +236,20 @@ class ConfigurationMechanism(ABC):
         pass
 
 
+class AllowDenyFilterReport(ABC):
+    """Abstract class for reporting allow/deny filter operations."""
+
+    @abstractmethod
+    def processed(self, string: str) -> None:
+        """Report that a string was allowed by the filter."""
+        pass
+
+    @abstractmethod
+    def dropped(self, string: str) -> None:
+        """Report that a string was denied by the filter."""
+        pass
+
+
 class AllowDenyPattern(ConfigModel):
     """A class to store allow deny regexes"""
 
@@ -244,6 +258,9 @@ class AllowDenyPattern(ConfigModel):
     # be considered a regex special character, but it's used frequently in literal
     # patterns and hence we allow it anyway.
     IS_SIMPLE_REGEX: ClassVar = re.compile(r"^[A-Za-z0-9 _.-]+$")
+
+    class Config:
+        arbitrary_types_allowed = True
 
     allow: List[str] = Field(
         default=[".*"],
@@ -258,6 +275,12 @@ class AllowDenyPattern(ConfigModel):
         description="Whether to ignore case sensitivity during pattern matching.",
     )  # Name comparisons should default to ignoring case
 
+    _report: Optional[AllowDenyFilterReport] = None
+
+    def set_report(self, report: AllowDenyFilterReport) -> None:
+        """Set the report to use for tracking allow/deny operations."""
+        self._report = report
+
     @property
     def regex_flags(self) -> int:
         return re.IGNORECASE if self.ignoreCase else 0
@@ -266,8 +289,8 @@ class AllowDenyPattern(ConfigModel):
     def allow_all(cls) -> "AllowDenyPattern":
         return AllowDenyPattern()
 
-    def allowed(self, string: str) -> bool:
-        if self.denied(string):
+    def _allowed(self, string: str) -> bool:
+        if self._denied(string):
             return False
 
         return any(
@@ -275,12 +298,24 @@ class AllowDenyPattern(ConfigModel):
             for allow_pattern in self.allow
         )
 
-    def denied(self, string: str) -> bool:
+    def _denied(self, string: str) -> bool:
         for deny_pattern in self.deny:
             if re.match(deny_pattern, string, self.regex_flags):
                 return True
 
         return False
+
+    def allowed(self, string: str) -> bool:
+        ret = self._allowed(string)
+        if self._report:
+            self._report.processed(string) if ret else self._report.dropped(string)
+        return ret
+
+    def denied(self, string: str) -> bool:
+        ret = self._denied(string)
+        if self._report:
+            self._report.dropped(string) if ret else self._report.processed(string)
+        return ret
 
     def is_fully_specified_allow_list(self) -> bool:
         """
