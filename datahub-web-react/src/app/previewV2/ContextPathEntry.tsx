@@ -1,4 +1,3 @@
-import { Maybe } from 'graphql/jsutils/Maybe';
 import { debounce } from 'lodash';
 import React, { useCallback } from 'react';
 import { Link } from 'react-router-dom';
@@ -6,10 +5,7 @@ import styled from 'styled-components';
 
 import ContextPathEntityIcon from '@app/previewV2/ContextPathEntityIcon';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
-import { useEntityRegistry } from '@app/useEntityRegistry';
 import { colors } from '@src/alchemy-components';
-
-import { Entity } from '@types';
 
 const Path = styled.div<{ isLast: boolean }>`
     flex: ${({ isLast }) => (isLast ? '1 0 1' : '1 1 0')};
@@ -30,7 +26,7 @@ const ContainerText = styled.span`
     text-overflow: ellipsis;
 `;
 
-const StyledLink = styled(Link)<{ $disabled?: boolean }>`
+const Contents = styled.div<{ $disabled?: boolean }>`
     border-radius: 4px;
     overflow: hidden;
     display: flex;
@@ -54,7 +50,8 @@ const StyledLink = styled(Link)<{ $disabled?: boolean }>`
 `;
 
 interface Props {
-    entity: Maybe<Entity>;
+    name?: string;
+    linkUrl?: string;
     isLast: boolean;
     hideIcon?: boolean;
     linkDisabled?: boolean;
@@ -62,9 +59,8 @@ interface Props {
     className?: string;
 }
 
-function ContextPathEntityLink(props: Props) {
-    const { entity, isLast, hideIcon, linkDisabled, setIsTruncated, className } = props;
-    const entityRegistry = useEntityRegistry();
+function ContextPathEntry(props: Props) {
+    const { name, linkUrl, isLast, hideIcon, linkDisabled, setIsTruncated, className } = props;
     const linkProps = useEmbeddedProfileLinkProps();
 
     const handleResize: ResizeObserverCallback = useCallback(
@@ -86,24 +82,25 @@ function ContextPathEntityLink(props: Props) {
         [handleResize],
     );
 
-    if (!entity) return null;
-
-    const containerUrl = entityRegistry.getEntityUrl(entity.type, entity.urn);
-    const containerName = entityRegistry.getDisplayName(entity.type, entity);
+    const showLink = !!linkUrl && !linkDisabled;
+    const contents = (
+        <Contents $disabled={!showLink}>
+            {!hideIcon && linkUrl && <ContextPathEntityIcon />}
+            <ContainerText ref={measuredRef}>{name}</ContainerText>
+        </Contents>
+    );
 
     return (
         <Path isLast={isLast} className={className}>
-            <StyledLink
-                to={linkDisabled ? null : containerUrl}
-                data-testid="container"
-                $disabled={linkDisabled}
-                {...linkProps}
-            >
-                {!hideIcon && <ContextPathEntityIcon entity={entity} />}
-                <ContainerText ref={measuredRef}>{containerName}</ContainerText>
-            </StyledLink>
+            {showLink ? (
+                <Link to={linkUrl} data-testid="container" {...linkProps}>
+                    {contents}
+                </Link>
+            ) : (
+                contents
+            )}
         </Path>
     );
 }
 
-export default ContextPathEntityLink;
+export default ContextPathEntry;

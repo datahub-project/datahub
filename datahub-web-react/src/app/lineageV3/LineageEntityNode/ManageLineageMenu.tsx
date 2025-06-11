@@ -1,14 +1,16 @@
-import { ArrowLeftOutlined, ArrowRightOutlined, MoreOutlined } from '@ant-design/icons';
-import { Popover } from '@components';
-import { Button, Dropdown, Menu } from 'antd';
+import { Icon, Popover, colors } from '@components';
+import { Button, Dropdown } from 'antd';
+import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import * as QueryString from 'query-string';
-import React, { useCallback, useContext, useEffect, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
-import { LineageDisplayContext, LineageEntity, onClickPreventSelect } from '@app/lineageV3/common';
+import { LineageEntity, onClickPreventSelect } from '@app/lineageV3/common';
+import { getLineageUrl } from '@app/lineageV3/lineageUtils';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -20,25 +22,18 @@ const UPSTREAM_DISABLED_TEXT = 'Make this entity your home to make upstream edit
 
 const Wrapper = styled.div`
     border-radius: 4px;
-    position: absolute;
-    right: 3px;
-    top: 8px;
+    margin: 0 -4px;
 
     :hover {
         color: ${(p) => p.theme.styles['primary-color']};
     }
 `;
 
-const StyledIcon = styled(MoreOutlined)`
-    background: transparent;
-`;
-
-const StyledMenuItem = styled(Menu.Item)`
-    padding: 0;
-`;
-
 const MenuItemContent = styled.div`
-    padding: 5px 12px;
+    display: flex;
+    gap: 8px;
+
+    font-size: 12px;
 `;
 
 const StyledButton = styled(Button)`
@@ -67,15 +62,17 @@ interface Props {
     node: LineageEntity;
     refetch: Record<LineageDirection, () => void>;
     isRootUrn: boolean;
+    isGhost: boolean;
+    isOpen: boolean;
+    setDisplayedMenuNode: Dispatch<SetStateAction<string | null>>;
 }
 
-export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
-    const { displayedMenuNode, setDisplayedMenuNode } = useContext(LineageDisplayContext);
-    const isMenuVisible = displayedMenuNode === node.urn;
+export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, isOpen, setDisplayedMenuNode }: Props) {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(LineageDirection.Upstream);
     const location = useLocation();
     const history = useHistory();
+    const entityRegistry = useEntityRegistry();
 
     // Check for lineageEditDirection URL parameter when component mounts
     useEffect(() => {
@@ -113,7 +110,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
 
     function handleMenuClick(e: React.MouseEvent<HTMLElement, MouseEvent>) {
         onClickPreventSelect(e);
-        if (isMenuVisible) {
+        if (isOpen) {
             setDisplayedMenuNode(null);
         } else {
             setDisplayedMenuNode(node.urn);
@@ -130,58 +127,81 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn }: Props) {
     const isUpstreamDisabled = disableUpstream || !canEditLineage;
     const isManualLineageSupported = ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(node.type);
 
-    if (!isManualLineageSupported) return null;
+    const items: ItemType[] = [];
 
+    if (!isRootUrn) {
+        items.push({
+            key: 'change-home-node',
+            onClick: () => history.push(getLineageUrl(node.urn, node.type, location, entityRegistry)),
+            label: (
+                <MenuItemContent data-testid="change-home-node">
+                    <Icon icon="House" source="phosphor" size="inherit" />
+                    Change to Home
+                </MenuItemContent>
+            ),
+        });
+    }
+
+    if (!isGhost && isManualLineageSupported) {
+        items.push(
+            {
+                key: 'edit-upstream',
+                disabled: isUpstreamDisabled,
+                onClick: () => manageLineage(LineageDirection.Upstream),
+                label: (
+                    <Popover
+                        content={!canEditLineage ? UNAUTHORIZED_TEXT : UPSTREAM_DISABLED_TEXT}
+                        overlayStyle={isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }}
+                    >
+                        <MenuItemContent data-testid="edit-upstream-lineage">
+                            <Icon icon="ArrowLeft" source="phosphor" size="inherit" />
+                            Edit Upstream
+                        </MenuItemContent>
+                    </Popover>
+                ),
+            },
+            {
+                key: 'edit-downstream',
+                disabled: isDownstreamDisabled,
+                onClick: () => manageLineage(LineageDirection.Downstream),
+                label: (
+                    <Popover
+                        placement="bottom"
+                        content={getDownstreamDisabledPopoverContent(canEditLineage, isDashboard)}
+                        overlayStyle={!isDownstreamDisabled ? { display: 'none' } : undefined}
+                    >
+                        <MenuItemContent data-testid="edit-downstream-lineage">
+                            <Icon icon="ArrowRight" source="phosphor" size="inherit" />
+                            Edit Downstream
+                        </MenuItemContent>
+                    </Popover>
+                ),
+            },
+        );
+    }
+
+    items.push({
+        key: 'copy-urn',
+        onClick: () => navigator.clipboard.writeText(node.urn),
+        label: (
+            <MenuItemContent data-testid="change-home-node">
+                <Icon icon="Copy" source="phosphor" size="inherit" />
+                Copy Urn
+            </MenuItemContent>
+        ),
+    });
+
+    if (!items.length) return null;
     return (
         <Wrapper>
             <StyledButton onClick={handleMenuClick} type="text" data-testid={`manage-lineage-menu-${node.urn}`}>
                 <Dropdown
-                    open={isMenuVisible}
+                    open={isOpen}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
-                    getPopupContainer={(t) => t.parentElement || t}
-                    overlay={
-                        <Menu>
-                            {isManualLineageSupported && (
-                                <>
-                                    <StyledMenuItem
-                                        key="0"
-                                        onClick={() => manageLineage(LineageDirection.Upstream)}
-                                        disabled={isUpstreamDisabled}
-                                    >
-                                        <Popover
-                                            content={!canEditLineage ? UNAUTHORIZED_TEXT : UPSTREAM_DISABLED_TEXT}
-                                            overlayStyle={
-                                                isUpstreamDisabled ? { zIndex: POPOVER_Z_INDEX } : { display: 'none' }
-                                            }
-                                        >
-                                            <MenuItemContent data-testid="edit-upstream-lineage">
-                                                <ArrowLeftOutlined />
-                                                &nbsp; Edit Upstream
-                                            </MenuItemContent>
-                                        </Popover>
-                                    </StyledMenuItem>
-                                    <StyledMenuItem
-                                        key="1"
-                                        onClick={() => manageLineage(LineageDirection.Downstream)}
-                                        disabled={isDownstreamDisabled}
-                                    >
-                                        <Popover
-                                            placement="bottom"
-                                            content={getDownstreamDisabledPopoverContent(!!canEditLineage, isDashboard)}
-                                            overlayStyle={!isDownstreamDisabled ? { display: 'none' } : undefined}
-                                        >
-                                            <MenuItemContent data-testid="edit-downstream-lineage">
-                                                <ArrowRightOutlined />
-                                                &nbsp; Edit Downstream
-                                            </MenuItemContent>
-                                        </Popover>
-                                    </StyledMenuItem>
-                                </>
-                            )}
-                        </Menu>
-                    }
+                    placement="topRight"
+                    menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${colors.gray[100]}` } }}
                 >
-                    <StyledIcon style={{ fontSize: 'inherit' }} />
+                    <Icon icon="DotsThreeVertical" source="phosphor" color="gray" />
                 </Dropdown>
             </StyledButton>
             {isModalVisible && (

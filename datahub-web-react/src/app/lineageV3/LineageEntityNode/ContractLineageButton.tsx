@@ -1,4 +1,4 @@
-import { KeyboardArrowLeft } from '@mui/icons-material';
+import { Icon } from '@components';
 import React, { useContext } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
@@ -40,7 +40,7 @@ export function ContractLineageButton({ urn, direction }: Props) {
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
             >
-                <KeyboardArrowLeft viewBox="4 3 18 18" fontSize="inherit" />
+                <Icon icon="CaretLeft" source="phosphor" size="lg" />
             </Button>
         </Wrapper>
     );

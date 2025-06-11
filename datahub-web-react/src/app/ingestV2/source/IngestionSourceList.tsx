@@ -610,7 +610,7 @@ export const IngestionSourceList = ({ showCreateModal, setShowCreateModal, shoul
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
-                                totalPages={totalSources}
+                                total={totalSources}
                                 showLessItems
                                 onPageChange={onChangePage}
                                 showSizeChanger={false}

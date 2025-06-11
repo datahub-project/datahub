@@ -9,8 +9,13 @@ export const PaginationContainer = styled.div`
     color: ${colors.gray[1800]};
 
     .ant-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+
         li {
-            margin-right: 4px;
+            margin-right: 0px;
         }
     }
 
@@ -18,18 +23,25 @@ export const PaginationContainer = styled.div`
         border: none;
 
         a {
+            border-radius: 200px;
             color: ${colors.gray[1800]};
+
+            :hover {
+                color: ${({ theme }) => theme.styles?.['primary-color']};
+            }
         }
     }
 
-    .ant-pagination-item-active {
-        border-radius: 200px;
+    .ant-pagination-item-active > a {
         background: ${colors.violet[0]};
+        color: ${({ theme }) => theme.styles?.['primary-color']};
+        font-weight: 700;
+    }
 
-        a {
-            color: ${({ theme }) => theme.styles['primary-color']};
-            font-weight: 700;
-        }
+    .ant-pagination-item-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     button {
@@ -54,6 +66,10 @@ export const PaginationContainer = styled.div`
             .ant-select-selector {
                 border: 1px solid ${colors.gray[100]};
                 box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+
+                :hover {
+                    color: ${({ theme }) => theme.styles?.['primary-color']};
+                }
             }
         }
     }
@@ -64,8 +80,7 @@ export const PaginationContainer = styled.div`
             box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
 
             button {
-                color: ${colors.gray[1800]};
-                border: 1px solid ${colors.gray[100]};
+                color: ${({ theme }) => theme.styles?.['primary-color']};
             }
         }
     }
@@ -81,7 +96,7 @@ export const PaginationContainer = styled.div`
     .ant-pagination-jump-prev {
         :hover {
             .ant-pagination-item-link-icon {
-                color: ${({ theme }) => theme.styles['primary-color']};
+                color: ${({ theme }) => theme.styles?.['primary-color']};
             }
         }
     }

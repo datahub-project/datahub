@@ -133,7 +133,7 @@ export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, page
             <Table columns={columns} data={datasets} isLoading={isLoading} isScrollable maxHeight="100%" />
             <Pagination
                 currentPage={page}
-                totalPages={total}
+                total={total}
                 itemsPerPage={pageSize}
                 onPageChange={(newPage) => setPage(newPage)}
                 loading={isLoading}

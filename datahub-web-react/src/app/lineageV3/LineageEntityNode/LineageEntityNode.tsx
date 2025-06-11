@@ -1,7 +1,5 @@
-import { HomeOutlined } from '@ant-design/icons';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { NodeProps } from 'reactflow';
-import styled from 'styled-components';
 
 import NodeContents from '@app/lineageV3/LineageEntityNode/NodeContents';
 import useDisplayedColumns from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
@@ -11,6 +9,7 @@ import {
     LineageEntity,
     LineageNodesContext,
     TRANSITION_DURATION_MS,
+    parseColumnRef,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import useSearchAcrossLineage from '@app/lineageV3/useSearchAcrossLineage';
@@ -20,28 +19,21 @@ import { EntityType, LineageDirection } from '@types';
 export const LINEAGE_ENTITY_NODE_NAME = 'lineage-entity';
 const MAX_NODES_FOR_TRANSITION = 50;
 
-const HomeNodeBubble = styled.div`
-    align-items: center;
-    background-color: ${(p) => p.theme.styles['primary-color']};
-    border-radius: 10px;
-    color: white;
-    display: flex;
-    font-size: 10px;
-    font-weight: 600;
-    height: 22px;
-    justify-content: center;
-    left: 1px;
-    padding: 4px 8px;
-    position: absolute;
-    top: -26px;
-`;
-
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
     const { urn, type, entity, id, fetchStatus, isExpanded, filters } = data;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { rootUrn } = useContext(LineageNodesContext);
-    const { shownUrns, setHoveredNode } = useContext(LineageDisplayContext);
+    const {
+        selectedColumn,
+        hoveredColumn,
+        setSelectedColumn,
+        setHoveredColumn,
+        shownUrns,
+        setHoveredNode,
+        displayedMenuNode,
+        setDisplayedMenuNode,
+    } = useContext(LineageDisplayContext);
     const { searchQuery, searchedEntity } = useContext(LineageVisualizationContext);
 
     const [showColumns, setShowColumns] = useState(false);
@@ -67,46 +59,47 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
 
     const refetch = useRefetchLineage(urn, type);
 
+    const [selectedColumnUrn] = selectedColumn ? parseColumnRef(selectedColumn) : [null];
+    const [hoveredColumnUrn] = hoveredColumn ? parseColumnRef(hoveredColumn) : [null];
+
     return (
-        <>
-            {urn === rootUrn && (
-                <HomeNodeBubble>
-                    <HomeOutlined style={{ marginRight: 4 }} />
-                    Home
-                </HomeNodeBubble>
-            )}
-            <NodeContents
-                id={id}
-                urn={urn}
-                type={type}
-                selected={selected}
-                dragging={dragging}
-                isSearchedEntity={searchedEntity === urn}
-                entity={entity}
-                fetchStatus={fetchStatus}
-                isExpanded={isExpanded}
-                filters={filters}
-                transitionDuration={transitionDuration}
-                rootUrn={rootUrn}
-                searchQuery={searchQuery}
-                setHoveredNode={setHoveredNode}
-                showColumns={showColumns}
-                setShowColumns={setShowColumns}
-                onlyWithLineage={onlyWithLineage}
-                setOnlyWithLineage={setOnlyWithLineage}
-                pageIndex={pageIndex}
-                setPageIndex={setPageIndex}
-                filterText={filterText}
-                setFilterText={setFilterText}
-                paginatedColumns={paginatedColumns}
-                extraHighlightedColumns={extraHighlightedColumns}
-                numFilteredColumns={numFilteredColumns}
-                numColumnsWithLineage={numColumnsWithLineage}
-                numColumnsTotal={numColumnsTotal}
-                refetch={refetch}
-                ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
-            />
-        </>
+        <NodeContents
+            id={id}
+            urn={urn}
+            type={type}
+            selected={selected}
+            dragging={dragging}
+            isSearchedEntity={searchedEntity === urn}
+            entity={entity}
+            fetchStatus={fetchStatus}
+            isExpanded={isExpanded}
+            filters={filters}
+            transitionDuration={transitionDuration}
+            rootUrn={rootUrn}
+            searchQuery={searchQuery}
+            setHoveredNode={setHoveredNode}
+            showColumns={showColumns}
+            setShowColumns={setShowColumns}
+            onlyWithLineage={onlyWithLineage}
+            setOnlyWithLineage={setOnlyWithLineage}
+            pageIndex={pageIndex}
+            setPageIndex={setPageIndex}
+            filterText={filterText}
+            setFilterText={setFilterText}
+            isMenuDisplayed={displayedMenuNode === urn}
+            setDisplayedMenuNode={setDisplayedMenuNode}
+            selectedColumn={selectedColumnUrn === urn ? selectedColumn : null}
+            setSelectedColumn={setSelectedColumn}
+            hoveredColumn={hoveredColumnUrn === urn ? hoveredColumn : null}
+            setHoveredColumn={setHoveredColumn}
+            paginatedColumns={paginatedColumns}
+            extraHighlightedColumns={extraHighlightedColumns}
+            numFilteredColumns={numFilteredColumns}
+            numColumnsWithLineage={numColumnsWithLineage}
+            numColumnsTotal={numColumnsTotal}
+            refetch={refetch}
+            ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
+        />
     );
 }
 

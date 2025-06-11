@@ -154,7 +154,7 @@ export const ExecutionsTab = ({ shouldPreserveParams }: Props) => {
                                 <Pagination
                                     currentPage={page}
                                     itemsPerPage={pageSize}
-                                    totalPages={totalExecutionRequests}
+                                    total={totalExecutionRequests}
                                     showLessItems
                                     onPageChange={onPageChangeHandler}
                                     showSizeChanger={false}

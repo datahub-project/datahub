@@ -1,22 +1,12 @@
-import { Popover, colors } from '@components';
+import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import ContextPathEntityLink from '@app/previewV2/ContextPathEntityLink';
+import ContextPathEntry from '@app/previewV2/ContextPathEntry';
 import ContextPathSeparator from '@app/previewV2/ContextPathSeparator';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType } from '@types';
-
-const PlatFormTitle = styled.span<{ isLast: boolean }>`
-    flex: ${({ isLast }) => (isLast ? '1 0 1' : '1 1 0')};
-    max-width: max-content;
-
-    display: inline-block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: ${colors.gray[1700]};
-`;
 
 const ParentNodesWrapper = styled.div`
     align-items: center;
@@ -92,6 +82,8 @@ function SingleBrowsePath({
     hideIcons,
     linksDisabled,
 }: SingleBrowsePathsProps) {
+    const entityRegistry = useEntityRegistry();
+
     const hasDataPlatformInstance =
         entry.name?.includes('dataPlatformInstance') || entry.entity?.type === EntityType.DataPlatformInstance;
     const setIsTruncated = React.useCallback(
@@ -103,12 +95,13 @@ function SingleBrowsePath({
         [index, setAreChildrenTruncated],
     );
 
+    const { entity } = entry;
     return (
         <>
-            {!entry.entity && <PlatFormTitle isLast={isLast}>{entry.name}</PlatFormTitle>}
-            <ContextPathEntityLink
-                key={entry?.entity?.urn}
-                entity={entry?.entity}
+            <ContextPathEntry
+                key={entity?.urn || entry.name}
+                name={entity ? entityRegistry.getDisplayName(entity.type, entity) : entry.name}
+                linkUrl={entity ? entityRegistry.getEntityUrl(entity.type, entity.urn) : undefined}
                 isLast={isLast}
                 hideIcon={hideIcons}
                 linkDisabled={linksDisabled || hasDataPlatformInstance}

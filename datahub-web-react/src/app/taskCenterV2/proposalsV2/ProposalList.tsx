@@ -301,7 +301,7 @@ export const ProposalList = ({
                     <Pagination
                         currentPage={page}
                         itemsPerPage={pageSize}
-                        totalPages={paginationTotal}
+                        total={paginationTotal}
                         onPageChange={(newPage) => setPage(newPage)}
                         showSizeChanger
                         onShowSizeChange={(_currNum, newNum) => {

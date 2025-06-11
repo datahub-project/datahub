@@ -1,6 +1,5 @@
 import { PartitionOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Pagination } from 'antd';
+import { Pagination } from '@components';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { useUpdateNodeInternals } from 'reactflow';
@@ -18,14 +17,15 @@ import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
 import { LineageAssetType } from '@app/lineageV3/types';
 
 const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
-    align-items: center;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    gap: 8px;
+
     font:
         12px 'Roboto Mono',
         monospace;
-    width: 100%;
-    padding: 8px 11px;
+    padding: 4px 8px 8px 8px;
     opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
 `;
 
@@ -33,10 +33,18 @@ const SearchBarWrapper = styled.div`
     align-items: center;
     display: flex;
     gap: 8px;
-    margin-bottom: 8px;
     width: 100%;
 `;
 
+const OnlyColumnsWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+`;
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: boolean }>`
     ${({ selected }) => (selected ? `color: ${LINEAGE_COLORS.BLUE_1};` : '')};
     padding-right: 4px;
@@ -54,14 +62,18 @@ const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: b
 `;
 
 // Wrap pagination and stop click propagation so that changing page doesn't cause node to be selected
-const ColumnPaginationWrapper = styled.div``;
+const ColumnPaginationWrapper = styled.div`
+    cursor: auto;
+    width: 100%;
+    overflow: hidden;
+`;
 
 const ColumnPagination = styled(Pagination)`
     display: flex;
     justify-content: center;
-    margin-top: 8px;
     overflow: hidden;
     width: 100%;
+    margin: 0;
 `;
 
 const HorizontalDivider = styled.hr<{ margin: number }>`
@@ -84,6 +96,10 @@ interface Props {
     numColumnsWithLineage: number;
     onlyWithLineage: boolean;
     setOnlyWithLineage: Dispatch<SetStateAction<boolean>>;
+    selectedColumn: string | null;
+    setSelectedColumn: Dispatch<SetStateAction<string | null>>;
+    hoveredColumn: string | null;
+    setHoveredColumn: Dispatch<SetStateAction<string | null>>;
 }
 
 export default function DelayedColumns(props: Props) {
@@ -91,9 +107,9 @@ export default function DelayedColumns(props: Props) {
     const [delayedProps, setDelayedProps] = useState<Props>(props);
     useEffect(() => {
         if (
-            delayedProps.paginatedColumns.length > props.paginatedColumns.length ||
-            delayedProps.highlightedColumns.length > props.highlightedColumns.length ||
-            delayedProps.showAllColumns > props.showAllColumns
+            delayedProps.highlightedColumns.length +
+                (delayedProps.showAllColumns ? delayedProps.paginatedColumns.length : 0) >
+            props.highlightedColumns.length + (props.showAllColumns ? props.paginatedColumns.length : 0)
         ) {
             // Delay removal of columns to allow for transition to complete
             const timeout = setTimeout(() => setDelayedProps(props), TRANSITION_DURATION_MS);
@@ -126,6 +142,10 @@ function Columns(props: Props) {
         numColumnsWithLineage,
         onlyWithLineage,
         setOnlyWithLineage,
+        selectedColumn,
+        setSelectedColumn,
+        hoveredColumn,
+        setHoveredColumn,
     } = props;
 
     const updateNodeInternals = useUpdateNodeInternals();
@@ -151,6 +171,7 @@ function Columns(props: Props) {
         [filterText],
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const enableDisableColumnsFilter = useCallback(
         (e: React.MouseEvent<HTMLSpanElement, MouseEvent>) => {
             onClickPreventSelect(e);
@@ -170,41 +191,45 @@ function Columns(props: Props) {
         parentUrn: entity.urn,
         entityType: entity.type,
         allNeighborsFetched,
+        selectedColumn,
+        setSelectedColumn,
+        hoveredColumn,
+        setHoveredColumn,
     };
+    const handleMouseLeave = useCallback(() => {
+        setHoveredColumn(null);
+    }, [setHoveredColumn]);
 
     return (
         <MainColumnsWrapper isGhost={isGhost}>
             {showAllColumns && (
                 <SearchBarWrapper>
                     <ColumnSearch searchText={filterText} setSearchText={setFilterText} />
-                    <Tooltip title="Only show columns with lineage" placement="right" mouseEnterDelay={0.5}>
-                        <FilterLineageIcon
-                            count={numColumnsWithLineage}
-                            selected={onlyWithLineage}
-                            onClick={enableDisableColumnsFilter}
-                        />
-                    </Tooltip>
                 </SearchBarWrapper>
             )}
-            {showAllColumns && paginatedColumns.map((col) => <Column key={col.fieldPath} {...col} {...columnProps} />)}
-            {showAllColumns && !!paginatedColumns.length && !!highlightedColumns.length && (
-                <HorizontalDivider margin={4} />
+            {((showAllColumns && !!paginatedColumns.length) || !!highlightedColumns.length) && (
+                <OnlyColumnsWrapper onMouseLeave={handleMouseLeave}>
+                    {showAllColumns &&
+                        paginatedColumns.map((col) => <Column key={col.fieldPath} {...col} {...columnProps} />)}
+                    {showAllColumns && !!paginatedColumns.length && !!highlightedColumns.length && (
+                        <HorizontalDivider margin={4} />
+                    )}
+                    {highlightedColumns.map((col) => (
+                        <Column key={col.fieldPath} {...col} {...columnProps} />
+                    ))}
+                </OnlyColumnsWrapper>
             )}
-            {highlightedColumns.map((col) => (
-                <Column key={col.fieldPath} {...col} {...columnProps} />
-            ))}
             {hasColumnPagination && (
                 <ColumnPaginationWrapper onClick={(e) => e.stopPropagation()}>
                     <ColumnPagination
                         className="nodrag"
-                        current={pageIndex + 1}
-                        onChange={(page) => setPageIndex(page - 1)}
+                        currentPage={pageIndex + 1}
+                        itemsPerPage={NUM_COLUMNS_PER_PAGE}
                         total={numFiltered}
-                        pageSize={NUM_COLUMNS_PER_PAGE}
-                        size="small"
-                        simple
+                        onPageChange={(page) => setPageIndex(page - 1)}
                         showLessItems
                         showSizeChanger={false}
+                        size="small"
                     />
                 </ColumnPaginationWrapper>
             )}

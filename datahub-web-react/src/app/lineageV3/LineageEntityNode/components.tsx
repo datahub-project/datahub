@@ -1,43 +1,48 @@
+import { colors } from '@components';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, LINEAGE_COLORS } from '@app/entityV2/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 
 export const ExpandContractButton = styled.div<{ expandOnHover?: boolean }>`
-    background-color: white;
-    border: 1px solid ${ANTD_GRAY[5]};
-    border-radius: 10px;
-    color: ${LINEAGE_COLORS.BLUE_1};
+    background-color: ${colors.white};
+    color: ${colors.violet[500]};
     cursor: pointer;
-    display: flex;
     font-size: 18px;
-    padding: 3px;
+
+    border: 1px solid ${ANTD_GRAY[5]};
+    border-radius: 4px;
+    box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+
     position: absolute;
     top: 50%;
 
-    max-width: 25px;
-    overflow: hidden;
+    display: flex;
+    align-items: center;
+
+    max-width: 26px;
     transition: max-width 0.3s ease-in-out;
+    overflow: hidden;
 
     :hover {
-        ${(props) => props.expandOnHover && `max-width: 50px;`}
+        ${(props) => props.expandOnHover && `max-width: 52px;`}
     }
 `;
 
 export const UpstreamWrapper = styled(ExpandContractButton)`
-    right: calc(100% - 5px);
-    transform: translateY(-50%) rotate(180deg);
+    right: calc(100% + 10px);
+    transform: translateY(-50%) scaleX(-1);
 `;
 
 export const DownstreamWrapper = styled(ExpandContractButton)`
-    left: calc(100% - 5px);
+    left: calc(100% + 10px);
     transform: translateY(-50%);
 `;
 
 export const Button = styled.span`
-    border-radius: 20%;
     line-height: 0;
+    padding: 4px;
 
     :hover {
-        background-color: ${LINEAGE_COLORS.BLUE_1}30;
+        background-color: ${colors.gray[1600]};
     }
 `;

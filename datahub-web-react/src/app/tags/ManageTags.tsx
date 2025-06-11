@@ -184,7 +184,7 @@ const ManageTags = () => {
                     <Pagination
                         currentPage={currentPage}
                         itemsPerPage={PAGE_SIZE}
-                        totalPages={totalTags}
+                        total={totalTags}
                         loading={searchLoading}
                         onPageChange={(page) => setCurrentPage(page)}
                     />

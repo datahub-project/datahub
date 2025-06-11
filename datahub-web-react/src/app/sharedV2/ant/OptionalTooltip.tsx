@@ -1,16 +1,19 @@
-import { Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import { TooltipProps } from 'antd/lib/tooltip';
 import React from 'react';
 
-interface Props {
-    tooltipProps: TooltipProps;
+type Props = TooltipProps & {
     children: React.ReactNode;
     enabled: boolean;
-}
+};
 
-export default function OptionalTooltip({ tooltipProps, children, enabled }: Props) {
+export default function OptionalTooltip({ children, enabled, ...props }: Props) {
     if (!enabled) {
         return <>{children}</>;
     }
-    return <Tooltip {...tooltipProps}>{children}</Tooltip>;
+    return (
+        <Tooltip {...props} color={colors.white} overlayInnerStyle={{ color: colors.gray[600], borderRadius: 8 }}>
+            {children}
+        </Tooltip>
+    );
 }

@@ -7,7 +7,7 @@ type GetContextPathInput = Pick<
     'parent' | 'parentContainers' | 'parentDomains' | 'parentNodes'
 >;
 
-export function getContextPath(entityData: GetContextPathInput | null): Entity[] {
+export function getParentEntities(entityData: GetContextPathInput | null): Entity[] {
     const containerPath =
         entityData?.parentContainers?.containers ||
         entityData?.parentDomains?.domains ||

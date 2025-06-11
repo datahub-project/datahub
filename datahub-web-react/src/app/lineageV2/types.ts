@@ -76,4 +76,5 @@ export interface FetchedEntityV2 {
     parent?: GenericEntityProperties; // Schema field parent
     structuredProperties?: StructuredProperties;
     deprecation?: Deprecation;
+    genericEntityProperties?: GenericEntityProperties;
 }

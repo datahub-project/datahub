@@ -27,6 +27,7 @@ const NodeWrapper = styled.div`
     cursor: pointer;
     padding: 8px;
     width: ${LINEAGE_NODE_WIDTH}px;
+    pointer-events: all;
 `;
 
 const ExtraCard = styled.div<{ bottom: number }>`

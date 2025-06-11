@@ -1,5 +1,4 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { useHistory, useLocation } from 'react-router-dom';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
 import styled from 'styled-components';
@@ -19,10 +18,13 @@ import { LineageDisplayContext, TRANSITION_DURATION_MS } from '@app/lineageV3/co
 import LineageControls from '@app/lineageV3/controls/LineageControls';
 import SearchControl from '@app/lineageV3/controls/SearchControl';
 import ZoomControls from '@app/lineageV3/controls/ZoomControls';
-import { getLineageUrl } from '@app/lineageV3/lineageUtils';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import LineageSVGs from '@app/lineageV3/lineageSVGs';
 
 const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
+    .react-flow__node {
+        pointer-events: none !important; // Prevent pointer events on node parent because node itself is offset
+    }
+
     .react-flow__node-lineage-entity:not(.dragging) {
         transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
     }
@@ -59,9 +61,6 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [isFocused, setIsFocused] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
-    const entityRegistry = useEntityRegistry();
-    const history = useHistory();
-    const location = useLocation();
 
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
@@ -70,6 +69,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
         <LineageVisualizationContext.Provider
             value={{ searchQuery, setSearchQuery, searchedEntity, setSearchedEntity, isFocused }}
         >
+            <LineageSVGs />
             <StyledReactFlow
                 defaultNodes={initialNodes}
                 defaultEdges={initialEdges}
@@ -79,11 +79,6 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 onNodeDragStart={(_e, node) => {
                     // eslint-disable-next-line no-param-reassign
                     node.data.dragged = true;
-                }}
-                onNodeDoubleClick={(_e, node) => {
-                    if (node.data?.urn && node.data?.type) {
-                        history.push(getLineageUrl(node.data.urn, node.data.type, location, entityRegistry));
-                    }
                 }}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
@@ -101,7 +96,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
             >
-                <Background variant={BackgroundVariant.Lines} />
+                <Background variant={BackgroundVariant.Dots} />
                 <ZoomControls />
                 <SearchControl />
                 <LineageControls />

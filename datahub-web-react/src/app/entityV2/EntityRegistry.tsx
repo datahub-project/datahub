@@ -245,6 +245,7 @@ export default class EntityRegistry {
             upstreamRelationships: genericEntityProperties.upstream?.relationships
                 ?.map((r) => ({ ...r, urn: r.entity?.urn }))
                 .filter((r): r is FetchedEntityV2Relationship => !!r.urn),
+            // TODO: Clean up redundant values
             exists: genericEntityProperties.exists,
             health: genericEntityProperties.health ?? undefined,
             status: genericEntityProperties.status ?? undefined,
@@ -254,6 +255,7 @@ export default class EntityRegistry {
             lineageSiblingIcon: genericEntityProperties?.lineageSiblingIcon,
             structuredProperties: genericEntityProperties.structuredProperties ?? undefined,
             versionProperties: genericEntityProperties.versionProperties ?? undefined,
+            genericEntityProperties,
         };
     }
 

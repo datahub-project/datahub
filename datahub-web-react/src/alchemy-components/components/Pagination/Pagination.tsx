@@ -7,21 +7,22 @@ import { PaginationProps, paginationDefaults } from '@components/components/Pagi
 export const Pagination = ({
     currentPage = paginationDefaults.currentPage,
     itemsPerPage = paginationDefaults.itemsPerPage,
-    totalPages = paginationDefaults.totalPages,
+    total = paginationDefaults.total,
     loading = paginationDefaults.loading,
     onPageChange,
+    className,
     ...props
 }: PaginationProps) => {
     if (loading) {
         return null;
     }
     return (
-        <PaginationContainer>
+        <PaginationContainer className={className}>
             <PaginationComponent
                 {...props}
                 current={currentPage}
                 pageSize={itemsPerPage}
-                total={totalPages}
+                total={total}
                 onChange={onPageChange}
             />
         </PaginationContainer>
