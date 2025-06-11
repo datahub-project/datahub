@@ -24,6 +24,7 @@ type Props = {
     refetch: () => void;
     updateNotificationSettings: (settings: NotificationSetting[]) => any;
     originalSettings?: NotificationSetting[];
+    enabledByDefault?: boolean;
 };
 
 export const NotificationSettingValue = ({
@@ -34,16 +35,21 @@ export const NotificationSettingValue = ({
     refetch,
     updateNotificationSettings,
     originalSettings,
+    enabledByDefault,
 }: Props) => {
     const [selected, setSelected] = useState(() =>
-        isSinkNotificationTypeEnabled(sink.id, existingNotificationSettings.get(notificationType)),
+        isSinkNotificationTypeEnabled(sink.id, existingNotificationSettings.get(notificationType), enabledByDefault),
     );
 
     useEffect(() => {
         // This effect will run on mount and whenever any of the dependencies change.
-        const newSelected = isSinkNotificationTypeEnabled(sink.id, existingNotificationSettings.get(notificationType));
+        const newSelected = isSinkNotificationTypeEnabled(
+            sink.id,
+            existingNotificationSettings.get(notificationType),
+            enabledByDefault,
+        );
         setSelected(newSelected);
-    }, [sink, notificationType, existingNotificationSettings]);
+    }, [sink, notificationType, existingNotificationSettings, enabledByDefault]);
 
     return (
         <SettingValue key={`${notificationType}-${sink.id}`}>

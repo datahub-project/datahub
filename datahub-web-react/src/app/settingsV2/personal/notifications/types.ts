@@ -38,6 +38,7 @@ const USER_COMPLIANCE_FORMS_NOTIFICATIONS = [
     {
         type: NotificationScenarioType.ComplianceFormPublish,
         description: 'A form to which you are assigned is published',
+        default: true,
     },
 ];
 

@@ -45,5 +45,7 @@ export type NotificationGroup = {
     notifications: {
         type: NotificationScenarioType;
         description: string;
+        // Default value if the value isn't preset in settings
+        default?: boolean;
     }[];
 };

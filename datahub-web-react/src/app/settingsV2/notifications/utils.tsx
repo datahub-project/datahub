@@ -30,15 +30,26 @@ export const paramsArrayToMap = (params: Array<StringMapEntry>) => {
     return paramsMap;
 };
 
-export const isParamPresent = (params: Map<string, string>, key: string, value: string): boolean => {
-    return params.get(key) === value;
+export const isParamPresent = (params: Map<string, string>, key: string): boolean => {
+    return params.has(key);
 };
 
-export const isSinkNotificationTypeEnabled = (sinkId, setting?: FormattedNotificationSetting | null) => {
-    return (
-        setting?.value === NotificationSettingValue.Enabled &&
-        isParamPresent(setting.params, `${sinkId}.enabled`, 'true')
-    );
+export const isParamEnabled = (params: Map<string, string>, key: string): boolean => {
+    return params.get(key) === 'true';
+};
+
+export const isSinkNotificationTypeEnabled = (
+    sinkId: string,
+    setting: FormattedNotificationSetting | null | undefined,
+    isEnabledByDefault: boolean | undefined,
+) => {
+    const paramKey = `${sinkId}.enabled`;
+
+    if (isEnabledByDefault && (!setting || !isParamPresent(setting.params, paramKey))) {
+        return true;
+    }
+
+    return setting?.value === NotificationSettingValue.Enabled && isParamEnabled(setting.params, paramKey);
 };
 
 /**

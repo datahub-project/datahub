@@ -52,6 +52,7 @@ export const NotificationSettingsGroup = ({
                                             existingNotificationSettings={formattedNotificationSettings}
                                             originalSettings={originalSettings}
                                             updateNotificationSettings={updateNotficationSettings}
+                                            enabledByDefault={notif?.default}
                                             refetch={refetch}
                                             key={sink.id}
                                         />
