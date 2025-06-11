@@ -11,6 +11,7 @@ import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
+import { formatTimezone } from '@app/ingestV2/source/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
 
@@ -93,7 +94,7 @@ export function NameColumn({ type, record }: TypeColumnProps) {
 export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
     let scheduleText: string;
     try {
-        scheduleText = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${timezone})`;
+        scheduleText = schedule && `Runs ${cronstrue.toString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
     } catch (e) {
         scheduleText = 'Invalid cron schedule';
         console.debug('Error parsing cron schedule', e);

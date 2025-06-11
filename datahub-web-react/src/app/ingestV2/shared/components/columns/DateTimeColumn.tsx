@@ -8,8 +8,9 @@ import isPresent from '@app/utils/isPresent';
 /**
  * l - M/D/YYYY
  * LT - h:mm A
+ * z - timezone shorthand
  */
-const DEFAULT_DATETIME_FORMAT = 'l @ LT';
+const DEFAULT_DATETIME_FORMAT = 'l @ LT (z)';
 
 const StyledText = styled(Text)`
     text-wrap: auto;

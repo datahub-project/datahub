@@ -1,3 +1,4 @@
+import dayjs from 'dayjs';
 import YAML from 'yamljs';
 
 import { SortingState } from '@components/components/Table/types';
@@ -455,3 +456,7 @@ export const getIngestionSourceSystemFilter = (hideSystemSources: boolean): Face
         ? { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }
         : { field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] };
 };
+
+export function formatTimezone(timezone: string | null | undefined): string | undefined {
+    return timezone ? dayjs().tz(timezone).format('z') : undefined;
+}
