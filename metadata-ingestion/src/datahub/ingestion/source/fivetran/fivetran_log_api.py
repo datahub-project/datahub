@@ -61,7 +61,7 @@ class FivetranLogAPI(FivetranAccessInterface):
                     dialect=self.fivetran_log_config.destination_platform, pretty=True
                 )
 
-            self.engine.execute(test_query)
+            self.engine.execute(test_query)  # type: ignore[attr-defined]
             logger.info("Successfully tested database connection")
             return True
         except SQLAlchemyError as e:
@@ -89,7 +89,7 @@ class FivetranLogAPI(FivetranAccessInterface):
                     snowflake_destination_config.get_sql_alchemy_url(),
                     **snowflake_destination_config.get_options(),
                 )
-                engine.execute(
+                engine.execute(  # type: ignore[attr-defined]
                     fivetran_log_query.use_database(
                         snowflake_destination_config.database,
                     )
@@ -109,7 +109,7 @@ class FivetranLogAPI(FivetranAccessInterface):
                 fivetran_log_query.set_schema(bigquery_destination_config.dataset)
 
                 # The "database" should be the BigQuery project name.
-                fivetran_log_database = engine.execute(
+                fivetran_log_database = engine.execute(  # type: ignore[attr-defined]
                     "SELECT @@project_id"
                 ).fetchone()[0]
         else:
@@ -129,7 +129,7 @@ class FivetranLogAPI(FivetranAccessInterface):
                 dialect=self.fivetran_log_config.destination_platform, pretty=True
             )
         logger.info(f"Executing query: {query}")
-        resp = self.engine.execute(query)
+        resp = self.engine.execute(query)  # type: ignore[attr-defined]
         return [row for row in resp]
 
     def _get_column_lineage_metadata(
@@ -341,6 +341,20 @@ class FivetranLogAPI(FivetranAccessInterface):
                     )
                     continue
 
+                # Prepare additional properties for database detection
+                additional_properties = {}
+
+                # Set destination platform based on configuration
+                if self.fivetran_log_config.destination_platform:
+                    additional_properties["destination_platform"] = (
+                        self.fivetran_log_config.destination_platform
+                    )
+
+                # Set destination database based on configuration
+                destination_database = self._get_destination_database_from_config()
+                if destination_database:
+                    additional_properties["destination_database"] = destination_database  # type: ignore[assignment]
+
                 connectors.append(
                     Connector(
                         connector_id=connector_id,
@@ -352,6 +366,7 @@ class FivetranLogAPI(FivetranAccessInterface):
                         user_id=connector[Constant.CONNECTING_USER_ID],
                         lineage=[],  # filled later
                         jobs=[],  # filled later
+                        additional_properties=additional_properties,
                     )
                 )
 
@@ -365,7 +380,165 @@ class FivetranLogAPI(FivetranAccessInterface):
         with report.metadata_extraction_perf.connectors_lineage_extraction_sec:
             logger.info("Fetching connector lineage")
             self._fill_connectors_lineage(connectors)
+            # After lineage is filled, try to extract source database information
+            self._enhance_connectors_with_database_info(connectors)
+
         with report.metadata_extraction_perf.connectors_jobs_extraction_sec:
             logger.info("Fetching connector job run history")
             self._fill_connectors_jobs(connectors, syncs_interval)
         return connectors
+
+    def _get_destination_database_from_config(self) -> Optional[str]:
+        """Extract destination database name from log configuration."""
+        if self.fivetran_log_config.destination_platform == "snowflake":
+            if self.fivetran_log_config.snowflake_destination_config:
+                return self.fivetran_log_config.snowflake_destination_config.database
+        elif self.fivetran_log_config.destination_platform == "bigquery":
+            if self.fivetran_log_config.bigquery_destination_config:
+                return self.fivetran_log_config.bigquery_destination_config.dataset
+        return None
+
+    def _enhance_connectors_with_database_info(
+        self, connectors: List[Connector]
+    ) -> None:
+        """
+        Enhance connectors with database and platform information from configuration mappings and lineage data.
+
+        This method:
+        1. Applies source platform/instance/database mappings from sources_to_platform_instance
+        2. Applies destination platform/instance/database mappings from destination_to_platform_instance
+        3. Extracts source database from lineage when not available from config
+        """
+        for connector in connectors:
+            # Apply source platform instance mappings if configured
+            if (
+                self.config
+                and hasattr(self.config, "sources_to_platform_instance")
+                and connector.connector_id in self.config.sources_to_platform_instance
+            ):
+                source_details = self.config.sources_to_platform_instance[
+                    connector.connector_id
+                ]
+                logger.info(
+                    f"Applying source platform mapping for connector {connector.connector_id}: {source_details}"
+                )
+
+                # Apply source platform details to additional_properties
+                if source_details.platform:
+                    connector.additional_properties["source_platform"] = (
+                        source_details.platform
+                    )
+                if source_details.platform_instance:
+                    connector.additional_properties["source_platform_instance"] = (
+                        source_details.platform_instance
+                    )
+                if source_details.database:
+                    connector.additional_properties["source_database"] = (
+                        source_details.database
+                    )
+                if source_details.env:
+                    connector.additional_properties["source_env"] = source_details.env
+
+            # Apply destination platform instance mappings if configured
+            if (
+                self.config
+                and hasattr(self.config, "destination_to_platform_instance")
+                and connector.destination_id
+                in self.config.destination_to_platform_instance
+            ):
+                dest_details = self.config.destination_to_platform_instance[
+                    connector.destination_id
+                ]
+                logger.info(
+                    f"Applying destination platform mapping for destination {connector.destination_id}: {dest_details}"
+                )
+
+                # Apply destination platform details to additional_properties (may override config-based values)
+                if dest_details.platform:
+                    connector.additional_properties["destination_platform"] = (
+                        dest_details.platform
+                    )
+                if dest_details.platform_instance:
+                    connector.additional_properties["destination_platform_instance"] = (
+                        dest_details.platform_instance
+                    )
+                if dest_details.database:
+                    connector.additional_properties["destination_database"] = (
+                        dest_details.database
+                    )
+                if dest_details.env:
+                    connector.additional_properties["destination_env"] = (
+                        dest_details.env
+                    )
+
+            # Try to extract source database from lineage if not already set from mappings
+            if "source_database" not in connector.additional_properties:
+                source_database = self._extract_source_database_from_lineage(connector)
+                if source_database:
+                    connector.additional_properties["source_database"] = source_database
+                    logger.info(
+                        f"Extracted source database '{source_database}' from lineage for connector {connector.connector_id}"
+                    )
+
+    def _extract_source_database_from_lineage(
+        self, connector: Connector
+    ) -> Optional[str]:
+        """
+        Extract source database name from connector lineage data.
+
+        This method analyzes the source table names in lineage to infer
+        the source database name when it's not explicitly available.
+        """
+        if not connector.lineage:
+            return None
+
+        # Collect potential database names from source tables
+        database_candidates = set()
+
+        for lineage_entry in connector.lineage[
+            :10
+        ]:  # Check first 10 entries for consistency
+            if lineage_entry.source_table and "." in lineage_entry.source_table:
+                # Parse source table format: potentially database.schema.table or schema.table
+                parts = lineage_entry.source_table.split(".")
+
+                if len(parts) >= 3:
+                    # database.schema.table format - first part is database
+                    database_candidates.add(parts[0])
+                elif len(parts) == 2:
+                    # schema.table format - might be database.table for some connectors
+                    # Only consider as database if it doesn't look like a typical schema name
+                    potential_db = parts[0]
+                    excluded_schemas = {
+                        "public",
+                        "dbo",
+                        "information_schema",
+                        "sys",
+                        "default",
+                        "main",
+                        "schema",
+                    }
+                    if (
+                        potential_db.lower() not in excluded_schemas
+                        and len(potential_db) > 2
+                    ):
+                        database_candidates.add(potential_db)
+
+        # If we have exactly one consistent database name, use it
+        if len(database_candidates) == 1:
+            database_name = next(iter(database_candidates))
+            logger.debug(
+                f"Inferred source database '{database_name}' from lineage consistency for connector {connector.connector_id}"
+            )
+            return database_name
+        elif len(database_candidates) > 1:
+            logger.debug(
+                f"Multiple database candidates found for connector {connector.connector_id}: {database_candidates}. "
+                "Unable to determine single source database."
+            )
+        else:
+            logger.debug(
+                f"No database information could be inferred from lineage for connector {connector.connector_id}"
+            )
+
+        return None
