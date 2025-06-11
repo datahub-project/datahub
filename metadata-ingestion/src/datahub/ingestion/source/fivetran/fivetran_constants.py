@@ -20,8 +20,10 @@ class DataJobMode(Enum):
     PER_TABLE = "per_table"
 
 
-# Default configuration values
-DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR = 300
+# Lineage and job processing limits
+DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR = 120
+MAX_COLUMN_LINEAGE_PER_CONNECTOR = 10000
+MAX_JOBS_PER_CONNECTOR = 500
 
 # Comprehensive mapping of Fivetran connector types to DataHub platforms
 FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM = {

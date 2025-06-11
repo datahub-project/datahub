@@ -30,10 +30,8 @@ from datahub.ingestion.source.fivetran.fivetran_access import (
 )
 from datahub.ingestion.source.fivetran.fivetran_constants import (
     FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM,
-    DataJobMode,
-)
-from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_JOBS_PER_CONNECTOR,
+    DataJobMode,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,

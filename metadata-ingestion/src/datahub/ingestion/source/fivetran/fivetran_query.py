@@ -1,8 +1,9 @@
 from typing import List
 
-# Safeguards to prevent fetching massive amounts of data.
-MAX_COLUMN_LINEAGE_PER_CONNECTOR = 10000
-MAX_JOBS_PER_CONNECTOR = 500
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    MAX_COLUMN_LINEAGE_PER_CONNECTOR,
+    MAX_JOBS_PER_CONNECTOR,
+)
 
 
 class FivetranLogQuery:

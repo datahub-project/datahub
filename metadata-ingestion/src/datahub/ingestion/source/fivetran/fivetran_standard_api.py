@@ -21,8 +21,6 @@ from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInte
 from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
 from datahub.ingestion.source.fivetran.fivetran_constants import (
     FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM,
-)
-from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_JOBS_PER_CONNECTOR,
 )
 
