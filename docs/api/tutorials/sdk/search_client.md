@@ -26,6 +26,7 @@ client = DataHubClient(server="<your_server>", token="<your_token>")
 - **token**: You'll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
 
 #### token
+
 You'll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
 
 ## Search Types
@@ -67,6 +68,7 @@ For example, the script below searches for entities on the Snowflake platform.
 ```
 
 #### Find all snowflake datasets related to forecast
+
 You can combine query and filters to refine search results further.
 For example, search for anything containing "forecast" that is either a chart or a Snowflake dataset.
 
@@ -75,7 +77,6 @@ For example, search for anything containing "forecast" that is either a chart or
 ```
 
 For more details on available filters, see the [filter options](#filter-options).
-
 
 ## Common Search Patterns
 
@@ -131,10 +132,9 @@ You can combine filters using logical operations like `and_`, `or_`, and `not_` 
 {{ inline /metadata-ingestion/examples/library/search_filter_not.py show_path_as_comment }}
 ```
 
-#### Find entities by urn matching 
+#### Find entities by urn matching
 
 Use `custom_filter` to target specific fields such as urn, name, or description. Check the [Supported Conditions for Custom Filter](#supported-conditions-for-custom-filter) for more details on available fields for `condition`.
-
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_custom.py show_path_as_comment }}
@@ -156,7 +156,6 @@ The following filter options are available in the SDK:
 | Deletion Status | `F.soft_deleted("NOT_SOFT_DELETED")`           |
 | Custom Property | `F.has_custom_property("department", "sales")` |
 
-
 ### Logical Operator Options
 
 The following logical operators can be used to combine filters:
@@ -171,15 +170,14 @@ The following logical operators can be used to combine filters:
 
 Use `F.custom_filter()` to apply conditions on specific fields such as urn, name, ordescription.
 
-| Condition      | Description                                   |
-|----------------| --------------------------------------------- |
-| `EQUAL`        | Exact match for string fields.                |
-| `CONTAIN`      | Contains substring in string fields.          |
-| `START_WITH`   | Begins with a specific substring.             |
-| `END_WITH`     | Ends with a specific substring.               |
+| Condition      | Description                                                                               |
+| -------------- | ----------------------------------------------------------------------------------------- |
+| `EQUAL`        | Exact match for string fields.                                                            |
+| `CONTAIN`      | Contains substring in string fields.                                                      |
+| `START_WITH`   | Begins with a specific substring.                                                         |
+| `END_WITH`     | Ends with a specific substring.                                                           |
 | `GREATER_THAN` | For numeric or timestamp fields, checks if the value is greater than the specified value. |
-| `LESS_THAN`    | For numeric or timestamp fields, checks if the value is less than the specified value. |
-
+| `LESS_THAN`    | For numeric or timestamp fields, checks if the value is less than the specified value.    |
 
 ## FAQ
 
