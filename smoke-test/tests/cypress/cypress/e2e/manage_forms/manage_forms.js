@@ -1,4 +1,4 @@
-import { aliasQuery } from "../utils";
+import { aliasQuery, hasOperationName } from "../utils";
 
 const DATASET_NAME = "SampleCypressKafkaDataset";
 const DATASET_URN =
@@ -80,8 +80,24 @@ const editForm = (name, description) => {
   );
 };
 
+const toggleNotifyAssigneesOnPublishCheckbox = () => {
+  cy.clickOptionWithTestId("notify-assignees-on-publish-checkbox");
+};
+
+const ensureNotifyAssigneesOnPublishCheckboxIsChecked = () => {
+  cy.getWithTestId("notify-assignees-on-publish-checkbox")
+    .parent()
+    .should("have.class", "ant-checkbox-checked");
+};
+
+const ensureNotifyAssigneesOnPublishCheckboxIsNotChecked = () => {
+  cy.getWithTestId("notify-assignees-on-publish-checkbox")
+    .parent()
+    .should("not.have.class", "ant-checkbox-checked");
+};
+
 const saveDraft = (isCreation) => {
-  cy.clickOptionWithTestId("form-save-draft-button");
+  cy.getWithTestId("form-save-draft-button").click();
   if (isCreation) {
     cy.wait("@gqlcreateFormQuery")
       .its("response.body.data.createForm.urn")
@@ -143,9 +159,22 @@ const checkIfFormDoesNotExist = (formUrn) => {
   cy.getWithTestId(`${formUrn}-name`).should("not.exist");
 };
 
+const setFeatureFlags = () => {
+  // FYI: `setIsThemeV2Enabled` is not used here because need to enoble another feature flage too
+  cy.intercept("POST", "/api/v2/graphql", (req) => {
+    if (hasOperationName(req, "appConfig")) {
+      req.reply((res) => {
+        res.body.data.appConfig.featureFlags.showNotificationSettingsForComplianceForms = true;
+        res.body.data.appConfig.featureFlags.themeV2Enabled = true;
+        res.body.data.appConfig.featureFlags.themeV2Default = true;
+      });
+    }
+  });
+};
+
 describe("manage compliance forms", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
+    setFeatureFlags();
     cy.login();
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "createForm");
@@ -270,6 +299,28 @@ describe("manage compliance forms", () => {
       cy.wait(3000); // wait for ES to update with form on it
       goToEntity();
       checkIfEntityHasNoAwaitingForms();
+    });
+  });
+
+  it.only("allows to change notification settings", () => {
+    goToCreateNewComplianceFormPage();
+    fillForm(FORM_NAME, FORM_DESCRIPTION);
+    toggleNotifyAssigneesOnPublishCheckbox();
+    saveDraft(true);
+
+    cy.get("@createdFormUrn").then((formUrn) => {
+      goToEditFormPage(formUrn);
+      ensureNotifyAssigneesOnPublishCheckboxIsChecked();
+
+      toggleNotifyAssigneesOnPublishCheckbox();
+      saveDraft(false);
+
+      goToEditFormPage(formUrn);
+      ensureNotifyAssigneesOnPublishCheckboxIsNotChecked();
+      saveDraft(false);
+
+      goToComplianceFormsPage();
+      deleteForm(formUrn);
     });
   });
 });

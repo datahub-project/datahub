@@ -50,6 +50,7 @@ const AddRecipients = () => {
                         <StyledCheckbox
                             checked={!!formValues.formSettings?.notificationSettings?.notifyAssigneesOnPublish}
                             onChange={(e) => handleNotifyAsigneesCheckBox(e.target.checked)}
+                            data-testid="notify-assignees-on-publish-checkbox"
                         />
                         <Text color="gray">
                             Send notifications to assignees when this form is published
