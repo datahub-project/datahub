@@ -803,7 +803,9 @@
       "type" : "boolean",
       "doc" : "Whether the entity is deprecated.",
       "Searchable" : {
+        "addToFilters" : true,
         "fieldType" : "BOOLEAN",
+        "filterNameOverride" : "Deprecated",
         "weightsPerFieldValue" : {
           "true" : 0.5
         }
@@ -4968,7 +4970,10 @@
                       }
                     },
                     "doc" : "Status of the deployment",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldName" : "deploymentStatus"
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "mlModelDeploymentProperties"

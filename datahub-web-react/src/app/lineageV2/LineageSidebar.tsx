@@ -1,4 +1,4 @@
-import React, { useCallback, useContext, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useOnSelectionChange, useStore } from 'reactflow';
 import styled from 'styled-components/macro';
 
@@ -25,7 +25,11 @@ const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     }
 `;
 
-export default function LineageSidebar() {
+interface Props {
+    urn: string;
+}
+
+export default function LineageSidebar({ urn }: Props) {
     const entityRegistry = useEntityRegistry();
     const [selectedEntity, setSelectedEntity] = useSelectedNode();
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
@@ -41,6 +45,11 @@ export default function LineageSidebar() {
         },
         [resetSelectedElements, setSelectedEntity],
     );
+
+    useEffect(() => {
+        setSidebarClosed(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [urn]);
 
     // This manages closing, rather than isClosed
     if (!selectedEntity) {

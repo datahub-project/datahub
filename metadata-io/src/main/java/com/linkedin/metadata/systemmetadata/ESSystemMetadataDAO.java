@@ -5,6 +5,8 @@ import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataSe
 import static com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService.INDEX_NAME;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.metadata.config.ConfigUtils;
+import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -46,6 +48,7 @@ public class ESSystemMetadataDAO {
   private final IndexConvention indexConvention;
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
+  private final SystemMetadataServiceConfig systemMetadataServiceConfig;
 
   /**
    * Gets the status of a Task running in ElasticSearch
@@ -116,7 +119,10 @@ public class ESSystemMetadataDAO {
   }
 
   public SearchResponse findByParams(
-      Map<String, String> searchParams, boolean includeSoftDeleted, int from, int size) {
+      Map<String, String> searchParams,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -134,7 +140,7 @@ public class ESSystemMetadataDAO {
     searchSourceBuilder.query(finalQuery);
 
     searchSourceBuilder.from(from);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(systemMetadataServiceConfig, size));
 
     searchRequest.source(searchSourceBuilder);
 
@@ -156,7 +162,7 @@ public class ESSystemMetadataDAO {
       @Nullable Object[] sort,
       @Nullable String pitId,
       @Nonnull String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -174,7 +180,7 @@ public class ESSystemMetadataDAO {
     searchSourceBuilder.query(finalQuery);
 
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(systemMetadataServiceConfig, size));
 
     searchRequest.source(searchSourceBuilder);
 
@@ -195,7 +201,7 @@ public class ESSystemMetadataDAO {
       @Nullable String scrollId,
       @Nullable String pitId,
       @Nullable String keepAlive,
-      int size) {
+      @Nullable Integer size) {
     SearchRequest searchRequest = new SearchRequest();
 
     SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
@@ -212,7 +218,7 @@ public class ESSystemMetadataDAO {
 
     searchSourceBuilder.query(queryBuilder);
     ESUtils.setSearchAfter(searchSourceBuilder, sort, pitId, keepAlive);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(systemMetadataServiceConfig, size));
     searchSourceBuilder.sort(FIELD_URN).sort(FIELD_ASPECT);
 
     searchRequest.source(searchSourceBuilder);
@@ -227,14 +233,19 @@ public class ESSystemMetadataDAO {
   }
 
   public SearchResponse findByRegistry(
-      String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size) {
+      String registryName,
+      String registryVersion,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     Map<String, String> params = new HashMap<>();
     params.put("registryName", registryName);
     params.put("registryVersion", registryVersion);
     return findByParams(params, includeSoftDeleted, from, size);
   }
 
-  public SearchResponse findByRunId(String runId, boolean includeSoftDeleted, int from, int size) {
+  public SearchResponse findByRunId(
+      String runId, boolean includeSoftDeleted, int from, @Nullable Integer size) {
     return findByParams(Collections.singletonMap("runId", runId), includeSoftDeleted, from, size);
   }
 
