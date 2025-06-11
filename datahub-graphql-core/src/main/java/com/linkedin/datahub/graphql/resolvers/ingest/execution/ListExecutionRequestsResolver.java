@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.buildFilter;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ExecutionRequest;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,7 +43,7 @@ public class ListExecutionRequestsResolver
   private static final String EXECUTION_REQUEST_INGESTION_SOURCE_FIELD = "ingestionSource";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_FIELD = "sourceType";
   private static final String INGESTION_SOURCE_SOURCE_TYPE_SYSTEM = "SYSTEM";
-  private static final Integer NUMBER_OF_SYSTEM_INGESTION_SOURCES_TO_FETCH = 1000;
+  private static final Integer NUMBER_OF_INGESTION_SOURCES_TO_CHECK = 1000;
 
   private final EntityClient _entityClient;
 
@@ -78,7 +80,7 @@ public class ListExecutionRequestsResolver
         () -> {
           try {
             // Add additional filters to show only or hide all system ingestion sources
-            addSystemIngestionSourceFilter(filters, input.getSystemSources(), context);
+            addDefaultFilters(context, filters, input.getSystemSources());
             // First, get all execution request Urns.
             final SearchResult gmsResult =
                 _entityClient.search(
@@ -122,11 +124,44 @@ public class ListExecutionRequestsResolver
     return results;
   }
 
+  private void addDefaultFilters(
+      final QueryContext context,
+      List<FacetFilterInput> filters,
+      @Nullable final Boolean systemSources)
+      throws Exception {
+    addAccessibleIngestionSourceFilter(context, filters, systemSources); // Saas only
+    // Saas only: when user can't manage ingestion, filter by system/nonsystem ingestion sources
+    // should be applied by addAccessibleIngestionSourceFilter
+    if (AuthorizationUtils.canManageIngestion(context)) {
+      addSystemIngestionSourceFilter(context, filters, systemSources);
+    }
+  }
+
+  private void addAccessibleIngestionSourceFilter(
+      QueryContext context, List<FacetFilterInput> filters, @Nullable Boolean systemSources)
+      throws Exception {
+    // Saas only
+    // When user can't manage ingestion, they can see only executions of system/nonsystem ingestion
+    // sources accessible by policy rules
+    if (!AuthorizationUtils.canManageIngestion(context)) {
+      List<Urn> sourceUrns = getUrnsOfIngestionSources(context, systemSources);
+      filters.add(
+          new FacetFilterInput(
+              EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
+              null,
+              sourceUrns.stream().map(Urn::toString).toList(),
+              false,
+              FilterOperator.EQUAL));
+    }
+  }
+
   private void addSystemIngestionSourceFilter(
-      List<FacetFilterInput> filters, final Boolean systemSources, final QueryContext context)
+      final QueryContext context,
+      List<FacetFilterInput> filters,
+      @Nullable final Boolean systemSources)
       throws Exception {
     if (systemSources != null) {
-      List<Urn> urns = getUrnsOfSystemIngestionSources(context);
+      List<Urn> urns = getUrnsOfIngestionSources(context, true);
 
       filters.add(
           new FacetFilterInput(
@@ -138,15 +173,19 @@ public class ListExecutionRequestsResolver
     }
   }
 
-  private List<Urn> getUrnsOfSystemIngestionSources(final QueryContext context) throws Exception {
+  private List<Urn> getUrnsOfIngestionSources(
+      final QueryContext context, @Nullable final Boolean systemSources) throws Exception {
     List<FacetFilterInput> filters =
-        List.of(
-            new FacetFilterInput(
-                INGESTION_SOURCE_SOURCE_TYPE_FIELD,
-                null,
-                ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
-                false,
-                FilterOperator.EQUAL));
+        systemSources != null
+            ? List.of(
+                new FacetFilterInput(
+                    INGESTION_SOURCE_SOURCE_TYPE_FIELD,
+                    null,
+                    ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
+                    !systemSources,
+                    FilterOperator.EQUAL))
+            : Collections.emptyList();
+
     final SearchResult gmsResult =
         _entityClient.search(
             context.getOperationContext(),
@@ -155,7 +194,7 @@ public class ListExecutionRequestsResolver
             buildFilter(filters, Collections.emptyList()),
             null,
             0,
-            NUMBER_OF_SYSTEM_INGESTION_SOURCES_TO_FETCH);
+            NUMBER_OF_INGESTION_SOURCES_TO_CHECK);
 
     return gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
   }
