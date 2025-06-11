@@ -92,17 +92,7 @@ class FivetranSource(StatefulIngestionSourceBase):
             connector.connector_id, PlatformDetail()
         )
 
-        # Apply source platform details from additional_properties if available (from log API enhancement)
-        if "source_platform" in connector.additional_properties:
-            source_details.platform = connector.additional_properties["source_platform"]
-        if "source_platform_instance" in connector.additional_properties:
-            source_details.platform_instance = connector.additional_properties[
-                "source_platform_instance"
-            ]
-        if "source_env" in connector.additional_properties:
-            source_details.env = connector.additional_properties["source_env"]
-
-        # Map connector type to known platform if needed (only if not already set)
+        # Map connector type to known platform if needed
         if source_details.platform is None:
             connector_type = connector.connector_type.lower()
             if connector_type in FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM:
@@ -114,24 +104,15 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Auto-detect source database if not present in config
         if source_details.database is None:
-            # Check if source database is available in additional_properties first (from log API enhancement)
-            if "source_database" in connector.additional_properties:
-                source_details.database = connector.additional_properties[
-                    "source_database"
-                ]
+            # Try to extract source database from connector's additional properties
+            detected_db = self._extract_source_database_from_connector(connector)
+            if detected_db:
+                source_details.database = detected_db
                 logger.info(
-                    f"Using source database '{source_details.database}' from additional properties for connector {connector.connector_id}"
+                    f"Auto-detected source database '{detected_db}' for connector {connector.connector_id}"
                 )
             else:
-                # Try to extract source database from connector's additional properties
-                detected_db = self._extract_source_database_from_connector(connector)
-                if detected_db:
-                    source_details.database = detected_db
-                    logger.info(
-                        f"Auto-detected source database '{detected_db}' for connector {connector.connector_id}"
-                    )
-                else:
-                    source_details.database = ""
+                source_details.database = ""
 
         logger.debug(
             f"Source details for connector {connector.connector_id}: "
@@ -227,14 +208,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         destination_details = self.config.destination_to_platform_instance.get(
             connector.destination_id, PlatformDetail()
         )
-
-        # Apply destination platform details from additional_properties if available (from log API enhancement)
-        if "destination_platform_instance" in connector.additional_properties:
-            destination_details.platform_instance = connector.additional_properties[
-                "destination_platform_instance"
-            ]
-        if "destination_env" in connector.additional_properties:
-            destination_details.env = connector.additional_properties["destination_env"]
 
         # Set platform if not present
         if destination_details.platform is None:
@@ -444,23 +417,24 @@ class FivetranSource(StatefulIngestionSourceBase):
             # Include database in the table name if available
             database = details.database if details.database else ""
 
-            # Normalize all components to lowercase for URN consistency
-            # This ensures proper lineage matching across DataHub
-            database = database.lower() if database else ""
+            # Special handling for BigQuery
+            if platform.lower() == "bigquery":
+                # For BigQuery, ensure lowercase database and table name
+                database = database.lower() if database else ""
+                # If include_schema_in_urn=False, table_name won't have the schema part
+                if "." in table_name:
+                    schema, table = table_name.split(".", 1)
+                    table_name = f"{schema.lower()}.{table.lower()}"
+                else:
+                    table_name = table_name.lower()
 
-            # Split table_name and normalize each part
-            if "." in table_name:
-                # Handle schema.table format
-                parts = table_name.split(".")
-                table_name = ".".join(part.lower() for part in parts)
+                # For BigQuery, the database is the project ID and should be included
+                full_table_name = f"{database}.{table_name}" if database else table_name
+                logger.debug(f"BigQuery dataset URN table name: {full_table_name}")
             else:
-                table_name = table_name.lower()
-
-            # Build the full table name
-            full_table_name = f"{database}.{table_name}" if database else table_name
-            logger.debug(
-                f"Normalized dataset URN table name: {full_table_name} (platform: {platform})"
-            )
+                # For other platforms, follow standard behavior
+                full_table_name = f"{database}.{table_name}" if database else table_name
+                logger.debug(f"Standard dataset URN table name: {full_table_name}")
 
             # Ensure environment is set
             env = details.env or "PROD"
@@ -514,6 +488,10 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         logger.info(f"Creating column lineage from {source_urn} to {dest_urn}")
 
+        # Extract destination platform from the URN
+        dest_platform = str(dest_urn).split(",")[0].split(":")[-1]
+        is_bigquery = dest_platform.lower() == "bigquery"
+
         if not lineage.column_lineage:
             logger.warning(
                 f"No column lineage data available for {lineage.source_table} -> {lineage.destination_table}"
@@ -549,15 +527,17 @@ class FivetranSource(StatefulIngestionSourceBase):
         # Process valid column mappings
         for column_lineage in valid_lineage:
             try:
-                # Normalize column names to lowercase for consistency
-                source_column = column_lineage.source_column.lower()
-                dest_column = column_lineage.destination_column.lower()
-
-                # Create field URNs with normalized column names
+                # Create field URNs
                 source_field_urn = builder.make_schema_field_urn(
                     str(source_urn),
-                    source_column,
+                    column_lineage.source_column,
                 )
+
+                # For BigQuery, ensure proper case and format
+                dest_column = column_lineage.destination_column
+                if is_bigquery:
+                    # Ensure it's lowercase for BigQuery
+                    dest_column = dest_column.lower()
 
                 dest_field_urn = builder.make_schema_field_urn(
                     str(dest_urn),

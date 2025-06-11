@@ -7,14 +7,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "destination_platform": "snowflake",
-                "destination_database": "test_database",
-                "source_database": "postgres_db",
-                "source_env": "DEV",
                 "connector_type": "postgres",
                 "sync_frequency": "1440",
                 "paused": "False",
-                "destination_id": "interval_unconstitutional"
+                "destination_id": "interval_unconstitutional",
+                "destination_platform": "snowflake"
             },
             "name": "postgres",
             "description": "Fivetran connector for postgres to snowflake",
@@ -100,9 +97,7 @@
                 "destination.platform": "snowflake",
                 "destination.env": "PROD",
                 "destination.database": "test_database",
-                "destination.column_naming_pattern": "auto",
-                "connector.source_database": "postgres_db",
-                "connector.source_env": "DEV"
+                "destination.column_naming_pattern": "auto"
             },
             "name": "postgres",
             "description": "Fivetran data pipeline from postgres to snowflake",
@@ -648,16 +643,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "destination_platform": "snowflake",
-                "destination_database": "kafka_prod",
-                "source_platform": "kafka",
-                "source_database": "kafka_prod",
-                "source_env": "PROD",
-                "destination_env": "PROD",
                 "connector_type": "confluent_cloud",
                 "sync_frequency": "1440",
                 "paused": "False",
-                "destination_id": "my_confluent_cloud_connector_id"
+                "destination_id": "my_confluent_cloud_connector_id",
+                "destination_platform": "snowflake"
             },
             "name": "confluent_cloud",
             "description": "Fivetran connector for confluent_cloud to snowflake",
@@ -743,11 +733,7 @@
                 "destination.platform": "kafka",
                 "destination.env": "PROD",
                 "destination.database": "kafka_prod",
-                "destination.column_naming_pattern": "auto",
-                "connector.source_platform": "kafka",
-                "connector.source_database": "kafka_prod",
-                "connector.source_env": "PROD",
-                "connector.destination_env": "PROD"
+                "destination.column_naming_pattern": "auto"
             },
             "name": "confluent_cloud",
             "description": "Fivetran data pipeline from confluent_cloud to kafka",
