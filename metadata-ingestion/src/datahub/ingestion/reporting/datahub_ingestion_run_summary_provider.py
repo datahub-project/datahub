@@ -13,6 +13,7 @@ from datahub.configuration.common import (
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
@@ -111,6 +112,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     def __init__(self, sink: Sink, report_recipe: bool, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
 
+        self.ctx = ctx
         self.sink: Sink = sink
         self.report_recipe = report_recipe
         ingestion_source_key = self.generate_unique_key(ctx.pipeline_config)
@@ -191,17 +193,24 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             )
             return json.dumps(converted_recipe)
 
-    def _emit_aspect(self, entity_urn: Urn, aspect_value: _Aspect) -> None:
-        self.sink.write_record_async(
-            RecordEnvelope(
-                record=MetadataChangeProposalWrapper(
-                    entityUrn=str(entity_urn),
-                    aspect=aspect_value,
-                ),
-                metadata={},
-            ),
-            NoopWriteCallback(),
+    def _emit_aspect(
+        self, entity_urn: Urn, aspect_value: _Aspect, try_sync: bool = False
+    ) -> None:
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(entity_urn),
+            aspect=aspect_value,
         )
+
+        if try_sync and self.ctx.graph:
+            self.ctx.graph.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+        else:
+            self.sink.write_record_async(
+                RecordEnvelope(
+                    record=mcp,
+                    metadata={},
+                ),
+                NoopWriteCallback(),
+            )
 
     def on_start(self, ctx: PipelineContext) -> None:
         assert ctx.pipeline_config is not None
@@ -223,6 +232,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         self._emit_aspect(
             entity_urn=self.execution_request_input_urn,
             aspect_value=execution_input_aspect,
+            try_sync=True,
         )
 
     def on_completion(

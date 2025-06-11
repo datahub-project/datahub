@@ -84,7 +84,12 @@ export function SourceColumn({ source, actor }: SourceColumnProps) {
             return <span>Scheduled Execution</span>;
 
         case CLI_INGESTION_SOURCE:
-            return <span>CLI Execution</span>;
+            if (!actor) return <span>CLI Execution</span>;
+            return (
+                <UserContainer>
+                    CLI Execution by <UserWithAvatar user={actor} />
+                </UserContainer>
+            );
 
         default:
             return <span>N/A</span>;
