@@ -353,9 +353,17 @@ class SQLAlchemyQueryCombiner:
                 cols = query.columns
 
                 data = {}
+                counter: Dict[str, int] = {}
                 for col in cols:
-                    data[col.name] = row[index]
+                    if col.key:
+                        data[col.key] = row[index]
+                    else:
+                        # Replicate the same names for anonymous functions as
+                        # SQLAlchemy would generate.
+                        n = counter[col.name] = counter.get(col.name, 0) + 1
+                        data[f"{col.name}_{n}"] = row[index]
                     index += 1
+                assert len(data) == len(cols)
 
                 res = _ResultProxyFake([_RowProxyFake(data)])
 
