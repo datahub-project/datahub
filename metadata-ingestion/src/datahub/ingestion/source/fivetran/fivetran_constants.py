@@ -28,6 +28,7 @@ FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM = {
     # Database platforms (source connectors)
     "postgres": "postgres",
     "postgresql": "postgres",
+    "aurora": "mysql",
     "mysql": "mysql",
     "mysql_rds": "mysql",
     "oracle": "oracle",
