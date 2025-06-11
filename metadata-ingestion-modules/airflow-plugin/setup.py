@@ -96,6 +96,8 @@ integration_test_requirements = {
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
     "apache-airflow[snowflake,amazon]>=2.0.2",
+    # SnowflakeOperator removed in 4.x
+    "apache-airflow-providers-snowflake<4.0.0",
     # A collection of issues we've encountered:
     # - Connexion's new version breaks Airflow:
     #   See https://github.com/apache/airflow/issues/35234.

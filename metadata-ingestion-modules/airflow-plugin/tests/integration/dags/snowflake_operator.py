@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from airflow import DAG
-from airflow.providers.snowflake.operators.snowflake import SQLExecuteQueryOperator
+from airflow.providers.snowflake.operators.snowflake import SnowflakeOperator
 
 SNOWFLAKE_COST_TABLE = "costs"
 SNOWFLAKE_PROCESSED_TABLE = "processed_costs"
@@ -19,9 +19,9 @@ with DAG(
 ) as dag:
     # HACK: We don't want to send real requests to Snowflake. As a workaround,
     # we can simply monkey-patch the operator.
-    SQLExecuteQueryOperator.execute = _fake_snowflake_execute  # type: ignore
+    SnowflakeOperator.execute = _fake_snowflake_execute  # type: ignore
 
-    transform_cost_table = SQLExecuteQueryOperator(
+    transform_cost_table = SnowflakeOperator(
         snowflake_conn_id="my_snowflake",
         task_id="transform_cost_table",
         sql="""
