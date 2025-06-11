@@ -6,6 +6,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
@@ -36,6 +37,7 @@ interface Props {
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
+    isLastPage?: boolean;
 }
 
 function IngestionSourceTable({
@@ -48,6 +50,7 @@ function IngestionSourceTable({
     onChangeSort,
     isLoading,
     shouldPreserveParams,
+    isLastPage,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
@@ -157,6 +160,14 @@ function IngestionSourceTable({
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
             onRowClick={onRowClick}
+            footer={
+                isLastPage ? (
+                    <TableFooter
+                        hiddenItemsMessage="Some ingestion sources may be hidden"
+                        colSpan={tableColumns.length}
+                    />
+                ) : null
+            }
         />
     );
 }
