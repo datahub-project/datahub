@@ -104,15 +104,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         # Auto-detect source database if not present in config
         if source_details.database is None:
-            # Try to extract source database from connector's additional properties
-            detected_db = self._extract_source_database_from_connector(connector)
-            if detected_db:
-                source_details.database = detected_db
-                logger.info(
-                    f"Auto-detected source database '{detected_db}' for connector {connector.connector_id}"
-                )
-            else:
-                source_details.database = ""
+            source_details.database = ""
 
         logger.debug(
             f"Source details for connector {connector.connector_id}: "
@@ -122,85 +114,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         )
 
         return source_details
-
-    def _extract_source_database_from_connector(
-        self, connector: Connector
-    ) -> Optional[str]:
-        """
-        Extract source database name from connector.
-
-        This method prioritizes direct information from Fivetran over inference:
-        1. Explicit source database from connector properties (set by API config detection)
-        2. Standard database fields in connector additional properties
-        3. Limited schema name inference (only when schema clearly represents database)
-
-        Args:
-            connector: The Fivetran connector object
-
-        Returns:
-            Optional database name if reliably detected, None otherwise
-        """
-        # Priority 1: Check if source database is explicitly set from API config detection
-        if "source_database" in connector.additional_properties:
-            db_name = str(connector.additional_properties["source_database"])
-            logger.debug(
-                f"Using explicit source_database '{db_name}' from API config for connector {connector.connector_id}"
-            )
-            return db_name
-
-        # Priority 2: Check for standard database field names in additional properties
-        database_field_names = [
-            "database",
-            "db",
-            "database_name",
-            "catalog",
-            "project_id",
-            "project",
-        ]
-        for field_name in database_field_names:
-            if field_name in connector.additional_properties:
-                value = str(connector.additional_properties[field_name])
-                if value and value.lower() not in ["null", "none", "", "default"]:
-                    logger.debug(
-                        f"Found database '{value}' in field '{field_name}' for connector {connector.connector_id}"
-                    )
-                    return value
-
-        # Priority 3: Limited schema inference - only when there's a single consistent schema
-        # that clearly represents a database (not typical schema names)
-        if connector.lineage and len(connector.lineage) > 0:
-            schema_names = set()
-            for lineage in connector.lineage[
-                :10
-            ]:  # Check first 10 lineage entries for consistency
-                if lineage.source_table and "." in lineage.source_table:
-                    schema_name = lineage.source_table.split(".")[0]
-                    schema_names.add(schema_name)
-
-            # Only infer if there's exactly one schema name across all lineage entries
-            if len(schema_names) == 1:
-                schema_name = next(iter(schema_names))
-                # Exclude common schema names that are unlikely to be database names
-                excluded_schemas = {
-                    "public",
-                    "dbo",
-                    "information_schema",
-                    "sys",
-                    "default",
-                    "main",
-                }
-                if schema_name.lower() not in excluded_schemas and len(schema_name) > 2:
-                    logger.debug(
-                        f"Inferred potential database '{schema_name}' from consistent schema names for connector {connector.connector_id}"
-                    )
-                    return schema_name
-
-        # If no reliable database information found, return None
-        # Users should configure database explicitly in sources_to_platform_instance for best results
-        logger.debug(
-            f"No reliable database information found for connector {connector.connector_id}"
-        )
-        return None
 
     def _get_destination_details(self, connector: Connector) -> PlatformDetail:
         """Get destination platform details for a connector."""
@@ -415,26 +328,17 @@ class FivetranSource(StatefulIngestionSourceBase):
                 )
 
             # Include database in the table name if available
-            database = details.database if details.database else ""
+            database = details.database.lower() if details.database else ""
 
-            # Special handling for BigQuery
-            if platform.lower() == "bigquery":
-                # For BigQuery, ensure lowercase database and table name
-                database = database.lower() if database else ""
-                # If include_schema_in_urn=False, table_name won't have the schema part
-                if "." in table_name:
-                    schema, table = table_name.split(".", 1)
-                    table_name = f"{schema.lower()}.{table.lower()}"
-                else:
-                    table_name = table_name.lower()
-
-                # For BigQuery, the database is the project ID and should be included
-                full_table_name = f"{database}.{table_name}" if database else table_name
-                logger.debug(f"BigQuery dataset URN table name: {full_table_name}")
+            # If include_schema_in_urn=False, table_name won't have the schema part
+            if "." in table_name:
+                schema, table = table_name.split(".", 1)
+                table_name = f"{schema.lower()}.{table.lower()}"
             else:
-                # For other platforms, follow standard behavior
-                full_table_name = f"{database}.{table_name}" if database else table_name
-                logger.debug(f"Standard dataset URN table name: {full_table_name}")
+                table_name = table_name.lower()
+
+            full_table_name = f"{database}.{table_name}" if database else table_name
+            logger.debug(f"Dataset URN table name: {full_table_name}")
 
             # Ensure environment is set
             env = details.env or "PROD"
