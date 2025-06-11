@@ -37,7 +37,7 @@ class TestRestrictedText:
         text = RestrictedText("hello-world.test")
         text._configure(
             max_length=10,
-            replace_chars={"-", "."},
+            forbidden_chars={"-", "."},
             replacement_char="_",
             truncation_suffix="...",
         )
