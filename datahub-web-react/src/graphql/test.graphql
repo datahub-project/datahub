@@ -6,6 +6,9 @@ fragment testFields on Test {
     definition {
         json
     }
+    status {
+        mode
+    }
 }
 
 fragment testResultsSummaryFields on Test {

@@ -115,6 +115,9 @@ describe("create, edit and remove metadata test", () => {
     cy.reload();
     cy.get(".ant-card").first().contains("1 failing");
     // delete a test
+    // Search for the test before trying to delete it
+    cy.get('[data-testid="search-bar-input"]').clear().type(testName);
+    cy.wait(500); // Wait for search results to update
     cy.get('[data-testid="test-more-button-0"]').click();
     cy.clickOptionWithText("Delete");
     cy.waitTextVisible("Confirm Test Removal");

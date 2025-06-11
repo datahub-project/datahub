@@ -164,6 +164,8 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     AWS_SECRET_ACCESS_KEY: ${DATAHUB_AWS_ACCESS_KEY_ID:-test}
     AWS_REGION: ${DATAHUB_AWS_REGION:-us-east-1}
     METADATA_TESTS_ENABLED: true
+    METADATA_TESTS_BOOTSTRAP_ENABLED: true
+    METADATA_TESTS_BOOTSTRAP_ACTIVE_DEFAULTS: true
     ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED: true
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh

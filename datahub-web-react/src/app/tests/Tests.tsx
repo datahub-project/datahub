@@ -18,6 +18,7 @@ const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         height: calc(100% - 150px);
         border-radius: 0 0 ${props.theme.styles['border-radius-navbar-redesign']} ${props.theme.styles['border-radius-navbar-redesign']};
     `}
+    padding-right: 8px;
 `;
 
 type Props = {

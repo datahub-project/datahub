@@ -1,4 +1,4 @@
-import { DeleteOutlined, MoreOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, MoreOutlined } from '@ant-design/icons';
 import { colors } from '@components';
 import { Dropdown, Menu } from 'antd';
 import React from 'react';
@@ -10,21 +10,25 @@ const StyledMoreOutlined = styled(MoreOutlined)`
 `;
 
 type Props = {
+    onClickEdit: () => void;
     onClickDelete: () => void;
     index?: number;
     urn: string;
 };
 
-export default function TestCardActionMenu({ onClickDelete, index, urn }: Props) {
+export default function TestCardActionMenu({ onClickEdit, onClickDelete, index, urn }: Props) {
     return (
         <Dropdown
             overlay={
                 <Menu>
-                    <Menu.Item key="0" onClick={onClickDelete} data-testid={`test-delete-button-${index}`}>
+                    <Menu.Item key="0" onClick={onClickEdit}>
+                        <EditOutlined /> &nbsp; Edit
+                    </Menu.Item>
+                    <Menu.Item key="1" onClick={onClickDelete} data-testid={`test-delete-button-${index}`}>
                         <DeleteOutlined /> &nbsp; Delete
                     </Menu.Item>
                     <Menu.Item
-                        key="1"
+                        key="2"
                         onClick={() => {
                             navigator.clipboard.writeText(urn);
                         }}

@@ -2,27 +2,33 @@ import React from 'react';
 import styled from 'styled-components';
 
 import TestCardActionMenu from '@app/tests/card/TestCardActionMenu';
-import TestCardEditButton from '@app/tests/card/TestCardEditButton';
+import TestToggleEnabled from '@app/tests/card/TestToggleEnabled';
 
 import { Test } from '@types';
 
-const Container = styled.div``;
+const Container = styled.div`
+    display: flex;
+    align-items: center;
+`;
 
 type Props = {
     test: Test;
-    showEdit: boolean;
-    showDelete: boolean;
     onClickEdit: () => void;
     onClickDelete: () => void;
     index: number;
 };
 
-export const TestCardActions = ({ test, showEdit, showDelete, onClickEdit, onClickDelete, index }: Props) => {
+export const TestCardActions = ({ test, onClickEdit, onClickDelete, index }: Props) => {
     return (
         <Container>
-            {showEdit && <TestCardEditButton onClickEdit={onClickEdit} index={index} />}
-            {showDelete && test.urn && (
-                <TestCardActionMenu onClickDelete={onClickDelete} index={index} urn={test.urn} />
+            <TestToggleEnabled test={test} />
+            {test.urn && (
+                <TestCardActionMenu
+                    onClickDelete={onClickDelete}
+                    onClickEdit={onClickEdit}
+                    index={index}
+                    urn={test.urn}
+                />
             )}
         </Container>
     );

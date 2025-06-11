@@ -9,10 +9,11 @@ import { TestBuilderModal } from '@app/tests/builder/TestBuilderModal';
 import { TestBuilderState } from '@app/tests/builder/types';
 import { removeFromListTestsCache, updateListTestsCache } from '@app/tests/cacheUtils';
 import { TestCardActions } from '@app/tests/card/TestCardActions';
+import { generateEditTestInput } from '@app/tests/card/testUtils';
 import { DEFAULT_TESTS_PAGE_SIZE } from '@app/tests/constants';
 
 import { useDeleteTestMutation, useUpdateTestMutation } from '@graphql/test.generated';
-import { Test, TestDefinitionInput } from '@types';
+import { Test } from '@types';
 
 const Details = styled.div`
     height: 120px;
@@ -69,12 +70,7 @@ export const TestCardDetails = ({ test, onEdited, onDeleted, index }: Props) => 
     const [showEditTestModal, setShowEditTestModal] = useState(false);
 
     const editTest = (state: TestBuilderState) => {
-        const newTest = {
-            name: state.name as string,
-            category: state.category as string,
-            description: state.description as string,
-            definition: state.definition as TestDefinitionInput,
-        };
+        const newTest = generateEditTestInput(state);
         updateTestMutation({
             variables: { urn: test.urn, input: newTest },
         })
@@ -158,8 +154,6 @@ export const TestCardDetails = ({ test, onEdited, onDeleted, index }: Props) => 
                 <RightColumn>
                     <TestCardActions
                         test={test}
-                        showEdit
-                        showDelete
                         onClickEdit={() => setShowEditTestModal(true)}
                         onClickDelete={confirmDelete}
                         index={index}

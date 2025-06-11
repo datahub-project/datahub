@@ -38,6 +38,11 @@ type Test implements Entity {
   results: TestResultsSummary!
 
   """
+  Summary of the results for the test
+  """
+  status: TestStatus
+
+  """
   Unused for tests
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -228,6 +233,11 @@ input UpdateTestInput {
   The test definition
   """
   definition: TestDefinitionInput!
+
+  """
+  The status of the metadata test
+  """
+  status: TestStatusInput
 }
 
 input TestDefinitionInput {
@@ -396,4 +406,39 @@ type BatchTestRunResult {
   Number of assets that were failing the test.
   """
   failingCount: Long!
+}
+
+"""
+The status of the Metadata Test
+"""
+type TestStatus {
+  """
+  The evaluation mode of the Metadata Test.
+  """
+  mode: TestMode
+}
+
+"""
+The input for updating the status of the Metadata Test
+"""
+input TestStatusInput {
+  """
+  The evaluation mode of the Metadata Test.
+  """
+  mode: TestMode
+}
+
+"""
+The evaluation mode of the Metadata Test.
+"""
+enum TestMode {
+  """
+  The test is running on a schedule in the default running mode.
+  """
+  ACTIVE
+
+  """
+  The test is paused, disabled, not running.
+  """
+  INACTIVE
 }

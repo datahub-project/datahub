@@ -45,7 +45,7 @@ export const NewTestButton = ({ onCreated }: Props) => {
                     content: `Successfully created Test!`,
                     duration: 3,
                 });
-                const newTest = { __typename: 'Test', urn: res.data?.createTest, ...input };
+                const newTest = { __typename: 'Test', urn: res.data?.createTest, ...input, status: null };
                 updateListTestsCache(client, newTest, DEFAULT_TESTS_PAGE_SIZE);
                 onCreated?.(newTest);
                 setShowCreateTestModal(false);

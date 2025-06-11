@@ -11,6 +11,8 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.TestDefinitionInput;
+import com.linkedin.datahub.graphql.generated.TestMode;
+import com.linkedin.datahub.graphql.generated.TestStatusInput;
 import com.linkedin.datahub.graphql.generated.UpdateTestInput;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -36,7 +38,11 @@ public class UpdateTestResolverTest {
   private static final String TEST_URN = "urn:li:test:test-id";
   private static final UpdateTestInput TEST_INPUT =
       new UpdateTestInput(
-          "test-name", "test-category", "test-description", new TestDefinitionInput("{}"));
+          "test-name",
+          "test-category",
+          "test-description",
+          new TestDefinitionInput("{}"),
+          new TestStatusInput(TestMode.INACTIVE));
 
   private EntityClient mockClient;
   private TestEngine mockEngine;
@@ -86,6 +92,7 @@ public class UpdateTestResolverTest {
     assertEquals(resultInfo.getDescription(), "test-description");
     assertEquals(resultInfo.getDefinition().getType(), TestDefinitionType.JSON);
     assertEquals(resultInfo.getDefinition().getJson(), "{}");
+    assertEquals(resultInfo.getStatus().getMode(), com.linkedin.test.TestMode.INACTIVE);
   }
 
   @Test

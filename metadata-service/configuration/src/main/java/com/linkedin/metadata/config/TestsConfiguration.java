@@ -4,12 +4,14 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.experimental.Accessors;
 
 /** POJO representing the "tests" configuration block in application.yaml.on.yml */
 @Data
 @Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
+@Accessors(chain = true)
 public class TestsConfiguration {
   /** Whether tests are enabled */
   private boolean enabled;

@@ -3,6 +3,8 @@
   name: Gold Tier Datasets
   category: Data Governance
   description: This test automatically adds the "Gold" Tag to the most important Datasets inside the organization. This test defines importance as a combination of query volume, change volume (inserts, updates, alters, deletes rows), number of unique users, and row count.
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -49,6 +51,8 @@
   name: Data Warehouse Tables with Ownership
   category: Data Governance
   description: Tables on the Data Warehouse which have at least 1 owner defined
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -76,6 +80,8 @@
   name: Data Warehouse Tables with Documentation
   category: Data Governance
   description: Tables on the Data Warehouse which have documentation defined
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -103,6 +109,8 @@
   name: Data Warehouse Tables in a Domain
   category: Data Governance
   description: Tables on the Data Warehouse which have been categorized into a Domain
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -128,6 +136,8 @@
   name: Top 10% Most Queried Data Warehouse Tables
   category: Data Cost
   description: Top 10% of Tables on the Data Warehouse with the highest query count in the past 30 days. This is a proxy to compute cost for an asset. This test requires that usage extraction is enabled for your Data Warehouse Ingestion Source.
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -164,6 +174,8 @@
   name: Top 10% Largest Data Warehouse Tables by Storage Size in Bytes
   category: Data Cost
   description: Top 10% of Tables on the Data Warehouse with the highest storage size in bytes. This is a proxy to a cost input due to disk storage size. This test requires that Table profiling is enabled for your Data Warehouse Ingestion Source.
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -200,6 +212,8 @@
   name: Bottom 10% Least Queried Data Warehouse Tables
   category: Data Cost
   description: Bottom 10% of Tables on the Data Warehouse based on the number of queries issued in the past 30 days. This represents Tables which are good candidates for cleanup.
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -235,6 +249,8 @@
   urn: "urn:li:test:__default_cost_bottom_change_percentile"
   name: Bottom 10% Least Changed Data Warehouse Tables
   category: Data Cost
+  status:
+    mode: INACTIVE
   description: Bottom 10% of Tables on the Data Warehouse based on the number of changes (inserts, updates, deletes) issued in the past 30 days. This represents Tables which are good candidates for cleanup.
   definition:
     on:
@@ -272,6 +288,8 @@
   name: Data Warehouse Tables with 0 Queries (Past 30 days)
   category: Data Cost
   description: Data Warehouse Tables that have had 0 total queries in the past 30 days, indicating that they are good candidates for removal. This test requires that usage extraction is enabled for your Data Warehouse Ingestion Source.
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -308,6 +326,8 @@
   name: Data Warehouse Tables with 0 Changes (Past 30 days)
   category: Data Cost
   description: Data Warehouse Tables that have had 0 total changes (inserts, updates, deletes) in the past 30 days, indicating that they are good candidates for removal. This test requires that usage extraction is enabled for your Data Warehouse Ingestion Source.
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -344,6 +364,8 @@
   name: Data Warehouse Tables with Failing Assertions
   category: Data Quality
   description: Data Warehouse Tables that have at least 1 actively failing Assertion (Test).
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:
@@ -370,6 +392,8 @@
   name: Data Warehouse Tables with Active Incidents
   category: Data Quality
   description: Data Warehouse Tables that have at least 1 active Incident.
+  status:
+    mode: INACTIVE
   definition:
     on:
       types:

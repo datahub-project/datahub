@@ -2,10 +2,8 @@ package com.linkedin.metadata.boot.steps;
 
 import static com.linkedin.metadata.Constants.*;
 
-import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -13,15 +11,15 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
-import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
+import com.linkedin.test.TestMode;
+import com.linkedin.test.TestStatus;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,26 +44,11 @@ import org.springframework.core.io.ClassPathResource;
 @RequiredArgsConstructor
 public class IngestMetadataTestsStep implements BootstrapStep {
 
-  private final EntityService<?> _entityService;
-  private final boolean _enableMetadataTestBootstrap;
+  private final OperationContext systemOperationContext;
+  private final EntityService<?> entityService;
+  private final TestsConfiguration testsConfiguration;
 
-  private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
-  private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
-
-  static {
-    int maxSize =
-        Integer.parseInt(
-            System.getenv()
-                .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-    YAML_MAPPER
-        .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
-    JSON_MAPPER
-        .getFactory()
-        .setStreamReadConstraints(StreamReadConstraints.builder().maxStringLength(maxSize).build());
-  }
-
-  private static final String UPGRADE_ID = "ingest-default-metadata-policies";
+  private static final String UPGRADE_ID = "ingest-default-metadata-tests-v1";
   private static final Urn UPGRADE_ID_URN = BootstrapStep.getUpgradeUrn(UPGRADE_ID);
 
   @Nonnull
@@ -81,22 +64,21 @@ public class IngestMetadataTestsStep implements BootstrapStep {
 
   @Override
   public void execute(@Nonnull OperationContext opContext) throws IOException, URISyntaxException {
-    if (_entityService.exists(opContext, UPGRADE_ID_URN, true)) {
+    if (entityService.exists(opContext, UPGRADE_ID_URN, true)) {
       log.info("Default metadata tests were already ingested. Skipping ingesting again.");
       return;
     }
     log.info("Ingesting default metadata tests...");
 
     // If test bootstrap is disabled, skip
-    if (!_enableMetadataTestBootstrap) {
+    if (!testsConfiguration.isEnabled() || !testsConfiguration.getBootstrap().isEnabled()) {
       log.info("IngestMetadataTestsStep disabled. Skipping.");
       return;
     }
 
     // 1. Read default metadata tests
     final Map<Urn, TestInfo> metadataTestsMap =
-        parseYamlMetadataTestConfig(
-            new ClassPathResource("./boot/metadata_tests.yaml").getInputStream());
+        parseYamlMetadataTestConfig(getYamlResourceStream());
 
     // 2. Ingest the metadata test if not exists
     log.info("Ingesting {} tests", metadataTestsMap.size());
@@ -107,6 +89,9 @@ public class IngestMetadataTestsStep implements BootstrapStep {
         numIngested++;
       }
     }
+
+    // 3. Record status
+    BootstrapStep.setUpgradeResult(systemOperationContext, UPGRADE_ID_URN, entityService);
     log.info("Ingested {} new tests", numIngested);
   }
 
@@ -114,7 +99,7 @@ public class IngestMetadataTestsStep implements BootstrapStep {
     // Check if test exists
     try {
       RecordTemplate aspect =
-          _entityService.getLatestEnvelopedAspect(
+          entityService.getLatestEnvelopedAspect(
               opContext, Constants.TEST_ENTITY_NAME, testUrn, Constants.TEST_INFO_ASPECT_NAME);
       return aspect != null;
     } catch (Exception e) {
@@ -124,34 +109,15 @@ public class IngestMetadataTestsStep implements BootstrapStep {
 
   private void ingestMetadataTest(
       @Nonnull OperationContext opContext, final Urn testUrn, final TestInfo testInfo) {
-    // 3. Write key & aspect
-    final MetadataChangeProposal keyAspectProposal = new MetadataChangeProposal();
-    final AspectSpec keyAspectSpec = opContext.getEntityRegistryContext().getKeyAspectSpec(testUrn);
-    GenericAspect aspect =
-        GenericRecordUtils.serializeAspect(
-            EntityKeyUtils.convertUrnToEntityKey(testUrn, keyAspectSpec));
-    keyAspectProposal.setAspect(aspect);
-    keyAspectProposal.setAspectName(keyAspectSpec.getName());
-    keyAspectProposal.setEntityType(Constants.TEST_ENTITY_NAME);
-    keyAspectProposal.setChangeType(ChangeType.UPSERT);
-    keyAspectProposal.setEntityUrn(testUrn);
-
-    _entityService.ingestProposal(
-        opContext,
-        keyAspectProposal,
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(SYSTEM_ACTOR))
-            .setTime(System.currentTimeMillis()),
-        false);
-
+    // 3. Write aspect
     final MetadataChangeProposal proposal = new MetadataChangeProposal();
     proposal.setEntityUrn(testUrn);
     proposal.setEntityType(Constants.TEST_ENTITY_NAME);
     proposal.setAspectName(Constants.TEST_INFO_ASPECT_NAME);
     proposal.setAspect(GenericRecordUtils.serializeAspect(testInfo));
-    proposal.setChangeType(ChangeType.UPSERT);
+    proposal.setChangeType(ChangeType.CREATE_ENTITY);
 
-    _entityService.ingestProposal(
+    entityService.ingestProposal(
         opContext,
         proposal,
         new AuditStamp()
@@ -175,7 +141,7 @@ public class IngestMetadataTestsStep implements BootstrapStep {
 
     try {
 
-      final JsonNode metadataTests = YAML_MAPPER.readTree(inputStream);
+      final JsonNode metadataTests = systemOperationContext.getYamlMapper().readTree(inputStream);
       if (!metadataTests.isArray()) {
         throw new IllegalArgumentException(
             "Metadata test config file must contain an array of metadata tests");
@@ -211,11 +177,22 @@ public class IngestMetadataTestsStep implements BootstrapStep {
           testInfo.setDescription(metadataTest.get("description").asText());
         }
 
+        if (!testsConfiguration.getBootstrap().isActiveDefaults()
+            && metadataTest.has("status")
+            && metadataTest.get("status").has("mode")) {
+          testInfo.setStatus(
+              new TestStatus()
+                  .setMode(TestMode.valueOf(metadataTest.get("status").get("mode").asText())));
+        }
+
         if (metadataTest.has("definition")) {
           testInfo.setDefinition(
               new TestDefinition()
                   .setType(TestDefinitionType.JSON)
-                  .setJson(JSON_MAPPER.writeValueAsString(metadataTest.get("definition"))));
+                  .setJson(
+                      systemOperationContext
+                          .getObjectMapper()
+                          .writeValueAsString(metadataTest.get("definition"))));
         } else {
           throw new IllegalArgumentException(
               "Each element in the retention config must contain field definition with the test definition.");
@@ -230,5 +207,10 @@ public class IngestMetadataTestsStep implements BootstrapStep {
       log.error("Error reading metadata tests file.", e);
       return Collections.emptyMap();
     }
+  }
+
+  @VisibleForTesting
+  protected InputStream getYamlResourceStream() throws IOException {
+    return new ClassPathResource("./boot/metadata_tests.yaml").getInputStream();
   }
 }

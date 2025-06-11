@@ -475,7 +475,8 @@ metadataTests:
   cacheRefreshIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_INTERVAL_SECONDS:120}
   # Flags to enable bootstrap ingestion of default policies
   bootstrap:
-    enabled: ${METADATA_TESTS_BOOTSTRAP_ENABLED:false}
+    enabled: ${METADATA_TESTS_BOOTSTRAP_ENABLED:true}
+    activeDefaults: ${METADATA_TESTS_BOOTSTRAP_ACTIVE_DEFAULTS:false}
   elasticSearchExecutor:
     enabled: ${METADATA_TESTS_ELASTICSEARCH_EXECUTOR_ENABLED:true} # Will try to execute test queries through Elastic if query is supported by searchable fields
   # SAAS Only

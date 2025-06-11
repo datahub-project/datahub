@@ -1,5 +1,7 @@
 import { DEFAULT_TEST_CATEGORY } from '@app/tests/constants';
 
+import { TestMode } from '@types';
+
 export const DEFAULT_TEST_DEFINITION = {
     on: {
         types: [],
@@ -43,6 +45,16 @@ export interface TestBuilderState {
          */
         json?: string | null;
     };
+
+    /**
+     * The status of the test
+     */
+    status?: {
+        /**
+         * The current mode of the test - enabled or disabled
+         */
+        mode?: TestMode | null;
+    } | null;
 }
 
 /**

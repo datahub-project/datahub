@@ -19,6 +19,8 @@ import com.linkedin.metadata.test.TestEngine;
 import com.linkedin.metadata.test.definition.ValidationResult;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.test.TestInfo;
+import com.linkedin.test.TestMode;
+import com.linkedin.test.TestStatus;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.concurrent.CompletableFuture;
@@ -83,6 +85,11 @@ public class UpdateTestResolver implements DataFetcher<CompletableFuture<String>
     result.setCategory(input.getCategory());
     result.setDescription(input.getDescription(), SetMode.IGNORE_NULL);
     result.setDefinition(mapDefinition(input.getDefinition()));
+    if (input.getStatus() != null && input.getStatus().getMode() != null) {
+      TestStatus status = new TestStatus();
+      status.setMode(TestMode.valueOf(input.getStatus().getMode().toString()));
+      result.setStatus(status);
+    }
     long currentTimeMillis = System.currentTimeMillis();
     result.setLastUpdatedTimestamp(currentTimeMillis);
     final AuditStamp auditStamp =
