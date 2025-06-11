@@ -211,11 +211,12 @@ class FivetranAccessTest(unittest.TestCase):
 
     @patch("inspect.stack")
     @patch("datahub.ingestion.source.fivetran.fivetran_log_api.FivetranLogAPI")
+    @patch("datahub.ingestion.source.fivetran.fivetran_api_client.FivetranAPIClient")
     @patch(
         "datahub.ingestion.source.fivetran.fivetran_standard_api.FivetranStandardAPI"
     )
     def test_create_fivetran_access_auto_fallback_to_standard(
-        self, mock_standard_api, mock_log_api, mock_stack
+        self, mock_standard_api, mock_api_client, mock_log_api, mock_stack
     ):
         """Test auto mode falling back to standard when enterprise fails"""
         # Import here to avoid circular imports
@@ -232,6 +233,9 @@ class FivetranAccessTest(unittest.TestCase):
         # Set up mocks
         mock_log_api_instance = MagicMock()
         mock_log_api.return_value = mock_log_api_instance
+
+        # Return mock API client from constructor
+        mock_api_client.return_value = MagicMock()
 
         # Simulate we're not in a test environment
         mock_stack.return_value = [MagicMock(filename="production.py")]

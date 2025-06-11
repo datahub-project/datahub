@@ -11,7 +11,9 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationWarning,
 )
-from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.configuration.source_common import (
+    DatasetSourceConfigMixin,
+)
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.report import Report
@@ -19,6 +21,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
     BigQueryConnectionConfig,
 )
 from datahub.ingestion.source.fivetran.fivetran_constants import (
+    DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
     DataJobMode,
     FivetranMode,
 )
@@ -71,12 +74,6 @@ class Constant:
     SUCCESSFUL = "SUCCESSFUL"
     FAILURE_WITH_TASK = "FAILURE_WITH_TASK"
     CANCELED = "CANCELED"
-
-
-KNOWN_DATA_PLATFORM_MAPPING = {
-    "postgres": "postgres",
-    "snowflake": "snowflake",
-}
 
 
 class SnowflakeDestinationConfig(SnowflakeConnectionConfig):
@@ -263,14 +260,11 @@ class FivetranSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin
         description="The number of days to look back when extracting connectors' sync history.",
     )
 
-    use_parallel_processing: bool = Field(
-        default=True,
-        description="Enable parallel processing for API calls to improve performance (standard mode only).",
-    )
-
-    max_workers: int = Field(
-        default=10,
-        description="Maximum number of worker threads for parallel processing. Only used when use_parallel_processing is True.",
+    max_table_lineage_per_connector: int = Field(
+        default=DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
+        description="Maximum number of table lineage entries to extract per connector. "
+        "Increase this value if you have connectors with many table lineage entries and want to capture all of them. "
+        "Set to -1 to disable the limit entirely (not recommended for very large connectors).",
     )
 
     @root_validator

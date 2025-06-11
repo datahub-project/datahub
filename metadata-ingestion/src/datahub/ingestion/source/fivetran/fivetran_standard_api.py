@@ -19,6 +19,9 @@ from datahub.ingestion.source.fivetran.data_classes import (
 )
 from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInterface
 from datahub.ingestion.source.fivetran.fivetran_api_client import FivetranAPIClient
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM,
+)
 from datahub.ingestion.source.fivetran.fivetran_query import (
     MAX_JOBS_PER_CONNECTOR,
 )
@@ -679,28 +682,11 @@ class FivetranStandardAPI(FivetranAccessInterface):
         """Generate configuration example for destination to platform instance mapping."""
         example_config = "\ndestination_to_platform_instance:\n"
         for dest_id, details in destination_details.items():
-            # More scalable platform detection based on service name
-            known_platforms = {
-                "bigquery": "bigquery",
-                "snowflake": "snowflake",
-                "redshift": "redshift",
-                "postgres": "postgres",
-                "mysql": "mysql",
-                "databricks": "databricks",
-                "synapse": "mssql",
-                "sql_server": "mssql",
-                "azure_sql": "mssql",
-                "oracle": "oracle",
-                "kafka": "kafka",
-                "s3": "s3",
-                "gcs": "gcs",
-            }
-
             service = details.get("service", "").lower()
             platform_suggestion = None
 
             # Find best matching platform
-            for key, platform in known_platforms.items():
+            for key, platform in FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM.items():
                 if key in service:
                     platform_suggestion = platform
                     break

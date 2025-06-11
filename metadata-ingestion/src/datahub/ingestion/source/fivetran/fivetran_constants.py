@@ -1,16 +1,55 @@
-from datahub.utilities.str_enum import StrEnum
+"""
+Constants and mappings used across Fivetran source modules.
+"""
+
+from enum import Enum
 
 
-class FivetranMode(StrEnum):
-    """Mode of operation for Fivetran connector."""
+class FivetranMode(Enum):
+    """Fivetran source operation modes."""
 
-    ENTERPRISE = "enterprise"  # Using log tables (enterprise)
-    STANDARD = "standard"  # Using REST API (standard/free)
-    AUTO = "auto"  # Auto-detect based on provided configs
+    ENTERPRISE = "enterprise"
+    STANDARD = "standard"
+    AUTO = "auto"
 
 
-class DataJobMode(StrEnum):
-    """Mode for creating DataJobs."""
+class DataJobMode(Enum):
+    """DataJob generation modes."""
 
-    CONSOLIDATED = "consolidated"  # One DataJob per connector (default)
-    PER_TABLE = "per_table"  # One DataJob per table
+    CONSOLIDATED = "consolidated"
+    PER_TABLE = "per_table"
+
+
+# Default configuration values
+DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR = 300
+
+# Comprehensive mapping of Fivetran connector types to DataHub platforms
+FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM = {
+    # Database platforms (source connectors)
+    "postgres": "postgres",
+    "postgresql": "postgres",
+    "mysql": "mysql",
+    "mysql_rds": "mysql",
+    "oracle": "oracle",
+    "sql_server": "mssql",
+    "sql_server_rds": "mssql",
+    "mssql": "mssql",
+    "synapse": "mssql",
+    "azure_sql": "mssql",
+    "mariadb": "mariadb",
+    # Cloud data warehouses (source & destination)
+    "snowflake": "snowflake",
+    "redshift": "redshift",
+    "bigquery": "bigquery",
+    "google_bigquery": "bigquery",
+    "databricks": "databricks",
+    # Cloud storage (source & destination)
+    "s3": "s3",
+    "azure_blob_storage": "abs",
+    "gcs": "gcs",
+    "google_cloud_storage": "gcs",
+    # Applications and SaaS (source connectors)
+    "salesforce": "salesforce",
+    "mongodb": "mongodb",
+    "kafka": "kafka",
+}

@@ -22,6 +22,9 @@ from datahub.ingestion.source.fivetran.data_classes import (
     TableLineage,
 )
 from datahub.ingestion.source.fivetran.fivetran_access import FivetranAccessInterface
+from datahub.ingestion.source.fivetran.fivetran_constants import (
+    DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
+)
 from datahub.ingestion.source.fivetran.fivetran_query import FivetranLogQuery
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -154,8 +157,14 @@ class FivetranLogAPI(FivetranAccessInterface):
         Returns dict of table lineage metadata with key as 'CONNECTOR_ID'
         """
         connectors_table_lineage_metadata = defaultdict(list)
+
         table_lineage_result = self._query(
-            self.fivetran_log_query.get_table_lineage_query(connector_ids=connector_ids)
+            self.fivetran_log_query.get_table_lineage_query(
+                connector_ids=connector_ids,
+                max_table_lineage_per_connector=self.config.max_table_lineage_per_connector
+                if self.config
+                else DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR,
+            )
         )
         for table_lineage in table_lineage_result:
             connectors_table_lineage_metadata[
