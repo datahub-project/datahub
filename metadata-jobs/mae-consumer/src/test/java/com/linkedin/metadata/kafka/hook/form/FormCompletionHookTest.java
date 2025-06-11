@@ -130,6 +130,46 @@ public class FormCompletionHookTest {
             Mockito.eq(true));
   }
 
+  @Test
+  public void testInvokeNoActionWithNoRequiredPrompts() throws Exception {
+    // in this test, the form is incomplete and the prompt is incomplete, but there are no required
+    // prompts
+    // since no promtps are submitted we will not mark complete
+    FormService service = mockFormService(false);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    FormCompletionHook hook = new FormCompletionHook(service, true, mockClient);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_DATASET_URN, FORMS_ASPECT_NAME, ChangeType.UPSERT, mockForms(false, false));
+    hook.invoke(event);
+
+    Mockito.verify(mockClient, Mockito.times(0))
+        .ingestProposal(
+            nullable(OperationContext.class),
+            Mockito.any(MetadataChangeProposal.class),
+            Mockito.eq(true));
+  }
+
+  @Test
+  public void testInvokeActionWithNoRequiredPrompts() throws Exception {
+    // in this test, the form is incomplete and the prompt is complete, but there are no required
+    // prompts
+    // since one prompt was submitted, we mark as complete
+    FormService service = mockFormService(false);
+    SystemEntityClient mockClient = Mockito.mock(SystemEntityClient.class);
+    FormCompletionHook hook = new FormCompletionHook(service, true, mockClient);
+    final MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_DATASET_URN, FORMS_ASPECT_NAME, ChangeType.UPSERT, mockForms(false, true));
+    hook.invoke(event);
+
+    Mockito.verify(mockClient, Mockito.times(1))
+        .ingestProposal(
+            nullable(OperationContext.class),
+            Mockito.any(MetadataChangeProposal.class),
+            Mockito.eq(true));
+  }
+
   private FormInfo mockFormInfo(boolean isPromptRequired) {
     FormInfo formInfo = new FormInfo();
     formInfo.setName("Test");

@@ -111,13 +111,16 @@ public class FormCompletionHook implements MetadataChangeLogHook {
         formService.batchFetchForms(this.systemOperationContext, formUrns);
 
     // 3. Get lists of forms we need to mark as complete or incomplete
+    // We should only move forms automatically to complete if at least one prompt is complete
     List<FormAssociation> formsToMarkComplete = new ArrayList<>();
     forms
         .getIncompleteForms()
         .forEach(
             incompleteForm -> {
               FormInfo formInfo = formInfoMap.get(incompleteForm.getUrn());
-              if (formInfo != null && formService.isFormCompleted(incompleteForm, formInfo)) {
+              if (formInfo != null
+                  && formService.isFormCompleted(incompleteForm, formInfo)
+                  && incompleteForm.getCompletedPrompts().size() > 0) {
                 formsToMarkComplete.add(incompleteForm);
               }
             });
