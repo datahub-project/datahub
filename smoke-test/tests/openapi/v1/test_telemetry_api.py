@@ -25,11 +25,11 @@ from datetime import datetime, timezone
 
 import pytest
 from confluent_kafka import Consumer, KafkaError
+from datahub_integrations.telemetry.chat_events import ChatbotInteractionEvent
 
 # Import the graph module after telemetry to ensure proper initialization
 # Import the telemetry module first to ensure integrations_graph is initialized
-from datahub_integrations.chat.telemetry import track_saas_event
-from datahub_integrations.chat.telemetry_models import ChatbotInteractionEvent
+from datahub_integrations.telemetry.telemetry import track_saas_event
 
 from tests.utils import get_kafka_broker_url
 
@@ -42,22 +42,26 @@ logger = logging.getLogger(__name__)
 def patch_integrations_graph(graph_client):
     """Monkey patch the integrations service graph client with our test graph client"""
     # Store the original graph client
-    from datahub_integrations.chat.telemetry import graph as original_graph
+    from datahub_integrations.telemetry.telemetry import graph as original_graph
 
     logger.info(f"Original graph client: {original_graph}")
 
     # Replace with our test graph client
     # Patch the graph variable directly in the telemetry module
-    import datahub_integrations.chat.telemetry
+    import datahub_integrations.telemetry.telemetry
 
-    datahub_integrations.chat.telemetry.graph = graph_client
-    logger.info(f"Patched graph client: {datahub_integrations.chat.telemetry.graph}")
+    datahub_integrations.telemetry.telemetry.graph = graph_client
+    logger.info(
+        f"Patched graph client: {datahub_integrations.telemetry.telemetry.graph}"
+    )
 
     yield
 
     # Restore the original graph client
-    datahub_integrations.chat.telemetry.graph = original_graph
-    logger.info(f"Restored graph client: {datahub_integrations.chat.telemetry.graph}")
+    datahub_integrations.telemetry.telemetry.graph = original_graph
+    logger.info(
+        f"Restored graph client: {datahub_integrations.telemetry.telemetry.graph}"
+    )
 
 
 def _send_test_event(test_event, graph_client):

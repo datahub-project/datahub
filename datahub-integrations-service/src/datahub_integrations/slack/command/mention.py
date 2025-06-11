@@ -17,19 +17,19 @@ from datahub_integrations.chat.chat_history import (
 )
 from datahub_integrations.chat.chat_session import ChatSession, Message, NextMessage
 from datahub_integrations.chat.linkify import slackify_markdown
-from datahub_integrations.chat.telemetry import track_saas_event
-from datahub_integrations.chat.telemetry_models import (
-    ChatbotInteractionEvent,
-    ChatbotInteractionFeedbackEvent,
-    slack_chat_id,
-    slack_message_id,
-)
 from datahub_integrations.mcp.mcp_server import mcp
 from datahub_integrations.slack.constants import (
     ACRYL_SLACK_ICON_URL,
     MESSAGE_LENGTH_HARD_LIMIT,
 )
 from datahub_integrations.slack.utils.string import truncate
+from datahub_integrations.telemetry.chat_events import (
+    ChatbotInteractionEvent,
+    ChatbotInteractionFeedbackEvent,
+    slack_chat_id,
+    slack_message_id,
+)
+from datahub_integrations.telemetry.telemetry import track_saas_event
 
 DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID = "datahub_mention_followup_question"
 DATAHUB_MENTION_FEEDBACK_BUTTON_ID = "datahub_mention_feedback"

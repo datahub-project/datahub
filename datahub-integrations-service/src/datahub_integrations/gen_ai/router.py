@@ -6,6 +6,7 @@ import fastapi
 import pydantic
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, QueryUrn, Urn
+from datahub.utilities.perf_timer import PerfTimer
 from loguru import logger
 
 from datahub_integrations.gen_ai.cached_graph import make_cached_graph
@@ -29,6 +30,12 @@ from datahub_integrations.gen_ai.term_suggestion_v2_context import (
     GlossaryUniverseConfig,
     fetch_glossary_info,
 )
+from datahub_integrations.telemetry.ai_docs_events import (
+    DEFAULT_USER_URN,
+    InferDocsApiRequestEvent,
+    InferDocsApiResponseEvent,
+)
+from datahub_integrations.telemetry.telemetry import track_saas_event
 
 _METADATA_CACHE_TTL_SEC = timedelta(minutes=15).total_seconds()
 
@@ -63,15 +70,6 @@ class SuggestedDescription(pydantic.BaseModel):
     )
 
 
-def _description_v3(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescription:
-    result = generate_entity_descriptions_for_urn(graph_client=graph, urn=str(urn))
-
-    return SuggestedDescription(
-        entity_description=result.table_description or "",
-        column_descriptions=result.column_descriptions,
-    )
-
-
 @router.get("/suggest_description", response_model=SuggestedDescription)
 def suggest_description(
     graph: Annotated[DataHubGraph, fastapi.Depends(cached_graph)],
@@ -81,9 +79,30 @@ def suggest_description(
 
     urn = Urn.from_string(entity_urn)
 
+    track_saas_event(
+        InferDocsApiRequestEvent(
+            entity_urn=entity_urn,
+            user_urn=DEFAULT_USER_URN,
+            entity_type=QueryUrn.ENTITY_TYPE
+            if isinstance(urn, QueryUrn)
+            else DatasetUrn.ENTITY_TYPE,
+        )
+    )
+
     if isinstance(urn, QueryUrn):
-        query_context = get_query_context(graph, entity_urn)
-        desc = generate_query_desc(query_context)
+        with PerfTimer() as timer:
+            query_context = get_query_context(graph, entity_urn)
+            desc = generate_query_desc(query_context)
+
+            track_saas_event(
+                InferDocsApiResponseEvent(
+                    entity_urn=entity_urn,
+                    user_urn=DEFAULT_USER_URN,
+                    entity_type=QueryUrn.ENTITY_TYPE,
+                    response_time_ms=timer.elapsed_seconds() * 1000,
+                    has_entity_description=desc is not None and len(desc) > 0,
+                )
+            )
 
         return SuggestedDescription(
             entity_description=desc,
@@ -91,7 +110,29 @@ def suggest_description(
         )
 
     elif isinstance(urn, DatasetUrn):
-        return _description_v3(graph, urn)
+        with PerfTimer() as timer:
+            result = generate_entity_descriptions_for_urn(
+                graph_client=graph, urn=str(urn)
+            )
+
+            track_saas_event(
+                InferDocsApiResponseEvent(
+                    entity_urn=entity_urn,
+                    user_urn=DEFAULT_USER_URN,
+                    entity_type=DatasetUrn.ENTITY_TYPE,
+                    response_time_ms=timer.elapsed_seconds() * 1000,
+                    has_entity_description=result.table_description is not None
+                    and len(result.table_description) > 0,
+                    has_column_descriptions=result.column_descriptions is not None
+                    and len(result.column_descriptions) > 0,
+                    error_msg=result.failure_reason,
+                )
+            )
+
+            return SuggestedDescription(
+                entity_description=result.table_description or "",
+                column_descriptions=result.column_descriptions,
+            )
 
     else:
         raise ValueError(f"Unsupported entity type: {urn}")

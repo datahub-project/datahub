@@ -1,18 +1,19 @@
 import functools
 import logging
 import os
+from datetime import datetime, timezone
 
 from datahub.telemetry.telemetry import TIMEOUT, _default_telemetry_properties
 from mixpanel import Consumer, Mixpanel
+from pydantic import BaseModel, Field
 
 from datahub_integrations import __version__
 from datahub_integrations.app import graph
-from datahub_integrations.chat.telemetry_models import BaseEvent
 
 logger = logging.getLogger(__name__)
 
 # Note that this is different from OSS Mixpanel's token. This one
-# corresponds to the SaaS Mixpanel project.
+# corresponds to the SaaS MixpaneInferDocsApiResponseEventl project.
 MIXPANEL_TOKEN = "7cee38380de7a8469069c040a1fee320"
 
 # Environment variable to control whether to send events directly to Mixpanel
@@ -44,6 +45,16 @@ def _default_properties() -> dict:
         **_default_telemetry_properties(),
         "datahub_integrations_version": __version__,
     }
+
+
+class BaseEvent(BaseModel):
+    """Base class for all telemetry events."""
+
+    timestamp: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="UTC timestamp of when the event occurred",
+    )
+    type: str
 
 
 def _send_to_api(event: BaseEvent) -> None:

@@ -1,18 +1,6 @@
-from datetime import datetime, timezone
 from typing import Literal, Optional, TypeAlias
 
-from pydantic import BaseModel, Field
-
-
-class BaseEvent(BaseModel):
-    """Base class for all telemetry events."""
-
-    timestamp: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        description="UTC timestamp of when the event occurred",
-    )
-    type: str
-
+from datahub_integrations.telemetry.telemetry import BaseEvent
 
 ChatId: TypeAlias = str
 MessageId: TypeAlias = str

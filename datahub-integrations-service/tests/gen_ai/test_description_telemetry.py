@@ -1,0 +1,214 @@
+from unittest.mock import MagicMock, patch
+
+import datahub.metadata.schema_classes as models
+import pytest
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.urns import DatasetUrn, QueryUrn
+
+from datahub_integrations.gen_ai.description_context import ExtractedTableInfo
+from datahub_integrations.gen_ai.description_v3 import EntityDescriptionResult
+from datahub_integrations.gen_ai.router import suggest_description
+from datahub_integrations.telemetry.ai_docs_events import (
+    DEFAULT_USER_URN,
+    InferDocsApiRequestEvent,
+    InferDocsApiResponseEvent,
+)
+
+
+@pytest.fixture
+def mock_graph() -> DataHubGraph:
+    mock_client = MagicMock()
+
+    # Mock entity response for dataset
+    mock_entity = {
+        "schemaMetadata": models.SchemaMetadataClass(
+            schemaName="test_db.test_schema",
+            platform="snowflake",
+            platformSchema=models.OtherSchemaClass(rawSchema=""),
+            version=1,
+            hash="1234567890",
+            fields=[
+                models.SchemaFieldClass(
+                    fieldPath="id",
+                    type=models.SchemaFieldDataTypeClass(type=models.StringTypeClass()),
+                    nativeDataType="VARCHAR",
+                    description="Primary key for the table",
+                    isPartOfKey=True,
+                ),
+            ],
+        ),
+        "datasetProperties": models.DatasetPropertiesClass(
+            name="test_table",
+            description="A test table",
+        ),
+    }
+
+    def mock_get_entity_semityped(urn: str) -> dict:
+        if "dataset" in urn:
+            return mock_entity
+        return {}
+
+    mock_client.get_entity_semityped.side_effect = mock_get_entity_semityped
+    return mock_client
+
+
+@pytest.fixture
+def mock_extracted_info() -> ExtractedTableInfo:
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+    return ExtractedTableInfo(
+        urn=dataset_urn,
+        table_name="test_table",
+        table_description="A test table",
+        column_names={"id": "id"},  # Changed to dict as required by validation
+        column_descriptions={"id": "Primary key for the table"},
+        column_upstream_lineages={},
+        table_tags=[],
+        table_glossary_terms=[],
+        table_domains_info=[],
+        table_owners_info=[],
+        table_upstream_lineage_info=[],
+        table_downstream_lineage_info=[],
+    )
+
+
+def test_suggest_description_tracks_query_event(mock_graph: DataHubGraph) -> None:
+    # Test with a Query URN
+    query_urn = "urn:li:query:test-query"
+    expected_query_desc = "This is a test query description"
+
+    with (
+        patch("datahub_integrations.gen_ai.router.track_saas_event") as mock_track,
+        patch(
+            "datahub_integrations.gen_ai.router.generate_query_desc",
+            return_value=expected_query_desc,
+        ),
+    ):
+        # Call the function
+        result = suggest_description(mock_graph, query_urn)
+
+        # Verify the result
+        assert result.entity_description == expected_query_desc
+        assert result.column_descriptions == {}
+
+        # Verify track_saas_event was called with correct parameters for request
+        mock_track.assert_called()
+        request_call = mock_track.call_args_list[0][0][0]
+        assert isinstance(request_call, InferDocsApiRequestEvent)
+        assert request_call.entity_urn == query_urn
+        assert request_call.entity_type == QueryUrn.ENTITY_TYPE
+        assert request_call.user_urn == DEFAULT_USER_URN
+
+        # Verify response event was also tracked with correct data
+        response_call = mock_track.call_args_list[1][0][0]
+        assert isinstance(response_call, InferDocsApiResponseEvent)
+        assert response_call.entity_urn == query_urn
+        assert response_call.entity_type == QueryUrn.ENTITY_TYPE
+        assert response_call.user_urn == DEFAULT_USER_URN
+        assert response_call.has_entity_description is True
+
+
+def test_suggest_description_tracks_dataset_event(
+    mock_graph: DataHubGraph, mock_extracted_info: ExtractedTableInfo
+) -> None:
+    # Test with a Dataset URN
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+
+    expected_result = EntityDescriptionResult(
+        table_description="This is a test table description",
+        column_descriptions={"id": "Primary key for the table"},
+        failure_reason=None,
+        extracted_entity_info=mock_extracted_info,
+    )
+
+    with (
+        patch("datahub_integrations.gen_ai.router.track_saas_event") as mock_track,
+        patch(
+            "datahub_integrations.gen_ai.router.generate_entity_descriptions_for_urn",
+            return_value=expected_result,
+        ),
+    ):
+        # Call the function
+        result = suggest_description(mock_graph, dataset_urn)
+
+        # Verify the result
+        assert result.entity_description == expected_result.table_description
+        assert result.column_descriptions == expected_result.column_descriptions
+
+        # Verify track_saas_event was called with correct parameters for request
+        mock_track.assert_called()
+        request_call = mock_track.call_args_list[0][0][0]
+        assert isinstance(request_call, InferDocsApiRequestEvent)
+        assert request_call.entity_urn == dataset_urn
+        assert request_call.entity_type == DatasetUrn.ENTITY_TYPE
+        assert request_call.user_urn == DEFAULT_USER_URN
+
+        # Verify response event was also tracked with correct data
+        response_call = mock_track.call_args_list[1][0][0]
+        assert isinstance(response_call, InferDocsApiResponseEvent)
+        assert response_call.entity_urn == dataset_urn
+        assert response_call.entity_type == DatasetUrn.ENTITY_TYPE
+        assert response_call.user_urn == DEFAULT_USER_URN
+        assert response_call.has_entity_description is True
+        assert response_call.has_column_descriptions is True
+
+
+def test_suggest_description_tracks_error_event(mock_graph: DataHubGraph) -> None:
+    # Test with an invalid URN
+    invalid_urn = "urn:li:invalid:test"
+
+    with patch("datahub_integrations.gen_ai.router.track_saas_event") as mock_track:
+        # Call the function and expect it to raise an error
+        with pytest.raises(ValueError):
+            suggest_description(mock_graph, invalid_urn)
+
+        # Verify only request event was tracked (no response event due to error)
+        mock_track.assert_called_once()
+        request_call = mock_track.call_args[0][0]
+        assert isinstance(request_call, InferDocsApiRequestEvent)
+        assert request_call.entity_urn == invalid_urn
+
+
+def test_suggest_description_tracks_failed_generation(
+    mock_graph: DataHubGraph, mock_extracted_info: ExtractedTableInfo
+) -> None:
+    # Test with a Dataset URN that fails to generate description
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.test_table,PROD)"
+
+    expected_result = EntityDescriptionResult(
+        table_description="",
+        column_descriptions={},
+        failure_reason="Failed to generate description",
+        extracted_entity_info=mock_extracted_info,
+    )
+
+    with (
+        patch("datahub_integrations.gen_ai.router.track_saas_event") as mock_track,
+        patch(
+            "datahub_integrations.gen_ai.router.generate_entity_descriptions_for_urn",
+            return_value=expected_result,
+        ),
+    ):
+        # Call the function
+        result = suggest_description(mock_graph, dataset_urn)
+
+        # Verify the result
+        assert result.entity_description == ""
+        assert result.column_descriptions == {}
+
+        # Verify track_saas_event was called with correct parameters for request
+        mock_track.assert_called()
+        request_call = mock_track.call_args_list[0][0][0]
+        assert isinstance(request_call, InferDocsApiRequestEvent)
+        assert request_call.entity_urn == dataset_urn
+        assert request_call.entity_type == DatasetUrn.ENTITY_TYPE
+        assert request_call.user_urn == DEFAULT_USER_URN
+
+        # Verify response event was also tracked with correct data
+        response_call = mock_track.call_args_list[1][0][0]
+        assert isinstance(response_call, InferDocsApiResponseEvent)
+        assert response_call.entity_urn == dataset_urn
+        assert response_call.entity_type == DatasetUrn.ENTITY_TYPE
+        assert response_call.user_urn == DEFAULT_USER_URN
+        assert response_call.has_entity_description is False
+        assert response_call.has_column_descriptions is False
+        assert response_call.error_msg == "Failed to generate description"
