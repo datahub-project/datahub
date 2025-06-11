@@ -8,6 +8,9 @@ mlmodel_group = MLModelGroup(
     name="My Recommendations Model Group",
     platform="mlflow",
     description="Grouping of ml model related to home page recommendations",
+    custom_properties={
+        "framework": "pytorch",
+    },
 )
 
 client.entities.update(mlmodel_group)

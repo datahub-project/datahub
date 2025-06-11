@@ -12,6 +12,9 @@ mlmodel = MLModel(
     model_group=MlModelGroupUrn(
         platform="mlflow", name="my-recommendations-model-group"
     ),
+    custom_properties={
+        "framework": "pytorch",
+    },
     extra_aspects=[
         models.MLModelPropertiesClass(
             mlFeatures=[
@@ -29,14 +32,17 @@ mlmodel = MLModel(
             ]
         )
     ],
-    training_metrics=[
-        models.MLMetricClass(
-            name="accuracy", description="accuracy of the model", value="1.0"
-        ),
-    ],
-    hyper_params=[
-        models.MLHyperParamClass(name="hyper_1", description="hyper_1", value="0.102"),
-    ],
+    training_metrics={
+        "accuracy": "1.0",
+        "precision": "0.95",
+        "recall": "0.90",
+        "f1_score": "0.92",
+    },
+    hyper_params={
+        "learning_rate": "0.01",
+        "num_epochs": "100",
+        "batch_size": "32",
+    },
 )
 
 client.entities.update(mlmodel)

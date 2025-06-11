@@ -3,10 +3,8 @@ from datahub.sdk import DataHubClient
 
 client = DataHubClient.from_env()
 
-dashboard = client.entities.get(
-    DashboardUrn(dashboard_id="dashboard_1", dashboard_tool="looker")
+# add chart to parent dashboard
+client.lineage.add_lineage(
+    upstream=ChartUrn(chart_id="chart_1", dashboard_tool="looker"),
+    downstream=DashboardUrn(dashboard_id="dashboard_1", dashboard_tool="looker"),
 )
-dashboard.add_chart(ChartUrn(chart_id="chart_1", dashboard_tool="looker"))
-dashboard.add_chart(ChartUrn(chart_id="chart_2", dashboard_tool="looker"))
-
-client.entities.upsert(dashboard)

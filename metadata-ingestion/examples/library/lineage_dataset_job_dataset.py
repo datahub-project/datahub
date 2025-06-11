@@ -1,34 +1,36 @@
-from datahub.metadata.urns import DataJobUrn, DatasetUrn
+from datahub.metadata.urns import DataFlowUrn, DataJobUrn, DatasetUrn
 from datahub.sdk import DataHubClient
-from datahub.sdk.dataflow import DataFlow
-from datahub.sdk.datajob import DataJob
 
 client = DataHubClient.from_env()
 
-dataflow = DataFlow(
-    name="flow1",
-    platform="airflow",
+datajob_urn = DataJobUrn(
+    flow=DataFlowUrn(orchestrator="airflow", flow_id="flow1", cluster="PROD"),
+    job_id="job1",
+)
+input_dataset_urn = DatasetUrn(platform="mysql", name="librarydb.member", env="PROD")
+input_datajob_urn = DataJobUrn(
+    flow=DataFlowUrn(orchestrator="airflow", flow_id="data_pipeline", cluster="PROD"),
+    job_id="job0",
+)
+output_dataset_urn = DatasetUrn(
+    platform="kafka", name="debezium.topics.librarydb.member_checkout", env="PROD"
 )
 
-datajob = DataJob(
-    name="job1",
-    flow=dataflow,
-    inlets=[
-        DatasetUrn(platform="mysql", name="librarydb.member", env="PROD"),
-        DatasetUrn(platform="mysql", name="librarydb.checkout", env="PROD"),
-    ],
-    outlets=[
-        DatasetUrn(
-            platform="kafka",
-            name="debezium.topics.librarydb.member_checkout",
-            env="PROD",
-        )
-    ],
-)
 
-client.entities.upsert(datajob)
-
+# add datajob -> datajob lineage
 client.lineage.add_lineage(
-    upstream=DataJobUrn(flow=dataflow.urn, job_id="job0"),
-    downstream=datajob.urn,
+    upstream=input_datajob_urn,
+    downstream=datajob_urn,
+)
+
+# add dataset -> datajob lineage
+client.lineage.add_lineage(
+    upstream=input_dataset_urn,
+    downstream=datajob_urn,
+)
+
+# add datajob -> dataset lineage
+client.lineage.add_lineage(
+    upstream=datajob_urn,
+    downstream=output_dataset_urn,
 )
