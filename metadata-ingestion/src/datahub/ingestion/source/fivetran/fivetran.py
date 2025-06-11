@@ -496,29 +496,7 @@ class FivetranSource(StatefulIngestionSourceBase):
         """Detect source platform for a connector."""
         connector_type = connector.connector_type.lower()
 
-        # Common platforms
-        common_platforms = {
-            "salesforce": "salesforce",
-            "postgres": "postgres",
-            "postgresql": "postgres",
-            "bigquery": "bigquery",
-            "google_bigquery": "bigquery",
-            "mysql": "mysql",
-            "snowflake": "snowflake",
-            "redshift": "redshift",
-            "mssql": "mssql",
-            "sql_server": "mssql",
-            "oracle": "oracle",
-            "kafka": "kafka",
-            "mongodb": "mongodb",
-            "s3": "s3",
-            "azure_blob_storage": "abs",
-            "gcs": "gcs",
-            "google_cloud_storage": "gcs",
-            "confluent_cloud": "kafka",
-        }
-
-        for match, platform in common_platforms.items():
+        for match, platform in FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM.items():
             if match in connector_type:
                 return platform
 

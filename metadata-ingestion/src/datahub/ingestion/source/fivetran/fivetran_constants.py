@@ -27,6 +27,7 @@ DEFAULT_MAX_TABLE_LINEAGE_PER_CONNECTOR = 300
 FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM = {
     # Database platforms (source connectors)
     "postgres": "postgres",
+    "postgres_rds": "postgres",
     "postgresql": "postgres",
     "aurora": "mysql",
     "mysql": "mysql",
@@ -53,4 +54,5 @@ FIVETRAN_PLATFORM_TO_DATAHUB_PLATFORM = {
     "salesforce": "salesforce",
     "mongodb": "mongodb",
     "kafka": "kafka",
+    "confluent_cloud": "kafka",
 }
