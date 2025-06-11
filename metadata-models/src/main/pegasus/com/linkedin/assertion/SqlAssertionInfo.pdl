@@ -10,7 +10,10 @@ record SqlAssertionInfo {
     /**
      * The type of the SQL assertion being monitored.
      */
-    @Searchable = {}
+    @Searchable = {
+      "fieldName": "sqlAssertionType",
+      "fieldType": "KEYWORD"
+    }
     type: enum SqlAssertionType {
       /**
        * A SQL Metric Assertion, e.g. one based on a numeric value returned by an arbitrary SQL query.

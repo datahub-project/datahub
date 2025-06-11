@@ -21,6 +21,7 @@ interface FilterSelectProps {
     excludedCategories?: string[];
     initialSelectedOptions?: NestedSelectOption[];
     placeholder?: string;
+    width?: number | 'fit-content' | 'full';
 }
 
 export const FilterSelect = ({
@@ -29,6 +30,7 @@ export const FilterSelect = ({
     excludedCategories,
     initialSelectedOptions,
     placeholder,
+    width,
 }: FilterSelectProps) => {
     const handleFilterChange = useCallback(
         (selectedValues: NestedSelectOption[]) => {
@@ -76,7 +78,7 @@ export const FilterSelect = ({
             onUpdate={handleFilterChange}
             isMultiSelect
             areParentsSelectable={false}
-            width={100}
+            width={width || 100}
             selectLabelProps={{ variant: 'labeled', label: placeholder || 'Filter' }}
             shouldAlwaysSyncParentValues
             hideParentCheckbox

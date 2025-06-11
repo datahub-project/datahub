@@ -132,7 +132,10 @@ export const useIncidentsTableColumns = (refetch: () => void, privileges?: Entit
 
 export const useIncidentURNCopyLink = (incidentUrn: string) => {
     const onCopyLink = () => {
-        const incidentUrl = buildIncidentUrlSearch({ urn: incidentUrn, baseUrl: window.location.pathname });
+        const incidentUrl = buildIncidentUrlSearch({
+            urn: incidentUrn,
+            baseUrl: window.location.origin + window.location.pathname,
+        });
         navigator.clipboard.writeText(incidentUrl).then(
             () => {
                 message.success('Link copied to clipboard!');

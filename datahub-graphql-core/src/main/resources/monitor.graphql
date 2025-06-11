@@ -992,6 +992,11 @@ extend type Assertion {
   Fetches the monitor responsible for evaluating this assertion, if available. Null if there is not one.
   """
   monitor: Monitor
+
+  """
+  The dataset that this assertion is associated with.
+  """
+  dataset: Dataset
 }
 
 extend type AssertionRunEvent {

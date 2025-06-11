@@ -48,6 +48,7 @@ type Props = {
     description?: string;
     assertionInfo: DatasetAssertionInfo;
     lastEvaluation?: AssertionRunEvent;
+    ellipsis?: boolean;
 };
 
 /**
@@ -347,7 +348,7 @@ const TOOLTIP_MAX_WIDTH = 440;
  *
  * For example, Column 'X' values are in [1, 2, 3]
  */
-export const DatasetAssertionDescription = ({ description, assertionInfo, lastEvaluation }: Props) => {
+export const DatasetAssertionDescription = ({ description, assertionInfo, lastEvaluation, ellipsis }: Props) => {
     const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } = assertionInfo;
     const [isLogicVisible, setIsLogicVisible] = useState(false);
     /**
@@ -356,7 +357,7 @@ export const DatasetAssertionDescription = ({ description, assertionInfo, lastEv
     const descriptionFragment = (
         <>
             {description || (
-                <Typography.Text>
+                <Typography.Text ellipsis={ellipsis ? { tooltip: false } : undefined}>
                     {getAggregationText(scope, aggregation, fields)}{' '}
                     {getOperatorText(operator, parameters || undefined, nativeType || undefined)}
                 </Typography.Text>

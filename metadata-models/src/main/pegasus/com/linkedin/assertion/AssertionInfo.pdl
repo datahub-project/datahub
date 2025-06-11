@@ -16,7 +16,10 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     /**
     * Type of assertion.
     */
-    @Searchable = { }
+    @Searchable = {
+      "fieldName": "assertionType",
+      "fieldType": "KEYWORD"
+    }
     type: AssertionType
 
     /**
@@ -79,5 +82,10 @@ record AssertionInfo includes CustomProperties, ExternalReference {
     /**
     * An optional human-readable description of the assertion
     */
+    @Searchable = {
+      "fieldName": "assertionDescription",
+      "fieldType": "TEXT",
+      "hasValuesFieldName": "hasAssertionDescription",
+    }
     description: optional string
 }

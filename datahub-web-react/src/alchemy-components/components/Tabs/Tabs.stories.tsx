@@ -70,6 +70,7 @@ const meta = {
     argTypes: {
         tabs: {
             description: 'The tabs you want to display',
+            control: 'object',
         },
         selectedTab: {
             description: 'A controlled pieces of state for which tab is selected. This is the key of the tab',
@@ -93,15 +94,18 @@ const meta = {
         secondary: {
             description: 'Whether to render the tabs in a secondary style',
         },
-        navMarginBottom: {
-            description: 'The margin below the tabs navigation. This is useful when the tabs have scrollable content.',
+        styleOptions: {
+            description: 'Style options for the tabs component',
+            control: 'object',
         },
     },
-
-    // Args for the story
-
     args: {
         tabs: exampleTabs,
+        styleOptions: {
+            navMarginBottom: 16,
+            navMarginTop: 0,
+            containerHeight: 'auto',
+        },
     },
 } satisfies Meta<typeof Tabs>;
 

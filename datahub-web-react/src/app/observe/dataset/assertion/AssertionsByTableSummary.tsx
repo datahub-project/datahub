@@ -1,4 +1,4 @@
-import { Select, SimpleSelect, Text } from '@components';
+import { Select, SimpleSelect, Text, Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -6,6 +6,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
 import { AssertionsByTableSummaryTable } from '@app/observe/dataset/assertion/AssertionsByTableSummaryTable';
 import {
+    ASSERTIONS_DOCS_LINK,
     ASSERTION_RESULT_TYPE_OPTIONS_TO_FILTER_FIELD,
     AssertionResultTypeOptions,
     LAST_ASSERTION_RESULT_AT_SORT_FIELD,
@@ -34,8 +35,6 @@ import {
     SortOrder,
     Tag,
 } from '@types';
-
-const ASSERTIONS_DOCS_LINK = 'https://docs.datahub.com/docs/managed-datahub/observe/assertions';
 
 const Container = styled.div`
     display: flex;
@@ -181,7 +180,7 @@ export const AssertionsByTableSummary = () => {
     const datasets: Dataset[] =
         searchResults?.searchAcrossEntities?.searchResults?.map((result) => result.entity as Dataset) || [];
 
-    if (total === 0 && !hasFilters) {
+    if (total === 0 && !hasFilters && !loading) {
         return (
             <EmptyStateContainer>
                 <Text size="xl" weight="semiBold">
@@ -218,6 +217,13 @@ export const AssertionsByTableSummary = () => {
 
                 {/* ************************* Filter Options ************************* */}
                 <FilterOptionsWrapper>
+                    {viewUrn && (
+                        <Tooltip title="You may change or remove the view via the search bar at the very top of the page.">
+                            <Text color="primary" size="md">
+                                *Global view is applied.
+                            </Text>
+                        </Tooltip>
+                    )}
                     {/* ----------- Assertion status ----------- */}
                     <SimpleSelect
                         width="fit-content"

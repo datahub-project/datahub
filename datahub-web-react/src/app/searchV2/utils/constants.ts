@@ -35,6 +35,7 @@ export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
 export const HAS_ACTIVE_INCIDENTS_FILTER_NAME = 'hasActiveIncidents';
 export const HAS_FAILING_ASSERTIONS_FILTER_NAME = 'hasFailingAssertions';
+export const ASSERTION_TYPE_FILTER_NAME = 'assertionType';
 export const HAS_SIBLINGS_FILTER_NAME = 'hasSiblings';
 export const CHART_TYPE_FILTER_NAME = 'type';
 export const LAST_MODIFIED_FILTER_NAME = 'lastModifiedAt';
@@ -49,6 +50,17 @@ export const INCOMPLETE_FORMS_FILTER_NAME = 'incompleteForms';
 export const VERIFIED_FORMS_FILTER_NAME = 'verifiedForms';
 export const COMPLETED_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'completedFormsCompletedPromptIds';
 export const INCOMPLETE_FORMS_COMPLETED_PROMPT_IDS_FILTER_NAME = 'incompleteFormsCompletedPromptIds';
+
+export const ASSERTEE_DOMAINS_FILTER_NAME = 'asserteeDomains';
+export const ASSERTEE_DATA_PRODUCTS_FILTER_NAME = 'asserteeDataProducts';
+export const ASSERTEE_TAGS_FILTER_NAME = 'asserteeTags';
+export const ASSERTEE_GLOSSARY_TERMS_FILTER_NAME = 'asserteeGlossaryTerms';
+export const ASSERTEE_OWNERS_FILTER_NAME = 'asserteeOwners';
+export const ASSERTEE_DATA_PLATFORMS_FILTER_NAME = 'asserteeDataPlatforms';
+export const ASSERTEE_PLATFORM_FILTER_NAME = 'asserteeDataPlatform';
+export const ASSERTEE_PLATFORM_INSTANCES_FILTER_NAME = 'asserteeDataPlatformInstance';
+export const ASSERTEE_SCHEMA_FIELD_GLOSSARY_TERMS_FILTER_NAME = 'asserteeSchemaFieldGlossaryTerms';
+export const ASSERTEE_SCHEMA_FIELD_TAGS_FILTER_NAME = 'asserteeSchemaFieldTags';
 
 export const LEGACY_ENTITY_FILTER_FIELDS = [ENTITY_FILTER_NAME, LEGACY_ENTITY_FILTER_NAME];
 

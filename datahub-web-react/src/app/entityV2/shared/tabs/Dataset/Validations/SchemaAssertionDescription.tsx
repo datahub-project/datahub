@@ -7,19 +7,20 @@ import { SchemaAssertionCompatibility, SchemaAssertionInfo } from '@types';
 
 type Props = {
     assertionInfo: SchemaAssertionInfo;
+    ellipsis?: boolean;
 };
 
 /**
  * A human-readable description of a Schema Assertion.
  */
-export const SchemaAssertionDescription = ({ assertionInfo }: Props) => {
+export const SchemaAssertionDescription = ({ assertionInfo, ellipsis }: Props) => {
     const [showSchemaSummary, setShowSchemaSummary] = useState(false);
     const { compatibility } = assertionInfo;
     const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
     return (
         <div>
-            <Typography.Text>
+            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>
                 Actual table columns {matchText} {expectedColumnCount} expected columns
             </Typography.Text>
             {showSchemaSummary && !!assertionInfo.schema && (

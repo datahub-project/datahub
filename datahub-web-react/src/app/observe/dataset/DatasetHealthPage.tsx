@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { HeaderContainer, PageContainer } from '@app/govern/structuredProperties/styledComponents';
+import { AssertionsByAssertionSummary } from '@app/observe/dataset/assertion/AssertionsByAssertionSummary';
 import { AssertionsByTableSummary } from '@app/observe/dataset/assertion/AssertionsByTableSummary';
 import { IncidentsSummary } from '@app/observe/dataset/incident/IncidentsSummary';
 import { useAppConfig } from '@app/useAppConfig';
@@ -105,39 +106,43 @@ export const DatasetHealthPage = () => {
     const [selectedTab, setSelectedTab] = React.useState<string>(main);
     const [selectedSubTab, setSelectedSubTab] = React.useState<string>(sub || BY_ASSERTIONS_TAB_ID);
 
-    // TODO: un-comment once triage board is done
-    // const assertionsTabs = (
-    //     <Tabs
-    //         tabs={[
-    //             {
-    //                 component: <div>This is the content for Assertions - By Assertions</div>,
-    //                 key: BY_ASSERTIONS_TAB_ID,
-    //                 name: 'By Assertions',
-    //             },
-    //             {
-    //                 component: <AssertionsSummary total={total} />,
-    //                 key: BY_TABLE_TAB_ID,
-    //                 name: 'By Table',
-    //             },
-    //         ]}
-    //         secondary
-    //         selectedTab={selectedSubTab}
-    //         onChange={(selected) => {
-    //             updateTabsAndUrl(selectedTab, selected, setSelectedTab, setSelectedSubTab);
-    //         }}
-    //     />
-    // );
-
-    const mainTabs = (
+    const assertionsTabs = (
         <Tabs
-            navMarginBottom={0}
+            styleOptions={{ containerHeight: 'full', navMarginTop: 12, navMarginBottom: 4 }}
             tabs={[
+                {
+                    component: (
+                        <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
+                            <AssertionsByAssertionSummary />
+                        </Content>
+                    ),
+                    key: BY_ASSERTIONS_TAB_ID,
+                    name: 'By Assertions',
+                },
                 {
                     component: (
                         <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
                             <AssertionsByTableSummary />
                         </Content>
                     ),
+                    key: BY_TABLE_TAB_ID,
+                    name: 'By Table',
+                },
+            ]}
+            secondary
+            selectedTab={selectedSubTab}
+            onChange={(selected) => {
+                updateTabsAndUrl(selectedTab, selected, setSelectedTab, setSelectedSubTab);
+            }}
+        />
+    );
+
+    const mainTabs = (
+        <Tabs
+            styleOptions={{ navMarginBottom: 0 }}
+            tabs={[
+                {
+                    component: <Content $isShowNavBarRedesign={isShowNavBarRedesign}>{assertionsTabs}</Content>,
                     key: ASSERTIONS_TAB_ID,
                     name: 'Assertions',
                 },

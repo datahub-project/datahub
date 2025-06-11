@@ -14,6 +14,7 @@ import {
 type Props = {
     assertionInfo: FreshnessAssertionInfo;
     monitorSchedule?: Maybe<CronSchedule>;
+    ellipsis?: boolean;
 };
 
 export const getCronAsLabel = (cronSchedule: CronSchedule) => {
@@ -47,7 +48,7 @@ export const createSinceTheLastCheckText = (monitorSchedule?: Maybe<CronSchedule
 /**
  * A human-readable description of an Freshness Assertion.
  */
-export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }: Props) => {
+export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule, ellipsis }: Props) => {
     const scheduleType = assertionInfo.schedule?.type;
     const freshnessType = assertionInfo.type;
 
@@ -68,7 +69,7 @@ export const FreshnessAssertionDescription = ({ assertionInfo, monitorSchedule }
     }
     return (
         <div>
-            <Typography.Text>
+            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>
                 {freshnessType === FreshnessAssertionType.DatasetChange
                     ? 'Table was updated '
                     : 'Data Task is run successfully '}

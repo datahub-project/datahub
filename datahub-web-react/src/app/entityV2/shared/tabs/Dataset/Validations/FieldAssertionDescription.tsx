@@ -18,6 +18,7 @@ type Props = {
     showColumnTag?: boolean;
     // use below description which is present in assertion info object to decide whether to show description or generate dynamic one
     assertionDescription?: Maybe<string>;
+    ellipsis?: boolean;
 };
 
 const StyledDescrptionContainer = styled.div`
@@ -45,7 +46,7 @@ const StyledColumnTag = styled.div`
  * if @param showColumnTag is true then description will be -> column values are greater than 5
  * if @param showColumnTag is false then description will be -> profileId is greater than 5
  */
-export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription }: Props) => {
+export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assertionDescription, ellipsis }: Props) => {
     const field = getFieldDescription(assertionInfo);
     const transform = getFieldTransformDescription(assertionInfo);
     // Do not pluralize if this is a metric assertion since you're checking one metric, not multiple values
@@ -70,7 +71,7 @@ export const FieldAssertionDescription = ({ assertionInfo, showColumnTag, assert
 
     return (
         <StyledDescrptionContainer>
-            <Typography.Text>{descriptionContent}</Typography.Text>
+            <Typography.Text ellipsis={ellipsis ? { tooltip: true } : undefined}>{descriptionContent}</Typography.Text>
             {showColumnTag && <StyledColumnTag>{field}</StyledColumnTag>}
         </StyledDescrptionContainer>
     );

@@ -10,7 +10,10 @@ record AssertionResult includes AssertionWithoutAnnotations, BaseAssertionWithou
   *  The final result, e.g. either SUCCESS, FAILURE, or ERROR.
   */
   @TimeseriesField = {}
-  @Searchable = {}
+  @Searchable = {
+    "fieldName": "lastResultType",
+    "fieldType": "KEYWORD"
+  }
   type: AssertionResultType
 
   /**

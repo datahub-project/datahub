@@ -91,6 +91,53 @@ fragment assertionDetailsWithMonitors on Assertion {
     }
 }
 
+fragment assertionDetailsForSearch on Assertion {
+    ...assertionDetails
+    runEvents(
+        status: COMPLETE
+        limit: $runEventsLimit
+        startTimeMillis: $runEventsStart
+        endTimeMillis: $runEventsEnd
+    ) {
+        total
+        failed
+        succeeded
+        errored
+        runEvents {
+            ...assertionRunEventDetails
+        }
+    }
+    monitor: relationships(input: { types: ["Evaluates"], direction: INCOMING, start: 0, count: 1 }) {
+        relationships {
+            entity {
+                ... on Monitor {
+                    ...monitorDetails
+                }
+            }
+        }
+    }
+    dataset: relationships(input: { types: ["Asserts"], direction: OUTGOING, start: 0, count: 1 }) {
+        relationships {
+            entity {
+                urn
+                type
+                ... on Dataset {
+                    name
+                    platform {
+                        ...platformFields
+                    }
+                    properties {
+                        name
+                        description
+                        qualifiedName
+                        externalUrl
+                    }
+                }
+            }
+        }
+    }
+}
+
 fragment assertionsQueryWithMonitors on Dataset {
     assertions(start: 0, count: 1000) {
         start
@@ -129,5 +176,57 @@ query getAssertionWithMonitors($assertionUrn: String!) {
     assertion(urn: $assertionUrn) {
         urn
         ...assertionDetailsWithMonitors
+    }
+}
+
+fragment assertionSearchResultFields on Entity {
+    urn
+    type
+    ...assertionDetailsForSearch
+}
+fragment assertionSearchResults on SearchResults {
+    start
+    count
+    total
+    searchResults {
+        entity {
+            ...assertionSearchResultFields
+        }
+        matchedFields {
+            name
+            value
+            entity {
+                urn
+                type
+                ...entityDisplayNameFields
+            }
+        }
+        insights {
+            text
+            icon
+        }
+        extraProperties {
+            name
+            value
+        }
+    }
+    facets {
+        ...facetFields
+    }
+    suggestions {
+        text
+        frequency
+        score
+    }
+}
+
+query searchAssertions(
+    $input: SearchAcrossEntitiesInput!
+    $runEventsStart: Long!
+    $runEventsEnd: Long!
+    $runEventsLimit: Int!
+) {
+    searchAcrossEntities(input: $input) {
+        ...assertionSearchResults
     }
 }

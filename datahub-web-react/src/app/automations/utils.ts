@@ -29,7 +29,7 @@ export const extractFormState = (obj: Record<string, any>): Record<string, any> 
 export const titleCase = (input: string) => {
     return input
         .split('_')
-        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
 };
 

@@ -7,8 +7,19 @@ import { Tooltip } from '@components/components/Tooltip';
 
 import { colors } from '@src/alchemy-components/theme';
 
-const StyledTabsPrimary = styled(AntTabs)<{ $navMarginBottom?: number }>`
-    flex: 1;
+const StyledTabsPrimary = styled(AntTabs)<{
+    $navMarginBottom?: number;
+    $navMarginTop?: number;
+    $containerHeight?: 'full' | 'auto';
+}>`
+    ${(props) =>
+        props.$containerHeight === 'full'
+            ? `
+        height: 100%;
+    `
+            : `
+        flex: 1;
+    `}
     overflow: hidden;
 
     .ant-tabs-tab {
@@ -40,11 +51,23 @@ const StyledTabsPrimary = styled(AntTabs)<{ $navMarginBottom?: number }>`
 
     .ant-tabs-nav {
         margin-bottom: ${(props) => props.$navMarginBottom ?? 24}px;
+        margin-top: ${(props) => props.$navMarginTop ?? 0}px;
     }
 `;
 
-const StyledTabsSecondary = styled(AntTabs)<{ $navMarginBottom?: number }>`
-    flex: 1;
+const StyledTabsSecondary = styled(AntTabs)<{
+    $navMarginBottom?: number;
+    $navMarginTop?: number;
+    $containerHeight?: 'full' | 'auto';
+}>`
+    ${(props) =>
+        props.$containerHeight === 'full'
+            ? `
+        height: 100%;
+    `
+            : `
+        flex: 1;
+    `}
     overflow: hidden;
 
     .ant-tabs-tab {
@@ -55,7 +78,7 @@ const StyledTabsSecondary = styled(AntTabs)<{ $navMarginBottom?: number }>`
     }
 
     .ant-tabs-tab + .ant-tabs-tab {
-        margin-left: 16px;
+        margin-left: 8px;
     }
 
     .ant-tabs-tab-active {
@@ -81,6 +104,7 @@ const StyledTabsSecondary = styled(AntTabs)<{ $navMarginBottom?: number }>`
 
     .ant-tabs-nav {
         margin-bottom: ${(props) => props.$navMarginBottom ?? 24}px;
+        margin-top: ${(props) => props.$navMarginTop ?? 0}px;
         &::before {
             display: none;
         }
@@ -123,7 +147,11 @@ export interface Props {
     defaultTab?: string;
     getCurrentUrl?: () => string;
     secondary?: boolean;
-    navMarginBottom?: number;
+    styleOptions?: {
+        containerHeight?: 'full' | 'auto';
+        navMarginBottom?: number;
+        navMarginTop?: number;
+    };
 }
 
 export function Tabs({
@@ -135,7 +163,7 @@ export function Tabs({
     defaultTab,
     getCurrentUrl = () => window.location.pathname,
     secondary,
-    navMarginBottom,
+    styleOptions,
 }: Props) {
     const { TabPane } = AntTabs;
 
@@ -178,7 +206,13 @@ export function Tabs({
     const StyledTabs = secondary ? StyledTabsSecondary : StyledTabsPrimary;
 
     return (
-        <StyledTabs activeKey={selectedTab} onChange={handleTabClick} $navMarginBottom={navMarginBottom}>
+        <StyledTabs
+            activeKey={selectedTab}
+            onChange={handleTabClick}
+            $navMarginBottom={styleOptions?.navMarginBottom}
+            $navMarginTop={styleOptions?.navMarginTop}
+            $containerHeight={styleOptions?.containerHeight}
+        >
             {tabs.map((tab) => {
                 return (
                     <TabPane tab={<TabView tab={tab} />} key={tab.key}>

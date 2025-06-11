@@ -1,4 +1,4 @@
-import { Select, Text } from '@components';
+import { Select, Text, Tooltip } from '@components';
 import { Check } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -159,7 +159,7 @@ export const IncidentsSummary = () => {
     const datasets: Dataset[] =
         searchResults?.searchAcrossEntities?.searchResults?.map((result) => result.entity as Dataset) || [];
 
-    if (total === 0 && !hasFilters) {
+    if (total === 0 && !hasFilters && !loading) {
         return (
             <EmptyStateContainer>
                 <Text size="xl" weight="semiBold" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -194,6 +194,13 @@ export const IncidentsSummary = () => {
 
                 {/* ************************* Filter Options ************************* */}
                 <FilterOptionsWrapper>
+                    {viewUrn && (
+                        <Tooltip title="You may change or remove the view via the search bar at the very top of the page.">
+                            <Text color="primary" size="md">
+                                *Global view is applied.
+                            </Text>
+                        </Tooltip>
+                    )}
                     {/* ----------- Domains ----------- */}
                     <Select
                         width="fit-content"

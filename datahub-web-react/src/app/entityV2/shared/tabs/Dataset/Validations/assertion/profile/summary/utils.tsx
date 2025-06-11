@@ -351,17 +351,22 @@ export const getFreshnessAssertionPlainTextDescription = (
 const useBuildPrimaryLabel = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
-    options?: { showColumnTag?: boolean },
+    options?: { showColumnTag?: boolean; ellipsis?: boolean },
 ): JSX.Element => {
     let primaryLabel = <Typography.Text>No description found</Typography.Text>;
     if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
-        primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
+        primaryLabel = (
+            <Typography.Text ellipsis={options?.ellipsis ? { tooltip: assertionInfo.description } : undefined}>
+                {assertionInfo.description}
+            </Typography.Text>
+        );
     } else {
         switch (assertionInfo?.type) {
             case AssertionType.Dataset:
                 primaryLabel = (
                     <DatasetAssertionDescription
                         assertionInfo={assertionInfo.datasetAssertion as DatasetAssertionInfo}
+                        ellipsis={options?.ellipsis}
                     />
                 );
                 break;
@@ -370,16 +375,20 @@ const useBuildPrimaryLabel = (
                     <FreshnessAssertionDescription
                         assertionInfo={assertionInfo.freshnessAssertion as FreshnessAssertionInfo}
                         monitorSchedule={monitorSchedule}
+                        ellipsis={options?.ellipsis}
                     />
                 );
                 break;
             case AssertionType.Volume:
                 primaryLabel = (
-                    <VolumeAssertionDescription assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo} />
+                    <VolumeAssertionDescription
+                        assertionInfo={assertionInfo.volumeAssertion as VolumeAssertionInfo}
+                        ellipsis={options?.ellipsis}
+                    />
                 );
                 break;
             case AssertionType.Sql:
-                primaryLabel = <SqlAssertionDescription assertionInfo={assertionInfo} />;
+                primaryLabel = <SqlAssertionDescription assertionInfo={assertionInfo} ellipsis={options?.ellipsis} />;
                 break;
             case AssertionType.Field:
                 primaryLabel = (
@@ -387,12 +396,16 @@ const useBuildPrimaryLabel = (
                         assertionDescription={assertionInfo?.description}
                         assertionInfo={assertionInfo.fieldAssertion as FieldAssertionInfo}
                         showColumnTag={options?.showColumnTag}
+                        ellipsis={options?.ellipsis}
                     />
                 );
                 break;
             case AssertionType.DataSchema:
                 primaryLabel = (
-                    <SchemaAssertionDescription assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo} />
+                    <SchemaAssertionDescription
+                        assertionInfo={assertionInfo.schemaAssertion as SchemaAssertionInfo}
+                        ellipsis={options?.ellipsis}
+                    />
                 );
                 break;
             default:
@@ -504,7 +517,7 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
 export const useBuildAssertionDescriptionLabels = (
     assertionInfo?: Maybe<AssertionInfo>,
     monitorSchedule?: Maybe<CronSchedule>,
-    options?: { showColumnTag?: boolean },
+    options?: { showColumnTag?: boolean; ellipsis?: boolean },
 ): {
     primaryLabel: JSX.Element;
     secondaryLabel: JSX.Element | null;

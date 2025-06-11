@@ -2626,7 +2626,7 @@ input ListAssertionsInput {
   start: Int
 
   """
-  The maximum number of Policies to be returned in the result set
+  The maximum number of assertions to be returned in the result set
   """
   count: Int
 
