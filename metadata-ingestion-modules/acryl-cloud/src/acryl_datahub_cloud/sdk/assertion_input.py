@@ -11,9 +11,10 @@ from enum import Enum
 from typing import Literal, Optional, TypeAlias, Union
 
 import pydantic
+import pytz
 import tzlocal
-from apscheduler.triggers.cron import CronTrigger
 from avrogen.dict_wrapper import DictWrapper
+from croniter import croniter
 from pydantic import BaseModel, Extra, ValidationError
 
 from acryl_datahub_cloud.sdk.entities.assertion import (
@@ -538,12 +539,22 @@ def _try_parse_training_data_lookback_days(
 def _validate_cron_schedule(schedule: str, timezone: str) -> None:
     """We are using the POSIX.1-2017 standard for cron expressions.
 
-    Note: We are using the apscheduler library for cron parsing so that the logic matches the executor.
+    Note: We are using the croniter library for cron parsing which is different from executor, which uses apscheduler, so there is a risk of mismatch here.
     """
     try:
-        CronTrigger.from_crontab(
-            schedule, timezone=timezone, strict=True, standard="POSIX.1-2017"
-        )
+        # Validate timezone - pytz.timezone() raises UnknownTimeZoneError for invalid timezones
+        # Skip timezone validation when empty
+        if timezone:
+            pytz.timezone(timezone)
+
+        # Validate 5-field cron expression only (POSIX.1-2017 standard)
+        fields = schedule.strip().split()
+        if len(fields) != 5:
+            raise ValueError("POSIX.1-2017 requires exactly 5 fields")
+
+        # Validate cron expression - croniter constructor validates the expression
+        croniter(schedule)
+
     except Exception as e:
         raise SDKUsageError(
             f"Invalid cron expression or timezone: {schedule} {timezone}, please use a POSIX.1-2017 compatible cron expression and timezone."
