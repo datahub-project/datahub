@@ -549,6 +549,7 @@ class _AssertionPublic(ABC):
             return AssertionMode.INACTIVE
         return AssertionMode(monitor.info.status.mode)
 
+    @classmethod
     @abstractmethod
     def _from_entities(
         cls,

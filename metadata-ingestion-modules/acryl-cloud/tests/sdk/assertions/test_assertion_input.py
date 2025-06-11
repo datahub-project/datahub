@@ -149,13 +149,13 @@ def test_assertion_creation_with_detection_mechanism_instance(
     detection_mechanism: _DetectionMechanismTypes,
     expected_type: str,
     expected_additional_kwargs: dict[str, str],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         **default_created_updated_params,
     }
     if detection_mechanism:
@@ -181,7 +181,7 @@ def test_assertion_creation_with_detection_mechanism_instance(
 def test_assertion_creation_with_detection_mechanism_str(
     detection_mechanism_str: str,
     expected_type: str,
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     assertion = _SmartFreshnessAssertionInput(
@@ -189,7 +189,7 @@ def test_assertion_creation_with_detection_mechanism_str(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
         display_name="test_assertion",
         detection_mechanism=detection_mechanism_str,
-        entity_client=stub_entity_client,
+        entity_client=freshness_stub_entity_client,
         **default_created_updated_params,
     )
     assert assertion.detection_mechanism.type == expected_type
@@ -258,13 +258,13 @@ def test_assertion_creation_with_detection_mechanism_dict(
     detection_mechanism_dict: dict[str, str],
     expected_type: str,
     expected_additional_kwargs: dict[str, str],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         **default_created_updated_params,
     }
     if detection_mechanism_dict:
@@ -316,13 +316,13 @@ def test_assertion_creation_with_sensitivity(
     sensitivity: Union[str, InferenceSensitivity],
     expected_sensitivity: InferenceSensitivity,
     expected_raises: ContextManager[Any],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         **default_created_updated_params,
     }
     if sensitivity:
@@ -507,13 +507,13 @@ def test_assertion_input_creation_with_exclusion_windows(
     exclusion_windows: FixedRangeExclusionWindowInputTypes,
     expected_exclusion_windows: list[FixedRangeExclusionWindow],
     expected_raises: ContextManager[Any],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         **default_created_updated_params,
     }
     if exclusion_windows is not None:
@@ -633,13 +633,13 @@ def test_assertion_input_creation_with_incident_behavior(
     ],
     expected_incident_behavior: list[AssertionIncidentBehavior],
     expected_raises: ContextManager[Any],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         **default_created_updated_params,
     }
     if incident_behavior is not None:
@@ -668,7 +668,7 @@ def test_assertion_input_creation_with_incident_behavior(
 def test_to_assertion_entity(
     detection_mechanism: _DetectionMechanismTypes,
     additional_filter: Optional[str],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     if additional_filter:
@@ -688,7 +688,7 @@ def test_to_assertion_entity(
             AssertionIncidentBehavior.RESOLVE_ON_PASS,
         ],
         tags=["urn:li:tag:my_tag_1", "urn:li:tag:my_tag_2"],
-        entity_client=stub_entity_client,
+        entity_client=freshness_stub_entity_client,
         **default_created_updated_params,
     )
     assertion = assertion_input.to_assertion_entity()
@@ -748,7 +748,7 @@ def test_to_assertion_entity(
 )
 def test_to_assertion_entity_for_smart_freshness_assertion_with_additional_filter_for_last_modified_column(
     additional_filter: Optional[str],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     detection_mechanism = DetectionMechanism.LAST_MODIFIED_COLUMN(
@@ -758,7 +758,7 @@ def test_to_assertion_entity_for_smart_freshness_assertion_with_additional_filte
         urn=AssertionUrn("urn:li:assertion:123"),
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
         detection_mechanism=detection_mechanism,
-        entity_client=stub_entity_client,
+        entity_client=freshness_stub_entity_client,
         **default_created_updated_params,
     )
     assertion = assertion_input.to_assertion_entity()
@@ -774,7 +774,7 @@ def test_to_assertion_entity_for_smart_freshness_assertion_with_additional_filte
 
 
 def test_to_monitor_entity_with_smart_freshness_assertion_defaults(
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     assertion_urn = AssertionUrn(
@@ -782,7 +782,7 @@ def test_to_monitor_entity_with_smart_freshness_assertion_defaults(
     )  # This is created in the assertion, we are passing it in to the monitor since we are not creating the assertion in this test
     assertion_input = _SmartFreshnessAssertionInput(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        entity_client=stub_entity_client,
+        entity_client=freshness_stub_entity_client,
         **default_created_updated_params,
     )
     monitor = assertion_input.to_monitor_entity(assertion_urn)
@@ -825,14 +825,14 @@ def test_to_monitor_entity_with_smart_freshness_assertion_defaults(
 
 
 def test_to_monitor_entity_with_smart_freshness_assertion_with_all_fields_set(
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     # Arrange
     assertion_urn = AssertionUrn("urn:li:assertion:123")
     assertion_input = _SmartFreshnessAssertionInput(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        entity_client=stub_entity_client,
+        entity_client=freshness_stub_entity_client,
         urn=assertion_urn,
         display_name="test_assertion",
         enabled=True,
@@ -923,14 +923,14 @@ def test_to_monitor_entity_with_smart_freshness_assertion_with_all_fields_set(
     ],
 )
 def test_to_assertion_and_monitor_entities_with_invalid_field_type(
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     column: str,
     expected_error_message: str,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     assertion_input = _SmartFreshnessAssertionInput(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        entity_client=stub_entity_client,
+        entity_client=freshness_stub_entity_client,
         detection_mechanism=DetectionMechanism.LAST_MODIFIED_COLUMN(
             column_name=column, additional_filter="id > 1000"
         ),
@@ -941,12 +941,12 @@ def test_to_assertion_and_monitor_entities_with_invalid_field_type(
 
 
 def test_to_assertion_and_monitor_entities(
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     assertion_input = _SmartFreshnessAssertionInput(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        entity_client=stub_entity_client,
+        entity_client=freshness_stub_entity_client,
         **default_created_updated_params,
     )
     assertion, monitor = assertion_input.to_assertion_and_monitor_entities()
@@ -992,13 +992,13 @@ def test_assertion_creation_with_training_data_lookback_days(
     training_data_lookback_days: Union[int, str, None],
     expected_days: int,
     expected_raises: ContextManager[Any],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         **default_created_updated_params,
     }
     if training_data_lookback_days is not None:
@@ -1019,13 +1019,13 @@ def test_assertion_creation_with_training_data_lookback_days(
 def test_assertion_creation_with_display_name(
     display_name: Optional[str],
     expected_name: Optional[str],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         **default_created_updated_params,
     }
     if display_name is not None:
@@ -1051,12 +1051,12 @@ def test_assertion_creation_with_display_name(
 def test_monitor_entity_mode(
     monitor_mode: bool,
     expected_mode: models.MonitorModeClass,
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     assertion_input = _SmartFreshnessAssertionInput(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        entity_client=stub_entity_client,
+        entity_client=freshness_stub_entity_client,
         enabled=monitor_mode,
         **default_created_updated_params,
     )
@@ -1095,13 +1095,13 @@ def test_monitor_entity_mode(
 def test_tag_conversion(
     tags: Optional[TagsInputType],
     expected_tags: Optional[TagsInputType],
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         **default_created_updated_params,
     }
     if tags is not None:
@@ -1112,13 +1112,13 @@ def test_tag_conversion(
 
 
 def test_assertion_creation_with_combined_parameters(
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     params: AssertionInputParams = {
         "urn": AssertionUrn("urn:li:assertion:123"),
         "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-        "entity_client": stub_entity_client,
+        "entity_client": freshness_stub_entity_client,
         "display_name": "Combined Test Assertion",
         "enabled": True,
         "detection_mechanism": DetectionMechanism.LAST_MODIFIED_COLUMN(
@@ -1175,14 +1175,14 @@ def test_assertion_creation_with_combined_parameters(
 
 
 def test_assertion_creation_with_invalid_dataset_urn(
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     with pytest.raises(InvalidUrnError):
         _SmartFreshnessAssertionInput(
             urn=AssertionUrn("urn:li:assertion:123"),
             dataset_urn="invalid_dataset_urn",
-            entity_client=stub_entity_client,
+            entity_client=freshness_stub_entity_client,
             detection_mechanism=DetectionMechanism.LAST_MODIFIED_COLUMN(
                 column_name="last_modified"
             ),
@@ -1199,14 +1199,14 @@ def test_assertion_creation_with_missing_required_parameters() -> None:
 
 
 def test_assertion_creation_with_invalid_detection_mechanism(
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     with pytest.raises(SDKUsageErrorWithExamples):
         _SmartFreshnessAssertionInput(
             urn=AssertionUrn("urn:li:assertion:123"),
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-            entity_client=stub_entity_client,
+            entity_client=freshness_stub_entity_client,
             **default_created_updated_params,
             detection_mechanism="invalid_mechanism",  # type: ignore
         )
@@ -1240,14 +1240,14 @@ class StubAssertionInput(_AssertionInput):
 
 
 def test_assertion_creation_with_invalid_source_type(
-    stub_entity_client: StubEntityClient,
+    freshness_stub_entity_client: StubEntityClient,
     default_created_updated_params: CreatedUpdatedParams,
 ) -> None:
     with pytest.raises(SDKUsageError):
         StubAssertionInput(
             urn=AssertionUrn("urn:li:assertion:123"),
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
-            entity_client=stub_entity_client,
+            entity_client=freshness_stub_entity_client,
             **default_created_updated_params,
             source_type="INVALID",
         )
