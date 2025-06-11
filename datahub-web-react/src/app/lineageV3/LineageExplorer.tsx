@@ -41,7 +41,7 @@ export default function LineageExplorer(props: Props) {
     const [hideTransformations, setHideTransformations] = useShouldHideTransformations();
     const [showDataProcessInstances, setShowDataProcessInstances] = useShouldShowDataProcessInstances();
 
-    const [showGhostEntities, setShowGhostEntities] = useShouldShowGhostEntities();
+    const [showGhostEntities, setShowGhostEntities] = useShouldShowGhostEntities(type);
 
     const context: NodeContext = {
         rootUrn: urn,

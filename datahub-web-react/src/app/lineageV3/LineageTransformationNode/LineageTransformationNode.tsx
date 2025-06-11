@@ -1,13 +1,14 @@
-import { ConsoleSqlOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
+import { LoadingOutlined } from '@ant-design/icons';
+import { Icon, Popover } from '@components';
 import { Skeleton, Spin } from 'antd';
 import React, { useContext } from 'react';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
-import { LoadingWrapper } from '@app/lineageV3/LineageEntityNode/NodeContents';
+import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
+import { LoadingWrapper, StyledVersioningBadge } from '@app/lineageV3/LineageEntityNode/NodeContents';
 import LineageVisualizationContext from '@app/lineageV3/LineageVisualizationContext';
+import NodeWrapper from '@app/lineageV3/NodeWrapper';
 import {
     FetchStatus,
     LineageDisplayContext,
@@ -16,70 +17,45 @@ import {
     isGhostEntity,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
+import LineageCard from '@app/lineageV3/components/LineageCard';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetQueryQuery } from '@graphql/query.generated';
 import { EntityType, LineageDirection } from '@types';
 
 export const LINEAGE_TRANSFORMATION_NODE_NAME = 'lineage-transformation';
-export const TRANSFORMATION_NODE_SIZE = 30;
+export const TRANSFORMATION_NODE_SIZE = 40;
 
-// TODO: Share with LineageEntityNode
-const HomeNodeBubble = styled.div`
-    align-items: center;
-    background-color: ${LINEAGE_COLORS.PURPLE_3};
-    border-radius: 10px;
-    color: white;
+const HomeIndicatorWrapper = styled.div`
     display: flex;
-    font-size: 10px;
-    font-weight: 600;
-    height: 22px;
+    align-items: center;
     justify-content: center;
-    left: -50%;
-    padding: 4px 8px;
+
     position: absolute;
-    top: -26px;
+    top: -18px;
 `;
 
-const NodeWrapper = styled.div<{
-    selected: boolean;
-    dragging: boolean;
+const TransformationalNodeWrapper = styled(NodeWrapper)<{
     opacity: number;
-    isGhost: boolean;
-    isSearchedEntity: boolean;
-    type: EntityType;
 }>`
-    background-color: white;
-    border: ${({ selected }) => (selected ? 2 : 1)}px solid;
-    border-color: ${({ selected }) => (selected ? LINEAGE_COLORS.PURPLE_3 : LINEAGE_COLORS.NODE_BORDER)};
-    border-radius: 50%;
-    box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 3px 3px ${theme.styles['primary-color']}95` : 'none'};
+    border-radius: 8px;
     opacity: ${({ opacity }) => opacity};
 
-    align-items: center;
-    display: flex;
     justify-content: center;
     height: ${TRANSFORMATION_NODE_SIZE}px;
     width: ${TRANSFORMATION_NODE_SIZE}px;
-    cursor: ${({ isGhost, dragging, type }) => {
-        if (isGhost) return 'not-allowed';
-        if (dragging) return 'grabbing';
-        if (type === EntityType.SchemaField) return 'grab';
-        return 'pointer';
-    }};
 `;
 
 const IconWrapper = styled.div<{ isGhost: boolean }>`
     display: flex;
     opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
+    font-size: 18px;
 `;
 
 const CustomHandle = styled(Handle)<{ position: Position; $onEdge: boolean }>`
     background: initial;
     border: initial;
     top: 50%;
-    left: 50%;
 
     ${({ position, $onEdge }) => {
         if ($onEdge && position === Position.Left) return 'left: 0;';
@@ -89,8 +65,13 @@ const CustomHandle = styled(Handle)<{ position: Position; $onEdge: boolean }>`
 `;
 
 const CustomIcon = styled.img`
-    height: 18px;
-    width: 18px;
+    height: 1em;
+    width: 1em;
+`;
+
+const PopoverWrapper = styled(NodeWrapper)`
+    cursor: auto;
+    transform: none;
 `;
 
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
@@ -109,7 +90,6 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
     const isSearchedEntity = searchedEntity === urn;
 
-    const name = type === EntityType.SchemaField ? entity?.expandedName : entity?.name;
     const backupLogoUrl = useFetchQuery(urn); // TODO: Remove when query nodes not instantiated on column select
     const icon = entity?.icon || backupLogoUrl;
 
@@ -118,27 +98,25 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
 
     // TODO: Combine home node code with LineageEntityNode
     const contents = (
-        <NodeWrapper
+        <TransformationalNodeWrapper
+            urn={urn}
             opacity={opacity}
             selected={selected}
             dragging={dragging}
             onMouseEnter={() => setHoveredNode(urn)}
             onMouseLeave={() => setHoveredNode(null)}
-            data-testid={`lineage-node-${urn}`}
             isGhost={isGhost}
             isSearchedEntity={isSearchedEntity}
-            type={type}
         >
             {urn === rootUrn && (
-                <HomeNodeBubble>
-                    <HomeOutlined style={{ marginRight: 4 }} />
-                    Home
-                </HomeNodeBubble>
+                <HomeIndicatorWrapper>
+                    <HomePill showText={false} />
+                </HomeIndicatorWrapper>
             )}
             <IconWrapper isGhost={isGhost}>
-                {icon && <CustomIcon src={icon} />}
+                {icon && <CustomIcon src={icon} alt={entity?.platform?.name} />}
                 {!icon && isDataProcessInstance && entityRegistry.getIcon(EntityType.DataProcessInstance, 18)}
-                {!icon && isQuery && <ConsoleSqlOutlined />}
+                {!icon && isQuery && <Icon icon="Tilde" source="phosphor" color="gray" size="inherit" />}
                 {!icon && !isQuery && !isDataProcessInstance && (
                     <Skeleton.Avatar active shape="circle" size={TRANSFORMATION_NODE_SIZE} />
                 )}
@@ -155,13 +133,51 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             )}
             <CustomHandle type="target" position={Position.Left} isConnectable={false} $onEdge={!isQuery} />
             <CustomHandle type="source" position={Position.Right} isConnectable={false} $onEdge={!isQuery} />
-        </NodeWrapper>
+        </TransformationalNodeWrapper>
     );
 
     if (isQuery) {
         return contents;
     }
-    return <Tooltip title={name || urn}>{contents}</Tooltip>;
+
+    const popoverContent = (
+        <PopoverWrapper
+            urn={urn}
+            selected={false}
+            dragging={false}
+            isGhost={isGhost}
+            isSearchedEntity={isSearchedEntity}
+        >
+            <LineageCard
+                type={type}
+                loading={!entity}
+                onMouseEnter={() => setHoveredNode(urn)}
+                onMouseLeave={() => setHoveredNode(null)}
+                name={entity ? entity?.name || urn : ''}
+                nameExtra={
+                    entity?.versionProperties && (
+                        <StyledVersioningBadge
+                            showPopover={false}
+                            versionProperties={entity.versionProperties}
+                            size="inherit"
+                        />
+                    )
+                }
+                properties={entity?.genericEntityProperties}
+                platformIcons={icon ? [icon] : []}
+                childrenOpen={false}
+            />
+        </PopoverWrapper>
+    );
+    return (
+        <Popover
+            content={popoverContent}
+            overlayInnerStyle={{ boxShadow: 'none', background: 'none', transform: 'translateY(20px)' }}
+            overlayClassName="sectioned-tooltip"
+        >
+            {contents}
+        </Popover>
+    );
 }
 
 function useFetchQuery(urn: string) {

@@ -3,8 +3,11 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
+import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
+import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import BrowsePaths from '@app/previewV2/BrowsePaths';
 import { isDefaultBrowsePath } from '@app/previewV2/utils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
@@ -40,7 +43,7 @@ const PlatformDivider = styled.hr`
     color: ${colors.gray[200]};
     align-self: stretch;
     height: auto;
-    margin: 4px 6px;
+    margin: 4px;
     border: 0.5px solid;
     vertical-align: text-top;
 `;
@@ -69,6 +72,7 @@ interface Props {
     linksDisabled?: boolean;
     showPlatformText?: boolean;
     numVisible?: number;
+    className?: string;
 }
 
 export default function ContextPath(props: Props) {
@@ -83,6 +87,7 @@ export default function ContextPath(props: Props) {
         linksDisabled,
         showPlatformText = true,
         numVisible,
+        className,
     } = props;
 
     const entityRegistry = useEntityRegistryV2();
@@ -98,9 +103,13 @@ export default function ContextPath(props: Props) {
     }
 
     return (
-        <PlatformContentWrapper>
+        <PlatformContentWrapper className={className}>
             {showPlatformText && (
-                <PlatformText $maxWidth={entityTitleWidth} $isCompactView={isCompactView}>
+                <PlatformText
+                    $maxWidth={entityTitleWidth}
+                    $isCompactView={isCompactView}
+                    title={capitalizeFirstLetterOnly(displayedEntityType)}
+                >
                     {!hideTypeIcons && entityTypeIcon && <TypeIconWrapper>{entityTypeIcon}</TypeIconWrapper>}
                     <PlatFormTitle>{capitalizeFirstLetterOnly(displayedEntityType)}</PlatFormTitle>
                     {showEntityTypeDivider && <PlatformDivider />}
@@ -122,5 +131,35 @@ export default function ContextPath(props: Props) {
                 />
             )}
         </PlatformContentWrapper>
+    );
+}
+
+type ContextPathProps = Omit<
+    Props,
+    'parentEntities' | 'browsePaths' | 'entityType' | 'displayedEntityType' | 'contentRef' | 'isContentTruncated'
+>;
+type GenericEntityProps = Pick<
+    GenericEntityProperties,
+    'type' | 'browsePathV2' | 'parent' | 'parentContainers' | 'parentDomains' | 'parentNodes'
+>;
+type GenericPropertiesContextPathProps = ContextPathProps & { properties: GenericEntityProps };
+
+export function GenericPropertiesContextPath({ properties, ...props }: GenericPropertiesContextPathProps) {
+    const entityRegistry = useEntityRegistryV2();
+
+    if (!properties.type) {
+        return null;
+    }
+    const displayedEntityType = getDisplayedEntityType(properties, entityRegistry, properties.type);
+    const parentEntities = getParentEntities(properties);
+
+    return (
+        <ContextPath
+            {...props}
+            displayedEntityType={displayedEntityType}
+            entityType={properties.type}
+            browsePaths={properties?.browsePathV2}
+            parentEntities={parentEntities}
+        />
     );
 }

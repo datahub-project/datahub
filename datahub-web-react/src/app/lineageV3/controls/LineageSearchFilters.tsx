@@ -4,9 +4,11 @@ import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components';
 
 import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { LineageNodesContext, isTransformational } from '@app/lineageV3/common';
+import { LineageNodesContext, isTransformational, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
 import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV3/controls/common';
 import InfoPopover from '@app/sharedV2/icons/InfoPopover';
+
+import { EntityType } from '@types';
 
 const ToggleWrapper = styled.div`
     display: flex;
@@ -39,6 +41,7 @@ export default function LineageSearchFilters() {
     const {
         nodes,
         rootUrn,
+        rootType,
         nodeVersion,
         hideTransformations,
         setHideTransformations,
@@ -47,6 +50,9 @@ export default function LineageSearchFilters() {
         showGhostEntities,
         setShowGhostEntities,
     } = useContext(LineageNodesContext);
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+
+    const mustShowGhostEntities = rootType === EntityType.SchemaField && ignoreSchemaFieldStatus;
 
     const hasTransformations = useMemo(
         () => Array.from(nodes.values()).some((node) => node.urn !== rootUrn && isTransformational(node)), // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -106,7 +112,14 @@ export default function LineageSearchFilters() {
                         />
                     </ToggleLabel>
                 </span>
-                <StyledSwitch size="small" checked={showGhostEntities} onChange={setShowGhostEntities} />
+                <Tooltip title={mustShowGhostEntities ? 'Required when viewing column lineage' : undefined}>
+                    <StyledSwitch
+                        disabled={mustShowGhostEntities}
+                        size="small"
+                        checked={showGhostEntities}
+                        onChange={setShowGhostEntities}
+                    />
+                </Tooltip>
             </ToggleWrapper>
         </ControlPanel>
     );

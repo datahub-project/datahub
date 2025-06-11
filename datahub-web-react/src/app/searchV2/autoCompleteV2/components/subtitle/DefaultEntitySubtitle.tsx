@@ -1,14 +1,14 @@
 import React from 'react';
 
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { EntitySubtitleProps } from '@app/searchV2/autoCompleteV2/components/subtitle/types';
-import { getContextPath } from '@src/app/entityV2/shared/containers/profile/header/getContextPath';
 import ContextPath from '@src/app/previewV2/ContextPath';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 
 export default function DefaultEntitySubtitle({ entity, color, colorLevel }: EntitySubtitleProps) {
     const entityRegistry = useEntityRegistryV2();
     const genericEntityProperties = entityRegistry.getGenericEntityProperties(entity.type, entity);
-    const parentEntities = getContextPath(genericEntityProperties);
+    const parentEntities = getParentEntities(genericEntityProperties);
 
     return (
         <ContextPath

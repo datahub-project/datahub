@@ -10,7 +10,7 @@ import { GlossaryPreviewCardDecoration } from '@app/entityV2/shared/containers/p
 import IconColorPicker from '@app/entityV2/shared/containers/profile/header/IconPicker/IconColorPicker';
 import PlatformHeaderIcons from '@app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
-import { getContextPath } from '@app/entityV2/shared/containers/profile/header/getContextPath';
+import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { getDisplayedEntityType, getEntityPlatforms } from '@app/entityV2/shared/containers/profile/header/utils';
 import { EntityBackButton } from '@app/entityV2/shared/containers/profile/sidebar/EntityBackButton';
 import EntityActions, { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
@@ -133,7 +133,7 @@ export const DefaultEntityHeader = ({
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
     const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
-    const contextPath = getContextPath(entityData);
+    const contextPath = getParentEntities(entityData);
     return (
         <>
             <Row>

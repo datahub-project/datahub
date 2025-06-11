@@ -1,1 +1,1 @@
-export const NUM_COLUMNS_PER_PAGE = 5;
+export const NUM_COLUMNS_PER_PAGE = 10;

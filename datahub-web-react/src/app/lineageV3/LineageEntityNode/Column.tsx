@@ -1,20 +1,18 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
+import { Tooltip, colors } from '@components';
 import { Spin, Typography } from 'antd';
-import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageDisplayColumn } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import {
     HOVER_COLOR,
-    LineageDisplayContext,
     LineageNodesContext,
     SELECT_COLOR,
     createColumnRef,
@@ -41,7 +39,7 @@ const ColumnWrapper = styled.div<{
     fromSelect?: boolean;
     disabled: boolean;
 }>`
-    border: 1px solid transparent;
+    border-radius: 6px;
 
     ${({ selected, highlighted, fromSelect }) => {
         if (selected) {
@@ -49,45 +47,34 @@ const ColumnWrapper = styled.div<{
         }
         if (highlighted) {
             if (fromSelect) {
-                return `background-color: ${SELECT_COLOR}20;`;
+                return `border: 1px solid ${colors.gray[100]}; background-color: ${SELECT_COLOR}20;`;
             }
-            return `background-color: ${HOVER_COLOR}20;`;
+            return `border: 1px solid ${colors.gray[100]}; background-color: ${HOVER_COLOR}20;`;
         }
-        return 'background-color: white;';
+        return `border: 1px solid ${colors.gray[100]};`;
     }}
-    border-radius: 4px;
-    color: ${({ disabled }) => (disabled ? ANTD_GRAY[11] : ANTD_GRAY[7])};
+    color: ${({ disabled }) => (disabled ? colors.gray[600] : colors.gray[1800])};
     display: flex;
-    font-size: 10px;
-    gap: 4px;
-    max-height: 20.5px;
-    padding: 3px;
+    align-items: center;
+    font-size: 12px;
+    gap: 8px;
+    padding: 6px 8px;
     position: relative;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     width: 100%;
-
-    ${LinkOutIcon} {
-        display: none;
-    }
-
-    :hover {
-        ${LinkOutIcon} {
-            display: inline;
-        }
-    }
 `;
 
 const CustomHandle = styled(Handle)<{ position: Position }>`
     background: initial;
     border: initial;
-    ${({ position }) => (position === Position.Left ? 'left: -15px;' : 'right: -12px;')}
+    ${({ position }) => (position === Position.Left ? 'left: -11px;' : 'right: -10px;')}
     top: 50%;
 `;
 
 const TypeWrapper = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${colors.gray[1800]};
     width: 11px;
 `;
 
@@ -95,7 +82,7 @@ const ColumnLinkWrapper = styled(Link)`
     display: flex;
     margin-left: auto;
 
-    color: inherit;
+    color: ${colors.gray[1800]};
 
     :hover {
         color: ${(props) => props.theme.styles['primary-color']};
@@ -111,7 +98,15 @@ const StyledLoadingIndicator = styled(LoadingOutlined)`
     font-size: inherit;
 `;
 
-type Props = LineageDisplayColumn & { parentUrn: string; entityType: EntityType; allNeighborsFetched: boolean };
+type Props = LineageDisplayColumn & {
+    parentUrn: string;
+    entityType: EntityType;
+    allNeighborsFetched: boolean;
+    selectedColumn: string | null;
+    setSelectedColumn: Dispatch<SetStateAction<string | null>>;
+    hoveredColumn: string | null;
+    setHoveredColumn: Dispatch<SetStateAction<string | null>>;
+};
 
 export default function Column({
     parentUrn,
@@ -123,9 +118,12 @@ export default function Column({
     nativeDataType,
     lineageAsset,
     allNeighborsFetched,
+    selectedColumn,
+    setSelectedColumn,
+    hoveredColumn,
+    setHoveredColumn,
 }: Props) {
     const { config } = useAppConfig();
-    const { selectedColumn, hoveredColumn, setSelectedColumn, setHoveredColumn } = useContext(LineageDisplayContext);
     const id = useMemo(() => createColumnRef(parentUrn, fieldPath), [parentUrn, fieldPath]);
     const selected = selectedColumn === id;
 
@@ -168,13 +166,13 @@ export default function Column({
             }
         }
     }, [allNeighborsFetched, showAsDisabled, id, selectedColumn, initiateRequest, setHoveredColumn]);
+
     const handleMouseLeave = useCallback(() => {
-        setHoveredColumn(null);
         if (!selectedColumn) {
             setShowDisabledTooltipOnHover(false);
             cancelRequest();
         }
-    }, [selectedColumn, cancelRequest, setHoveredColumn]);
+    }, [selectedColumn, cancelRequest]);
 
     // TODO: Add hover text if overflowed
     const contents = (

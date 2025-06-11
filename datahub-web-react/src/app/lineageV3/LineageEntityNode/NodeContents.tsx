@@ -1,111 +1,39 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
-import { Skeleton, Spin } from 'antd';
-import React, { Dispatch, SetStateAction, useCallback } from 'react';
+import { Pill, Tooltip, colors } from '@components';
+import { Spin } from 'antd';
+import React, { Dispatch, SetStateAction, useCallback, useState } from 'react';
+import { Link, useHistory, useLocation } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
 import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { ANTD_GRAY, LINEAGE_COLORS, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
+import StructuredPropertyBadge from '@app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import VersioningBadge from '@app/entityV2/shared/versioning/VersioningBadge';
 import Columns from '@app/lineageV3/LineageEntityNode/Columns';
-import ContainerPath from '@app/lineageV3/LineageEntityNode/ContainerPath';
 import { ContractLineageButton } from '@app/lineageV3/LineageEntityNode/ContractLineageButton';
 import { ExpandLineageButton } from '@app/lineageV3/LineageEntityNode/ExpandLineageButton';
-import GhostEntityMenu from '@app/lineageV3/LineageEntityNode/GhostEntityMenu';
+import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
-import NodeSkeleton from '@app/lineageV3/LineageEntityNode/NodeSkeleton';
-import SchemaFieldNodeContents from '@app/lineageV3/LineageEntityNode/SchemaFieldNodeContents';
 import useAvoidIntersections from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
-import {
-    DisplayedColumns,
-    LINEAGE_NODE_HEIGHT,
-    LINEAGE_NODE_WIDTH,
-} from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
-import { FetchStatus, LineageEntity, getNodeColor, isGhostEntity, onClickPreventSelect } from '@app/lineageV3/common';
+import { DisplayedColumns, LINEAGE_NODE_HEIGHT } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
+import NodeWrapper from '@app/lineageV3/NodeWrapper';
+import { FetchStatus, LineageEntity, isGhostEntity, onClickPreventSelect } from '@app/lineageV3/common';
+import LineageCard from '@app/lineageV3/components/LineageCard';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
+import { getLineageUrl } from '@app/lineageV3/lineageUtils';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 import HealthIcon from '@app/previewV2/HealthIcon';
-import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
-import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
-import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 
 import { EntityType, LineageDirection } from '@types';
 
-const NodeWrapper = styled.div<{
-    selected: boolean;
-    dragging: boolean;
-    expandHeight?: number;
-    color: string;
-    $transitionDuration: number;
-    isGhost: boolean;
-    isSearchedEntity: boolean;
-}>`
-    align-items: center;
-    background-color: white;
-    border: 1px solid
-        ${({ color, selected, isGhost }) => {
-            if (selected) return color;
-            if (isGhost) return `${LINEAGE_COLORS.NODE_BORDER}50`;
-            return LINEAGE_COLORS.NODE_BORDER;
-        }};
-    box-shadow: ${({ isSearchedEntity, theme }) =>
-        isSearchedEntity ? `0 0 4px 4px ${theme.styles['primary-color']}95` : 'none'};
-    outline: ${({ color, selected }) => (selected ? `1px solid ${color}` : 'none')};
-    border-left: none;
-    border-radius: 6px;
-    display: flex;
-    flex-direction: column;
-    max-height: ${({ expandHeight }) => expandHeight}px;
-    overflow-y: hidden;
-    transition: max-height ${({ $transitionDuration }) => $transitionDuration}ms ease-in-out;
-    width: ${LINEAGE_NODE_WIDTH}px;
-    cursor: ${({ isGhost, dragging }) => {
-        if (isGhost) return 'not-allowed';
-        if (dragging) return 'grabbing';
-        return 'pointer';
-    }};
-`;
+import LinkOut from '@images/link-out.svg?react';
 
-const CARD_HEIGHT = LINEAGE_NODE_HEIGHT - 2; // Inside border
-
-// Maintains height of node as CardWrapper has position: absolute
-// Also allows the expand lineage buttons to not be children of CardWrapper
-const FakeCard = styled.div`
-    min-height: ${CARD_HEIGHT}px;
-    max-height: ${CARD_HEIGHT}px;
-    width: 100%;
-`;
-
-const CardWrapper = styled.div<{ isGhost: boolean }>`
-    align-items: center;
-    display: flex;
-    flex-direction: row;
-    height: ${CARD_HEIGHT}px;
-    position: absolute;
-    padding: 8px 11px;
-    width: 100%;
-    ${({ isGhost }) => isGhost && 'opacity: 0.5;'}
-`;
-
-const EntityTypeShadow = styled.div<{ color: string; isGhost: boolean }>`
-    background: ${({ color }) => color};
-    opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
-    border-radius: 6px;
-    position: absolute;
-
-    height: 100%;
-    width: 22px;
-
-    left: -3px;
-    top: 0;
-    z-index: -1;
-`;
+const BASE_SKELETON_HEIGHT = 52;
 
 export const LoadingWrapper = styled.div`
     color: ${LINEAGE_COLORS.PURPLE_3};
@@ -121,118 +49,67 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
     background: initial;
     border: initial;
     top: 50%;
-    ${({ position }) => (position === Position.Left ? 'left: -3px;' : 'right: 0;')}
-`;
-
-const IconsWrapper = styled.div`
-    align-items: center;
-    color: ${ANTD_GRAY[10]};
-    display: flex;
-    flex-direction: column;
-    font-size: 24px;
-    gap: 4px;
-`;
-
-const PlatformIcon = styled.img`
-    height: 1em;
-    width: 1em;
-`;
-
-const PlatformIconWithSibling = styled.img`
-    height: 0.9em;
-    width: 0.9em;
-    //clip-path: polygon(0 0, 100% 0, 100% 0%, 0% 100%, 0 100%);
-
-    margin-bottom: 0.8em;
-`;
-
-const SiblingPlatformIcon = styled.img`
-    height: 0.9em;
-    width: 0.9em;
-    //clip-path: polygon(100% 0, 100% 0, 100% 100%, 0 100%, 0 100%);
-
-    position: absolute;
-    top: 1.1em;
-`;
-
-const HorizontalDivider = styled.hr<{ margin: number }>`
-    border: 0.5px solid;
-    margin: ${({ margin }) => margin}px 0;
-    opacity: 0.1;
-    width: 100%;
-`;
-
-const VerticalDivider = styled.hr<{ margin: number }>`
-    align-self: stretch;
-    height: auto;
-    margin: 0 ${({ margin }) => margin}px;
-    border: 0.5px solid;
-    opacity: 0.1;
-    vertical-align: text-top;
-`;
-
-const MainTextWrapper = styled.div`
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-    justify-content: center;
-    gap: 4px;
-    height: 100%;
-    min-width: 0;
-`;
-
-// Expands to fit vertical space
-const TitleWrapper = styled.div`
-    overflow: hidden;
-    flex: 1 0 fit-content;
-    min-height: 12px;
-`;
-
-// Positions and aligns title text with health icon
-// Can't be combined with TitleWrapper, or else centered health icon will not align with text when wrapper expands
-const TitleLine = styled.span`
-    font-size: 14px;
-    font-weight: 600;
-
-    display: flex;
-    align-items: center;
-    height: min-content;
-    gap: 4px;
-`;
-
-const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
-    align-items: center;
-    border: 0.5px solid ${LINEAGE_COLORS.BLUE_1}50;
-    border-radius: 10px;
-    color: ${LINEAGE_COLORS.BLUE_1};
-    display: flex;
-    justify-content: center;
-    width: 100%;
-
-    flex: 1 1 16px;
-    min-height: 12px;
-    max-height: 16px;
-
-    :hover {
-        background-color: ${LINEAGE_COLORS.BLUE_1}20;
-        cursor: pointer;
-    }
-`;
-
-const SkeletonImage = styled(Skeleton.Avatar)`
-    line-height: 0;
+    // -1 for border
+    ${({ position }) => (position === Position.Left ? 'left: 0px;' : 'right: 0px;')}
 `;
 
 const PropertyBadgeWrapper = styled.div`
     position: absolute;
     right: 12px;
-    top: -16px;
+    top: -20px;
 `;
 
-const StyledVersioningBadge = styled(VersioningBadge)`
+const HomeIndicatorWrapper = styled.div<{ yOffset: number }>`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    position: absolute;
+    top: -${({ yOffset }) => yOffset / 2 + 20}px;
+    left: 12px;
+    z-index: -1;
+`;
+
+const ColumnsWrapper = styled.div<{
+    height: number;
+    transitionDuration: number;
+}>`
+    max-height: ${({ height }) => height}px;
+    transition: max-height ${({ transitionDuration }) => transitionDuration}ms ease-in-out;
+    overflow-y: hidden;
+    width: 100%;
+`;
+
+const ChildrenTextWrapper = styled.span`
+    display: flex;
+    gap: 8px;
+`;
+
+export const StyledVersioningBadge = styled(VersioningBadge)`
     padding: 0 4px;
     line-height: 1;
     max-width: 100px;
+`;
+
+const LinkOutWrapper = styled(Link)`
+    display: flex;
+    color: inherit;
+
+    :hover {
+        color: ${(props) => props.theme.styles['primary-color']};
+    }
+`;
+
+const SchemaFieldParentWrapper = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    color: ${colors.gray[1700]};
+    font-size: 12px;
+    font-weight: 400;
+    line-height: normal;
+    margin-top: 2px;
 `;
 
 interface Props {
@@ -254,6 +131,12 @@ interface Props {
     setFilterText: Dispatch<SetStateAction<string>>;
     pageIndex: number;
     setPageIndex: Dispatch<SetStateAction<number>>;
+    isMenuDisplayed: boolean;
+    setDisplayedMenuNode: Dispatch<SetStateAction<string | null>>;
+    selectedColumn: string | null;
+    setSelectedColumn: Dispatch<SetStateAction<string | null>>;
+    hoveredColumn: string | null;
+    setHoveredColumn: Dispatch<SetStateAction<string | null>>;
     refetch: Record<LineageDirection, () => void>;
     ignoreSchemaFieldStatus: boolean;
 }
@@ -283,6 +166,12 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         setFilterText,
         pageIndex,
         setPageIndex,
+        isMenuDisplayed,
+        setDisplayedMenuNode,
+        selectedColumn,
+        setSelectedColumn,
+        hoveredColumn,
+        setHoveredColumn,
         paginatedColumns,
         extraHighlightedColumns,
         numColumnsTotal,
@@ -292,24 +181,25 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         ignoreSchemaFieldStatus,
     } = props;
 
+    const history = useHistory();
+    const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
+    const [baseNodeHeight, setBaseNodeHeight] = useState<number>(BASE_SKELETON_HEIGHT);
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
 
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
-    const expandHeight =
-        LINEAGE_NODE_HEIGHT +
-        (numDisplayedColumns || onlyWithLineage ? 17 : 0) + // Expansion base
-        (showColumns && numColumnsTotal ? 30 : 0) + // Search bar
-        20.5 * numDisplayedColumns + // Columns
-        (showColumns && paginatedColumns.length && extraHighlightedColumns.length ? 9 : 0) + // Column divider
-        (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 38 : 0); // Pagination
+    const columnsHeight =
+        (numDisplayedColumns || showColumns ? 12 : 0) + // Expansion base
+        (showColumns && numColumnsTotal ? 40 : 0) + // Search bar
+        29 * numDisplayedColumns + // Columns
+        4 * Math.max(numDisplayedColumns - 1, 0) + // Column gap
+        (showColumns && paginatedColumns.length && extraHighlightedColumns.length ? 17 : 0) + // Column divider
+        (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 40 : 0); // Pagination
 
-    useAvoidIntersections(urn, expandHeight);
+    useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT);
 
-    const platformName = entityRegistry.getDisplayName(EntityType.DataPlatform, entity?.platform);
-    const [nodeColor] = getNodeColor(type);
-    const highlightColor = isSearchedEntity ? REDESIGN_COLORS.YELLOW_500 : REDESIGN_COLORS.YELLOW_200;
+    const highlightColor = isSearchedEntity ? colors.yellow[400] : colors.yellow[200];
     const hasUpstreamChildren = !!entity?.numUpstreamChildren;
     const hasDownstreamChildren = !!entity?.numDownstreamChildren;
     const isExpandedDownstream = isExpanded[LineageDirection.Downstream];
@@ -333,202 +223,201 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         [showColumns, setShowColumns, urn, type, entity?.platform?.urn],
     );
 
-    // TODO: Refactor into separate node, that doesn't have columns, with shared code?
+    const platformIcons = [entity?.icon, entity?.lineageSiblingIcon].filter((icon): icon is string => !!icon);
+
+    const menuActions = [
+        entity?.deprecation?.deprecated && (
+            <DeprecationIcon urn={urn} deprecation={entity?.deprecation} showText={false} showUndeprecate={false} />
+        ),
+        entity?.health && (
+            <HealthIcon urn={urn} health={entity.health} baseUrl={entityRegistry.getEntityUrl(type, urn)} />
+        ),
+        <ManageLineageMenu
+            node={props}
+            refetch={refetch}
+            isRootUrn={urn === rootUrn}
+            isGhost={isGhost}
+            isOpen={isMenuDisplayed}
+            setDisplayedMenuNode={setDisplayedMenuNode}
+        />,
+    ];
+
+    let properties = entity?.genericEntityProperties;
+    let extraDetails: React.ReactNode = null;
     if (type === EntityType.SchemaField) {
-        return (
-            <SchemaFieldNodeContents
+        if (entity?.parent) {
+            const { parent } = entity;
+            properties = parent;
+            extraDetails = (
+                <SchemaFieldParentWrapper>
+                    <OverflowTitle title={parent.name || parent.urn} />
+                    {!!parent.urn && !!parent.type && (
+                        <LinkOutWrapper
+                            to={getLineageUrl(parent.urn, parent.type, location, entityRegistry)}
+                            onClick={(e) => e.stopPropagation()}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <Tooltip title="Explore parent lineage" mouseEnterDelay={0.5}>
+                                <LinkOut />
+                            </Tooltip>
+                        </LinkOutWrapper>
+                    )}
+                </SchemaFieldParentWrapper>
+            );
+        } else {
+            extraDetails = <></>; // Tells LineageCard to display a skeleton
+        }
+    }
+
+    const contents = (
+        <>
+            {urn === rootUrn && (
+                <HomeIndicatorWrapper yOffset={baseNodeHeight}>
+                    <HomePill showText />
+                </HomeIndicatorWrapper>
+            )}
+            <NodeWrapper
                 urn={urn}
-                type={type}
-                rootUrn={rootUrn}
                 selected={selected}
                 dragging={dragging}
                 isGhost={isGhost}
                 isSearchedEntity={isSearchedEntity}
-                hasUpstreamChildren={hasUpstreamChildren}
-                hasDownstreamChildren={hasDownstreamChildren}
-                isExpanded={isExpanded}
-                fetchStatus={fetchStatus}
-                entity={entity}
-                platformName={platformName}
-                platformIcon={entity?.icon}
-                searchQuery={searchQuery}
-                setHoveredNode={setHoveredNode}
-                ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
-            />
-        );
-    }
-
-    const contents = (
-        <NodeWrapper
-            selected={selected}
-            dragging={dragging}
-            expandHeight={expandHeight}
-            color={nodeColor}
-            $transitionDuration={transitionDuration}
-            data-testid={`lineage-node-${urn}`}
-            isGhost={isGhost}
-            isSearchedEntity={isSearchedEntity}
-        >
-            <EntityTypeShadow color={nodeColor} isGhost={isGhost} />
-            <FakeCard />
-            <FakeCard style={{ position: 'absolute' }}>
-                {hasUpstreamChildren &&
-                    ([FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Upstream]) ||
-                        isUpstreamHidden) && (
-                        <ExpandLineageButton
-                            urn={urn}
-                            type={type}
-                            direction={LineageDirection.Upstream}
-                            display={
-                                fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED || !isExpandedUpstream
-                            }
-                            fetchStatus={fetchStatus}
-                            ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
-                        />
-                    )}
-                {hasDownstreamChildren &&
-                    ([FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(fetchStatus[LineageDirection.Downstream]) ||
-                        isDownstreamHidden) && (
-                        <ExpandLineageButton
-                            urn={urn}
-                            type={type}
-                            direction={LineageDirection.Downstream}
-                            display={
-                                fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED ||
-                                !isExpandedDownstream
-                            }
-                            fetchStatus={fetchStatus}
-                            ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
-                        />
-                    )}
-                {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE &&
-                    isExpandedUpstream &&
-                    hasUpstreamChildren && <ContractLineageButton urn={urn} direction={LineageDirection.Upstream} />}
-                {fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE &&
-                    isExpandedDownstream &&
-                    hasDownstreamChildren && (
-                        <ContractLineageButton urn={urn} direction={LineageDirection.Downstream} />
-                    )}
-                {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
-                    <LoadingWrapper className="nodrag" style={{ left: -30 }}>
-                        <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
-                    </LoadingWrapper>
-                )}
-                {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
-                    <LoadingWrapper className="nodrag" style={{ right: -30 }}>
-                        <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
-                    </LoadingWrapper>
-                )}
-            </FakeCard>
-            <CardWrapper
-                isGhost={isGhost}
-                onMouseEnter={() => setHoveredNode(urn)}
-                onMouseLeave={() => setHoveredNode(null)}
+                height={baseNodeHeight}
             >
-                <CustomHandle type="target" position={Position.Left} isConnectable={false} />
-                <CustomHandle type="source" position={Position.Right} isConnectable={false} />
-                <IconsWrapper>
-                    {entity?.icon && entity.lineageSiblingIcon && (
+                <LineageCard
+                    type={type}
+                    loading={!entity}
+                    onMouseEnter={() => setHoveredNode(urn)}
+                    onMouseLeave={() => setHoveredNode(null)}
+                    onDoubleClick={() => history.push(getLineageUrl(urn, type, location, entityRegistry))}
+                    name={entity?.name || urn || ''}
+                    nameHighlight={{ text: searchQuery, color: highlightColor }}
+                    nameExtra={
                         <>
-                            <PlatformIconWithSibling src={entity.lineageSiblingIcon} />
-                            <SiblingPlatformIcon src={entity.icon} />
-                        </>
-                    )}
-                    {entity?.icon && !entity.lineageSiblingIcon && (
-                        <PlatformIcon src={entity.icon} alt={platformName || 'platform'} title={platformName} />
-                    )}
-                    {!entity && <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />}
-                    {entity ? (
-                        getTypeIcon(entityRegistry, entity.type, entity.subtype, true)
-                    ) : (
-                        <SkeletonImage size="small" shape="square" style={{ borderRadius: '20%' }} />
-                    )}
-                </IconsWrapper>
-                <VerticalDivider margin={8} />
-                {entity && (
-                    <MainTextWrapper>
-                        <ContainerPath parents={entity?.containers} />
-                        <TitleWrapper>
-                            <TitleLine>
-                                <OverflowTitle
-                                    title={entity?.name ?? entity?.urn}
-                                    highlightText={searchQuery}
-                                    highlightColor={highlightColor}
-                                    extra={
-                                        entity?.versionProperties && (
-                                            <StyledVersioningBadge
-                                                showPopover={false}
-                                                versionProperties={entity.versionProperties}
-                                                size="inherit"
-                                            />
-                                        )
-                                    }
+                            {entity?.versionProperties && (
+                                <StyledVersioningBadge
+                                    showPopover={false}
+                                    versionProperties={entity.versionProperties}
+                                    size="inherit"
                                 />
-                                {entity?.deprecation?.deprecated && (
-                                    <DeprecationIcon
+                            )}
+                        </>
+                    }
+                    extraDetails={extraDetails}
+                    properties={properties}
+                    platformIcons={platformIcons}
+                    childrenOpen={showColumns}
+                    childrenText={
+                        !!numColumnsTotal && (
+                            <ChildrenTextWrapper>
+                                Columns
+                                <Pill label={`${numColumnsTotal}`} size="xs" />
+                            </ChildrenTextWrapper>
+                        )
+                    }
+                    toggleChildren={showHideColumns}
+                    baseNodeHeight={baseNodeHeight}
+                    setBaseNodeHeight={setBaseNodeHeight}
+                    menuActions={menuActions}
+                    sideElements={
+                        <>
+                            <CustomHandle type="target" position={Position.Left} isConnectable={false} />
+                            <CustomHandle type="source" position={Position.Right} isConnectable={false} />
+                            {hasUpstreamChildren &&
+                                ([FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(
+                                    fetchStatus[LineageDirection.Upstream],
+                                ) ||
+                                    isUpstreamHidden) && (
+                                    <ExpandLineageButton
                                         urn={urn}
-                                        deprecation={entity?.deprecation}
-                                        showText={false}
-                                        showUndeprecate={false}
+                                        type={type}
+                                        direction={LineageDirection.Upstream}
+                                        display={
+                                            fetchStatus[LineageDirection.Upstream] === FetchStatus.UNFETCHED ||
+                                            !isExpandedUpstream
+                                        }
+                                        fetchStatus={fetchStatus}
+                                        ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
                                     />
                                 )}
-                                {entity?.health && (
-                                    <HealthIcon
+                            {hasDownstreamChildren &&
+                                ([FetchStatus.UNFETCHED, FetchStatus.LOADING].includes(
+                                    fetchStatus[LineageDirection.Downstream],
+                                ) ||
+                                    isDownstreamHidden) && (
+                                    <ExpandLineageButton
                                         urn={urn}
-                                        health={entity.health}
-                                        baseUrl={entityRegistry.getEntityUrl(type, urn)}
+                                        type={type}
+                                        direction={LineageDirection.Downstream}
+                                        display={
+                                            fetchStatus[LineageDirection.Downstream] === FetchStatus.UNFETCHED ||
+                                            !isExpandedDownstream
+                                        }
+                                        fetchStatus={fetchStatus}
+                                        ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
                                     />
                                 )}
-                            </TitleLine>
-                        </TitleWrapper>
-                        {!!numColumnsTotal && !isGhost && (
-                            <ExpandColumnsWrapper onClick={showHideColumns} defaultHeight={10}>
-                                {numColumnsTotal} columns
-                                {showColumns && <KeyboardArrowUp fontSize="inherit" style={{ marginLeft: 3 }} />}
-                                {!showColumns && <KeyboardArrowDown fontSize="inherit" style={{ marginLeft: 3 }} />}
-                            </ExpandColumnsWrapper>
-                        )}
-                        {isGhost ? (
-                            <GhostEntityMenu urn={urn} />
-                        ) : (
-                            <ManageLineageMenu node={props} refetch={refetch} isRootUrn={urn === rootUrn} />
-                        )}
-                        {entity && (
-                            <PropertyBadgeWrapper>
-                                <StructuredPropertyBadge structuredProperties={entity.structuredProperties} />
-                            </PropertyBadgeWrapper>
-                        )}
-                    </MainTextWrapper>
-                )}
-                {!entity && <NodeSkeleton />}
-            </CardWrapper>
-            {!!entity && !!numColumnsTotal && (
-                <>
-                    <HorizontalDivider margin={0} />
-                    <Columns
-                        entity={entity}
-                        isGhost={isGhost}
-                        showAllColumns={showColumns}
-                        paginatedColumns={paginatedColumns}
-                        highlightedColumns={extraHighlightedColumns}
-                        numFiltered={numFilteredColumns}
-                        pageIndex={pageIndex}
-                        setPageIndex={setPageIndex}
-                        filterText={filterText}
-                        setFilterText={setFilterText}
-                        numColumnsWithLineage={numColumnsWithLineage}
-                        onlyWithLineage={onlyWithLineage}
-                        setOnlyWithLineage={setOnlyWithLineage}
-                    />
-                </>
-            )}
-        </NodeWrapper>
+                            {fetchStatus[LineageDirection.Upstream] === FetchStatus.COMPLETE &&
+                                isExpandedUpstream &&
+                                hasUpstreamChildren && (
+                                    <ContractLineageButton urn={urn} direction={LineageDirection.Upstream} />
+                                )}
+                            {fetchStatus[LineageDirection.Downstream] === FetchStatus.COMPLETE &&
+                                isExpandedDownstream &&
+                                hasDownstreamChildren && (
+                                    <ContractLineageButton urn={urn} direction={LineageDirection.Downstream} />
+                                )}
+                            {fetchStatus[LineageDirection.Upstream] === FetchStatus.LOADING && (
+                                <LoadingWrapper className="nodrag" style={{ left: -30 }}>
+                                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                                </LoadingWrapper>
+                            )}
+                            {fetchStatus[LineageDirection.Downstream] === FetchStatus.LOADING && (
+                                <LoadingWrapper className="nodrag" style={{ right: -30 }}>
+                                    <Spin delay={urn === rootUrn ? undefined : 500} indicator={<LoadingOutlined />} />
+                                </LoadingWrapper>
+                            )}
+                        </>
+                    }
+                />
+                <ColumnsWrapper transitionDuration={transitionDuration} height={columnsHeight}>
+                    {!!entity && (
+                        <Columns
+                            entity={entity}
+                            isGhost={isGhost}
+                            showAllColumns={showColumns}
+                            paginatedColumns={paginatedColumns}
+                            highlightedColumns={extraHighlightedColumns}
+                            numFiltered={numFilteredColumns}
+                            pageIndex={pageIndex}
+                            setPageIndex={setPageIndex}
+                            filterText={filterText}
+                            setFilterText={setFilterText}
+                            numColumnsWithLineage={numColumnsWithLineage}
+                            onlyWithLineage={onlyWithLineage}
+                            setOnlyWithLineage={setOnlyWithLineage}
+                            selectedColumn={selectedColumn}
+                            setSelectedColumn={setSelectedColumn}
+                            hoveredColumn={hoveredColumn}
+                            setHoveredColumn={setHoveredColumn}
+                        />
+                    )}
+                    {entity && (
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={entity.structuredProperties} />
+                        </PropertyBadgeWrapper>
+                    )}
+                </ColumnsWrapper>
+            </NodeWrapper>
+        </>
     );
 
     if (isGhost) {
         const message = entity?.status?.removed ? 'has been deleted' : 'does not exist in DataHub';
+        // Put below context path popover
         return (
-            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3}>
+            <Tooltip title={`This entity ${message}`} mouseEnterDelay={0.3} overlayStyle={{ zIndex: 10 }}>
                 {contents}
             </Tooltip>
         );

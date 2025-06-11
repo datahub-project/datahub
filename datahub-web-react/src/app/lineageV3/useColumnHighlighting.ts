@@ -1,5 +1,5 @@
 import { useContext, useEffect, useMemo } from 'react';
-import { Edge, MarkerType, useReactFlow } from 'reactflow';
+import { Edge, useReactFlow } from 'reactflow';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { TENTATIVE_EDGE_NAME } from '@app/lineageV3/LineageEdge/TentativeEdge';
@@ -20,6 +20,7 @@ import {
     setDefault,
     setDifference,
 } from '@app/lineageV3/common';
+import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { EntityType, LineageDirection } from '@types';
@@ -178,7 +179,7 @@ function computeSingleColumnHighlights(
                 sourceHandle: fromField ? fromRef : undefined,
                 targetHandle: toField ? toRef : undefined,
                 type: isTentative ? TENTATIVE_EDGE_NAME : 'default',
-                markerEnd: { type: MarkerType.ArrowClosed },
+                markerEnd: LINEAGE_ARROW_MARKER,
                 style: { stroke, strokeWidth: 1.25 },
                 data: { isColumnEdge: true }, // Used to hide column edges
             });

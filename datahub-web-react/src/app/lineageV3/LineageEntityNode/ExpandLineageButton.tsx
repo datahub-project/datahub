@@ -1,23 +1,13 @@
-import { KeyboardArrowRight, KeyboardDoubleArrowRight } from '@mui/icons-material';
+import { Icon } from '@components';
 import React from 'react';
-import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { Button, DownstreamWrapper, UpstreamWrapper } from '@app/lineageV3/LineageEntityNode/components';
 import { useOnClickExpandLineage } from '@app/lineageV3/LineageEntityNode/useOnClickExpandLineage';
 import { FetchStatus, onClickPreventSelect } from '@app/lineageV3/common';
 import { useAppConfig } from '@app/useAppConfig';
 
 import { EntityType, LineageDirection } from '@types';
-
-const VerticalDivider = styled.hr<{ margin: number }>`
-    align-self: stretch;
-    height: auto;
-    margin: 0 ${({ margin }) => margin}px;
-    border: 0.5px solid ${ANTD_GRAY[5]};
-    vertical-align: text-top;
-`;
 
 interface Props {
     urn: string;
@@ -74,19 +64,16 @@ export function ExpandLineageButton({ urn, type, direction, display, fetchStatus
                 onMouseEnter={(e) => e.stopPropagation()}
                 onMouseLeave={(e) => e.stopPropagation()}
             >
-                <KeyboardArrowRight viewBox="3 3 18 18" fontSize="inherit" />
+                <Icon icon="CaretRight" source="phosphor" size="lg" />
             </Button>
             {showExpandAll && (
-                <>
-                    <VerticalDivider margin={2} />
-                    <Button
-                        onClick={(e) => onClickPreventSelect(e) && handleExpandAll(e)}
-                        onMouseEnter={(e) => e.stopPropagation()}
-                        onMouseLeave={(e) => e.stopPropagation()}
-                    >
-                        <KeyboardDoubleArrowRight viewBox="3 3 18 18" fontSize="inherit" />
-                    </Button>
-                </>
+                <Button
+                    onClick={(e) => onClickPreventSelect(e) && handleExpandAll(e)}
+                    onMouseEnter={(e) => e.stopPropagation()}
+                    onMouseLeave={(e) => e.stopPropagation()}
+                >
+                    <Icon icon="CaretDoubleRight" source="phosphor" size="lg" />
+                </Button>
             )}
         </Wrapper>
     );

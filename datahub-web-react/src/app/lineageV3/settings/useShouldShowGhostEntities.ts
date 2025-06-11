@@ -1,6 +1,11 @@
 import { useCallback, useState } from 'react';
 
-export default function useShouldShowGhostEntities(): [boolean, (value: boolean) => void] {
+import { useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+
+import { EntityType } from '@types';
+
+export default function useShouldShowGhostEntities(type: EntityType): [boolean, (value: boolean) => void] {
+    const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const defaultValue = inLocalStorage() ? loadFromLocalStorage() : false;
     const [showGhostEntities, setShowGhostEntities] = useState(defaultValue);
     const setter = useCallback((value: boolean) => {
@@ -8,6 +13,9 @@ export default function useShouldShowGhostEntities(): [boolean, (value: boolean)
         saveToLocalStorage(value);
     }, []);
 
+    if (type === EntityType.SchemaField && ignoreSchemaFieldStatus) {
+        return [true, () => {}];
+    }
     return [showGhostEntities, setter];
 }
 

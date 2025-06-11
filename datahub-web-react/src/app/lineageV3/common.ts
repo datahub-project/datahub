@@ -1,9 +1,9 @@
+import { colors } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
-import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
 import { getEntityTypeFromEntityUrn } from '@app/lineageV3/lineageUtils';
@@ -14,11 +14,11 @@ import { useAppConfig } from '@app/useAppConfig';
 
 import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 
-export const TRANSITION_DURATION_MS = 200;
+export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
 
-export const HOVER_COLOR = LINEAGE_COLORS.BLUE_2;
-export const SELECT_COLOR = LINEAGE_COLORS.PURPLE_3;
+export const HOVER_COLOR = colors.violet[200];
+export const SELECT_COLOR = colors.violet[600];
 
 type Urn = string;
 

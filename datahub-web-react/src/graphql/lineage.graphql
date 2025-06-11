@@ -104,6 +104,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        deprecation {
+            ...deprecationFields
+        }
         health {
             ...entityHealth
         }
@@ -215,6 +218,9 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         subTypes {
             typeNames
+        }
+        deprecation {
+            ...deprecationFields
         }
         health {
             ...entityHealth

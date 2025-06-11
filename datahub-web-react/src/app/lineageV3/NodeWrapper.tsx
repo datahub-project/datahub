@@ -1,0 +1,57 @@
+import { colors } from '@components';
+import React, { HTMLAttributes } from 'react';
+import styled from 'styled-components';
+
+import { LINEAGE_NODE_WIDTH } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
+
+const Wrapper = styled.div<{
+    selected: boolean;
+    dragging: boolean;
+    isGhost: boolean;
+    isSearchedEntity: boolean;
+    height?: number;
+}>`
+    // Center node around edge handles
+    transform: translateY(${({ height }) => (height ? `-${height / 2}px` : '-50%')});
+    width: ${LINEAGE_NODE_WIDTH}px;
+
+    background-color: white;
+    border-radius: 12px;
+    border: 1px solid ${({ selected }) => (selected ? colors.violet[600] : colors.gray[100])};
+    box-shadow: ${({ isSearchedEntity }) =>
+        isSearchedEntity ? `0 0 4px 4px ${colors.gray[100]}` : '0px 1px 2px 0px rgba(33, 23, 95, 0.07)'};
+
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+
+    > * {
+        opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
+    }
+
+    pointer-events: all;
+    cursor: ${({ isGhost, dragging }) => {
+        if (isGhost) return 'not-allowed';
+        if (dragging) return 'grabbing';
+        return 'pointer';
+    }};
+`;
+
+interface Props extends HTMLAttributes<HTMLDivElement> {
+    urn: string;
+    selected: boolean;
+    dragging: boolean;
+    isGhost: boolean;
+    isSearchedEntity: boolean;
+    height?: number;
+    children: React.ReactNode;
+}
+
+/** Base component to wrap graph nodes */
+export default function NodeWrapper({ urn, children, ...props }: Props) {
+    return (
+        <Wrapper data-testid={`lineage-node-${urn}`} {...props}>
+            {children}
+        </Wrapper>
+    );
+}

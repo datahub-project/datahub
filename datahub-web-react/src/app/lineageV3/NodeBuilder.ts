@@ -1,12 +1,8 @@
-import { EdgeMarker } from '@reactflow/core/dist/esm/types/edges';
-import { Edge, MarkerType, Node } from 'reactflow';
+import { EdgeMarkerType } from '@reactflow/core/dist/esm/types/edges';
+import { Edge, Node } from 'reactflow';
 
 import { LINEAGE_TABLE_EDGE_NAME } from '@app/lineageV3/LineageEdge/LineageTableEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
-import {
-    SCHEMA_FIELD_NODE_HEIGHT,
-    SCHEMA_FIELD_NODE_WIDTH,
-} from '@app/lineageV3/LineageEntityNode/SchemaFieldNodeContents';
 import { LINEAGE_NODE_HEIGHT, LINEAGE_NODE_WIDTH } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import { LINEAGE_FILTER_NODE_NAME } from '@app/lineageV3/LineageFilterNode/LineageFilterNodeBasic';
 import {
@@ -29,13 +25,14 @@ import {
     parseEdgeId,
     setDefault,
 } from '@app/lineageV3/common';
+import { LINEAGE_ARROW_MARKER } from '@app/lineageV3/lineageSVGs';
 
 import { EntityType, LineageDirection } from '@types';
 
-const MAIN_X_SEP_RATIO = 0.75;
-const MAIN_TO_MINI_X_SEP_RATIO = 0.375;
-const MINI_X_SEP_RATIO = 0.1875;
-const MAIN_Y_SEP_RATIO = 0.8;
+const MAIN_X_SEP_RATIO = 0.5;
+const MAIN_TO_MINI_X_SEP_RATIO = 0.25;
+const MINI_X_SEP_RATIO = 0.125;
+const MAIN_Y_SEP_RATIO = 0.5;
 const MINI_Y_SEP_RATIO = MAIN_Y_SEP_RATIO / 2;
 const TRANSFORMATIONAL_LEAF_OFFSET = 25;
 
@@ -81,8 +78,6 @@ export default class NodeBuilder {
 
     separationNodeHeight: number;
 
-    transformationalOffset: number; // Offset transformation nodes, not sure why this is needed
-
     // Must set node layers in rough topological order
     // A node must be preceded by all its min-parents, the parents along the shortest paths from the home node to it
     // TODO: Memoize this min-parent calculation?
@@ -107,9 +102,8 @@ export default class NodeBuilder {
     constructor(homeUrn: string, homeType: EntityType, nodes: LineageNode[], parents: Map<string, Set<string>>) {
         this.homeUrn = homeUrn;
         this.parents = parents;
-        this.nodeHeight = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_HEIGHT : LINEAGE_NODE_HEIGHT;
-        this.nodeWidth = homeType === EntityType.SchemaField ? SCHEMA_FIELD_NODE_WIDTH : LINEAGE_NODE_WIDTH;
-        this.transformationalOffset = (this.nodeHeight - 30) / 2;
+        this.nodeHeight = LINEAGE_NODE_HEIGHT;
+        this.nodeWidth = LINEAGE_NODE_WIDTH;
         // +15 accounts for column footer
         this.separationNodeHeight = this.nodeHeight + (homeType === EntityType.SchemaField ? 15 : 0);
 
@@ -137,8 +131,8 @@ export default class NodeBuilder {
         return !isTransformational(node);
     }
 
-    #getMarker(information?: NodeInformation): EdgeMarker | undefined {
-        return information && this.#isMainNode(information) ? { type: MarkerType.ArrowClosed } : undefined;
+    #getMarker(information?: NodeInformation): EdgeMarkerType | undefined {
+        return information && this.#isMainNode(information) ? LINEAGE_ARROW_MARKER : undefined;
     }
 
     createNodes(
@@ -431,12 +425,6 @@ export default class NodeBuilder {
                     ySum = goalY[sortedNodes[i]];
                 }
             }
-        });
-
-        // Offset transformation nodes
-        this.transformations.forEach((node) => {
-            const info = this.nodeInformation[node.id];
-            if (info.y !== undefined) info.y += this.transformationalOffset;
         });
     }
 
