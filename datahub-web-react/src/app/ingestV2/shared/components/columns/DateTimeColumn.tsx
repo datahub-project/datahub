@@ -18,7 +18,7 @@ dayjs.extend(localizedFormat);
 /**
  * l - M/D/YYYY
  * LT - h:mm A
- * * z - timezone shorthand
+ * z - timezone shorthand
  */
 const DEFAULT_DATETIME_FORMAT = 'l @ LT (z)';
 
