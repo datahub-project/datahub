@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.batch;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 
+import com.datahub.authorization.AuthorizationSession;
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -21,6 +22,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
 
 /**
@@ -104,18 +106,20 @@ public interface AspectsBatch {
 
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
       Collection<T> mcpItems) {
-    return validateProposed(mcpItems, getRetrieverContext());
+    return validateProposed(mcpItems, getRetrieverContext(), null);
   }
 
   static <T extends BatchItem> ValidationExceptionCollection validateProposed(
-      Collection<T> mcpItems, @Nonnull RetrieverContext retrieverContext) {
+      Collection<T> mcpItems,
+      @Nonnull RetrieverContext retrieverContext,
+      @Nullable AuthorizationSession session) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     retrieverContext
         .getAspectRetriever()
         .getEntityRegistry()
         .getAllAspectPayloadValidators()
         .stream()
-        .flatMap(validator -> validator.validateProposed(mcpItems, retrieverContext))
+        .flatMap(validator -> validator.validateProposed(mcpItems, retrieverContext, session))
         .forEach(exceptions::addException);
     return exceptions;
   }

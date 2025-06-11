@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.datahub.authentication.Authentication;
+import com.datahub.authorization.SystemUpdateAuthorizer;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
@@ -26,6 +27,7 @@ import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.SearchServiceSearchRetriever;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.mxe.TopicConvention;
+import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -178,25 +180,31 @@ public class SystemUpdateConfig {
     SystemGraphRetriever systemGraphRetriever =
         SystemGraphRetriever.builder().graphService(graphService).build();
 
+    boolean enforceExistenceEnabled = true;
+
     OperationContext systemOperationContext =
         OperationContext.asSystem(
-            operationContextConfig,
-            systemAuthentication,
-            entityServiceAspectRetriever.getEntityRegistry(),
-            ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
-            components.getIndexConvention(),
-            RetrieverContext.builder()
-                .aspectRetriever(entityServiceAspectRetriever)
-                .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
-                .graphRetriever(systemGraphRetriever)
-                .searchRetriever(searchServiceSearchRetriever)
-                .build(),
-            ValidationContext.builder()
-                .alternateValidation(
-                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build(),
-            null,
-            true);
+                operationContextConfig,
+                systemAuthentication,
+                entityServiceAspectRetriever.getEntityRegistry(),
+                ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
+                components.getIndexConvention(),
+                RetrieverContext.builder()
+                    .aspectRetriever(entityServiceAspectRetriever)
+                    .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
+                    .graphRetriever(systemGraphRetriever)
+                    .searchRetriever(searchServiceSearchRetriever)
+                    .build(),
+                ValidationContext.builder()
+                    .alternateValidation(
+                        configurationProvider.getFeatureFlags().isAlternateMCPValidation())
+                    .build(),
+                null,
+                enforceExistenceEnabled)
+            .toBuilder()
+            .authorizationContext(
+                AuthorizationContext.builder().authorizer(new SystemUpdateAuthorizer()).build())
+            .build(systemAuthentication, enforceExistenceEnabled);
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);

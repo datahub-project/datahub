@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
+import com.linkedin.metadata.aspect.validation.PolicyConstraintsValidator;
 import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
@@ -311,6 +312,36 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(CORP_USER_ENTITY_NAME)
                             .aspectName(ALL)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.policyConstraints.enabled",
+      havingValue = "true")
+  public AspectPayloadValidator policyConstraintsValidator() {
+    // Supports tag constraints only for now
+    return new PolicyConstraintsValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(PolicyConstraintsValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(SCHEMA_METADATA_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(ALL)
+                            .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
                             .build()))
                 .build());
   }

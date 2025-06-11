@@ -362,6 +362,14 @@ public class OperationContext implements AuthorizationSession {
     return authorizationContext.authorize(getSessionActorContext(), privilege, resourceSpec);
   }
 
+  public AuthorizationResult authorize(
+      @Nonnull String privilege,
+      @Nullable EntitySpec resourceSpec,
+      @Nonnull Collection<EntitySpec> subResources) {
+    return authorizationContext.authorize(
+        getSessionActorContext(), privilege, resourceSpec, subResources);
+  }
+
   @Nullable
   public SystemMetadata withTraceId(@Nullable SystemMetadata systemMetadata) {
     return withTraceId(systemMetadata, false);

@@ -320,13 +320,49 @@ These privileges are not generalizable.
 
 ## Coming Soon
 
-The DataHub team is hard at work trying to improve the Policies feature. We are planning on building out the following:
+### Experimental
 
-- Hide edit action buttons on Entity pages to reflect user privileges
+Support for Policy Constraints based on entity sub-resources (tags, glossary terms, domains, containers, etc.) is currently in development and in an experimental phase.
 
-Under consideration
+Currently the only supported sub-resources are tags. These are supported through an additional parameter in DataHubPolicyInfo which is currently only modifiable via API, there is no UI option to configure it. Specifically the
+option is `policyConstraints` which takes a `PolicyMatchFilter` within the existing `DataHubResourceFilter` for a policy. This works similarly to the existing resource filter, but instead of applying to the main entity being acted on
+it applies to the subResource targeted in the action. For example, if the policy specifies it is constrained to tags that equal `urn:li:tag:tag1` or `urn:li:tag:tag2` for `EDIT_DATASET_TAGS` privilege, then assuming no other policies match,
+a user would only be able to apply those tags to the dataset. This is also supported with the `NOT_EQUALS` condition for preventing certain tags from being added/removed. These policies apply by default in the UI and can be configured to apply
+to API operations as well through the `MCP_VALIDATION_POLICY_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically).
 
-- Ability to define Metadata Policies against multiple resources scoped to particular "Containers" (e.g. A "schema", "database", or "collection")
+Example JSON of a policy with constraints:
+
+```json
+{
+  "actors": {
+    "resourceOwners": false,
+    "groups": [],
+    "allGroups": false,
+    "allUsers": false,
+    "users": ["urn:li:corpuser:ryan@email.com"]
+  },
+  "lastUpdatedTimestamp": 0,
+  "privileges": ["EDIT_ENTITY_TAGS", "EDIT_DATASET_COL_TAGS"],
+  "editable": true,
+  "displayName": "Ryan Policy",
+  "resources": {
+    "filter": { "criteria": [] },
+    "allResources": false,
+    "policyConstraints": {
+      "criteria": [
+        {
+          "field": "URN",
+          "condition": "EQUALS",
+          "values": ["urn:li:tag:PII", "urn:li:tag:Business Critical"]
+        }
+      ]
+    }
+  },
+  "description": "",
+  "state": "ACTIVE",
+  "type": "METADATA"
+}
+```
 
 ## Feedback / Questions / Concerns
 

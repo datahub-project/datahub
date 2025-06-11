@@ -4363,7 +4363,7 @@
         }, {
           "name" : "limit",
           "type" : "int",
-          "default" : "5000"
+          "optional" : true
         }, {
           "name" : "latestValue",
           "type" : "boolean",

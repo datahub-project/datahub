@@ -1,12 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
-import com.datahub.authorization.AuthorizationResult;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardUsageStatistics;
@@ -52,11 +52,9 @@ public class DashboardStatsSummaryTest {
     TimeseriesAspectService mockClient = initTestAspectService();
 
     // Execute resolver
-    DashboardStatsSummaryResolver resolver = new DashboardStatsSummaryResolver(mockClient);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
-    when(mockContext.getOperationContext().authorize(any(), any()))
-        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
+    DashboardStatsSummaryResolver resolver =
+        new DashboardStatsSummaryResolver(mockClient);
+    QueryContext mockContext = getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
