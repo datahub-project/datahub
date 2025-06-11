@@ -3,7 +3,9 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type, cast
 
+import sqlglot
 from lark import Tree
+from sqlglot import ParseError, expressions as exp
 
 from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
@@ -209,15 +211,38 @@ class AbstractLineage(ABC):
 
         return None
 
+    @staticmethod
+    def is_sql_query(query: Optional[str]) -> bool:
+        if not query:
+            return False
+        query = native_sql_parser.remove_special_characters(query)
+        try:
+            expression = sqlglot.parse_one(query)
+            if isinstance(expression, exp.Select):
+                return True
+            else:
+                return False
+        except ParseError:
+            return False
+        except Exception:
+            return False
+
     def parse_custom_sql(
-        self, query: str, server: str, database: Optional[str], schema: Optional[str]
+        self,
+        query: str,
+        server: str,
+        database: Optional[str],
+        schema: Optional[str],
+        platform_pair: Optional[DataPlatformPair] = None,
     ) -> Lineage:
         dataplatform_tables: List[DataPlatformTable] = []
+        if not platform_pair:
+            platform_pair = self.get_platform_pair()
 
         platform_detail: PlatformDetail = (
             self.platform_instance_resolver.get_platform_instance(
                 PowerBIPlatformDetail(
-                    data_platform_pair=self.get_platform_pair(),
+                    data_platform_pair=platform_pair,
                     data_platform_server=server,
                 )
             )
@@ -231,7 +256,7 @@ class AbstractLineage(ABC):
             native_sql_parser.parse_custom_sql(
                 ctx=self.ctx,
                 query=query,
-                platform=self.get_platform_pair().datahub_data_platform_name,
+                platform=platform_pair.datahub_data_platform_name,
                 platform_instance=platform_detail.platform_instance,
                 env=platform_detail.env,
                 database=database,
@@ -258,7 +283,7 @@ class AbstractLineage(ABC):
         for urn in parsed_result.in_tables:
             dataplatform_tables.append(
                 DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
+                    data_platform_pair=platform_pair,
                     urn=urn,
                 )
             )
@@ -956,7 +981,7 @@ class OdbcLineage(AbstractLineage):
             f"data-access function detail {data_access_func_detail}"
         )
 
-        connect_string, _ = self.get_db_detail_from_argument(
+        connect_string, query = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list
         )
 
@@ -972,12 +997,19 @@ class OdbcLineage(AbstractLineage):
         data_platform, powerbi_platform = extract_platform(connect_string)
         server_name = extract_server(connect_string)
 
+        dsn = extract_dsn(connect_string)
+        if not dsn:
+            self.reporter.warning(
+                title="Can not determine ODBC DSN",
+                message="Can not extract DSN from ODBC connect string. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}, connect-string={connect_string}",
+            )
+            return Lineage.empty()
+        logger.debug(f"Extracted DSN: {dsn}")
+
         if not data_platform:
-            dsn = extract_dsn(connect_string)
-            if dsn:
-                logger.debug(f"Extracted DSN: {dsn}")
-                server_name = dsn
-            if dsn and self.config.dsn_to_platform_name:
+            server_name = dsn
+            if self.config.dsn_to_platform_name:
                 logger.debug(f"Attempting to map DSN {dsn} to platform")
                 name = self.config.dsn_to_platform_name.get(dsn)
                 if name:
@@ -1006,6 +1038,58 @@ class OdbcLineage(AbstractLineage):
         elif not server_name:
             server_name = "unknown"
 
+        if self.is_sql_query(query):
+            return self.query_lineage(query, platform_pair, server_name, dsn)
+        else:
+            return self.expression_lineage(
+                data_access_func_detail, data_platform, platform_pair, server_name
+            )
+
+    def query_lineage(
+        self,
+        query: Optional[str],
+        platform_pair: DataPlatformPair,
+        server_name: str,
+        dsn: str,
+    ) -> Lineage:
+        database = None
+        schema = None
+
+        if not query:
+            # query should never be None as it is checked before calling this function.
+            # however, we need to check just in case.
+            self.reporter.warning(
+                title="ODBC Query is null",
+                message="No SQL to parse. Skipping Lineage creation.",
+                context=f"table-name={self.table.full_name}",
+            )
+            return Lineage.empty()
+
+        if self.config.dsn_to_database_schema:
+            value = self.config.dsn_to_database_schema.get(dsn)
+            if value:
+                parts = value.split(".")
+                if len(parts) == 1:
+                    database = parts[0]
+                elif len(parts) == 2:
+                    database = parts[0]
+                    schema = parts[1]
+
+        return self.parse_custom_sql(
+            query=query,
+            server=server_name,
+            database=database,
+            schema=schema,
+            platform_pair=platform_pair,
+        )
+
+    def expression_lineage(
+        self,
+        data_access_func_detail: DataAccessFunctionDetail,
+        data_platform: str,
+        platform_pair: DataPlatformPair,
+        server_name: str,
+    ) -> Lineage:
         database_name = None
         schema_name = None
         table_name = None
@@ -1142,6 +1226,11 @@ class SupportedPattern(Enum):
     ODBC = (
         OdbcLineage,
         FunctionName.ODBC_DATA_ACCESS,
+    )
+
+    ODBC_QUERY = (
+        OdbcLineage,
+        FunctionName.ODBC_QUERY,
     )
 
     def handler(self) -> Type[AbstractLineage]:

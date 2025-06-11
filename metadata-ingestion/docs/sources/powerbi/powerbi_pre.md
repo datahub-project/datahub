@@ -48,7 +48,7 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 6.  Databricks
 7.  MySQL
 
-Native SQL query parsing is supported for `Snowflake` and `Amazon Redshift` data sources.
+Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, and ODBC data sources.
 
 For example, consider the SQL query shown below. The table `OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_UNIT_TARGET` will be ingested as an upstream table.
 

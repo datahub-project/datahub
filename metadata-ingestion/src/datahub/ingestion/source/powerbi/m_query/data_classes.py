@@ -76,3 +76,4 @@ class FunctionName(Enum):
     DATABRICK_MULTI_CLOUD_DATA_ACCESS = "DatabricksMultiCloud.Catalogs"
     MYSQL_DATA_ACCESS = "MySQL.Database"
     ODBC_DATA_ACCESS = "Odbc.DataSource"
+    ODBC_QUERY = "Odbc.Query"
