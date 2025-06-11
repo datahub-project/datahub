@@ -238,7 +238,7 @@ def test_sync_smart_freshness_assertion_calls_create_assertion_if_urn_is_not_set
     mock_upsert = MagicMock()
     freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
     mock_create_assertion = MagicMock()
-    client.create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+    client._create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=None,
@@ -316,7 +316,7 @@ def test_sync_smart_freshness_assertion_calls_create_if_assertion_and_monitor_en
             tags=[],
         )
     )
-    client.create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+    client._create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
@@ -770,7 +770,7 @@ def test_sync_smart_freshness_assertion_enabled_calls_create_with_enabled_when_u
     client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
     # Mock the create method to verify it's called with enabled parameter
-    with patch.object(client, "create_smart_freshness_assertion") as mock_create:
+    with patch.object(client, "_create_smart_freshness_assertion") as mock_create:
         mock_create.return_value = MagicMock()  # Return a mock assertion
 
         client.sync_smart_freshness_assertion(
@@ -1195,7 +1195,7 @@ def test_smart_freshness_assertion_create_case_uses_default_hourly_schedule(
     freshness_stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
 
     # Create assertion - should use default hourly schedule
-    assertion = client.create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
+    assertion = client._create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
 
     # Verify the assertion has the default hourly schedule
     assert assertion.schedule.cron == DEFAULT_SCHEDULE.cron  # "0 * * * *" (hourly)
@@ -1272,7 +1272,7 @@ def test_assertion_entity_schedule_left_empty_for_ai_inference_engine(
     freshness_stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign]
 
     # Create assertion using public interface
-    client.create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
+    client._create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
 
     # Verify two entities were created (assertion + monitor)
     assert len(created_entities) == 2
