@@ -1,4 +1,4 @@
-.python-sdk {
+.sphinx-api-docs {
   font-size: 16px;
   line-height: 1.6;
   color: var(--ifm-font-color-base);
@@ -107,20 +107,20 @@
   em > code {
     color: #c678dd;
   }
-}
 
+  // code styling
+    code {
 
-// code styling 
-code {
-
-  &:has(span) {
-    padding: 1rem;
-    background-color: var(--ifm-code-background);
-    span {
-      color: var(--ifm-font-color-base);
+      &:has(span) {
+        padding: 1rem;
+        background-color: var(--ifm-code-background);
+        span {
+          color: var(--ifm-font-color-base);
+        }
+      }
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.9em;
     }
-  }
-  padding: 0.15rem 0.4rem;
-  border-radius: 4px;
-  font-size: 0.9em;
 }
+
