@@ -162,7 +162,10 @@ public enum DataHubUsageEventType {
   CLICK_VIEW_DOCUMENTATION_EVENT("ClickViewDocumentationEvent"),
   SSO_CONFIGURATION_EVENT("SSOConfigurationEvent"),
   CHATBOT_INTERACTION_EVENT("ChatbotInteractionEvent"),
-  CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedbackEvent");
+  CHATBOT_INTERACTION_FEEDBACK_EVENT("ChatbotInteractionFeedbackEvent"),
+  CREATE_ACTION_EVENT("CreateActionEvent"),
+  UPDATE_ACTION_EVENT("UpdateActionEvent"),
+  DELETE_ACTION_EVENT("DeleteActionEvent");
 
   private final String type;
 

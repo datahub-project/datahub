@@ -254,7 +254,7 @@ const connectionSelector: Field = {
             // Available Component Props to customize the component
             // You can set default values for the props here
             props: {
-                connectionTypes: ['snowflake', 'bigquery'],
+                connectionTypes: ['snowflake', 'bigquery', 'databricks'],
             },
 
             // State mapping to connect form data to the component's state

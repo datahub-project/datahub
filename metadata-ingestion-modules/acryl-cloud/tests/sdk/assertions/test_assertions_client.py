@@ -25,6 +25,7 @@ from acryl_datahub_cloud.sdk.assertion_input import (
     InferenceSensitivity,
     _DetectionMechanismTypes,
     _SmartFreshnessAssertionInput,
+    _SmartVolumeAssertionInput,
 )
 from acryl_datahub_cloud.sdk.assertions_client import (
     DEFAULT_CREATED_BY,
@@ -41,7 +42,7 @@ from acryl_datahub_cloud.sdk.errors import (
     SDKUsageErrorWithExamples,
 )
 from datahub.emitter.mce_builder import make_ts_millis
-from datahub.errors import SdkUsageError
+from datahub.errors import ItemNotFoundError, SdkUsageError
 from datahub.metadata.urns import (
     AssertionUrn,
     CorpUserUrn,
@@ -213,16 +214,16 @@ class SmartFreshnessAssertionOutputParams:
     ],
 )
 def test_create_smart_freshness_assertion_valid_simple_input(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     input_params: SmartFreshnessAssertionInputParams,
     expected_output_params: SmartFreshnessAssertionOutputParams,
 ) -> None:
     # Arrange
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     # Act
-    assertion = client.create_smart_freshness_assertion(**asdict(input_params))
+    assertion = client._create_smart_freshness_assertion(**asdict(input_params))
 
     # Assert
     _validate_assertion_vs_input(assertion, input_params, expected_output_params)
@@ -301,14 +302,14 @@ _OTHER_OUTPUT_PARAMS: OtherOutputParams = {
     ],
 )
 def test_create_smart_freshness_assertion_valid_complex_detection_mechanism_input(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     input_params: SmartFreshnessAssertionInputParams,
     field_spec_type: str,
     field_spec_kind: models.FreshnessFieldKindClass,
     expected_output_params: SmartFreshnessAssertionOutputParams,
 ) -> None:
     # Arrange
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     with patch.object(
         _SmartFreshnessAssertionInput, "_create_field_spec", new_callable=MagicMock
@@ -321,19 +322,19 @@ def test_create_smart_freshness_assertion_valid_complex_detection_mechanism_inpu
         )
 
         # Act
-        assertion = client.create_smart_freshness_assertion(**asdict(input_params))
+        assertion = client._create_smart_freshness_assertion(**asdict(input_params))
 
     # Assert
     _validate_assertion_vs_input(assertion, input_params, expected_output_params)
 
 
 def test_create_smart_freshness_assertion_entities_client_called(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_create = MagicMock()
     client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
-    assertion = client.create_smart_freshness_assertion(
+    assertion = client._create_smart_freshness_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
     )
     assert mock_create.call_count == 2
@@ -422,15 +423,15 @@ def test_create_smart_freshness_assertion_entities_client_called(
     ],
 )
 def test_create_smart_freshness_assertion_invalid_input(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     input_params: SmartFreshnessAssertionInputParams,
     error_type: Type[Exception],
     expected_error_message: str,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     with pytest.raises(error_type, match=expected_error_message):
-        client.create_smart_freshness_assertion(**asdict(input_params))
+        client._create_smart_freshness_assertion(**asdict(input_params))
 
 
 @freeze_time(FROZEN_TIME)
@@ -442,17 +443,17 @@ def test_create_smart_freshness_assertion_invalid_input(
     ],
 )
 def test_create_smart_freshness_assertion_enabled_parameter(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     enabled: bool,
     expected_monitor_mode: models.MonitorModeClass,
 ) -> None:
     """Test that the enabled parameter controls the monitor mode correctly."""
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_create = MagicMock()
     client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
 
-    client.create_smart_freshness_assertion(
+    client._create_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         enabled=enabled,
     )
@@ -467,16 +468,16 @@ def test_create_smart_freshness_assertion_enabled_parameter(
 
 @freeze_time(FROZEN_TIME)
 def test_create_smart_freshness_assertion_enabled_defaults_to_true(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
     """Test that the enabled parameter defaults to True when not specified."""
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_create = MagicMock()
     client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
 
     # Don't specify enabled parameter
-    client.create_smart_freshness_assertion(
+    client._create_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
     )
 
@@ -502,92 +503,6 @@ class SmartFreshnessAssertionUpsertInputParams:
 
 
 @freeze_time(FROZEN_TIME)
-def test_upsert_smart_freshness_assertion_valid_simple_input(
-    stub_datahub_client: StubDataHubClient,
-    any_dataset_urn: DatasetUrn,
-    any_monitor_urn: MonitorUrn,
-    any_assertion_urn: AssertionUrn,
-    monitor_with_all_fields: Monitor,
-    assertion_entity_with_all_fields: Assertion,
-) -> None:
-    """Test with all fields set to default values."""
-
-    # Arrange
-    input_params = SmartFreshnessAssertionUpsertInputParams(
-        dataset_urn=any_dataset_urn,
-        urn=any_assertion_urn,
-    )
-    mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
-
-    # Act
-    assertion = client.upsert_smart_freshness_assertion(**asdict(input_params))
-
-    # Assert
-    _validate_assertion_vs_input(
-        assertion,
-        input_params,
-        SmartFreshnessAssertionOutputParams(
-            dataset_urn=input_params.dataset_urn,
-            display_name=input_params.display_name or "",
-            detection_mechanism=DEFAULT_DETECTION_MECHANISM,  # Default
-            sensitivity=DEFAULT_SENSITIVITY,  # Default
-            exclusion_windows=[],  # Default
-            training_data_lookback_days=ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,  # Default
-            incident_behavior=[],  # Default
-            tags=[],  # Default
-            created_by=DEFAULT_CREATED_BY,
-            created_at=FROZEN_TIME,
-            updated_by=DEFAULT_CREATED_BY,
-            updated_at=FROZEN_TIME,
-        ),
-    )
-
-    assert mock_upsert.call_count == 2
-
-    called_with_assertion = mock_upsert.call_args_list[0][0][0]
-    assert called_with_assertion.urn == any_assertion_urn
-    assert isinstance(called_with_assertion.info, models.FreshnessAssertionInfoClass)
-    assert isinstance(
-        assertion_entity_with_all_fields.info, models.FreshnessAssertionInfoClass
-    )
-    assert called_with_assertion.info.type == assertion_entity_with_all_fields.info.type
-    assert (
-        called_with_assertion.info.entity
-        == assertion_entity_with_all_fields.info.entity
-    )
-
-    called_with_monitor = mock_upsert.call_args_list[1][0][0]
-    assert called_with_monitor.urn == any_monitor_urn
-    assert called_with_monitor.info.type == monitor_with_all_fields.info.type
-    assert (
-        called_with_monitor.info.status.mode == monitor_with_all_fields.info.status.mode
-    )
-    assert called_with_monitor.info.assertionMonitor.assertions[0].assertion == str(
-        assertion_entity_with_all_fields.urn
-    )
-    assert (
-        called_with_monitor.info.assertionMonitor.assertions[0].schedule.cron
-        == DEFAULT_SCHEDULE.cron
-    )
-    assert (
-        called_with_monitor.info.assertionMonitor.assertions[0].schedule.timezone
-        == DEFAULT_SCHEDULE.timezone
-    )
-    assert (
-        called_with_monitor.info.assertionMonitor.assertions[0].parameters.type
-        == models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS
-    )
-    assert (
-        called_with_monitor.info.assertionMonitor.assertions[
-            0
-        ].parameters.datasetFreshnessParameters.sourceType
-        == models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA
-    )
-
-
-@freeze_time(FROZEN_TIME)
 @pytest.mark.parametrize(
     "detection_mechanism, expected_detection_mechanism",
     [
@@ -610,195 +525,6 @@ def test_upsert_smart_freshness_assertion_valid_simple_input(
         ),
     ],
 )
-def test_upsert_smart_freshness_assertion_valid_full_input(
-    stub_datahub_client: StubDataHubClient,
-    any_dataset_urn: DatasetUrn,
-    any_monitor_urn: MonitorUrn,
-    any_assertion_urn: AssertionUrn,
-    monitor_with_all_fields: Monitor,
-    assertion_entity_with_all_fields: Assertion,
-    detection_mechanism: DetectionMechanismInputTypes,
-    expected_detection_mechanism: _DetectionMechanismTypes,
-) -> None:
-    """Test with all fields set to default values."""
-
-    # Arrange
-    input_params = SmartFreshnessAssertionUpsertInputParams(
-        dataset_urn=any_dataset_urn,
-        urn=any_assertion_urn,
-        display_name="test_display_name",
-        detection_mechanism=detection_mechanism,
-        sensitivity=InferenceSensitivity.HIGH,  # Not default
-        exclusion_windows=[
-            FixedRangeExclusionWindow(
-                start=datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
-                end=datetime(2025, 1, 2, 0, 0, 0, tzinfo=timezone.utc),
-            )
-        ],
-        training_data_lookback_days=99,  # Not default
-        incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],  # Not default
-        tags=[TagUrn.from_string("urn:li:tag:test_tag")],  # Not default
-        updated_by=CorpUserUrn.from_string("urn:li:corpuser:test_user"),  # Not default
-    )
-    mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
-
-    # Act
-    field_name = "field"
-    field_type = "DateTypeClass"
-    with patch.object(
-        _SmartFreshnessAssertionInput, "_create_field_spec", new_callable=MagicMock
-    ) as mock_create_field_spec:
-        mock_create_field_spec.return_value = models.FreshnessFieldSpecClass(
-            path=field_name,
-            type=field_type,
-            nativeType="nativeType",
-            kind=models.FreshnessFieldKindClass.LAST_MODIFIED,
-        )
-        assertion = client.upsert_smart_freshness_assertion(**asdict(input_params))
-
-    # Assert
-    _validate_assertion_vs_input(
-        assertion,
-        input_params,
-        SmartFreshnessAssertionOutputParams(
-            dataset_urn=input_params.dataset_urn,
-            display_name=input_params.display_name or "",
-            detection_mechanism=expected_detection_mechanism,
-            sensitivity=InferenceSensitivity.HIGH,
-            exclusion_windows=[
-                FixedRangeExclusionWindow(
-                    start=datetime(2025, 1, 1, 0, 0, 0, tzinfo=timezone.utc),
-                    end=datetime(2025, 1, 2, 0, 0, 0, tzinfo=timezone.utc),
-                )
-            ],
-            training_data_lookback_days=99,
-            incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
-            tags=[TagUrn.from_string("urn:li:tag:test_tag")],
-            created_by=CorpUserUrn.from_string("urn:li:corpuser:test_user"),
-            created_at=FROZEN_TIME,
-            updated_by=CorpUserUrn.from_string("urn:li:corpuser:test_user"),
-            updated_at=FROZEN_TIME,
-        ),
-    )
-
-    assert mock_upsert.call_count == 2
-
-    called_with_assertion = mock_upsert.call_args_list[0][0][0]
-    assert called_with_assertion.urn == any_assertion_urn
-    assert isinstance(called_with_assertion.info, models.FreshnessAssertionInfoClass)
-    assert isinstance(
-        assertion_entity_with_all_fields.info, models.FreshnessAssertionInfoClass
-    )
-    assert called_with_assertion.info.type == assertion_entity_with_all_fields.info.type
-    assert (
-        called_with_assertion.info.entity
-        == assertion_entity_with_all_fields.info.entity
-    )
-
-    called_with_monitor = mock_upsert.call_args_list[1][0][0]
-    assert called_with_monitor.urn == any_monitor_urn
-    assert called_with_monitor.info.type == monitor_with_all_fields.info.type
-    assert (
-        called_with_monitor.info.status.mode == monitor_with_all_fields.info.status.mode
-    )
-    assert called_with_monitor.info.assertionMonitor.assertions[0].assertion == str(
-        assertion_entity_with_all_fields.urn
-    )
-    assert (
-        called_with_monitor.info.assertionMonitor.assertions[0].schedule.cron
-        == DEFAULT_SCHEDULE.cron
-    )
-    assert (
-        called_with_monitor.info.assertionMonitor.assertions[0].schedule.timezone
-        == DEFAULT_SCHEDULE.timezone
-    )
-    assert (
-        called_with_monitor.info.assertionMonitor.assertions[0].parameters.type
-        == models.AssertionEvaluationParametersTypeClass.DATASET_FRESHNESS
-    )
-    if expected_detection_mechanism == DetectionMechanism.INFORMATION_SCHEMA:
-        assert (
-            called_with_monitor.info.assertionMonitor.assertions[
-                0
-            ].parameters.datasetFreshnessParameters.sourceType
-            == models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA
-        )
-    if expected_detection_mechanism == DetectionMechanism.LAST_MODIFIED_COLUMN(
-        column_name="last_modified", additional_filter="last_modified > '2021-01-01'"
-    ):
-        assert (
-            called_with_monitor.info.assertionMonitor.assertions[
-                0
-            ].parameters.datasetFreshnessParameters.sourceType
-            == models.DatasetFreshnessSourceTypeClass.FIELD_VALUE
-        )
-
-
-@pytest.mark.parametrize(
-    "urn, expected_create_assertion_call_count, expected_upsert_entity_call_count",
-    [
-        pytest.param(None, 1, 0, id="urn_is_none"),
-        pytest.param(_any_assertion_urn, 0, 2, id="urn_is_not_none"),
-    ],
-)
-def test_upsert_smart_freshness_assertion_calls_create_assertion_if_urn_is_not_set(
-    stub_datahub_client: StubDataHubClient,
-    any_dataset_urn: DatasetUrn,
-    urn: Optional[Union[str, AssertionUrn]],
-    expected_create_assertion_call_count: int,
-    expected_upsert_entity_call_count: int,
-) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_upsert_entity = MagicMock()
-    client.client.entities.upsert = mock_upsert_entity  # type: ignore[method-assign] # Override for testing
-    mock_create_assertion = MagicMock()
-    client.create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
-    client.upsert_smart_freshness_assertion(
-        dataset_urn=any_dataset_urn,
-        urn=urn,
-    )
-    assert mock_create_assertion.call_count == expected_create_assertion_call_count
-    assert mock_upsert_entity.call_count == expected_upsert_entity_call_count
-    if urn is None:
-        assert mock_create_assertion.call_args[1]["dataset_urn"] == any_dataset_urn
-
-
-@pytest.mark.parametrize(
-    "updated_by, expected_updated_by",
-    [
-        pytest.param(None, DEFAULT_CREATED_BY, id="no_updated_by_set"),
-        pytest.param(
-            CorpUserUrn.from_string("urn:li:corpuser:test_user"),
-            CorpUserUrn.from_string("urn:li:corpuser:test_user"),
-            id="updated_by_set",
-        ),
-    ],
-)
-def test_upsert_smart_freshness_assertion_uses_default_if_updated_by_is_not_set(
-    stub_datahub_client: StubDataHubClient,
-    any_dataset_urn: DatasetUrn,
-    any_assertion_urn: AssertionUrn,
-    updated_by: Optional[CorpUserUrn],
-    expected_updated_by: CorpUserUrn,
-) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
-    mock_create_assertion = MagicMock()
-    client.client.entities.create = mock_create_assertion  # type: ignore[method-assign] # Override for testing
-    mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-
-    client.upsert_smart_freshness_assertion(
-        dataset_urn=any_dataset_urn,
-        urn=any_assertion_urn,
-        updated_by=updated_by,
-    )
-    assertion_entity_upserted = mock_upsert.call_args_list[0][0][0]
-    assert assertion_entity_upserted.last_updated.actor == str(expected_updated_by)
-    assert mock_create_assertion.call_count == 0
-
-
 def _validate_assertion_vs_input(
     assertion: SmartFreshnessAssertion,
     input_params: Union[
@@ -991,16 +717,16 @@ class SmartVolumeAssertionOutputParams:
     ],
 )
 def test_create_smart_volume_assertion_valid_simple_input(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     input_params: SmartVolumeAssertionInputParams,
     expected_output_params: SmartVolumeAssertionOutputParams,
 ) -> None:
     # Arrange
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     # Act
-    assertion = client.create_smart_volume_assertion(**asdict(input_params))
+    assertion = client._create_smart_volume_assertion(**asdict(input_params))
 
     # Assert
     _validate_volume_assertion_vs_input(assertion, input_params, expected_output_params)
@@ -1028,16 +754,16 @@ def test_create_smart_volume_assertion_valid_simple_input(
     ],
 )
 def test_create_smart_volume_assertion_valid_complex_detection_mechanism_input(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     detection_mechanism: DetectionMechanismInputTypes,
     expected_detection_mechanism: _DetectionMechanismTypes,
 ) -> None:
     # Arrange
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
 
     # Act
-    assertion = client.create_smart_volume_assertion(
+    assertion = client._create_smart_volume_assertion(
         dataset_urn=_any_dataset_urn,
         display_name="Test Assertion",
         detection_mechanism=detection_mechanism,
@@ -1048,12 +774,12 @@ def test_create_smart_volume_assertion_valid_complex_detection_mechanism_input(
 
 
 def test_create_smart_volume_assertion_entities_client_called(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_create = MagicMock()
     client.client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
-    assertion = client.create_smart_volume_assertion(
+    assertion = client._create_smart_volume_assertion(
         dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
     )
     assert mock_create.call_count == 2
@@ -1140,15 +866,15 @@ def test_create_smart_volume_assertion_entities_client_called(
     ],
 )
 def test_create_smart_volume_assertion_invalid_input(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     input_params: SmartVolumeAssertionInputParams,
     error_type: Type[Exception],
     expected_error_message: str,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     with pytest.raises(error_type, match=expected_error_message):
-        client.create_smart_volume_assertion(**asdict(input_params))
+        client._create_smart_volume_assertion(**asdict(input_params))
 
 
 @dataclass
@@ -1167,13 +893,45 @@ class SmartVolumeAssertionUpsertInputParams:
 
 
 @freeze_time(FROZEN_TIME)
-def test_upsert_smart_volume_assertion_valid_simple_input(
-    stub_datahub_client: StubDataHubClient,
+def test_sync_smart_volume_assertion_valid_simple_input(
+    volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_monitor_urn: MonitorUrn,
     any_assertion_urn: AssertionUrn,
+    volume_assertion_entity_with_all_fields: Assertion,
+    volume_monitor_with_all_fields: Monitor,
 ) -> None:
     """Test with all fields set to default values."""
+
+    # MyPy assertions - we know these are not None from the fixtures
+    assert volume_assertion_entity_with_all_fields.description is not None
+    assert volume_assertion_entity_with_all_fields.source is not None
+    assert volume_assertion_entity_with_all_fields.source.created is not None
+    assert volume_assertion_entity_with_all_fields.source.created.actor is not None
+    assert volume_assertion_entity_with_all_fields.source.created.time is not None
+    assert volume_monitor_with_all_fields.info is not None
+    assert volume_monitor_with_all_fields.info.assertionMonitor is not None
+    assert volume_monitor_with_all_fields.info.assertionMonitor.settings is not None
+    assert (
+        volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings
+        is not None
+    )
+    assert (
+        volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.trainingDataLookbackWindowDays
+        is not None
+    )
+    assert (
+        volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.sensitivity
+        is not None
+    )
+    assert (
+        volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.sensitivity.level
+        is not None
+    )
+    assert (
+        volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
+        is not None
+    )
 
     # Arrange
     input_params = SmartVolumeAssertionUpsertInputParams(
@@ -1181,11 +939,11 @@ def test_upsert_smart_volume_assertion_valid_simple_input(
         urn=any_assertion_urn,
     )
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    volume_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    client = AssertionsClient(volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
     # Act
-    assertion = client.upsert_smart_volume_assertion(**asdict(input_params))
+    assertion = client.sync_smart_volume_assertion(**asdict(input_params))
 
     # Assert
     _validate_volume_assertion_vs_input(
@@ -1193,15 +951,29 @@ def test_upsert_smart_volume_assertion_valid_simple_input(
         input_params,
         SmartVolumeAssertionOutputParams(
             dataset_urn=input_params.dataset_urn,
-            display_name=input_params.display_name or "",
+            display_name=volume_assertion_entity_with_all_fields.description,  # From fixture, preserved by merge
             detection_mechanism=DEFAULT_DETECTION_MECHANISM,  # Default
-            sensitivity=DEFAULT_SENSITIVITY,  # Default
-            exclusion_windows=[],  # Default
-            training_data_lookback_days=ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS,  # Default
-            incident_behavior=[],  # Default
-            tags=[],  # Default
-            created_by=DEFAULT_CREATED_BY,
-            created_at=FROZEN_TIME,
+            sensitivity=InferenceSensitivity.LOW,  # From fixture, preserved by merge (level=1 maps to LOW)
+            exclusion_windows=[  # From fixture, preserved by merge
+                FixedRangeExclusionWindow(
+                    start=datetime(2021, 1, 1, tzinfo=timezone.utc),
+                    end=datetime(2021, 1, 2, tzinfo=timezone.utc),
+                )
+            ],
+            training_data_lookback_days=volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.trainingDataLookbackWindowDays,  # From fixture, preserved by merge
+            incident_behavior=[  # From fixture, preserved by merge
+                AssertionIncidentBehavior.RAISE_ON_FAIL,
+                AssertionIncidentBehavior.RESOLVE_ON_PASS,
+            ],
+            tags=[
+                TagUrn.from_string("urn:li:tag:smart_volume_assertion_tag")
+            ],  # From fixture, preserved by merge
+            created_by=CorpUserUrn.from_string(
+                volume_assertion_entity_with_all_fields.source.created.actor
+            ),
+            created_at=datetime(
+                2021, 1, 1, tzinfo=timezone.utc
+            ),  # From fixture, preserved by merge
             updated_by=DEFAULT_CREATED_BY,
             updated_at=FROZEN_TIME,
             schedule=DEFAULT_SCHEDULE,
@@ -1218,13 +990,31 @@ def test_upsert_smart_volume_assertion_valid_simple_input(
         == models.VolumeAssertionTypeClass.ROW_COUNT_TOTAL
     )
     assert called_with_assertion.info.entity == str(any_dataset_urn)
-    assert called_with_assertion.on_success == []
-    assert called_with_assertion.on_failure == []
-    assert called_with_assertion.tags is None
-    assert called_with_assertion.source.created.time == make_ts_millis(FROZEN_TIME)
-    assert called_with_assertion.source.created.actor == str(DEFAULT_CREATED_BY)
-    assert called_with_assertion.last_updated.time == make_ts_millis(FROZEN_TIME)
-    assert called_with_assertion.last_updated.actor == str(DEFAULT_CREATED_BY)
+    assert (
+        called_with_assertion.on_success
+        == volume_assertion_entity_with_all_fields.on_success
+    )  # From fixture, preserved by merge
+    assert (
+        called_with_assertion.on_failure
+        == volume_assertion_entity_with_all_fields.on_failure
+    )  # From fixture, preserved by merge
+    assert (
+        called_with_assertion.tags == volume_assertion_entity_with_all_fields.tags
+    )  # From fixture, preserved by merge
+    assert (
+        called_with_assertion.source.created.time
+        == volume_assertion_entity_with_all_fields.source.created.time
+    )  # From fixture, preserved by merge
+    assert (
+        called_with_assertion.source.created.actor
+        == volume_assertion_entity_with_all_fields.source.created.actor
+    )  # From fixture, preserved by merge
+    assert called_with_assertion.last_updated.time == make_ts_millis(
+        FROZEN_TIME
+    )  # New update time
+    assert called_with_assertion.last_updated.actor == str(
+        DEFAULT_CREATED_BY
+    )  # New update actor
 
     called_with_monitor = mock_upsert.call_args_list[1][0][0]
     assert called_with_monitor.urn == any_monitor_urn
@@ -1249,15 +1039,16 @@ def test_upsert_smart_volume_assertion_valid_simple_input(
     )
     assert (
         called_with_monitor.info.assertionMonitor.settings.adjustmentSettings.sensitivity.level
-        == InferenceSensitivity.to_int(DEFAULT_SENSITIVITY)
+        == volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.sensitivity.level
     )
-    assert (
+    assert len(
         called_with_monitor.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
-        == []
+    ) == len(
+        volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
     )
     assert (
         called_with_monitor.info.assertionMonitor.settings.adjustmentSettings.trainingDataLookbackWindowDays
-        == ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS
+        == volume_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.trainingDataLookbackWindowDays
     )
 
 
@@ -1292,17 +1083,22 @@ def test_upsert_smart_volume_assertion_valid_simple_input(
         ),
     ],
 )
-def test_upsert_smart_volume_assertion_valid_full_input(
-    stub_datahub_client: StubDataHubClient,
+def test_sync_smart_volume_assertion_valid_full_input(
+    volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_monitor_urn: MonitorUrn,
     any_assertion_urn: AssertionUrn,
-    monitor_with_all_fields: Monitor,
-    assertion_entity_with_all_fields: Assertion,
+    volume_monitor_with_all_fields: Monitor,
+    volume_assertion_entity_with_all_fields: Assertion,
     detection_mechanism: DetectionMechanismInputTypes,
     expected_detection_mechanism: _DetectionMechanismTypes,
 ) -> None:
     """Test with all fields set to default values."""
+
+    # MyPy assertions - we know these are not None from the fixtures
+    assert volume_assertion_entity_with_all_fields.source is not None
+    assert volume_assertion_entity_with_all_fields.source.created is not None
+    assert volume_assertion_entity_with_all_fields.source.created.actor is not None
 
     # Arrange
     input_params = SmartVolumeAssertionUpsertInputParams(
@@ -1326,13 +1122,16 @@ def test_upsert_smart_volume_assertion_valid_full_input(
         ),  # Not default
     )
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    volume_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    client = AssertionsClient(volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
     # Act
-    assertion = client.upsert_smart_volume_assertion(**asdict(input_params))
+    assertion = client.sync_smart_volume_assertion(**asdict(input_params))
 
     # Assert
+    assert isinstance(
+        input_params.schedule, models.CronScheduleClass
+    )  # We know it's CronScheduleClass in this test
     _validate_volume_assertion_vs_input(
         assertion,
         input_params,
@@ -1350,11 +1149,15 @@ def test_upsert_smart_volume_assertion_valid_full_input(
             training_data_lookback_days=99,
             incident_behavior=[AssertionIncidentBehavior.RAISE_ON_FAIL],
             tags=[TagUrn.from_string("urn:li:tag:test_tag")],
-            created_by=CorpUserUrn.from_string("urn:li:corpuser:test_user"),
-            created_at=FROZEN_TIME,
+            created_by=CorpUserUrn.from_string(
+                volume_assertion_entity_with_all_fields.source.created.actor
+            ),
+            created_at=datetime(
+                2021, 1, 1, tzinfo=timezone.utc
+            ),  # From fixture, preserved by merge
             updated_by=CorpUserUrn.from_string("urn:li:corpuser:test_user"),
             updated_at=FROZEN_TIME,
-            schedule=models.CronScheduleClass(cron="0 * * * *", timezone="UTC"),
+            schedule=input_params.schedule,
         ),
     )
 
@@ -1377,7 +1180,11 @@ def test_upsert_smart_volume_assertion_valid_full_input(
     assert called_with_monitor.info.assertionMonitor.assertions[0].assertion == str(
         any_assertion_urn
     )
-    assert isinstance(input_params.schedule, models.CronScheduleClass)
+    # Schedule is updated from input parameters for volume assertions
+    assert input_params.schedule is not None  # We know it's set in this test
+    assert isinstance(
+        input_params.schedule, models.CronScheduleClass
+    )  # We know it's CronScheduleClass in this test
     assert (
         called_with_monitor.info.assertionMonitor.assertions[0].schedule.cron
         == input_params.schedule.cron
@@ -1399,19 +1206,19 @@ def test_upsert_smart_volume_assertion_valid_full_input(
         pytest.param(_any_assertion_urn, 0, 2, id="urn_is_not_none"),
     ],
 )
-def test_upsert_smart_volume_assertion_calls_create_assertion_if_urn_is_not_set(
-    stub_datahub_client: StubDataHubClient,
+def test_sync_smart_volume_assertion_calls_create_assertion_if_urn_is_not_set(
+    volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     urn: Optional[Union[str, AssertionUrn]],
     expected_create_assertion_call_count: int,
     expected_upsert_entity_call_count: int,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert_entity = MagicMock()
     client.client.entities.upsert = mock_upsert_entity  # type: ignore[method-assign] # Override for testing
     mock_create_assertion = MagicMock()
-    client.create_smart_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
-    client.upsert_smart_volume_assertion(
+    client._create_smart_volume_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+    client.sync_smart_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=urn,
     )
@@ -1432,20 +1239,20 @@ def test_upsert_smart_volume_assertion_calls_create_assertion_if_urn_is_not_set(
         ),
     ],
 )
-def test_upsert_smart_volume_assertion_uses_default_if_updated_by_is_not_set(
-    stub_datahub_client: StubDataHubClient,
+def test_sync_smart_volume_assertion_uses_default_if_updated_by_is_not_set(
+    volume_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
     updated_by: Optional[CorpUserUrn],
     expected_updated_by: CorpUserUrn,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(volume_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_create_assertion = MagicMock()
     client.client.entities.create = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    volume_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
-    client.upsert_smart_volume_assertion(
+    client.sync_smart_volume_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
         updated_by=updated_by,
@@ -1465,10 +1272,20 @@ def _validate_volume_assertion_vs_input(
     if input_params.display_name is not None:
         assert assertion.display_name == expected_output_params.display_name
     else:
-        assert assertion.display_name.startswith(
-            "New Assertion"
-        )  # Generated display name
-        assert len(assertion.display_name) == GENERATED_DISPLAY_NAME_LENGTH
+        # For sync/upsert operations, we might preserve existing display name
+        # For create operations, we generate new display names
+        if (
+            isinstance(input_params, SmartVolumeAssertionUpsertInputParams)
+            and input_params.urn is not None
+        ):
+            # Sync/merge case - check against expected (might be preserved from existing)
+            assert assertion.display_name == expected_output_params.display_name
+        else:
+            # Create case - check for generated display name
+            assert assertion.display_name.startswith(
+                "New Assertion"
+            )  # Generated display name
+            assert len(assertion.display_name) == GENERATED_DISPLAY_NAME_LENGTH
     assert isinstance(
         assertion.detection_mechanism, _DETECTION_MECHANISM_CONCRETE_TYPES
     )
@@ -1490,3 +1307,177 @@ def _validate_volume_assertion_vs_input(
     assert assertion.updated_at == expected_output_params.updated_at
     assert assertion.schedule.cron == expected_output_params.schedule.cron
     assert assertion.schedule.timezone == expected_output_params.schedule.timezone
+
+
+@dataclass
+class RetrieveAssertionAndMonitorTestParams:
+    assertion_exists: bool
+    monitor_exists: bool
+    assertion_input_spec: Type
+    urn_is_none: bool = False
+    expected_error: Optional[Type[Exception]] = None
+    expected_error_message: Optional[str] = None
+
+
+# Test _retrieve_assertion_and_monitor method directly
+@pytest.mark.parametrize(
+    "test_params",
+    [
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=True,
+                monitor_exists=True,
+                assertion_input_spec=_SmartFreshnessAssertionInput,
+            ),
+            id="both_exist_freshness",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=True,
+                monitor_exists=True,
+                assertion_input_spec=_SmartVolumeAssertionInput,
+            ),
+            id="both_exist_volume",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=True,
+                monitor_exists=False,
+                assertion_input_spec=_SmartFreshnessAssertionInput,
+            ),
+            id="assertion_only_freshness",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=True,
+                monitor_exists=False,
+                assertion_input_spec=_SmartVolumeAssertionInput,
+            ),
+            id="assertion_only_volume",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=False,
+                monitor_exists=True,
+                assertion_input_spec=_SmartFreshnessAssertionInput,
+            ),
+            id="monitor_only_freshness",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=False,
+                monitor_exists=True,
+                assertion_input_spec=_SmartVolumeAssertionInput,
+            ),
+            id="monitor_only_volume",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=False,
+                monitor_exists=False,
+                assertion_input_spec=_SmartFreshnessAssertionInput,
+            ),
+            id="neither_exist_freshness",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=False,
+                monitor_exists=False,
+                assertion_input_spec=_SmartVolumeAssertionInput,
+            ),
+            id="neither_exist_volume",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=False,
+                monitor_exists=False,
+                assertion_input_spec=_SmartFreshnessAssertionInput,
+                urn_is_none=True,
+                expected_error=AssertionError,
+                expected_error_message="URN is required",
+            ),
+            id="urn_is_none_freshness",
+        ),
+        pytest.param(
+            RetrieveAssertionAndMonitorTestParams(
+                assertion_exists=False,
+                monitor_exists=False,
+                assertion_input_spec=_SmartVolumeAssertionInput,
+                urn_is_none=True,
+                expected_error=AssertionError,
+                expected_error_message="URN is required",
+            ),
+            id="urn_is_none_volume",
+        ),
+    ],
+)
+def test_retrieve_assertion_and_monitor(
+    freshness_stub_datahub_client: StubDataHubClient,
+    any_dataset_urn: DatasetUrn,
+    any_assertion_urn: AssertionUrn,
+    any_monitor_urn: MonitorUrn,
+    freshness_assertion_entity_with_all_fields: Assertion,
+    freshness_monitor_with_all_fields: Monitor,
+    test_params: RetrieveAssertionAndMonitorTestParams,
+) -> None:
+    """Test _retrieve_assertion_and_monitor with different existence scenarios and input types."""
+    # Arrange
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
+
+    # Create mock assertion input using fixture values
+    assertion_urn = None if test_params.urn_is_none else any_assertion_urn
+    assertion_input = MagicMock(
+        spec=test_params.assertion_input_spec,
+        urn=assertion_urn,
+        dataset_urn=any_dataset_urn,
+    )
+
+    # Mock entity retrieval based on existence flags
+    def mock_get_entity(urn) -> Union[Assertion, Monitor, None]:  # type: ignore[no-untyped-def]
+        if assertion_urn and str(urn) == str(assertion_urn):
+            if test_params.assertion_exists:
+                return freshness_assertion_entity_with_all_fields
+            else:
+                raise ItemNotFoundError("Assertion not found")
+        elif str(urn) == str(any_monitor_urn):
+            if test_params.monitor_exists:
+                return freshness_monitor_with_all_fields
+            else:
+                raise ItemNotFoundError("Monitor not found")
+        else:
+            raise ItemNotFoundError("Entity not found")
+
+    freshness_stub_datahub_client.entities.get = mock_get_entity  # type: ignore[method-assign]
+
+    # Act & Assert
+    if test_params.expected_error:
+        with pytest.raises(
+            test_params.expected_error, match=test_params.expected_error_message
+        ):
+            client._retrieve_assertion_and_monitor(assertion_input)
+        return
+
+    # Normal execution path
+    maybe_assertion_entity, monitor_urn, maybe_monitor_entity = (
+        client._retrieve_assertion_and_monitor(assertion_input)
+    )
+
+    # Assert results
+    if test_params.assertion_exists:
+        assert maybe_assertion_entity is not None
+        assert maybe_assertion_entity.urn == assertion_urn
+        assert isinstance(maybe_assertion_entity, Assertion)
+    else:
+        assert maybe_assertion_entity is None
+
+    if test_params.monitor_exists:
+        assert maybe_monitor_entity is not None
+        assert maybe_monitor_entity.urn == any_monitor_urn
+        assert isinstance(maybe_monitor_entity, Monitor)
+    else:
+        assert maybe_monitor_entity is None
+
+    # Monitor URN should always be generated correctly
+    assert monitor_urn == any_monitor_urn
+    if assertion_urn:  # Only check format if urn is not None
+        assert str(monitor_urn).endswith(f"({any_dataset_urn},{assertion_urn})")

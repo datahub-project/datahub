@@ -1,10 +1,6 @@
 package com.linkedin.metadata.search.utils;
 
-import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -13,6 +9,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -68,10 +65,7 @@ import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import org.opensearch.index.query.QueryBuilder;
@@ -106,6 +100,23 @@ public class ESAccessControlUtilTest {
                   .allowSystemAuthentication(true)
                   .viewAuthorizationConfiguration(
                       ViewAuthorizationConfiguration.builder().enabled(true).build())
+                  .build(),
+          () -> SYSTEM_AUTH,
+          () ->
+              ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
+          null,
+          () -> TestOperationContexts.emptyActiveUsersRetrieverContext(null),
+          null,
+          null,
+          null);
+
+  private static final OperationContext DISABLED_CONTEXT =
+      TestOperationContexts.systemContext(
+          () ->
+              OperationContextConfig.builder()
+                  .allowSystemAuthentication(true)
+                  .viewAuthorizationConfiguration(
+                      ViewAuthorizationConfiguration.builder().enabled(false).build())
                   .build(),
           () -> SYSTEM_AUTH,
           () ->
@@ -603,22 +614,30 @@ public class ESAccessControlUtilTest {
 
   private static OperationContext sessionWithUserAGroupAandC(List<DataHubPolicyInfo> policies)
       throws RemoteInvocationException, URISyntaxException {
-    return sessionWithUserGroups(USER_A_AUTH, policies, List.of(TEST_GROUP_A, TEST_GROUP_C));
+    return sessionWithUserGroups(USER_A_AUTH, policies, List.of(TEST_GROUP_A, TEST_GROUP_C), true);
   }
 
   private static OperationContext sessionWithUserBNoGroup(List<DataHubPolicyInfo> policies)
       throws RemoteInvocationException, URISyntaxException {
-    return sessionWithUserGroups(USER_B_AUTH, policies, List.of());
+    return sessionWithUserGroups(USER_B_AUTH, policies, List.of(), true);
+  }
+
+  private static OperationContext sessionWithUserBAndViewAthorizationDisabled(
+      List<DataHubPolicyInfo> policies) throws RemoteInvocationException, URISyntaxException {
+    return sessionWithUserGroups(USER_B_AUTH, policies, List.of(), false);
   }
 
   private static OperationContext sessionWithUserGroups(
-      Authentication auth, List<DataHubPolicyInfo> policies, List<Urn> groups)
+      Authentication auth,
+      List<DataHubPolicyInfo> policies,
+      List<Urn> groups,
+      Boolean isViewAuthorizationEnabled)
       throws RemoteInvocationException, URISyntaxException {
     Urn actorUrn = UrnUtils.getUrn(auth.getActor().toUrnStr());
+    OperationContext opContext = isViewAuthorizationEnabled ? ENABLED_CONTEXT : DISABLED_CONTEXT;
     Authorizer dataHubAuthorizer =
-        new TestDataHubAuthorizer(
-            ENABLED_CONTEXT, policies, Map.of(actorUrn, groups), TEST_OWNERSHIP);
-    return ENABLED_CONTEXT.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
+        new TestDataHubAuthorizer(opContext, policies, Map.of(actorUrn, groups), TEST_OWNERSHIP);
+    return opContext.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
   }
 
   public static class TestDataHubAuthorizer extends DataHubAuthorizer {
@@ -630,7 +649,7 @@ public class ESAccessControlUtilTest {
         @Nonnull Map<Urn, Map<Urn, Set<Urn>>> resourceOwnerTypes)
         throws RemoteInvocationException, URISyntaxException {
       super(
-          ENABLED_CONTEXT,
+          opContext,
           mockUserGroupEntityClient(userGroups, resourceOwnerTypes),
           0,
           0,
@@ -804,14 +823,79 @@ public class ESAccessControlUtilTest {
     OperationContext userAContext =
         sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("allUsers")));
 
-    Optional<QueryBuilder> filter = ESAccessControlUtil.buildAccessControlFilters(userAContext);
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
     assertEquals(filter, Optional.empty());
 
     // USER B
     OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("allUsers")));
 
-    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext);
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
     assertEquals(filter, Optional.empty());
+  }
+
+  @Test
+  public void testShouldNotAddFiltersWithEmptyEntityNamesWhenViewAuthorizationDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+
+    assertEquals(filter, Optional.empty());
+  }
+
+  @Test
+  public void testShouldNotAddWithNullForEntityNamesWhenViewAuthorizationDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
+
+    assertEquals(filter, Optional.empty());
+  }
+
+  @Test
+  public void testShouldNotAddWithEntityNamesWhenViewAuthorizationDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userBContext, List.of(DOMAIN_ENTITY_NAME));
+
+    assertEquals(filter, Optional.empty());
+  }
+
+  @Test
+  public void testShouldAddWithIngestionSourceEntityNameWhenViewAuthorizationDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(
+            userBContext, List.of(INGESTION_SOURCE_ENTITY_NAME));
+
+    assertEquals(filter, TEST_USER_B_DEFAULT);
+  }
+
+  @Test
+  public void
+      testShouldThrowExceptionWithNotOnlyIngestionSourceEntityNameWhenViewAuthorizationDisabled()
+          throws RemoteInvocationException, URISyntaxException {
+    OperationContext userBContext =
+        sessionWithUserBAndViewAthorizationDisabled(List.of(TEST_POLICIES.get("userA")));
+
+    assertThrows(
+        RuntimeException.class,
+        () -> {
+          ESAccessControlUtil.buildAccessControlFilters(
+              userBContext, List.of(INGESTION_SOURCE_ENTITY_NAME, DOMAIN_ENTITY_NAME));
+        });
   }
 
   @Test
@@ -819,13 +903,14 @@ public class ESAccessControlUtilTest {
     // USER A
     OperationContext userAContext = sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("userA")));
 
-    Optional<QueryBuilder> filter = ESAccessControlUtil.buildAccessControlFilters(userAContext);
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
     assertEquals(filter, Optional.empty());
 
     // USER B
     OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("userA")));
 
-    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext);
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
     assertEquals(filter, TEST_USER_B_DEFAULT, "Expected default self filter for User B");
   }
 
@@ -835,14 +920,15 @@ public class ESAccessControlUtilTest {
     OperationContext userAContext =
         sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("allGroups")));
 
-    Optional<QueryBuilder> filter = ESAccessControlUtil.buildAccessControlFilters(userAContext);
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
     assertEquals(filter, Optional.empty());
 
     // USER B
     OperationContext userBContext =
         sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("allGroups")));
 
-    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext);
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
     assertEquals(
         filter,
         TEST_USER_B_DEFAULT,
@@ -856,7 +942,8 @@ public class ESAccessControlUtilTest {
     OperationContext userAContext =
         sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("groupB")));
 
-    Optional<QueryBuilder> filter = ESAccessControlUtil.buildAccessControlFilters(userAContext);
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
     assertEquals(
         filter,
         TEST_USER_A_DEFAULT,
@@ -865,7 +952,7 @@ public class ESAccessControlUtilTest {
     // USER B
     OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("groupB")));
 
-    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext);
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
     assertEquals(
         filter,
         TEST_USER_B_DEFAULT,
@@ -875,13 +962,13 @@ public class ESAccessControlUtilTest {
     // USER A
     userAContext = sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("groupC")));
 
-    filter = ESAccessControlUtil.buildAccessControlFilters(userAContext);
+    filter = ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
     assertEquals(filter, Optional.empty());
 
     // USER B
     userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("groupC")));
 
-    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext);
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
     assertEquals(
         filter,
         TEST_USER_B_DEFAULT,
@@ -894,7 +981,8 @@ public class ESAccessControlUtilTest {
     OperationContext userAContext =
         sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("anyOwner")));
 
-    Optional<QueryBuilder> filter = ESAccessControlUtil.buildAccessControlFilters(userAContext);
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
     assertEquals(
         filter,
         Optional.of(
@@ -914,7 +1002,7 @@ public class ESAccessControlUtilTest {
     // USER B
     OperationContext userBContext = sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("anyOwner")));
 
-    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext);
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
     assertEquals(
         filter,
         Optional.of(
@@ -932,7 +1020,8 @@ public class ESAccessControlUtilTest {
     OperationContext userAContext =
         sessionWithUserAGroupAandC(List.of(TEST_POLICIES.get("businessOwner")));
 
-    Optional<QueryBuilder> filter = ESAccessControlUtil.buildAccessControlFilters(userAContext);
+    Optional<QueryBuilder> filter =
+        ESAccessControlUtil.buildAccessControlFilters(userAContext, Collections.emptyList());
     assertEquals(
         filter,
         Optional.of(
@@ -956,7 +1045,7 @@ public class ESAccessControlUtilTest {
     OperationContext userBContext =
         sessionWithUserBNoGroup(List.of(TEST_POLICIES.get("businessOwner")));
 
-    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext);
+    filter = ESAccessControlUtil.buildAccessControlFilters(userBContext, Collections.emptyList());
     assertEquals(
         filter,
         Optional.of(
@@ -1014,7 +1103,8 @@ public class ESAccessControlUtilTest {
                         RelationshipDirection.OUTGOING,
                         null))));
     Optional<QueryBuilder> filter =
-        ESAccessControlUtil.buildAccessControlFilters(mockGraphUserAContext);
+        ESAccessControlUtil.buildAccessControlFilters(
+            mockGraphUserAContext, Collections.emptyList());
     assertEquals(
         filter,
         Optional.of(
@@ -1047,7 +1137,8 @@ public class ESAccessControlUtilTest {
             .build(USER_A_AUTH, false);
 
     Optional<QueryBuilder> filter =
-        ESAccessControlUtil.buildAccessControlFilters(mockGraphUserAContext);
+        ESAccessControlUtil.buildAccessControlFilters(
+            mockGraphUserAContext, Collections.emptyList());
     assertEquals(
         filter,
         Optional.of(

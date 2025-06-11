@@ -101,12 +101,12 @@ class SmartFreshnessAssertionUpsertInputParams:
 
 @freeze_time(FROZEN_TIME)
 def test_sync_smart_freshness_assertion_valid_simple_input(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_monitor_urn: MonitorUrn,
     any_assertion_urn: AssertionUrn,
-    monitor_with_all_fields: Monitor,
-    assertion_entity_with_all_fields: Assertion,
+    freshness_monitor_with_all_fields: Monitor,
+    freshness_assertion_entity_with_all_fields: Assertion,
 ) -> None:
     field_name = "field"
     field_type = "DateTypeClass"
@@ -121,8 +121,8 @@ def test_sync_smart_freshness_assertion_valid_simple_input(
 
     # Arrange
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
     with patch.object(
         _SmartFreshnessAssertionInput, "_create_field_spec", new_callable=MagicMock
@@ -175,22 +175,27 @@ def test_sync_smart_freshness_assertion_valid_simple_input(
     assert called_with_assertion.urn == any_assertion_urn
     assert isinstance(called_with_assertion.info, models.FreshnessAssertionInfoClass)
     assert isinstance(
-        assertion_entity_with_all_fields.info, models.FreshnessAssertionInfoClass
+        freshness_assertion_entity_with_all_fields.info,
+        models.FreshnessAssertionInfoClass,
     )
-    assert called_with_assertion.info.type == assertion_entity_with_all_fields.info.type
+    assert (
+        called_with_assertion.info.type
+        == freshness_assertion_entity_with_all_fields.info.type
+    )
     assert (
         called_with_assertion.info.entity
-        == assertion_entity_with_all_fields.info.entity
+        == freshness_assertion_entity_with_all_fields.info.entity
     )
 
     called_with_monitor = mock_upsert.call_args_list[1][0][0]
     assert called_with_monitor.urn == any_monitor_urn
-    assert called_with_monitor.info.type == monitor_with_all_fields.info.type
+    assert called_with_monitor.info.type == freshness_monitor_with_all_fields.info.type
     assert (
-        called_with_monitor.info.status.mode == monitor_with_all_fields.info.status.mode
+        called_with_monitor.info.status.mode
+        == freshness_monitor_with_all_fields.info.status.mode
     )
     assert called_with_monitor.info.assertionMonitor.assertions[0].assertion == str(
-        assertion_entity_with_all_fields.urn
+        freshness_assertion_entity_with_all_fields.urn
     )
     assert (
         called_with_monitor.info.assertionMonitor.assertions[0].schedule.cron
@@ -225,15 +230,15 @@ def test_sync_smart_freshness_assertion_valid_simple_input(
 
 
 def test_sync_smart_freshness_assertion_calls_create_assertion_if_urn_is_not_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
     mock_create_assertion = MagicMock()
-    client.create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+    client._create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=None,
@@ -255,16 +260,16 @@ def test_sync_smart_freshness_assertion_calls_create_assertion_if_urn_is_not_set
     ],
 )
 def test_sync_smart_freshness_assertion_uses_default_if_updated_by_is_not_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
     updated_by: Optional[CorpUserUrn],
     expected_updated_by: CorpUserUrn,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
     with patch.object(
@@ -290,16 +295,16 @@ def test_sync_smart_freshness_assertion_calls_create_if_assertion_and_monitor_en
     any_assertion_urn: AssertionUrn,
     any_monitor_urn: MonitorUrn,
 ) -> None:
-    stub_datahub_client = (
+    freshness_stub_datahub_client = (
         StubDataHubClient()
     )  # Assertion and Monitor entities do not exist
-    assert stub_datahub_client.entities.get(any_assertion_urn) is None
-    assert stub_datahub_client.entities.get(any_monitor_urn) is None
+    assert freshness_stub_datahub_client.entities.get(any_assertion_urn) is None
+    assert freshness_stub_datahub_client.entities.get(any_monitor_urn) is None
 
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
     mock_create_assertion = MagicMock(
         return_value=SmartFreshnessAssertion(
             dataset_urn=any_dataset_urn,
@@ -311,7 +316,7 @@ def test_sync_smart_freshness_assertion_calls_create_if_assertion_and_monitor_en
             tags=[],
         )
     )
-    client.create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
+    client._create_smart_freshness_assertion = mock_create_assertion  # type: ignore[method-assign] # Override for testing
     client.sync_smart_freshness_assertion(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
@@ -323,27 +328,27 @@ def test_sync_smart_freshness_assertion_calls_create_if_assertion_and_monitor_en
 
 @freeze_time(FROZEN_TIME)
 def test_sync_smart_freshness_assertion_calls_upsert_if_assertion_exists_but_monitor_does_not(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
     any_monitor_urn: MonitorUrn,
-    assertion_entity_with_all_fields: Assertion,
+    freshness_assertion_entity_with_all_fields: Assertion,
 ) -> None:
     # Arrange
-    stub_datahub_client = StubDataHubClient(
+    freshness_stub_datahub_client = StubDataHubClient(
         entity_client=StubEntityClient(
-            assertion_entity=assertion_entity_with_all_fields,
+            assertion_entity=freshness_assertion_entity_with_all_fields,
             monitor_entity=None,
         )
     )
-    assert stub_datahub_client.entities.get(any_assertion_urn) is not None
-    assert stub_datahub_client.entities.get(any_monitor_urn) is None
+    assert freshness_stub_datahub_client.entities.get(any_assertion_urn) is not None
+    assert freshness_stub_datahub_client.entities.get(any_monitor_urn) is None
 
     # Act
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.create = MagicMock()  # type: ignore[method-assign] # Override for testing
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
     input_params = SmartFreshnessAssertionUpsertInputParams(
         dataset_urn=any_dataset_urn,
         urn=any_assertion_urn,
@@ -379,11 +384,11 @@ def test_sync_smart_freshness_assertion_calls_upsert_if_assertion_exists_but_mon
 
 
 def test_sync_smart_freshness_assertion_raises_error_if_assertion_and_input_have_different_dataset_urns(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
 ) -> None:
-    # stub_datahub_client entity client returns assertion and monitor
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    # freshness_stub_datahub_client entity client returns assertion and monitor
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     with pytest.raises(SDKUsageError, match="Dataset URN mismatch"):
         client.sync_smart_freshness_assertion(
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:test,not_the_same_dataset_urn,PROD)",
@@ -392,12 +397,12 @@ def test_sync_smart_freshness_assertion_raises_error_if_assertion_and_input_have
 
 
 def test_sync_smart_freshness_assertion_uses_existing_assertion_display_name_if_input_display_name_is_not_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    assertion_entity_with_all_fields: Assertion,
+    freshness_assertion_entity_with_all_fields: Assertion,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
@@ -415,15 +420,17 @@ def test_sync_smart_freshness_assertion_uses_existing_assertion_display_name_if_
             urn=any_assertion_urn,
             display_name=None,
         )
-    assert assertion.display_name == assertion_entity_with_all_fields.description
+    assert (
+        assertion.display_name == freshness_assertion_entity_with_all_fields.description
+    )
 
 
 def test_sync_smart_freshness_assertion_uses_empty_display_name_if_existing_assertion_has_no_display_name(
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    assertion_entity_with_all_fields: Assertion,
+    freshness_assertion_entity_with_all_fields: Assertion,
 ) -> None:
-    assertion_entity_with_all_fields.set_description(None)  # type: ignore[arg-type] # Setting to None for testing
+    freshness_assertion_entity_with_all_fields.set_description(None)  # type: ignore[arg-type] # Setting to None for testing
     client = AssertionsClient(
         StubDataHubClient(  # type: ignore[arg-type]  # Stub
             StubEntityClient(
@@ -449,12 +456,12 @@ def test_sync_smart_freshness_assertion_uses_empty_display_name_if_existing_asse
 
 
 def test_sync_smart_freshness_assertion_uses_existing_assertion_exclusion_windows_if_input_exclusion_windows_is_not_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    monitor_with_all_fields: Monitor,
+    freshness_monitor_with_all_fields: Monitor,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
@@ -473,15 +480,15 @@ def test_sync_smart_freshness_assertion_uses_existing_assertion_exclusion_window
             exclusion_windows=None,
         )
 
-    assert monitor_with_all_fields.info.assertionMonitor
-    assert monitor_with_all_fields.info.assertionMonitor.settings
-    assert monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings
-    assert monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
+    assert freshness_monitor_with_all_fields.info.assertionMonitor
+    assert freshness_monitor_with_all_fields.info.assertionMonitor.settings
+    assert freshness_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings
+    assert freshness_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
     assert len(assertion.exclusion_windows) == len(
-        monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
+        freshness_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
     )
     for i in range(len(assertion.exclusion_windows)):
-        fixed_range = monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows[
+        fixed_range = freshness_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows[
             i
         ].fixedRange
         assert fixed_range is not None
@@ -494,12 +501,12 @@ def test_sync_smart_freshness_assertion_uses_existing_assertion_exclusion_window
 
 
 def test_sync_smart_freshness_assertion_uses_existing_assertion_incident_behavior_if_input_incident_behavior_is_not_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    assertion_entity_with_all_fields: Assertion,
+    freshness_assertion_entity_with_all_fields: Assertion,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
@@ -518,17 +525,17 @@ def test_sync_smart_freshness_assertion_uses_existing_assertion_incident_behavio
             incident_behavior=None,
         )
     assert len(assertion.incident_behavior) == len(
-        assertion_entity_with_all_fields.on_failure
-    ) + len(assertion_entity_with_all_fields.on_success)
+        freshness_assertion_entity_with_all_fields.on_failure
+    ) + len(freshness_assertion_entity_with_all_fields.on_success)
 
 
 def test_sync_smart_freshness_assertion_uses_existing_assertion_tags_if_input_tags_is_not_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    assertion_entity_with_all_fields: Assertion,
+    freshness_assertion_entity_with_all_fields: Assertion,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
@@ -547,20 +554,20 @@ def test_sync_smart_freshness_assertion_uses_existing_assertion_tags_if_input_ta
             tags=None,
         )
     assert assertion.tags
-    assert assertion_entity_with_all_fields.tags
-    assert len(assertion.tags) == len(assertion_entity_with_all_fields.tags)
+    assert freshness_assertion_entity_with_all_fields.tags
+    assert len(assertion.tags) == len(freshness_assertion_entity_with_all_fields.tags)
     for i in range(len(assertion.tags)):
         assert str(assertion.tags[i]) == str(
-            assertion_entity_with_all_fields.tags[i].tag
+            freshness_assertion_entity_with_all_fields.tags[i].tag
         )
 
 
 def test_sync_smart_freshness_assertion_uses_input_display_name_if_input_display_name_is_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
@@ -582,12 +589,12 @@ def test_sync_smart_freshness_assertion_uses_input_display_name_if_input_display
 
 
 def test_sync_smart_freshness_assertion_uses_input_exclusion_windows_if_input_exclusion_windows_is_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    monitor_with_all_fields: Monitor,
+    freshness_monitor_with_all_fields: Monitor,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
@@ -605,12 +612,12 @@ def test_sync_smart_freshness_assertion_uses_input_exclusion_windows_if_input_ex
             urn=any_assertion_urn,
             exclusion_windows=[],  # Empty list means set to no exclusion windows
         )
-    assert monitor_with_all_fields.info.assertionMonitor
-    assert monitor_with_all_fields.info.assertionMonitor.settings
-    assert monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings
-    assert monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
+    assert freshness_monitor_with_all_fields.info.assertionMonitor
+    assert freshness_monitor_with_all_fields.info.assertionMonitor.settings
+    assert freshness_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings
+    assert freshness_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
     length_of_existing_monitor_exclusion_windows = len(
-        monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
+        freshness_monitor_with_all_fields.info.assertionMonitor.settings.adjustmentSettings.exclusionWindows
     )
     # There are existing exclusion windows in the monitor, but we are setting this to the empty list so the
     # resulting exclusion windows should be empty
@@ -622,12 +629,12 @@ def test_sync_smart_freshness_assertion_uses_input_exclusion_windows_if_input_ex
 
 
 def test_sync_smart_freshness_assertion_uses_input_incident_behavior_if_input_incident_behavior_is_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    monitor_with_all_fields: Monitor,
+    freshness_monitor_with_all_fields: Monitor,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
@@ -649,12 +656,12 @@ def test_sync_smart_freshness_assertion_uses_input_incident_behavior_if_input_in
 
 
 def test_sync_smart_freshness_assertion_uses_input_tags_if_input_tags_is_set(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    monitor_with_all_fields: Monitor,
+    freshness_monitor_with_all_fields: Monitor,
 ) -> None:
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     client.client.entities.upsert = MagicMock()  # type: ignore[method-assign] # Override for testing
     field_name = "field"
     field_type = "DateTypeClass"
@@ -685,19 +692,19 @@ def test_sync_smart_freshness_assertion_uses_input_tags_if_input_tags_is_set(
     ],
 )
 def test_sync_smart_freshness_assertion_enabled_parameter_merging(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    assertion_entity_with_all_fields: Assertion,
-    monitor_with_all_fields: Monitor,
+    freshness_assertion_entity_with_all_fields: Assertion,
+    freshness_monitor_with_all_fields: Monitor,
     enabled: Optional[bool],
     expected_assertion_mode: AssertionMode,
 ) -> None:
     """Test that the enabled parameter merges correctly with existing values."""
     # Set existing monitor to ACTIVE state
-    monitor_with_all_fields.info.status.mode = models.MonitorModeClass.ACTIVE
+    freshness_monitor_with_all_fields.info.status.mode = models.MonitorModeClass.ACTIVE
 
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert = MagicMock()
     client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
@@ -723,17 +730,19 @@ def test_sync_smart_freshness_assertion_enabled_parameter_merging(
 
 @freeze_time(FROZEN_TIME)
 def test_sync_smart_freshness_assertion_enabled_none_preserves_inactive(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_assertion_urn: AssertionUrn,
     any_dataset_urn: DatasetUrn,
-    assertion_entity_with_all_fields: Assertion,
-    monitor_with_all_fields: Monitor,
+    freshness_assertion_entity_with_all_fields: Assertion,
+    freshness_monitor_with_all_fields: Monitor,
 ) -> None:
     """Test that enabled=None preserves existing INACTIVE state."""
     # Set existing monitor to INACTIVE state
-    monitor_with_all_fields.info.status.mode = models.MonitorModeClass.INACTIVE
+    freshness_monitor_with_all_fields.info.status.mode = (
+        models.MonitorModeClass.INACTIVE
+    )
 
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert = MagicMock()
     client.client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
@@ -754,14 +763,14 @@ def test_sync_smart_freshness_assertion_enabled_none_preserves_inactive(
 
 @freeze_time(FROZEN_TIME)
 def test_sync_smart_freshness_assertion_enabled_calls_create_with_enabled_when_urn_is_none(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
     """Test that sync passes enabled parameter to create when urn is None."""
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
     # Mock the create method to verify it's called with enabled parameter
-    with patch.object(client, "create_smart_freshness_assertion") as mock_create:
+    with patch.object(client, "_create_smart_freshness_assertion") as mock_create:
         mock_create.return_value = MagicMock()  # Return a mock assertion
 
         client.sync_smart_freshness_assertion(
@@ -1177,16 +1186,16 @@ def _validate_assertion_vs_input(
 
 
 def test_smart_freshness_assertion_create_case_uses_default_hourly_schedule(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
     """Test that create case uses DEFAULT_SCHEDULE (hourly) when no schedule provided."""
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_create = MagicMock()
-    stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
+    freshness_stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign] # Override for testing
 
     # Create assertion - should use default hourly schedule
-    assertion = client.create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
+    assertion = client._create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
 
     # Verify the assertion has the default hourly schedule
     assert assertion.schedule.cron == DEFAULT_SCHEDULE.cron  # "0 * * * *" (hourly)
@@ -1197,16 +1206,16 @@ def test_smart_freshness_assertion_create_case_uses_default_hourly_schedule(
 
 
 def test_smart_freshness_assertion_update_case_preserves_existing_schedule(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
     any_assertion_urn: AssertionUrn,
-    monitor_with_all_fields: Monitor,
-    assertion_entity_with_all_fields: Assertion,
+    freshness_monitor_with_all_fields: Monitor,
+    freshness_assertion_entity_with_all_fields: Assertion,
 ) -> None:
     """Test that update case preserves existing schedule from monitor."""
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
     mock_upsert = MagicMock()
-    stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
+    freshness_stub_datahub_client.entities.upsert = mock_upsert  # type: ignore[method-assign] # Override for testing
 
     # Create a custom schedule different from DEFAULT_SCHEDULE to ensure preservation is tested
     custom_schedule = models.CronScheduleClass(
@@ -1215,8 +1224,8 @@ def test_smart_freshness_assertion_update_case_preserves_existing_schedule(
     )
 
     # Update the monitor's schedule to our custom schedule for this test
-    assert monitor_with_all_fields.info.assertionMonitor is not None
-    monitor_with_all_fields.info.assertionMonitor.assertions[
+    assert freshness_monitor_with_all_fields.info.assertionMonitor is not None
+    freshness_monitor_with_all_fields.info.assertionMonitor.assertions[
         0
     ].schedule = custom_schedule
     existing_schedule = custom_schedule
@@ -1251,19 +1260,19 @@ def test_smart_freshness_assertion_update_case_preserves_existing_schedule(
 
 
 def test_assertion_entity_schedule_left_empty_for_ai_inference_engine(
-    stub_datahub_client: StubDataHubClient,
+    freshness_stub_datahub_client: StubDataHubClient,
     any_dataset_urn: DatasetUrn,
 ) -> None:
     """Test that assertion entity schedule is left empty (managed by AI inference engine)."""
-    client = AssertionsClient(stub_datahub_client)  # type: ignore[arg-type]  # Stub
+    client = AssertionsClient(freshness_stub_datahub_client)  # type: ignore[arg-type]  # Stub
 
     # Track what entities are created
     created_entities = []
     mock_create = MagicMock(side_effect=lambda entity: created_entities.append(entity))
-    stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign]
+    freshness_stub_datahub_client.entities.create = mock_create  # type: ignore[method-assign]
 
     # Create assertion using public interface
-    client.create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
+    client._create_smart_freshness_assertion(dataset_urn=any_dataset_urn)
 
     # Verify two entities were created (assertion + monitor)
     assert len(created_entities) == 2

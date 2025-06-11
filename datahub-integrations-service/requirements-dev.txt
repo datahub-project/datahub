@@ -26,8 +26,11 @@ aiosignal==1.3.1
     # via
     #   -r requirements.txt
     #   aiohttp
-alembic==1.14.1
-    # via mlflow
+alembic==1.16.1
+    # via
+    #   -r requirements.txt
+    #   databricks-sql-connector
+    #   mlflow
 altair==4.2.0
     # via streamlit
 annotated-types==0.7.0
@@ -225,6 +228,11 @@ databricks-sdk==0.50.0
     # via
     #   -r requirements.txt
     #   mlflow-skinny
+databricks-sql-connector==2.9.6
+    # via
+    #   -r requirements.txt
+    #   acryl-datahub-integrations (pyproject.toml)
+    #   acryl-datahub-integrations
 debugpy==1.8.14
     # via ipykernel
 decorator==5.2.1
@@ -257,6 +265,10 @@ entrypoints==0.4
     #   altair
     #   jupyter-client
     #   papermill
+et-xmlfile==2.0.0
+    # via
+    #   -r requirements.txt
+    #   openpyxl
 executing==2.2.0
     # via stack-data
 expandvars==0.12.0
@@ -532,8 +544,14 @@ lxml==5.2.1
     # via
     #   -r requirements.txt
     #   reactpy
+lz4==4.4.4
+    # via
+    #   -r requirements.txt
+    #   databricks-sql-connector
 mako==1.3.10
-    # via alembic
+    # via
+    #   -r requirements.txt
+    #   alembic
 markdown==3.7
     # via mlflow
 markdown-to-mrkdwn==0.2.0
@@ -622,6 +640,7 @@ numpy==1.26.4
     #   -r requirements.txt
     #   altair
     #   contourpy
+    #   databricks-sql-connector
     #   matplotlib
     #   mlflow
     #   pandas
@@ -631,6 +650,14 @@ numpy==1.26.4
     #   scipy
     #   seaborn
     #   streamlit
+oauthlib==3.2.2
+    # via
+    #   -r requirements.txt
+    #   databricks-sql-connector
+openpyxl==3.1.5
+    # via
+    #   -r requirements.txt
+    #   databricks-sql-connector
 opentelemetry-api==1.32.1
     # via
     #   -r requirements.txt
@@ -664,13 +691,14 @@ packaging==24.0
     #   snowflake-connector-python
     #   sqlalchemy-bigquery
     #   streamlit
-pandas==2.2.2
+pandas==2.2.3
     # via
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub
     #   acryl-datahub-integrations
     #   altair
+    #   databricks-sql-connector
     #   mlflow
     #   seaborn
     #   streamlit
@@ -748,6 +776,7 @@ pyarrow==16.0.0
     #   -r requirements.txt
     #   acryl-datahub-integrations (pyproject.toml)
     #   acryl-datahub-integrations
+    #   databricks-sql-connector
     #   mlflow
     #   streamlit
 pyasn1==0.6.1
@@ -913,6 +942,7 @@ requests==2.31.0
     #   azure-core
     #   confluent-kafka
     #   databricks-sdk
+    #   databricks-sql-connector
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
@@ -974,6 +1004,7 @@ six==1.16.0
     #   azure-core
     #   mixpanel
     #   python-dateutil
+    #   thrift
 slack-bolt==1.23.0
     # via
     #   -r requirements.txt
@@ -1010,6 +1041,7 @@ sqlalchemy==1.4.52
     # via
     #   -r requirements.txt
     #   alembic
+    #   databricks-sql-connector
     #   mlflow
     #   snowflake-sqlalchemy
     #   sqlalchemy-bigquery
@@ -1064,6 +1096,10 @@ tenacity==9.0.0
     #   streamlit
 threadpoolctl==3.6.0
     # via scikit-learn
+thrift==0.16.0
+    # via
+    #   -r requirements.txt
+    #   databricks-sql-connector
 toml==0.10.2
     # via
     #   -r requirements.txt
@@ -1156,6 +1192,7 @@ urllib3==1.26.18
     # via
     #   -r requirements.txt
     #   botocore
+    #   databricks-sql-connector
     #   docker
     #   mixpanel
     #   pygithub

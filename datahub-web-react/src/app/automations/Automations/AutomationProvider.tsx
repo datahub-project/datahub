@@ -2,6 +2,7 @@
 import { useApolloClient } from '@apollo/client';
 import React, { ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { openErrorNotification, openSuccessNotification } from '@app/automations/Automations/Notifications';
 import {
     removeFromListAutomationsCache,
@@ -209,6 +210,10 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
                 };
                 updateListAutomationsCache(client, newAutomation, 100);
                 openSuccessNotification('Automation succesfully created.');
+                analytics.event({
+                    type: EventType.CreateActionEvent,
+                    actionType: newAutomationDetails.type,
+                });
             })
             .catch((error) => {
                 openErrorNotification('Create Automation', error.message);
@@ -248,6 +253,10 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
                 updateListAutomationsCache(client, updatedAutomation, 100);
                 updateGetActionPipelineStatusCache(client, context?.urn || '', ActionPipelineState.Active);
                 openSuccessNotification('Automation succesfully updated.');
+                analytics.event({
+                    type: EventType.UpdateActionEvent,
+                    actionType: updatedAutomationDetails.type,
+                });
             })
             .catch((error) => {
                 openErrorNotification('Update Automation', error.message);
@@ -264,6 +273,10 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
             .then(() => {
                 removeFromListAutomationsCache(client, context?.urn, 100);
                 openSuccessNotification('Automation succesfully deleted.');
+                analytics.event({
+                    type: EventType.DeleteActionEvent,
+                    actionType: formState.type,
+                });
             })
             .catch((error) => {
                 openErrorNotification('Delete Automation', error.message);

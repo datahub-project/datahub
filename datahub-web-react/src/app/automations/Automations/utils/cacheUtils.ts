@@ -118,6 +118,8 @@ export const updateGetActionPipelineStatusCache = (client, urn: string, newState
         variables: { urn },
     });
 
+    console.log(`curr data in cache`, currData);
+
     // Write our data back to the cache.
     client.writeQuery({
         query: GetActionPipelineStatusDocument,

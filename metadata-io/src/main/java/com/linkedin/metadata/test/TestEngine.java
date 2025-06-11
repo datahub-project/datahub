@@ -1396,18 +1396,25 @@ public class TestEngine implements AutoCloseable {
     return testInfo;
   }
 
-  private boolean isBulkFormSubmission(@Nonnull final TestInfo testInfo) {
+  private static boolean isBulkFormSubmission(@Nonnull final TestInfo testInfo) {
     return testInfo.getSource() != null
-        && testInfo.getSource().getType().equals(TestSourceType.BULK_FORM_SUBMISSION);
+        && TestSourceType.BULK_FORM_SUBMISSION.equals(testInfo.getSource().getType());
   }
 
-  private boolean isFormAssignmentTest(@Nonnull final TestInfo testInfo) {
+  private static boolean isFormAssignmentTest(@Nonnull final TestInfo testInfo) {
     return testInfo.getSource() != null
-        && testInfo.getSource().getType().equals(TestSourceType.FORMS);
+        && TestSourceType.FORMS.equals(testInfo.getSource().getType());
   }
 
-  private boolean shouldWriteAssetResults(@Nonnull final TestInfo testInfo) {
-    return !isBulkFormSubmission(testInfo) && !isFormAssignmentTest(testInfo);
+  private static boolean isFormPromptTest(@Nonnull final TestInfo testInfo) {
+    return testInfo.getSource() != null
+        && TestSourceType.FORM_PROMPT.equals(testInfo.getSource().getType());
+  }
+
+  static boolean shouldWriteAssetResults(@Nonnull final TestInfo testInfo) {
+    return !isBulkFormSubmission(testInfo)
+        && !isFormAssignmentTest(testInfo)
+        && !isFormPromptTest(testInfo);
   }
 
   /**

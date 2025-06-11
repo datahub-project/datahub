@@ -1,10 +1,11 @@
 import _ from 'lodash';
 
-import * as BigQueryTagSync from '@app/automations/recipes/bigQuery/tagSync';
+import * as BigQueryTagSync from '@app/automations/recipes/bigQuery/metadataSync';
+import * as DatabicksMetadataSync from '@app/automations/recipes/databricks/metadataSync';
 import * as DocumentationColumnPropagation from '@app/automations/recipes/documentation/columnLevelPropagation';
 import * as AIGlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/glossaryTermAI';
 import * as GlossaryTermPropagation from '@app/automations/recipes/glossaryTerm/termPropagation';
-import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/tagPropagation';
+import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/metadataSync';
 import * as TagPropagation from '@app/automations/recipes/tag/tagPropagation';
 
 // Map of all templates available in the application (this needs to be in sync with the recipes)
@@ -15,6 +16,7 @@ export const templates = [
     SnowflakeTagPropagation.template,
     AIGlossaryTermPropagation.template,
     BigQueryTagSync.template,
+    DatabicksMetadataSync.template,
 ];
 
 // For each automation, the default action recipe configs. This allows some defaults to be set without any associated field in the form.
@@ -31,6 +33,7 @@ export const configMaps = {
     [SnowflakeTagPropagation.automationType]: SnowflakeTagPropagation.configMap,
     [AIGlossaryTermPropagation.automationType]: AIGlossaryTermPropagation.configMap,
     [BigQueryTagSync.automationType]: BigQueryTagSync.configMap,
+    [DatabicksMetadataSync.automationType]: DatabicksMetadataSync.configMap,
 };
 
 // Utility function to get a nested value

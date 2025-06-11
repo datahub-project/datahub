@@ -16,7 +16,7 @@ import BigQueryLogo from '@images/bigquerylogo.png';
 export const automationType = 'datahub_integrations.propagation.bigquery.tag_propagator.BigqueryTagPropagatorAction';
 
 const automationName = 'BigQuery Metadata Sync';
-const automationDescription = 'Propagate tags, terms, and descriptions to BigQuery.';
+const automationDescription = 'Sync tag, term, or description changes to BigQuery';
 
 // Important: This is the form state which is taken by default, when creating a new automation of this type.
 const defaultRecipe: AutomationRecipe = {
@@ -151,8 +151,8 @@ export const configMap: ConfigMap = {
 // Pro tip: `getField` allows overriding default component variables
 const fields = [
     getField('radio_selector', {
-        title: 'Select Propagation Action',
-        description: 'Choose the action to perform in BigQuery.',
+        title: 'Select Action',
+        description: 'Choose the types of information to sync',
         controlKey: 'propagationAction', // used to tie conditional fields below to this selector
         fields: [
             {
@@ -162,22 +162,22 @@ const fields = [
                         {
                             key: 'TABLE_TAGS_AS_LABELS',
                             name: 'Table Tags as Labels',
-                            description: 'Propagate Table Tags as Labels',
+                            description: 'Sync Table Tags as Labels',
                         },
                         {
                             key: 'GLOSSARY_TERM_AS_POLICY_TAGS',
                             name: 'Column Glossary Terms as Policy Tags',
-                            description: 'Propagate Column Glossary Terms as Policy Tags',
+                            description: 'Sync Column Glossary Terms as Policy Tags',
                         },
                         {
                             key: 'TABLE_DESCRIPTIONS',
                             name: 'Table Descriptions',
-                            description: 'Propagate Table Descriptions',
+                            description: 'Sync Table Descriptions',
                         },
                         {
                             key: 'COLUMN_DESCRIPTIONS',
                             name: 'Column Descriptions',
-                            description: 'Propagate Column Descriptions',
+                            description: 'Sync Column Descriptions',
                         },
                     ],
                 },
@@ -186,7 +186,7 @@ const fields = [
     }),
     getField('select_tags_and_terms', {
         title: 'Select Tags',
-        description: 'Choose the tags to propagate as labels to BigQuery.',
+        description: 'Choose the tags to sync as labels',
         controlKey: 'propagationAction',
         conditionalKey: 'TABLE_TAGS_AS_LABELS',
         fields: [
@@ -200,7 +200,7 @@ const fields = [
     }),
     getField('select_tags_and_terms', {
         title: 'Select Glossary Terms & Term Groups',
-        description: 'Choose the glossary terms to propagate as policy tags to BigQuery.',
+        description: 'Choose the glossary terms to sync as policy tags',
         controlKey: 'propagationAction',
         conditionalKey: 'GLOSSARY_TERM_AS_POLICY_TAGS',
         fields: [
@@ -213,8 +213,8 @@ const fields = [
         ],
     }),
     getField('select_connection', {
-        title: 'Configure BigQuery Connection',
-        description: 'Provide BigQuery connection details to use for tag sync.',
+        title: 'Configure Connection',
+        description: 'Provide BigQuery connection details to use for metadata sync',
         fields: [
             {
                 props: {

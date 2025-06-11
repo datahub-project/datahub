@@ -552,6 +552,20 @@ def _validate_cron_schedule(schedule: str, timezone: str) -> None:
         if len(fields) != 5:
             raise ValueError("POSIX.1-2017 requires exactly 5 fields")
 
+        # POSIX.1-2017 specific validation: Sunday must be 0, not 7
+        # However croniter accepts 7 as Sunday, so custom check is needed here.
+        # Check the day-of-week field (5th field, index 4)
+        dow_field = fields[4]
+        if "7" in dow_field:
+            # Check if 7 appears as a standalone value or in ranges
+            import re
+
+            # Match 7 as standalone, in lists, or in ranges
+            if re.search(r"\b7\b|7-|,7,|^7,|,7$|-7\b", dow_field):
+                raise ValueError(
+                    "POSIX.1-2017 standard: Sunday must be represented as 0, not 7"
+                )
+
         # Validate cron expression - croniter constructor validates the expression
         croniter(schedule)
 

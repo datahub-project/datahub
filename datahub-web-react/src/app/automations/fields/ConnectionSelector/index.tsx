@@ -2,11 +2,12 @@ import React from 'react';
 import styled from 'styled-components';
 
 import type { ComponentBaseProps } from '@app/automations/types';
-import { BigQuery, Snowflake } from '@app/connections';
+import { BigQuery, Databricks, Snowflake } from '@app/connections';
 
 // Get select components for each connection type
 const SnowflakeSelect = Snowflake.components.SelectOrCreate;
 const BigQuerySelect = BigQuery.components.SelectOrCreate;
+const DatabricksSelect = Databricks.components.SelectOrCreate;
 
 const Wrapper = styled.div`
     & form {
@@ -52,6 +53,14 @@ export const ConnectionSelector = ({ state, props, passStateToParent }: Componen
             connectionComponent = (
                 <Wrapper>
                     <BigQuerySelect handleSelect={handleFormStateChange} connectionDetails={connection} />
+                </Wrapper>
+            );
+        }
+
+        if (connectionType === 'databricks') {
+            connectionComponent = (
+                <Wrapper>
+                    <DatabricksSelect handleSelect={handleFormStateChange} connectionDetails={connection} />
                 </Wrapper>
             );
         }

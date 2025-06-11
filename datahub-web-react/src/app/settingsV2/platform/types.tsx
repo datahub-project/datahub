@@ -2,6 +2,7 @@ import React from 'react';
 
 import AcrylInstances from '@app/settingsV2/platform/acryl/AcrylInstances';
 import { BigQueryIntegration } from '@app/settingsV2/platform/integrations/BigQueryIntegration';
+import { DatabricksIntegration } from '@app/settingsV2/platform/integrations/DatabricksIntegration';
 import { SnowflakeIntegration } from '@app/settingsV2/platform/integrations/SnowflakeIntegration';
 import { SlackIntegration } from '@app/settingsV2/platform/slack/SlackIntegration';
 import { OidcIntegration } from '@app/settingsV2/platform/sso/OidcIntegration';
@@ -10,6 +11,7 @@ import { NotificationScenarioType } from '@types';
 
 import acrylLogo from '@images/acryl-dark-mark.svg';
 import bigqueryLogo from '@images/bigquerylogo.png';
+import databricksLogo from '@images/databrickslogo.png';
 import oidcLogo from '@images/oidclogo.png';
 import slackLogo from '@images/slacklogo.png';
 // import teamsLogo from '../../../images/teamslogo.png';
@@ -83,12 +85,21 @@ const BIGQUERY_INTEGRATION = {
     content: <BigQueryIntegration />,
 };
 
+const DATABRICKS_INTEGRATION = {
+    id: 'databricks',
+    name: 'Databricks',
+    img: databricksLogo,
+    description: 'Manage reusable Databricks connections for automations',
+    content: <DatabricksIntegration />,
+};
+
 export const SUPPORTED_INTEGRATIONS = [
     SLACK_INTEGRATION,
     // TEAMS_INTEGRATION, -- Uncheck when backend is complete.
     ACRYL_INSTANCE_INTEGRATION,
     SNOWFLAKE_INTEGRATION,
     BIGQUERY_INTEGRATION,
+    DATABRICKS_INTEGRATION,
 ];
 
 /**

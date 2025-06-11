@@ -10,6 +10,7 @@ from acryl_datahub_cloud.datahub_forms_notifications.forms_notifications_source 
     DataHubFormsNotificationsSourceConfig,
 )
 from acryl_datahub_cloud.datahub_forms_notifications.query import (
+    GRAPHQL_GET_FEATURE_FLAG,
     GRAPHQL_GET_SEARCH_RESULTS_TOTAL,
     GRAPHQL_SEND_FORM_NOTIFICATION_REQUEST,
 )
@@ -851,4 +852,93 @@ def test_update_form_notifications(source: DataHubFormsNotificationsSource) -> N
     assert (
         new_form_details.notificationLog[0].notificationType
         == "BROADCAST_COMPLIANCE_FORM_PUBLISH"
+    )
+
+
+def test_is_feature_flag_enabled(source: DataHubFormsNotificationsSource) -> None:
+    """Test checking if the feature flag is enabled"""
+    assert source.graph is not None  # For mypy
+    mock_graph = cast(MagicMock, source.graph)
+
+    # Test when feature flag is enabled
+    mock_graph.execute_graphql.return_value = {
+        "appConfig": {"featureFlags": {"formsNotificationsEnabled": True}}
+    }
+    assert source.is_feature_flag_enabled() is True
+
+    # Test when feature flag is disabled
+    mock_graph.execute_graphql.return_value = {
+        "appConfig": {"featureFlags": {"formsNotificationsEnabled": False}}
+    }
+    assert source.is_feature_flag_enabled() is False
+
+    # Test when feature flag is not present
+    mock_graph.execute_graphql.return_value = {"appConfig": {"featureFlags": {}}}
+    assert source.is_feature_flag_enabled() is False
+
+    # Test when appConfig is not present
+    mock_graph.execute_graphql.return_value = {}
+    assert source.is_feature_flag_enabled() is False
+
+
+def test_get_workunits_feature_flag_disabled(
+    source: DataHubFormsNotificationsSource,
+) -> None:
+    """Test getting workunits when feature flag is disabled"""
+    assert source.graph is not None  # For mypy
+    mock_graph = cast(MagicMock, source.graph)
+
+    # Mock feature flag check to return disabled
+    mock_graph.execute_graphql.return_value = {
+        "appConfig": {"featureFlags": {"formsNotificationsEnabled": False}}
+    }
+
+    workunits = list(source.get_workunits())
+    assert len(workunits) == 0  # Should return empty list when feature flag is disabled
+
+    # Verify feature flag was checked
+    mock_graph.execute_graphql.assert_called_once_with(
+        GRAPHQL_GET_FEATURE_FLAG, variables={}
+    )
+
+    # Verify no other methods were called
+    mock_graph.get_entities.assert_not_called()
+
+
+def test_get_workunits_feature_flag_enabled(
+    source: DataHubFormsNotificationsSource,
+) -> None:
+    """Test getting workunits when feature flag is enabled"""
+    assert source.graph is not None  # For mypy
+    mock_graph = cast(MagicMock, source.graph)
+
+    # Mock form info
+    mock_form_info = FormInfoClass(
+        name="Test Form",
+        type=FormTypeClass.COMPLETION,
+        status=FormStatusClass(state=FormStateClass.PUBLISHED),
+        actors=FormActorAssignmentClass(users=["urn:li:corpuser:test-user"]),
+    )
+
+    # Mock feature flag check to return enabled
+    mock_graph.execute_graphql.side_effect = [
+        # First call for feature flag check
+        {"appConfig": {"featureFlags": {"formsNotificationsEnabled": True}}},
+        # Second call for is_form_complete
+        {"searchAcrossEntities": {"total": 0}},
+    ]
+
+    mock_graph.get_entities.return_value = {
+        "urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}
+    }
+
+    workunits = list(source.get_workunits())
+    assert len(workunits) == 0  # This source doesn't produce work units
+
+    # Verify feature flag was checked
+    mock_graph.execute_graphql.assert_any_call(GRAPHQL_GET_FEATURE_FLAG, variables={})
+
+    # Verify form info was retrieved
+    mock_graph.get_entities.assert_called_once_with(
+        "form", ["urn:li:form:test-form-1"], ["formInfo"]
     )

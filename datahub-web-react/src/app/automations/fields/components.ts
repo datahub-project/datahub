@@ -13,7 +13,7 @@ export const StepHeader = styled.div`
         font-size: 18px;
         font-weight: 700;
         line-height: normal;
-        margin: 0;
+        margin: 0px 0px 4px 0px;
     }
 
     & p {

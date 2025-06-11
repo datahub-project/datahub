@@ -102,6 +102,8 @@ public class EntityChangeNotificationGenerator extends BaseMclNotificationGenera
           Constants.DEPRECATION_ASPECT_NAME,
           Constants.SCHEMA_METADATA_ASPECT_NAME,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+          Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
+          Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
           Constants.DOMAINS_ASPECT_NAME,
           Constants.ASSERTION_RUN_EVENT_ASPECT_NAME);
 

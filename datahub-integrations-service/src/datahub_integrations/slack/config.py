@@ -20,8 +20,8 @@ _SLACK_PLATFORM_URN: str = DataPlatformUrn("slack").urn()
 SLACK_PROXY = os.environ.get("DATAHUB_SLACK_PROXY")
 
 
-class _FrozenConnectionModel(ConnectionModel, frozen=True):
-    pass
+class _FrozenConnectionModel(ConnectionModel):
+    model_config = pydantic.ConfigDict(frozen=True)
 
 
 class SlackAppConfigCredentials(_FrozenConnectionModel):
@@ -41,10 +41,10 @@ class SlackAppConfigCredentials(_FrozenConnectionModel):
 
 class SlackAppDetails(_FrozenConnectionModel):
     app_id: Optional[str]
-    client_id: Optional[str]
-    client_secret: Optional[str]
-    signing_secret: Optional[str]
-    verification_token: Optional[str]
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    signing_secret: Optional[str] = None
+    verification_token: Optional[str] = None
 
 
 class SlackConnection(_FrozenConnectionModel):
@@ -73,7 +73,7 @@ def _get_current_slack_config() -> SlackConnection:
         logger.debug("No slack config found, returning an empty config")
         return SlackConnection()
 
-    config = SlackConnection.parse_obj(obj)
+    config = SlackConnection.model_validate(obj)
 
     return config
 

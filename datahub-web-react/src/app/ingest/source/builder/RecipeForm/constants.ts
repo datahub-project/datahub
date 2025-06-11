@@ -218,6 +218,7 @@ import {
     UNITY_METASTORE_ID_DENY,
     UNITY_TABLE_ALLOW,
     UNITY_TABLE_DENY,
+    WAREHOUSE_ID,
     WORKSPACE_URL,
 } from '@app/ingest/source/builder/RecipeForm/unity_catalog';
 import {
@@ -500,7 +501,7 @@ export const RECIPE_FIELDS: RecipeFields = {
         filterSectionTooltip: 'Include or exclude specific Schemas, Tables and Views from ingestion.',
     },
     [UNITY_CATALOG]: {
-        fields: [WORKSPACE_URL, TOKEN],
+        fields: [WORKSPACE_URL, WAREHOUSE_ID, TOKEN],
         filterFields: [
             UNITY_METASTORE_ID_ALLOW,
             UNITY_METASTORE_ID_DENY,

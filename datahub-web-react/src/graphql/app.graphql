@@ -144,7 +144,7 @@ query appConfig {
             onlineSmartAssertionsEnabled
             showDefaultExternalLinks
             showCreatedAtFilter
-            showNotificationSettingsForComplianceForms
+            formsNotificationsEnabled
             lineageGraphV3
         }
         chromeExtensionConfig {

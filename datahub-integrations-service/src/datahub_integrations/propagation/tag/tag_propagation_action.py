@@ -172,6 +172,9 @@ class TagPropagationAction(Action):
                 context = self._get_context_object(context_str)
 
                 if propagate:
+                    logger.info(
+                        f"Propagating tag {semantic_event.modifier} with operation {semantic_event.operation} on {semantic_event.entityUrn} and event: {semantic_event}"
+                    )
                     return TagPropagationDirective(
                         propagate=True,
                         tag=semantic_event.modifier,

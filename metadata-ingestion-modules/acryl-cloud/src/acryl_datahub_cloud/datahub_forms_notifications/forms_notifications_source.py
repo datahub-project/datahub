@@ -13,6 +13,7 @@ from tenacity import (
 )
 
 from acryl_datahub_cloud.datahub_forms_notifications.query import (
+    GRAPHQL_GET_FEATURE_FLAG,
     GRAPHQL_GET_SEARCH_RESULTS_TOTAL,
     GRAPHQL_SCROLL_FORMS_FOR_NOTIFICATIONS,
     GRAPHQL_SEND_FORM_NOTIFICATION_REQUEST,
@@ -88,10 +89,30 @@ class DataHubFormsNotificationsSource(Source):
         self.user_to_form_notifications: Dict[str, FormNotificationsClass] = {}
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        # end early if the feature flag is not enabled
+        if not self.is_feature_flag_enabled():
+            return []
+
         self.notify_form_assignees()
 
         # This source doesn't produce any work units
         return []
+
+    def is_feature_flag_enabled(self) -> bool:
+        response = self.execute_graphql_with_retry(
+            GRAPHQL_GET_FEATURE_FLAG, variables={}
+        )
+
+        result = response.get("appConfig", {})
+        featureFlags = result.get("featureFlags", {})
+        is_enabled = featureFlags.get("formsNotificationsEnabled", False)
+
+        if not is_enabled:
+            logger.error(
+                "Tried running datahub-forms-notifications with formsNotificationsEnabled disabled"
+            )
+
+        return is_enabled
 
     def notify_form_assignees(self) -> None:
         for urn, form in self.get_forms():

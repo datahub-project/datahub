@@ -21,17 +21,30 @@ export const transformDotNotationToNested = (jsonString) => {
     return result;
 };
 
-// Function to recursively merge form values into the existing config structure
+// Function to recursively merge config and form values, including all keys from either object
 export const mergeConfig = (config, formValues) => {
     const nestedFormValues = transformDotNotationToNested(formValues);
-    return Object.keys(config).reduce((acc, key) => {
-        if (typeof config[key] === 'object' && !Array.isArray(config[key]) && config[key] !== null) {
-            // If it's a nested object, recursively merge
-            acc[key] = mergeConfig(config[key], nestedFormValues[key] || {});
+
+    const allKeys = new Set([...Object.keys(config || {}), ...Object.keys(nestedFormValues || {})]);
+
+    const result = {};
+    allKeys.forEach((key) => {
+        const configVal = config?.[key];
+        const formVal = nestedFormValues?.[key];
+
+        if (
+            typeof configVal === 'object' &&
+            !Array.isArray(configVal) &&
+            configVal !== null &&
+            typeof formVal === 'object' &&
+            !Array.isArray(formVal) &&
+            formVal !== null
+        ) {
+            result[key] = mergeConfig(configVal, formVal);
         } else {
-            // If form value exists for this key, use it; otherwise, keep the existing config value
-            acc[key] = nestedFormValues[key] !== undefined ? nestedFormValues[key] : config[key];
+            result[key] = formVal !== undefined ? formVal : configVal;
         }
-        return acc;
-    }, {});
+    });
+
+    return result;
 };

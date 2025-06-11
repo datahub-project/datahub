@@ -109,114 +109,56 @@ export const ConnectionForm = ({
     showTestButton = true,
     isInlineForm = false,
 }: Props) => {
-    // Config
     const { CONFIG, TEST_TYPE, PLATFORM_NAME, PLATFORM_URN } = constants;
 
-    // States
     const isUpdate = !!urn && urn !== 'new' && urn !== '';
-
-    // Connections mgmt
     const { refetch: refetchConnectionList } = connections || {};
 
-    // Update fields with common fields
-    let formFields = useMemo(() => [...fields], [fields]);
-    if (!isInlineForm) formFields = [...commonFields, ...fields];
-
-    // Order formFields by required first
-    formFields = formFields.sort((a, b) => {
-        if (a.required && !b.required) return -1;
-        if (b.required && !a.required) return 1;
-        return 0;
-    });
-
-    // Form setup
     const [form] = Form.useForm();
-    form.setFieldsValue(formFields);
-
-    // Form state
     const [formValues, setFormValues] = useState({});
     const [formError, setFormError] = useState<string>();
     const [canSubmit, setCanSubmit] = useState<boolean>(false);
-    const onValuesChange = (changedValues: any, allValues: any) => {
-        const values = Object.values({ ...allValues, ...changedValues });
-        setFormValues(values);
-    };
-    const onValueChange = (field, value) => form.setFieldsValue({ [field]: value });
-    useEffect(() => {
-        const values = form.getFieldsValue();
-        const newCanSubmit = Object.values(formFields).every((field) => {
-            if ((field as any).required) {
-                const fieldValue = values[(field as any).name];
-                return fieldValue !== undefined && fieldValue !== '';
-            }
-            return true;
-        });
-        if (newCanSubmit !== canSubmit) setCanSubmit(newCanSubmit);
-    }, [formValues, canSubmit, formFields, form]);
 
-    // Queries
     const { connection, refetch: connectionRefetch } = useGetConnection({ urn });
     const { secrets, refetchSecrets } = useConnectionSecrets();
-
-    // Mutations
     const { createConnection, loading: createLoading } = useCreateConnection({ platformUrn: PLATFORM_URN });
     const { updateConnection, loading: updateLoading } = useUpdateConnection();
 
-    // Test setup
-    const sourceConfigs = getSourceConfigs(
-        [{ name: TEST_TYPE, displayName: PLATFORM_NAME } as SourceConfig],
-        TEST_TYPE,
-    );
-
-    // Save form
-    const handleSave = async () => {
-        try {
-            const values = form.getFieldsValue();
-            if (isUpdate) {
-                setFormError(undefined);
-                await updateConnection({ id: urn, values, platformUrn: PLATFORM_URN }).finally(() => {
-                    refetchConnectionList?.();
-                    connectionRefetch();
-                    setTimeout(() => {
-                        disclosure?.closeModal();
-                        form.resetFields();
-                        message.success({ content: 'Connection updated successfully', duration: 3 });
-                    }, 3000);
-                });
-            } else {
-                setFormError(undefined);
-                await createConnection({ values }).finally(() => {
-                    refetchConnectionList?.(); // 3000 timeout is default
-                    setTimeout(() => {
-                        disclosure?.closeModal();
-                        form.resetFields();
-                        message.success({ content: 'Connection created successfully', duration: 3 });
-                    }, 4000);
-                });
+    const formFields = useMemo(() => {
+        const merged = isInlineForm ? [...fields] : [...commonFields, ...fields];
+        return merged.sort((a, b) => {
+            if (a.required === b.required) {
+                return 0;
             }
-        } catch (e) {
-            setFormError(`Failed to ${isUpdate ? 'update' : 'create'} connection: ${(e as Error).message}`);
-        }
+            return a.required ? -1 : 1;
+        });
+    }, [fields, isInlineForm]);
+
+    const onValuesChange = (_changedValues: any, allValues: any) => {
+        setFormValues(allValues);
+        valuesChange?.(allValues);
     };
 
-    // Map fields to a renderable components
-    const renderFields = formFields.map((field, i) => (
-        <FormField
-            key={field.name}
-            field={field}
-            secrets={secrets}
-            refetchSecrets={refetchSecrets}
-            removeMargin={i === formFields.length - 1}
-            updateFormValue={onValueChange}
-        />
-    ));
+    const onValueChange = (field, value) => form.setFieldsValue({ [field]: value });
 
-    // If there is an urn, that means we're editing and we need to grab the initial values
+    useEffect(() => {
+        const newCanSubmit = formFields.every((field) => {
+            if (field.required) {
+                const val = form.getFieldValue(field.name);
+                return val !== undefined && val !== '';
+            }
+            return true;
+        });
+        if (newCanSubmit !== canSubmit) {
+            setCanSubmit(newCanSubmit);
+        }
+    }, [formValues, formFields, form, canSubmit]);
+
     useEffect(() => {
         if (connectionDetails) {
             form.setFieldsValue(flattenToDotNotation(connectionDetails, null));
         } else if (isUpdate && connection) {
-            const initValues = connection?.details?.json?.blob ? JSON.parse(connection?.details?.json?.blob) : {};
+            const initValues = connection?.details?.json?.blob ? JSON.parse(connection.details.json.blob) : {};
             const name = connection?.details?.name;
             const dotNotationValues = flattenToDotNotation(initValues, null);
             form.setFieldsValue({ name, ...dotNotationValues });
@@ -225,66 +167,83 @@ export const ConnectionForm = ({
         }
     }, [urn, connection, connectionDetails, form, isUpdate]);
 
-    // Helpful booleans
-    const isSubmitting = createLoading || updateLoading;
+    const handleSave = async () => {
+        try {
+            const values = form.getFieldsValue();
+            setFormError(undefined);
+            if (isUpdate) {
+                await updateConnection({ id: urn, values, platformUrn: PLATFORM_URN });
+                refetchConnectionList?.();
+                connectionRefetch();
+                message.success({ content: 'Connection updated successfully', duration: 3 });
+            } else {
+                await createConnection({ values });
+                refetchConnectionList?.();
+                message.success({ content: 'Connection created successfully', duration: 3 });
+            }
 
-    // Update test recipe with form values
+            disclosure?.closeModal();
+            form.resetFields();
+        } catch (e) {
+            setFormError(`Failed to ${isUpdate ? 'update' : 'create'} connection: ${(e as Error).message}`);
+        }
+    };
+
+    const renderFields = formFields.map((field) => (
+        <FormField
+            key={field.name}
+            field={field}
+            secrets={secrets}
+            refetchSecrets={refetchSecrets}
+            removeMargin={false}
+            updateFormValue={onValueChange}
+        />
+    ));
+
+    const isSubmitting = createLoading || updateLoading;
     const yamlRecipe = CONFIG.placeholderRecipe;
     const jsonRecipe = JSON.parse(yamlToJson(yamlRecipe));
-    let updatedConfig = mergeConfig(jsonRecipe.source.config, form.getFieldsValue());
-    jsonRecipe.source.config = { ...updatedConfig };
-    const updatedYamlRecipe = jsonToYaml(JSON.stringify(jsonRecipe));
 
-    // Update jsonRecipe if connectionDetails is provided
-    if (connectionDetails) {
-        updatedConfig = mergeConfig(jsonRecipe.source.config, connectionDetails);
-        jsonRecipe.source.config = { ...updatedConfig };
-    }
+    const currentFormValues = form.getFieldsValue();
+    const updatedConfig = mergeConfig(jsonRecipe.source.config, connectionDetails || currentFormValues);
+    jsonRecipe.source.config = updatedConfig;
+
+    const updatedYamlRecipe = jsonToYaml(JSON.stringify(jsonRecipe));
+    const sourceConfigs = getSourceConfigs(
+        [{ name: TEST_TYPE, displayName: PLATFORM_NAME } as SourceConfig],
+        TEST_TYPE,
+    );
 
     return (
-        <>
-            <Form
-                form={form}
-                onValuesChange={onValuesChange}
-                onBlur={(e) => {
-                    if (valuesChange) valuesChange(form.getFieldsValue());
-                    return e;
-                }}
-            >
-                <Wrapper>
-                    {showHeader && (
-                        <>
-                            <Heading>{isUpdate ? 'Edit Connection' : 'Create Connection'}</Heading>
-                            <Divider style={{ margin: '8px 0' }} />
-                        </>
+        <Form form={form} onValuesChange={onValuesChange}>
+            <Wrapper>
+                {showHeader && (
+                    <>
+                        <Heading>{isUpdate ? 'Edit Connection' : 'Create Connection'}</Heading>
+                        <Divider style={{ margin: '8px 0' }} />
+                    </>
+                )}
+                {formError && <Alert type="error" message={formError} style={{ margin: '12px 0 8px' }} />}
+                {renderFields}
+                {showHeader && <Divider />}
+                <ButtonsContainer>
+                    {showTestButton && (
+                        <TestConnectionButton recipe={updatedYamlRecipe} sourceConfigs={sourceConfigs} />
                     )}
-                    {formError && <Alert type="error" message={formError} style={{ margin: '12px 0 8px' }} />}
-                    {renderFields}
-                    {showHeader && <Divider />}
                     <ButtonsContainer>
-                        {showTestButton && (
-                            <TestConnectionButton recipe={updatedYamlRecipe} sourceConfigs={sourceConfigs} />
+                        {disclosure?.closeModal && (
+                            <Button color="gray" onClick={disclosure.closeModal} variant="outline">
+                                Cancel
+                            </Button>
                         )}
-                        <ButtonsContainer>
-                            {disclosure?.closeModal && (
-                                <Button color="gray" onClick={disclosure?.closeModal} variant="outline">
-                                    Cancel
-                                </Button>
-                            )}
-                            {!isInlineForm && (
-                                <Button
-                                    type="submit"
-                                    onClick={handleSave}
-                                    isDisabled={!canSubmit}
-                                    isLoading={isSubmitting}
-                                >
-                                    {isUpdate ? 'Update Connection' : 'Create Connection'}
-                                </Button>
-                            )}
-                        </ButtonsContainer>
+                        {!isInlineForm && (
+                            <Button type="submit" onClick={handleSave} isDisabled={!canSubmit} isLoading={isSubmitting}>
+                                {isUpdate ? 'Update Connection' : 'Create Connection'}
+                            </Button>
+                        )}
                     </ButtonsContainer>
-                </Wrapper>
-            </Form>
-        </>
+                </ButtonsContainer>
+            </Wrapper>
+        </Form>
     );
 };

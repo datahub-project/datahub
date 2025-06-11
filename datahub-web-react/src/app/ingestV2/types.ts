@@ -9,4 +9,5 @@ export const tabUrlMap = {
     [TabType.Sources]: '/ingestion/sources',
     [TabType.ExecutionLog]: '/ingestion/execution-log',
     [TabType.Secrets]: '/ingestion/secrets',
+    [TabType.RemoteExecutors]: '/ingestion/remote-executors',
 };

@@ -210,15 +210,18 @@ def test_smart_freshness_assertion_log_messages(
 
 
 def test_smart_freshness_assertion_from_entities_all_fields(
-    monitor_with_all_fields: Monitor, assertion_entity_with_all_fields: Assertion
+    freshness_monitor_with_all_fields: Monitor,
+    freshness_assertion_entity_with_all_fields: Assertion,
 ) -> None:
     """Test that SmartFreshnessAssertion can be created from entities."""
     smart_freshness_assertion = SmartFreshnessAssertion._from_entities(
-        assertion=assertion_entity_with_all_fields,
-        monitor=monitor_with_all_fields,
+        assertion=freshness_assertion_entity_with_all_fields,
+        monitor=freshness_monitor_with_all_fields,
     )
 
-    assert smart_freshness_assertion.urn == assertion_entity_with_all_fields.urn
+    assert (
+        smart_freshness_assertion.urn == freshness_assertion_entity_with_all_fields.urn
+    )
     assert smart_freshness_assertion.dataset_urn == DatasetUrn.from_string(
         "urn:li:dataset:(urn:li:dataPlatform:bigquery,1234567890,PROD)"
     )

@@ -1,4 +1,3 @@
-import json
 from typing import Callable, List, Optional, Tuple
 
 import slack_sdk
@@ -87,7 +86,7 @@ class SlackMentionEvent(BaseModel):
         return self.original_thread_ts or self.message_ts
 
 
-def process_app_chat_event_and_send_message(app: App, event: SlackMentionEvent) -> None:
+def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     """
     Process a message event and send a response in a thread.
 
@@ -128,10 +127,12 @@ def process_app_chat_event_and_send_message(app: App, event: SlackMentionEvent) 
                 logger.error(f"Failed to update progress message: {str(e)}")
 
         # Process the actual response
-        message, followup_questions = handle_mention(app, event, progress_callback)
+        message, followup_questions = _generation_mention_response(
+            app.client, event, progress_callback
+        )
 
         # Build the response blocks
-        blocks = build_response(
+        blocks = _build_response(
             event.user_id,
             event.thread_ts,
             event.message_ts,
@@ -265,8 +266,10 @@ def _fetch_thread_history(
     return thread_messages
 
 
-def handle_mention(
-    app: App, event: SlackMentionEvent, progress_callback: Callable[[str], None]
+def _generation_mention_response(
+    client: WebClient,
+    event: SlackMentionEvent,
+    progress_callback: Callable[[str], None],
 ) -> Tuple[str, List[str]]:
     # Extract the message text from the app mention event
     message_text = event.message_text
@@ -283,9 +286,7 @@ def handle_mention(
     has_permission_error = False
     if thread_ts:
         try:
-            thread_messages = _fetch_thread_history(
-                app.client, event.channel_id, thread_ts
-            )
+            thread_messages = _fetch_thread_history(client, event.channel_id, thread_ts)
         except SlackPermissionError:
             has_permission_error = True
             logger.info(
@@ -315,7 +316,12 @@ class FeedbackPayload(BaseModel):
     feedback: str
 
 
-def build_response(
+class FollowupQuestionPayload(BaseModel):
+    question: str
+    thread_ts: str
+
+
+def _build_response(
     user_id: str,
     thread_ts: str,
     message_ts: str,
@@ -362,7 +368,7 @@ def build_response(
                         thread_ts=thread_ts,
                         message_ts=message_ts,
                         feedback="positive",
-                    ).json(),
+                    ).model_dump_json(),
                 },
                 {
                     "type": "button",
@@ -372,7 +378,7 @@ def build_response(
                         thread_ts=thread_ts,
                         message_ts=message_ts,
                         feedback="negative",
-                    ).json(),
+                    ).model_dump_json(),
                 },
             ],
         }
@@ -402,7 +408,9 @@ def build_response(
                     "type": "button",
                     "text": {"type": "plain_text", "text": question, "emoji": True},
                     "action_id": f"{DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID}_{i}",
-                    "value": json.dumps({"question": question, "thread_ts": thread_ts}),
+                    "value": FollowupQuestionPayload(
+                        question=question, thread_ts=thread_ts
+                    ).model_dump_json(),
                 }
             )
 
@@ -414,13 +422,50 @@ def build_response(
     return blocks
 
 
-def process_feedback(
+def handle_followup_question(
     app: App,
     channel_id: str,
+    user_id: str,
+    payload: FollowupQuestionPayload,
+) -> None:
+    thread_ts = payload.thread_ts
+    question = payload.question
+
+    # First, send the selected question into the thread so the user knows what they selected
+    try:
+        app.client.chat_postMessage(
+            channel=channel_id,
+            thread_ts=thread_ts,
+            text=f"<@{user_id}> asked: *{question}* 🤔",
+            icon_url=ACRYL_SLACK_ICON_URL,
+            mrkdwn=True,
+        )
+    except Exception as e:
+        logger.error(f"Failed to send question confirmation message: {str(e)}")
+
+    # Create an event object similar to app_mention
+    event = SlackMentionEvent(
+        channel_id=channel_id,
+        message_ts=thread_ts,
+        original_thread_ts=thread_ts,
+        user_id=user_id,
+        message_text=question,
+    )
+
+    handle_app_mention(app, event)
+
+
+def handle_feedback(
+    app: App,
+    channel_id: str,
+    bot_message_ts: str,
     user_id: str,
     user_name: str,
     payload: FeedbackPayload,
 ) -> None:
+    # payload.message_ts is the id of the user's message.
+    # bot_message_ts is the id of the bot's response message.
+
     # Get the original message content if possible.
     # TODO: Probably should fetch the full message history.
     message_content = None
@@ -466,8 +511,16 @@ def process_feedback(
         )
     elif payload.feedback == "positive":
         # For positive feedback, just acknowledge with a reaction
-        app.client.reactions_add(
-            channel=channel_id,
-            timestamp=payload.message_ts,
-            name="thumbsup",
-        )
+        try:
+            app.client.reactions_add(
+                channel=channel_id,
+                timestamp=bot_message_ts,
+                name="thumbsup",
+            )
+        except slack_sdk.errors.SlackApiError as e:
+            if "already_reacted" in str(e).lower():
+                logger.debug(
+                    f"Thumbs up reaction already added to message {bot_message_ts}"
+                )
+            else:
+                raise

@@ -51,7 +51,9 @@ dependencies = [
 	"h11>=0.16",
 	"azure-identity==1.21.0",
 	"aws-msk-iam-sasl-signer-python==1.0.2",
-	"msal>=1.32.3"
+	"msal>=1.32.3",
+	# Databricks sync -> conaction hangs forever on malformed http_path with newer databricks-sql-connector
+	"databricks-sql-connector>=2.8.0,<3.0.0",
 ]
 
 [project.optional-dependencies]

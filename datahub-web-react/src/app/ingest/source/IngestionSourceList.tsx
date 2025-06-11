@@ -96,7 +96,7 @@ const StyledSimpleSelect = styled(SimpleSelect)`
     align-self: start;
 `;
 
-// SaaS only button
+// SaaS only buttons
 const PoolsFilterButton = styled(Button)`
     margin: 8px;
     font-weight: bold;

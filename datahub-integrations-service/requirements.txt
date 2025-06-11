@@ -15,6 +15,8 @@ aiohttp==3.9.5
     # via acryl-datahub
 aiosignal==1.3.1
     # via aiohttp
+alembic==1.16.1
+    # via databricks-sql-connector
 annotated-types==0.7.0
     # via pydantic
 anyio==4.9.0
@@ -131,6 +133,8 @@ cryptography==42.0.5
     #   snowflake-connector-python
 databricks-sdk==0.50.0
     # via mlflow-skinny
+databricks-sql-connector==2.9.6
+    # via acryl-datahub-integrations
 deprecated==1.2.14
     # via
     #   acryl-datahub
@@ -143,6 +147,8 @@ duckdb==0.10.2
     # via acryl-datahub-integrations
 entrypoints==0.4
     # via acryl-datahub-actions
+et-xmlfile==2.0.0
+    # via openpyxl
 expandvars==0.12.0
     # via acryl-datahub
 fastapi==0.115.12
@@ -287,10 +293,16 @@ loguru==0.7.2
     # via acryl-datahub-integrations
 lxml==5.2.1
     # via reactpy
+lz4==4.4.4
+    # via databricks-sql-connector
+mako==1.3.10
+    # via alembic
 markdown-to-mrkdwn==0.2.0
     # via acryl-datahub-integrations
 markupsafe==2.1.5
-    # via jinja2
+    # via
+    #   jinja2
+    #   mako
 mcp==1.9.2
     # via acryl-datahub-integrations
 mixpanel==4.10.1
@@ -320,8 +332,13 @@ mypy-extensions==1.0.0
     #   typing-inspect
 numpy==1.26.4
     # via
+    #   databricks-sql-connector
     #   pandas
     #   pyarrow
+oauthlib==3.2.2
+    # via databricks-sql-connector
+openpyxl==3.1.5
+    # via databricks-sql-connector
 opentelemetry-api==1.32.1
     # via
     #   mlflow-skinny
@@ -340,10 +357,11 @@ packaging==24.0
     #   mlflow-skinny
     #   snowflake-connector-python
     #   sqlalchemy-bigquery
-pandas==2.2.2
+pandas==2.2.3
     # via
     #   acryl-datahub
     #   acryl-datahub-integrations
+    #   databricks-sql-connector
 parse==1.20.2
     # via acryl-datahub
 patchy==2.8.0
@@ -379,7 +397,9 @@ protobuf==4.25.5
 psutil==7.0.0
     # via acryl-datahub
 pyarrow==16.0.0
-    # via acryl-datahub-integrations
+    # via
+    #   acryl-datahub-integrations
+    #   databricks-sql-connector
 pyasn1==0.6.1
     # via
     #   pyasn1-modules
@@ -464,6 +484,7 @@ requests==2.31.0
     #   azure-core
     #   confluent-kafka
     #   databricks-sdk
+    #   databricks-sql-connector
     #   docker
     #   google-api-core
     #   google-cloud-bigquery
@@ -496,6 +517,7 @@ six==1.16.0
     #   azure-core
     #   mixpanel
     #   python-dateutil
+    #   thrift
 slack-bolt==1.23.0
     # via acryl-datahub-integrations
 slack-sdk==3.35.0
@@ -516,6 +538,8 @@ sortedcontainers==2.4.0
     # via snowflake-connector-python
 sqlalchemy==1.4.52
     # via
+    #   alembic
+    #   databricks-sql-connector
     #   snowflake-sqlalchemy
     #   sqlalchemy-bigquery
 sqlalchemy-bigquery==1.11.0
@@ -542,6 +566,8 @@ tenacity==9.0.0
     # via
     #   acryl-datahub-actions
     #   acryl-datahub-integrations
+thrift==0.16.0
+    # via databricks-sql-connector
 toml==0.10.2
     # via
     #   acryl-datahub
@@ -553,6 +579,7 @@ typeguard==4.2.1
 typing-extensions==4.13.2
     # via
     #   acryl-datahub
+    #   alembic
     #   anyio
     #   azure-core
     #   azure-identity
@@ -583,6 +610,7 @@ tzdata==2024.1
 urllib3==1.26.18
     # via
     #   botocore
+    #   databricks-sql-connector
     #   docker
     #   mixpanel
     #   pygithub

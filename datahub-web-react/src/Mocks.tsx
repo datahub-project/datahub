@@ -3893,6 +3893,8 @@ export const mocks = [
                         manageDocumentationForms: true,
                         viewDocumentationFormsPage: true,
                         manageOrganizationDisplayPreferences: true,
+                        proposeCreateGlossaryTerm: true,
+                        proposeCreateGlossaryNode: true,
                     },
                 },
             },
