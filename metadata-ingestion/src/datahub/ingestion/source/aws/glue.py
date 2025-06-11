@@ -182,7 +182,7 @@ class GlueSourceConfig(
 
     extract_lakeformation_tags: Optional[bool] = Field(
         default=False,
-        description="If set to True, extract lakeformation tags for glue tables.",
+        description="When True, extracts Lake Formation tags directly assigned to Glue tables/databases. Note: Tags inherited from databases or other parent resources are excluded.",
     )
 
     profiling: GlueProfilingConfig = Field(
