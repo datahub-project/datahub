@@ -903,9 +903,9 @@ sqlalchemy-redshift==0.8.14
     # via acryl-datahub
 sqlalchemy-stubs==0.4
     # via acryl-executor
-sqlglot==26.16.4
+sqlglot==26.26.0
     # via acryl-datahub
-sqlglotrs==0.4.0
+sqlglotrs==0.6.1
     # via sqlglot
 sqlparse==0.4.4
     # via acryl-datahub

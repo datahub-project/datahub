@@ -1017,11 +1017,11 @@ sqlalchemy-bigquery==1.11.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-sqlglot==26.16.4
+sqlglot==26.26.0
     # via
     #   -r requirements.txt
     #   acryl-datahub
-sqlglotrs==0.4.0
+sqlglotrs==0.6.1
     # via
     #   -r requirements.txt
     #   sqlglot

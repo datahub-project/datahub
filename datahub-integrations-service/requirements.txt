@@ -520,9 +520,9 @@ sqlalchemy==1.4.52
     #   sqlalchemy-bigquery
 sqlalchemy-bigquery==1.11.0
     # via acryl-datahub
-sqlglot==26.16.4
+sqlglot==26.26.0
     # via acryl-datahub
-sqlglotrs==0.4.0
+sqlglotrs==0.6.1
     # via sqlglot
 sqlparse==0.5.0
     # via mlflow-skinny
