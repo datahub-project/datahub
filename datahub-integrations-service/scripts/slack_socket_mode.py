@@ -1,4 +1,3 @@
-import json
 import os
 import pathlib
 
@@ -20,7 +19,7 @@ def main(
     if config_path:
         logger.info(f"Reading config from {config_path}")
         slack_details = pathlib.Path(config_path)
-        config = SlackConnection.parse_obj(json.loads(slack_details.read_text()))
+        config = SlackConnection.model_validate_json(slack_details.read_text())
     else:
         logger.info("No config file provided, using default config")
         from datahub_integrations.slack.config import slack_config

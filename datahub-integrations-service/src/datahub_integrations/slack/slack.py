@@ -36,9 +36,11 @@ from datahub_integrations.slack.command.mention import (
     DATAHUB_MENTION_FEEDBACK_BUTTON_ID,
     DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID,
     FeedbackPayload,
+    FollowupQuestionPayload,
     SlackMentionEvent,
-    process_app_chat_event_and_send_message,
-    process_feedback,
+    handle_app_mention,
+    handle_feedback,
+    handle_followup_question,
 )
 from datahub_integrations.slack.command.router import handle_command
 from datahub_integrations.slack.command.search import search
@@ -327,6 +329,9 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
     @app.message("test-acryl-bot")
     def handle_test_message(message: dict, say: Say) -> None:
+        # If you send a message containing "test-acryl-bot" to a channel
+        # containing the bot, it will respond with a message. This is mostly
+        # useful for testing and debugging.
         logger.info(message)
         say(
             f"Hey <@{message['user']}>, DataHub is available in this channel!",
@@ -339,7 +344,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
         pass
 
     @app.event("app_mention")
-    def handle_app_mention_events(event: dict, say: Say) -> None:
+    def handle_app_mention_event(event: dict, say: Say) -> None:
         logger.info(event)
 
         thread_ts = event.get("thread_ts")
@@ -347,7 +352,7 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
         if not DATAHUB_SLACK_AT_MENTION_ENABLED:
             say(
-                text="The @datahub mention is currently disabled. Please use /acryl or /datahub commands instead.",
+                text="The @datahub mention is currently disabled. Please use /datahub commands instead.",
                 icon_url=ACRYL_SLACK_ICON_URL,
                 thread_ts=thread_ts or message_ts,  # Reply in the thread
             )
@@ -360,47 +365,22 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
             user_id=event["user"],
             message_text=event["text"],
         )
-        process_app_chat_event_and_send_message(app, parsed_event)
+        handle_app_mention(app, parsed_event)
 
     @app.action(re.compile(f"{DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID}.*"))
-    def handle_followup_question(
-        ack: Ack, respond: Respond, action: dict, body: dict
-    ) -> None:
-        logger.debug(f"action: {action}")
-        logger.debug(f"body: {body}")
+    def handle_followup_question_event(ack: Ack, action: dict, body: dict) -> None:
+        logger.debug(f"followup question handler - action: {action}; body: {body}")
         ack()
 
-        # Extract the question and thread_ts from the button value
-        value = json.loads(action["value"])
-        question = value["question"]
-        thread_ts = value["thread_ts"]
+        # Extract the question info from the button value.
+        channel_id = body["channel"]["id"]
         user_id = body["user"]["id"]
+        payload = FollowupQuestionPayload.model_validate_json(action["value"])
 
-        # First, send the selected question into the thread so the user knows what they selected
-        try:
-            app.client.chat_postMessage(
-                channel=body["channel"]["id"],
-                thread_ts=thread_ts,
-                text=f"<@{user_id}> asked: *{question}* 🤔",
-                icon_url=ACRYL_SLACK_ICON_URL,
-                mrkdwn=True,
-            )
-        except Exception as e:
-            logger.error(f"Failed to send question confirmation message: {str(e)}")
-
-        # Create an event object similar to app_mention
-        event = SlackMentionEvent(
-            channel_id=body["channel"]["id"],
-            message_ts=thread_ts,
-            original_thread_ts=thread_ts,
-            user_id=user_id,
-            message_text=question,
-        )
-
-        process_app_chat_event_and_send_message(app, event)
+        handle_followup_question(app, channel_id, user_id, payload)
 
     @app.action(re.compile(f"{DATAHUB_MENTION_FEEDBACK_BUTTON_ID}.*"))
-    def handle_feedback(ack: Ack, action: dict, body: dict) -> None:
+    def handle_feedback_event(ack: Ack, action: dict, body: dict) -> None:
         # Acknowledge the button click
         ack()
 
@@ -408,11 +388,12 @@ def get_slack_app(config: SlackConnection) -> slack_bolt.App:
 
         # Extract feedback data from the button value
         channel_id = body["channel"]["id"]
+        bot_message_ts = body["message"]["ts"]
         user_id = body["user"]["id"]
         user_name = body["user"]["name"]
-        payload = FeedbackPayload.parse_raw(action["value"])
+        payload = FeedbackPayload.model_validate_json(action["value"])
 
-        process_feedback(app, channel_id, user_id, user_name, payload)
+        handle_feedback(app, channel_id, bot_message_ts, user_id, user_name, payload)
 
     @app.command(re.compile(r"^/acryl.*"))
     def handle_command_acryl(ack: Ack, respond: Respond, command: dict) -> None:
