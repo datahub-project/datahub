@@ -7,6 +7,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -42,9 +43,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    DatasetLineageType,
     FineGrainedLineage,
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
+    Upstream,
+    UpstreamLineage,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -1241,6 +1245,13 @@ class FivetranSource(StatefulIngestionSourceBase):
                     else:
                         yield wu
 
+        # Emit dataset-level lineage workunits
+        if connector.lineage:
+            logger.info(
+                f"Creating dataset-level lineage for connector {connector.connector_id}"
+            )
+            yield from self._create_dataset_lineage_workunits(connector)
+
         # Now emit the field lineage workunits after all dataset workunits
         for wu in field_lineage_workunits:
             yield wu
@@ -1322,6 +1333,95 @@ class FivetranSource(StatefulIngestionSourceBase):
         }
 
         return datajob
+
+    def _create_dataset_lineage_workunits(
+        self, connector: Connector
+    ) -> Iterable[MetadataWorkUnit]:
+        """Create dataset-level lineage workunits for all tables in a connector."""
+        # Get source and destination platform details
+        source_details = self._get_source_details(connector)
+        if not source_details.platform:
+            source_details.platform = self._detect_source_platform(connector)
+
+        destination_details = self._get_destination_details(connector)
+
+        # Group lineage by destination table to create one lineage aspect per destination
+        destination_lineage_map: Dict[str, List[TableLineage]] = {}
+        for lineage in connector.lineage:
+            dest_table = lineage.destination_table
+            if dest_table not in destination_lineage_map:
+                destination_lineage_map[dest_table] = []
+            destination_lineage_map[dest_table].append(lineage)
+
+        # Create lineage workunits for each destination table
+        for dest_table, table_lineages in destination_lineage_map.items():
+            try:
+                # Create destination URN
+                dest_urn = self._create_dataset_urn(
+                    dest_table, destination_details, is_source=False
+                )
+                if not dest_urn:
+                    logger.warning(f"Could not create destination URN for {dest_table}")
+                    continue
+
+                # Collect all source URNs and fine-grained lineage for this destination
+                upstreams: List[Upstream] = []
+                fine_grained_lineage: List[FineGrainedLineage] = []
+
+                source_urns_seen = set()
+
+                for lineage in table_lineages:
+                    # Create source URN
+                    source_urn = self._create_dataset_urn(
+                        lineage.source_table, source_details, is_source=True
+                    )
+                    if not source_urn:
+                        logger.warning(
+                            f"Could not create source URN for {lineage.source_table}"
+                        )
+                        continue
+
+                    # Add to upstreams if not already seen
+                    if str(source_urn) not in source_urns_seen:
+                        source_urns_seen.add(str(source_urn))
+                        upstreams.append(
+                            Upstream(
+                                dataset=str(source_urn),
+                                type=DatasetLineageType.TRANSFORMED,
+                            )
+                        )
+
+                    # Add column lineage if enabled and available
+                    if self.config.include_column_lineage and lineage.column_lineage:
+                        self._create_column_lineage(
+                            lineage=lineage,
+                            source_urn=source_urn,
+                            dest_urn=dest_urn,
+                            fine_grained_lineage=fine_grained_lineage,
+                        )
+
+                # Create the upstream lineage aspect
+                if upstreams:
+                    upstream_lineage = UpstreamLineage(
+                        upstreams=upstreams,
+                        fineGrainedLineages=fine_grained_lineage or None,
+                    )
+
+                    # Create and yield the workunit
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=str(dest_urn),
+                        aspect=upstream_lineage,
+                    ).as_workunit()
+
+                    logger.info(
+                        f"Created dataset lineage for {dest_table} with {len(upstreams)} upstreams and {len(fine_grained_lineage)} fine-grained lineage entries"
+                    )
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to create dataset lineage for {dest_table}: {e}",
+                    exc_info=True,
+                )
 
     def _report_lineage_truncation(self, connector: Connector) -> None:
         """Report warning about truncated lineage."""
