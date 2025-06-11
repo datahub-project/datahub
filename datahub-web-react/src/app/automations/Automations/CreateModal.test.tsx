@@ -2,7 +2,7 @@ import { render } from '@testing-library/react';
 import React from 'react';
 
 import { AutomationCreateModal } from '@app/automations/Automations/CreateModal';
-import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/tagPropagation';
+import * as SnowflakeTagPropagation from '@app/automations/recipes/snowflake/metadataSync';
 import { AppConfigContext, DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 
 describe('CreateModal', () => {

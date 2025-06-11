@@ -15,8 +15,8 @@ import SnowflakeLogo from '@images/snowflakelogo.png';
 // Used to identify the action in the backend & provide common key between template <> recipe
 export const automationType = 'datahub_integrations.propagation.snowflake.tag_propagator.SnowflakeTagPropagatorAction';
 
-const automationName = 'Snowflake Tag Propagation';
-const automationDescription = 'Sync Tags and Glossary Terms to Snowflake Table and Column Tags';
+const automationName = 'Snowflake Tag Sync';
+const automationDescription = 'Sync tag and glossary term changes to Snowflake';
 
 const defaultRecipe: AutomationRecipe = {
     name: automationName,

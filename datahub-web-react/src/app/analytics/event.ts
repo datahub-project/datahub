@@ -182,6 +182,9 @@ export enum EventType {
     ClickCreateAssertion,
     ClickUserProfile,
     ClickViewDocumentation,
+    CreateActionEvent,
+    UpdateActionEvent,
+    DeleteActionEvent,
 }
 
 /**
@@ -718,6 +721,21 @@ export interface UpdateTestEvent extends BaseEvent {
 
 export interface DeleteTestEvent extends BaseEvent {
     type: EventType.DeleteTestEvent;
+}
+
+export interface CreateActionEvent extends BaseEvent {
+    type: EventType.CreateActionEvent;
+    actionType: string;
+}
+
+export interface UpdateActionEvent extends BaseEvent {
+    type: EventType.UpdateActionEvent;
+    actionType: string;
+}
+
+export interface DeleteActionEvent extends BaseEvent {
+    type: EventType.DeleteActionEvent;
+    actionType?: string;
 }
 
 export interface CreateAssertionMonitorEvent extends BaseEvent {
@@ -1470,4 +1488,7 @@ export type Event =
     | FilterStatsChartLookBackEvent
     | ClickCreateAssertionEvent
     | ClickUserProfileEvent
-    | ClickViewDocumentationEvent;
+    | ClickViewDocumentationEvent
+    | CreateActionEvent
+    | UpdateActionEvent
+    | DeleteActionEvent;

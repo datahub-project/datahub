@@ -54,6 +54,8 @@ public class EntityChangeEventGeneratorHook implements MetadataChangeLogHook {
       ImmutableSet.of(
           Constants.GLOBAL_TAGS_ASPECT_NAME,
           Constants.GLOSSARY_TERMS_ASPECT_NAME,
+          Constants.CONTAINER_PROPERTIES_ASPECT_NAME,
+          Constants.CONTAINER_EDITABLE_PROPERTIES_ASPECT_NAME,
           Constants.OWNERSHIP_ASPECT_NAME,
           Constants.DOMAINS_ASPECT_NAME,
           Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,

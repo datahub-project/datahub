@@ -59,9 +59,9 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
         stopActionPipeline({ variables: { urn } })
             .then(() => {
                 openSuccessNotification('Stopped automation!');
-                refetch();
             })
-            .catch((error) => openErrorNotification('Stop Automation', error.message));
+            .catch((error) => openErrorNotification('Stop Automation', error.message))
+            .finally(() => refetch());
     };
 
     // Start an Action
@@ -135,7 +135,7 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
                                     hidden: isRunning,
                                     icon: 'PlayCircle',
                                     label: 'Start',
-                                    tooltip: 'Start the automation to begin propagating documentation',
+                                    tooltip: 'Start the automation',
                                 },
                                 {
                                     key: 'stop',
@@ -144,7 +144,7 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
                                     hidden: isStopped,
                                     icon: 'PauseCircle',
                                     label: 'Stop',
-                                    tooltip: 'Stop the automation from propagating documentation',
+                                    tooltip: 'Stop the automation',
                                 },
                                 {
                                     key: 'bootstrap',
