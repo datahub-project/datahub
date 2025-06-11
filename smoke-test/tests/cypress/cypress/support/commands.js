@@ -440,6 +440,15 @@ Cypress.Commands.add(
   },
 );
 
+Cypress.Commands.add(
+  "removeApplicationFromDataset",
+  (urn, dataset_name, application_urn) => {
+    cy.goToDataset(urn, dataset_name);
+    cy.get(`.sidebar-application-section .anticon-close`).click();
+    cy.clickOptionWithText("Yes");
+  },
+);
+
 Cypress.Commands.add("openEntityTab", (tab) => {
   const selector = `div[id$="${tab}"]:nth-child(1)`;
   cy.get(selector).click();
