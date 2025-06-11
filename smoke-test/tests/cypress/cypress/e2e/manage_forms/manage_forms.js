@@ -164,7 +164,7 @@ const setFeatureFlags = () => {
   cy.intercept("POST", "/api/v2/graphql", (req) => {
     if (hasOperationName(req, "appConfig")) {
       req.reply((res) => {
-        res.body.data.appConfig.featureFlags.showNotificationSettingsForComplianceForms = true;
+        res.body.data.appConfig.featureFlags.formsNotificationsEnabled = true;
         res.body.data.appConfig.featureFlags.themeV2Enabled = true;
         res.body.data.appConfig.featureFlags.themeV2Default = true;
       });

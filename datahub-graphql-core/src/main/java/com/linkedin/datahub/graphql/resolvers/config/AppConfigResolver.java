@@ -321,8 +321,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setOnlineSmartAssertionsEnabled(_featureFlags.isOnlineSmartAssertionsEnabled())
             .setShowDefaultExternalLinks(_featureFlags.isShowDefaultExternalLinks())
             .setShowCreatedAtFilter(_featureFlags.isShowCreatedAtFilter())
-            .setShowNotificationSettingsForComplianceForms(
-                _featureFlags.isShowNotificationSettingsForComplianceForms())
+            .setFormsNotificationsEnabled(_featureFlags.isFormsNotificationsEnabled())
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
             .build();
 

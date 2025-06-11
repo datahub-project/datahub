@@ -11,7 +11,7 @@ export default function useUserNotificationGroups(appConfig?: Partial<AppConfig>
     return useMemo(() => {
         const groups = [USER_PROPOSAL_NOTIFICATIONS_GROUP];
 
-        if (appConfig?.featureFlags?.showNotificationSettingsForComplianceForms) {
+        if (appConfig?.featureFlags?.formsNotificationsEnabled) {
             groups.push(USER_COMPLIANCE_FORMS_NOTIFICATIONS_GROUP);
         }
 

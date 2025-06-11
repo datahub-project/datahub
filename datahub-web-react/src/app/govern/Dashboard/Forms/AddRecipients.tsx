@@ -22,7 +22,7 @@ const AddRecipients = () => {
     const { handleOwnersCheckBox, handleNotifyAsigneesCheckBox } = useFormHandlers();
     const [showUsersModal, setShowUsersModal] = useState<boolean>(false);
 
-    const { showNotificationSettingsForComplianceForms } = config.featureFlags;
+    const { formsNotificationsEnabled } = config.featureFlags;
 
     return (
         <>
@@ -45,7 +45,7 @@ const AddRecipients = () => {
                     </Text>
                 </OptionCheckbox>
 
-                {showNotificationSettingsForComplianceForms && (
+                {formsNotificationsEnabled && (
                     <OptionCheckbox>
                         <StyledCheckbox
                             checked={!!formValues.formSettings?.notificationSettings?.notifyAssigneesOnPublish}

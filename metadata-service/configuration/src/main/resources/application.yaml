@@ -815,7 +815,7 @@ featureFlags:
   showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false}
   # If turned on, show the re-designed Ingestion page
   # If turned on, show the expand more button (>>) in the lineage graph
-  showNotificationSettingsForComplianceForms: ${SHOW_NOTIFICATION_SETTINGS_FOR_COMPLIANCE_FORMS:false}
+  formsNotificationsEnabled: ${FORMS_NOTIFICATIONS_ENABLED:false}
   # Whether to show notification settings for compliance forms
   lineageGraphV3: ${LINEAGE_GRAPH_V3:false}
   # Enables the redesign of the lineage v2 graph
