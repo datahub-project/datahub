@@ -856,6 +856,7 @@ module.exports = {
           id: "docs/advanced/patch",
           label: "Patch",
         },
+        "docs/api/tutorials/sdk/search_client",
       ],
     },
     // Admin.

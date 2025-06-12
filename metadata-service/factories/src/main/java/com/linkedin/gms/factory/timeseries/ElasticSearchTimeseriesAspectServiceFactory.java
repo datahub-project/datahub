@@ -3,7 +3,6 @@ package com.linkedin.gms.factory.timeseries;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
-import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.timeseries.elastic.ElasticSearchTimeseriesAspectService;
@@ -35,7 +34,7 @@ public class ElasticSearchTimeseriesAspectServiceFactory {
         components.getBulkProcessor(),
         components.getNumRetries(),
         queryFilterRewriteChain,
-        TimeseriesAspectServiceConfig.builder().build(),
+        configurationProvider.getTimeseriesAspectService(),
         entityRegistry,
         components.getIndexConvention(),
         components.getIndexBuilder());

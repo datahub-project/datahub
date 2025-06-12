@@ -159,6 +159,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
             openapi_ingestion=self.config.openapi_ingestion,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
+            server_config_refresh_interval=config.server_config_refresh_interval,
         )
         self.server_id: str = _MISSING_SERVER_ID
 
@@ -234,6 +235,7 @@ class DataHubGraph(DatahubRestEmitter, EntityVersioningAPI):
                 client_certificate_path=session_config.client_certificate_path,
                 client_mode=session_config.client_mode,
                 datahub_component=session_config.datahub_component,
+                server_config_refresh_interval=emitter._server_config_refresh_interval,
             )
         )
 

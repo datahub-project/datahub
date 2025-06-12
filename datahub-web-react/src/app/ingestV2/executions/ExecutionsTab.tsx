@@ -54,14 +54,15 @@ const DEFAULT_PAGE_SIZE = 25;
 
 interface Props {
     shouldPreserveParams: React.MutableRefObject<boolean>;
+    hideSystemSources: boolean;
+    setHideSystemSources: (show: boolean) => void;
 }
 
-export const ExecutionsTab = ({ shouldPreserveParams }: Props) => {
+export const ExecutionsTab = ({ shouldPreserveParams, hideSystemSources, setHideSystemSources }: Props) => {
     const [appliedFilters, setAppliedFilters] = useState<Map<string, string[]>>(new Map());
     const [executionRequestUrnToView, setExecutionRequestUrnToView] = useState<undefined | string>(undefined);
-    const [hideSystemSources, setHideSystemSources] = useState(true);
 
-    const { page, setPage, start, count } = usePagination(DEFAULT_PAGE_SIZE);
+    const { page, setPage, start, count: pageSize } = usePagination(DEFAULT_PAGE_SIZE);
     // When filters changed, reset page to 1
     useEffect(() => setPage(1), [appliedFilters, setPage]);
 
@@ -75,7 +76,7 @@ export const ExecutionsTab = ({ shouldPreserveParams }: Props) => {
         variables: {
             input: {
                 start,
-                count,
+                count: pageSize,
                 query: undefined,
                 filters,
                 systemSources: !hideSystemSources,
@@ -106,6 +107,7 @@ export const ExecutionsTab = ({ shouldPreserveParams }: Props) => {
 
     const totalExecutionRequests = data?.listExecutionRequests?.total || 0;
     const executionRequests: ExecutionRequest[] = data?.listExecutionRequests?.executionRequests || [];
+    const isLastPage = totalExecutionRequests <= pageSize * page;
 
     // refresh the data when there are some running execution requests
     useRefresh(executionRequests, refetch);
@@ -146,12 +148,13 @@ export const ExecutionsTab = ({ shouldPreserveParams }: Props) => {
                                     setFocusExecutionUrn={setExecutionRequestUrnToView}
                                     handleRollback={handleRollbackExecution}
                                     loading={loading}
+                                    isLastPage={isLastPage}
                                 />
                             </TableContainer>
                             <PaginationContainer>
                                 <Pagination
                                     currentPage={page}
-                                    itemsPerPage={DEFAULT_PAGE_SIZE}
+                                    itemsPerPage={pageSize}
                                     totalPages={totalExecutionRequests}
                                     showLessItems
                                     onPageChange={onPageChangeHandler}
