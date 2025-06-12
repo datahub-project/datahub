@@ -1,13 +1,20 @@
-import { Icon, Pill, Text, Tooltip, colors } from '@components';
+import { Avatar, Icon, Pill, Text, Tooltip, colors } from '@components';
 import { Image, Typography } from 'antd';
 import cronstrue from 'cronstrue';
 import React from 'react';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
+
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { EXECUTION_REQUEST_STATUS_RUNNING } from '@app/ingestV2/executions/constants';
 import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/columns/BaseActionsColumn';
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
+import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter } from '@app/shared/textUtil';
+
+import { EntityType, Owner } from '@types';
 
 const PreviewImage = styled(Image)`
     max-height: 20px;
@@ -102,11 +109,49 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
                 },
             }}
         >
-            {scheduleText || 'Not scheduled'}
+            {scheduleText || '-'}
         </TextContainer>
     );
 }
 
+export function OwnerColumn({ owners, entityRegistry }: { owners: Owner[]; entityRegistry: EntityRegistry }) {
+    const ownerAvatars = owners.map((owner) => {
+        return {
+            name: entityRegistry.getDisplayName(owner.owner.type, owner.owner),
+            imageUrl: owner.owner.editableProperties?.pictureLink,
+            type: owner.owner.type,
+            urn: owner.owner.urn,
+        };
+    });
+    const singleOwner = owners.length === 1 ? owners[0].owner : undefined;
+
+    if (owners.length === 0) return <>-</>;
+
+    return (
+        <>
+            {singleOwner && (
+                <HoverEntityTooltip entity={singleOwner} showArrow={false}>
+                    <Link
+                        to={`${entityRegistry.getEntityUrl(singleOwner.type, singleOwner.urn)}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                        }}
+                    >
+                        <Avatar
+                            name={entityRegistry.getDisplayName(singleOwner.type, singleOwner)}
+                            imageUrl={singleOwner.editableProperties?.pictureLink}
+                            showInPill
+                            isGroup={singleOwner.type === EntityType.CorpGroup}
+                        />
+                    </Link>
+                </HoverEntityTooltip>
+            )}
+            {owners.length > 1 && (
+                <AvatarStackWithHover avatars={ownerAvatars} showRemainingNumber entityRegistry={entityRegistry} />
+            )}
+        </>
+    );
+}
 interface ActionsColumnProps {
     record: any;
     setFocusExecutionUrn: (urn: string) => void;
@@ -157,13 +202,9 @@ export function ActionsColumn({
                 </MenuItem>
             ),
         });
-    items.push({
-        key: '2',
-        label: <MenuItem onClick={() => {}}>Edit Ownership</MenuItem>,
-    });
     if (navigator.clipboard)
         items.push({
-            key: '3',
+            key: '2',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -176,7 +217,7 @@ export function ActionsColumn({
         });
     if (record.lastExecStatus === EXECUTION_REQUEST_STATUS_RUNNING)
         items.push({
-            key: '4',
+            key: '3',
             label: (
                 <MenuItem
                     onClick={() => {
@@ -188,7 +229,7 @@ export function ActionsColumn({
             ),
         });
     items.push({
-        key: '5',
+        key: '4',
         label: (
             <MenuItem
                 onClick={() => {
@@ -205,7 +246,14 @@ export function ActionsColumn({
             dropdownItems={items}
             extraActions={
                 !record.cliIngestion && record.lastExecStatus !== EXECUTION_REQUEST_STATUS_RUNNING ? (
-                    <Icon icon="Play" source="phosphor" onClick={() => onExecute(record.urn)} />
+                    <Icon
+                        icon="Play"
+                        source="phosphor"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onExecute(record.urn);
+                        }}
+                    />
                 ) : null
             }
         />

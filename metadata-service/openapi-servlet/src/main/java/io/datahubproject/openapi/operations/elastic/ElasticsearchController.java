@@ -268,7 +268,8 @@ public class ElasticsearchController {
           String keepAlive,
       @Parameter(name = "size", required = true, description = "Page size for pagination.")
           @RequestParam(value = "size", required = false, defaultValue = "1")
-          int size,
+          @Nullable
+          Integer size,
       @Parameter(name = "filters", description = "Additional filters to apply to query.")
           @RequestParam(value = "filters", required = false)
           @Nullable
@@ -377,7 +378,8 @@ public class ElasticsearchController {
           String keepAlive,
       @Parameter(name = "size", required = true, description = "Page size for pagination.")
           @RequestParam(value = "size", required = false, defaultValue = "1")
-          int size,
+          @Nullable
+          Integer size,
       @Parameter(name = "filters", description = "Additional filters to apply to query.")
           @RequestParam(value = "filters", required = false)
           @Nullable

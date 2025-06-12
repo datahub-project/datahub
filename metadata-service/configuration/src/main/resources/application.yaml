@@ -113,6 +113,11 @@ entityService:
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
+  limit:
+    results:
+      max: ${GRAPH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${GRAPH_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${GRAPH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 searchService:
   resultBatchSize: ${SEARCH_SERVICE_BATCH_SIZE:100}
@@ -131,12 +136,29 @@ searchService:
       enabled: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_ENABLED:true}
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
+  limit:
+    results:
+      max: ${SEARCH_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${SEARCH_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${SEARCH_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 timeseriesAspectService:
   query:
     concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
     queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY)QUEUE_SIZE:500}
     threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
+  limit:
+    results:
+      max: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${TIMESERIES_ASPECT_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
+
+systemMetadataService:
+  limit:
+    results:
+      max: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_MAX:10000} # Maximum allowed result count for queries
+      apiDefault: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_API_DEFAULT:5000}
+      strict: ${SYSTEM_METADATA_SERVICE_LIMIT_RESULTS_STRICT:false} # Throw an exception if strict is true, otherwise override with default and warn
 
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
@@ -167,6 +189,8 @@ visualConfig:
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
+  application:
+    showSidebarSectionWhenEmpty: ${APPLICATION_SHOW_SIDEBAR_SECTION_WHEN_EMPTY:false}
   searchResult:
     enableNameHighlight: ${SEARCH_RESULT_NAME_HIGHLIGHT_ENABLED:true} # Enables visual highlighting on search result names/descriptions.
 
@@ -277,10 +301,13 @@ elasticsearch:
     graph:
       timeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_TIMEOUT_SECONDS:50} # graph dao timeout seconds
       batchSize: ${ELASTICSEARCH_SEARCH_GRAPH_BATCH_SIZE:1000} # graph dao batch size
-      maxResult: ${ELASTICSEARCH_SEARCH_GRAPH_MAX_RESULT:10000} # graph dao max result size
       enableMultiPathSearch: ${ELASTICSEARCH_SEARCH_GRAPH_MULTI_PATH_SEARCH:false} # allows a path to be retraversed to walk all paths to the node instead of just shortest, avoids cycles by not rewalking the visited edge
       boostViaNodes: ${ELASTICSEARCH_SEARCH_GRAPH_BOOST_VIA_NODES:true} # adds a boosting query that ranks graph edges with via nodes higher, used to allow via paths to be prioritized when multi path search is disabled
       graphStatusEnabled: ${ELASTICSEARCH_SEARCH_GRAPH_STATUS_ENABLED:false} # enable soft delete tracking of the urns on edges
+      lineageMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_LINEAGE_MAX_HOPS:20} # the maximum hops to traverse lineage graph visualization
+      impactMaxHops: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_HOPS:1000} # the maximum hops to traverse for impact analysis
+      maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:32} # maximum parallel lineage graph queries
+      queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
 
 # TODO: Kafka topic convention
 kafka:

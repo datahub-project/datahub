@@ -17,15 +17,22 @@ interface Props {
     defaultValues?: string[];
     onUpdate?: (selectedValues: string[]) => void;
     hideSystemSources: boolean;
+    shouldPreserveParams: React.MutableRefObject<boolean>;
 }
 
-export default function SourceFilter({ defaultValues, onUpdate, hideSystemSources }: Props) {
+export default function SourceFilter({ defaultValues, onUpdate, hideSystemSources, shouldPreserveParams }: Props) {
     const [values, setValues] = useState<string[]>(defaultValues ?? []);
     const [query, setQuery] = useState<string | undefined>();
 
     const [getListIngestionSources, { data, loading }] = useListIngestionSourcesLazyQuery();
     const [getListIngestionSourcesByDefaultValues, { data: defaultData, loading: loadingDefault }] =
         useListIngestionSourcesLazyQuery();
+
+    useEffect(() => {
+        if (shouldPreserveParams.current) {
+            setValues(defaultValues || []);
+        }
+    }, [defaultValues, shouldPreserveParams]);
 
     // Fething of items by defaultValues
     useEffect(() => {
@@ -96,7 +103,7 @@ export default function SourceFilter({ defaultValues, onUpdate, hideSystemSource
             onUpdate={onUpdateHandler}
             options={options}
             isMultiSelect
-            selectLabelProps={{ variant: 'labeled', label: 'Name' }}
+            selectLabelProps={{ variant: 'labeled', label: 'Source' }}
             renderCustomOptionText={(option) => (
                 <NameColumn
                     type={option.item.type}
@@ -108,6 +115,7 @@ export default function SourceFilter({ defaultValues, onUpdate, hideSystemSource
             )}
             showSearch
             onSearchChange={onSearchChangeHandler}
+            size="sm"
             width="fit-content"
         />
     );
