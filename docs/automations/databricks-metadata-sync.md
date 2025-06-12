@@ -16,8 +16,6 @@ Databricks Metadata Sync is an automation feature that enables seamless synchron
 
 This automation is exclusively available in DataHub Cloud and provides real-time synchronization capabilities for enhanced data governance workflows.
 
-
-
 ## Key Capabilities
 
 The Databricks Metadata Sync automation provides comprehensive metadata synchronization with the following features:
@@ -35,18 +33,22 @@ Before enabling Databricks Metadata Sync, ensure the following permissions and c
 ### Required Unity Catalog Permissions
 
 #### Basic Access Permissions (Required for Both Tags and Descriptions)
+
 - **USE CATALOG**: Access to the Unity Catalog containing target objects
 - **USE SCHEMA**: Permission to access schemas within the catalog
 
 #### Permissions for Tag Synchronization
+
 Based on Unity Catalog requirements, to add tags to objects you need:
+
 - **APPLY TAG**: Required on each object where tags will be applied (catalogs, schemas, tables, columns)
 - **USE SCHEMA**: Required on the object's parent schema (already covered in basic access)
 - **USE CATALOG**: Required on the object's parent catalog (already covered in basic access)
 
-*Note: If using governed tags, you may also need ASSIGN permission on the tag policy.*
+_Note: If using governed tags, you may also need ASSIGN permission on the tag policy._
 
 #### Permissions for Description Synchronization
+
 - **MODIFY**: Required to update comments/descriptions on Unity Catalog objects (catalogs, schemas, tables, columns)
 
 ### Example Permission Configuration
@@ -54,6 +56,7 @@ Based on Unity Catalog requirements, to add tags to objects you need:
 Configure the necessary permissions for your DataHub automation service principal based on your sync requirements:
 
 #### For Tags Only
+
 ```sql
 -- Basic access permissions
 GRANT USE CATALOG ON CATALOG your_catalog TO `datahub-automation@your-domain.com`;
@@ -66,6 +69,7 @@ GRANT APPLY TAG ON ALL TABLES IN SCHEMA your_catalog.your_schema TO `datahub-aut
 ```
 
 #### For Descriptions Only
+
 ```sql
 -- Basic access permissions
 GRANT USE CATALOG ON CATALOG your_catalog TO `datahub-automation@your-domain.com`;
@@ -78,6 +82,7 @@ GRANT MODIFY ON ALL TABLES IN SCHEMA your_catalog.your_schema TO `datahub-automa
 ```
 
 #### For Both Tags and Descriptions
+
 ```sql
 -- Basic access permissions
 GRANT USE CATALOG ON CATALOG your_catalog TO `datahub-automation@your-domain.com`;
@@ -97,6 +102,7 @@ GRANT MODIFY ON ALL TABLES IN SCHEMA your_catalog.your_schema TO `datahub-automa
 ### Connection Requirements
 
 Ensure your DataHub instance has:
+
 - Valid Databricks workspace credentials
 - Network connectivity to your Databricks Unity Catalog environment
 - Appropriate service principal or user authentication configured
@@ -131,7 +137,9 @@ Initiate the automation setup:
 Choose the types of information to synchronize:
 
 #### Select Action
+
 Choose between:
+
 - **Tags**: Sync Tags for Tables, Columns, Catalogs, & Schemas (Unity Catalog)
 - **Descriptions**: Sync descriptions for Tables, Columns, Catalogs & Schemas as comments
 
@@ -140,7 +148,9 @@ Choose between:
 </p>
 
 #### Configure Tag Selection (if Tags selected)
+
 When syncing Tags, you can choose:
+
 - **All tags**: Propagate all DataHub Tags to Unity Catalog
 - **Tags in a specific set**: Select only specific Tags for synchronization
 
@@ -149,6 +159,7 @@ When syncing Tags, you can choose:
 Complete the Databricks connection configuration:
 
 #### Required Connection Details
+
 - **Workspace URL**: Your Databricks workspace URL (e.g., `https://abcsales.cloud.databricks.com`)
 - **Warehouse ID**: The SQL warehouse ID for metadata operations (e.g., `fab3e5fg0bcbfc56`)
 - **Token**: Databricks personal access token or service principal token
@@ -158,11 +169,13 @@ Complete the Databricks connection configuration:
 </p>
 
 #### Test Connection
+
 Click **Test Connection** to verify your configuration before proceeding.
 
 ### Step 5: Configure Automation Details
 
 Provide automation metadata:
+
 - **Name**: Descriptive name for your automation (e.g., "Databricks Metadata Sync")
 - **Description**: Details about the automation's purpose and scope
 - **Category**: Select an appropriate category for organization
@@ -219,17 +232,20 @@ Track automation performance through the DataHub Automations dashboard:
 ### Common Issues and Solutions
 
 #### Permission Errors
+
 - Verify service principal has all required Unity Catalog permissions
 - Confirm catalog and schema access rights
 - Check tag creation and application privileges
 
 #### Connection Issues
+
 - Validate Databricks workspace URL format
 - Ensure access token is valid and not expired
 - Verify warehouse ID is correct and accessible
 - Check network connectivity between DataHub and Databricks
 
 #### Synchronization Failures
+
 - Review automation logs for specific error messages
 - Check Unity Catalog object permissions
 - Verify target objects exist and are accessible
