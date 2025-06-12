@@ -1,24 +1,11 @@
 import re
 
 from datahub.ingestion.graph.links import make_url_for_urn
-from datahub.metadata._urns.urn_defs import DatasetUrn
-from datahub.utilities.urns._urn_base import Urn
-from datahub.utilities.urns.error import InvalidUrnError
 from markdown_to_mrkdwn import SlackMarkdownConverter
 
 
 def get_url_for_urn(frontend_url: str, entity_urn: str) -> str:
     return make_url_for_urn(frontend_url, entity_urn)
-
-
-def _get_text_for_urn(urn: str) -> str:
-    try:
-        urn_t = Urn.from_string(urn)
-        if isinstance(urn_t, DatasetUrn):
-            return urn_t.name
-    except InvalidUrnError:
-        pass
-    return urn
 
 
 _urn_regex_1 = r"urn:li:[a-z]+:[^\s()]+"  # simple urns

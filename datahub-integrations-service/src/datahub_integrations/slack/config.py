@@ -1,3 +1,4 @@
+import dataclasses
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
@@ -12,6 +13,9 @@ from datahub_integrations.app import graph
 from datahub_integrations.graphql.connection import (
     get_connection_json,
     save_connection_json,
+)
+from datahub_integrations.slack.slack_history import (
+    SlackHistoryCache,
 )
 
 _SLACK_CONFIG_ID = "__system_slack-0"
@@ -94,6 +98,9 @@ class _SlackConfigManager:
     """A caching wrapper around the Slack config."""
 
     _config: Optional[SlackConnection] = None
+    _slack_history_cache: SlackHistoryCache = dataclasses.field(
+        default_factory=SlackHistoryCache
+    )
 
     def get_config(self, force_refresh: bool = False) -> SlackConnection:
         if self._config is None or force_refresh:
@@ -102,9 +109,31 @@ class _SlackConfigManager:
 
         return self._config
 
+    def get_slack_history_cache(self) -> SlackHistoryCache:
+        return self._slack_history_cache
+
+    @classmethod
+    def _get_app_id(cls, config: Optional[SlackConnection]) -> Optional[str]:
+        if config and config.app_details and config.app_details.app_id:
+            return config.app_details.app_id
+        return None
+
     def reload(self) -> SlackConnection:
         logger.info("Reloading slack config")
+        old_config = self._config
         self._config = _get_current_slack_config()
+
+        if (old_app_id := self._get_app_id(old_config)) != (
+            new_app_id := self._get_app_id(self._config)
+        ):
+            # NOTE: This isn't an ideal spot to put the slack_history_cache,
+            # but it's the easiest path forward right now.
+            logger.info(
+                f"After reloading slack config, the Slack app ID changed from {old_app_id} to {new_app_id}; "
+                "resetting slack history cache"
+            )
+            self._slack_history_cache = SlackHistoryCache()
+
         return self._config
 
     def save_config(self, config: SlackConnection) -> None:

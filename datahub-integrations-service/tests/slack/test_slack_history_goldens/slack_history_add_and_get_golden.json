@@ -1,0 +1,25 @@
+{
+  "messages": [
+    {
+      "type": "human",
+      "text": "@datahub Hello again!"
+    },
+    {
+      "type": "internal",
+      "text": "Thinking step 1"
+    },
+    {
+      "type": "assistant",
+      "text": "Final answer"
+    },
+    {
+      "type": "human",
+      "text": "Hi there! (with diff formatting)"
+    }
+  ],
+  "extra_properties": {
+    "channel_id": "C123",
+    "thread_ts": "1000.1",
+    "is_limited_history": true
+  }
+}

@@ -9,14 +9,17 @@ from slack_bolt import App
 from slack_sdk import WebClient
 
 from datahub_integrations.app import graph
-from datahub_integrations.chat.chat_history import (
-    AssistantMessage,
-    ChatHistory,
-    HumanMessage,
-)
-from datahub_integrations.chat.chat_session import ChatSession, Message, NextMessage
+from datahub_integrations.chat.chat_history import AssistantMessage, HumanMessage
+from datahub_integrations.chat.chat_session import ChatSession, NextMessage
 from datahub_integrations.chat.linkify import slackify_markdown
 from datahub_integrations.mcp.mcp_server import mcp
+from datahub_integrations.slack.command.mention_helpers import (
+    DATAHUB_FEEDBACK_PROMPT,
+    DATAHUB_THINKING_MESSAGE_PREFIX,
+    SlackPermissionError,
+    fetch_thread_history,
+)
+from datahub_integrations.slack.config import slack_config
 from datahub_integrations.slack.constants import (
     ACRYL_SLACK_ICON_URL,
     MESSAGE_LENGTH_HARD_LIMIT,
@@ -32,45 +35,6 @@ from datahub_integrations.telemetry.telemetry import track_saas_event
 
 DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID = "datahub_mention_followup_question"
 DATAHUB_MENTION_FEEDBACK_BUTTON_ID = "datahub_mention_feedback"
-DATAHUB_THINKING_MESSAGE_PREFIX = "Sure thing! I'm looking through the available data to answer your question. Hold on a second..."
-
-
-def clean_message_text(text: str) -> str:
-    """
-    Clean up message text by removing UI elements and feedback prompts.
-
-    Args:
-        text: The message text to clean
-
-    Returns:
-        The cleaned message text
-    """
-    # Skip progress messages
-    if text.endswith("⏳"):
-        return ""
-
-    # Skip initial thinking message
-    if text.startswith(DATAHUB_THINKING_MESSAGE_PREFIX):
-        return ""
-
-    # Remove the feedback question and buttons
-    if "Was this response helpful?" in text:
-        text = text.split("Was this response helpful?")[0].strip()
-
-    # Remove hint text that might appear in different formats
-    if "💡 Hint:" in text:
-        text = text.split("💡 Hint:")[0].strip()
-    if ":bulb: Hint:" in text:
-        text = text.split(":bulb: Hint:")[0].strip()
-
-    # Remove Yes/No button text that might appear in different formats
-    text = text.replace("👍 Yes button", "").replace("👎 No button", "")
-    text = text.replace(":+1: Yes button", "").replace(":-1: No button", "")
-
-    # Remove any trailing divider text that might have been included
-    text = text.split("---")[0].strip()
-
-    return text.strip()
 
 
 class SlackMentionEvent(BaseModel):
@@ -83,6 +47,9 @@ class SlackMentionEvent(BaseModel):
 
     @property
     def thread_ts(self) -> str:
+        # Get the thread_ts (thread ID) from the event.
+        # If the message is part of a thread, thread_ts will be present.
+        # Otherwise, use ts (the message's own timestamp) as the root of a new thread.
         return self.original_thread_ts or self.message_ts
 
 
@@ -98,19 +65,18 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
     response_ts = None
 
     try:
-        # Get user info
-        user_info = app.client.users_info(user=event.user_id).validate()["user"]
-        user_name = user_info["name"]
-
         # Send a placeholder message to indicate we're processing
-        placeholder_response = app.client.chat_postMessage(
+        response_ts = app.client.chat_postMessage(
             channel=channel_id,
             thread_ts=event.thread_ts,  # Reply in the thread
             text=f"{DATAHUB_THINKING_MESSAGE_PREFIX} ⏳",
             icon_url=ACRYL_SLACK_ICON_URL,
             mrkdwn=True,
-        )
-        response_ts = placeholder_response["ts"]
+        )["ts"]
+
+        # Get user info
+        user_info = app.client.users_info(user=event.user_id)["user"]
+        user_name = user_info["name"]
 
         def progress_callback(message: str) -> None:
             """Update the placeholder message with progress updates"""
@@ -128,7 +94,7 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
 
         # Process the actual response
         message, followup_questions = _generation_mention_response(
-            app.client, event, progress_callback
+            app.client, event, progress_callback, response_ts
         )
 
         # Build the response blocks
@@ -190,135 +156,65 @@ def handle_app_mention(app: App, event: SlackMentionEvent) -> None:
         )
 
 
-class SlackPermissionError(Exception):
-    pass
-
-
-def _fetch_thread_history(
-    client: WebClient, channel: str, thread_ts: str
-) -> List[Message]:
-    thread_messages: List[Message] = []
-    try:
-        # Call the Slack API to get the conversation replies
-        conversation_replies = client.conversations_replies(
-            channel=channel, ts=thread_ts
-        )
-    except Exception as e:
-        error_message = str(e).lower()
-        if (
-            "not_in_channel" in error_message
-            or "missing_scope" in error_message
-            or "permission" in error_message
-        ):
-            logger.warning(
-                f"Permission error when retrieving thread messages: {str(e)}"
-            )
-            raise SlackPermissionError(str(e)) from e
-        else:
-            logger.error(f"Error retrieving thread messages: {str(e)}")
-            raise
-
-    # Process the messages if needed
-    messages: List[dict] = conversation_replies.get("messages", [])
-    logger.info(f"Retrieved {len(messages)} messages in thread")
-    for msg in messages:
-        logger.debug(f"Thread message: {msg.get('text')}")
-
-    # Process messages in the thread
-    for msg in messages:
-        # Skip our placeholder "looking through data" message
-        if msg.get("text", "").startswith(DATAHUB_THINKING_MESSAGE_PREFIX):
-            continue
-
-        # Determine the author (DataHubBot or user ID)
-        if msg.get("bot_id"):
-            author = "DataHubBot"
-        else:
-            author = msg.get("user", "unknown")
-
-        # Clean the message text before creating the Message object
-        cleaned_text = clean_message_text(msg.get("text", ""))
-
-        # Skip empty messages (like progress updates)
-        if not cleaned_text:
-            continue
-
-        # Check if this is a follow-up question (they end with :thinking_face:)
-        is_follow_up = cleaned_text.endswith(":thinking_face:")
-        if is_follow_up:
-            # Remove the :thinking_face: emoji from the text
-            cleaned_text = cleaned_text.replace(":thinking_face:", "").strip()
-            # Follow-up questions should be treated as user messages
-            is_assistant = False
-        else:
-            # Only mark as assistant if it's from the bot and not a follow-up question
-            is_assistant = author == "DataHubBot"
-
-        # Create message object with author and text.
-        message: Message = (
-            AssistantMessage(text=cleaned_text)
-            if is_assistant
-            else HumanMessage(text=cleaned_text)
-        )
-        thread_messages.append(message)
-
-    logger.debug(f"Processed thread messages: {thread_messages}")
-    return thread_messages
-
-
 def _generation_mention_response(
     client: WebClient,
     event: SlackMentionEvent,
     progress_callback: Callable[[str], None],
+    response_ts: str,
 ) -> Tuple[str, List[str]]:
-    # Extract the message text from the app mention event
     message_text = event.message_text
-    logger.info(f"App mention message: {message_text}")
+    thread_ts = event.thread_ts
+    logger.info(f"App mention message: {message_text} in thread {thread_ts}")
 
-    # Get the thread_ts (thread ID) from the event
-    # If the message is part of a thread, thread_ts will be present
-    # Otherwise, use ts (the message's own timestamp) as the root of a new thread
-    thread_ts = event.thread_ts or event.message_ts
-    logger.info(f"Thread ID: {thread_ts}")
+    thread_history = slack_config.get_slack_history_cache().get_thread(
+        event.channel_id, thread_ts
+    )
+    try:
+        thread_history.set_full_history(
+            fetch_thread_history(client, channel=event.channel_id, thread_ts=thread_ts)
+        )
+    except SlackPermissionError:
+        thread_history.add_message(
+            event.message_ts,
+            HumanMessage(text=event.message_text),
+            is_latest_message=True,
+        )
+    if thread_history.is_limited_history():
+        logger.info(
+            "Unable to fetch full thread history due to missing permissions. "
+            f"Proceeding with {thread_history.message_count()} slack messages"
+        )
 
-    # If this is part of a thread, get all messages in the thread
-    thread_messages = []
-    has_permission_error = False
-    if thread_ts:
-        try:
-            thread_messages = _fetch_thread_history(client, event.channel_id, thread_ts)
-        except SlackPermissionError:
-            has_permission_error = True
-            logger.info(
-                "Proceeding with just the current message due to permission limitations"
-            )
-
-            # Add just the current message to thread_messages.
-            thread_messages.append(HumanMessage(text=message_text))
+    history = thread_history.get_chat_history()
+    original_history_length = len(history.messages)
 
     chat_session = ChatSession(
         tools=[mcp],
         client=DataHubClient(graph=graph),
-        history=ChatHistory(messages=thread_messages),
+        history=history,
         progress_callback=progress_callback,
     )
     response = chat_session.generate_next_message()
     assert isinstance(response, NextMessage)
 
-    return slackify_markdown(
-        response.text
-    ), response.suggestions if not has_permission_error else []
+    # Add the intermediate thinking messages to the history store.
+    new_messages = history.messages[original_history_length:]
+    thread_history.add_message(response_ts, AssistantMessage(text=response.text))
+    thread_history.add_thinking(response_ts, new_messages)
+
+    return slackify_markdown(response.text), response.suggestions
 
 
 class FeedbackPayload(BaseModel):
     thread_ts: str
     message_ts: str
-    feedback: str
+    feedback: str  # positive or negative
 
 
 class FollowupQuestionPayload(BaseModel):
     question: str
     thread_ts: str
+    user_message_ts: str
 
 
 def _build_response(
@@ -350,7 +246,7 @@ def _build_response(
         {
             "type": "context",
             "elements": [
-                {"type": "mrkdwn", "text": "Was this response helpful?"},
+                {"type": "mrkdwn", "text": DATAHUB_FEEDBACK_PROMPT},
             ],
         }
     )
@@ -409,7 +305,9 @@ def _build_response(
                     "text": {"type": "plain_text", "text": question, "emoji": True},
                     "action_id": f"{DATAHUB_MENTION_FOLLOWUP_QUESTION_BUTTON_ID}_{i}",
                     "value": FollowupQuestionPayload(
-                        question=question, thread_ts=thread_ts
+                        question=question,
+                        thread_ts=thread_ts,
+                        user_message_ts=message_ts,
                     ).model_dump_json(),
                 }
             )
@@ -431,22 +329,19 @@ def handle_followup_question(
     thread_ts = payload.thread_ts
     question = payload.question
 
-    # First, send the selected question into the thread so the user knows what they selected
-    try:
-        app.client.chat_postMessage(
-            channel=channel_id,
-            thread_ts=thread_ts,
-            text=f"<@{user_id}> asked: *{question}* 🤔",
-            icon_url=ACRYL_SLACK_ICON_URL,
-            mrkdwn=True,
-        )
-    except Exception as e:
-        logger.error(f"Failed to send question confirmation message: {str(e)}")
+    # First, send the selected question into the thread so the user knows what they selected.
+    message_ts = app.client.chat_postMessage(
+        channel=channel_id,
+        thread_ts=thread_ts,
+        text=f"<@{user_id}> asked: *{question}* 🤔",
+        icon_url=ACRYL_SLACK_ICON_URL,
+        mrkdwn=True,
+    )["ts"]
 
     # Create an event object similar to app_mention
     event = SlackMentionEvent(
         channel_id=channel_id,
-        message_ts=thread_ts,
+        message_ts=message_ts,
         original_thread_ts=thread_ts,
         user_id=user_id,
         message_text=question,

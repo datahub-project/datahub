@@ -37,9 +37,10 @@ from datahub_integrations.gen_ai.bedrock import (
 )
 from datahub_integrations.mcp.mcp_server import mcp, with_client
 from datahub_integrations.mcp.tool import ToolWrapper, tools_from_fastmcp
+from datahub_integrations.slack.utils.string import truncate
 
 assert MLFLOW_INITIALIZED
-MAX_TOOL_CALLS = 15
+MAX_TOOL_CALLS = 18
 MESSAGE_LENGTH_SOFT_LIMIT = 2000
 
 _CHATBOT_MODEL = get_bedrock_model_env_variable(
@@ -149,7 +150,9 @@ class ChatSession:
         )
 
     def _add_message(self, message: Message) -> None:
-        logger.debug(f"Adding message: {message}")
+        logger.debug(
+            f"Adding {type(message).__name__} message: {truncate(str(message), max_length=400)}"
+        )
         self.history.add_message(message)
 
         # Add internal messages to progress display
@@ -329,6 +332,9 @@ class ChatSession:
         if MLFLOW_ENABLED:
             mlflow.update_current_trace(tags={"session_id": self.session_id})
 
+        logger.info(
+            f"Generating next message for session {self.session_id}, currently have {len(self.history.messages)} messages/tool calls in chat history"
+        )
         for i in range(MAX_TOOL_CALLS):
             logger.info(f"Generating tool call {i}")
             self._generate_tool_call()

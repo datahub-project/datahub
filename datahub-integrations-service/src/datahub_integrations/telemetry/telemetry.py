@@ -80,9 +80,9 @@ def _send_to_api(event: BaseEvent) -> None:
         # Use the graph client's session to post the event
         response = graph._session.post(tracking_url, json=tracking_event)
         response.raise_for_status()
-        logger.info("Successfully sent telemetry event to tracking API")
+        logger.debug(f"Successfully sent {event.type} event to tracking API")
     except Exception as e:
-        logger.error(f"Failed to send telemetry event to tracking API: {str(e)}")
+        logger.error(f"Failed to send {event.type} event to tracking API: {str(e)}")
 
 
 def track_saas_event(
