@@ -38,6 +38,7 @@ from datahub.metadata.schema_classes import (
     FormNotificationDetailsClass,
     FormNotificationEntryClass,
     FormNotificationsClass,
+    FormSettingsClass,
     FormStateClass,
     FormTypeClass,
 )
@@ -233,7 +234,8 @@ class DataHubFormsNotificationsSource(Source):
     def get_forms(self) -> List[Tuple[str, FormInfoClass]]:
         """
         Get forms and their formInfo aspect either from the forms provided in the config
-        or search for forms that are published and notifyAssigneesOnPublish = True
+        or search for forms that are published and notifyAssigneesOnPublish = True.
+        This method will only return forms that are published and have notifications enabled.
         """
         form_urns = []
 
@@ -242,9 +244,42 @@ class DataHubFormsNotificationsSource(Source):
         else:
             form_urns = self.search_for_forms()
 
-        return self.get_form_infos(form_urns)
+        form_urns_with_notifications_enabled = (
+            self.get_form_urns_with_notifications_enabled(form_urns)
+        )
+
+        return self.get_form_infos(form_urns_with_notifications_enabled)
+
+    def get_form_urns_with_notifications_enabled(
+        self, form_urns: List[str]
+    ) -> List[str]:
+        """
+        Get formSettings aspects and check if notifications are enabled for a given form urn.
+        If notifications are enabled, add to filtered list and return.
+        """
+        filtered_form_urns: List[str] = []
+
+        if len(form_urns) > 0:
+            entities = self.graph.get_entities("form", form_urns, ["formSettings"])
+            for urn, entity in entities.items():
+                form_tuple = entity.get(FormSettingsClass.ASPECT_NAME, (None, None))
+                if form_tuple and form_tuple[0]:
+                    if not isinstance(form_tuple[0], FormSettingsClass):
+                        logger.error(
+                            f"{form_tuple[0]} is not of type FormInfo for urn: {urn}"
+                        )
+                    else:
+                        form_settings = form_tuple[0]
+                        if form_settings.notificationSettings.notifyAssigneesOnPublish:
+                            filtered_form_urns.append(urn)
+
+        return filtered_form_urns
 
     def get_form_infos(self, form_urns: List[str]) -> List[Tuple[str, FormInfoClass]]:
+        """
+        Get formInfo aspects for a list of form urns and return the formInfos of forms
+        that are published. If a form is not published, we don't want to notify.
+        """
         form_infos: List[Tuple[str, FormInfoClass]] = []
 
         if len(form_urns) > 0:

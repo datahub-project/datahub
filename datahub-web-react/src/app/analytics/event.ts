@@ -1086,6 +1086,7 @@ interface FormEvent extends BaseEvent {
     noOfQuestions: number;
     areOwnersAssigned: boolean;
     noOfAssetsAssigned?: number;
+    notificationsEnabled?: boolean;
 }
 export interface SaveFormAsDraftEvent extends FormEvent {
     type: EventType.SaveFormAsDraftEvent;

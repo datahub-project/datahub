@@ -12,6 +12,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.AssignmentStatus;
 import com.linkedin.form.FormAssignmentStatus;
 import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormSettings;
 import com.linkedin.form.FormState;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
@@ -128,17 +129,26 @@ public class FormInfoHook implements MetadataChangeLogHook {
 
     // if we are newly published, or if actors have changed and we are published, attempt to notify
     if ((isNowPublished && !wasPreviouslyPublished) || (isNowPublished && actorsChanged)) {
+      Boolean areNotificationsEnabled = false;
       Boolean isCurrentlyAssigning = false;
       try {
-        // sleep for 3 seconds to wait for formAssignmentStatus to update if publishing this form
-        // and assigning at the same time
+        // sleep for 3 seconds to wait for formSettings and formAssignmentStatus to updating all of
+        // these at the same time
         Thread.sleep(3000);
-        // 2. Check to see if this form is currently assigning to assets
         EntityResponse response =
             systemEntityClient.getV2(
                 systemOperationContext,
                 formUrn,
-                ImmutableSet.of(FORM_ASSIGNMENT_STATUS_ASPECT_NAME));
+                ImmutableSet.of(FORM_SETTINGS_ASPECT_NAME, FORM_ASSIGNMENT_STATUS_ASPECT_NAME));
+        // 2. Check to see if notifications are enabled on settings
+        if (response != null && response.getAspects().containsKey(FORM_SETTINGS_ASPECT_NAME)) {
+          final FormSettings formSettings =
+              new FormSettings(
+                  response.getAspects().get(FORM_SETTINGS_ASPECT_NAME).getValue().data());
+          areNotificationsEnabled =
+              formSettings.getNotificationSettings().isNotifyAssigneesOnPublish();
+        }
+        // 3. Check to see if this form is currently assigning to assets
         if (response != null
             && response.getAspects().containsKey(FORM_ASSIGNMENT_STATUS_ASPECT_NAME)) {
           final FormAssignmentStatus formAssignmentStatus =
@@ -153,11 +163,11 @@ public class FormInfoHook implements MetadataChangeLogHook {
             e);
       }
 
-      if (isCurrentlyAssigning) {
+      if (!areNotificationsEnabled || isCurrentlyAssigning) {
         return;
       }
 
-      // 3. trigger notifications for this form if not currently assigning
+      // 4. trigger notifications for this form if not currently assigning
       MetadataChangeProposal mcp =
           FormUtils.createFormNotificationsExecutionRequest(formUrn.toString());
       try {

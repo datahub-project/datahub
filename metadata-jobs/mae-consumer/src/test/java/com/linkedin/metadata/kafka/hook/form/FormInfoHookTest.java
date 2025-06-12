@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -14,6 +15,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.AssignmentStatus;
 import com.linkedin.form.FormAssignmentStatus;
 import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormSettings;
 import com.linkedin.form.FormState;
 import com.linkedin.form.FormStatus;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -98,9 +100,14 @@ public class FormInfoHookTest {
             .setAspect(GenericRecordUtils.serializeAspect(formInfo))
             .setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevFormInfo));
 
-    // Mock the entity client response for form assignment status
+    // Mock the entity client response for form assignment status and formSettings
     FormAssignmentStatus assignmentStatus =
         new FormAssignmentStatus().setStatus(AssignmentStatus.COMPLETE);
+    FormSettings formSettings =
+        new FormSettings()
+            .setNotificationSettings(
+                new com.linkedin.form.FormNotificationSettings().setNotifyAssigneesOnPublish(true));
+
     EntityResponse response =
         new EntityResponse()
             .setAspects(
@@ -108,11 +115,14 @@ public class FormInfoHookTest {
                     ImmutableMap.of(
                         FORM_ASSIGNMENT_STATUS_ASPECT_NAME,
                         new com.linkedin.entity.EnvelopedAspect()
-                            .setValue(new Aspect(assignmentStatus.data())))));
+                            .setValue(new Aspect(assignmentStatus.data())),
+                        FORM_SETTINGS_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect()
+                            .setValue(new Aspect(formSettings.data())))));
     when(mockEntityClient.getV2(
             eq(mockOperationContext),
             eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            eq(Collections.singleton(FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
+            eq(ImmutableSet.of(FORM_SETTINGS_ASPECT_NAME, FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
         .thenReturn(response);
 
     // Invoke the hook
@@ -153,6 +163,11 @@ public class FormInfoHookTest {
     // Mock the entity client response for form assignment status with IN_PROGRESS state
     FormAssignmentStatus assignmentStatus =
         new FormAssignmentStatus().setStatus(AssignmentStatus.IN_PROGRESS);
+    FormSettings formSettings =
+        new FormSettings()
+            .setNotificationSettings(
+                new com.linkedin.form.FormNotificationSettings().setNotifyAssigneesOnPublish(true));
+
     EntityResponse response =
         new EntityResponse()
             .setAspects(
@@ -160,11 +175,14 @@ public class FormInfoHookTest {
                     ImmutableMap.of(
                         FORM_ASSIGNMENT_STATUS_ASPECT_NAME,
                         new com.linkedin.entity.EnvelopedAspect()
-                            .setValue(new Aspect(assignmentStatus.data())))));
+                            .setValue(new Aspect(assignmentStatus.data())),
+                        FORM_SETTINGS_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect()
+                            .setValue(new Aspect(formSettings.data())))));
     when(mockEntityClient.getV2(
             eq(mockOperationContext),
             eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            eq(Collections.singleton(FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
+            eq(ImmutableSet.of(FORM_SETTINGS_ASPECT_NAME, FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
         .thenReturn(response);
 
     // Invoke the hook
@@ -210,9 +228,14 @@ public class FormInfoHookTest {
             .setAspect(GenericRecordUtils.serializeAspect(formInfo))
             .setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevFormInfo));
 
-    // Mock the entity client response for form assignment status
+    // Mock the entity client response for form assignment status and formSettings
     FormAssignmentStatus assignmentStatus =
         new FormAssignmentStatus().setStatus(AssignmentStatus.COMPLETE);
+    FormSettings formSettings =
+        new FormSettings()
+            .setNotificationSettings(
+                new com.linkedin.form.FormNotificationSettings().setNotifyAssigneesOnPublish(true));
+
     EntityResponse response =
         new EntityResponse()
             .setAspects(
@@ -220,11 +243,14 @@ public class FormInfoHookTest {
                     ImmutableMap.of(
                         FORM_ASSIGNMENT_STATUS_ASPECT_NAME,
                         new com.linkedin.entity.EnvelopedAspect()
-                            .setValue(new Aspect(assignmentStatus.data())))));
+                            .setValue(new Aspect(assignmentStatus.data())),
+                        FORM_SETTINGS_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect()
+                            .setValue(new Aspect(formSettings.data())))));
     when(mockEntityClient.getV2(
             eq(mockOperationContext),
             eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            eq(Collections.singleton(FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
+            eq(ImmutableSet.of(FORM_SETTINGS_ASPECT_NAME, FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
         .thenReturn(response);
 
     // Invoke the hook
@@ -278,9 +304,14 @@ public class FormInfoHookTest {
             .setAspect(GenericRecordUtils.serializeAspect(formInfo))
             .setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevFormInfo));
 
-    // Mock the entity client response for form assignment status
+    // Mock the entity client response for form assignment status and formSettings
     FormAssignmentStatus assignmentStatus =
         new FormAssignmentStatus().setStatus(AssignmentStatus.COMPLETE);
+    FormSettings formSettings =
+        new FormSettings()
+            .setNotificationSettings(
+                new com.linkedin.form.FormNotificationSettings().setNotifyAssigneesOnPublish(true));
+
     EntityResponse response =
         new EntityResponse()
             .setAspects(
@@ -288,11 +319,14 @@ public class FormInfoHookTest {
                     ImmutableMap.of(
                         FORM_ASSIGNMENT_STATUS_ASPECT_NAME,
                         new com.linkedin.entity.EnvelopedAspect()
-                            .setValue(new Aspect(assignmentStatus.data())))));
+                            .setValue(new Aspect(assignmentStatus.data())),
+                        FORM_SETTINGS_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect()
+                            .setValue(new Aspect(formSettings.data())))));
     when(mockEntityClient.getV2(
             eq(mockOperationContext),
             eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            eq(Collections.singleton(FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
+            eq(ImmutableSet.of(FORM_SETTINGS_ASPECT_NAME, FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
         .thenReturn(response);
 
     // Invoke the hook
@@ -338,9 +372,14 @@ public class FormInfoHookTest {
             .setAspect(GenericRecordUtils.serializeAspect(formInfo))
             .setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevFormInfo));
 
-    // Mock the entity client response for form assignment status
+    // Mock the entity client response for form assignment status and formSettings
     FormAssignmentStatus assignmentStatus =
         new FormAssignmentStatus().setStatus(AssignmentStatus.COMPLETE);
+    FormSettings formSettings =
+        new FormSettings()
+            .setNotificationSettings(
+                new com.linkedin.form.FormNotificationSettings().setNotifyAssigneesOnPublish(true));
+
     EntityResponse response =
         new EntityResponse()
             .setAspects(
@@ -348,11 +387,14 @@ public class FormInfoHookTest {
                     ImmutableMap.of(
                         FORM_ASSIGNMENT_STATUS_ASPECT_NAME,
                         new com.linkedin.entity.EnvelopedAspect()
-                            .setValue(new Aspect(assignmentStatus.data())))));
+                            .setValue(new Aspect(assignmentStatus.data())),
+                        FORM_SETTINGS_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect()
+                            .setValue(new Aspect(formSettings.data())))));
     when(mockEntityClient.getV2(
             eq(mockOperationContext),
             eq(UrnUtils.getUrn(TEST_FORM_URN)),
-            eq(Collections.singleton(FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
+            eq(ImmutableSet.of(FORM_SETTINGS_ASPECT_NAME, FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
         .thenReturn(response);
 
     // Invoke the hook
@@ -362,6 +404,60 @@ public class FormInfoHookTest {
     Thread.sleep(4000);
 
     // Verify that no proposal was ingested since form is not published
+    verify(mockEntityClient, never()).ingestProposal(any(), any(), anyBoolean());
+  }
+
+  @Test
+  public void testHandleFormPublishWithNotificationsDisabled() throws Exception {
+    // Create form info with published state
+    FormInfo formInfo = new FormInfo().setStatus(new FormStatus().setState(FormState.PUBLISHED));
+
+    // Create previous form info with draft state
+    FormInfo prevFormInfo = new FormInfo().setStatus(new FormStatus().setState(FormState.DRAFT));
+
+    // Create the event
+    MetadataChangeLog event =
+        new MetadataChangeLog()
+            .setEntityUrn(UrnUtils.getUrn(TEST_FORM_URN))
+            .setAspectName(FORM_INFO_ASPECT_NAME)
+            .setChangeType(ChangeType.UPSERT)
+            .setAspect(GenericRecordUtils.serializeAspect(formInfo))
+            .setPreviousAspectValue(GenericRecordUtils.serializeAspect(prevFormInfo));
+
+    // Mock the entity client response with notifications disabled and no active assignments
+    FormAssignmentStatus assignmentStatus =
+        new FormAssignmentStatus().setStatus(AssignmentStatus.COMPLETE);
+    FormSettings formSettings =
+        new FormSettings()
+            .setNotificationSettings(
+                new com.linkedin.form.FormNotificationSettings()
+                    .setNotifyAssigneesOnPublish(false));
+
+    EntityResponse response =
+        new EntityResponse()
+            .setAspects(
+                new EnvelopedAspectMap(
+                    ImmutableMap.of(
+                        FORM_ASSIGNMENT_STATUS_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect()
+                            .setValue(new Aspect(assignmentStatus.data())),
+                        FORM_SETTINGS_ASPECT_NAME,
+                        new com.linkedin.entity.EnvelopedAspect()
+                            .setValue(new Aspect(formSettings.data())))));
+
+    when(mockEntityClient.getV2(
+            eq(mockOperationContext),
+            eq(UrnUtils.getUrn(TEST_FORM_URN)),
+            eq(ImmutableSet.of(FORM_SETTINGS_ASPECT_NAME, FORM_ASSIGNMENT_STATUS_ASPECT_NAME))))
+        .thenReturn(response);
+
+    // Invoke the hook
+    hook.invoke(event);
+
+    // Wait for async processing
+    Thread.sleep(4000);
+
+    // Verify that no proposal was ingested since notifications are disabled
     verify(mockEntityClient, never()).ingestProposal(any(), any(), anyBoolean());
   }
 }

@@ -120,6 +120,8 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                                     formType: formValues.formType || FormType.Completion,
                                     noOfQuestions: formValues.questions?.length,
                                     areOwnersAssigned: !!formValues.actors?.owners,
+                                    notificationsEnabled:
+                                        !!formValues.formSettings?.notificationSettings?.notifyAssigneesOnPublish,
                                 });
                             } else if (formValues.state === FormState.Draft) {
                                 analytics.event({
@@ -128,6 +130,8 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                                     formType: formValues.formType || FormType.Completion,
                                     noOfQuestions: formValues.questions?.length,
                                     areOwnersAssigned: !!formValues.actors?.owners,
+                                    notificationsEnabled:
+                                        !!formValues.formSettings?.notificationSettings?.notifyAssigneesOnPublish,
                                 });
                             }
                             showSuccessMessage();
@@ -190,6 +194,8 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                                 formType: formValues.formType || FormType.Completion,
                                 noOfQuestions: formValues.questions?.length,
                                 areOwnersAssigned: !!formValues.actors?.owners,
+                                notificationsEnabled:
+                                    !!formValues.formSettings?.notificationSettings?.notifyAssigneesOnPublish,
                             });
 
                             setFormUrn(res.data?.createForm.urn);

@@ -27,6 +27,8 @@ from datahub.metadata.schema_classes import (
     FormNotificationDetailsClass,
     FormNotificationEntryClass,
     FormNotificationsClass,
+    FormNotificationSettingsClass,
+    FormSettingsClass,
     FormStateClass,
     FormStatusClass,
     FormTypeClass,
@@ -119,14 +121,38 @@ def test_get_forms_with_config_urns(source: DataHubFormsNotificationsSource) -> 
         actors=FormActorAssignmentClass(users=["urn:li:corpuser:test-user"]),
     )
 
-    mock_graph.get_entities.return_value = {
-        "urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}
-    }
+    mock_form_settings = FormSettingsClass(
+        notificationSettings=FormNotificationSettingsClass(
+            notifyAssigneesOnPublish=True
+        )
+    )
+
+    # Mock get_entities to return different responses based on the call
+    def mock_get_entities(
+        entity_type: str, urns: List[str], aspects: List[str]
+    ) -> Dict[str, Any]:
+        if "formSettings" in aspects:
+            return {
+                "urn:li:form:test-form-1": {"formSettings": (mock_form_settings, None)}
+            }
+        elif "formInfo" in aspects:
+            return {"urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}}
+        return {}
+
+    mock_graph.get_entities.side_effect = mock_get_entities
 
     forms = source.get_forms()
     assert len(forms) == 1
     assert forms[0][0] == "urn:li:form:test-form-1"
     assert forms[0][1] == mock_form_info
+
+    # Verify both formSettings and formInfo were fetched
+    mock_graph.get_entities.assert_any_call(
+        "form", ["urn:li:form:test-form-1"], ["formSettings"]
+    )
+    mock_graph.get_entities.assert_any_call(
+        "form", ["urn:li:form:test-form-1"], ["formInfo"]
+    )
 
 
 def test_get_forms_with_search(source: DataHubFormsNotificationsSource) -> None:
@@ -148,7 +174,7 @@ def test_get_forms_with_search(source: DataHubFormsNotificationsSource) -> None:
         }
     }
 
-    # Mock the form info response
+    # Mock form info and settings
     mock_form_info = FormInfoClass(
         name="Test Form",
         type=FormTypeClass.COMPLETION,
@@ -156,15 +182,42 @@ def test_get_forms_with_search(source: DataHubFormsNotificationsSource) -> None:
         actors=FormActorAssignmentClass(users=["urn:li:corpuser:test-user"]),
     )
 
-    mock_graph.get_entities.return_value = {
-        "urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)},
-        "urn:li:form:test-form-2": {"formInfo": (mock_form_info, None)},
-    }
+    mock_form_settings = FormSettingsClass(
+        notificationSettings=FormNotificationSettingsClass(
+            notifyAssigneesOnPublish=True
+        )
+    )
+
+    # Mock get_entities to return different responses based on the call
+    def mock_get_entities(
+        entity_type: str, urns: List[str], aspects: List[str]
+    ) -> Dict[str, Any]:
+        if "formSettings" in aspects:
+            return {
+                "urn:li:form:test-form-1": {"formSettings": (mock_form_settings, None)},
+                "urn:li:form:test-form-2": {"formSettings": (mock_form_settings, None)},
+            }
+        elif "formInfo" in aspects:
+            return {
+                "urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)},
+                "urn:li:form:test-form-2": {"formInfo": (mock_form_info, None)},
+            }
+        return {}
+
+    mock_graph.get_entities.side_effect = mock_get_entities
 
     forms = source.get_forms()
     assert len(forms) == 2
     assert forms[0][0] == "urn:li:form:test-form-1"
     assert forms[1][0] == "urn:li:form:test-form-2"
+
+    # Verify both formSettings and formInfo were fetched
+    mock_graph.get_entities.assert_any_call(
+        "form", ["urn:li:form:test-form-1", "urn:li:form:test-form-2"], ["formSettings"]
+    )
+    mock_graph.get_entities.assert_any_call(
+        "form", ["urn:li:form:test-form-1", "urn:li:form:test-form-2"], ["formInfo"]
+    )
 
 
 def test_get_form_assignees(source: DataHubFormsNotificationsSource) -> None:
@@ -280,7 +333,7 @@ def test_get_workunits(source: DataHubFormsNotificationsSource) -> None:
     assert source.graph is not None  # For mypy
     mock_graph = cast(MagicMock, source.graph)
 
-    # Mock form info
+    # Mock form info and settings
     mock_form_info = FormInfoClass(
         name="Test Form",
         type=FormTypeClass.COMPLETION,
@@ -288,20 +341,44 @@ def test_get_workunits(source: DataHubFormsNotificationsSource) -> None:
         actors=FormActorAssignmentClass(users=["urn:li:corpuser:test-user"]),
     )
 
-    mock_graph.get_entities.return_value = {
-        "urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}
-    }
+    mock_form_settings = FormSettingsClass(
+        notificationSettings=FormNotificationSettingsClass(
+            notifyAssigneesOnPublish=True
+        )
+    )
+
+    # Mock get_entities to return different responses based on the call
+    def mock_get_entities(
+        entity_type: str, urns: List[str], aspects: List[str]
+    ) -> Dict[str, Any]:
+        if "formSettings" in aspects:
+            return {
+                "urn:li:form:test-form-1": {"formSettings": (mock_form_settings, None)}
+            }
+        elif "formInfo" in aspects:
+            return {"urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}}
+        return {}
+
+    mock_graph.get_entities.side_effect = mock_get_entities
 
     # Mock form completion check
     mock_graph.execute_graphql.side_effect = [
-        # First call for form info
-        {"data": {"some": "data"}},
+        # First call for feature flag check
+        {"appConfig": {"featureFlags": {"formsNotificationsEnabled": True}}},
         # Second call for is_form_complete
         {"searchAcrossEntities": {"total": 0}},
     ]
 
     workunits = list(source.get_workunits())
     assert len(workunits) == 0  # This source doesn't produce work units
+
+    # Verify both formSettings and formInfo were fetched
+    mock_graph.get_entities.assert_any_call(
+        "form", ["urn:li:form:test-form-1"], ["formSettings"]
+    )
+    mock_graph.get_entities.assert_any_call(
+        "form", ["urn:li:form:test-form-1"], ["formInfo"]
+    )
 
 
 def test_get_incomplete_assets_for_form(
@@ -367,7 +444,7 @@ def test_notify_form_assignees(source: DataHubFormsNotificationsSource) -> None:
     ]
     source.recipient_builder = mock_recipient_builder
 
-    # Mock form info
+    # Mock form info and settings
     mock_form_info = FormInfoClass(
         name="Test Form",
         type=FormTypeClass.COMPLETION,
@@ -377,15 +454,28 @@ def test_notify_form_assignees(source: DataHubFormsNotificationsSource) -> None:
         ),
     )
 
+    mock_form_settings = FormSettingsClass(
+        notificationSettings=FormNotificationSettingsClass(
+            notifyAssigneesOnPublish=True
+        )
+    )
+
     # Mock form notifications (empty for all users)
     mock_form_notifications = FormNotificationsClass(notificationDetails=[])
 
     # Mock get_entities to return different responses based on the call
     def mock_get_entities(
-        entity_type: str, urns: List[str], aspects: Any
+        entity_type: str, urns: List[str], aspects: List[str]
     ) -> Dict[str, Any]:
         if entity_type == "form":
-            return {"urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}}
+            if "formSettings" in aspects:
+                return {
+                    "urn:li:form:test-form-1": {
+                        "formSettings": (mock_form_settings, None)
+                    }
+                }
+            elif "formInfo" in aspects:
+                return {"urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}}
         elif entity_type == "corpuser":
             return {
                 urn: {"formNotifications": (mock_form_notifications, None)}
@@ -412,7 +502,10 @@ def test_notify_form_assignees(source: DataHubFormsNotificationsSource) -> None:
     # Execute the notification flow
     source.notify_form_assignees()
 
-    # Verify the form was retrieved
+    # Verify the form was retrieved with both aspects
+    mock_graph.get_entities.assert_any_call(
+        "form", ["urn:li:form:test-form-1"], ["formSettings"]
+    )
     mock_graph.get_entities.assert_any_call(
         "form", ["urn:li:form:test-form-1"], ["formInfo"]
     )
@@ -912,13 +1005,33 @@ def test_get_workunits_feature_flag_enabled(
     assert source.graph is not None  # For mypy
     mock_graph = cast(MagicMock, source.graph)
 
-    # Mock form info
+    # Mock form info and settings
     mock_form_info = FormInfoClass(
         name="Test Form",
         type=FormTypeClass.COMPLETION,
         status=FormStatusClass(state=FormStateClass.PUBLISHED),
         actors=FormActorAssignmentClass(users=["urn:li:corpuser:test-user"]),
     )
+
+    mock_form_settings = FormSettingsClass(
+        notificationSettings=FormNotificationSettingsClass(
+            notifyAssigneesOnPublish=True
+        )
+    )
+
+    # Mock get_entities to return different responses based on the call
+    def mock_get_entities(
+        entity_type: str, urns: List[str], aspects: List[str]
+    ) -> Dict[str, Any]:
+        if "formSettings" in aspects:
+            return {
+                "urn:li:form:test-form-1": {"formSettings": (mock_form_settings, None)}
+            }
+        elif "formInfo" in aspects:
+            return {"urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}}
+        return {}
+
+    mock_graph.get_entities.side_effect = mock_get_entities
 
     # Mock feature flag check to return enabled
     mock_graph.execute_graphql.side_effect = [
@@ -928,17 +1041,69 @@ def test_get_workunits_feature_flag_enabled(
         {"searchAcrossEntities": {"total": 0}},
     ]
 
-    mock_graph.get_entities.return_value = {
-        "urn:li:form:test-form-1": {"formInfo": (mock_form_info, None)}
-    }
-
     workunits = list(source.get_workunits())
     assert len(workunits) == 0  # This source doesn't produce work units
 
     # Verify feature flag was checked
     mock_graph.execute_graphql.assert_any_call(GRAPHQL_GET_FEATURE_FLAG, variables={})
 
-    # Verify form info was retrieved
-    mock_graph.get_entities.assert_called_once_with(
+    # Verify both formSettings and formInfo were fetched
+    mock_graph.get_entities.assert_any_call(
+        "form", ["urn:li:form:test-form-1"], ["formSettings"]
+    )
+    mock_graph.get_entities.assert_any_call(
         "form", ["urn:li:form:test-form-1"], ["formInfo"]
     )
+
+
+def test_get_form_urns_with_notifications_enabled(
+    source: DataHubFormsNotificationsSource,
+) -> None:
+    """Test filtering form URNs based on notification settings"""
+    assert source.graph is not None  # For mypy
+    mock_graph = cast(MagicMock, source.graph)
+
+    # Mock form settings with different notification configurations
+    mock_form_settings_enabled = FormSettingsClass(
+        notificationSettings=FormNotificationSettingsClass(
+            notifyAssigneesOnPublish=True
+        )
+    )
+    mock_form_settings_disabled = FormSettingsClass(
+        notificationSettings=FormNotificationSettingsClass(
+            notifyAssigneesOnPublish=False
+        )
+    )
+
+    # Mock get_entities to return different form settings
+    mock_graph.get_entities.return_value = {
+        "urn:li:form:form1": {"formSettings": (mock_form_settings_enabled, None)},
+        "urn:li:form:form2": {"formSettings": (mock_form_settings_disabled, None)},
+        "urn:li:form:form3": {"formSettings": (mock_form_settings_enabled, None)},
+        "urn:li:form:form4": {"formSettings": (None, None)},  # No settings
+    }
+
+    # Test with multiple form URNs
+    form_urns = [
+        "urn:li:form:form1",
+        "urn:li:form:form2",
+        "urn:li:form:form3",
+        "urn:li:form:form4",
+    ]
+    filtered_urns = source.get_form_urns_with_notifications_enabled(form_urns)
+
+    # Verify the correct URNs were returned
+    assert len(filtered_urns) == 2
+    assert "urn:li:form:form1" in filtered_urns
+    assert "urn:li:form:form3" in filtered_urns
+    assert "urn:li:form:form2" not in filtered_urns  # Notifications disabled
+    assert "urn:li:form:form4" not in filtered_urns  # No settings
+
+    # Verify get_entities was called correctly
+    mock_graph.get_entities.assert_called_once_with("form", form_urns, ["formSettings"])
+
+    # Test with empty list
+    mock_graph.get_entities.reset_mock()
+    filtered_urns = source.get_form_urns_with_notifications_enabled([])
+    assert len(filtered_urns) == 0
+    mock_graph.get_entities.assert_not_called()

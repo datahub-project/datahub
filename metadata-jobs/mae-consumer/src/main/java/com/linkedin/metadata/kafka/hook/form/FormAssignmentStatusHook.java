@@ -11,6 +11,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.AssignmentStatus;
 import com.linkedin.form.FormAssignmentStatus;
 import com.linkedin.form.FormInfo;
+import com.linkedin.form.FormSettings;
 import com.linkedin.form.FormState;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
@@ -97,12 +98,24 @@ public class FormAssignmentStatusHook implements MetadataChangeLogHook {
     if (!formAssignmentStatus.getStatus().equals(AssignmentStatus.COMPLETE)) {
       return;
     }
-    // 2. If status is complete, fetch formInfo to see if form is published
+    // 2. If status is complete, fetch formInfo and formSettings
+    boolean areNotificationsEnabled = false;
     boolean isFormPublished = false;
     try {
       EntityResponse response =
           systemEntityClient.getV2(
-              systemOperationContext, formUrn, ImmutableSet.of(FORM_INFO_ASPECT_NAME));
+              systemOperationContext,
+              formUrn,
+              ImmutableSet.of(FORM_SETTINGS_ASPECT_NAME, FORM_INFO_ASPECT_NAME));
+      // check if notifications are enabled
+      if (response != null && response.getAspects().containsKey(FORM_SETTINGS_ASPECT_NAME)) {
+        final FormSettings formSettings =
+            new FormSettings(
+                response.getAspects().get(FORM_SETTINGS_ASPECT_NAME).getValue().data());
+        areNotificationsEnabled =
+            formSettings.getNotificationSettings().isNotifyAssigneesOnPublish();
+      }
+      // check if form is published
       if (response != null && response.getAspects().containsKey(FORM_INFO_ASPECT_NAME)) {
         final FormInfo formInfo =
             new FormInfo(response.getAspects().get(FORM_INFO_ASPECT_NAME).getValue().data());
@@ -112,8 +125,8 @@ public class FormAssignmentStatusHook implements MetadataChangeLogHook {
       log.error("Issue fetching formAssignmentStatus aspect to trigger form notifications", e);
     }
 
-    // 3. if form is published, trigger notifications for form
-    if (isFormPublished) {
+    // 3. if form notifications are enabled and is published, trigger notifications for form
+    if (areNotificationsEnabled && isFormPublished) {
       MetadataChangeProposal mcp =
           FormUtils.createFormNotificationsExecutionRequest(formUrn.toString());
       try {
