@@ -256,7 +256,13 @@ For additional assistance with Databricks Metadata Sync, contact your DataHub Cl
 
 ## FAQ
 
-1. How does DataHub represent key-value tags from Databricks?
+1. **Where should I manage Tags & Descriptions?**
+
+In general, we recommend centrally authoring Tags and Descriptions within DataHub. This allows you to maintain a clear and consistent governance posture across _all_ of your data sources and data products - there is always data outside of Databricks! Authoring this critical information in DataHub also improves the experience for your data practicioners trying to find the right data. 
+
+This automation is intended to enable this style of management, allowing you to "push down" metadata from the central catalog into Databricks, where your data is stored and queried. 
+
+2. **How does DataHub represent key-value tags from Databricks?**
 
 During ingestion from [Databricks](https://docs.datahub.com/docs/generated/ingestion/sources/databricks), DataHub can ingest tags and descriptions that were originally authored within Databricks. DataHub converts key-value formatted tags in Databricks into DataHub tags of the format: `key:value`. For example, if you have a tag with key `has_pii` and value `true` in Databricks, this will be ingested as a single combined tag named `has_pii: true` in DataHub.
 
@@ -265,19 +271,14 @@ After ingestion into DataHub, you can apply this tag to tables or columns and sy
 If you apply a tag without a separator colon in DataHub (e.g. `has_pii`), it will be synced back to Databricks with the key being `has_pii` and value being empty. 
 
 
-2. I updated a table description in _Databricks_, but I don't see it reflecting after ingestion into DataHub. Why not?
+3. **I updated a table description in _Databricks_, but I don't see it reflecting after ingestion into DataHub. Why not?**
 
 This is usually because you've already overridden the description inside DataHub for this table. DataHub assumes that _it_ will be the source of truth for documentation, which means that any edits that have taken place in the DataHub UI (or via API) will take precedent over changes provided in Databricks. When you change the description in DataHub, the description change will overwrite the latest description in Databricks if this automation is enabled. 
 
 But fear not - you can always view the original underlying Databricks description underneath the DataHub description in the DataHub UI, even when it changes. 
 
 
-3. Can I sync DataHub Structured Properties or Glossary Terms back to Databricks as Tags? 
+4. **Can I sync DataHub Structured Properties or Glossary Terms back to Databricks as Tags?**
 
 Currently, no. Sync back is limited to Tags, to keep the concepts aligned more simply across both platforms. Reach out if you'd benefit from this capability! 
 
-
-
-
-
-When 
