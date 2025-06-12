@@ -19,6 +19,8 @@ import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
 import com.linkedin.metadata.forms.validation.FormPromptValidator;
+import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
+import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
@@ -42,6 +44,9 @@ public class SpringStandardPluginConfiguration {
   private static final String PATCH = "PATCH";
   private static final String DELETE = "DELETE";
   private static final String RESTATE = "RESTATE";
+  // Authentication validation should consider all change types as best practice
+  private static final List<String> AUTH_CHANGE_TYPE_OPERATIONS =
+      List.of(CREATE, CREATE_ENTITY, UPDATE, UPSERT, PATCH, DELETE, RESTATE);
 
   @Value("${metadataChangeProposal.validation.ignoreUnknown}")
   private boolean ignoreUnknownEnabled;
@@ -342,6 +347,40 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator ModifyIngestionSourceAuthValidator() {
+    return new ModifyIngestionSourceAuthValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ModifyIngestionSourceAuthValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(INGESTION_SOURCE_ENTITY_NAME)
+                            .aspectName(INGESTION_INFO_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator ExecuteIngestionAuthValidator() {
+    return new ExecuteIngestionAuthValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ExecuteIngestionAuthValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, UPSERT, PATCH, UPDATE, CREATE_ENTITY))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(EXECUTION_REQUEST_ENTITY_NAME)
+                            .aspectName(EXECUTION_REQUEST_INPUT_ASPECT_NAME)
                             .build()))
                 .build());
   }

@@ -109,6 +109,11 @@ public interface AspectsBatch {
     return validateProposed(mcpItems, getRetrieverContext(), null);
   }
 
+  default <T extends BatchItem> ValidationExceptionCollection validateProposed(
+      Collection<T> mcpItems, @Nullable AuthorizationSession session) {
+    return validateProposed(mcpItems, getRetrieverContext(), session);
+  }
+
   static <T extends BatchItem> ValidationExceptionCollection validateProposed(
       Collection<T> mcpItems,
       @Nonnull RetrieverContext retrieverContext,
