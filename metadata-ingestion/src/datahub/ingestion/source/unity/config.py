@@ -278,6 +278,14 @@ class UnityCatalogSourceConfig(
         description="Details about the delta lake, incase to emit siblings",
     )
 
+    use_sql_proxy: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Whether to use the SQL proxy for ingestion. If set to True, "
+            "the SQLAlchemy URL will be used to connect to the Databricks SQL warehouse. This is Experimental and may not work with all configurations."
+        ),
+    )
+
     scheme: str = DATABRICKS
 
     def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:

@@ -2,11 +2,12 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Callable, Collection, Iterable, Optional
+from typing import Callable, Collection, Iterable, Optional, Union
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogAnalyzeProfilerConfig
+from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_sql import UnityCatalogSqlProxy
 from datahub.ingestion.source.unity.proxy_types import (
     ColumnProfile,
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 class UnityCatalogAnalyzeProfiler:
     config: UnityCatalogAnalyzeProfilerConfig
     report: UnityCatalogReport
-    proxy: UnityCatalogSqlProxy
+    proxy: Union[UnityCatalogApiProxy, UnityCatalogSqlProxy]
     dataset_urn_builder: Callable[[TableReference], str]
 
     def get_workunits(

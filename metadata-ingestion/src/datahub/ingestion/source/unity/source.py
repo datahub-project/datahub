@@ -75,6 +75,7 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
 )
+from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
 from datahub.ingestion.source.unity.proxy_sql import UnityCatalogSqlProxy
 from datahub.ingestion.source.unity.proxy_types import (
     DATA_TYPE_REGISTRY,
@@ -172,7 +173,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     """
 
     config: UnityCatalogSourceConfig
-    unity_catalog_api_proxy: UnityCatalogSqlProxy
+    unity_catalog_api_proxy: Union[UnityCatalogSqlProxy, UnityCatalogApiProxy]
     platform: str = "databricks"
     platform_instance_name: Optional[str]
     sql_parser_schema_resolver: Optional[SchemaResolver] = None
@@ -189,13 +190,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         self.init_hive_metastore_proxy()
 
-        self.unity_catalog_api_proxy = UnityCatalogSqlProxy(
-            config.workspace_url,
-            config.token,
-            config.warehouse_id,
-            report=self.report,
-            hive_metastore_proxy=self.hive_metastore_proxy,
-        )
+        if self.config.use_sql_proxy:
+            self.unity_catalog_api_proxy = UnityCatalogSqlProxy(
+                config.workspace_url,
+                config.token,
+                config.warehouse_id,
+                report=self.report,
+                hive_metastore_proxy=self.hive_metastore_proxy,
+            )
+        else:
+            self.unity_catalog_api_proxy = UnityCatalogApiProxy(
+                config.workspace_url,
+                config.token,
+                config.warehouse_id,
+                report=self.report,
+                hive_metastore_proxy=self.hive_metastore_proxy,
+            )
 
         self.external_url_base = urljoin(self.config.workspace_url, "/explore/data")
 
