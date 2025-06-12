@@ -12,7 +12,6 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
@@ -918,23 +917,6 @@ public class ESUtils {
             .getSystemModifiedAtFieldName()
             .or(() -> Optional.of(String.format("%sSystemModifiedAt", fieldName)))
         : Optional.empty();
-  }
-
-  public static int applyResultLimit(@Nonnull ElasticSearchConfiguration config, int count) {
-    if (count > config.getSearch().getLimit().getResults().getMax()) {
-      if (config.getSearch().getLimit().getResults().isStrict()) {
-        throw new IllegalArgumentException(
-            "Elasticsearch result count exceeds limit of "
-                + config.getSearch().getLimit().getResults().getMax());
-      } else {
-        log.warn(
-            "Requested result count {} exceeds limit {}, applying max limit.",
-            count,
-            config.getSearch().getLimit().getResults().getMax());
-        return config.getSearch().getLimit().getResults().getMax();
-      }
-    }
-    return count;
   }
 
   /**

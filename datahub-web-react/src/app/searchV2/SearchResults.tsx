@@ -197,8 +197,14 @@ export const SearchResults = ({
         }
     }, []);
 
-    function handlePageChange(p: number) {
-        onChangePage(p);
+    function handlePageChange(newPage: number, newPageSize: number) {
+        const didPageSizeChange = numResultsPerPage !== newPageSize;
+        if (didPageSizeChange) {
+            onChangePage(1);
+            setNumResultsPerPage(newPageSize);
+        } else {
+            onChangePage(newPage);
+        }
         setAreAllEntitiesSelected?.(false);
     }
 
@@ -284,10 +290,7 @@ export const SearchResults = ({
                                                         showLessItems
                                                         onChange={handlePageChange}
                                                         showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
-                                                        onShowSizeChange={(_currNum, newNum) =>
-                                                            setNumResultsPerPage(newNum)
-                                                        }
-                                                        pageSizeOptions={['10', '20', '50', '100']}
+                                                        pageSizeOptions={['10', '20', '30']}
                                                     />
                                                 </PaginationControlContainer>
                                             )}

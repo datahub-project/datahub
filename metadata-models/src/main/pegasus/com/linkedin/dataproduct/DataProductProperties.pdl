@@ -21,7 +21,7 @@ record DataProductProperties includes CustomProperties, ExternalReference  {
   name: optional string
 
   /**
-   * Documentation of the dataset
+   * Documentation of the data product
    */
   @Searchable = {
     "fieldType": "TEXT",

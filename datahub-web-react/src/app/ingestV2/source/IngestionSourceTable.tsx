@@ -1,4 +1,4 @@
-import { Table } from '@components';
+import { Column, Table } from '@components';
 import { SorterResult } from 'antd/lib/table/interface';
 import * as QueryString from 'query-string';
 import React from 'react';
@@ -6,6 +6,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
+import TableFooter from '@app/ingestV2/shared/components/TableFooter';
 import DateTimeColumn from '@app/ingestV2/shared/components/columns/DateTimeColumn';
 import { StatusColumn } from '@app/ingestV2/shared/components/columns/StatusColumn';
 import {
@@ -14,6 +15,7 @@ import {
     OwnerColumn,
     ScheduleColumn,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
+import { IngestionSourceTableData } from '@app/ingestV2/source/types';
 import { getIngestionSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
@@ -23,7 +25,7 @@ import { IngestionSource } from '@types';
 
 const StyledTable = styled(Table)`
     table-layout: fixed;
-`;
+` as typeof Table;
 
 interface Props {
     sources: IngestionSource[];
@@ -35,6 +37,7 @@ interface Props {
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
+    isLastPage?: boolean;
 }
 
 function IngestionSourceTable({
@@ -47,11 +50,12 @@ function IngestionSourceTable({
     onChangeSort,
     isLoading,
     shouldPreserveParams,
+    isLastPage,
 }: Props) {
     const history = useHistory();
     const entityRegistry = useEntityRegistryV2();
 
-    const tableData = sources.map((source) => ({
+    const tableData: IngestionSourceTableData[] = sources.map((source) => ({
         urn: source.urn,
         type: source.type,
         name: source.name,
@@ -68,7 +72,7 @@ function IngestionSourceTable({
         owners: source.ownership?.owners,
     }));
 
-    const tableColumns = [
+    const tableColumns: Column<IngestionSourceTableData>[] = [
         {
             title: 'Name',
             key: 'name',
@@ -87,7 +91,7 @@ function IngestionSourceTable({
         {
             title: 'Last Run',
             key: 'lastRun',
-            render: (record) => <DateTimeColumn time={record.lastExecTime ?? 0} placeholder={<>Never run</>} />,
+            render: (record) => <DateTimeColumn time={record.lastExecTime} />,
             width: '15%',
         },
         {
@@ -96,7 +100,7 @@ function IngestionSourceTable({
             render: (record) => (
                 <StatusColumn
                     status={record.lastExecStatus}
-                    onClick={() => setFocusExecutionUrn(record.lastExecUrn)}
+                    onClick={() => record.lastExecUrn && setFocusExecutionUrn(record.lastExecUrn)}
                     dataTestId="ingestion-source-table-status"
                 />
             ),
@@ -156,6 +160,14 @@ function IngestionSourceTable({
             handleSortColumnChange={handleSortColumnChange}
             isLoading={isLoading}
             onRowClick={onRowClick}
+            footer={
+                isLastPage ? (
+                    <TableFooter
+                        hiddenItemsMessage="Some ingestion sources may be hidden"
+                        colSpan={tableColumns.length}
+                    />
+                ) : null
+            }
         />
     );
 }

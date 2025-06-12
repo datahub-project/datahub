@@ -195,15 +195,16 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "8c73c251-0876-48dc-b99a-3860462846e5",
+                "job_id": "6caffb8a-9084-48ee-8c76-f5c50432d946",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2025-05-13 06:36:20.563000",
-                "date_modified": "2025-05-13 06:36:20.740000",
+                "date_created": "2025-06-10 16:10:27.240000",
+                "date_modified": "2025-06-10 16:10:27.540000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
-                "command": "ALTER DATABASE DemoData SET READ_ONLY"
+                "command": "ALTER DATABASE DemoData SET READ_ONLY",
+                "database_name": "DemoData"
             },
             "name": "Weekly Demo Data Backup",
             "type": {
@@ -3012,8 +3013,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2025-05-13 06:36:20.340000",
-                "date_modified": "2025-05-13 06:36:20.340000"
+                "date_created": "2025-06-10 16:10:26.917000",
+                "date_modified": "2025-06-10 16:10:26.917000"
             },
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
@@ -3142,8 +3143,8 @@
                 "depending_on_procedure": "{}",
                 "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n        -- lineage: Foo.Items --> Foo.EphemeralItems\n        insert into Foo.EphemeralItems (ID, ItemName)\n        select ID, ItemName\n        from Foo.Items;\n\n        -- lineage: Foo.EphemeralItems --> Foo.FinalItems\n        UPDATE DemoData.Foo.FinalItems\n        SET ItemName = e.ItemName\n        FROM DemoData.Foo.FinalItems f\n        JOIN DemoData.Foo.EphemeralItems e ON f.ID = e.ID;\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2025-05-13 06:36:20.350000",
-                "date_modified": "2025-05-13 06:36:20.350000"
+                "date_created": "2025-06-10 16:10:26.933000",
+                "date_modified": "2025-06-10 16:10:26.933000"
             },
             "name": "DemoData.Foo.NewProc",
             "type": {
@@ -3710,7 +3711,7 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1747118186884,
+                "time": 1749571838025,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }

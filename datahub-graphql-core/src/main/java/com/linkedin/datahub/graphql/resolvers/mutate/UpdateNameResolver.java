@@ -5,6 +5,8 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.persis
 
 import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.CorpGroupUrnArray;
+import com.linkedin.common.CorpuserUrnArray;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -215,7 +217,7 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
                     targetUrn.toString(),
                     Constants.CORP_GROUP_INFO_ASPECT_NAME,
                     _entityService,
-                    null);
+                    createDefaultCorpGroupInfo());
         if (corpGroupInfo == null) {
           throw new IllegalArgumentException("Group does not exist");
         }
@@ -237,6 +239,14 @@ public class UpdateNameResolver implements DataFetcher<CompletableFuture<Boolean
     }
     throw new AuthorizationException(
         "Unauthorized to perform this action. Please contact your DataHub administrator.");
+  }
+
+  private CorpGroupInfo createDefaultCorpGroupInfo() {
+    CorpGroupInfo corpGroupInfo = new CorpGroupInfo();
+    corpGroupInfo.setAdmins(new CorpuserUrnArray());
+    corpGroupInfo.setMembers(new CorpuserUrnArray());
+    corpGroupInfo.setGroups(new CorpGroupUrnArray());
+    return corpGroupInfo;
   }
 
   // udpates editable dataset properties aspect's name field
