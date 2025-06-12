@@ -87,7 +87,11 @@ export const ManageIngestionPage = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [showCreateSourceModal, setShowCreateSourceModal] = useState<boolean>(false);
     const [showCreateSecretModal, setShowCreateSecretModal] = useState<boolean>(false);
+    const [hideSystemSources, setHideSystemSources] = useState(true);
     const [showCreatePoolModal, setShowCreatePoolModal] = useState(false); // SaaS-only
+
+    const history = useHistory();
+    const shouldPreserveParams = useRef(false);
 
     // defaultTab might not be calculated correctly on mount, if `config` or `me` haven't been loaded yet
     useEffect(() => {
@@ -111,9 +115,6 @@ export const ManageIngestionPage = () => {
         selectedTab,
     ]);
 
-    const history = useHistory();
-    const shouldPreserveParams = useRef(false);
-
     const onSwitchTab = (newTab: string, options?: { clearQueryParams: boolean }) => {
         const preserveParams = shouldPreserveParams.current;
         const matchingTab = Object.values(TabType).find((tab) => tab === newTab);
@@ -131,13 +132,21 @@ export const ManageIngestionPage = () => {
                     showCreateModal={showCreateSourceModal}
                     setShowCreateModal={setShowCreateSourceModal}
                     shouldPreserveParams={shouldPreserveParams}
+                    hideSystemSources={hideSystemSources}
+                    setHideSystemSources={setHideSystemSources}
                 />
             ),
             key: TabType.Sources as string,
             name: TabType.Sources as string,
         },
         {
-            component: <ExecutionsTab shouldPreserveParams={shouldPreserveParams} />,
+            component: (
+                <ExecutionsTab
+                    shouldPreserveParams={shouldPreserveParams}
+                    hideSystemSources={hideSystemSources}
+                    setHideSystemSources={setHideSystemSources}
+                />
+            ),
             key: TabType.ExecutionLog as string,
             name: 'Execution Log',
         },

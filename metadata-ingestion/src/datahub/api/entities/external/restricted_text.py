@@ -35,12 +35,12 @@ class RestrictedTextConfig:
     def __init__(
         self,
         max_length: Optional[int] = None,
-        replace_chars: Optional[Set[str]] = None,
+        forbidden_chars: Optional[Set[str]] = None,
         replacement_char: Optional[str] = None,
         truncation_suffix: Optional[str] = None,
     ):
         self.max_length = max_length
-        self.replace_chars = replace_chars
+        self.forbidden_chars = forbidden_chars
         self.replacement_char = replacement_char
         self.truncation_suffix = truncation_suffix
 
@@ -81,7 +81,7 @@ class RestrictedText(str):
 
     # Default configuration
     _default_max_length: ClassVar[Optional[int]] = 50
-    _default_replace_chars: ClassVar[Set[str]] = {" ", "\t", "\n", "\r"}
+    _default_forbidden_chars: ClassVar[Set[str]] = {" ", "\t", "\n", "\r"}
     _default_replacement_char: ClassVar[str] = "_"
     _default_truncation_suffix: ClassVar[str] = "..."
 
@@ -94,7 +94,7 @@ class RestrictedText(str):
         """Initialize the RestrictedText with a value."""
         self.original: str = value
         self.max_length = self._default_max_length
-        self.replace_chars = self._default_replace_chars
+        self.forbidden_chars = self._default_forbidden_chars
         self.replacement_char = self._default_replacement_char
         self.truncation_suffix = self._default_truncation_suffix
 
@@ -104,15 +104,15 @@ class RestrictedText(str):
     def _configure(
         self,
         max_length: Optional[int] = None,
-        replace_chars: Optional[Set[str]] = None,
+        forbidden_chars: Optional[Set[str]] = None,
         replacement_char: Optional[str] = None,
         truncation_suffix: Optional[str] = None,
     ) -> "RestrictedText":
         """Configure this instance with custom settings."""
         if max_length is not None:
             self.max_length = max_length
-        if replace_chars is not None:
-            self.replace_chars = replace_chars
+        if forbidden_chars is not None:
+            self.forbidden_chars = forbidden_chars
         if replacement_char is not None:
             self.replacement_char = replacement_char
         if truncation_suffix is not None:
@@ -126,7 +126,7 @@ class RestrictedText(str):
         """Process the value by replacing characters and truncating."""
         # Replace specified characters
         processed = value
-        for char in self.replace_chars:
+        for char in self.forbidden_chars:
             processed = processed.replace(char, self.replacement_char)
 
         # Truncate if necessary
@@ -174,7 +174,7 @@ class RestrictedText(str):
         """
         return RestrictedTextConfig(
             max_length=max_length,
-            replace_chars=forbidden_chars,
+            forbidden_chars=forbidden_chars,
             replacement_char=replacement_char,
             truncation_suffix=truncation_suffix,
         )
@@ -234,7 +234,7 @@ class RestrictedText(str):
                 config = field.default
                 instance._configure(
                     max_length=config.max_length,
-                    replace_chars=config.replace_chars,
+                    forbidden_chars=config.forbidden_chars,
                     replacement_char=config.replacement_char,
                     truncation_suffix=config.truncation_suffix,
                 )

@@ -24,6 +24,7 @@ import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/pro
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
+import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
@@ -98,7 +99,7 @@ export class ApplicationEntity implements Entity<Application> {
             useEntityQuery={useGetApplicationQuery}
             useUpdateQuery={undefined}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
-            headerActionItems={new Set([])}
+            headerActionItems={new Set([EntityActionItem.BATCH_ADD_APPLICATION])}
             headerDropdownItems={headerDropdownItems}
             isNameEditable
             tabs={[

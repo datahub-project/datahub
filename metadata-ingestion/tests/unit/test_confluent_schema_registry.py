@@ -78,6 +78,7 @@ class ConfluentSchemaRegistryTest(unittest.TestCase):
                 schema=Schema(schema_str=schema_str_ref, schema_type="AVRO"),
                 subject="test",
                 version=1,
+                guid="guid_1",
             )
 
         with patch.object(

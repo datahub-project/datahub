@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.dataproduct;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -46,6 +47,7 @@ public class DataProductType
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
           SHARE_ASPECT_NAME,
           ORIGIN_ASPECT_NAME);
   private final EntityClient _entityClient;

@@ -662,7 +662,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String input,
       @Nullable Filter filter,
       int start,
-      int count,
+      @Nonnull Integer count,
       List<SortCriterion> sortCriteria,
       @Nullable String predicateJson)
       throws RemoteInvocationException {

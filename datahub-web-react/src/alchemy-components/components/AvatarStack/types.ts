@@ -7,6 +7,7 @@ export enum AvatarType {
 export interface AvatarItemProps {
     name: string;
     imageUrl?: string | null;
+    urn?: string;
     type?: AvatarType;
 }
 

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.MLFeatureTable;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableEditableProperties;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.*;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -122,6 +124,9 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (mlFeatureTable, dataMap) -> mapApplicationAssociation(context, mlFeatureTable, dataMap));
+    mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
     mappingHelper.mapToResult(
@@ -186,5 +191,14 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
       editableProperties.setDescription(input.getDescription());
     }
     entity.setEditableProperties(editableProperties);
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull MLFeatureTable mlFeatureTable,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    mlFeatureTable.setApplication(
+        ApplicationAssociationMapper.map(context, applications, mlFeatureTable.getUrn()));
   }
 }

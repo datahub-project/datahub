@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.glossary.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
 import com.linkedin.common.InstitutionalMemory;
@@ -16,6 +17,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.GlossaryTerm;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OriginMapper;
@@ -101,6 +103,9 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
     mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (glossaryTerm, dataMap) -> mapApplicationAssociation(context, glossaryTerm, dataMap));
+    mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
     mappingHelper.mapToResult(
@@ -133,5 +138,14 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     glossaryTerm.setDomain(DomainAssociationMapper.map(context, domains, glossaryTerm.getUrn()));
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context,
+      @Nonnull GlossaryTerm glossaryTerm,
+      @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    glossaryTerm.setApplication(
+        ApplicationAssociationMapper.map(context, applications, glossaryTerm.getUrn()));
   }
 }

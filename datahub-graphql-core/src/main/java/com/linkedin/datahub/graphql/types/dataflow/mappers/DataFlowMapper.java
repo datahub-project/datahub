@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataflow.mappers;
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
+import com.linkedin.application.Applications;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -27,6 +28,7 @@ import com.linkedin.datahub.graphql.generated.DataFlowInfo;
 import com.linkedin.datahub.graphql.generated.DataFlowProperties;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.BrowsePathsV2Mapper;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
@@ -136,6 +138,9 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         SUB_TYPES_ASPECT_NAME,
         (entity, dataMap) ->
             entity.setSubTypes(SubTypesMapper.map(context, new SubTypes(dataMap))));
+    mappingHelper.mapToResult(
+        APPLICATION_MEMBERSHIP_ASPECT_NAME,
+        (dataFlow, dataMap) -> mapApplicationAssociation(context, dataFlow, dataMap));
     mappingHelper.mapToResult(
         SHARE_ASPECT_NAME,
         (entity, dataMap) -> entity.setShare(ShareMapper.map(context, new Share(dataMap))));
@@ -253,5 +258,12 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
     final Domains domains = new Domains(dataMap);
     // Currently we only take the first domain if it exists.
     dataFlow.setDomain(DomainAssociationMapper.map(context, domains, dataFlow.getUrn()));
+  }
+
+  private static void mapApplicationAssociation(
+      @Nullable final QueryContext context, @Nonnull DataFlow dataFlow, @Nonnull DataMap dataMap) {
+    final Applications applications = new Applications(dataMap);
+    dataFlow.setApplication(
+        ApplicationAssociationMapper.map(context, applications, dataFlow.getUrn()));
   }
 }

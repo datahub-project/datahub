@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.glossary;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -44,6 +45,7 @@ public class GlossaryNodeType
           OWNERSHIP_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           FORMS_ASPECT_NAME,
+          APPLICATION_MEMBERSHIP_ASPECT_NAME,
           DISPLAY_PROPERTIES_ASPECT_NAME,
           INSTITUTIONAL_MEMORY_ASPECT_NAME,
           SHARE_ASPECT_NAME,

@@ -7,6 +7,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.ActionRequestsConfig;
 import com.linkedin.datahub.graphql.generated.AnalyticsConfig;
 import com.linkedin.datahub.graphql.generated.AppConfig;
+import com.linkedin.datahub.graphql.generated.ApplicationConfig;
 import com.linkedin.datahub.graphql.generated.AuthConfig;
 import com.linkedin.datahub.graphql.generated.ChromeExtensionConfig;
 import com.linkedin.datahub.graphql.generated.ClassificationAutomations;
@@ -210,6 +211,12 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
         themeConfig.setThemeId(_visualConfiguration.getTheme().getThemeId());
       }
       visualConfig.setTheme(themeConfig);
+    }
+    if (_visualConfiguration != null && _visualConfiguration.getApplication() != null) {
+      ApplicationConfig applicationConfig = new ApplicationConfig();
+      applicationConfig.setShowSidebarSectionWhenEmpty(
+          _visualConfiguration.getApplication().isShowSidebarSectionWhenEmpty());
+      visualConfig.setApplication(applicationConfig);
     }
     appConfig.setVisualConfig(visualConfig);
 

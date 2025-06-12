@@ -243,6 +243,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 ),
                 subject="topic1-key",
                 version=1,
+                guid="guid_2",
             ),
             RegisteredSchema(
                 schema_id="schema_id_1",
@@ -252,6 +253,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 ),
                 subject="topic1-value",
                 version=1,
+                guid="guid_1",
             ),
         ),
         # RecordNameStrategy is used for subject
@@ -264,6 +266,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 ),
                 subject="test.acryl.Topic2Key",
                 version=1,
+                guid="guid_3",
             ),
             RegisteredSchema(
                 schema_id="schema_id_4",
@@ -273,6 +276,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 ),
                 subject="test.acryl.Topic2Value",
                 version=1,
+                guid="guid_4",
             ),
         ),
         # TopicRecordNameStrategy is used for subject
@@ -285,6 +289,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 ),
                 subject="topic3-test.acryl.Topic3Key-key",
                 version=1,
+                guid="guid_4",
             ),
             RegisteredSchema(
                 schema_id="schema_id_5",
@@ -294,6 +299,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
                 ),
                 subject="topic3-test.acryl.Topic3Value-value",
                 version=1,
+                guid="guid_5",
             ),
         ),
     }
@@ -436,6 +442,7 @@ def test_kafka_ignore_warnings_on_schema_type(
         ),
         subject="topic1-key",
         version=1,
+        guid="guid_2",
     )
     topic1_value_schema = RegisteredSchema(
         schema_id="schema_id_1",
@@ -445,6 +452,7 @@ def test_kafka_ignore_warnings_on_schema_type(
         ),
         subject="topic1-value",
         version=1,
+        guid="guid_1",
     )
 
     # Mock the kafka consumer
@@ -570,6 +578,7 @@ def test_kafka_source_topic_meta_mappings(
                 ),
                 subject="topic1-key",
                 version=1,
+                guid="guid_2",
             ),
             RegisteredSchema(
                 schema_id="schema_id_1",
@@ -592,6 +601,7 @@ def test_kafka_source_topic_meta_mappings(
                 ),
                 subject="topic1-value",
                 version=1,
+                guid="guid_1",
             ),
         )
     }

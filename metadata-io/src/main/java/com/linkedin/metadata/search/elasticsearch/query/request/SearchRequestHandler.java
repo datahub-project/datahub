@@ -439,7 +439,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull OperationContext opContext,
       @Nullable Filter filters,
       List<SortCriterion> sortCriteria,
-      int size,
+      @Nullable Integer size,
       @Nullable String keepAliveDuration,
       @Nullable String pitId,
       @Nullable Object[] sort,
@@ -449,7 +449,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
     BoolQueryBuilder filterQuery = getFilterQuery(opContext, filters);
     final SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
     searchSourceBuilder.query(filterQuery);
-    searchSourceBuilder.size(size);
+    searchSourceBuilder.size(ConfigUtils.applyLimit(searchServiceConfig, size));
     if (fieldFetchConfig == null) {
       fieldFetchConfig = new SearchDocFieldFetchConfig();
     }
