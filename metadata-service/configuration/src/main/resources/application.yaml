@@ -1060,6 +1060,7 @@ forms:
     completionEnabled: ${FORMS_COMPLETION_HOOK_ENABLED:true}
     infoEnabled: ${FORM_INFO_HOOK_ENABLED:true}
     assignmentStatusEnabled: ${FORM_ASSIGNMENT_STATUS_HOOK_ENABLED:true}
+    settingsEnabled: ${FORM_SETTINGS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:
