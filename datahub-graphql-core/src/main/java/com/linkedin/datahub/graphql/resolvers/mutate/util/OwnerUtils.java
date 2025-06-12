@@ -308,24 +308,34 @@ public class OwnerUtils {
       EntityService<?> entityService) {
     try {
       Urn actorUrn = CorpuserUrn.createFromString(context.getActorUrn());
+      addActorAsOwner(context.getOperationContext(), actorUrn, urn, ownerEntityType, entityService);
+    } catch (Exception e) {
+      log.error(String.format("Failed to add creator as owner of %s", urn), e);
+    }
+  }
+
+  public static void addActorAsOwner(
+      OperationContext opContext,
+      Urn actorUrn,
+      String urn,
+      OwnerEntityType ownerEntityType,
+      EntityService<?> entityService) {
+    try {
       OwnershipType ownershipType = OwnershipType.TECHNICAL_OWNER;
       if (!entityService.exists(
-          context.getOperationContext(),
-          UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())),
-          true)) {
+          opContext, UrnUtils.getUrn(mapOwnershipTypeToEntity(ownershipType.name())), true)) {
         log.warn("Technical owner does not exist, defaulting to None ownership.");
         ownershipType = OwnershipType.NONE;
       }
       String ownershipTypeUrn = mapOwnershipTypeToEntity(ownershipType.name());
 
-      if (!entityService.exists(
-          context.getOperationContext(), UrnUtils.getUrn(ownershipTypeUrn), true)) {
+      if (!entityService.exists(opContext, UrnUtils.getUrn(ownershipTypeUrn), true)) {
         throw new RuntimeException(
             String.format("Unknown ownership type urn %s", ownershipTypeUrn));
       }
 
       addOwnersToResources(
-          context.getOperationContext(),
+          opContext,
           ImmutableList.of(
               new OwnerInput(
                   actorUrn.toString(), ownerEntityType, ownershipType, ownershipTypeUrn)),
@@ -333,7 +343,8 @@ public class OwnerUtils {
           actorUrn,
           entityService);
     } catch (Exception e) {
-      log.error(String.format("Failed to add creator as owner of tag %s", urn), e);
+      log.error(
+          String.format("Failed to add actor %s as owner of %s", actorUrn.toString(), urn), e);
     }
   }
 
