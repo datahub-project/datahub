@@ -3,22 +3,22 @@
   line-height: 1.6;
   color: var(--ifm-font-color-base);
 
-  // h1, h2, h3, h4 {
-  //   font-weight: 600;
-  //   margin-top: 2rem;
-  //   margin-bottom: 1rem;
-  // }
-
-  .visually-hidden {
-    position: absolute;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    height: 1px;
-    width: 1px;
-    overflow: hidden;
-    white-space: nowrap;
-    padding: 0;
-    margin: 0;
+  .anchor {
+    .visually-hidden {
+      position: absolute;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      height: 1px;
+      width: 1px;
+      overflow: hidden;
+      white-space: nowrap;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .hash-link {
+      display: none;
+    }
   }
 
   .h3-block {
@@ -32,6 +32,7 @@
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--ifm-font-color-base);
+    margin-bottom: 2rem;
 
     .section-heading {
       background-color: var(--ifm-background-surface-color);
@@ -74,8 +75,7 @@
           color: var(--ifm-color-primary);
         }
     }
-   }
-
+  }
 
   p {
     margin-bottom: 1rem;
