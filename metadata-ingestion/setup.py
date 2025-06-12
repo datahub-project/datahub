@@ -235,8 +235,25 @@ redshift_common = {
 }
 
 snowflake_common = {
-    # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
-    "snowflake-sqlalchemy>=1.4.3",
+    # Lower bound due to https://github.com/snowflakedb/snowflake-sqlalchemy/issues/350
+    #
+    # Upper bound <1.7.4: Version 1.7.4 of snowflake-sqlalchemy introduced a bug that breaks
+    # table column name reflection for non-uppercase table names. While we do not
+    # use this method directly, it is used by great-expectations during profiling.
+    #
+    # See: https://github.com/snowflakedb/snowflake-sqlalchemy/compare/v1.7.3...v1.7.4
+    #
+    # The exact cause of the breakage in v1.7.4 is unclear, but it may be related to
+    # changes in the _get_table_columns function. I initially suspected PR #541
+    # (https://github.com/snowflakedb/snowflake-sqlalchemy/pull/541), but that has been
+    # present since v1.7.0 and does not appear to cause issues.
+    #
+    # Reflection failures for case-sensitive object names are a known issue:
+    # https://github.com/snowflakedb/snowflake-sqlalchemy/issues/388
+    #
+    # As of May 2025, snowflake-sqlalchemy is in maintenance mode. I have commented on the
+    # above issue and we are pinning to a safe version.
+    "snowflake-sqlalchemy>=1.4.3, <1.7.4",
     "snowflake-connector-python>=3.4.0",
     "pandas",
     "cryptography",
