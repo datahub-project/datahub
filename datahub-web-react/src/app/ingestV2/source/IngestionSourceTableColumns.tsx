@@ -13,7 +13,7 @@ import BaseActionsColumn, { MenuItem } from '@app/ingestV2/shared/components/col
 import useGetSourceLogoUrl from '@app/ingestV2/source/builder/useGetSourceLogoUrl';
 import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 
 import { EntityType, Owner } from '@types';
 
@@ -96,7 +96,7 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
     try {
         const text = schedule && `${cronstrue.toString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
         const cleanedText = text.replace(/^at /, '');
-        const finalText = capitalizeFirstLetter(capitalizeMonthsAndDays(cleanedText));
+        const finalText = capitalizeFirstLetterOnly(capitalizeMonthsAndDays(cleanedText));
         scheduleText = finalText ?? '-';
     } catch (e) {
         scheduleText = 'Invalid cron schedule';
