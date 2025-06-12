@@ -1,10 +1,23 @@
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { afterAll, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import { SortingState } from '@components/components/Table/types';
 
-import { getEntitiesIngestedByType, getSortInput, getTotalEntitiesIngested } from '@app/ingestV2/source/utils';
+import {
+    capitalizeMonthsAndDays,
+    formatTimezone,
+    getEntitiesIngestedByType,
+    getSortInput,
+    getTotalEntitiesIngested,
+} from '@app/ingestV2/source/utils';
 
 import { ExecutionRequestResult, SortOrder } from '@types';
+
+// Extend dayjs with required plugins
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 // Mock the structuredReport property of ExecutionRequestResult
 const mockExecutionRequestResult = (structuredReportData: any): Partial<ExecutionRequestResult> => {
@@ -236,5 +249,88 @@ describe('getTotalEntitiesIngested', () => {
 
         const result = getTotalEntitiesIngested(mockExecutionRequestResult(structuredReport));
         expect(result).toBe(156);
+
+    })
+});
+
+describe('formatTimezone', () => {
+    it('should return undefined for null input', () => {
+        expect(formatTimezone(null)).toBeUndefined();
+    });
+
+    it('should return undefined for undefined input', () => {
+        expect(formatTimezone(undefined)).toBeUndefined();
+    });
+
+    it('should format valid timezone correctly', () => {
+        // Mock the current time to ensure consistent testing
+        const mockDate = new Date('2024-01-01T12:00:00Z');
+        vi.spyOn(global.Date, 'now').mockImplementation(() => mockDate.getTime());
+
+        // Test timezone abbreviations that can vary based on DST
+        const nycAbbr = formatTimezone('America/New_York');
+        expect(['EST', 'EDT']).toContain(nycAbbr);
+
+        const londonAbbr = formatTimezone('Europe/London');
+        expect(['GMT+1', 'BST']).toContain(londonAbbr);
+
+        // Tokyo doesn't observe DST, so it's always GMT+9
+        expect(formatTimezone('Asia/Tokyo')).toBe('GMT+9');
+
+        // Clean up
+        vi.restoreAllMocks();
+    });
+
+    it('should handle invalid timezone gracefully', () => {
+        // Mock the current time to ensure consistent testing
+        const mockDate = new Date('2024-01-01T12:00:00Z');
+        vi.spyOn(global.Date, 'now').mockImplementation(() => mockDate.getTime());
+
+        // Invalid timezone should return undefined or throw an error
+        expect(() => formatTimezone('Invalid/Timezone')).toThrow();
+
+        // Clean up
+        vi.restoreAllMocks();
+    });
+});
+
+describe('capitalizeMonthsAndDays', () => {
+    it('should capitalize month names', () => {
+        const input = 'january february march april may june july august september october november december';
+        const expected = 'January February March April May June July August September October November December';
+        expect(capitalizeMonthsAndDays(input)).toBe(expected);
+    });
+
+    it('should capitalize day names', () => {
+        const input = 'monday tuesday wednesday thursday friday saturday sunday';
+        const expected = 'Monday Tuesday Wednesday Thursday Friday Saturday Sunday';
+        expect(capitalizeMonthsAndDays(input)).toBe(expected);
+    });
+
+    it('should handle mixed case input', () => {
+        const input = 'monday January tuesday February';
+        const expected = 'Monday January Tuesday February';
+        expect(capitalizeMonthsAndDays(input)).toBe(expected);
+    });
+
+    it('should not capitalize non-month/day words', () => {
+        const input = 'hello world monday january test';
+        const expected = 'hello world Monday January test';
+        expect(capitalizeMonthsAndDays(input)).toBe(expected);
+    });
+
+    it('should handle empty string', () => {
+        expect(capitalizeMonthsAndDays('')).toBe('');
+    });
+
+    it('should handle string with no month or day names', () => {
+        const input = 'this is a test string';
+        expect(capitalizeMonthsAndDays(input)).toBe(input);
+    });
+
+    it('should handle string with special characters', () => {
+        const input = 'monday, january 1st - tuesday, february 2nd';
+        const expected = 'Monday, January 1st - Tuesday, February 2nd';
+        expect(capitalizeMonthsAndDays(input)).toBe(expected);
     });
 });

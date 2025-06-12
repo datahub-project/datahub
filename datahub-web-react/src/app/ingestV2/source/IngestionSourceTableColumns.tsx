@@ -94,6 +94,7 @@ export function NameColumn({ type, record }: TypeColumnProps) {
 
 export function ScheduleColumn({ schedule, timezone }: { schedule: string; timezone?: string }) {
     let scheduleText: string;
+
     try {
         const text = schedule && `${cronstrue.toString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
         const cleanedText = text.replace(/^at /, '');
