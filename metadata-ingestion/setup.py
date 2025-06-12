@@ -507,6 +507,10 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
+    "datahub-debug": {
+        "dnspython==2.7.0",
+        "requests"
+    },
     "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
@@ -799,6 +803,7 @@ entry_points = {
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
         "datahub-gc = datahub.ingestion.source.gc.datahub_gc:DataHubGcSource",
+        "datahub-debug = datahub.ingestion.source.debug.datahub_debug:DataHubDebugSource",
         "datahub-apply = datahub.ingestion.source.apply.datahub_apply:DataHubApplySource",
         "datahub-lineage-file = datahub.ingestion.source.metadata.lineage:LineageFileSource",
         "datahub-business-glossary = datahub.ingestion.source.metadata.business_glossary:BusinessGlossaryFileSource",
