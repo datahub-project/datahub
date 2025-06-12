@@ -41,7 +41,7 @@ You can create lineage between two datasets, data jobs, dashboards, or charts. T
 #### Add Entity Lineage Between Datajobs
 
 ```python
-{{ inline /metadata-ingestion/examples/library/add_lineage_datajob_to_datajob.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/lineage_datajob_to_datajob.py show_path_as_comment }}
 ```
 
 :::note Lineage Combinations
@@ -55,15 +55,7 @@ You can add column-level lineage by using `column_lineage` parameter when linkin
 #### Add Column Lineage with Fuzzy Matching
 
 ```python
-from datahub.sdk import DataHubClient
-
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-client.lineage.add_lineage(
-    upstream="urn:li:dataset:(platform,sales_raw,PROD)",
-    downstream="urn:li:dataset:(platform,sales_agg,PROD)",
-    column_lineage=True
-)
+{{ inline /metadata-ingestion/examples/library/lineage_dataset_column.py show_path_as_comment }}
 ```
 
 When `column_lineage` is set to **True**, DataHub will automatically map columns based on their names, allowing for fuzzy matching. This is useful when upstream and downstream datasets have similar but not identical column names. (e.g. `customer_id` in upstream and `CustomerId` in downstream).
@@ -71,15 +63,7 @@ When `column_lineage` is set to **True**, DataHub will automatically map columns
 #### Add Column Lineage with Strict Matching
 
 ```python
-from datahub.sdk import DataHubClient
-
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-client.lineage.add_lineage(
-    upstream="urn:li:dataset:(platform,sales_raw,PROD)",
-    downstream="urn:li:dataset:(platform,sales_agg,PROD)",
-    column_lineage="auto_strict"
-)
+{{ inline /metadata-ingestion/examples/library/lineage_dataset_column_auto_strict.py show_path_as_comment }}
 ```
 
 This will create column-level lineage with strict matching, meaning the column names must match exactly between upstream and downstream datasets.
@@ -89,16 +73,7 @@ This will create column-level lineage with strict matching, meaning the column n
 For custom mapping, you can use a dictionary where keys are downstream column names and values represent lists of upstream column names. This allows you to specify complex relationships.
 
 ```python
-from datahub.sdk import DataHubClient
-
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-client.lineage.add_lineage(
-    upstream="urn:li:dataset:(platform,sales_raw,PROD)",
-    downstream="urn:li:dataset:(platform,sales_agg,PROD)",
-    # { downstream_column -> [upstream_columns] }
-    column_lineage={"id": ["id"], "region": ["region", "region_id"], "total_revenue": ["revenue"]},
-)
+{{ inline /metadata-ingestion/examples/library/lineage_dataset_column_custom_mapping.py show_path_as_comment }}
 ```
 
 ### Infer Lineage from SQL
@@ -106,27 +81,14 @@ client.lineage.add_lineage(
 You can infer lineage directly from a SQL query using `infer_lineage_from_sql()`. This will parse the query, determine upstream and downstream datasets, and automatically add lineage (including column-level lineage when possible).
 
 ```python
-from datahub.sdk import DataHubClient
-
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-client.lineage.infer_lineage_from_sql(
-    query_text="""
-        INSERT INTO sales_summary
-        SELECT region, SUM(revenue)
-        FROM sales_raw
-        GROUP BY region
-    """,
-    platform="snowflake",
-    env="PROD"
-)
+{{ inline /metadata-ingestion/examples/library/lineage_dataset_from_sql.py show_path_as_comment }}
 ```
 
 :::note DataHub SQL Parser
 
 Check out more information on how we handle SQL parsing below.
 
-- [The DataHub SQL Parser Documentation](../../../lineage/sql_parsing.md)
+- [The DataHub SQL Parser Documentation](../../lineage/sql_parsing.md)
 - [Blog Post : Extracting Column-Level Lineage from SQL](https://medium.com/datahub-project/extracting-column-level-lineage-from-sql-779b8ce17567)
 
 :::
@@ -141,7 +103,9 @@ If you provide a `transformation_text` to `add_lineage`, DataHub will create a q
 
 Transformation text can be any transformation logic, Python scripts, Airflow DAG code, or any other code that describes how the upstream dataset is transformed into the downstream dataset.
 
-![img.png](img.png)
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/query-node.png"/>
+</p>
 
 :::note
 Providing `transformation_text` will NOT create column lineage. You need to specify `column_lineage` parameter to enable column-level lineage.
@@ -160,14 +124,7 @@ The `get_lineage()` method allows you to retrieve lineage for a given entity.
 This will return the direct upstream entity that the dataset depends on. By default, it retrieves only the immediate upstream entities (1 hop).
 
 ```python
-from datahub.sdk import DataHubClient
-
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-results = client.lineage.get_lineage(
-    source_urn="urn:li:dataset:(platform,sales_agg,PROD)",
-    direction="upstream",
-)
+{{ inline /metadata-ingestion/examples/library/get_lineage_basic.py show_path_as_comment }}
 ```
 
 #### Get Downstream Lineage for a Dataset Across Multiple Hops
@@ -175,7 +132,7 @@ results = client.lineage.get_lineage(
 To get upstream/downstream entities that are more than one hop away, you can use the `max_hops` parameter. This allows you to traverse the lineage graph up to a specified number of hops.
 
 ```python
-{{ inline /metadata-ingestion/examples/library/get_lineage_basic.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/get_lineage_with_hops.py show_path_as_comment }}
 
 ```
 
@@ -214,19 +171,8 @@ You can retrieve column-level lineage by specifying the `source_column` paramete
 You can also pass `SchemaFieldUrn` as the `source_urn` to get column-level lineage.
 
 ```python
-from datahub.sdk import DataHubClient
+{{ inline /metadata-ingestion/examples/library/get_column_lineage_from_schemafield.py show_path_as_comment }}
 
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-# Getting column level lineage with SchemaFieldUrn
-results_with_schema_field_urn = client.lineage.get_lineage(
-    source_urn="urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,table_1,PROD),col1)",
-    direction="downstream",
-    max_hops=2
-)
-
-# this will return the same results as results_with_source_column
-print(list(results_with_schema_field_urn))
 ```
 
 #### Return type
@@ -265,21 +211,7 @@ For more details on how to interpret the results, see [Interpreting Lineage Resu
 You can filter by platform, type, domain, environment, and more.
 
 ```python
-from datahub.sdk import DataHubClient
-from datahub.sdk.search_filters import FilterDsl as F
-
-client = DataHubClient(server="<your_server>", token="<your_token>")
-
-# get upstream snowflake production datasets.
-results = client.lineage.get_lineage(
-    source_urn="urn:li:dataset:(platform,sales_agg,PROD)",
-    direction="upstream",
-    filter=F.and_(
-    F.platform("snowflake"),
-    F.entity_type("DATASET"),
-    F.env("PROD")
-)
-)
+{{ inline /metadata-ingestion/examples/library/get_lineage_with_filter.py show_path_as_comment }}
 ```
 
 You can check more details about the available filters in the [Search SDK documentation]().
@@ -329,7 +261,9 @@ When retrieving column-level lineage, the results include `paths` that show how 
 
 For example, let's say we have the following lineage across three tables:
 
-![img_1.png](img_1.png)
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/column-lineage.png"/>
+</p>
 
 #### Example with `max_hops=1`
 
@@ -342,11 +276,7 @@ For example, let's say we have the following lineage across three tables:
     )
 ```
 
-Returns:
-
-- `table_2` (hops=1)
-  - `table_1.col1 → table_2.col4`
-  - `table_1.col1 → table_2.col5`
+**Returns:**
 
 ```python
 [
@@ -372,13 +302,7 @@ Returns:
     )
 ```
 
-Returns:
-
-- `table_2` (hops=1)
-  - `col_1 → col_4`
-  - `col_1 → col_5`
-- `table_3` (hops=2)
-  - `col_1 → col_4 → col_7`
+**Returns:**
 
 ```python
 [
