@@ -34,6 +34,7 @@ import {
 import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
 import { INTERVAL_TO_MS } from '@app/shared/time/timeUtils';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { DateInterval } from '@types';
 
@@ -71,6 +72,7 @@ export const ValuesOverTimeAssertionResultChart = ({
     renderHeader,
     refreshData,
 }: Props) => {
+    const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
     const rawDataPoints = data.dataPoints;
 
     const chartInnerWidth = chartDimensions.width - CHART_AXIS_LEFT_WIDTH - CHART_RIGHT_MARGIN;
@@ -285,6 +287,7 @@ export const ValuesOverTimeAssertionResultChart = ({
                         const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(
                             data.context.assertion,
                             dataPoint.relatedRunEvent,
+                            onlineSmartAssertionsEnabled,
                         );
 
                         return (

@@ -167,6 +167,9 @@ public enum DataHubUsageEventType {
   CREATE_ACTION_EVENT("CreateActionEvent"),
   UPDATE_ACTION_EVENT("UpdateActionEvent"),
   DELETE_ACTION_EVENT("DeleteActionEvent"),
+  GIVE_ANOMALY_FEEDBACK_EVENT("GiveAnomalyFeedbackEvent"),
+  UNDO_ANOMALY_FEEDBACK_EVENT("UndoAnomalyFeedbackEvent"),
+  RETRAIN_AS_NEW_NORMAL_EVENT("RetrainAsNewNormalEvent"),
   DATASET_HEALTH_CLICK_EVENT("DatasetHealthClickEvent"),
   DATASET_HEALTH_FILTER_EVENT("DatasetHealthFilterEvent");
 

@@ -473,7 +473,11 @@ export const getSiblings = (entityData: GenericEntityProperties | null): Generic
 /**
  * Returns the anomaly feedback options for a given assertion and run
  */
-export const getAnomalyFeedbackContext = (assertion: Assertion, run?: AssertionRunEvent) => {
+export const getAnomalyFeedbackContext = (
+    assertion: Assertion,
+    run: AssertionRunEvent | undefined,
+    onlineSmartAssertionsEnabled: boolean,
+) => {
     // Should never happen
     if (!run) {
         return {
@@ -493,6 +497,7 @@ export const getAnomalyFeedbackContext = (assertion: Assertion, run?: AssertionR
     const isPassing = run.result?.type === AssertionResultType.Success;
 
     const isFeedbackEnabled =
+        onlineSmartAssertionsEnabled &&
         isSmartAssertion &&
         run.result?.type !== AssertionResultType.Error &&
         run.result?.type !== AssertionResultType.Init;

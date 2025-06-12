@@ -25,6 +25,7 @@ import {
     getFormattedExpectedResultText,
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { useAppConfig } from '@app/useAppConfig';
 
 import {
     Assertion,
@@ -167,6 +168,8 @@ export const AssertionResultPopoverContent = ({
     onClickProfileButton,
     refetchResults,
 }: Props) => {
+    const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
+
     const runResultType = run?.result?.type;
 
     // Last run time
@@ -205,6 +208,7 @@ export const AssertionResultPopoverContent = ({
     const { isFeedbackEnabled, isAnomaly, isMissedAlarm, isFalseAlarm, anomalyFeedbackCta } = getAnomalyFeedbackContext(
         assertion,
         run,
+        onlineSmartAssertionsEnabled,
     );
     const showAnomalyFeedback = isFeedbackEnabled && resultStatusType !== ResultStatusType.LATEST;
     const showUndoFeedbackAction = isMissedAlarm || isFalseAlarm;
@@ -394,7 +398,7 @@ export const AssertionResultPopoverContent = ({
                         {!anomalyFeedbackCta.isInfo ? (
                             <Button
                                 isLoading={isActionProcessing}
-                                onClick={onToggleAnomaly}
+                                onClick={() => onToggleAnomaly(showUndoFeedbackAction)}
                                 variant={showUndoFeedbackAction ? 'outline' : 'filled'}
                                 color={showUndoFeedbackAction ? 'red' : 'primary'}
                             >

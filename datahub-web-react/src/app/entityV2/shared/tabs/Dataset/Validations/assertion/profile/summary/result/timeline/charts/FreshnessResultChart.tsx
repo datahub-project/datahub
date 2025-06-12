@@ -27,6 +27,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
 import { tryGetActualUpdatedTimestampFromAssertionResult } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultExtractionUtils';
 import { LinkWrapper } from '@app/shared/LinkWrapper';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { AssertionResultType } from '@types';
 
@@ -51,6 +52,8 @@ const PRIMARY_CANDLE_STICK_BAR_WIDTH = 5;
  * Specifically for freshness assertions.
  */
 export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderHeader, refreshData }: Props) => {
+    const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
+
     const { dataPoints } = data;
 
     // ----------------- States and data calculations ----------------- //
@@ -201,6 +204,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
                         const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(
                             data.context.assertion,
                             dataPoint.relatedRunEvent,
+                            onlineSmartAssertionsEnabled,
                         );
 
                         return (

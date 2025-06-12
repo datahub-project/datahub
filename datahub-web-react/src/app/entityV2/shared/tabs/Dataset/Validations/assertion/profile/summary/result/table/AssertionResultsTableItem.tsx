@@ -14,6 +14,7 @@ import {
 import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { applyOpacityToHexColor } from '@app/shared/styleUtils';
 import { toLocalDateTimeString, toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { useAppConfig } from '@app/useAppConfig';
 
 import { Assertion, AssertionRunEvent, AssertionSourceType, Monitor } from '@types';
 
@@ -63,8 +64,9 @@ type Props = {
 export const AssertionResultsTableItem = ({ assertion, monitor, run, refetchResults }: Props) => {
     const assertionRunTime = run.timestampMillis;
     const isSmartAssertion = assertion.info?.source?.type === AssertionSourceType.Inferred;
+    const { onlineSmartAssertionsEnabled } = useAppConfig().config.featureFlags;
 
-    const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(assertion, run);
+    const { isMissedAlarm, isFalseAlarm } = getAnomalyFeedbackContext(assertion, run, onlineSmartAssertionsEnabled);
 
     const absoluteRunTime = getFormattedTimeString(assertionRunTime);
     const resultText = getFormattedResultText(run.result?.type, isSmartAssertion);

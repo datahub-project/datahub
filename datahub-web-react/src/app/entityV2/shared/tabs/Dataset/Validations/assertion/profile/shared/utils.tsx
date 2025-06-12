@@ -4,6 +4,7 @@ import { Info } from 'phosphor-react';
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { removeNestedTypeNames } from '@app/shared/subscribe/drawer/utils';
 
 import {
@@ -45,6 +46,15 @@ export const tryGetScheduleFromMonitor = (monitor?: Monitor): CronSchedule | und
     return monitor?.info?.assertionMonitor?.assertions?.length
         ? monitor?.info?.assertionMonitor?.assertions[0]?.schedule
         : undefined;
+};
+
+const getInferenceDetails = (monitor?: Monitor) => {
+    const monitorInferenceSettings = monitor?.info?.assertionMonitor?.settings?.inferenceSettings;
+    return {
+        sensitivity: monitorInferenceSettings?.sensitivity?.level ?? undefined,
+        hasExclusionWindows: (monitorInferenceSettings?.exclusionWindows?.length ?? 0) > 0,
+        lookbackDays: monitorInferenceSettings?.trainingDataLookbackWindowDays ?? undefined,
+    };
 };
 
 const MessageWrapper = styled.div`
@@ -145,41 +155,84 @@ export const useAssertionFeedbackActions = ({
     // MARK / UNMARK AS ANOMALY PARENT ACTION
     // ------------------------------------------------------------------------------------------
     const [isActionProcessing, setIsActionProcessing] = useState(false);
-    const onToggleAnomaly = useCallback(async () => {
-        setIsActionProcessing(true);
-        try {
-            if (isAnomaly) {
-                await onUnmarkAsAnomaly?.();
-                message.info(
-                    <MessageWrapper>
-                        <Typography.Title level={5}>Marked as Normal. Retraining started.</Typography.Title>
-                        <Typography.Paragraph>
-                            Also consider <b>decreasing sensitivity</b> and <b>adding exclusion windows</b> in the
-                            &apos;Settings&apos; tab.
-                        </Typography.Paragraph>
-                    </MessageWrapper>,
-                    8,
-                );
-            } else {
-                await onMarkAsAnomaly?.();
-                message.info(
-                    <MessageWrapper>
-                        <Typography.Title level={5}>Marked as an Anomaly. Retraining started.</Typography.Title>
-                        <Typography.Paragraph>
-                            Also consider <b>increasing sensitivity</b> and <b>adding exclusion windows</b> in the
-                            &apos;Settings&apos; tab.
-                        </Typography.Paragraph>
-                    </MessageWrapper>,
-                    8,
-                );
+    const onToggleAnomaly = useCallback(
+        async (isUndo: boolean) => {
+            setIsActionProcessing(true);
+            try {
+                if (isAnomaly) {
+                    await onUnmarkAsAnomaly?.();
+                    message.info(
+                        <MessageWrapper>
+                            <Typography.Title level={5}>Marked as Normal. Retraining started.</Typography.Title>
+                            <Typography.Paragraph>
+                                Also consider <b>decreasing sensitivity</b> and <b>adding exclusion windows</b> in the
+                                &apos;Settings&apos; tab.
+                            </Typography.Paragraph>
+                        </MessageWrapper>,
+                        8,
+                    );
+                    const inferenceDetails = getInferenceDetails(monitor);
+                    const runEventTimeMillisFromNow = run ? Date.now() - run.timestampMillis : undefined;
+                    if (isUndo) {
+                        analytics.event({
+                            type: EventType.UndoAnomalyFeedback,
+                            assertionType: assertion.info?.type ?? 'Unknown',
+                            runEventTimeMillisFromNow,
+                            inferenceDetails,
+                            datasetUrn: monitor?.entity.urn,
+                        });
+                    } else {
+                        analytics.event({
+                            type: EventType.GiveAnomalyFeedback,
+                            feedbackType: 'falseAlarm',
+                            assertionType: assertion.info?.type ?? 'Unknown',
+                            runEventTimeMillisFromNow,
+                            inferenceDetails,
+                            datasetUrn: monitor?.entity.urn,
+                        });
+                    }
+                } else {
+                    await onMarkAsAnomaly?.();
+                    message.info(
+                        <MessageWrapper>
+                            <Typography.Title level={5}>Marked as an Anomaly. Retraining started.</Typography.Title>
+                            <Typography.Paragraph>
+                                Also consider <b>increasing sensitivity</b> and <b>adding exclusion windows</b> in the
+                                &apos;Settings&apos; tab.
+                            </Typography.Paragraph>
+                        </MessageWrapper>,
+                        8,
+                    );
+                    const inferenceDetails = getInferenceDetails(monitor);
+                    const runEventTimeMillisFromNow = run ? Date.now() - run.timestampMillis : undefined;
+                    if (isUndo) {
+                        analytics.event({
+                            type: EventType.UndoAnomalyFeedback,
+                            assertionType: assertion.info?.type ?? 'Unknown',
+                            runEventTimeMillisFromNow,
+                            inferenceDetails,
+                            datasetUrn: monitor?.entity.urn,
+                        });
+                    } else {
+                        analytics.event({
+                            type: EventType.GiveAnomalyFeedback,
+                            feedbackType: 'missedAlarm',
+                            assertionType: assertion.info?.type ?? 'Unknown',
+                            runEventTimeMillisFromNow,
+                            inferenceDetails,
+                            datasetUrn: monitor?.entity.urn,
+                        });
+                    }
+                }
+                await sleepAndRefetchResults();
+            } catch (error: any) {
+                message.error((error as Error).message);
+            } finally {
+                setIsActionProcessing(false);
             }
-            await sleepAndRefetchResults();
-        } catch (error: any) {
-            message.error((error as Error).message);
-        } finally {
-            setIsActionProcessing(false);
-        }
-    }, [isAnomaly, onMarkAsAnomaly, onUnmarkAsAnomaly, sleepAndRefetchResults]);
+        },
+        [assertion, isAnomaly, monitor, onMarkAsAnomaly, onUnmarkAsAnomaly, run, sleepAndRefetchResults],
+    );
 
     // ------------------------------------------------------------------------------------------
     // RETRAIN AS NEW NORMAL ACTION AND MODAL
@@ -234,12 +287,22 @@ export const useAssertionFeedbackActions = ({
             );
             setRetrainModalOpen(false);
             await sleepAndRefetchResults();
+
+            const inferenceDetails = getInferenceDetails(monitor);
+            const runEventTimeMillisFromNow = Date.now() - run.timestampMillis;
+            analytics.event({
+                type: EventType.RetrainAsNewNormal,
+                assertionType: assertion.info?.type ?? 'Unknown',
+                runEventTimeMillisFromNow,
+                inferenceDetails,
+                datasetUrn: monitor.entity.urn,
+            });
         } catch (error: any) {
             message.error((error as Error).message);
         } finally {
             setIsActionProcessing(false);
         }
-    }, [monitor, run, sleepAndRefetchResults, updateAssertionMonitorSettings]);
+    }, [assertion, monitor, run, sleepAndRefetchResults, updateAssertionMonitorSettings]);
 
     const retrainModal = retrainModalOpen && (
         <Modal

@@ -7,6 +7,7 @@ import { ActorType } from '@app/settings/personal/notifications/constants';
 import {
     ActionRequestType,
     AllowedValue,
+    AssertionType,
     DataHubViewType,
     EntityChangeType,
     EntityType,
@@ -182,6 +183,9 @@ export enum EventType {
     ClickCreateAssertion,
     ClickUserProfile,
     ClickViewDocumentation,
+    GiveAnomalyFeedback,
+    UndoAnomalyFeedback,
+    RetrainAsNewNormal,
     ClickProductUpdate,
     CreateActionEvent,
     UpdateActionEvent,
@@ -1338,6 +1342,43 @@ export interface HomePageClickEvent extends BaseEvent {
     value?: string; // what was actually clicked ie. an entity urn to go to a page, or "View all" for a section
 }
 
+export interface GiveAnomalyFeedbackEvent extends BaseEvent {
+    type: EventType.GiveAnomalyFeedback;
+    feedbackType: 'missedAlarm' | 'falseAlarm';
+    assertionType: AssertionType | 'Unknown';
+    runEventTimeMillisFromNow?: number;
+    datasetUrn?: string;
+    inferenceDetails: {
+        sensitivity?: number;
+        hasExclusionWindows: boolean;
+        lookbackDays?: number;
+    };
+}
+
+export interface UndoAnomalyFeedbackEvent extends BaseEvent {
+    type: EventType.UndoAnomalyFeedback;
+    assertionType: AssertionType | 'Unknown';
+    runEventTimeMillisFromNow?: number;
+    datasetUrn?: string;
+    inferenceDetails: {
+        sensitivity?: number;
+        hasExclusionWindows: boolean;
+        lookbackDays?: number;
+    };
+}
+
+export interface RetrainAsNewNormalEvent extends BaseEvent {
+    type: EventType.RetrainAsNewNormal;
+    assertionType: AssertionType | 'Unknown';
+    runEventTimeMillisFromNow?: number;
+    datasetUrn?: string;
+    inferenceDetails: {
+        sensitivity?: number;
+        hasExclusionWindows: boolean;
+        lookbackDays?: number;
+    };
+}
+
 export interface DatasetHealthFilterEvent extends BaseEvent {
     type: EventType.DatasetHealthFilterEvent;
     tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
@@ -1520,6 +1561,9 @@ export type Event =
     | ClickCreateAssertionEvent
     | ClickUserProfileEvent
     | ClickViewDocumentationEvent
+    | GiveAnomalyFeedbackEvent
+    | UndoAnomalyFeedbackEvent
+    | RetrainAsNewNormalEvent
     | ClickProductUpdateEvent
     | CreateActionEvent
     | UpdateActionEvent

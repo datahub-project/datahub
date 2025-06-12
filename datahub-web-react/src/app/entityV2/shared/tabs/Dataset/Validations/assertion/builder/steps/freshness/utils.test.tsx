@@ -134,7 +134,7 @@ describe('freshnessUtils', () => {
                         operationType: OperationType.Update,
                     },
                 ];
-                const result = mostRecentOperationsTimeSinceInMillis(operations, 1);
+                const result = mostRecentOperationsTimeSinceInMillis(operations, 1, now);
                 // breaking these apart to skip the key field
                 expect(result[0].delta).toBe(20000);
                 expect(result[0].lastUpdatedTimestamp).toBe(now - 20000);
