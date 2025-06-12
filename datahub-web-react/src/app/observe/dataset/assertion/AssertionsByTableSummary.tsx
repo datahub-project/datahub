@@ -29,9 +29,11 @@ import {
     DataPlatform,
     Dataset,
     Domain,
+    Entity,
     EntityType,
     FacetFilterInput,
     GlossaryTerm,
+    Maybe,
     OwnerType,
     SortOrder,
     Tag,
@@ -89,6 +91,17 @@ const DEFAULT_STATUS_OPTIONS: AssertionResultTypeOptions[] = ['Failing', 'Passin
 export const AssertionsByTableSummary = () => {
     const userContext = useUserContext();
     const entityRegistry = useEntityRegistry();
+
+    const tryGetDisplayName = (entity?: Maybe<Entity>): string | undefined => {
+        if (!entity) {
+            return undefined;
+        }
+        try {
+            return entityRegistry.getDisplayName(entity.type, entity);
+        } catch (error) {
+            return undefined;
+        }
+    };
     const viewUrn = userContext.localState?.selectedViewUrn;
 
     const [page, setPage] = useState(1);
@@ -344,7 +357,7 @@ export const AssertionsByTableSummary = () => {
                         options={getSelectOptionsForField(
                             PLATFORM_FILTER_NAME,
                             facets || [],
-                            (entity: DataPlatform) => entityRegistry.getDisplayName(EntityType.DataPlatform, entity),
+                            (entity: DataPlatform) => tryGetDisplayName(entity) || entity.urn,
                             (entity: DataPlatform) => (
                                 <PlatformIcon platform={entity} />
                             ),
@@ -378,7 +391,7 @@ export const AssertionsByTableSummary = () => {
                         options={getSelectOptionsForField(
                             GLOSSARY_TERMS_FILTER_NAME,
                             facets || [],
-                            (entity: GlossaryTerm) => entityRegistry.getDisplayName(EntityType.GlossaryTerm, entity),
+                            (entity: GlossaryTerm) => tryGetDisplayName(entity) || entity.urn,
                         )}
                         values={selectedTerms}
                         onUpdate={(values) => {
@@ -406,8 +419,10 @@ export const AssertionsByTableSummary = () => {
                     {/* ----------- Tags ----------- */}
                     <Select
                         width="fit-content"
-                        options={getSelectOptionsForField(TAGS_FILTER_NAME, facets || [], (entity: Tag) =>
-                            entityRegistry.getDisplayName(EntityType.Tag, entity),
+                        options={getSelectOptionsForField(
+                            TAGS_FILTER_NAME,
+                            facets || [],
+                            (entity: Tag) => tryGetDisplayName(entity) || entity.urn,
                         )}
                         values={selectedTags}
                         onUpdate={(values) => {

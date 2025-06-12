@@ -26,8 +26,10 @@ import {
     DataPlatform,
     Dataset,
     Domain,
+    Entity,
     EntityType,
     GlossaryTerm,
+    Maybe,
     OwnerType,
     SortOrder,
     Tag,
@@ -85,6 +87,18 @@ const getSelectOptionsForField = (
 export const IncidentsSummary = () => {
     const userContext = useUserContext();
     const entityRegistry = useEntityRegistry();
+
+    const tryGetDisplayName = (entity?: Maybe<Entity>): string | undefined => {
+        if (!entity) {
+            return undefined;
+        }
+        try {
+            return entityRegistry.getDisplayName(entity.type, entity);
+        } catch (error) {
+            return undefined;
+        }
+    };
+
     const viewUrn = userContext.localState?.selectedViewUrn;
 
     const [page, setPage] = useState(1);
@@ -283,7 +297,7 @@ export const IncidentsSummary = () => {
                         options={getSelectOptionsForField(
                             PLATFORM_FILTER_NAME,
                             facets || [],
-                            (entity: DataPlatform) => entityRegistry.getDisplayName(EntityType.DataPlatform, entity),
+                            (entity: DataPlatform) => tryGetDisplayName(entity) || entity.urn,
                             (entity: DataPlatform) => (
                                 <PlatformIcon platform={entity} />
                             ),
@@ -317,7 +331,7 @@ export const IncidentsSummary = () => {
                         options={getSelectOptionsForField(
                             GLOSSARY_TERMS_FILTER_NAME,
                             facets || [],
-                            (entity: GlossaryTerm) => entityRegistry.getDisplayName(EntityType.GlossaryTerm, entity),
+                            (entity: GlossaryTerm) => tryGetDisplayName(entity) || entity.urn,
                         )}
                         values={selectedTerms}
                         onUpdate={(values) => {
@@ -345,8 +359,10 @@ export const IncidentsSummary = () => {
                     {/* ----------- Tags ----------- */}
                     <Select
                         width="fit-content"
-                        options={getSelectOptionsForField(TAGS_FILTER_NAME, facets || [], (entity: Tag) =>
-                            entityRegistry.getDisplayName(EntityType.Tag, entity),
+                        options={getSelectOptionsForField(
+                            TAGS_FILTER_NAME,
+                            facets || [],
+                            (entity: Tag) => tryGetDisplayName(entity) || entity.urn,
                         )}
                         values={selectedTags}
                         onUpdate={(values) => {

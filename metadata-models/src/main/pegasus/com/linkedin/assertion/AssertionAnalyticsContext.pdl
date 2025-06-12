@@ -27,7 +27,8 @@ record AssertionAnalyticsContext {
   @Searchable = {
     "/*": {
       "fieldType": "URN",
-      "hasValuesFieldName": "hasAsserteeDomain"
+      "hasValuesFieldName": "hasAsserteeDomain",
+      "addToFilters": true
     }
   }
   @TimeseriesField = {}
@@ -39,7 +40,8 @@ record AssertionAnalyticsContext {
   @Searchable = {
     "/*": {
       "fieldType": "URN",
-      "hasValuesFieldName": "hasAsserteeDataProduct"
+      "hasValuesFieldName": "hasAsserteeDataProduct",
+      "addToFilters": true
     }
   }
   @TimeseriesField = {}
@@ -51,7 +53,8 @@ record AssertionAnalyticsContext {
   @Searchable = {
     "/*": {
         "fieldType": "URN",
-        "hasValuesFieldName": "hasAsserteeTags"
+        "hasValuesFieldName": "hasAsserteeTags",
+        "addToFilters": true
     }
   }
   asserteeTags: optional array[Urn]
@@ -62,7 +65,8 @@ record AssertionAnalyticsContext {
   @Searchable = {
     "/*": {
         "fieldType": "URN",
-        "hasValuesFieldName": "hasAsserteeGlossaryTerms"
+        "hasValuesFieldName": "hasAsserteeGlossaryTerms",
+        "addToFilters": true
     }
   }
   @TimeseriesField = {}
@@ -75,7 +79,8 @@ record AssertionAnalyticsContext {
   @Searchable = {
     "/*": {
         "fieldType": "URN",
-        "hasValuesFieldName": "hasAsserteeOwners"
+        "hasValuesFieldName": "hasAsserteeOwners",
+        "addToFilters": true
     }
   }
   @TimeseriesField = {}
@@ -85,7 +90,8 @@ record AssertionAnalyticsContext {
    * Data Platform for parent
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "addToFilters": true
   }
   @TimeseriesField = {}
   asserteeDataPlatform: optional Urn
@@ -94,7 +100,8 @@ record AssertionAnalyticsContext {
    * Instance of the parent's data platform (e.g. db instance)
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "addToFilters": true
   }
   @TimeseriesField = {}
   asserteeDataPlatformInstance: optional Urn
@@ -105,7 +112,8 @@ record AssertionAnalyticsContext {
   @Searchable = {
     "/*": {
         "fieldType": "URN",
-        "hasValuesFieldName": "hasAsserteeSchemaFieldGlossaryTerms"
+        "hasValuesFieldName": "hasAsserteeSchemaFieldGlossaryTerms",
+        "addToFilters": true
     }
   }
   @TimeseriesField = {}
@@ -117,7 +125,8 @@ record AssertionAnalyticsContext {
   @Searchable = {
     "/*": {
         "fieldType": "URN",
-        "hasValuesFieldName": "hasAsserteeSchemaFieldTags"
+        "hasValuesFieldName": "hasAsserteeSchemaFieldTags",
+        "addToFilters": true
     }
   }
   @TimeseriesField = {}

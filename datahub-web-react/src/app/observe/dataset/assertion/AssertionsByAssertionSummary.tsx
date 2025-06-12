@@ -31,6 +31,7 @@ import {
     AndFilterInput,
     Assertion,
     Dataset,
+    Entity,
     EntityType,
     FacetFilterInput,
     FilterOperator,
@@ -97,6 +98,16 @@ const getDefaultTimeRange = (timeRangeOptions: TimeRange[]): TimeRange => {
 
 export const AssertionsByAssertionSummary = () => {
     const entityRegistry = useEntityRegistry();
+    const tryGetDisplayName = (entity?: Maybe<Entity>): string | undefined => {
+        if (!entity) {
+            return undefined;
+        }
+        try {
+            return entityRegistry.getDisplayName(entity.type, entity);
+        } catch (error) {
+            return undefined;
+        }
+    };
 
     const timeRangeOptions = getTimeRangeOptions();
 
@@ -359,9 +370,7 @@ export const AssertionsByAssertionSummary = () => {
                                 ?.find((facet) => facet.field === TAGS_FILTER_NAME)
                                 ?.aggregations.map((aggregation) => ({
                                     value: aggregation.value,
-                                    label: aggregation.entity
-                                        ? entityRegistry.getDisplayName(aggregation.entity.type, aggregation.entity)
-                                        : aggregation.value,
+                                    label: tryGetDisplayName(aggregation.entity) || aggregation.value,
                                 })) || []
                         }
                         values={assertionTags}
@@ -395,9 +404,7 @@ export const AssertionsByAssertionSummary = () => {
                                 ?.find((facet) => facet.field === ASSERTEE_PLATFORM_FILTER_NAME)
                                 ?.aggregations.map((aggregation) => ({
                                     value: aggregation.value,
-                                    label: aggregation.entity
-                                        ? entityRegistry.getDisplayName(aggregation.entity.type, aggregation.entity)
-                                        : aggregation.value,
+                                    label: tryGetDisplayName(aggregation.entity) || aggregation.value,
                                 })) || []
                         }
                         values={assetPlatforms}
@@ -432,37 +439,37 @@ export const AssertionsByAssertionSummary = () => {
                                 facets
                                     ?.find((facet) => facet.field === ASSERTEE_DOMAINS_FILTER_NAME)
                                     ?.aggregations.map((aggregation) => ({
-                                        name: aggregation.value,
+                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
                                         category: 'domains',
                                         count: aggregation.count,
-                                        displayName: aggregation.value,
+                                        name: aggregation.value,
                                     })) || [],
                             owners:
                                 facets
                                     ?.find((facet) => facet.field === ASSERTEE_OWNERS_FILTER_NAME)
                                     ?.aggregations.map((aggregation) => ({
-                                        name: aggregation.value,
+                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
                                         category: 'owners',
                                         count: aggregation.count,
-                                        displayName: aggregation.value,
+                                        name: aggregation.value,
                                     })) || [],
                             terms:
                                 facets
                                     ?.find((facet) => facet.field === ASSERTEE_GLOSSARY_TERMS_FILTER_NAME)
                                     ?.aggregations.map((aggregation) => ({
-                                        name: aggregation.value,
+                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
                                         category: 'terms',
                                         count: aggregation.count,
-                                        displayName: aggregation.value,
+                                        name: aggregation.value,
                                     })) || [],
                             tags:
                                 facets
                                     ?.find((facet) => facet.field === ASSERTEE_TAGS_FILTER_NAME)
                                     ?.aggregations.map((aggregation) => ({
-                                        name: aggregation.value,
+                                        displayName: tryGetDisplayName(aggregation.entity) || aggregation.value,
                                         category: 'tags',
                                         count: aggregation.count,
-                                        displayName: aggregation.value,
+                                        name: aggregation.value,
                                     })) || [],
                         }}
                         onFilterChange={(values) => {
