@@ -10,7 +10,7 @@ from datahub.sdk.lineage_client import LineageClient
 from datahub.sdk.search_client import SearchClient
 
 try:
-    from acryl_datahub_cloud._sdk_extras import (  # type: ignore[import-not-found]
+    from acryl_datahub_cloud.sdk import (  # type: ignore[import-not-found]
         ResolverClient,
     )
 except ImportError:
@@ -115,7 +115,7 @@ class DataHubClient:
     @property
     def assertions(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues
         try:
-            from acryl_datahub_cloud._sdk_extras import AssertionsClient
+            from acryl_datahub_cloud.sdk import AssertionsClient
         except ImportError as e:
             if "acryl_datahub_cloud" in str(e):
                 raise SdkUsageError(
@@ -128,7 +128,7 @@ class DataHubClient:
     @property
     def subscriptions(self):  # type: ignore[report-untyped-call]  # Not available due to circular import issues
         try:
-            from acryl_datahub_cloud._sdk_extras import SubscriptionClient
+            from acryl_datahub_cloud.sdk import SubscriptionClient
         except ImportError as e:
             if "acryl_datahub_cloud" in str(e):
                 raise SdkUsageError(

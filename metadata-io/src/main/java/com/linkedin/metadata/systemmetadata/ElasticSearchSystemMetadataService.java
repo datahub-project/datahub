@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.SystemMetadataServiceConfig;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchResponse;
@@ -57,7 +58,7 @@ public class ElasticSearchSystemMetadataService
   private final ESSystemMetadataDAO _esDAO;
   private final ESIndexBuilder _indexBuilder;
   @Nonnull private final String elasticIdHashAlgo;
-  private final ElasticSearchConfiguration searchConfiguration;
+  @Getter private final SystemMetadataServiceConfig systemMetadataServiceConfig;
 
   private static final String DOC_DELIMETER = "--";
   public static final String INDEX_NAME = "system_metadata_service_v1";
@@ -137,7 +138,7 @@ public class ElasticSearchSystemMetadataService
             ImmutableMap.of("urn", urn),
             !removed,
             0,
-            searchConfiguration.getSearch().getLimit().getResults().getMax());
+            systemMetadataServiceConfig.getLimit().getResults().getApiDefault());
     // for each -> toDocId and set removed to true for all
     aspectList.forEach(
         aspect -> {
@@ -162,20 +163,23 @@ public class ElasticSearchSystemMetadataService
 
   @Override
   public List<AspectRowSummary> findByRunId(
-      String runId, boolean includeSoftDeleted, int from, int size) {
+      String runId, boolean includeSoftDeleted, int from, @Nullable Integer size) {
     return findByParams(
         Collections.singletonMap(FIELD_RUNID, runId), includeSoftDeleted, from, size);
   }
 
   @Override
   public List<AspectRowSummary> findByUrn(
-      String urn, boolean includeSoftDeleted, int from, int size) {
+      String urn, boolean includeSoftDeleted, int from, @Nullable Integer size) {
     return findByParams(Collections.singletonMap(FIELD_URN, urn), includeSoftDeleted, from, size);
   }
 
   @Override
   public List<AspectRowSummary> findByParams(
-      Map<String, String> systemMetaParams, boolean includeSoftDeleted, int from, int size) {
+      Map<String, String> systemMetaParams,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     SearchResponse searchResponse =
         _esDAO.findByParams(systemMetaParams, includeSoftDeleted, from, size);
     return toAspectRowSummary(searchResponse);
@@ -194,7 +198,11 @@ public class ElasticSearchSystemMetadataService
 
   @Override
   public List<AspectRowSummary> findByRegistry(
-      String registryName, String registryVersion, boolean includeSoftDeleted, int from, int size) {
+      String registryName,
+      String registryVersion,
+      boolean includeSoftDeleted,
+      int from,
+      @Nullable Integer size) {
     Map<String, String> registryParams = new HashMap<>();
     registryParams.put(FIELD_REGISTRY_NAME, registryName);
     registryParams.put(FIELD_REGISTRY_VERSION, registryVersion);
