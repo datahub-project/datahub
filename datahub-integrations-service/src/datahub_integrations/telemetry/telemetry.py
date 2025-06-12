@@ -2,6 +2,7 @@ import functools
 import logging
 import os
 from datetime import datetime, timezone
+from typing import Optional
 
 from datahub.telemetry.telemetry import TIMEOUT, _default_telemetry_properties
 from mixpanel import Consumer, Mixpanel
@@ -56,6 +57,8 @@ class BaseEvent(BaseModel):
     )
     type: str
 
+    user_urn: Optional[str] = None
+
 
 def _send_to_api(event: BaseEvent) -> None:
     """Send the event to the DataHub tracking API."""
@@ -64,9 +67,9 @@ def _send_to_api(event: BaseEvent) -> None:
         tracking_event = {
             "type": event.type,
             "timestamp": event.timestamp.isoformat(),
-            "actorUrn": "urn:li:corpuser:admin",
-            **event.dict(
-                exclude={"timestamp", "type"}
+            "actorUrn": event.user_urn or "urn:li:corpuser:admin",
+            **event.model_dump(
+                exclude={"timestamp", "type", "user_urn"}
             ),  # Include all other fields from the event
         }
 
@@ -95,7 +98,9 @@ def track_saas_event(
     # for each destination (Mixpanel and Kafka)
     properties = {
         **_default_properties(),
-        **event.dict(exclude={"timestamp"}),  # Exclude timestamp from event.dict()
+        **event.model_dump(
+            exclude={"timestamp"}
+        ),  # Exclude timestamp from event.dict()
         "timestamp": event.timestamp.isoformat(),  # Include ISO formatted timestamp
     }
 

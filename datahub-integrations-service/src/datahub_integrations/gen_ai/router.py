@@ -1,6 +1,6 @@
 import functools
 from datetime import timedelta
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 
 import fastapi
 import pydantic
@@ -31,7 +31,6 @@ from datahub_integrations.gen_ai.term_suggestion_v2_context import (
     fetch_glossary_info,
 )
 from datahub_integrations.telemetry.ai_docs_events import (
-    DEFAULT_USER_URN,
     InferDocsApiRequestEvent,
     InferDocsApiResponseEvent,
 )
@@ -74,6 +73,7 @@ class SuggestedDescription(pydantic.BaseModel):
 def suggest_description(
     graph: Annotated[DataHubGraph, fastapi.Depends(cached_graph)],
     entity_urn: str,
+    user_urn: Optional[str] = None,
 ) -> SuggestedDescription:
     """Generate an entity description."""
 
@@ -82,7 +82,7 @@ def suggest_description(
     track_saas_event(
         InferDocsApiRequestEvent(
             entity_urn=entity_urn,
-            user_urn=DEFAULT_USER_URN,
+            user_urn=user_urn,
             entity_type=QueryUrn.ENTITY_TYPE
             if isinstance(urn, QueryUrn)
             else DatasetUrn.ENTITY_TYPE,
@@ -97,7 +97,7 @@ def suggest_description(
             track_saas_event(
                 InferDocsApiResponseEvent(
                     entity_urn=entity_urn,
-                    user_urn=DEFAULT_USER_URN,
+                    user_urn=user_urn,
                     entity_type=QueryUrn.ENTITY_TYPE,
                     response_time_ms=timer.elapsed_seconds() * 1000,
                     has_entity_description=desc is not None and len(desc) > 0,
@@ -118,7 +118,7 @@ def suggest_description(
             track_saas_event(
                 InferDocsApiResponseEvent(
                     entity_urn=entity_urn,
-                    user_urn=DEFAULT_USER_URN,
+                    user_urn=user_urn,
                     entity_type=DatasetUrn.ENTITY_TYPE,
                     response_time_ms=timer.elapsed_seconds() * 1000,
                     has_entity_description=result.table_description is not None

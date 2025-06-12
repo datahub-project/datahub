@@ -70,7 +70,7 @@ public class InferDocumentationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getArgument("urn")).thenReturn(urn.toString());
     when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(false);
-    when(service.inferDocumentation(urn))
+    when(service.inferDocumentation(urn, mockContext.getActorUrn()))
         .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
     when(environment.getContext()).thenReturn(mockContext);
 
@@ -107,7 +107,7 @@ public class InferDocumentationResolverTest {
     QueryContext mockContext = getMockAllowContext();
     when(environment.getArgument("urn")).thenReturn(urn.toString());
     when(environment.getArgumentOrDefault("saveResult", false)).thenReturn(true);
-    when(service.inferDocumentation(urn))
+    when(service.inferDocumentation(urn, mockContext.getActorUrn()))
         .thenReturn(CompletableFuture.completedFuture(suggestedDescription));
     when(environment.getContext()).thenReturn(mockContext);
 

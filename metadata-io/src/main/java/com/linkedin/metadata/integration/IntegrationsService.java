@@ -406,12 +406,12 @@ public class IntegrationsService {
     }
   }
 
-  public CompletableFuture<SuggestedDescription> inferDocumentation(Urn entity) {
+  public CompletableFuture<SuggestedDescription> inferDocumentation(Urn entity, String user) {
     try {
       CompletableFuture<ApiResponse<SuggestedDescription>> responseFuture =
           new CompletableFuture<>();
       ApiCallback<SuggestedDescription> callback = new ApiCallback<>(responseFuture);
-      aiApi.suggestDescriptionAsync(entity.toString(), callback);
+      aiApi.suggestDescriptionAsync(entity.toString(), user, callback);
       return responseFuture
           .thenApply(
               response -> {

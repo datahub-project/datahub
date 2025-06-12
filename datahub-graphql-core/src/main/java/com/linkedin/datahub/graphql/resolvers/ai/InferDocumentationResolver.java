@@ -51,6 +51,7 @@ public class InferDocumentationResolver
     final QueryContext context = environment.getContext();
     final Urn targetUrn =
         Urn.createFromString(bindArgument(environment.getArgument("urn"), String.class));
+    final String actorUrnStr = context.getActorUrn();
     final Boolean saveResult =
         bindArgument(environment.getArgumentOrDefault("saveResult", false), Boolean.class);
     if (saveResult && !DescriptionUtils.isAuthorizedToUpdateDescription(context, targetUrn)) {
@@ -59,7 +60,7 @@ public class InferDocumentationResolver
     }
 
     return _integrationsService
-        .inferDocumentation(targetUrn)
+        .inferDocumentation(targetUrn, actorUrnStr)
         .thenCompose(
             inferredDocumentation ->
                 GraphQLConcurrencyUtils.supplyAsync(
