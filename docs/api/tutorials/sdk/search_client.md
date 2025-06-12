@@ -23,11 +23,19 @@ client = DataHubClient(server="<your_server>", token="<your_token>")
 - **server**: The URL of your DataHub GMS server
   - local: `http://localhost:8080`
   - hosted: `https://<your_datahub_url>/gms`
-- **token**: You'll need to [generate a Personal Access Token](https://docs.datahub.com/docs/authentication/personal-access-tokens) from your DataHub instance.
+- **token**: You'll need to [generate a Personal Access Token](../../../authentication/personal-access-tokens.md) from your DataHub instance.
 
 ## Search Types
 
 DataHub offers two primary search approaches:
+
+- **Query-based search** : search using simple keywords across common fields like name, description, and column names.
+- **Filter-based search** : search using structured filters to scope results by platform, environment, entity type, and other metadata fields.
+
+:::note Using Query and Filters
+Query and filters can be used together for more precise searches. Check out [this example](#find-all-snowflake-datasets-related-to-forecast) for more details.
+:::
+"
 
 ### Query-Based Search
 
@@ -122,19 +130,23 @@ You can combine filters using logical operations like `and_`, `or_`, and `not_` 
 {{ inline /metadata-ingestion/examples/library/search_filter_combined_operation.py show_path_as_comment }}
 ```
 
-#### Find All Production Entities Excluding Charts
+#### Find All Charts That Are Not in the Production Environment
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_not.py show_path_as_comment }}
 ```
 
-#### Find Entities By URN Matching
+#### Advanced: Find entities by other searchable fields
 
-Use `F.custom_filter()` to target specific fields such as urn, name, or description. Check the [Supported Conditions for Custom Filter](#supported-conditions-for-custom-filter) for more details on available fields for `condition`.
+Use `F.custom_filter()` to target specific fields such as urn, name, or description. Check the [Supported Conditions for Custom Filter](#supported-conditions-for-custom-filter) for the full list of allowed `condition` values.
 
 ```python
 {{ inline /metadata-ingestion/examples/library/search_filter_custom.py show_path_as_comment }}
 ```
+
+:::note Searchable Fields
+With `F.custom_filter()`, the fields annotated with `@Searchable` in the PDL file can be used for filtering. For example, you can filter datajob entities by fields like `name`, `description`, or `env` since they are annotated with `@Searchable` in the [DataJobInfo.pdl](https://github.com/datahub-project/datahub/blob/master/metadata-models/src/main/pegasus/com/linkedin/datajob/DataJobInfo.pdl#L21).
+:::
 
 ## Search SDK Reference
 
@@ -164,7 +176,7 @@ The following logical operators can be used to combine filters:
 
 ### Supported Conditions for Custom Filter
 
-Use `F.custom_filter()` to apply conditions on specific fields such as urn, name, ordescription.
+Use `F.custom_filter()` to apply conditions on specific fields such as urn, name, or description.
 
 | Condition      | Description                                                                               |
 | -------------- | ----------------------------------------------------------------------------------------- |
@@ -178,8 +190,7 @@ Use `F.custom_filter()` to apply conditions on specific fields such as urn, name
 ## FAQ
 
 **How do I handle authentication?**
-Generate a Personal Access Token from your DataHub instance settings and pass it into the `DataHubClient`.
-[See the guide](https://docs.datahub.com/docs/authentication/personal-access-tokens)
+Generate a Personal Access Token from your DataHub instance settings and pass it into the `DataHubClient`. Check out the [Personal Access Token Guide](../../../authentication/personal-access-tokens.md).
 
 **Can I combine query and filters?**
 Yes. Use `query` along with `filter` for more precise searches.
