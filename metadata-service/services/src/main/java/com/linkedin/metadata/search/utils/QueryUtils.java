@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectVersion;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
@@ -30,13 +31,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.validation.constraints.Null;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
 
+@Slf4j
 public class QueryUtils {
 
   public static final Filter EMPTY_FILTER = new Filter().setOr(new ConjunctiveCriterionArray());
@@ -245,19 +249,56 @@ public class QueryUtils {
   }
 
   public static List<EntitySpec> getQueryByDefaultEntitySpecs(EntityRegistry entityRegistry) {
-    return entityRegistry.getEntitySpecs().values().stream()
-        .map(
-            spec ->
-                Pair.of(
-                    spec,
-                    spec.getSearchableFieldSpecs().stream()
-                        .map(SearchableFieldSpec::getSearchableAnnotation)
-                        .collect(Collectors.toList())))
-        .filter(
-            specPair ->
-                specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
-        .map(Pair::getFirst)
-        .collect(Collectors.toList());
+
+    return excludeIngestionSourceEntitySpec(
+        entityRegistry.getEntitySpecs().values().stream()
+            .map(
+                spec ->
+                    Pair.of(
+                        spec,
+                        spec.getSearchableFieldSpecs().stream()
+                            .map(SearchableFieldSpec::getSearchableAnnotation)
+                            .collect(Collectors.toList())))
+            .filter(
+                specPair ->
+                    specPair.getSecond().stream().anyMatch(SearchableAnnotation::isQueryByDefault))
+            .map(Pair::getFirst)
+            .collect(Collectors.toList()));
+  }
+
+  public static List<String> excludeIngestionSourceEntity(List<String> entities) {
+    return excludeIngestionSourceFromList(entities, Function.identity());
+  }
+
+  public static List<EntitySpec> excludeIngestionSourceEntitySpec(List<EntitySpec> entities) {
+    return excludeIngestionSourceFromList(entities, EntitySpec::getName);
+  }
+
+  private static <T> List<T> excludeIngestionSourceFromList(
+      List<T> items, Function<T, String> nameExtractor) {
+
+    if (items == null || items.size() <= 1) {
+      return items;
+    }
+
+    List<T> filtered =
+        items.stream()
+            .filter(
+                item ->
+                    !nameExtractor
+                        .apply(item)
+                        .equalsIgnoreCase(Constants.INGESTION_SOURCE_ENTITY_NAME))
+            .collect(Collectors.toList());
+
+    if (filtered.size() < items.size()) {
+      log.warn(
+          "Ingestion source entity was excluded from getEntitiesToSearch's response (before: {}; after: {})",
+          items.size(),
+          filtered.size());
+      return filtered;
+    }
+
+    return items;
   }
 
   /**

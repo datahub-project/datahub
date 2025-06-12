@@ -30,6 +30,7 @@ describe("create, edit and remove metadata test", () => {
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");
     });
+    cy.setIsThemeV2Enabled(false);
   });
 
   it("create new test at governance > tests, edit a test to make if fail, remove test", () => {
@@ -90,6 +91,8 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTextVisible(testName);
     cy.waitTextVisible(testDescription);
     cy.reload();
+    cy.get('[data-testid="search-bar-input"]').clear().type(testName);
+    cy.wait(500); // Wait for search results to update
     cy.get(".ant-card").first().contains("1 passing");
     // edit the test to make it fail, verify the result, save test
     cy.contains(testName).click();
@@ -115,7 +118,6 @@ describe("create, edit and remove metadata test", () => {
     cy.reload();
     cy.get(".ant-card").first().contains("1 failing");
     // delete a test
-    // Search for the test before trying to delete it
     cy.get('[data-testid="search-bar-input"]').clear().type(testName);
     cy.wait(500); // Wait for search results to update
     cy.get('[data-testid="test-more-button-0"]').click();
