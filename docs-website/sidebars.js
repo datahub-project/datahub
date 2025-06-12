@@ -841,7 +841,6 @@ module.exports = {
           id: "docs/advanced/patch",
           label: "Patch",
         },
-        "docs/api/tutorials/sdk/lineage_client",
       ],
     },
     // Admin.
