@@ -28,6 +28,7 @@ from datahub_executor.common.types import (
 )
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_GRAPH_ES_BATCH_SIZE,
+    DATAHUB_EXECUTOR_SERVER_CONFIG_REFRESH_INTERVAL,
     DATAHUB_GMS_TOKEN,
     DATAHUB_GMS_URL,
 )
@@ -45,6 +46,7 @@ class DataHubExecutorGraph(DataHubGraph):
         # When token is not set, the client will automatically try to use
         # DATAHUB_SYSTEM_CLIENT_ID and DATAHUB_SYSTEM_CLIENT_SECRET to authenticate.
         token=DATAHUB_GMS_TOKEN,
+        server_config_refresh_interval=DATAHUB_EXECUTOR_SERVER_CONFIG_REFRESH_INTERVAL,
     )
 
     def __init__(self) -> None:
