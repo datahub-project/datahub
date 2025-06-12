@@ -31,7 +31,7 @@ from datahub.metadata.urns import AssertionUrn, CorpUserUrn, DatasetUrn
 from datahub.sdk.entity_client import EntityClient
 
 # Keep this in sync with the frontend in getEligibleFieldColumns
-# https://github.com/acryldata/datahub-fork/blob/ab--sync-smart-column-metric-assertion-obs-1323/datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts#L45
+# datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts
 ALLOWED_COLUMN_TYPES_FOR_SMART_COLUMN_METRIC_ASSERTION = [
     models.StringTypeClass(),
     models.NumberTypeClass(),
@@ -42,7 +42,7 @@ ALLOWED_COLUMN_TYPES_FOR_SMART_COLUMN_METRIC_ASSERTION = [
 ]
 
 # Keep this in sync with FIELD_VALUES_OPERATOR_CONFIG in the frontend
-# https://github.com/acryldata/datahub-fork/blob/ab--sync-smart-column-metric-assertion-obs-1323/datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts#L87
+# datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts
 FIELD_VALUES_OPERATOR_CONFIG = {
     "StringTypeClass": [
         models.AssertionStdOperatorClass.NULL,
@@ -116,7 +116,7 @@ NO_PARAMETER_OPERATORS = [
 ]
 
 # Keep this in sync with FIELD_METRIC_TYPE_CONFIG in the frontend
-# https://github.com/acryldata/datahub-fork/blob/ab--sync-smart-column-metric-assertion-obs-1323/datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts#L328
+# datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/field/utils.ts
 FIELD_METRIC_TYPE_CONFIG = {
     "StringTypeClass": [
         models.FieldMetricTypeClass.NULL_COUNT,

@@ -43,6 +43,7 @@ export const getFieldAssertionTypeKey = (fieldAssertionType?: FieldAssertionType
 };
 
 export const getEligibleFieldColumns = (fields: SchemaField[]) => {
+    // Keep allowedColumnTypes in sync with ALLOWED_COLUMN_TYPES_FOR_SMART_COLUMN_METRIC_ASSERTION in acryl-cloud/src/acryl_datahub_cloud/sdk/assertion_input/smart_column_metric_assertion_input.py
     const allowedColumnTypes = [
         SchemaFieldDataType.String,
         SchemaFieldDataType.Number,
@@ -84,6 +85,7 @@ export const FIELD_TYPE_CONFIG = {
     },
 };
 
+// Keep this in sync with FIELD_VALUES_OPERATOR_CONFIG in acryl-cloud/src/acryl_datahub_cloud/sdk/assertion_input/smart_column_metric_assertion_input.py
 export const FIELD_VALUES_OPERATOR_CONFIG = {
     [SchemaFieldDataType.String]: [
         {
@@ -323,6 +325,7 @@ export const FIELD_VALUES_OPERATOR_CONFIG = {
     ],
 };
 
+// Keep this in sync with FIELD_METRIC_TYPE_CONFIG in acryl-cloud/src/acryl_datahub_cloud/sdk/assertion_input/smart_column_metric_assertion_input.py
 export const FIELD_METRIC_TYPE_CONFIG = {
     [SchemaFieldDataType.String]: [
         {

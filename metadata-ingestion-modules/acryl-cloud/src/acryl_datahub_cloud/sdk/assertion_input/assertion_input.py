@@ -112,17 +112,20 @@ class _Query(AbstractDetectionMechanism):
 
 
 class _AllRowsQuery(AbstractDetectionMechanism):
+    # For column-based assertions, this is the default detection mechanism.
     type: Literal["all_rows_query"] = "all_rows_query"
     additional_filter: Optional[str] = None
 
 
 class _AllRowsQueryDataHubDatasetProfile(AbstractDetectionMechanism):
+    # Used for column-based assertions.
     type: Literal["all_rows_query_datahub_dataset_profile"] = (
         "all_rows_query_datahub_dataset_profile"
     )
 
 
 class _ChangedRowsQuery(AbstractDetectionMechanism):
+    # Used for column-based assertions.
     type: Literal["changed_rows_query"] = "changed_rows_query"
     column_name: str
     additional_filter: Optional[str] = None
