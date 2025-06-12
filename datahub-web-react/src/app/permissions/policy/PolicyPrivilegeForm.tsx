@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import DomainNavigator from '@app/domain/nestedDomains/domainNavigator/DomainNavigator';
+import { extractTypeFromUrn } from '@app/entity/shared/utils';
 import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from '@app/permissions/policy/constants';
 import {
     EMPTY_POLICY,
@@ -27,7 +28,7 @@ import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { useListIngestionSourcesLazyQuery } from '@graphql/ingestion.generated';
+import { useGetIngestionSourceNamesLazyQuery, useListIngestionSourcesLazyQuery } from '@graphql/ingestion.generated';
 import { useGetSearchResultsForMultipleLazyQuery, useGetSearchResultsLazyQuery } from '@graphql/search.generated';
 import {
     Container,
@@ -107,6 +108,9 @@ export default function PolicyPrivilegeForm({
     const [inputValue, setInputValue] = useState('');
     const [tagTermSearch, { data: tagTermSearchData }] = useGetSearchResultsLazyQuery();
     const { recommendedData } = useGetRecommendations([EntityType.Tag]);
+    const [getIngestionSourceNames, { data: sourceNamesData }] = useGetIngestionSourceNamesLazyQuery();
+    const [ingestionSourceDisplayNames, setIngestionSourceDisplayNames] = useState<Record<string, string>>({});
+
     const tagSearchResults: Array<Entity> =
         tagTermSearchData?.search?.searchResults?.map((searchResult) => searchResult.entity) || [];
 
@@ -123,7 +127,10 @@ export default function PolicyPrivilegeForm({
         () => getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [],
         [resources.filter],
     );
-    const resourceEntities = getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
+
+    const resourceEntities = useMemo(() => {
+        return getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
+    }, [resources.filter]);
 
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -134,10 +141,30 @@ export default function PolicyPrivilegeForm({
             : entityRegistry.getDisplayName(entity.type, entity);
     };
 
-    const resourceUrnToDisplayName = new Map();
-    resourceEntities.forEach((resourceEntity) => {
-        resourceUrnToDisplayName[resourceEntity.value] = getDisplayName(resourceEntity.entity);
-    });
+    const getDisplayNameForUrn = (urn: string) => {
+        const entity = resourceEntities.find((r) => r.value === urn)?.entity;
+        if (entity) return getDisplayName(entity);
+        return ingestionSourceDisplayNames[urn] ?? urn;
+    };
+
+    useEffect(() => {
+        const urns = resourceEntities
+            .filter((entity) => extractTypeFromUrn(entity.value) === EntityType.IngestionSource)
+            .map((entity) => entity.value);
+        if (urns.length > 0) {
+            getIngestionSourceNames({ variables: { urns } });
+        }
+    }, [getIngestionSourceNames, resourceEntities]);
+
+    useEffect(() => {
+        if (sourceNamesData?.listIngestionSources?.ingestionSources) {
+            const displayMap = Object.fromEntries(
+                sourceNamesData.listIngestionSources.ingestionSources.map((source) => [source.urn, source.name]),
+            );
+            setIngestionSourceDisplayNames(displayMap);
+        }
+    }, [sourceNamesData]);
+
     // Search for resources
     const [searchResources, { data: resourcesSearchData }] = useGetSearchResultsForMultipleLazyQuery();
     const [listIngestionSources, { data: ingestionSourcesData }] = useListIngestionSourcesLazyQuery();
@@ -664,8 +691,7 @@ export default function PolicyPrivilegeForm({
                             <Tag closable={tagProps.closable} onClose={tagProps.onClose}>
                                 <Tooltip title={tagProps.value.toString()}>
                                     {displayStringWithMaxLength(
-                                        resourceUrnToDisplayName[tagProps.value.toString()] ||
-                                            tagProps.value.toString(),
+                                        getDisplayNameForUrn(tagProps.value.toString()) || tagProps.value.toString(),
                                         75,
                                     )}
                                 </Tooltip>

@@ -27,6 +27,15 @@ query getIngestionSourceName($urn: String!) {
     }
 }
 
+query getIngestionSourceNames($urns: [String!]!) {
+    listIngestionSources(input: { filters: [{ field: "urn", values: $urns }] }) {
+        ingestionSources {
+            urn
+            name
+        }
+    }
+}
+
 query getIngestionSource($urn: String!, $runStart: Int, $runCount: Int) {
     ingestionSource(urn: $urn) {
         ...ingestionSourceFields

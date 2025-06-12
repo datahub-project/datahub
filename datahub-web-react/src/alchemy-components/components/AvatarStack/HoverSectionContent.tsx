@@ -8,6 +8,7 @@ import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/
 import { AvatarSizeOptions } from '@components/theme/config';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import isPresent from '@app/utils/isPresent';
 
 const PillsContainer = styled.div`
     display: flex;
@@ -45,12 +46,12 @@ const HoverSectionContent = ({ avatars, entityRegistry, size, maxVisible = 4, ty
                     );
                     return (
                         <>
-                            {user.type && user.urn ? (
+                            {isPresent(user.type) && user.urn ? (
                                 <Link to={entityRegistry.getEntityUrl(mapAvatarTypeToEntityType(user.type), user.urn)}>
                                     {userAvatar}
                                 </Link>
                             ) : (
-                                { userAvatar }
+                                userAvatar
                             )}
                         </>
                     );

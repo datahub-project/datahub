@@ -71,6 +71,7 @@ function IngestionSourceTable({
     const entityRegistry = useEntityRegistryV2();
     const appConfig = useAppConfig();
     const isPoolsDisplayEnabled = appConfig.config.featureFlags.displayExecutorPools;
+
     const tableData: IngestionSourceTableData[] = sources.map((source) => ({
         urn: source.urn,
         type: source.type,
@@ -86,7 +87,7 @@ function IngestionSourceTable({
             getIngestionSourceStatus(source.executions.executionRequests[0].result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,
-        executorPoolId: source.config.executorId, // SaaS only
+        executorPoolId: source.config?.executorId, // SaaS only
         privileges: source.privileges,
     }));
 
