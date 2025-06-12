@@ -154,55 +154,72 @@ class DataHubDebugSource(Source):
         """HTTP connectivity test using requests library"""
         try:
             # Test with different timeouts and methods
-            test_configs = [
-                {"timeout": 10, "method": "HEAD", "allow_redirects": True},
-                {"timeout": 10, "method": "GET", "allow_redirects": False},
-            ]
+            timeout = 10
+            allow_redirects_head = True
+            allow_redirects_get = False
 
-            for config in test_configs:
-                try:
-                    logger.info(
-                        f"Testing {config['method']} request with timeout {config['timeout']}s"
-                    )
-                    start_time = time.time()
+            # Test HEAD request
+            try:
+                logger.info(f"Testing HEAD request with timeout {timeout}s")
+                start_time = time.time()
 
-                    if config["method"] == "HEAD":
-                        response = requests.head(
-                            url, **{k: v for k, v in config.items() if k != "method"}
-                        )
-                    else:
-                        response = requests.get(
-                            url, **{k: v for k, v in config.items() if k != "method"}
-                        )
+                response = requests.head(
+                    url, timeout=timeout, allow_redirects=allow_redirects_head
+                )
 
-                    request_time = time.time() - start_time
+                request_time = time.time() - start_time
 
-                    logger.info(
-                        f"✓ {config['method']} request successful ({request_time:.3f}s)"
-                    )
-                    logger.info(f"  Status code: {response.status_code}")
-                    logger.info(
-                        f"  Response headers: {dict(list(response.headers.items())[:5])}"
-                    )
+                logger.info(f"✓ HEAD request successful ({request_time:.3f}s)")
+                logger.info(f"  Status code: {response.status_code}")
+                logger.info(
+                    f"  Response headers: {dict(list(response.headers.items())[:5])}"
+                )
 
-                    if hasattr(response, "url") and response.url != url:
-                        logger.info(f"  Final URL after redirects: {response.url}")
+                if hasattr(response, "url") and response.url != url:
+                    logger.info(f"  Final URL after redirects: {response.url}")
 
-                except requests.exceptions.Timeout:
-                    logger.error(
-                        f"✗ {config['method']} request timed out after {config['timeout']}s"
-                    )
-                except requests.exceptions.ConnectionError as e:
-                    logger.error(f"✗ {config['method']} connection error: {e}")
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"✗ {config['method']} request failed: {e}")
-                except Exception as e:
-                    logger.error(f"✗ {config['method']} unexpected error: {e}")
+            except requests.exceptions.Timeout:
+                logger.error(f"✗ HEAD request timed out after {timeout}s")
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"✗ HEAD connection error: {e}")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"✗ HEAD request failed: {e}")
+            except Exception as e:
+                logger.error(f"✗ HEAD unexpected error: {e}")
+
+            # Test GET request
+            try:
+                logger.info(f"Testing GET request with timeout {timeout}s")
+                start_time = time.time()
+
+                response = requests.get(
+                    url, timeout=timeout, allow_redirects=allow_redirects_get
+                )
+
+                request_time = time.time() - start_time
+
+                logger.info(f"✓ GET request successful ({request_time:.3f}s)")
+                logger.info(f"  Status code: {response.status_code}")
+                logger.info(
+                    f"  Response headers: {dict(list(response.headers.items())[:5])}"
+                )
+
+                if hasattr(response, "url") and response.url != url:
+                    logger.info(f"  Final URL after redirects: {response.url}")
+
+            except requests.exceptions.Timeout:
+                logger.error(f"✗ GET request timed out after {timeout}s")
+            except requests.exceptions.ConnectionError as e:
+                logger.error(f"✗ GET connection error: {e}")
+            except requests.exceptions.RequestException as e:
+                logger.error(f"✗ GET request failed: {e}")
+            except Exception as e:
+                logger.error(f"✗ GET unexpected error: {e}")
 
         except Exception as e:
             logger.error(f"HTTP probe failed: {e}", exc_info=True)
 
-    def _log_dns_troubleshooting(self):
+    def _log_dns_troubleshooting(self) -> None:
         """Log DNS troubleshooting information"""
         logger.info("DNS TROUBLESHOOTING SUGGESTIONS:")
         logger.info("- Check if the hostname is correct")
@@ -211,7 +228,7 @@ class DataHubDebugSource(Source):
         logger.info("- Try using a different DNS server (8.8.8.8, 1.1.1.1)")
         logger.info("- Check if there are firewall restrictions")
 
-    def _log_system_network_info(self):
+    def _log_system_network_info(self) -> None:
         """Log system network configuration information"""
         try:
             local_hostname = socket.gethostname()
@@ -245,7 +262,7 @@ class DataHubDebugSource(Source):
         except Exception as e:
             logger.warning(f"Could not gather system network info: {e}")
 
-    def _test_alternative_dns(self, hostname: str):
+    def _test_alternative_dns(self, hostname: str) -> None:
         """Test hostname resolution using alternative methods"""
         try:
             families = [(socket.AF_INET, "IPv4"), (socket.AF_INET6, "IPv6")]
