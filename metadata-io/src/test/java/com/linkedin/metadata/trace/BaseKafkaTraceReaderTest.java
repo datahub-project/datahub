@@ -87,9 +87,8 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
         new TopicDescription(TOPIC_NAME, false, Collections.singletonList(partitionInfo));
 
     DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
-    when(mockDescribeTopicsResult.all())
-        .thenReturn(
-            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(mockDescribeTopicsResult.topicNameValues())
+        .thenReturn(Map.of(TOPIC_NAME, KafkaFuture.completedFuture(topicDescription)));
     when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
 
     // Mock consumer group offset lookup
@@ -257,9 +256,8 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
     TopicDescription topicDescription = new TopicDescription(TOPIC_NAME, false, partitionInfos);
 
     DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
-    when(mockDescribeTopicsResult.all())
-        .thenReturn(
-            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(mockDescribeTopicsResult.topicNameValues())
+        .thenReturn(Map.of(TOPIC_NAME, KafkaFuture.completedFuture(topicDescription)));
     when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
 
     // Setup consumer group offsets for multiple partitions
@@ -309,9 +307,8 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
         new TopicDescription(TOPIC_NAME, false, Collections.singletonList(partitionInfo));
 
     DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
-    when(mockDescribeTopicsResult.all())
-        .thenReturn(
-            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(mockDescribeTopicsResult.topicNameValues())
+        .thenReturn(Map.of(TOPIC_NAME, KafkaFuture.completedFuture(topicDescription)));
     when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
 
     TopicPartition topicPartition = new TopicPartition(TOPIC_NAME, 0);
@@ -368,9 +365,8 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
         new TopicDescription(TOPIC_NAME, false, Collections.singletonList(partitionInfo));
 
     DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
-    when(mockDescribeTopicsResult.all())
-        .thenReturn(
-            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(mockDescribeTopicsResult.topicNameValues())
+        .thenReturn(Map.of(TOPIC_NAME, KafkaFuture.completedFuture(topicDescription)));
     when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
 
     // Setup consumer to return end offsets
@@ -408,9 +404,8 @@ public abstract class BaseKafkaTraceReaderTest<M extends RecordTemplate> {
         new TopicDescription(TOPIC_NAME, false, Collections.singletonList(partitionInfo));
 
     DescribeTopicsResult mockDescribeTopicsResult = mock(DescribeTopicsResult.class);
-    when(mockDescribeTopicsResult.all())
-        .thenReturn(
-            KafkaFuture.completedFuture(Collections.singletonMap(TOPIC_NAME, topicDescription)));
+    when(mockDescribeTopicsResult.topicNameValues())
+        .thenReturn(Map.of(TOPIC_NAME, KafkaFuture.completedFuture(topicDescription)));
     when(adminClient.describeTopics(anyCollection())).thenReturn(mockDescribeTopicsResult);
 
     // Setup consumer to return end offsets
