@@ -25,6 +25,7 @@ import {
     updateListIngestionSourcesCache,
 } from '@app/ingestV2/source/cacheUtils';
 import { buildOwnerEntities, getIngestionSourceSystemFilter, getSortInput } from '@app/ingestV2/source/utils';
+import { TabType } from '@app/ingestV2/types';
 import { INGESTION_REFRESH_SOURCES_ID } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { Message } from '@app/shared/Message';
 import { scrollToTop } from '@app/shared/searchUtils';
@@ -38,7 +39,6 @@ import {
     useUpdateIngestionSourceMutation,
 } from '@graphql/ingestion.generated';
 import { useBatchAddOwnersMutation } from '@graphql/mutations.generated';
-import { TabType } from '@app/ingestV2/types';
 import { useListOwnershipTypesQuery } from '@graphql/ownership.generated';
 import {
     Entity,
@@ -168,7 +168,6 @@ export const IngestionSourceList = ({
     const [executedUrns, setExecutedUrns] = useState<Set<string>>(new Set());
     const [finalSources, setFinalSources] = useState<IngestionSource[]>([]);
     const [totalSources, setTotalSources] = useState<number>(0);
-
 
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
@@ -352,6 +351,7 @@ export const IngestionSourceList = ({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
                         interval: input.schedule?.interval,
+                        numOwners: owners?.length,
                     });
                     message.success({
                         content: `Successfully updated ingestion source!`,
