@@ -84,8 +84,12 @@ public class ShareServiceTest {
                 Mockito.eq(TEST_DATASET_URN),
                 Mockito.eq(ImmutableSet.of(Constants.SHARE_ASPECT_NAME))))
         .thenReturn(response);
+
     final ShareService service =
         new ShareService(mockClient, mock(OpenApiClient.class), objectMapper);
+
+    // Force a small delay to ensure time difference
+    Thread.sleep(1);
 
     final Share shareAspect =
         service.upsertShareResult(
@@ -99,7 +103,8 @@ public class ShareServiceTest {
     Assert.assertEquals(shareResult.getCreated().getActor(), TEST_USER_URN);
     Assert.assertEquals(shareResult.getCreated().getTime(), createdTime);
     Assert.assertEquals(shareResult.getLastSuccess().getActor(), TEST_USER_URN);
-    // ensure the last success time is new
+
+    // Ensure last success time is different from created time
     Assert.assertNotEquals(shareResult.getLastSuccess().getTime(), createdTime);
     Assert.assertNotNull(shareResult.getLastSuccess().getTime());
     Assert.assertNull(shareResult.getImplicitShareEntity());
