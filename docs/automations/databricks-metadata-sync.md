@@ -12,11 +12,17 @@ This feature is currently in **Public Beta** in DataHub Cloud. Reach out to your
 
 ## Overview
 
-Databricks Metadata Sync is an automation feature that enables seamless synchronization of DataHub Tags and Descriptions with Databricks Unity Catalog. This automation ensures consistent metadata governance across both platforms, automatically propagating DataHub governance artifacts to Unity Catalog tables, columns, catalogs, and schemas.
+Databricks Metadata Sync is an automation feature that enables seamless synchronization of DataHub Tags and Descriptions with Databricks Unity Catalog. This automation ensures consistent metadata governance across both platforms, automatically propagating DataHub governance artifacts to Unity Catalog tables, columns, catalogs, and schemas. Typically, this will be used in conjunction with the [Databricks ingestion source](https://docs.datahub.com/docs/generated/ingestion/sources/databricks), which enables ingesting Tags & descriptions from Databricks into DataHub. 
 
-This automation is exclusively available in DataHub Cloud and provides real-time synchronization capabilities for enhanced data governance workflows.
+This automation is exclusively available in DataHub Cloud.
 
-## Key Capabilities
+## Use Cases
+
+- Maintain consistent metadata across DataHub and Databricks
+- Improve data discovery by propagating descriptions back to Databricks
+- Unity data governance by managing Tag application directly within DataHub
+
+## Sync Capabilities
 
 The Databricks Metadata Sync automation provides comprehensive metadata synchronization with the following features:
 
@@ -247,3 +253,31 @@ Confirm successful metadata syncing by examining Unity Catalog objects:
 ### Support Resources
 
 For additional assistance with Databricks Metadata Sync, contact your DataHub Cloud representative. 
+
+## FAQ
+
+1. How does DataHub represent key-value tags from Databricks?
+
+During ingestion from [Databricks](https://docs.datahub.com/docs/generated/ingestion/sources/databricks), DataHub can ingest tags and descriptions that were originally authored within Databricks. DataHub converts key-value formatted tags in Databricks into DataHub tags of the format: `key:value`. For example, if you have a tag with key `has_pii` and value `true` in Databricks, this will be ingested as a single combined tag named `has_pii: true` in DataHub.
+
+After ingestion into DataHub, you can apply this tag to tables or columns and sync it back to Databricks using this automation. Any tag with the format `key:value` that is applied on DataHub will be synced back to Databricks in proper key, value form. 
+
+If you apply a tag without a separator colon in DataHub (e.g. `has_pii`), it will be synced back to Databricks with the key being `has_pii` and value being empty. 
+
+
+2. I updated a table description in _Databricks_, but I don't see it reflecting after ingestion into DataHub. Why not?
+
+This is usually because you've already overridden the description inside DataHub for this table. DataHub assumes that _it_ will be the source of truth for documentation, which means that any edits that have taken place in the DataHub UI (or via API) will take precedent over changes provided in Databricks. When you change the description in DataHub, the description change will overwrite the latest description in Databricks if this automation is enabled. 
+
+But fear not - you can always view the original underlying Databricks description underneath the DataHub description in the DataHub UI, even when it changes. 
+
+
+3. Can I sync DataHub Structured Properties or Glossary Terms back to Databricks as Tags? 
+
+Currently, no. Sync back is limited to Tags, to keep the concepts aligned more simply across both platforms. Reach out if you'd benefit from this capability! 
+
+
+
+
+
+When 
