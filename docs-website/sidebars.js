@@ -119,6 +119,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Databricks Metadata Sync",
+              type: "doc",
+              id: "docs/automations/databricks-metadata-sync",
+              className: "saasOnly",
+            },
+            {
               label: "Snowflake Tag Sync",
               type: "doc",
               id: "docs/automations/snowflake-tag-propagation",
