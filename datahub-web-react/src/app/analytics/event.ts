@@ -186,6 +186,8 @@ export enum EventType {
     CreateActionEvent,
     UpdateActionEvent,
     DeleteActionEvent,
+    DatasetHealthFilterEvent,
+    DatasetHealthClickEvent,
 }
 
 /**
@@ -1336,6 +1338,28 @@ export interface HomePageClickEvent extends BaseEvent {
     value?: string; // what was actually clicked ie. an entity urn to go to a page, or "View all" for a section
 }
 
+export interface DatasetHealthFilterEvent extends BaseEvent {
+    type: EventType.DatasetHealthFilterEvent;
+    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
+    filterType: 'search' | 'filter' | 'timeRange';
+    filterSubType?: string;
+    content:
+        | {
+              filterValues: string[];
+          }
+        | {
+              filterValue: string;
+          };
+}
+
+export interface DatasetHealthClickEvent extends BaseEvent {
+    type: EventType.DatasetHealthClickEvent;
+    tabType: 'AssertionsByAssertion' | 'AssertionsByAsset' | 'IncidentsByAsset';
+    target: 'asset_assertions' | 'asset_incidents' | 'assertion' | 'incident';
+    subTarget?: string;
+    targetUrn?: string;
+}
+
 export interface ClickProductUpdateEvent extends BaseEvent {
     type: EventType.ClickProductUpdate;
     id: string;
@@ -1499,4 +1523,6 @@ export type Event =
     | ClickProductUpdateEvent
     | CreateActionEvent
     | UpdateActionEvent
-    | DeleteActionEvent;
+    | DeleteActionEvent
+    | DatasetHealthFilterEvent
+    | DatasetHealthClickEvent;

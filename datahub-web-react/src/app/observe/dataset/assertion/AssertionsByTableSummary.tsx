@@ -2,6 +2,7 @@ import { Select, SimpleSelect, Text, Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
 import { AssertionsByTableSummaryTable } from '@app/observe/dataset/assertion/AssertionsByTableSummaryTable';
@@ -206,7 +207,17 @@ export const AssertionsByTableSummary = () => {
                 <InlineListSearch
                     inputTestId="embedded-search-bar"
                     searchText={searchQuery}
-                    debouncedSetFilterText={(event) => setSearchQuery(event.target.value)}
+                    debouncedSetFilterText={(value) => {
+                        setSearchQuery(value);
+                        analytics.event({
+                            type: EventType.DatasetHealthFilterEvent,
+                            tabType: 'AssertionsByAsset',
+                            filterType: 'search',
+                            content: {
+                                filterValue: value,
+                            },
+                        });
+                    }}
                     matchResultCount={0}
                     numRows={0}
                     options={{
@@ -242,7 +253,18 @@ export const AssertionsByTableSummary = () => {
                             },
                         ]}
                         initialValues={selectedStatus}
-                        onUpdate={(values) => setSelectedStatus(values as AssertionResultTypeOptions[])}
+                        onUpdate={(values) => {
+                            setSelectedStatus(values as AssertionResultTypeOptions[]);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assertionStatus',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Status"
                         isMultiSelect
                         selectLabelProps={{
@@ -260,7 +282,18 @@ export const AssertionsByTableSummary = () => {
                             (entity) => (entity as Domain).properties?.name,
                         )}
                         values={selectedDomains}
-                        onUpdate={(values) => setSelectedDomains(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedDomains(values as string[]);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetDomains',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Domains"
                         isMultiSelect
                         selectLabelProps={{
@@ -284,7 +317,18 @@ export const AssertionsByTableSummary = () => {
                             }
                         })}
                         values={selectedOwnership}
-                        onUpdate={(values) => setSelectedOwnership(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedOwnership(values as string[]);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetOwners',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Owners"
                         isMultiSelect
                         selectLabelProps={{
@@ -306,7 +350,18 @@ export const AssertionsByTableSummary = () => {
                             ),
                         )}
                         values={selectedPlatforms}
-                        onUpdate={(values) => setSelectedPlatforms(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedPlatforms(values as string[]);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetPlatforms',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Platforms"
                         isMultiSelect
                         selectLabelProps={{
@@ -326,7 +381,18 @@ export const AssertionsByTableSummary = () => {
                             (entity: GlossaryTerm) => entityRegistry.getDisplayName(EntityType.GlossaryTerm, entity),
                         )}
                         values={selectedTerms}
-                        onUpdate={(values) => setSelectedTerms(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedTerms(values as string[]);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetTerms',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Terms"
                         isMultiSelect
                         selectLabelProps={{
@@ -344,7 +410,18 @@ export const AssertionsByTableSummary = () => {
                             entityRegistry.getDisplayName(EntityType.Tag, entity),
                         )}
                         values={selectedTags}
-                        onUpdate={(values) => setSelectedTags(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedTags(values as string[]);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetTags',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Tags"
                         isMultiSelect
                         selectLabelProps={{

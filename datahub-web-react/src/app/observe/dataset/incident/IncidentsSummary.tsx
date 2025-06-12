@@ -3,6 +3,7 @@ import { Check } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
 import { IncidentsSummaryTable } from '@app/observe/dataset/incident/IncidentsSummaryTable';
@@ -183,7 +184,17 @@ export const IncidentsSummary = () => {
                 <InlineListSearch
                     inputTestId="embedded-search-bar"
                     searchText={searchQuery}
-                    debouncedSetFilterText={(event) => setSearchQuery(event.target.value)}
+                    debouncedSetFilterText={(value) => {
+                        setSearchQuery(value);
+                        analytics.event({
+                            type: EventType.DatasetHealthFilterEvent,
+                            tabType: 'IncidentsByAsset',
+                            filterType: 'search',
+                            content: {
+                                filterValue: value,
+                            },
+                        });
+                    }}
                     matchResultCount={0}
                     numRows={0}
                     options={{
@@ -210,7 +221,18 @@ export const IncidentsSummary = () => {
                             (entity) => (entity as Domain).properties?.name,
                         )}
                         values={selectedDomains}
-                        onUpdate={(values) => setSelectedDomains(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedDomains(values);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'IncidentsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetDomains',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Domains"
                         isMultiSelect
                         selectLabelProps={{
@@ -234,7 +256,18 @@ export const IncidentsSummary = () => {
                             }
                         })}
                         values={selectedOwnership}
-                        onUpdate={(values) => setSelectedOwnership(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedOwnership(values);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'IncidentsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetOwners',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Owners"
                         isMultiSelect
                         selectLabelProps={{
@@ -256,7 +289,18 @@ export const IncidentsSummary = () => {
                             ),
                         )}
                         values={selectedPlatforms}
-                        onUpdate={(values) => setSelectedPlatforms(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedPlatforms(values);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'IncidentsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetPlatforms',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Platforms"
                         isMultiSelect
                         selectLabelProps={{
@@ -276,7 +320,18 @@ export const IncidentsSummary = () => {
                             (entity: GlossaryTerm) => entityRegistry.getDisplayName(EntityType.GlossaryTerm, entity),
                         )}
                         values={selectedTerms}
-                        onUpdate={(values) => setSelectedTerms(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedTerms(values);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'IncidentsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetTerms',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Terms"
                         isMultiSelect
                         selectLabelProps={{
@@ -294,7 +349,18 @@ export const IncidentsSummary = () => {
                             entityRegistry.getDisplayName(EntityType.Tag, entity),
                         )}
                         values={selectedTags}
-                        onUpdate={(values) => setSelectedTags(values as string[])}
+                        onUpdate={(values) => {
+                            setSelectedTags(values);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'IncidentsByAsset',
+                                filterType: 'filter',
+                                filterSubType: 'assetTags',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Tags"
                         isMultiSelect
                         selectLabelProps={{

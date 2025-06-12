@@ -166,7 +166,9 @@ public enum DataHubUsageEventType {
   CLICK_PRODUCT_UPDATE_EVENT("ClickProductUpdateEvent"),
   CREATE_ACTION_EVENT("CreateActionEvent"),
   UPDATE_ACTION_EVENT("UpdateActionEvent"),
-  DELETE_ACTION_EVENT("DeleteActionEvent");
+  DELETE_ACTION_EVENT("DeleteActionEvent"),
+  DATASET_HEALTH_CLICK_EVENT("DatasetHealthClickEvent"),
+  DATASET_HEALTH_FILTER_EVENT("DatasetHealthFilterEvent");
 
   private final String type;
 

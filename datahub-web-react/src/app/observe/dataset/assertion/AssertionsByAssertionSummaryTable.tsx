@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { titleCase } from '@app/automations/utils';
 import { getCronAsText } from '@app/entity/shared/tabs/Dataset/Validations/acrylUtils';
 import { getAssertionUrl } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/hooks';
@@ -91,7 +92,17 @@ export const AssertionsByAssertionSummaryTable = ({
             render: (record) => {
                 const monitorSchedule = getMonitorSchedule(record);
                 return (
-                    <Link to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}>
+                    <Link
+                        to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.DatasetHealthClickEvent,
+                                tabType: 'AssertionsByAssertion',
+                                target: 'assertion',
+                                targetUrn: record.urn,
+                            });
+                        }}
+                    >
                         <AssertionName record={record} monitorSchedule={monitorSchedule} />
                     </Link>
                 );
@@ -102,7 +113,17 @@ export const AssertionsByAssertionSummaryTable = ({
             title: 'Dataset',
             render: (record) => {
                 return (
-                    <DatasetWrapper to={getAllAssertionsLink(record.dataset?.urn || record.monitor?.entity?.urn || '')}>
+                    <DatasetWrapper
+                        to={getAllAssertionsLink(record.dataset?.urn || record.monitor?.entity?.urn || '')}
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.DatasetHealthClickEvent,
+                                tabType: 'AssertionsByAssertion',
+                                target: 'asset_assertions',
+                                targetUrn: record.dataset?.urn || record.monitor?.entity?.urn || '',
+                            });
+                        }}
+                    >
                         <PlatformIcon platform={record.dataset?.platform || record.platform} />
                         <Text>
                             {record.dataset
@@ -136,6 +157,15 @@ export const AssertionsByAssertionSummaryTable = ({
                     >
                         <ResultsWrapper
                             to={getAssertionLink(record.urn, record.dataset?.urn || record.monitor?.entity?.urn || '')}
+                            onClick={() => {
+                                analytics.event({
+                                    type: EventType.DatasetHealthClickEvent,
+                                    tabType: 'AssertionsByAssertion',
+                                    target: 'assertion',
+                                    subTarget: 'results',
+                                    targetUrn: record.urn,
+                                });
+                            }}
                         >
                             {/* ---- Failures ---- */}
                             {failures > 0 ? (

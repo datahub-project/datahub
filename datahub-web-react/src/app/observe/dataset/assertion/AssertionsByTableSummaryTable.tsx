@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { formatTimestamp } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/utils';
 import { buildAssertionUrlSearch } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/utils';
 import { renderOwners } from '@app/observe/dataset/shared/shared';
@@ -107,7 +108,18 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
             title: 'Name',
             render: (record) => {
                 return (
-                    <DatasetNameColumn to={getAssertionsLink(record)} data-testid={`preview-${record.urn}`}>
+                    <DatasetNameColumn
+                        to={getAssertionsLink(record)}
+                        data-testid={`preview-${record.urn}`}
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.DatasetHealthClickEvent,
+                                tabType: 'AssertionsByAsset',
+                                target: 'asset_assertions',
+                                targetUrn: record.urn,
+                            });
+                        }}
+                    >
                         <PlatformIcon platform={record.platform} />
                         <Text weight="semiBold">{record.name}</Text>
                     </DatasetNameColumn>
@@ -144,6 +156,15 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                     <Tooltip title={message}>
                         <Link
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Freshness })}`}
+                            onClick={() => {
+                                analytics.event({
+                                    type: EventType.DatasetHealthClickEvent,
+                                    tabType: 'AssertionsByAsset',
+                                    target: 'asset_assertions',
+                                    subTarget: 'freshness_results',
+                                    targetUrn: record.urn,
+                                });
+                            }}
                         >
                             <HealthStatusIndicator status={freshnessHealth?.status} />
                         </Link>
@@ -165,6 +186,15 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                     <Tooltip title={message}>
                         <Link
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Volume })}`}
+                            onClick={() => {
+                                analytics.event({
+                                    type: EventType.DatasetHealthClickEvent,
+                                    tabType: 'AssertionsByAsset',
+                                    target: 'asset_assertions',
+                                    subTarget: 'volume_results',
+                                    targetUrn: record.urn,
+                                });
+                            }}
                         >
                             <HealthStatusIndicator status={volumeHealth?.status} />
                         </Link>
@@ -187,6 +217,15 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                     <Tooltip title={message}>
                         <Link
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Field })}`}
+                            onClick={() => {
+                                analytics.event({
+                                    type: EventType.DatasetHealthClickEvent,
+                                    tabType: 'AssertionsByAsset',
+                                    target: 'asset_assertions',
+                                    subTarget: 'field_results',
+                                    targetUrn: record.urn,
+                                });
+                            }}
                         >
                             <HealthStatusIndicator status={fieldHealth?.status} />
                         </Link>
@@ -208,6 +247,15 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                     <Tooltip title={message}>
                         <Link
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.DataSchema })}`}
+                            onClick={() => {
+                                analytics.event({
+                                    type: EventType.DatasetHealthClickEvent,
+                                    tabType: 'AssertionsByAsset',
+                                    target: 'asset_assertions',
+                                    subTarget: 'schema_results',
+                                    targetUrn: record.urn,
+                                });
+                            }}
                         >
                             <HealthStatusIndicator status={schemaHealth?.status} />
                         </Link>
@@ -229,6 +277,15 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                     <Tooltip title={message}>
                         <Link
                             to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Sql })}`}
+                            onClick={() => {
+                                analytics.event({
+                                    type: EventType.DatasetHealthClickEvent,
+                                    tabType: 'AssertionsByAsset',
+                                    target: 'asset_assertions',
+                                    subTarget: 'sql_results',
+                                    targetUrn: record.urn,
+                                });
+                            }}
                         >
                             <HealthStatusIndicator status={sqlHealth?.status} />
                         </Link>
@@ -253,6 +310,15 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                               <Tooltip title={message}>
                                   <Link
                                       to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Custom })}`}
+                                      onClick={() => {
+                                          analytics.event({
+                                              type: EventType.DatasetHealthClickEvent,
+                                              tabType: 'AssertionsByAsset',
+                                              target: 'asset_assertions',
+                                              subTarget: 'custom_results',
+                                              targetUrn: record.urn,
+                                          });
+                                      }}
                                   >
                                       <HealthStatusIndicator status={customHealth?.status} />
                                   </Link>
@@ -279,6 +345,15 @@ export const AssertionsByTableSummaryTable = ({ datasets, isLoading, page, setPa
                               <Tooltip title={message}>
                                   <Link
                                       to={`${getAssertionsLink(record)}${buildAssertionUrlSearch({ type: AssertionType.Dataset })}`}
+                                      onClick={() => {
+                                          analytics.event({
+                                              type: EventType.DatasetHealthClickEvent,
+                                              tabType: 'AssertionsByAsset',
+                                              target: 'asset_assertions',
+                                              subTarget: 'external_results',
+                                              targetUrn: record.urn,
+                                          });
+                                      }}
                                   >
                                       <HealthStatusIndicator status={datasetHealth?.status} />
                                   </Link>

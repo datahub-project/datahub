@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { buildIncidentUrlSearch } from '@app/entityV2/shared/tabs/Incident/utils';
 import { renderOwners } from '@app/observe/dataset/shared/shared';
 import { healthUrlSuffix } from '@app/previewV2/HealthPopover';
@@ -53,7 +54,18 @@ export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, page
             title: 'Name',
             render: (record) => {
                 return (
-                    <DatasetNameColumn to={getIncidentsLink(record)} data-testid={`preview-${record.urn}`}>
+                    <DatasetNameColumn
+                        to={getIncidentsLink(record)}
+                        data-testid={`preview-${record.urn}`}
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.DatasetHealthClickEvent,
+                                tabType: 'IncidentsByAsset',
+                                target: 'asset_incidents',
+                                targetUrn: record.urn,
+                            });
+                        }}
+                    >
                         <PlatformIcon platform={record.platform} />
                         <Text weight="semiBold">{record.name}</Text>
                     </DatasetNameColumn>
@@ -84,7 +96,17 @@ export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, page
                 const incidentHealth = getIncidentHealth(record.health);
                 const count = incidentHealth?.count ?? 0;
                 return (
-                    <Link to={getIncidentsLink(record)}>
+                    <Link
+                        to={getIncidentsLink(record)}
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.DatasetHealthClickEvent,
+                                tabType: 'IncidentsByAsset',
+                                target: 'asset_incidents',
+                                targetUrn: record.urn,
+                            });
+                        }}
+                    >
                         <Text>{count} active</Text>
                     </Link>
                 );
@@ -109,6 +131,14 @@ export const IncidentsSummaryTable = ({ datasets, isLoading, page, setPage, page
                                   })
                                 : getIncidentsLink(record)
                         }
+                        onClick={() => {
+                            analytics.event({
+                                type: EventType.DatasetHealthClickEvent,
+                                tabType: 'IncidentsByAsset',
+                                target: 'incident',
+                                targetUrn: lastActiveIncidentUrn ?? '',
+                            });
+                        }}
                     >
                         <Text color="gray">
                             {lastActiveIncidentTitle ? (

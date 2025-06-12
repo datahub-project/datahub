@@ -2,6 +2,7 @@ import { Select, SimpleSelect, Text, colors } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
+import analytics, { EventType } from '@app/analytics';
 import { titleCase } from '@app/automations/utils';
 import { FilterSelect } from '@app/entityV2/shared/FilterSelect';
 import { InlineListSearch } from '@app/entityV2/shared/components/search/InlineListSearch';
@@ -234,7 +235,17 @@ export const AssertionsByAssertionSummary = () => {
                 <InlineListSearch
                     inputTestId="embedded-search-bar"
                     searchText={searchQuery}
-                    debouncedSetFilterText={(event) => setSearchQuery(event.target.value)}
+                    debouncedSetFilterText={(value) => {
+                        setSearchQuery(value);
+                        analytics.event({
+                            type: EventType.DatasetHealthFilterEvent,
+                            tabType: 'AssertionsByAssertion',
+                            filterType: 'search',
+                            content: {
+                                filterValue: value,
+                            },
+                        });
+                    }}
                     matchResultCount={0}
                     numRows={0}
                     entityTypeName="assertion"
@@ -256,6 +267,15 @@ export const AssertionsByAssertionSummary = () => {
                         onUpdate={(values) => {
                             if (values.length !== 0) {
                                 setStatuses(values as AssertionResultTypeOptions[]);
+                                analytics.event({
+                                    type: EventType.DatasetHealthFilterEvent,
+                                    tabType: 'AssertionsByAssertion',
+                                    filterType: 'filter',
+                                    filterSubType: 'assertionStatus',
+                                    content: {
+                                        filterValues: values,
+                                    },
+                                });
                             }
                         }}
                         placeholder="Reported"
@@ -274,11 +294,20 @@ export const AssertionsByAssertionSummary = () => {
                             label: option.label,
                         }))}
                         values={[timeRange.label]}
-                        onUpdate={(values) =>
+                        onUpdate={(values) => {
                             setTimeRange(
                                 timeRangeOptions.find((option) => option.label === values[0]) || timeRangeOptions[0],
-                            )
-                        }
+                            );
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAssertion',
+                                filterType: 'timeRange',
+                                filterSubType: timeRange.label,
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="In"
                         isMultiSelect={false}
                         selectLabelProps={{
@@ -302,6 +331,15 @@ export const AssertionsByAssertionSummary = () => {
                         onUpdate={(values) => {
                             if (values.length !== 0) {
                                 setAssertionType(values);
+                                analytics.event({
+                                    type: EventType.DatasetHealthFilterEvent,
+                                    tabType: 'AssertionsByAssertion',
+                                    filterType: 'filter',
+                                    filterSubType: 'assertionType',
+                                    content: {
+                                        filterValues: values,
+                                    },
+                                });
                             }
                         }}
                         placeholder="Type"
@@ -327,7 +365,18 @@ export const AssertionsByAssertionSummary = () => {
                                 })) || []
                         }
                         values={assertionTags}
-                        onUpdate={(values) => setAssertionTags(values)}
+                        onUpdate={(values) => {
+                            setAssertionTags(values);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAssertion',
+                                filterType: 'filter',
+                                filterSubType: 'assertionTags',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Tags"
                         isMultiSelect
                         selectLabelProps={{
@@ -352,7 +401,18 @@ export const AssertionsByAssertionSummary = () => {
                                 })) || []
                         }
                         values={assetPlatforms}
-                        onUpdate={(values) => setAssetPlatforms(values)}
+                        onUpdate={(values) => {
+                            setAssetPlatforms(values);
+                            analytics.event({
+                                type: EventType.DatasetHealthFilterEvent,
+                                tabType: 'AssertionsByAssertion',
+                                filterType: 'filter',
+                                filterSubType: 'assetPlatforms',
+                                content: {
+                                    filterValues: values,
+                                },
+                            });
+                        }}
                         placeholder="Platforms"
                         isMultiSelect
                         selectLabelProps={{
@@ -406,18 +466,67 @@ export const AssertionsByAssertionSummary = () => {
                                     })) || [],
                         }}
                         onFilterChange={(values) => {
-                            setAssetDomain(
-                                values.filter((value) => value.category === 'domains').map((value) => value.name),
-                            );
-                            setAssetOwners(
-                                values.filter((value) => value.category === 'owners').map((value) => value.name),
-                            );
-                            setAssetTerms(
-                                values.filter((value) => value.category === 'terms').map((value) => value.name),
-                            );
-                            setAssetTags(
-                                values.filter((value) => value.category === 'tags').map((value) => value.name),
-                            );
+                            const domainValues = values
+                                .filter((value) => value.category === 'domains')
+                                .map((value) => value.name);
+                            const ownerValues = values
+                                .filter((value) => value.category === 'owners')
+                                .map((value) => value.name);
+                            const termValues = values
+                                .filter((value) => value.category === 'terms')
+                                .map((value) => value.name);
+                            const tagValues = values
+                                .filter((value) => value.category === 'tags')
+                                .map((value) => value.name);
+
+                            setAssetDomain(domainValues);
+                            if (domainValues.length > 0) {
+                                analytics.event({
+                                    type: EventType.DatasetHealthFilterEvent,
+                                    tabType: 'AssertionsByAssertion',
+                                    filterType: 'filter',
+                                    filterSubType: 'assetDomains',
+                                    content: {
+                                        filterValues: domainValues,
+                                    },
+                                });
+                            }
+                            setAssetOwners(ownerValues);
+                            if (ownerValues.length > 0) {
+                                analytics.event({
+                                    type: EventType.DatasetHealthFilterEvent,
+                                    tabType: 'AssertionsByAssertion',
+                                    filterType: 'filter',
+                                    filterSubType: 'assetOwners',
+                                    content: {
+                                        filterValues: ownerValues,
+                                    },
+                                });
+                            }
+                            setAssetTerms(termValues);
+                            if (termValues.length > 0) {
+                                analytics.event({
+                                    type: EventType.DatasetHealthFilterEvent,
+                                    tabType: 'AssertionsByAssertion',
+                                    filterType: 'filter',
+                                    filterSubType: 'assetTerms',
+                                    content: {
+                                        filterValues: termValues,
+                                    },
+                                });
+                            }
+                            setAssetTags(tagValues);
+                            if (tagValues.length > 0) {
+                                analytics.event({
+                                    type: EventType.DatasetHealthFilterEvent,
+                                    tabType: 'AssertionsByAssertion',
+                                    filterType: 'filter',
+                                    filterSubType: 'assetTags',
+                                    content: {
+                                        filterValues: tagValues,
+                                    },
+                                });
+                            }
                         }}
                     />
                 </FilterOptionsWrapper>
