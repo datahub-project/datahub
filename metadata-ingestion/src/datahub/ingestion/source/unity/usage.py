@@ -3,7 +3,18 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, TypeVar
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    TypeVar,
+    Union,
+)
 
 import pyspark
 from databricks.sdk.service.sql import QueryStatementType
@@ -13,6 +24,7 @@ from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statis
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+from datahub.ingestion.source.unity.proxy_sql import UnityCatalogSqlProxy
 from datahub.ingestion.source.unity.proxy_types import (
     OPERATION_STATEMENT_TYPES,
     Query,
@@ -46,7 +58,7 @@ QueryTableInfo = GenericTableInfo[TableReference]
 class UnityCatalogUsageExtractor:
     config: UnityCatalogSourceConfig
     report: UnityCatalogReport
-    proxy: UnityCatalogApiProxy
+    proxy: Union[UnityCatalogApiProxy, UnityCatalogSqlProxy]
     table_urn_builder: Callable[[TableReference], str]
     user_urn_builder: Callable[[str], str]
     platform: str = "databricks"

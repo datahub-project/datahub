@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union
 
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -7,6 +7,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+from datahub.ingestion.source.unity.proxy_sql import UnityCatalogSqlProxy
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 
 
@@ -14,12 +15,21 @@ class UnityCatalogConnectionTest:
     def __init__(self, config: UnityCatalogSourceConfig):
         self.config = config
         self.report = UnityCatalogReport()
-        self.proxy = UnityCatalogApiProxy(
-            self.config.workspace_url,
-            self.config.token,
-            self.config.profiling.warehouse_id,
-            report=self.report,
-        )
+        self.proxy: Union[UnityCatalogApiProxy, UnityCatalogSqlProxy]
+        if self.config.use_sql_proxy:
+            self.proxy = UnityCatalogSqlProxy(
+                self.config.workspace_url,
+                self.config.token,
+                self.config.profiling.warehouse_id,
+                report=self.report,
+            )
+        else:
+            self.proxy = UnityCatalogApiProxy(
+                self.config.workspace_url,
+                self.config.token,
+                self.config.profiling.warehouse_id,
+                report=self.report,
+            )
 
     def get_connection_test(self) -> TestConnectionReport:
         capability_report = {
