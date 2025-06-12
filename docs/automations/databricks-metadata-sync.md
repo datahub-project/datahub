@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 :::info
 
-This feature is currently in open beta in DataHub Cloud. Reach out to your DataHub Cloud representative to get access.
+This feature is currently in **Public Beta** in DataHub Cloud. Reach out to your DataHub Cloud representative if you face any issues configuring or validating the capabilities outlined below. 
 
 :::
 
@@ -24,7 +24,9 @@ The Databricks Metadata Sync automation provides comprehensive metadata synchron
 - **Description Synchronization**: Automatically propagate DataHub descriptions to Unity Catalog objects as comments
 - **Bidirectional Updates**: Maintain consistency by automatically removing Tags and descriptions from Unity Catalog when they are removed in DataHub
 - **Selective Propagation**: Configure specific Tags for propagation, or sync all Tags
-- **Historical Backfill**: Initialize existing assets with current DataHub metadata
+- **Historical Backfill**: Initialize Tags and Descriptions for assets on Databricks with current DataHub Tags & Descriptions.
+
+> **A note about legacy Hive Metastore**: Bi-directional sync for _descriptions_ is supported for Hive Metastore Schemas & Tables, but Tag sync is _not_. This is because Databricks does not support applying of Tags to these assets on Hive Metastore.  
 
 ## Prerequisites
 
@@ -106,7 +108,7 @@ Ensure your DataHub instance has:
 - Valid Databricks workspace credentials
 - Network connectivity to your Databricks Unity Catalog environment
 - Appropriate service principal or user authentication configured
-- Databricks warehouse access for metadata operations
+- Databricks warehouse id for executing operations
 
 ## Configuration Guide
 
@@ -114,8 +116,7 @@ Ensure your DataHub instance has:
 
 Navigate to the Automations section in your DataHub Cloud interface:
 
-1. Click on **Govern** in the main navigation
-2. Select **Automations** from the dropdown menu
+1. Select **Automations** from the dropdown menu, Under the **Govern** section
 
 <p align="center">
   <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automations-nav-link.png" alt="Navigate to Automations"/>
@@ -123,7 +124,7 @@ Navigate to the Automations section in your DataHub Cloud interface:
 
 ### Step 2: Create Databricks Automation
 
-Initiate the automation setup:
+Configure the automation:
 
 1. Click the **Create** button
 2. Select **Databricks Metadata Sync** from the available automation types
@@ -140,8 +141,8 @@ Choose the types of information to synchronize:
 
 Choose between:
 
-- **Tags**: Sync Tags for Tables, Columns, Catalogs, & Schemas (Unity Catalog)
-- **Descriptions**: Sync descriptions for Tables, Columns, Catalogs & Schemas as comments
+- **Tags**: Sync Tags for Tables, Columns, Catalogs, & Schemas (Unity Catalog only)
+- **Descriptions**: Sync descriptions for Tables, Columns, Catalogs & Schemas as comments (Unity Catalog & legacy Hive Metastore) 
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/databricks-metadata-sync/select-action.png" alt="Select Sync Action"/>
@@ -151,8 +152,8 @@ Choose between:
 
 When syncing Tags, you can choose:
 
-- **All tags**: Propagate all DataHub Tags to Unity Catalog
-- **Tags in a specific set**: Select only specific Tags for synchronization
+- **All Tags**: Propagate all DataHub Tags to Unity Catalog
+- **Specific Tags**: Select only specific Tags for synchronization
 
 ### Step 4: Configure Connection Settings
 
@@ -161,7 +162,7 @@ Complete the Databricks connection configuration:
 #### Required Connection Details
 
 - **Workspace URL**: Your Databricks workspace URL (e.g., `https://abcsales.cloud.databricks.com`)
-- **Warehouse ID**: The SQL warehouse ID for metadata operations (e.g., `fab3e5fg0bcbfc56`)
+- **Warehouse ID**: The SQL warehouse ID used for executing for metadata operations (e.g., `fab3e5fg0bcbfc56`)
 - **Token**: Databricks personal access token or service principal token
 
 <p align="center">
@@ -186,7 +187,7 @@ Click **Save and Run** to activate the automation and begin real-time synchroniz
 
 ### Initializing Existing Assets
 
-For environments with existing DataHub metadata, you can perform a one-time backfill to ensure all current Tags and descriptions are propagated to Unity Catalog.
+For environments with existing DataHub metadata, you can perform a one-time backfill to ensure all current Tags and Descriptions from DataHub are propagated to Unity Catalog. Depending on the number of assets, this might take a while! 
 
 #### Initialization Process
 
@@ -205,27 +206,20 @@ For environments with existing DataHub metadata, you can perform a one-time back
 
 :::note Initialization Timeline
 
-The initialization process duration depends on the volume of Unity Catalog assets in your environment. Large catalogs with extensive metadata may require significant processing time. Monitor the automation status for completion updates.
+The initialization process duration depends on the volume of Unity Catalog assets in your environment. Large catalogs with extensive metadata may require significant processing time.
 
 :::
 
-## Verification and Monitoring
+## Validating the Integration
 
-### Viewing Propagated Metadata
+### Viewing Synced Metadata
 
-Confirm successful metadata propagation by examining Unity Catalog objects:
+Confirm successful metadata syncing by examining Unity Catalog objects:
 
 1. **Access Databricks UI**: Navigate to your Databricks workspace
 2. **Browse Catalog**: Open the Unity Catalog explorer
 3. **Inspect Objects**: Select tables or columns to view applied tags and comments
 
-### Monitoring Automation Status
-
-Track automation performance through the DataHub Automations dashboard:
-
-- **Execution History**: Review recent synchronization activities
-- **Error Logs**: Identify and resolve any propagation issues
-- **Performance Metrics**: Monitor sync frequency and success rates
 
 ## Troubleshooting
 
@@ -246,15 +240,10 @@ Track automation performance through the DataHub Automations dashboard:
 
 #### Synchronization Failures
 
-- Review automation logs for specific error messages
 - Check Unity Catalog object permissions
 - Verify target objects exist and are accessible
 - Ensure warehouse is running and available
 
 ### Support Resources
 
-For additional assistance with Databricks Metadata Sync:
-
-- Contact your DataHub Cloud representative
-- Review DataHub Cloud documentation
-- Submit support tickets through your designated support channel
+For additional assistance with Databricks Metadata Sync, contact your DataHub Cloud representative. 
