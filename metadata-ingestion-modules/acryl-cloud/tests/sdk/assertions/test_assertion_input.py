@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, ContextManager, Optional, Type, TypedDict, Union, cast
 
 import pytest
+import tzlocal
 from pydantic import ValidationError
 
 import datahub.metadata.schema_classes as models
@@ -14,12 +15,16 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     DEFAULT_NAME_PREFIX,
     DEFAULT_NAME_SUFFIX_LENGTH,
     AssertionIncidentBehavior,
+    CalendarInterval,
     DatasetSourceType,
     DetectionMechanism,
+    FieldSpecType,
     FixedRangeExclusionWindow,
     FixedRangeExclusionWindowInputTypes,
     InferenceSensitivity,
     SDKUsageErrorWithExamples,
+    TimeWindowSize,
+    TimeWindowSizeInputTypes,
     _AssertionInput,
     _AuditLog,
     _DetectionMechanismTypes,
@@ -27,6 +32,9 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _is_source_type_valid,
     _SmartFreshnessAssertionInput,
     _validate_cron_schedule,
+)
+from acryl_datahub_cloud.sdk.assertion_input.freshness_assertion_input import (
+    _FreshnessAssertionInput,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import (
     TagsInputType,
@@ -1230,6 +1238,16 @@ class StubAssertionInput(_AssertionInput):
     def _create_assertion_info(self) -> None:  # type: ignore[override]  # Not used
         return None
 
+    def _create_monitor_info(  # type: ignore[override]  # Not used
+        self,
+        assertion_urn: AssertionUrn,
+        status: models.MonitorStatusClass,
+        schedule: models.CronScheduleClass,
+        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
+        field: Optional[FieldSpecType],
+    ) -> None:
+        return None
+
     def _convert_schedule(self) -> None:  # type: ignore[override]  # Not used
         return None
 
@@ -1405,6 +1423,301 @@ def test_validate_cron_schedule(
     """Test the validation of cron schedule expressions and timezones."""
     with expected_raises:
         _validate_cron_schedule(schedule, timezone)
+
+
+# Tests for _FreshnessAssertionInput
+
+
+@pytest.mark.parametrize(
+    "freshness_schedule_check_type, lookback_window, expected_raises",
+    [
+        pytest.param(
+            None,
+            None,
+            nullcontext(),
+            id="default - since_the_last_check with no lookback_window",
+        ),
+        pytest.param(
+            models.FreshnessAssertionScheduleTypeClass.SINCE_THE_LAST_CHECK,
+            None,
+            nullcontext(),
+            id="since_the_last_check with no lookback_window",
+        ),
+        pytest.param(
+            "SINCE_THE_LAST_CHECK",
+            None,
+            nullcontext(),
+            id="since_the_last_check (string) with no lookback_window",
+        ),
+        pytest.param(
+            models.FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
+            TimeWindowSize(multiple=1, unit=CalendarInterval.DAY),
+            nullcontext(),
+            id="fixed_interval with lookback_window (TimeWindowSize)",
+        ),
+        # Error cases
+        pytest.param(
+            models.FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
+            None,
+            pytest.raises(
+                SDKUsageError,
+                match="Fixed interval freshness assertions must have a lookback_window provided.",
+            ),
+            id="fixed_interval without lookback_window (error)",
+        ),
+        pytest.param(
+            models.FreshnessAssertionScheduleTypeClass.SINCE_THE_LAST_CHECK,
+            TimeWindowSize(multiple=1, unit=CalendarInterval.DAY),
+            pytest.raises(
+                SDKUsageError,
+                match="Since the last check freshness assertions cannot have a lookback_window provided.",
+            ),
+            id="since_the_last_check with lookback_window (error)",
+        ),
+    ],
+)
+def test_freshness_assertion_input_with_schedule_type_and_lookback_window(
+    freshness_schedule_check_type: Optional[
+        Union[str, models.FreshnessAssertionScheduleTypeClass]
+    ],
+    lookback_window: Optional[Union[str, dict[str, Union[str, int]], TimeWindowSize]],
+    expected_raises: ContextManager[Any],
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    params: AssertionInputParams = {
+        "urn": AssertionUrn("urn:li:assertion:123"),
+        "dataset_urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        "entity_client": freshness_stub_entity_client,
+        **default_created_updated_params,
+    }
+
+    # Add freshness-specific parameters
+    if freshness_schedule_check_type is not None:
+        params["freshness_schedule_check_type"] = freshness_schedule_check_type  # type: ignore
+    if lookback_window is not None:
+        params["lookback_window"] = lookback_window  # type: ignore
+
+    with expected_raises:
+        assertion = _FreshnessAssertionInput(**params)  # type: ignore
+        assert assertion.freshness_schedule_check_type == (
+            freshness_schedule_check_type
+            or models.FreshnessAssertionScheduleTypeClass.SINCE_THE_LAST_CHECK
+        )
+        if lookback_window:
+            assert assertion.lookback_window is not None
+
+
+@pytest.mark.parametrize(
+    "detection_mechanism, expected_type",
+    [
+        pytest.param(
+            DetectionMechanism.INFORMATION_SCHEMA,
+            "information_schema",
+            id="information_schema",
+        ),
+        pytest.param(
+            DetectionMechanism.AUDIT_LOG,
+            "audit_log",
+            id="audit_log",
+        ),
+        pytest.param(
+            DetectionMechanism.DATAHUB_OPERATION,
+            "datahub_operation",
+            id="datahub_operation",
+        ),
+        pytest.param(
+            DetectionMechanism.LAST_MODIFIED_COLUMN(column_name="last_modified"),
+            "last_modified_column",
+            id="last_modified_column",
+        ),
+        pytest.param(
+            DetectionMechanism.HIGH_WATERMARK_COLUMN(column_name="id"),
+            "high_watermark_column",
+            id="high_watermark_column",
+        ),
+        pytest.param(
+            DetectionMechanism.HIGH_WATERMARK_COLUMN(
+                column_name="id", additional_filter="id = 1"
+            ),
+            "high_watermark_column",
+            id="high_watermark_column with filter",
+        ),
+    ],
+)
+def test_freshness_assertion_input_detection_mechanism_support(
+    detection_mechanism: _DetectionMechanismTypes,
+    expected_type: str,
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test that _FreshnessAssertionInput supports most detection mechanisms including HIGH_WATERMARK_COLUMN."""
+    assertion = _FreshnessAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:123"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        detection_mechanism=detection_mechanism,
+        entity_client=freshness_stub_entity_client,
+        **default_created_updated_params,
+    )
+    assert assertion.detection_mechanism.type == expected_type
+
+
+def test_freshness_assertion_input_uses_daily_schedule_by_default(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test that _FreshnessAssertionInput uses daily schedule by default."""
+    assertion = _FreshnessAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:123"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        entity_client=freshness_stub_entity_client,
+        **default_created_updated_params,
+    )
+
+    # The default schedule should be daily ("0 0 * * *")
+    schedule = assertion._convert_schedule()
+    assert schedule.cron == "0 0 * * *"  # Daily at midnight
+    assert schedule.timezone == str(tzlocal.get_localzone())
+
+
+def test_freshness_assertion_input_uses_native_source_type(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test that _FreshnessAssertionInput uses NATIVE source type."""
+    assertion = _FreshnessAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:123"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        entity_client=freshness_stub_entity_client,
+        **default_created_updated_params,
+    )
+
+    assert assertion.source_type == models.AssertionSourceTypeClass.NATIVE
+
+
+def test_freshness_assertion_input_creates_schedule_with_all_fields(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test that _FreshnessAssertionInput creates assertion info with schedule configuration."""
+    assertion = _FreshnessAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:123"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        entity_client=freshness_stub_entity_client,
+        freshness_schedule_check_type=models.FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
+        lookback_window=TimeWindowSize(multiple=2, unit=CalendarInterval.HOUR),
+        **default_created_updated_params,
+    )
+
+    assertion_info = assertion._create_assertion_info(filter=None)
+    assert isinstance(assertion_info, models.FreshnessAssertionInfoClass)
+
+    # Check schedule configuration
+    assert assertion_info.schedule is not None
+    assert (
+        assertion_info.schedule.type
+        == models.FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL
+    )
+    assert assertion_info.schedule.cron is not None
+    assert assertion_info.schedule.cron.cron == "0 0 * * *"  # Daily default
+    assert assertion_info.schedule.fixedInterval is not None
+    assert assertion_info.schedule.fixedInterval.multiple == 2
+    assert (
+        assertion_info.schedule.fixedInterval.unit == models.CalendarIntervalClass.HOUR
+    )
+
+
+def test_freshness_assertion_input_creates_schedule_since_last_check(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test schedule creation for SINCE_THE_LAST_CHECK type."""
+    assertion = _FreshnessAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:123"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        entity_client=freshness_stub_entity_client,
+        freshness_schedule_check_type=models.FreshnessAssertionScheduleTypeClass.SINCE_THE_LAST_CHECK,
+        **default_created_updated_params,
+    )
+
+    assertion_info = assertion._create_assertion_info(filter=None)
+    assert isinstance(assertion_info, models.FreshnessAssertionInfoClass)
+
+    # Check schedule configuration
+    assert assertion_info.schedule is not None
+    assert (
+        assertion_info.schedule.type
+        == models.FreshnessAssertionScheduleTypeClass.SINCE_THE_LAST_CHECK
+    )
+    assert assertion_info.schedule.cron is not None
+    assert (
+        assertion_info.schedule.fixedInterval is None
+    )  # Should be None for SINCE_THE_LAST_CHECK
+
+
+@pytest.mark.parametrize(
+    "lookback_window_input, expected_multiple, expected_unit",
+    [
+        pytest.param(
+            models.TimeWindowSizeClass(
+                multiple=1, unit=models.CalendarIntervalClass.DAY
+            ),
+            1,
+            models.CalendarIntervalClass.DAY,
+            id="model format",
+        ),
+        pytest.param(
+            TimeWindowSize(multiple=3, unit=CalendarInterval.HOUR),
+            3,
+            models.CalendarIntervalClass.HOUR,
+            id="TimeWindowSize object",
+        ),
+    ],
+)
+def test_freshness_assertion_input_lookback_window_parsing(
+    lookback_window_input: Union[TimeWindowSizeInputTypes],
+    expected_multiple: int,
+    expected_unit: models.CalendarIntervalClass,
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test that lookback_window is correctly parsed from different input formats."""
+    assertion = _FreshnessAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:123"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        entity_client=freshness_stub_entity_client,
+        freshness_schedule_check_type=models.FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
+        lookback_window=lookback_window_input,
+        **default_created_updated_params,
+    )
+
+    assert assertion.lookback_window is not None
+    assert assertion.lookback_window.multiple == expected_multiple
+    assert assertion.lookback_window.unit == expected_unit
+
+
+def test_freshness_assertion_input_supports_high_watermark_detection_mechanism(
+    freshness_stub_entity_client: StubEntityClient,
+    default_created_updated_params: CreatedUpdatedParams,
+) -> None:
+    """Test that _FreshnessAssertionInput supports HIGH_WATERMARK_COLUMN detection mechanism."""
+    assertion = _FreshnessAssertionInput(
+        urn=AssertionUrn("urn:li:assertion:123"),
+        dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,table_name,PROD)",
+        entity_client=freshness_stub_entity_client,
+        detection_mechanism=DetectionMechanism.HIGH_WATERMARK_COLUMN(
+            column_name="last_modified",
+            additional_filter="last_modified > '2021-01-01'",
+        ),
+        **default_created_updated_params,
+    )
+
+    source_type, field = assertion._convert_assertion_source_type_and_field()
+    assert source_type == models.DatasetFreshnessSourceTypeClass.FIELD_VALUE
+    assert field is not None
+    assert isinstance(field, models.FreshnessFieldSpecClass)
+    assert field.path == "last_modified"
+    assert field.kind == models.FreshnessFieldKindClass.HIGH_WATERMARK
 
 
 @dataclass

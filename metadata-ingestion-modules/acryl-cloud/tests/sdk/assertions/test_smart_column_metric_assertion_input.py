@@ -873,8 +873,6 @@ def test_smart_column_metric_assertion_input_conversion(
         schedule=assertion_input._convert_schedule(),
         source_type=source_type,
         field=field,
-        sensitivity=assertion_input._convert_sensitivity(),
-        exclusion_windows=assertion_input._convert_exclusion_windows(),
     )
     assert monitor_info.type == example_monitor_info.type
     assert monitor_info.status.mode == example_monitor_info.status.mode

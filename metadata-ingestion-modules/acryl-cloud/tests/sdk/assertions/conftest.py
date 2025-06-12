@@ -105,6 +105,13 @@ def freshness_assertion_entity_with_all_fields(
         info=models.FreshnessAssertionInfoClass(
             type=models.FreshnessAssertionTypeClass.DATASET_CHANGE,
             entity=_any_dataset_urn,
+            schedule=models.FreshnessAssertionScheduleClass(
+                type=models.FreshnessAssertionScheduleTypeClass.SINCE_THE_LAST_CHECK,
+                cron=models.FreshnessCronScheduleClass(
+                    cron=DEFAULT_SCHEDULE.cron,
+                    timezone=DEFAULT_SCHEDULE.timezone,
+                ),
+            ),
         ),
         description="Smart Freshness Assertion",
         source=models.AssertionSourceClass(
@@ -270,6 +277,13 @@ class StubEntityClient(EntityClient):
                         ),
                         nativeDataType="VARCHAR",
                     ),
+                    models.SchemaFieldClass(
+                        fieldPath="high_watermark",
+                        type=models.SchemaFieldDataTypeClass(
+                            type=models.NumberTypeClass()
+                        ),
+                        nativeDataType="NUMBER",
+                    ),
                 ],
             )
         elif (
@@ -415,3 +429,9 @@ def volume_stub_datahub_client(
     volume_stub_entity_client: StubEntityClient,
 ) -> StubDataHubClient:
     return StubDataHubClient(entity_client=volume_stub_entity_client)
+
+
+@pytest.fixture
+def stub_entity_client() -> StubEntityClient:
+    """A generic stub entity client that can be used for all types of assertions."""
+    return StubEntityClient()

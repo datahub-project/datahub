@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional, Union
 
 from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
-    DEFAULT_SCHEDULE,
+    DEFAULT_HOURLY_SCHEDULE,
     HIGH_WATERMARK_ALLOWED_FIELD_TYPES,
     AssertionIncidentBehavior,
     AssertionInfoInputType,
@@ -17,6 +17,7 @@ from acryl_datahub_cloud.sdk.assertion_input.assertion_input import (
     _AssertionInput,
     _ChangedRowsQuery,
     _DatasetProfile,
+    _HasSmartAssertionInputs,
     _try_parse_and_validate_schema_classes_enum,
 )
 from acryl_datahub_cloud.sdk.entities.assertion import TagsInputType
@@ -187,7 +188,7 @@ DEFAULT_DETECTION_MECHANISM_SMART_COLUMN_METRIC_ASSERTION = (
 )
 
 
-class _SmartColumnMetricAssertionInput(_AssertionInput):
+class _SmartColumnMetricAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
     """
     Input used to create a smart column metric assertion.
 
@@ -346,7 +347,8 @@ class _SmartColumnMetricAssertionInput(_AssertionInput):
             updated_at: The update time of the assertion.
         """
         # Parent will handle validation of common parameters:
-        super().__init__(
+        _AssertionInput.__init__(
+            self,
             dataset_urn=dataset_urn,
             entity_client=entity_client,
             urn=urn,
@@ -354,9 +356,6 @@ class _SmartColumnMetricAssertionInput(_AssertionInput):
             enabled=enabled,
             schedule=schedule,
             detection_mechanism=detection_mechanism,
-            sensitivity=sensitivity,
-            exclusion_windows=exclusion_windows,
-            training_data_lookback_days=training_data_lookback_days,
             incident_behavior=incident_behavior,
             tags=tags,
             source_type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
@@ -365,6 +364,12 @@ class _SmartColumnMetricAssertionInput(_AssertionInput):
             updated_by=updated_by,
             updated_at=updated_at,
             default_detection_mechanism=DEFAULT_DETECTION_MECHANISM_SMART_COLUMN_METRIC_ASSERTION,
+        )
+        _HasSmartAssertionInputs.__init__(
+            self,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
         )
 
         # Validate Smart Column Metric Assertion specific parameters
@@ -433,6 +438,40 @@ class _SmartColumnMetricAssertionInput(_AssertionInput):
             else None,
         )
 
+    def _create_monitor_info(
+        self,
+        assertion_urn: AssertionUrn,
+        status: models.MonitorStatusClass,
+        schedule: models.CronScheduleClass,
+        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
+        field: Optional[FieldSpecType],
+    ) -> models.MonitorInfoClass:
+        """
+        Create a MonitorInfoClass with all the necessary components.
+        """
+        return models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=status,
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(assertion_urn),
+                        schedule=schedule,
+                        parameters=self._get_assertion_evaluation_parameters(
+                            str(source_type), field
+                        ),
+                    ),
+                ],
+                settings=models.AssertionMonitorSettingsClass(
+                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                        sensitivity=self._convert_sensitivity(),
+                        exclusionWindows=self._convert_exclusion_windows(),
+                        trainingDataLookbackWindowDays=self.training_data_lookback_days,
+                    ),
+                ),
+            ),
+        )
+
     def _create_assertion_info(
         self, filter: Optional[models.DatasetFilterClass]
     ) -> AssertionInfoInputType:
@@ -473,7 +512,7 @@ class _SmartColumnMetricAssertionInput(_AssertionInput):
             A CronScheduleClass with appropriate schedule settings.
         """
         if self.schedule is None:
-            return DEFAULT_SCHEDULE
+            return DEFAULT_HOURLY_SCHEDULE
 
         return models.CronScheduleClass(
             cron=self.schedule.cron,

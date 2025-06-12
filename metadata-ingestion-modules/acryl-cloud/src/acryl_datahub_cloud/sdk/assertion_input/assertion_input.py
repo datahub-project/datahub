@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Literal, Optional, Type, TypeAlias, TypeVar, Union
+from typing import Callable, Literal, Optional, Type, TypeAlias, TypeVar, Union
 
 import pydantic
 import pytz
@@ -43,8 +43,17 @@ ASSERTION_MONITOR_DEFAULT_TRAINING_LOOKBACK_WINDOW_DAYS = 60
 DEFAULT_NAME_PREFIX = "New Assertion"
 DEFAULT_NAME_SUFFIX_LENGTH = 8
 
-DEFAULT_SCHEDULE = models.CronScheduleClass(
+
+DEFAULT_HOURLY_SCHEDULE = models.CronScheduleClass(
     cron="0 * * * *",  # Every hour, matches the UI default
+    timezone=str(
+        tzlocal.get_localzone()
+    ),  # User local timezone, matches the UI default
+)
+DEFAULT_SCHEDULE: models.CronScheduleClass = DEFAULT_HOURLY_SCHEDULE
+
+DEFAULT_DAILY_SCHEDULE = models.CronScheduleClass(
+    cron="0 0 * * *",  # Every day at midnight, matches the UI default
     timezone=str(
         tzlocal.get_localzone()
     ),  # User local timezone, matches the UI default
@@ -157,7 +166,7 @@ _DETECTION_MECHANISM_TYPES_WITH_ADDITIONAL_FILTER = (
     _ChangedRowsQuery,
 )
 
-DEFAULT_DETECTION_MECHANISM = _InformationSchema()
+DEFAULT_DETECTION_MECHANISM: _DetectionMechanismTypes = _InformationSchema()
 
 
 class DetectionMechanism:
@@ -370,7 +379,59 @@ class InferenceSensitivity(Enum):
         }[sensitivity]
 
 
-DEFAULT_SENSITIVITY = InferenceSensitivity.MEDIUM
+DEFAULT_SENSITIVITY: InferenceSensitivity = InferenceSensitivity.MEDIUM
+
+TIME_WINDOW_SIZE_EXAMPLES = {
+    "Time window size from models.TimeWindowSizeClass": "models.TimeWindowSizeClass(unit='MINUTE', multiple=10)",
+    "Time window size from object": "TimeWindowSize(unit='MINUTE', multiple=10)",
+}
+
+
+class CalendarInterval(Enum):
+    MINUTE = "MINUTE"
+    HOUR = "HOUR"
+    DAY = "DAY"
+
+
+class TimeWindowSize(BaseModel):
+    unit: Union[CalendarInterval, str]
+    multiple: int
+
+
+TimeWindowSizeInputTypes: TypeAlias = Union[
+    models.TimeWindowSizeClass,
+    models.FixedIntervalScheduleClass,
+    TimeWindowSize,
+]
+
+
+def _try_parse_time_window_size(
+    config: TimeWindowSizeInputTypes,
+) -> models.TimeWindowSizeClass:
+    if isinstance(config, models.TimeWindowSizeClass):
+        return config
+    elif isinstance(config, models.FixedIntervalScheduleClass):
+        return models.TimeWindowSizeClass(
+            unit=_try_parse_and_validate_schema_classes_enum(
+                config.unit, models.CalendarIntervalClass
+            ),
+            multiple=config.multiple,
+        )
+    elif isinstance(config, TimeWindowSize):
+        return models.TimeWindowSizeClass(
+            unit=_try_parse_and_validate_schema_classes_enum(
+                _try_parse_and_validate_schema_classes_enum(
+                    config.unit, CalendarInterval
+                ).value,
+                models.CalendarIntervalClass,
+            ),
+            multiple=config.multiple,
+        )
+    else:
+        raise SDKUsageErrorWithExamples(
+            msg=f"Invalid time window size: {config}",
+            examples=TIME_WINDOW_SIZE_EXAMPLES,
+        )
 
 
 class FixedRangeExclusionWindow(BaseModel):
@@ -719,6 +780,78 @@ def _is_source_type_valid(
     return True
 
 
+class _HasSmartAssertionInputs:
+    """
+    A class that contains the common inputs for smart assertions.
+    This is used to avoid code duplication in the smart assertion inputs.
+
+    Args:
+        sensitivity: The sensitivity to be applied to the assertion.
+        exclusion_windows: The exclusion windows to be applied to the assertion. If not provided, no exclusion windows will be applied.
+        training_data_lookback_days: The training data lookback days to be applied to the assertion.
+    """
+
+    def __init__(
+        self,
+        *,
+        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
+        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
+        training_data_lookback_days: Optional[int] = None,
+    ):
+        self.sensitivity = InferenceSensitivity.parse(sensitivity)
+        self.exclusion_windows = _try_parse_exclusion_window(exclusion_windows)
+        self.training_data_lookback_days = _try_parse_training_data_lookback_days(
+            training_data_lookback_days
+        )
+
+    def _convert_exclusion_windows(
+        self,
+    ) -> list[models.AssertionExclusionWindowClass]:
+        """
+        Convert exclusion windows into AssertionExclusionWindowClass objects including generating display names for them.
+
+        Returns:
+            A list of AssertionExclusionWindowClass objects.
+
+        Raises:
+            SDKUsageErrorWithExamples: If an exclusion window is of an invalid type.
+        """
+        exclusion_windows: list[models.AssertionExclusionWindowClass] = []
+        if self.exclusion_windows:
+            for window in self.exclusion_windows:
+                if not isinstance(window, FixedRangeExclusionWindow):
+                    raise SDKUsageErrorWithExamples(
+                        msg=f"Invalid exclusion window type: {window}",
+                        examples=FIXED_RANGE_EXCLUSION_WINDOW_EXAMPLES,
+                    )
+                # To match the UI, we generate a display name for the exclusion window.
+                # See here for the UI code: https://github.com/acryldata/datahub-fork/blob/acryl-main/datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/ExclusionWindowAdjuster.tsx#L31
+                # Copied here for reference: displayName: `${dayjs(startTime).format('MMM D, h:mm A')} - ${dayjs(endTime).format('MMM D, h:mm A')}`,
+                generated_display_name = f"{window.start.strftime('%b %-d, %-I:%M %p')} - {window.end.strftime('%b %-d, %-I:%M %p')}"
+                exclusion_windows.append(
+                    models.AssertionExclusionWindowClass(
+                        type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,  # Currently only fixed range is supported
+                        displayName=generated_display_name,
+                        fixedRange=models.AbsoluteTimeWindowClass(
+                            startTimeMillis=make_ts_millis(window.start),
+                            endTimeMillis=make_ts_millis(window.end),
+                        ),
+                    )
+                )
+        return exclusion_windows
+
+    def _convert_sensitivity(self) -> models.AssertionMonitorSensitivityClass:
+        """
+        Convert sensitivity into an AssertionMonitorSensitivityClass.
+
+        Returns:
+            An AssertionMonitorSensitivityClass with the appropriate sensitivity.
+        """
+        return models.AssertionMonitorSensitivityClass(
+            level=InferenceSensitivity.to_int(self.sensitivity),
+        )
+
+
 class _AssertionInput(ABC):
     def __init__(
         self,
@@ -734,9 +867,6 @@ class _AssertionInput(ABC):
         enabled: bool = True,
         schedule: Optional[Union[str, models.CronScheduleClass]] = None,
         detection_mechanism: DetectionMechanismInputTypes = None,
-        sensitivity: Optional[Union[str, InferenceSensitivity]] = None,
-        exclusion_windows: Optional[ExclusionWindowInputTypes] = None,
-        training_data_lookback_days: Optional[int] = None,
         incident_behavior: Optional[
             Union[AssertionIncidentBehavior, list[AssertionIncidentBehavior]]
         ] = None,
@@ -758,9 +888,6 @@ class _AssertionInput(ABC):
             display_name: The display name of the assertion. If not provided, a random display name will be generated.
             enabled: Whether the assertion is enabled. Defaults to True.
             detection_mechanism: The detection mechanism to be used for the assertion.
-            sensitivity: The sensitivity to be applied to the assertion.
-            exclusion_windows: The exclusion windows to be applied to the assertion. If not provided, no exclusion windows will be applied.
-            training_data_lookback_days: The training data lookback days to be applied to the assertion.
             incident_behavior: The incident behavior to be applied to the assertion.
             tags: The tags to be applied to the assertion.
             source_type: The source type of the assertion. Defaults to models.AssertionSourceTypeClass.NATIVE.
@@ -792,11 +919,6 @@ class _AssertionInput(ABC):
             raise SDKUsageError(
                 f"Invalid source type: {self.detection_mechanism} for dataset type: {self.dataset_urn.platform} and assertion type: {self._assertion_type()}"
             )
-        self.sensitivity = InferenceSensitivity.parse(sensitivity)
-        self.exclusion_windows = _try_parse_exclusion_window(exclusion_windows)
-        self.training_data_lookback_days = _try_parse_training_data_lookback_days(
-            training_data_lookback_days
-        )
         self.incident_behavior = _try_parse_incident_behavior(incident_behavior)
         self.tags = tags
         if source_type not in get_enum_options(models.AssertionSourceTypeClass):
@@ -808,7 +930,6 @@ class _AssertionInput(ABC):
         self.created_at = created_at
         self.updated_by = updated_by
         self.updated_at = updated_at
-
         self.cached_dataset: Optional[Dataset] = None
 
     def to_assertion_and_monitor_entities(self) -> tuple[Assertion, Monitor]:
@@ -974,8 +1095,6 @@ class _AssertionInput(ABC):
                 schedule=self._convert_schedule(),
                 source_type=source_type,
                 field=field,
-                sensitivity=self._convert_sensitivity(),
-                exclusion_windows=self._convert_exclusion_windows(),
             ),
         )
 
@@ -990,53 +1109,6 @@ class _AssertionInput(ABC):
             mode=models.MonitorModeClass.ACTIVE
             if self.enabled
             else models.MonitorModeClass.INACTIVE,
-        )
-
-    def _convert_exclusion_windows(
-        self,
-    ) -> list[models.AssertionExclusionWindowClass]:
-        """
-        Convert exclusion windows into AssertionExclusionWindowClass objects including generating display names for them.
-
-        Returns:
-            A list of AssertionExclusionWindowClass objects.
-
-        Raises:
-            SDKUsageErrorWithExamples: If an exclusion window is of an invalid type.
-        """
-        exclusion_windows: list[models.AssertionExclusionWindowClass] = []
-        if self.exclusion_windows:
-            for window in self.exclusion_windows:
-                if not isinstance(window, FixedRangeExclusionWindow):
-                    raise SDKUsageErrorWithExamples(
-                        msg=f"Invalid exclusion window type: {window}",
-                        examples=FIXED_RANGE_EXCLUSION_WINDOW_EXAMPLES,
-                    )
-                # To match the UI, we generate a display name for the exclusion window.
-                # See here for the UI code: https://github.com/acryldata/datahub-fork/blob/acryl-main/datahub-web-react/src/app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/steps/inferred/common/ExclusionWindowAdjuster.tsx#L31
-                # Copied here for reference: displayName: `${dayjs(startTime).format('MMM D, h:mm A')} - ${dayjs(endTime).format('MMM D, h:mm A')}`,
-                generated_display_name = f"{window.start.strftime('%b %-d, %-I:%M %p')} - {window.end.strftime('%b %-d, %-I:%M %p')}"
-                exclusion_windows.append(
-                    models.AssertionExclusionWindowClass(
-                        type=models.AssertionExclusionWindowTypeClass.FIXED_RANGE,  # Currently only fixed range is supported
-                        displayName=generated_display_name,
-                        fixedRange=models.AbsoluteTimeWindowClass(
-                            startTimeMillis=make_ts_millis(window.start),
-                            endTimeMillis=make_ts_millis(window.end),
-                        ),
-                    )
-                )
-        return exclusion_windows
-
-    def _convert_sensitivity(self) -> models.AssertionMonitorSensitivityClass:
-        """
-        Convert sensitivity into an AssertionMonitorSensitivityClass.
-
-        Returns:
-            An AssertionMonitorSensitivityClass with the appropriate sensitivity.
-        """
-        return models.AssertionMonitorSensitivityClass(
-            level=InferenceSensitivity.to_int(self.sensitivity),
         )
 
     def _get_schema_field_spec(self, column_name: str) -> models.SchemaFieldSpecClass:
@@ -1094,6 +1166,7 @@ class _AssertionInput(ABC):
                 f"Allowed types are {allowed_type_names}.",
             )
 
+    @abstractmethod
     def _create_monitor_info(
         self,
         assertion_urn: AssertionUrn,
@@ -1101,8 +1174,6 @@ class _AssertionInput(ABC):
         schedule: models.CronScheduleClass,
         source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
         field: Optional[FieldSpecType],
-        sensitivity: models.AssertionMonitorSensitivityClass,
-        exclusion_windows: list[models.AssertionExclusionWindowClass],
     ) -> models.MonitorInfoClass:
         """
         Create a MonitorInfoClass with all the necessary components.
@@ -1112,34 +1183,15 @@ class _AssertionInput(ABC):
             schedule: The monitor schedule.
             source_type: The source type.
             field: Optional field specification.
-            sensitivity: The monitor sensitivity.
-            exclusion_windows: List of exclusion windows.
-
         Returns:
             A MonitorInfoClass configured with all the provided components.
         """
-        return models.MonitorInfoClass(
-            type=models.MonitorTypeClass.ASSERTION,
-            status=status,
-            assertionMonitor=models.AssertionMonitorClass(
-                assertions=[
-                    models.AssertionEvaluationSpecClass(
-                        assertion=str(assertion_urn),
-                        schedule=schedule,
-                        parameters=self._get_assertion_evaluation_parameters(
-                            str(source_type), field
-                        ),
-                    )
-                ],
-                settings=models.AssertionMonitorSettingsClass(
-                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
-                        sensitivity=sensitivity,
-                        exclusionWindows=exclusion_windows,
-                        trainingDataLookbackWindowDays=self.training_data_lookback_days,
-                    ),
-                ),
-            ),
-        )
+        pass
+
+    @abstractmethod
+    def _assertion_type(self) -> str:
+        """Get the assertion type."""
+        pass
 
     @abstractmethod
     def _create_assertion_info(
@@ -1167,13 +1219,56 @@ class _AssertionInput(ABC):
         """Convert detection mechanism to source type and field spec."""
         pass
 
-    @abstractmethod
-    def _assertion_type(self) -> str:
-        """Get the assertion type."""
-        pass
+
+class _HasFreshnessFeatures:
+    def _create_field_spec(
+        self,
+        column_name: str,
+        allowed_types: list[DictWrapper],  # TODO: Use the type from the PDL
+        field_type_name: str,
+        kind: str,
+        get_schema_field_spec: Callable[[str], models.SchemaFieldSpecClass],
+        validate_field_type: Callable[
+            [models.SchemaFieldSpecClass, str, list[DictWrapper], str], None
+        ],
+    ) -> models.FreshnessFieldSpecClass:
+        """
+        Create a field specification for a column, validating its type.
+
+        Args:
+            column_name: The name of the column to create a spec for
+            allowed_types: List of allowed field types
+            field_type_name: Human-readable name of the field type for error messages
+            kind: The kind of field to create
+
+        Returns:
+            A FreshnessFieldSpecClass for the column
+
+        Raises:
+            SDKUsageError: If the column is not found or has an invalid type
+        """
+        SUPPORTED_KINDS = [
+            models.FreshnessFieldKindClass.LAST_MODIFIED,
+            models.FreshnessFieldKindClass.HIGH_WATERMARK,
+        ]
+        if kind not in SUPPORTED_KINDS:
+            raise SDKUsageError(
+                msg=f"Invalid kind: {kind}. Must be one of {SUPPORTED_KINDS}",
+            )
+
+        field_spec = get_schema_field_spec(column_name)
+        validate_field_type(field_spec, column_name, allowed_types, field_type_name)
+        return models.FreshnessFieldSpecClass(
+            path=field_spec.path,
+            type=field_spec.type,
+            nativeType=field_spec.nativeType,
+            kind=kind,
+        )
 
 
-class _SmartFreshnessAssertionInput(_AssertionInput):
+class _SmartFreshnessAssertionInput(
+    _AssertionInput, _HasSmartAssertionInputs, _HasFreshnessFeatures
+):
     def __init__(
         self,
         *,
@@ -1198,7 +1293,8 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
     ):
-        super().__init__(
+        _AssertionInput.__init__(
+            self,
             dataset_urn=dataset_urn,
             entity_client=entity_client,
             urn=urn,
@@ -1206,11 +1302,8 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             enabled=enabled,
             schedule=schedule
             if schedule is not None
-            else DEFAULT_SCHEDULE,  # Use provided schedule or default for create case
+            else DEFAULT_HOURLY_SCHEDULE,  # Use provided schedule or default for create case
             detection_mechanism=detection_mechanism,
-            sensitivity=sensitivity,
-            exclusion_windows=exclusion_windows,
-            training_data_lookback_days=training_data_lookback_days,
             incident_behavior=incident_behavior,
             tags=tags,
             source_type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
@@ -1219,6 +1312,16 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
             updated_by=updated_by,
             updated_at=updated_at,
         )
+        _HasSmartAssertionInputs.__init__(
+            self,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
+        )
+
+    def _assertion_type(self) -> str:
+        """Get the assertion type."""
+        return models.AssertionTypeClass.FRESHNESS
 
     def _create_assertion_info(
         self, filter: Optional[models.DatasetFilterClass]
@@ -1242,7 +1345,7 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
     def _convert_schedule(self) -> models.CronScheduleClass:
         """Create a schedule for a smart freshness assertion.
 
-        For create case, uses DEFAULT_SCHEDULE. For update case, preserves existing schedule.
+        For create case, uses DEFAULT_HOURLY_SCHEDULE. For update case, preserves existing schedule.
 
         Returns:
             A CronScheduleClass with appropriate schedule settings.
@@ -1298,6 +1401,8 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
                 LAST_MODIFIED_ALLOWED_FIELD_TYPES,
                 "last modified column",
                 models.FreshnessFieldKindClass.LAST_MODIFIED,
+                self._get_schema_field_spec,
+                self._validate_field_type,
             )
         elif isinstance(self.detection_mechanism, _InformationSchema):
             source_type = models.DatasetFreshnessSourceTypeClass.INFORMATION_SCHEMA
@@ -1312,54 +1417,42 @@ class _SmartFreshnessAssertionInput(_AssertionInput):
 
         return source_type, field
 
-    def _create_field_spec(
+    def _create_monitor_info(
         self,
-        column_name: str,
-        allowed_types: list[DictWrapper],  # TODO: Use the type from the PDL
-        field_type_name: str,
-        kind: str,
-    ) -> models.FreshnessFieldSpecClass:
+        assertion_urn: AssertionUrn,
+        status: models.MonitorStatusClass,
+        schedule: models.CronScheduleClass,
+        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
+        field: Optional[FieldSpecType],
+    ) -> models.MonitorInfoClass:
         """
-        Create a field specification for a column, validating its type.
-
-        Args:
-            column_name: The name of the column to create a spec for
-            allowed_types: List of allowed field types
-            field_type_name: Human-readable name of the field type for error messages
-            kind: The kind of field to create
-
-        Returns:
-            A FreshnessFieldSpecClass for the column
-
-        Raises:
-            SDKUsageError: If the column is not found or has an invalid type
+        Create a MonitorInfoClass with all the necessary components.
         """
-        SUPPORTED_KINDS = [
-            models.FreshnessFieldKindClass.LAST_MODIFIED,
-            models.FreshnessFieldKindClass.HIGH_WATERMARK,
-        ]
-        if kind not in SUPPORTED_KINDS:
-            raise SDKUsageError(
-                msg=f"Invalid kind: {kind}. Must be one of {SUPPORTED_KINDS}",
-            )
-
-        field_spec = self._get_schema_field_spec(column_name)
-        self._validate_field_type(
-            field_spec, column_name, allowed_types, field_type_name
-        )
-        return models.FreshnessFieldSpecClass(
-            path=field_spec.path,
-            type=field_spec.type,
-            nativeType=field_spec.nativeType,
-            kind=kind,
+        return models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=status,
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(assertion_urn),
+                        schedule=schedule,
+                        parameters=self._get_assertion_evaluation_parameters(
+                            str(source_type), field
+                        ),
+                    ),
+                ],
+                settings=models.AssertionMonitorSettingsClass(
+                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                        sensitivity=self._convert_sensitivity(),
+                        exclusionWindows=self._convert_exclusion_windows(),
+                        trainingDataLookbackWindowDays=self.training_data_lookback_days,
+                    ),
+                ),
+            ),
         )
 
-    def _assertion_type(self) -> str:
-        """Get the assertion type."""
-        return models.AssertionTypeClass.FRESHNESS
 
-
-class _SmartVolumeAssertionInput(_AssertionInput):
+class _SmartVolumeAssertionInput(_AssertionInput, _HasSmartAssertionInputs):
     def __init__(
         self,
         *,
@@ -1384,7 +1477,8 @@ class _SmartVolumeAssertionInput(_AssertionInput):
         updated_by: Union[str, CorpUserUrn],
         updated_at: datetime,
     ):
-        super().__init__(
+        _AssertionInput.__init__(
+            self,
             dataset_urn=dataset_urn,
             entity_client=entity_client,
             urn=urn,
@@ -1392,9 +1486,6 @@ class _SmartVolumeAssertionInput(_AssertionInput):
             enabled=enabled,
             schedule=schedule,
             detection_mechanism=detection_mechanism,
-            sensitivity=sensitivity,
-            exclusion_windows=exclusion_windows,
-            training_data_lookback_days=training_data_lookback_days,
             incident_behavior=incident_behavior,
             tags=tags,
             source_type=models.AssertionSourceTypeClass.INFERRED,  # Smart assertions are of type inferred, not native
@@ -1402,6 +1493,12 @@ class _SmartVolumeAssertionInput(_AssertionInput):
             created_at=created_at,
             updated_by=updated_by,
             updated_at=updated_at,
+        )
+        _HasSmartAssertionInputs.__init__(
+            self,
+            sensitivity=sensitivity,
+            exclusion_windows=exclusion_windows,
+            training_data_lookback_days=training_data_lookback_days,
         )
 
     def _create_assertion_info(
@@ -1423,15 +1520,13 @@ class _SmartVolumeAssertionInput(_AssertionInput):
         )
 
     def _convert_schedule(self) -> models.CronScheduleClass:
-        """Create a schedule for a smart freshness assertion.
-
-        Since the schedule is not used for smart freshness assertions, we return a default schedule.
+        """Create a schedule for a smart volume assertion.
 
         Returns:
             A CronScheduleClass with appropriate schedule settings.
         """
         if self.schedule is None:
-            return DEFAULT_SCHEDULE
+            return DEFAULT_HOURLY_SCHEDULE
 
         return models.CronScheduleClass(
             cron=self.schedule.cron,
@@ -1480,6 +1575,40 @@ class _SmartVolumeAssertionInput(_AssertionInput):
             )
 
         return source_type, field
+
+    def _create_monitor_info(
+        self,
+        assertion_urn: AssertionUrn,
+        status: models.MonitorStatusClass,
+        schedule: models.CronScheduleClass,
+        source_type: Union[str, models.DatasetFreshnessSourceTypeClass],
+        field: Optional[FieldSpecType],
+    ) -> models.MonitorInfoClass:
+        """
+        Create a MonitorInfoClass with all the necessary components.
+        """
+        return models.MonitorInfoClass(
+            type=models.MonitorTypeClass.ASSERTION,
+            status=status,
+            assertionMonitor=models.AssertionMonitorClass(
+                assertions=[
+                    models.AssertionEvaluationSpecClass(
+                        assertion=str(assertion_urn),
+                        schedule=schedule,
+                        parameters=self._get_assertion_evaluation_parameters(
+                            str(source_type), field
+                        ),
+                    ),
+                ],
+                settings=models.AssertionMonitorSettingsClass(
+                    adjustmentSettings=models.AssertionAdjustmentSettingsClass(
+                        sensitivity=self._convert_sensitivity(),
+                        exclusionWindows=self._convert_exclusion_windows(),
+                        trainingDataLookbackWindowDays=self.training_data_lookback_days,
+                    ),
+                ),
+            ),
+        )
 
     def _assertion_type(self) -> str:
         """Get the assertion type."""
