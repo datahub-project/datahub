@@ -314,6 +314,7 @@ export const IngestionSourceList = ({
                         type: EventType.UpdateIngestionSourceEvent,
                         sourceType: input.type,
                         interval: input.schedule?.interval,
+                        numOwners: owners?.length,
                     });
                     message.success({
                         content: `Successfully updated ingestion source!`,
@@ -375,6 +376,7 @@ export const IngestionSourceList = ({
                             type: EventType.CreateIngestionSourceEvent,
                             sourceType: input.type,
                             interval: input.schedule?.interval,
+                            numOwners: ownersToAdd?.length,
                         });
                         message.success({
                             content: `Successfully created ingestion source!`,
