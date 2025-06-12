@@ -214,7 +214,7 @@ You can filter by platform, type, domain, environment, and more.
 {{ inline /metadata-ingestion/examples/library/get_lineage_with_filter.py show_path_as_comment }}
 ```
 
-You can check more details about the available filters in the [Search SDK documentation]().
+You can check more details about the available filters in the [Search SDK documentation](./sdk/search_client.md#filter-based-search).
 
 ## Lineage SDK Reference
 
