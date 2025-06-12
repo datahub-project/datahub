@@ -4,14 +4,18 @@ import styled from 'styled-components';
 
 import { LINEAGE_COLORS } from '@app/entityV2/shared/constants';
 import { useAvoidIntersectionsOften } from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
-import { LINEAGE_NODE_WIDTH } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import LineageFilterSearch from '@app/lineageV3/LineageFilterNode/LineageFilterSearch';
 import { ShowMoreButton } from '@app/lineageV3/LineageFilterNode/ShowMoreButton';
 import useFetchFilterNodeContents, {
     PlatformAggregate,
     SubtypeAggregate,
 } from '@app/lineageV3/LineageFilterNode/useFetchFilterNodeContents';
-import { LineageFilter, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
+import {
+    LINEAGE_NODE_WIDTH,
+    LineageFilter,
+    LineageNodesContext,
+    useIgnoreSchemaFieldStatus,
+} from '@app/lineageV3/common';
 import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -27,7 +31,6 @@ const NodeWrapper = styled.div`
     cursor: pointer;
     padding: 8px;
     width: ${LINEAGE_NODE_WIDTH}px;
-    pointer-events: all;
 `;
 
 const ExtraCard = styled.div<{ bottom: number }>`
@@ -94,7 +97,7 @@ export default function LineageFilterNode(props: NodeProps<LineageFilter>) {
     // If a user has searched, result list may be limited to the number of matches
     const [numMatches, setNumMatches] = useState<number>(0);
 
-    useAvoidIntersectionsOften(id, numMatches ? 133 : 117);
+    useAvoidIntersectionsOften(id, numMatches ? 153 : 137, rootType);
 
     const numerator = numShown ?? shown.size;
     const denominator = showGhostEntities ? allChildren.size : (total ?? allChildren.size);

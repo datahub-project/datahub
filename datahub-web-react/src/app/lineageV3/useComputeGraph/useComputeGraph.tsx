@@ -1,16 +1,13 @@
 import { useContext, useMemo } from 'react';
 import { Edge } from 'reactflow';
 
-import NodeBuilder, { LineageVisualizationNode } from '@app/lineageV3/NodeBuilder';
 import { LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
-import hideNodes, { HideNodesConfig } from '@app/lineageV3/useComputeGraph/filterNodes';
-import getDisplayedNodes from '@app/lineageV3/useComputeGraph/getDisplayedNodes';
+import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
+import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
+import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
-import orderNodes from '@app/lineageV3/useComputeGraph/orderNodes';
-import usePrevious from '@app/shared/usePrevious';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
-import { EntityType, LineageDirection } from '@types';
+import { EntityType } from '@types';
 
 interface ProcessedData {
     fineGrainedLineage: FineGrainedLineageData;
@@ -19,9 +16,15 @@ interface ProcessedData {
     resetPositions: boolean;
 }
 
-export default function useComputeGraph(urn: string, type: EntityType): ProcessedData {
+/**
+ * Computes nodes and edges to render via ReactFlow.
+ * See child functions for more details.
+ */
+export default function useComputeGraph(): ProcessedData {
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const {
+        rootUrn,
+        rootType,
         nodes,
         edges,
         adjacencyList,
@@ -32,66 +35,42 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
         showDataProcessInstances,
         showGhostEntities,
     } = useContext(LineageNodesContext);
-    const entityRegistry = useEntityRegistryV2();
     const displayVersionNumber = displayVersion[0];
 
     const fineGrainedLineage = useMemo(
         () => {
-            const fgl = getFineGrainedLineage({ nodes, edges }, entityRegistry);
+            const fgl = getFineGrainedLineage({ nodes, edges, rootType });
             console.debug(fgl);
             return fgl;
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
-        [nodes, dataVersion],
+        [nodes, edges, rootType, dataVersion],
     );
 
-    const prevHideTransformations = usePrevious(hideTransformations);
     const { flowNodes, flowEdges, resetPositions } = useMemo(
         () => {
-            const smallContext = { nodes, edges, adjacencyList };
-            console.debug(smallContext);
-
-            // Computed before nodes are hidden by `hideNodes`, to keep node order consistent.
-            // Includes nodes that will be hidden, but they'll be filtered out by `getDisplayedNodes`.
-            const orderedNodes = {
-                [LineageDirection.Upstream]: orderNodes(urn, LineageDirection.Upstream, smallContext),
-                [LineageDirection.Downstream]: orderNodes(urn, LineageDirection.Downstream, smallContext),
-            };
-
-            const config: HideNodesConfig = {
+            const context = {
+                rootType,
+                nodes,
+                edges,
+                adjacencyList,
                 hideTransformations,
-                hideDataProcessInstances: !showDataProcessInstances,
-                hideGhostEntities: !showGhostEntities,
-                ignoreSchemaFieldStatus,
+                showDataProcessInstances,
+                showGhostEntities,
             };
-            const newSmallContext = hideNodes(urn, config, smallContext);
-            console.debug(newSmallContext);
-
-            const { displayedNodes, parents } = getDisplayedNodes(urn, orderedNodes, newSmallContext);
-            const nodeBuilder = new NodeBuilder(urn, type, displayedNodes, parents);
-
-            const orderIndices = {
-                [urn]: 0,
-                ...Object.fromEntries(orderedNodes[LineageDirection.Downstream].map((e, idx) => [e.id, idx + 1])),
-                ...Object.fromEntries(orderedNodes[LineageDirection.Upstream].map((e, idx) => [e.id, -idx - 1])),
-            };
-            return {
-                flowNodes: nodeBuilder
-                    .createNodes(newSmallContext, ignoreSchemaFieldStatus)
-                    .sort((a, b) => (orderIndices[a.id] || 0) - (orderIndices[b.id] || 0)),
-                flowEdges: nodeBuilder.createEdges(newSmallContext.edges),
-                resetPositions: prevHideTransformations !== hideTransformations,
-            };
+            if (rootType === EntityType.DataFlow) {
+                return computeDataFlowGraph(rootUrn, rootType, context, ignoreSchemaFieldStatus);
+            }
+            return computeImpactAnalysisGraph(rootUrn, rootType, context, ignoreSchemaFieldStatus);
         }, // eslint-disable-next-line react-hooks/exhaustive-deps
         [
-            urn,
-            type,
+            rootUrn,
+            rootType,
             nodes,
             edges,
             adjacencyList,
             nodeVersion,
             displayVersionNumber,
             hideTransformations,
-            prevHideTransformations,
             showDataProcessInstances,
             showGhostEntities,
             ignoreSchemaFieldStatus,

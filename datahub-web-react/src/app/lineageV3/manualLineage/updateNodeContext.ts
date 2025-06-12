@@ -7,7 +7,7 @@ import {
     removeFromAdjacencyList,
     setDefault,
 } from '@app/lineageV3/common';
-import { entityNodeDefault } from '@app/lineageV3/useSearchAcrossLineage';
+import { entityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 
 import { CorpUser, Entity, LineageDirection } from '@types';
 
@@ -19,7 +19,7 @@ export default function updateNodeContext(
     entitiesToAdd: Entity[],
     entitiesToRemove: Entity[],
 ) {
-    const { nodes, edges, adjacencyList, setNodeVersion } = context;
+    const { nodes, edges, adjacencyList, rootType, setNodeVersion } = context;
 
     const node = nodes.get(urn);
     if (node) {
@@ -35,8 +35,8 @@ export default function updateNodeContext(
     // TODO: Remove separate section when bulk entity lineage is broken up into edges vs data
     setTimeout(() => {
         entitiesToAdd.forEach((entity) => {
-            const n = setDefault(nodes, entity.urn, entityNodeDefault(entity.urn, entity.type, direction));
-            if (isTransformational(entity)) n.fetchStatus[direction] = FetchStatus.LOADING;
+            const n = setDefault(nodes, entity.urn, entityNodeDefault(entity.urn, entity.type, direction, rootType));
+            if (isTransformational(entity, rootType)) n.fetchStatus[direction] = FetchStatus.LOADING;
             addToAdjacencyList(adjacencyList, direction, urn, entity.urn);
             edges.set(getEdgeId(urn, entity.urn, direction), {
                 isManual: true,

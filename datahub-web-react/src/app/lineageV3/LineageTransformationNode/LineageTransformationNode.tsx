@@ -2,6 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Icon, Popover } from '@components';
 import { Skeleton, Spin } from 'antd';
 import React, { useContext } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import { Handle, NodeProps, Position } from 'reactflow';
 import styled from 'styled-components';
 
@@ -18,6 +19,7 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
+import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetQueryQuery } from '@graphql/query.generated';
@@ -46,9 +48,8 @@ const TransformationalNodeWrapper = styled(NodeWrapper)<{
     width: ${TRANSFORMATION_NODE_SIZE}px;
 `;
 
-const IconWrapper = styled.div<{ isGhost: boolean }>`
+const IconWrapper = styled.div`
     display: flex;
-    opacity: ${({ isGhost }) => (isGhost ? 0.5 : 1)};
     font-size: 18px;
 `;
 
@@ -77,7 +78,11 @@ const PopoverWrapper = styled(NodeWrapper)`
 export default function LineageTransformationNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
     const { urn, type, entity, fetchStatus } = data;
+
+    const history = useHistory();
+    const location = useLocation();
     const entityRegistry = useEntityRegistryV2();
+
     const isQuery = type === EntityType.Query;
     const isDataProcessInstance = type === EntityType.DataProcessInstance;
 
@@ -105,6 +110,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             dragging={dragging}
             onMouseEnter={() => setHoveredNode(urn)}
             onMouseLeave={() => setHoveredNode(null)}
+            onDoubleClick={isGhost ? undefined : () => history.push(getLineageUrl(urn, type, location, entityRegistry))}
             isGhost={isGhost}
             isSearchedEntity={isSearchedEntity}
         >
@@ -113,7 +119,7 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
                     <HomePill showText={false} />
                 </HomeIndicatorWrapper>
             )}
-            <IconWrapper isGhost={isGhost}>
+            <IconWrapper>
                 {icon && <CustomIcon src={icon} alt={entity?.platform?.name} />}
                 {!icon && isDataProcessInstance && entityRegistry.getIcon(EntityType.DataProcessInstance, 18)}
                 {!icon && isQuery && <Icon icon="Tilde" source="phosphor" color="gray" size="inherit" />}
@@ -149,10 +155,9 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
             isSearchedEntity={isSearchedEntity}
         >
             <LineageCard
+                urn={urn}
                 type={type}
                 loading={!entity}
-                onMouseEnter={() => setHoveredNode(urn)}
-                onMouseLeave={() => setHoveredNode(null)}
                 name={entity ? entity?.name || urn : ''}
                 nameExtra={
                     entity?.versionProperties && (
@@ -172,7 +177,8 @@ export default function LineageTransformationNode(props: NodeProps<LineageEntity
     return (
         <Popover
             content={popoverContent}
-            overlayInnerStyle={{ boxShadow: 'none', background: 'none', transform: 'translateY(20px)' }}
+            overlayInnerStyle={{ boxShadow: 'none', background: 'none', padding: 0 }}
+            overlayStyle={{ padding: 0 }}
             overlayClassName="sectioned-tooltip"
         >
             {contents}

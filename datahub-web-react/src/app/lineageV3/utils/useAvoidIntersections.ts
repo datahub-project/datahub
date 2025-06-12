@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Node, useReactFlow } from 'reactflow';
 
-import { LINEAGE_NODE_WIDTH } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
-import { NodeBase } from '@app/lineageV3/common';
+import { LINEAGE_NODE_WIDTH, NodeBase } from '@app/lineageV3/common';
 
 interface ReturnType {
     onNodeHeightChange: (id: string, height: number) => void;

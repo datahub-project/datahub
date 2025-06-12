@@ -19,8 +19,8 @@ import {
     onClickPreventSelect,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
-import { useGetLineageUrl } from '@app/lineageV3/lineageUtils';
 import { ColumnAsset } from '@app/lineageV3/types';
+import { useGetLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import { CompactFieldIconWithTooltip } from '@app/sharedV2/icons/CompactFieldIcon';
 import { useAppConfig } from '@app/useAppConfig';
 
@@ -53,7 +53,7 @@ const ColumnWrapper = styled.div<{
         }
         return `border: 1px solid ${colors.gray[100]};`;
     }}
-    color: ${({ disabled }) => (disabled ? colors.gray[600] : colors.gray[1800])};
+    color: ${({ disabled }) => (disabled ? colors.gray[1800] : colors.gray[600])};
     display: flex;
     align-items: center;
     font-size: 12px;
@@ -64,6 +64,20 @@ const ColumnWrapper = styled.div<{
     text-overflow: ellipsis;
     white-space: nowrap;
     width: 100%;
+
+    ${({ disabled }) =>
+        disabled &&
+        `
+        ${LinkOutIcon} {
+            display: none;
+        }
+    
+        :hover {
+            ${LinkOutIcon} {
+                display: inline;
+            }
+        }
+    `}
 `;
 
 const CustomHandle = styled(Handle)<{ position: Position }>`
@@ -180,7 +194,7 @@ export default function Column({
             highlighted={highlighted && !showAsDisabled}
             fromSelect={!!selectedColumn}
             selected={selected}
-            disabled={!showAsDisabled}
+            disabled={showAsDisabled}
             onClick={(e) => {
                 if (!showAsDisabled) {
                     onClickPreventSelect(e);

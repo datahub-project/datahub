@@ -1,8 +1,8 @@
-import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import {
     EdgeId,
     LineageAuditStamp,
     LineageEdge,
+    LineageEntity,
     NodeContext,
     addToAdjacencyList,
     getEdgeId,
@@ -29,12 +29,23 @@ type ContextSubset = Pick<NodeContext, 'nodes' | 'edges' | 'adjacencyList'>;
  */
 export default function hideNodes(
     rootUrn: string,
+    rootType: EntityType,
     { hideTransformations, hideDataProcessInstances, hideGhostEntities, ignoreSchemaFieldStatus }: HideNodesConfig,
     { nodes, edges, adjacencyList }: ContextSubset,
+    filter?: (node: LineageEntity) => boolean,
 ): ContextSubset {
     let newNodes = nodes;
     let newEdges = edges;
     let newAdjacencyList = adjacencyList;
+
+    if (filter) {
+        newNodes = new Map(Array.from(nodes).filter(([_urn, node]) => filter(node)));
+        ({ newEdges, newAdjacencyList } = pruneEdges({
+            nodes: newNodes,
+            edges: newEdges,
+            adjacencyList: newAdjacencyList,
+        }));
+    }
     if (hideGhostEntities) {
         newNodes = new Map(
             Array.from(newNodes).filter(
@@ -48,7 +59,9 @@ export default function hideNodes(
         }));
     }
     if (hideTransformations) {
-        newNodes = new Map(Array.from(newNodes).filter(([urn, node]) => urn === rootUrn || !isTransformational(node)));
+        newNodes = new Map(
+            Array.from(newNodes).filter(([urn, node]) => urn === rootUrn || !isTransformational(node, rootType)),
+        );
         ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, {
             nodes: newNodes,
             edges: newEdges,
@@ -60,7 +73,7 @@ export default function hideNodes(
         // Currently data process instances can't have lineage to queries so this is fine
         newNodes = new Map(
             Array.from(newNodes).filter(
-                ([urn, node]) => urn === rootUrn || node?.entity?.type !== EntityType.DataProcessInstance,
+                ([urn, node]) => urn === rootUrn || node.type !== EntityType.DataProcessInstance,
             ),
         );
         ({ newEdges, newAdjacencyList } = connectEdges(rootUrn, {
@@ -92,7 +105,6 @@ function pruneEdges({ nodes, edges }: ContextSubset) {
         const [upstream, downstream] = parseEdgeId(edgeId);
         if (nodes.has(upstream) && nodes.has(downstream)) {
             newEdges.set(edgeId, edge);
-            addToAdjacencyList(newAdjacencyList, LineageDirection.Upstream, downstream, upstream);
             addToAdjacencyList(newAdjacencyList, LineageDirection.Downstream, upstream, downstream);
             if (edge.via) {
                 setDefault(newAdjacencyList[LineageDirection.Upstream], edge.via, new Set()).add(upstream);
@@ -109,35 +121,35 @@ function pruneEdges({ nodes, edges }: ContextSubset) {
  */
 function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextSubset) {
     const seen = new Set<string>();
-    const newAdjacencyList: NodeContext['adjacencyList'] = {
+    const intermediateAdjacencyList: NodeContext['adjacencyList'] = {
         [LineageDirection.Upstream]: new Map(),
         [LineageDirection.Downstream]: new Map(),
     };
-    const newEdges = new Map<EdgeId, LineageEdge>();
+    const intermediateEdges = new Map<EdgeId, LineageEdge>();
 
-    function buildNewAdjacencyList(id: string, direction: LineageDirection): Set<string> | undefined {
+    function buildIntermediateAdjacencyList(id: string, direction: LineageDirection): Set<string> | undefined {
         if (seen.has(id)) {
-            return newAdjacencyList[direction].get(id);
+            return intermediateAdjacencyList[direction].get(id);
         }
         seen.add(id);
 
         adjacencyList[direction].get(id)?.forEach((neighbor) => {
-            if (isUrnQuery(neighbor, globalEntityRegistryV2)) {
+            if (isUrnQuery(neighbor)) {
                 return;
             }
             if (nodes.has(neighbor)) {
-                addToAdjacencyList(newAdjacencyList, direction, id, neighbor);
+                addToAdjacencyList(intermediateAdjacencyList, direction, id, neighbor);
                 const edgeId = getEdgeId(id, neighbor, direction);
-                const existingEdge = newEdges.get(edgeId);
-                newEdges.set(edgeId, mergeEdges(edges.get(edgeId), existingEdge, nodes));
-                buildNewAdjacencyList(neighbor, direction);
+                const existingEdge = intermediateEdges.get(edgeId);
+                intermediateEdges.set(edgeId, mergeEdges(edges.get(edgeId), existingEdge, nodes));
+                buildIntermediateAdjacencyList(neighbor, direction);
             } else {
-                buildNewAdjacencyList(neighbor, direction)?.forEach((child) => {
-                    addToAdjacencyList(newAdjacencyList, direction, id, child);
+                buildIntermediateAdjacencyList(neighbor, direction)?.forEach((child) => {
+                    addToAdjacencyList(intermediateAdjacencyList, direction, id, child);
                     const edgeId = getEdgeId(id, child, direction);
                     const firstEdge = edges.get(getEdgeId(id, neighbor, direction));
-                    const secondEdge = newEdges.get(getEdgeId(neighbor, child, direction));
-                    const existingEdge = newEdges.get(edgeId);
+                    const secondEdge = intermediateEdges.get(getEdgeId(neighbor, child, direction));
+                    const existingEdge = intermediateEdges.get(edgeId);
                     const newEdge = {
                         isManual: (firstEdge?.isManual || secondEdge?.isManual) ?? false,
                         created: getLatestTimestamp(firstEdge?.created, secondEdge?.created),
@@ -145,22 +157,32 @@ function connectEdges(rootUrn: string, { nodes, edges, adjacencyList }: ContextS
                         isDisplayed: (firstEdge?.isDisplayed && secondEdge?.isDisplayed) ?? false,
                         via: firstEdge?.via || secondEdge?.via,
                     };
-                    newEdges.set(edgeId, mergeEdges(newEdge, existingEdge, nodes));
+                    intermediateEdges.set(edgeId, mergeEdges(newEdge, existingEdge, nodes));
                 });
             }
         });
-        return newAdjacencyList[direction].get(id);
+        return intermediateAdjacencyList[direction].get(id);
     }
 
-    buildNewAdjacencyList(rootUrn, LineageDirection.Upstream);
+    buildIntermediateAdjacencyList(rootUrn, LineageDirection.Upstream);
     seen.clear();
-    buildNewAdjacencyList(rootUrn, LineageDirection.Downstream);
+    buildIntermediateAdjacencyList(rootUrn, LineageDirection.Downstream);
 
-    newEdges.forEach((edge, edgeId) => {
+    const newAdjacencyList: NodeContext['adjacencyList'] = {
+        [LineageDirection.Upstream]: new Map(),
+        [LineageDirection.Downstream]: new Map(),
+    };
+    const newEdges = new Map<EdgeId, LineageEdge>();
+
+    intermediateEdges.forEach((edge, edgeId) => {
         const [upstream, downstream] = parseEdgeId(edgeId);
-        if (edge.via && nodes.has(edge.via) && nodes.get(edge.via)?.type === EntityType.Query) {
-            setDefault(newAdjacencyList[LineageDirection.Upstream], edge.via, new Set()).add(upstream);
-            setDefault(newAdjacencyList[LineageDirection.Downstream], edge.via, new Set()).add(downstream);
+        if (nodes.has(upstream) && nodes.has(downstream)) {
+            newEdges.set(edgeId, edge);
+            addToAdjacencyList(newAdjacencyList, LineageDirection.Downstream, upstream, downstream);
+            if (edge.via && nodes.get(edge.via)?.type === EntityType.Query) {
+                setDefault(newAdjacencyList[LineageDirection.Upstream], edge.via, new Set()).add(upstream);
+                setDefault(newAdjacencyList[LineageDirection.Downstream], edge.via, new Set()).add(downstream);
+            }
         }
     });
 
@@ -184,6 +206,9 @@ function mergeEdges(
     };
 }
 
+/**
+ * Remove edges from the graph that have `isDisplayed: false`
+ */
 function removeHiddenEdges({ edges }: ContextSubset) {
     const newEdges = new Map<EdgeId, LineageEdge>();
     const newAdjacencyList: NodeContext['adjacencyList'] = {

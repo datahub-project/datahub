@@ -1,7 +1,6 @@
 import { useContext, useEffect, useMemo } from 'react';
 import { Edge, useReactFlow } from 'reactflow';
 
-import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { TENTATIVE_EDGE_NAME } from '@app/lineageV3/LineageEdge/TentativeEdge';
 import {
     ColumnRef,
@@ -61,7 +60,6 @@ export default function useColumnHighlighting(
             adjacencyList,
             displayedNodeIds,
             validQueryIds,
-            entityRegistry,
             rootUrn,
             rootType,
         });
@@ -96,7 +94,6 @@ interface ArgumentBundle {
     adjacencyList: NodeContext['adjacencyList'];
     displayedNodeIds: Set<string>;
     validQueryIds: Set<string>;
-    entityRegistry: EntityRegistry;
     rootUrn: string;
     rootType: EntityType;
 }
@@ -114,16 +111,7 @@ function processColumnHighlights(
 
 function computeSingleColumnHighlights(
     column: ColumnRef | null,
-    {
-        fineGrainedLineage,
-        nodes,
-        adjacencyList,
-        displayedNodeIds,
-        validQueryIds,
-        entityRegistry,
-        rootUrn,
-        rootType,
-    }: ArgumentBundle,
+    { fineGrainedLineage, nodes, adjacencyList, displayedNodeIds, validQueryIds, rootUrn, rootType }: ArgumentBundle,
     stroke: string,
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
@@ -161,7 +149,7 @@ function computeSingleColumnHighlights(
             const fromDirection = nodes.get(fromUrn)?.direction;
             const toDirection = nodes.get(toUrn)?.direction;
             if (fromDirection && toDirection && fromDirection !== toDirection) {
-                const isRootTransformation = isTransformational({ urn: rootUrn, type: rootType });
+                const isRootTransformation = isTransformational({ urn: rootUrn, type: rootType }, rootType);
                 const throughRoot =
                     adjacencyList.UPSTREAM.get(rootUrn)?.has(fromUrn) &&
                     adjacencyList.DOWNSTREAM.get(rootUrn)?.has(toUrn);
@@ -222,7 +210,7 @@ function computeSingleColumnHighlights(
 
                 if (displayedNodeIds.has(childUrn)) {
                     addEdge(ref, childRef);
-                } else if (!isUrnQuery(childUrn, entityRegistry) || validQueryIds.has(childUrn)) {
+                } else if (!isUrnQuery(childUrn) || validQueryIds.has(childUrn)) {
                     // Compute parents of missing nodes; don't add any edges through them
                     setDefault(missingNodeParents, childRef, new Set()).add(ref);
                 }
@@ -285,7 +273,7 @@ function getTopologicalOrder(missingNodes: Set<ColumnRef>, fgl: FineGrainedLinea
         permanentMarkedNodes.add(ref);
         topologicalOrder.push(ref);
     }
-    /* eslint-disable-enable no-continue */
+    /* eslint-enable no-continue */
 
     topologicalOrder.reverse();
     return topologicalOrder;

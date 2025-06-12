@@ -6,9 +6,6 @@ import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '@app/lineageV3/t
 
 import { SchemaFieldDataType } from '@types';
 
-export const LINEAGE_NODE_WIDTH = 320; // Fixed width
-export const LINEAGE_NODE_HEIGHT = 120; // Maximum height
-
 type FieldPath = string;
 
 export interface LineageDisplayColumn {

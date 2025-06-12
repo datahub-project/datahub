@@ -25,11 +25,8 @@ const SidebarWrapper = styled.div<{ $distanceFromTop: number }>`
     }
 `;
 
-interface Props {
-    urn: string;
-}
-
-export default function LineageSidebar({ urn }: Props) {
+export default function LineageSidebar() {
+    const { rootUrn } = useContext(LineageNodesContext);
     const entityRegistry = useEntityRegistry();
     const [selectedEntity, setSelectedEntity] = useSelectedNode();
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
@@ -49,7 +46,7 @@ export default function LineageSidebar({ urn }: Props) {
     useEffect(() => {
         setSidebarClosed(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [urn]);
+    }, [rootUrn]);
 
     // This manages closing, rather than isClosed
     if (!selectedEntity) {

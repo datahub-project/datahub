@@ -2,12 +2,14 @@ import { colors } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
 
+import { globalEntityRegistryV2 } from '@app/EntityRegistryProvider';
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import { DBT_CLOUD_URN } from '@app/ingest/source/builder/constants';
-import { getEntityTypeFromEntityUrn } from '@app/lineageV3/lineageUtils';
+import { DBT_URN } from '@app/ingestV2/source/builder/constants';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
+import { getEntityTypeFromEntityUrn } from '@app/lineageV3/utils/lineageUtils';
 import { hashString } from '@app/shared/avatar/getAvatarColor';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { useAppConfig } from '@app/useAppConfig';
@@ -16,6 +18,12 @@ import { Entity, EntityType, LineageDirection, SchemaFieldRef } from '@types';
 
 export const TRANSITION_DURATION_MS = 250;
 export const LINEAGE_FILTER_PAGINATION = 4;
+
+export const LINEAGE_NODE_WIDTH = 320; // Fixed width
+export const LINEAGE_NODE_HEIGHT = 90; // Maximum height
+export const LINEAGE_HANDLE_OFFSET = 26; // Offset from top of horizontal handles
+
+export const VERTICAL_HANDLE = 'vertical';
 
 export const HOVER_COLOR = colors.violet[200];
 export const SELECT_COLOR = colors.violet[600];
@@ -54,6 +62,7 @@ export interface LineageEntity extends NodeBase {
     rawEntity?: Entity; // TODO: Don't store this -- waste of memory? Currently used for manual lineage modal
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters: Record<LineageDirection, Filters>;
+    parentDataJob?: Urn;
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -74,6 +83,13 @@ export interface LineageFilter extends NodeBase {
     shown: Set<Urn>;
     limit: number;
     numShown?: number; // Includes nodes in contents shown due to a different path, not through `parent`
+}
+
+export interface LineageBoundingBox {
+    urn: Urn;
+    type: EntityType;
+    entity?: FetchedEntityV2;
+    dragged?: boolean;
 }
 
 export type LineageNode = LineageEntity | LineageFilter;
@@ -112,9 +128,32 @@ export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
     return node.type === EntityType.Query;
 }
 
+// If the home node has one of these types, render data jobs as non-transformational
+const TRANSFORMATIONAL_OVERRIDE_ROOT_TYPES = new Set([EntityType.DataFlow, EntityType.DataJob]);
+
+export function generateIgnoreAsHops(homeType: EntityType) {
+    const base = [
+        {
+            entityType: EntityType.Dataset,
+            platforms: [DBT_URN],
+        },
+        {
+            entityType: EntityType.SchemaField,
+            platforms: [DBT_URN],
+        },
+        { entityType: EntityType.DataProcessInstance },
+    ];
+
+    if (TRANSFORMATIONAL_OVERRIDE_ROOT_TYPES.has(homeType)) return base;
+    return [...base, { entityType: EntityType.DataJob }];
+}
+
 // TODO: Replace with value from search-across-lineage, once it's available
-// Must be kept in sync with useSearchAcrossLineage
-export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>): boolean {
+// Must be kept in sync with generateIgnoreAsHops
+export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, rootType: EntityType): boolean {
+    if (TRANSFORMATIONAL_OVERRIDE_ROOT_TYPES.has(rootType) && node.type === EntityType.DataJob) {
+        return false;
+    }
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
 }
 
@@ -126,19 +165,24 @@ export function isUrnDbt(urn: string, entityRegistry: EntityRegistry): boolean {
     );
 }
 
-export function isUrnQuery(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
+export function isUrnQuery(urn: string): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.Query;
 }
 
-export function isUrnDataProcessInstance(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
+export function isUrnDataProcessInstance(urn: string): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
     return type === EntityType.DataProcessInstance;
 }
 
-export function isUrnTransformational(urn: string, entityRegistry: EntityRegistry): boolean {
-    const type = getEntityTypeFromEntityUrn(urn, entityRegistry);
-    return (!!type && TRANSFORMATION_TYPES.includes(type)) || isUrnDbt(urn, entityRegistry);
+export function isUrnDataJob(urn: string): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+    return type === EntityType.DataJob;
+}
+
+export function isUrnTransformational(urn: string, rootType: EntityType): boolean {
+    const type = getEntityTypeFromEntityUrn(urn, globalEntityRegistryV2);
+    return !!type && isTransformational({ urn, type }, rootType);
 }
 
 export type ColumnRef = string;
@@ -180,6 +224,11 @@ export interface LineageTableEdgeData extends LineageEdge {
     originalId: string; // For edges to via nodes, stores table->table edge id. Otherwise, identical to edge id.
 }
 
+export interface DataJobInputOutputEdgeData extends LineageTableEdgeData {
+    direction: LineageDirection;
+    yOffset: number;
+}
+
 export type EdgeId = string;
 
 export function createEdgeId(upstream: Urn, downstream: Urn): EdgeId {
@@ -202,6 +251,9 @@ export function reverseDirection(direction: LineageDirection): LineageDirection 
 }
 
 export type NeighborMap = Map<Urn, Set<Urn>>;
+
+export type GraphStoreFields = 'nodes' | 'edges' | 'adjacencyList';
+export type LineageToggles = 'hideTransformations' | 'showDataProcessInstances' | 'showGhostEntities';
 
 export interface NodeContext {
     rootUrn: string;

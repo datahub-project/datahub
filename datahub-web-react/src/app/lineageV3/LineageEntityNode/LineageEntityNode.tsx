@@ -12,7 +12,7 @@ import {
     parseColumnRef,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
-import useSearchAcrossLineage from '@app/lineageV3/useSearchAcrossLineage';
+import useSearchAcrossLineage from '@app/lineageV3/queries/useSearchAcrossLineage';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -21,9 +21,9 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, id, fetchStatus, isExpanded, filters } = data;
+    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob } = data;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-    const { rootUrn } = useContext(LineageNodesContext);
+    const { rootUrn, rootType, nodes, adjacencyList } = useContext(LineageNodesContext);
     const {
         selectedColumn,
         hoveredColumn,
@@ -62,6 +62,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const [selectedColumnUrn] = selectedColumn ? parseColumnRef(selectedColumn) : [null];
     const [hoveredColumnUrn] = hoveredColumn ? parseColumnRef(hoveredColumn) : [null];
 
+    const hasParentDataJob = parentDataJob ? true : undefined;
     return (
         <NodeContents
             id={id}
@@ -76,6 +77,8 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             filters={filters}
             transitionDuration={transitionDuration}
             rootUrn={rootUrn}
+            rootType={rootType}
+            parentDataJob={parentDataJob}
             searchQuery={searchQuery}
             setHoveredNode={setHoveredNode}
             showColumns={showColumns}
@@ -99,6 +102,18 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             numColumnsTotal={numColumnsTotal}
             refetch={refetch}
             ignoreSchemaFieldStatus={ignoreSchemaFieldStatus}
+            numUpstreams={
+                hasParentDataJob &&
+                Array.from(adjacencyList[LineageDirection.Upstream].get(urn) || []).filter(
+                    (upstream) => nodes.get(upstream)?.parentDataJob !== parentDataJob,
+                ).length
+            }
+            numDownstreams={
+                hasParentDataJob &&
+                Array.from(adjacencyList[LineageDirection.Downstream].get(urn) || []).filter(
+                    (downstream) => nodes.get(downstream)?.parentDataJob !== parentDataJob,
+                ).length
+            }
         />
     );
 }

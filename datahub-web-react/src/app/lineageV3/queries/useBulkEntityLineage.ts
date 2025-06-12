@@ -13,9 +13,9 @@ import {
     isTransformational,
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
-import pruneAllDuplicateEdges from '@app/lineageV3/pruneAllDuplicateEdges';
+import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
+import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
-import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/useSearchAcrossLineage';
 import usePrevious from '@app/shared/usePrevious';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
@@ -68,7 +68,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 hideTransformations
             ) {
                 newUrnsToFetch = Array.from(nodes.values())
-                    .filter((node) => isTransformational(node) && !node.entity)
+                    .filter((node) => isTransformational(node, rootType) && !node.entity)
                     .map((node) => node.urn);
             }
             if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
@@ -100,7 +100,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             includeGhostEntities: showGhostEntities || (rootType === EntityType.SchemaField && ignoreSchemaFieldStatus),
         },
         onCompleted: (data) => {
-            const smallContext = { nodes, edges, adjacencyList, setDisplayVersion };
+            const smallContext = { nodes, edges, adjacencyList, setDisplayVersion, rootType };
             let changed = false;
             data?.entities?.forEach((rawEntity) => {
                 if (!rawEntity) return;
@@ -122,7 +122,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                         entity.upstreamRelationships?.forEach((relationship) => {
                             processEdge(node, relationship, LineageDirection.Upstream, smallContext);
                         });
-                        pruneAllDuplicateEdges(node.urn, null, smallContext, entityRegistry);
+                        pruneAllDuplicateEdges(node.urn, null, smallContext);
                     }
                 }
             });
@@ -150,7 +150,7 @@ function processEdge(
     node: LineageEntity,
     relationship: FetchedEntityV2Relationship,
     direction: LineageDirection,
-    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges'>,
+    context: Pick<NodeContext, 'adjacencyList' | 'nodes' | 'edges' | 'rootType'>,
 ): void {
     const { adjacencyList, nodes, edges } = context;
 
@@ -158,7 +158,7 @@ function processEdge(
         if (node.fetchStatus[direction] !== FetchStatus.UNNEEDED) {
             // Add nodes that should be in the graph
             // TODO: Bust search across lineage cache?
-            setEntityNodeDefault(relationship.urn, relationship.entity.type, direction, nodes);
+            setEntityNodeDefault(relationship.urn, relationship.entity.type, direction, context);
         }
 
         if (nodes.has(relationship.urn)) {
